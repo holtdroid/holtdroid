@@ -184,8 +184,9 @@ session in labels (`holtdroid/session`, `holtdroid/slot`) and annotations
 session state from the Pod: pending → `provisioning`, the `emulator`
 container running → `booting`, its readiness probe (`GET /v1/health`, 200
 only once the app runs) passing → `ready`, the container or Pod terminated →
-`failed`, deletion requested → `stopping`. The agent streams the finer
-stages itself. `agentUrl` is `http://<pod IP>:<agentPort>`; until the Pod
+`failed`, deletion requested → `stopping`. While the Pod is running but not
+ready, the provider asks the agent for its stage (`GET /v1/state`), so
+`installing`, `instrumenting` and failures after boot are visible too. `agentUrl` is `http://<pod IP>:<agentPort>`; until the Pod
 has an IP it is empty and the UI does not open the agent's status stream.
 
 Inside `emulator`, the agent starts and supervises:

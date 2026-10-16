@@ -9,6 +9,9 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -148,7 +151,14 @@ func newProvider(t *testing.T, kube *fake.Clientset, edit func(*Config)) *Provid
 	if err != nil {
 		t.Fatal(err)
 	}
+	p.agents = &http.Client{Transport: unreachable{}}
 	return p
+}
+
+type unreachable struct{}
+
+func (unreachable) RoundTrip(*http.Request) (*http.Response, error) {
+	return nil, errors.New("agent unreachable")
 }
 
 func slotStates(t *testing.T, p contract.Provider) map[string]contract.SlotState {
@@ -345,5 +355,52 @@ func TestNoVPN(t *testing.T) {
 	secrets, _ := p.kube.CoreV1().Secrets("holtdroid").List(t.Context(), metav1.ListOptions{})
 	if len(secrets.Items) != 0 {
 		t.Fatalf("secrets %v", secrets.Items)
+	}
+}
+
+func TestAgentStatus(t *testing.T) {
+	var status atomic.Value
+	agent := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/state" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(status.Load().(string)))
+	}))
+	t.Cleanup(agent.Close)
+	port, _ := strconv.Atoi(agent.URL[strings.LastIndex(agent.URL, ":")+1:])
+
+	kube := cluster()
+	p := newProvider(t, kube, func(c *Config) { c.AgentPort = port })
+	p.agents = agent.Client()
+	s, err := p.Create(t.Context(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	running := corev1.PodStatus{Phase: corev1.PodRunning, PodIP: "127.0.0.1", ContainerStatuses: []corev1.ContainerStatus{
+		{Name: "emulator", State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}}},
+	}}
+	setStatus(t, kube, s.ID, running)
+
+	tests := []struct {
+		body       string
+		want       contract.SessionState
+		wantReason string
+	}{
+		{`{"state":"installing","detail":"adb install"}`, contract.StateInstalling, ""},
+		{`{"state":"failed","reason":"install: INSTALL_FAILED_NO_MATCHING_ABIS"}`, contract.StateFailed, "install: INSTALL_FAILED_NO_MATCHING_ABIS"},
+		{`not json`, contract.StateBooting, ""},
+	}
+	for _, tt := range tests {
+		status.Store(tt.body)
+		got, err := p.Get(t.Context(), s.ID)
+		if err != nil || got.State != tt.want || got.Reason != tt.wantReason {
+			t.Fatalf("agent %s: session %+v, %v", tt.body, got, err)
+		}
+		list, err := p.List(t.Context())
+		if err != nil || len(list) != 1 || list[0].State != tt.want {
+			t.Fatalf("agent %s: list %+v, %v", tt.body, list, err)
+		}
 	}
 }

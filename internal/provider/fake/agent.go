@@ -39,7 +39,10 @@ func (d *device) buildHandler() http.Handler {
 	return mux
 }
 
-func (d *device) Ready(context.Context) bool { return d.session().State == contract.StateReady }
+func (d *device) Status(context.Context) contract.StatusEvent {
+	s := d.session()
+	return contract.StatusEvent{State: s.State, Detail: detail(s.State)}
+}
 
 func (d *device) WatchStatus(ctx context.Context, send func(contract.StatusEvent) error) error {
 	updates, cancel := d.subscribe()

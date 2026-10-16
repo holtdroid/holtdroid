@@ -11,7 +11,7 @@ import (
 // Agent is the JSON part of the device agent API. Display assets and the
 // DevTools WebSocket/frontend proxy are plain HTTP routes next to it.
 type Agent interface {
-	Ready(ctx context.Context) bool
+	Status(ctx context.Context) StatusEvent
 	WatchStatus(ctx context.Context, send func(StatusEvent) error) error
 	Targets(ctx context.Context) ([]DevToolsTarget, error)
 	Clipboard(ctx context.Context) (string, error)
@@ -46,10 +46,15 @@ func RegisterAgent(api huma.API, a Agent) {
 
 	huma.Register(api, huma.Operation{OperationID: "agentHealth", Method: http.MethodGet, Path: "/v1/health", Tags: tags},
 		func(ctx context.Context, _ *struct{}) (*body[Health], error) {
-			if !a.Ready(ctx) {
+			if a.Status(ctx).State != StateReady {
 				return nil, huma.Error503ServiceUnavailable("device is not ready")
 			}
 			return &body[Health]{Health{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "getStatus", Method: http.MethodGet, Path: "/v1/state", Tags: tags},
+		func(ctx context.Context, _ *struct{}) (*body[StatusEvent], error) {
+			return &body[StatusEvent]{a.Status(ctx)}, nil
 		})
 
 	sse.Register(api, huma.Operation{OperationID: "watchStatus", Method: http.MethodGet, Path: "/v1/status", Tags: tags},
@@ -114,4 +119,17 @@ func RegisterAgent(api huma.API, a Agent) {
 	}, func(ctx context.Context, in *appInput) (*struct{}, error) {
 		return nil, toHuma(a.App(ctx, in.Action))
 	})
+}
+
+// AgentClient is for providers; browsers reach agents through the api proxy.
+type AgentClient struct{ c client }
+
+func NewAgentClient(baseURL string, hc *http.Client) *AgentClient {
+	return &AgentClient{newClient(baseURL, hc)}
+}
+
+func (a *AgentClient) Status(ctx context.Context) (StatusEvent, error) {
+	var s StatusEvent
+	err := a.c.do(ctx, http.MethodGet, "/v1/state", nil, &s)
+	return s, err
 }

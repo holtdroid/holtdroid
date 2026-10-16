@@ -182,7 +182,7 @@ func renderSecret(pod *corev1.Pod, config []byte) *corev1.Secret {
 	}
 }
 
-func (p *Provider) session(pod corev1.Pod) contract.Session {
+func (p *Provider) podSession(pod corev1.Pod) contract.Session {
 	a := pod.Annotations
 	created := parseTime(a[annotationCreatedAt], pod.CreationTimestamp.Time)
 	state, reason := podState(pod)
@@ -213,9 +213,8 @@ func parseTime(s string, fallback time.Time) time.Time {
 	return t.UTC()
 }
 
-// podState maps the Pod to a coarse session state. The agent streams the
-// finer stages (installing, instrumenting) itself; its readiness probe passes
-// only once the app runs.
+// podState maps the Pod to a coarse session state; its readiness probe
+// passes only once the app runs.
 func podState(pod corev1.Pod) (contract.SessionState, string) {
 	if pod.DeletionTimestamp != nil {
 		return contract.StateStopping, ""

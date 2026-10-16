@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"net/http"
 	"slices"
 	"sync"
 	"time"
@@ -149,6 +150,7 @@ type Provider struct {
 	now       func() time.Time
 	resources corev1.ResourceRequirements
 	selector  labels.Selector
+	agents    *http.Client
 
 	mu sync.Mutex
 }
@@ -163,7 +165,7 @@ func New(cfg Config, kube kubernetes.Interface, sec vpn.Secrets, opts ...Option)
 	}
 	res, _ := cfg.Resources.requirements()
 	sel, _ := labels.Parse(cfg.NodeSelector)
-	p := &Provider{cfg: cfg, kube: kube, secrets: sec, now: time.Now, resources: res, selector: sel}
+	p := &Provider{cfg: cfg, kube: kube, secrets: sec, now: time.Now, resources: res, selector: sel, agents: &http.Client{Timeout: 2 * time.Second}}
 	for _, opt := range opts {
 		opt(p)
 	}
@@ -256,10 +258,12 @@ func (p *Provider) List(ctx context.Context) ([]contract.Session, error) {
 	if err != nil {
 		return nil, err
 	}
-	out := make([]contract.Session, 0, len(pods))
-	for _, pod := range pods {
-		out = append(out, p.session(pod))
+	out := make([]contract.Session, len(pods))
+	var wg sync.WaitGroup
+	for i, pod := range pods {
+		wg.Go(func() { out[i] = p.session(ctx, pod) })
 	}
+	wg.Wait()
 	slices.SortFunc(out, func(a, b contract.Session) int { return a.CreatedAt.Compare(b.CreatedAt) })
 	return out, nil
 }
@@ -300,7 +304,25 @@ func (p *Provider) Create(ctx context.Context, req contract.CreateSession) (cont
 			return contract.Session{}, fmt.Errorf("create session secret: %w", err)
 		}
 	}
-	return p.session(*created), nil
+	return p.podSession(*created), nil
+}
+
+// session asks the agent of a running but not yet ready Pod for its stage,
+// so installing, instrumenting and a failure after boot show up in listings.
+func (p *Provider) session(ctx context.Context, pod corev1.Pod) contract.Session {
+	s := p.podSession(pod)
+	if s.State != contract.StateBooting || s.AgentURL == "" {
+		return s
+	}
+	ev, err := contract.NewAgentClient(s.AgentURL, p.agents).Status(ctx)
+	if err != nil || ev.State == "" {
+		return s
+	}
+	s.State = ev.State
+	if ev.State == contract.StateFailed {
+		s.Reason = cmp.Or(ev.Reason, ev.Detail)
+	}
+	return s
 }
 
 func (p *Provider) pod(ctx context.Context, id string) (*corev1.Pod, error) {
@@ -319,7 +341,7 @@ func (p *Provider) Get(ctx context.Context, id string) (contract.Session, error)
 	if err != nil {
 		return contract.Session{}, err
 	}
-	return p.session(*pod), nil
+	return p.session(ctx, *pod), nil
 }
 
 func (p *Provider) Delete(ctx context.Context, id string) error {

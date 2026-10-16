@@ -311,9 +311,9 @@ func (a *Agent) snapshot() (contract.StatusEvent, string) {
 	return a.status, a.clip
 }
 
-func (a *Agent) Ready(context.Context) bool {
+func (a *Agent) Status(context.Context) contract.StatusEvent {
 	s, _ := a.snapshot()
-	return s.State == contract.StateReady
+	return s
 }
 
 func (a *Agent) WatchStatus(ctx context.Context, send func(contract.StatusEvent) error) error {
@@ -387,7 +387,7 @@ func (a *Agent) SetLocation(ctx context.Context, location string) (contract.Netw
 }
 
 func (a *Agent) App(_ context.Context, action contract.AppAction) error {
-	if !a.Ready(context.Background()) {
+	if a.Status(context.Background()).State != contract.StateReady {
 		return errors.New("the app is not running")
 	}
 	select {

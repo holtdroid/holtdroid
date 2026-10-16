@@ -456,12 +456,18 @@ free one under a mutex and pins the Pod to it with required node affinity,
 so the slot is known before scheduling and two sessions never race for a
 node. Pod anti-affinity stays as a second guard. State is mapped from the Pod
 phase and the `emulator` container (running → `booting`, readiness probe on
-the agent's `/v1/health` → `ready`); the provider never calls the agent.
-`agentUrl` is the Pod IP, no per-session Service.
+the agent's `/v1/health` → `ready`). While a Pod is running but not ready,
+the provider asks its agent for the current stage (`GET /v1/state`, 2 s
+timeout, in parallel for a listing), so `installing`, `instrumenting` and a
+failure after boot show up on the home page; an unreachable agent leaves it
+at `booting`. `agentUrl` is the Pod IP, no per-session Service.
 
-**Consequences.** One provider replica per namespace (the mutex is local; a
-second replica could double-book a node, which anti-affinity would turn into
-a Pending Pod). An agent that fails after boot keeps the device running for
-inspection (#26) and then reads as `booting` from the provider, while the
-session page shows `failed` from the agent's own stream. A Pod that can't be
-scheduled stays `provisioning` until the reaper removes it.
+The provider runs as a single replica (the chart fixes `replicas: 1` and
+rolls with `maxSurge: 0`) instead of claiming nodes with Leases: it serves a
+few requests an hour, sessions live on as Pods while it restarts, and the
+api tolerates a provider being briefly unreachable.
+
+**Consequences.** The node mutex is local, so a second replica could
+double-book a node; anti-affinity would turn that into a Pending Pod that the
+reaper removes. A Pod that can't be scheduled stays `provisioning` until the
+reaper removes it.

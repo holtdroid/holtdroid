@@ -6,7 +6,7 @@ All inter-service APIs are JSON over HTTP, defined once in
 | Contract | Interface | Server registration | Go client |
 |----------|-----------|---------------------|-----------|
 | Provider | `contract.Provider` | `contract.RegisterProvider(api, impl)` | `contract.NewProviderClient(url, hc)` |
-| Agent | `contract.Agent` | `contract.RegisterAgent(api, impl)` | — (browsers only, via the api proxy) |
+| Agent | `contract.Agent` | `contract.RegisterAgent(api, impl)` | `contract.NewAgentClient(url, hc)` — only `Status`, for providers; browsers go through the api proxy |
 
 The api works against the interfaces, so an in-process implementation (as
 `holtdroid dev` does) and an HTTP client are interchangeable. Huma generates
@@ -142,7 +142,8 @@ static assets and WebSockets.
 
 | Method | Path | Notes | In `contract.Agent` |
 |--------|------|-------|----|
-| `GET` | `/v1/health` | 200 once `ready`, 503 before | `Ready` |
+| `GET` | `/v1/health` | 200 once `ready`, 503 before | `Status` |
+| `GET` | `/v1/state` | the current `{state, reason?, detail?}`; providers read it with `contract.AgentClient` | `Status` |
 | `GET` | `/v1/status` | SSE, `event: state` with `{state, reason?, detail?}`; first event is the current state | `WatchStatus` |
 | `GET` | `/v1/devtools/targets` | `{items: [{socket, pid, process, id, type, title, url, frontendRev}]}` | `Targets` |
 | `GET` | `/v1/clipboard` | `{text}` | `Clipboard` |
