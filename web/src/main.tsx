@@ -11,6 +11,7 @@ import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { HomePage } from "@/pages/home"
 import { SessionPage } from "@/pages/session"
+import { SSHKeysPage } from "@/pages/ssh-keys"
 
 const onUnauthorized = (error: Error) => {
   if (error instanceof ApiError && error.status === 401) void queryClient.invalidateQueries({ queryKey: ["auth"] })
@@ -48,7 +49,9 @@ const sessionRoute = createRoute({
   },
 })
 
-const router = createRouter({ routeTree: rootRoute.addChildren([homeRoute, sessionRoute]) })
+const sshKeysRoute = createRoute({ getParentRoute: () => rootRoute, path: "/ssh", component: SSHKeysPage })
+
+const router = createRouter({ routeTree: rootRoute.addChildren([homeRoute, sessionRoute, sshKeysRoute]) })
 
 declare module "@tanstack/react-router" {
   interface Register {

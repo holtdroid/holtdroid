@@ -75,8 +75,9 @@ the real agent exists.
 - [ ] Agent tunnel port `:8081`: `WS /tunnel/adb`, `WS /tunnel/reverse/{port}` (yamux, `adb reverse` add/remove); fake agent implementation
 - [ ] `Session.tunnelUrl` in the Provider contract; api internal `GET /internal/sessions/{slug}` and `POST …/activity`
 - [ ] `ssh-gateway` subcommand on `x/crypto/ssh`: host key from a secret ref, public-key auth against in-memory keys, slug routing, help text instead of shells, `direct-tcpip` only to `adb:5555`, `tcpip-forward` within `reversePorts`, flags `allowADB` / `allowReverse` / `clientIsolation`, `keyTTL`, per-connection tunnel limit
-- [ ] api: `GET /api/v1/ssh`, `PUT /api/v1/ssh/keys` (validation, duplicate-claim check, fan-out to all gateway replicas)
-- [ ] UI: SSH keys page (IndexedDB, add/rename/remove, periodic sync), "Connect via SSH" popover on the session page with copyable `-L`/`-R` commands
+- [x] api: `GET /api/v1/ssh`, `PUT /api/v1/ssh/keys` (validation, duplicate-claim check, fan-out to all gateway replicas); gateway key API contract + in-memory `sshgateway.Keys` (TTL, claims), served in-process by `holtdroid dev`
+- [x] UI: SSH keys page (IndexedDB per user, add/rename/remove with undo, live validation and fingerprints, sync status, periodic sync)
+- [ ] UI: "Connect via SSH" popover on the session page with copyable `-L`/`-R` commands
 - [ ] Chart: ssh-gateway Deployment + headless Service + TCP exposure (LoadBalancer/NodePort or Traefik `IngressRouteTCP`), NetworkPolicy gateway → agent tunnel port
 - [ ] Tests: gateway refuses exec/shell/sftp/agent forwarding, refuses any `-L` target except adb, isolation on/off, key expiry and fan-out, end-to-end `-L`/`-R` against the fake agent with `x/crypto/ssh` as the client
 - [ ] Verify on the real emulator: `adb connect` through the tunnel (adbd auth on `google_apis` images), `-R 3000` reachable as `http://localhost:3000` in the app/WebView

@@ -10,7 +10,7 @@ export function formatDuration(ms: number) {
 
 const relative = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" })
 
-export function formatRelative(date: string | Date, now = Date.now()) {
+export function formatRelative(date: string | number | Date, now = Date.now()) {
   const diff = new Date(date).getTime() - now
   const abs = Math.abs(diff)
   const units: [Intl.RelativeTimeFormatUnit, number][] = [

@@ -13,6 +13,7 @@ import (
 	"github.com/kriakiku/holtdroid/internal/contract"
 	"github.com/kriakiku/holtdroid/internal/provider/fake"
 	"github.com/kriakiku/holtdroid/internal/source/dir"
+	"github.com/kriakiku/holtdroid/internal/sshgateway"
 	"github.com/kriakiku/holtdroid/web"
 )
 
@@ -76,6 +77,7 @@ func devCmd() *cobra.Command {
 	var (
 		listen    string
 		agents    string
+		sshKeys   string
 		apks      string
 		cacheDir  string
 		authMode  string
@@ -101,6 +103,8 @@ func devCmd() *cobra.Command {
 			}
 
 			provider := fake.New(fake.Config{Slots: slots, PublicURL: "http://localhost" + agents, StepDelay: stepDelay})
+			gateway := http.NewServeMux()
+			contract.RegisterSSHGateway(contract.NewAPI(gateway, "Holtdroid ssh-gateway keys"), sshgateway.NewKeys(24*time.Hour, nil))
 
 			cfg := api.DefaultConfig()
 			cfg.Listen = listen
@@ -112,6 +116,8 @@ func devCmd() *cobra.Command {
 			cfg.Storage.Filesystem.Dir = cacheDir
 			cfg.Sessions.IdleTimeout = idle
 			cfg.InternalURL = "http://localhost" + cfg.InternalListen
+			cfg.SSH.Enabled = true
+			cfg.SSH.GatewayURL = "http://127.0.0.1" + sshKeys
 			srv, err := api.New(cmd.Context(), cfg,
 				api.WithUI(web.FS()),
 				api.WithSource("local", dir.New(absAPKs)),
@@ -124,11 +130,13 @@ func devCmd() *cobra.Command {
 				{cfg.Listen, srv.Handler()},
 				{cfg.InternalListen, srv.InternalHandler()},
 				{agents, provider.AgentHandler()},
+				{sshKeys, gateway},
 			}, srv.Run)
 		},
 	}
 	cmd.Flags().StringVar(&listen, "listen", ":8080", "portal address")
 	cmd.Flags().StringVar(&agents, "agents", ":8090", "address for the fake device agents")
+	cmd.Flags().StringVar(&sshKeys, "ssh-keys", ":8092", "address for the in-process ssh-gateway key API")
 	cmd.Flags().StringVar(&apks, "apks", "internal/apk/testdata", "directory with APKs to list")
 	cmd.Flags().StringVar(&cacheDir, "cache", "", "APK cache directory (default: a temporary directory)")
 	cmd.Flags().StringVar(&authMode, "auth", "anonymous", "sign-in mode: anonymous, password or none")

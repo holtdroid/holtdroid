@@ -215,6 +215,39 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/ssh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getSSH"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ssh/keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Replace the caller's SSH public keys on every ssh-gateway replica. */
+        put: operations["putSSHKeys"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -363,6 +396,31 @@ export interface components {
             capacity: components["schemas"]["Capacity"];
             error?: string;
             name: string;
+        };
+        PutSSHKeysInputBody: {
+            keys: components["schemas"]["SSHKeyInput"][];
+        };
+        SSHInfo: {
+            allowADB: boolean;
+            allowReverse: boolean;
+            clientIsolation: boolean;
+            enabled: boolean;
+            /** @description Host users connect to; empty means the host the UI is served from */
+            host?: string;
+            /** Format: int64 */
+            port: number;
+        };
+        SSHKeyInput: {
+            name: string;
+            /** @description OpenSSH public key line */
+            publicKey: string;
+        };
+        SSHKeysSynced: {
+            /**
+             * Format: int64
+             * @description ssh-gateway replicas that accepted the keys
+             */
+            replicas: number;
         };
         SessionView: {
             artifactId: string;
@@ -876,6 +934,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SourceView"][];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getSSH: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SSHInfo"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    putSSHKeys: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PutSSHKeysInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SSHKeysSynced"];
                 };
             };
             /** @description Error */

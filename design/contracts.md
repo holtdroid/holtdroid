@@ -153,11 +153,14 @@ reachable only by the ssh-gateway and never through the api proxy:
 `Session` will gain `tunnelUrl` (the agent's tunnel base URL) next to
 `agentUrl`.
 
-### ssh-gateway internal API (planned)
+### ssh-gateway internal API
+
+`contract.RegisterSSHGateway` / `contract.SSHGatewayClient`; the in-memory
+key store is `internal/sshgateway.Keys`.
 
 | Method | Path | Notes |
 |--------|------|-------|
-| `PUT` | `/v1/users/{user}/keys` | from the api: `{groups, admin, keys: [authorized_keys lines]}`; replaces that user's set and restarts its TTL |
+| `PUT` | `/v1/users/{user}/keys` | from the api: `{groups, admin, keys: [authorized_keys lines]}`; replaces that user's set and restarts its TTL; an empty list drops it. 409 with `errors[].location = body.keys[i]` when another user holds a key — nothing is changed then |
 | `GET` | `/v1/health` | readiness |
 
 The fake provider (`internal/provider/fake`) implements all of it with
@@ -177,8 +180,8 @@ keeping the provider in the path is what lets the api stay stateless.
 | `GET` | `/api/v1/auth/oidc/login?redirect=` | public; browser redirect to the IdP |
 | `GET` | `/api/v1/auth/oidc/callback` | public; sets the cookie and redirects back |
 | `GET` | `/api/v1/me` | `{user, name, email, groups, admin}` |
-| `GET` | `/api/v1/ssh` | planned; `{enabled, host, port, allowADB, allowReverse, clientIsolation}` for the UI |
-| `PUT` | `/api/v1/ssh/keys` | planned; `{keys: [{name, publicKey}]}` — the caller's full key list, replaces the previous one; 422 on invalid or already-claimed keys |
+| `GET` | `/api/v1/ssh` | `{enabled, host?, port, allowADB, allowReverse, clientIsolation}` for the UI; empty `host` = the UI's own host |
+| `PUT` | `/api/v1/ssh/keys` | `{keys: [{name, publicKey}]}` (≤ 32) — the caller's full key list, replaces the previous one on every gateway replica → `{replicas}`; 404 when SSH is disabled, 422 on invalid, duplicate or already-claimed keys (`errors[].location = body.keys[i].publicKey`), 502 when no replica accepted |
 | `GET` | `/api/v1/sources` | configured sources |
 | `GET` | `/api/v1/artifacts?source=&cursor=&limit=` | without `source`: first page of every source merged, newest first; with it: that source, cursor paging. Items carry cached APK metadata once known; per-source failures come back in `errors[]` instead of failing the call |
 | `GET` | `/api/v1/artifacts/{source}/{id}/icon` | PNG, 404 until the APK was parsed |

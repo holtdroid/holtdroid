@@ -1,8 +1,9 @@
 import { Link } from "@tanstack/react-router"
-import { BookOpenIcon, LogOutIcon, MoonIcon, ShieldIcon, ShuffleIcon, SunIcon } from "lucide-react"
+import { BookOpenIcon, KeyRoundIcon, LogOutIcon, MoonIcon, ShieldIcon, ShuffleIcon, SunIcon } from "lucide-react"
 import { useTheme } from "next-themes"
 import type { ReactNode } from "react"
 import { useAuth, useLogout, useSessionEvents } from "@/api/queries"
+import { useSSHKeySync } from "@/api/ssh-keys"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -18,6 +19,7 @@ import logo from "@/logo.svg"
 
 export function AppShell({ children }: { children: ReactNode }) {
   useSessionEvents()
+  const sshSync = useSSHKeySync()
   const auth = useAuth()
   const logout = useLogout()
   const { resolvedTheme, setTheme } = useTheme()
@@ -33,6 +35,20 @@ export function AppShell({ children }: { children: ReactNode }) {
           Holtdroid
         </Link>
         <div className="ml-auto flex items-center gap-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="relative" asChild>
+                <Link to="/ssh" activeProps={{ className: "bg-muted" }}>
+                  <KeyRoundIcon />
+                  {sshSync.isError && (
+                    <span className="bg-destructive absolute top-1.5 right-1.5 size-2 rounded-full" />
+                  )}
+                  <span className="sr-only">SSH keys</span>
+                </Link>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{sshSync.isError ? "SSH keys are not synced" : "SSH keys"}</TooltipContent>
+          </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="icon" asChild>

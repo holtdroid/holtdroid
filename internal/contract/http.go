@@ -49,9 +49,15 @@ func newClient(baseURL string, hc *http.Client) client {
 	return client{base: strings.TrimRight(baseURL, "/"), hc: hc}
 }
 
+type ErrorDetail struct {
+	Message  string `json:"message"`
+	Location string `json:"location"`
+}
+
 type StatusError struct {
 	Status int
 	Detail string
+	Errors []ErrorDetail
 }
 
 func (e *StatusError) Error() string { return fmt.Sprintf("%d: %s", e.Status, e.Detail) }
@@ -91,13 +97,14 @@ func (c client) raw(ctx context.Context, method, path string, in any) (*http.Res
 	if resp.StatusCode >= 300 {
 		defer resp.Body.Close()
 		var problem struct {
-			Detail string `json:"detail"`
+			Detail string        `json:"detail"`
+			Errors []ErrorDetail `json:"errors"`
 		}
 		_ = json.NewDecoder(io.LimitReader(resp.Body, 64<<10)).Decode(&problem)
 		if problem.Detail == "" {
 			problem.Detail = resp.Status
 		}
-		return nil, &StatusError{Status: resp.StatusCode, Detail: problem.Detail}
+		return nil, &StatusError{Status: resp.StatusCode, Detail: problem.Detail, Errors: problem.Errors}
 	}
 	return resp, nil
 }

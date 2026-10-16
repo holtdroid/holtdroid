@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/fs"
 	"log/slog"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -22,20 +23,22 @@ import (
 )
 
 type Server struct {
-	cfg       Config
-	auth      *auth.Authenticator
-	secrets   *secrets.Registry
-	store     storage.Store
-	sources   map[string]contract.Source
-	srcOrder  []string
-	providers map[string]contract.Provider
-	provOrder []string
-	cache     *Cache
-	activity  *activity
-	warm      chan [2]string
-	ui        fs.FS
-	now       func() time.Time
-	log       *slog.Logger
+	cfg        Config
+	auth       *auth.Authenticator
+	secrets    *secrets.Registry
+	store      storage.Store
+	sources    map[string]contract.Source
+	srcOrder   []string
+	providers  map[string]contract.Provider
+	provOrder  []string
+	cache      *Cache
+	activity   *activity
+	warm       chan [2]string
+	ui         fs.FS
+	lookupHost func(ctx context.Context, host string) ([]string, error)
+	sshHTTP    *http.Client
+	now        func() time.Time
+	log        *slog.Logger
 }
 
 type Option func(*Server)
@@ -67,12 +70,14 @@ func New(ctx context.Context, cfg Config, opts ...Option) (*Server, error) {
 		return nil, err
 	}
 	s := &Server{
-		cfg:       cfg,
-		sources:   map[string]contract.Source{},
-		providers: map[string]contract.Provider{},
-		warm:      make(chan [2]string, 256),
-		now:       time.Now,
-		log:       slog.Default().With("component", "api"),
+		cfg:        cfg,
+		sources:    map[string]contract.Source{},
+		providers:  map[string]contract.Provider{},
+		warm:       make(chan [2]string, 256),
+		now:        time.Now,
+		lookupHost: net.DefaultResolver.LookupHost,
+		sshHTTP:    &http.Client{Timeout: 10 * time.Second},
+		log:        slog.Default().With("component", "api"),
 	}
 	for _, e := range cfg.Sources {
 		WithSource(e.Name, contract.NewSourceClient(e.URL, nil))(s)

@@ -13,6 +13,8 @@ export type SessionView = Schemas["SessionView"]
 export type SessionsEvent = Schemas["SessionsEvent"]
 export type SessionState = SessionView["state"]
 export type Location = Schemas["Location"]
+export type SSHInfo = Schemas["SSHInfo"]
+export type ErrorDetail = Schemas["ErrorDetail"]
 
 export type DevToolsTarget = AgentSchemas["DevToolsTarget"]
 export type StatusEvent = AgentSchemas["StatusEvent"]
@@ -33,6 +35,7 @@ export class ApiError extends Error {
   constructor(
     readonly status: number,
     message: string,
+    readonly details: ErrorDetail[] = [],
   ) {
     super(message)
   }
@@ -47,7 +50,11 @@ export async function unwrap<T>(request: Promise<Result<T>>): Promise<T> {
       error && typeof error === "object" && "detail" in error && typeof error.detail === "string"
         ? error.detail
         : response.statusText
-    throw new ApiError(response.status, detail || `Request failed (${response.status})`)
+    const details =
+      error && typeof error === "object" && "errors" in error && Array.isArray(error.errors)
+        ? (error.errors as ErrorDetail[])
+        : []
+    throw new ApiError(response.status, detail || `Request failed (${response.status})`, details)
   }
   return data as T
 }

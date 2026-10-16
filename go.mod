@@ -17,6 +17,7 @@ require (
 	github.com/minio/minio-go/v7 v7.4.1
 	github.com/shogo82148/androidbinary v1.0.6
 	github.com/spf13/cobra v1.10.2
+	golang.org/x/crypto v0.57.0
 	golang.org/x/oauth2 v0.37.0
 	golang.org/x/sync v0.24.0
 )
@@ -41,7 +42,6 @@ require (
 	github.com/zeebo/xxh3 v1.1.0 // indirect
 	go.shabbyrobe.org/gocovmerge v0.0.0-20230507111327-fa4f82cfbf4d // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
-	golang.org/x/crypto v0.57.0 // indirect
 	golang.org/x/net v0.60.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.42.0 // indirect

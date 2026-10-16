@@ -274,6 +274,11 @@ provider-agnostic: physical phones get the same feature for free.
 - Users manage public keys on an **SSH keys** page. The list lives in the
   browser (IndexedDB) — add, rename, remove — and is never stored on the
   server.
+  Records are scoped to the signed-in user (an anonymous user who picks a
+  new name starts with an empty list) and open tabs refresh each other
+  through a `BroadcastChannel`. The UI validates keys as they are pasted
+  (type, RSA size, private-key paste guard) and shows SHA256 fingerprints;
+  the api repeats the validation authoritatively.
 - The UI pushes the full list with `PUT /api/v1/ssh/keys` on app start, on
   every change and every 5 minutes while the app is open. The api validates
   the keys (parsed with `x/crypto/ssh`, RSA ≥ 2048, ed25519/ecdsa) and fans
@@ -327,9 +332,20 @@ maxTunnelsPerConnection: 32
 ssh:
   enabled: true
   gatewayURL: http://holtdroid-ssh-gateway-headless:8080  # every A record gets the key updates
-  publicHost: android.example.com                          # shown in the UI commands
+  publicHost: android.example.com                          # shown in the UI commands; default: publicURL's host
   publicPort: 2222
+  allowADB: true            # mirror the gateway flags; the UI only uses them to pick
+  allowReverse: true        # which commands to show
+  clientIsolation: false
 ```
+
+`PUT /api/v1/ssh/keys` validates the list (≤ 32 keys, no duplicates, no
+`authorized_keys` options), resolves `gatewayURL`'s host and pushes the
+normalized lines to every address. It succeeds when at least one replica
+accepted them; a key another user holds fails the whole update with 422 and
+the per-key `errors[].location` (`body.keys[i].publicKey`) the UI uses to
+mark that row. `holtdroid dev` runs the gateway's key API in-process
+(`--ssh-keys :8092`) so the UI can be exercised without the gateway.
 
 Exposure is a plain TCP Service (LoadBalancer/NodePort) or an ingress TCP
 route (Traefik `IngressRouteTCP` on a dedicated entrypoint).
