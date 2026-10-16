@@ -226,3 +226,23 @@ one, the UI renders a DiceBear `voxel-art` avatar seeded by the username
 **Consequences.** No avatar storage or image proxy on the server; every
 user — including anonymous animal names — gets a stable, recognizable face.
 The style is CC0, the library MIT.
+
+## 21. SSH access through one gateway with browser-held keys
+
+**Context.** Developers want ADB and their local dev servers on the device
+from their own machine (`ssh android-slug@host`), with no shell access, and
+without the server storing keys.
+
+**Decision.** A single `ssh-gateway` (`x/crypto/ssh`) routes by username =
+session slug instead of running an sshd per device. It only accepts
+`direct-tcpip` to the device's ADB and `tcpip-forward` for publishing ports on
+the device (via `adb reverse` in the agent, tunnelled over WebSocket +
+yamux); `session` channels just print help. Public keys live in the user's
+browser and are re-pushed by the UI; gateways hold them in memory with a TTL.
+Flags: `allowADB` (default on), `allowReverse` (default on),
+`clientIsolation` (default off — any key holder may use any session).
+
+**Consequences.** One port and host key to expose; no key storage or
+migration; a gateway restart only means users must open the site once before
+reconnecting. Tunnels never reach anything but the session's own device.
+`adb reverse` makes the feature work unchanged for physical phones.

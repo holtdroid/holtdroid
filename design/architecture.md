@@ -217,6 +217,123 @@ advertises `display: scrcpy` and the UI swaps the renderer.
     (and not in `excludeServers`), because the same WireGuard key on the same
     server from two peers makes their handshakes fight.
 
+## SSH access (planned)
+
+Developers reach a device from their own machine over SSH, without VPNs or
+kubectl:
+
+```sh
+# ADB from the laptop (Android Studio, scrcpy, adb install, chrome://inspect …)
+ssh -N -p 2222 -L 5555:adb:5555 emulator-7f3a9c@android.example.com
+adb connect localhost:5555
+
+# make the laptop's dev servers reachable as localhost:3000 / :5000 on the device
+ssh -N -p 2222 -R 3000:localhost:3000 -R 5000:localhost:5000 emulator-7f3a9c@android.example.com
+```
+
+The SSH username is the session **slug** (`{provider}-{id}`), shown with
+ready-to-copy commands on the session page.
+
+### One gateway, routed by username
+
+There is a single `ssh-gateway` service with one TCP port, not an sshd per
+device: one address and host key for everyone, nothing to expose per session,
+and the "SSH server of a device" is the gateway acting on behalf of the
+session named in the username. It is written on `golang.org/x/crypto/ssh` and
+is **not a shell server**:
+
+| SSH request | Behaviour |
+|-------------|-----------|
+| `session` channel (shell, exec, subsystem/sftp, pty) | Accepted only to print a short help text (the forwarding commands for this session), then closed with exit status 1. Nothing is ever executed. |
+| `direct-tcpip` (`-L`) | Allowed when `allowADB` is on and the destination is the alias `adb:5555` (also `localhost:5555`). Every other destination is refused — the gateway must never become a proxy into the cluster. |
+| `tcpip-forward` / `cancel-tcpip-forward` (`-R`) | Allowed when `allowReverse` is on and the port is inside `reversePorts` (default `1024-65535`). The requested bind address is ignored; the port is published on the **device's** loopback. |
+| agent forwarding, X11, `streamlocal`, env, keepalive@openssh | Agent/X11/streamlocal refused, env ignored, keepalives answered. |
+
+### Tunnels to the device
+
+The gateway never talks to ADB or the device directly; the session's agent
+does, through a tunnel endpoint on a **separate agent port** (`:8081`) that
+the api's browser proxy cannot reach:
+
+- **ADB (`-L`)** — per SSH channel the gateway opens
+  `WS /tunnel/adb` on the agent and splices bytes. The agent connects it to
+  the emulator's adbd (`localhost:5555` inside the pod).
+- **Published ports (`-R`)** — per forward the gateway opens
+  `WS /tunnel/reverse/{port}`. The agent runs `adb reverse tcp:{port}
+  tcp:{local}` so the device's `localhost:{port}` lands on an agent listener,
+  and multiplexes each incoming connection as a `hashicorp/yamux` stream over
+  that WebSocket; the gateway turns each stream into a `forwarded-tcpip`
+  channel to the SSH client. Closing the forward or the SSH connection runs
+  `adb reverse --remove`.
+
+Using `adb reverse` instead of the emulator's `10.0.2.2` alias keeps this
+provider-agnostic: physical phones get the same feature for free.
+
+### Keys: the browser is the source of truth
+
+- Users manage public keys on an **SSH keys** page. The list lives in the
+  browser (IndexedDB) — add, rename, remove — and is never stored on the
+  server.
+- The UI pushes the full list with `PUT /api/v1/ssh/keys` on app start, on
+  every change and every 5 minutes while the app is open. The api validates
+  the keys (parsed with `x/crypto/ssh`, RSA ≥ 2048, ed25519/ecdsa) and fans
+  the list out to every gateway replica (A records of its headless Service)
+  together with the user's identity.
+- Gateways keep `{fingerprint → user, groups, admin}` **only in memory**, each
+  user's set expiring after `keyTTL` (default 24h) unless refreshed. A gateway
+  restart forgets everything; the next time the user opens the site, the keys
+  are back. This matches the stateless rule — nothing to back up, nothing to
+  migrate.
+- The same public key registered by two users is rejected for the second one.
+
+### Who may connect where
+
+On login the gateway resolves the slug through the api's internal endpoint
+(`GET /internal/sessions/{slug}` → provider, agent tunnel URL, owner) and
+checks:
+
+- `clientIsolation: false` (default) — any user with a registered key may use
+  any running session;
+- `clientIsolation: true` — only the session owner and `auth.adminGroups`.
+
+Unknown slug, session not `ready`, or a forbidden user all fail the same way
+("no such session") so slugs can't be probed.
+
+### Activity and lifetime
+
+Traffic through a tunnel counts as activity: the gateway reports
+`POST /internal/sessions/{slug}/activity` at most every 30 s while bytes
+flow (this is real use of the device even when no browser tab is open —
+decision #14 still holds for idle *viewers*). When a session is deleted, its
+tunnels are closed and SSH clients see the connection drop.
+
+### Configuration
+
+```yaml
+# ssh-gateway
+listen: ":2222"
+hostKey: file:/run/secrets/ssh/host_ed25519   # stable across restarts and replicas
+apiURL: http://holtdroid-api-internal:8081
+allowADB: true
+allowReverse: true
+clientIsolation: false
+reversePorts: "1024-65535"
+keyTTL: 24h
+maxTunnelsPerConnection: 32
+```
+
+```yaml
+# api
+ssh:
+  enabled: true
+  gatewayURL: http://holtdroid-ssh-gateway-headless:8080  # every A record gets the key updates
+  publicHost: android.example.com                          # shown in the UI commands
+  publicPort: 2222
+```
+
+Exposure is a plain TCP Service (LoadBalancer/NodePort) or an ingress TCP
+route (Traefik `IngressRouteTCP` on a dedicated entrypoint).
+
 ## Security model
 
 - Sign-in is `auth.mode`: `anonymous` (random names), `password`, `oidc`,
@@ -226,8 +343,11 @@ advertises `display: scrcpy` and the UI swaps the renderer.
   `allowedGroups` restricts `oidc`/`header`.
 - Session pods are **privileged** (KVM, the emulator's networking). Run them in
   a dedicated namespace on nodes you are fine dedicating to this.
-- Agents are reachable only from the api (NetworkPolicy in the chart); every
-  user-facing request goes through the api's proxy and auth.
+- Agents are reachable only from the api and the ssh-gateway (NetworkPolicy in
+  the chart); every browser request goes through the api's proxy and auth.
+  The agent's tunnel port is never proxied to browsers.
+- The ssh-gateway executes nothing and forwards only to the session's ADB and
+  to explicitly published device ports; see "SSH access".
 - Session owners are recorded; any authenticated user can see sessions, only
   the owner or a member of `adminGroups` can stop them.
 - Secrets are referenced, never stored in config files or the repo; see

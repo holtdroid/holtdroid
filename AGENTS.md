@@ -41,7 +41,8 @@ internal/
   api/                    BFF: UI REST API, registries, APK cache, session proxy, activity, reaper
   source/                 source implementations: source/dir (APKs from a directory), source/slack
   provider/               provider implementations: provider/fake (simulated devices for dev/tests), provider/emulator
-  agent/                  device agent: adb, frida, devtools proxy, clipboard, vnc bridge; agent/emulator
+  agent/                  device agent: adb, frida, devtools proxy, clipboard, vnc bridge, ssh tunnels; agent/emulator
+  sshgateway/             SSH gateway (planned): ADB and published-port tunnels, no shells
   vpn/                    VPN providers (nordvpn, wireguard, none) + sing-box config rendering
   secrets/                secret resolvers: env:, file:, openbao:
   storage/                object store for the APK cache: filesystem, s3
@@ -76,6 +77,7 @@ Directories that do not exist yet are planned — create them exactly there.
   - `coder/websocket`;
   - `net/http/httputil.ReverseProxy`;
   - `golang.org/x/sync` (`errgroup`, `singleflight`);
+  - `golang.org/x/crypto/ssh` and `hashicorp/yamux` — SSH gateway and tunnels (planned);
   - `log/slog` for logging.
 
   OpenBao is reached with plain `net/http` (two endpoints), not its client

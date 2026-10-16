@@ -142,6 +142,24 @@ static assets and WebSockets.
 | `WS` | `/devtools/{socket}/page/{id}` | proxied CDP WebSocket | – |
 | `GET` | `/devtools-frontend/@{rev}/…` | cached DevTools frontend; the UI opens `inspector.html?ws(s)=<host>/s/{provider}/{session}/devtools/{socket}/page/{id}` | – |
 
+Planned tunnel endpoints, served on the agent's **second port** (`:8081`),
+reachable only by the ssh-gateway and never through the api proxy:
+
+| Method | Path | Notes |
+|--------|------|-------|
+| `WS` | `/tunnel/adb` | one WebSocket per ADB connection, raw bytes to the device's adbd |
+| `WS` | `/tunnel/reverse/{port}` | publishes device `localhost:{port}` (`adb reverse`); device-side connections arrive as yamux streams over this socket; closing it removes the reverse |
+
+`Session` will gain `tunnelUrl` (the agent's tunnel base URL) next to
+`agentUrl`.
+
+### ssh-gateway internal API (planned)
+
+| Method | Path | Notes |
+|--------|------|-------|
+| `PUT` | `/v1/users/{user}/keys` | from the api: `{groups, admin, keys: [authorized_keys lines]}`; replaces that user's set and restarts its TTL |
+| `GET` | `/v1/health` | readiness |
+
 The fake provider (`internal/provider/fake`) implements all of it with
 placeholder HTML for the screen and DevTools pages.
 
@@ -159,6 +177,8 @@ keeping the provider in the path is what lets the api stay stateless.
 | `GET` | `/api/v1/auth/oidc/login?redirect=` | public; browser redirect to the IdP |
 | `GET` | `/api/v1/auth/oidc/callback` | public; sets the cookie and redirects back |
 | `GET` | `/api/v1/me` | `{user, name, email, groups, admin}` |
+| `GET` | `/api/v1/ssh` | planned; `{enabled, host, port, allowADB, allowReverse, clientIsolation}` for the UI |
+| `PUT` | `/api/v1/ssh/keys` | planned; `{keys: [{name, publicKey}]}` — the caller's full key list, replaces the previous one; 422 on invalid or already-claimed keys |
 | `GET` | `/api/v1/sources` | configured sources |
 | `GET` | `/api/v1/artifacts?source=&cursor=&limit=` | without `source`: first page of every source merged, newest first; with it: that source, cursor paging. Items carry cached APK metadata once known; per-source failures come back in `errors[]` instead of failing the call |
 | `GET` | `/api/v1/artifacts/{source}/{id}/icon` | PNG, 404 until the APK was parsed |
@@ -172,6 +192,8 @@ keeping the provider in the path is what lets the api stay stateless.
 | `GET` | `/api/v1/events` | SSE `event: sessions`, the full `{items, errors}` whenever it changes |
 | `*` | `/s/{provider}/{id}/…` | proxy to the session's agent (HTTP + WS); any authenticated user may use it; non-GET requests count as activity |
 | `GET` | `/internal/artifacts/{source}/{id}` | APK download for agents, **internal port only** |
+| `GET` | `/internal/sessions/{slug}` | planned, gateway only: `{provider, id, owner, state, tunnelUrl}` |
+| `POST` | `/internal/sessions/{slug}/activity` | planned, gateway only: tunnel traffic counts as activity |
 
 The APK cache is warmed in the background: listing artifacts queues up to
 `cache.warm` uncached ones for download and parsing, so icons and package
