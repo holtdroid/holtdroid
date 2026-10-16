@@ -7,7 +7,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"strings"
 
 	"github.com/coder/websocket"
 )
@@ -29,14 +28,13 @@ func (d *Display) Register(mux *http.ServeMux) {
 	mux.Handle("GET /display/", http.StripPrefix("/display/", http.FileServer(http.Dir(d.static))))
 }
 
-// page redirects to noVNC with the WebSocket path it must use: noVNC
-// resolves "path" against the host root, not against the page.
-func (d *Display) page(w http.ResponseWriter, r *http.Request) {
+// page redirects to noVNC, which resolves its default "websockify" path
+// against the page, so no proxy prefix is needed.
+func (d *Display) page(w http.ResponseWriter, _ *http.Request) {
 	q := url.Values{
 		"autoconnect": {"1"},
 		"reconnect":   {"1"},
 		"resize":      {"scale"},
-		"path":        {strings.TrimPrefix(r.Header.Get("X-Forwarded-Prefix")+"/display/websockify", "/")},
 	}
 	w.Header().Set("Location", "vnc.html?"+q.Encode())
 	w.WriteHeader(http.StatusFound)

@@ -265,13 +265,12 @@ func TestDisplay(t *testing.T) {
 	defer srv.Close()
 
 	req, _ := http.NewRequest(http.MethodGet, srv.URL+"/display/", nil)
-	req.Header.Set("X-Forwarded-Prefix", "/s/emulator/abc")
 	resp, err := http.DefaultTransport.RoundTrip(req)
 	if err != nil {
 		t.Fatal(err)
 	}
 	resp.Body.Close()
-	if loc := resp.Header.Get("Location"); resp.StatusCode != http.StatusFound || !strings.Contains(loc, "path=s%2Femulator%2Fabc%2Fdisplay%2Fwebsockify") || !strings.HasPrefix(loc, "vnc.html?") {
+	if loc := resp.Header.Get("Location"); resp.StatusCode != http.StatusFound || strings.Contains(loc, "path=") || !strings.HasPrefix(loc, "vnc.html?") {
 		t.Fatalf("redirect %d %q", resp.StatusCode, loc)
 	}
 	resp, err = http.Get(srv.URL + "/display/vnc.html")

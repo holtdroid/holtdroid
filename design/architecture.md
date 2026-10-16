@@ -231,9 +231,10 @@ ART itself stays x86_64 (Frida's Java hooks are unaffected).
 
 The agent serves noVNC static files under `/display/` and bridges its
 WebSocket to `x11vnc` (`coder/websocket` ↔ TCP) — no websockify.
-`GET /display/` redirects to `vnc.html?autoconnect=1&path=…` with the path
-built from `X-Forwarded-Prefix`, because noVNC resolves its WebSocket path
-against the host root. The
+`GET /display/` redirects to `vnc.html?autoconnect=1&reconnect=1&resize=scale`
+without a `path`: noVNC 1.7 resolves its default `websockify` against the page
+when no `host` is given, so it lands on `…/display/websockify` behind any
+proxy prefix. The
 emulator provider advertises `display: novnc`. A future phone provider
 advertises `display: scrcpy` and the UI swaps the renderer.
 
