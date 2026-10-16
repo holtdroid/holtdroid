@@ -37,6 +37,12 @@ func RegisterProvider(api huma.API, p Provider) {
 			if err != nil {
 				return nil, toHuma(err)
 			}
+			if c.Locations == nil {
+				c.Locations = []Location{}
+			}
+			if c.ABIs == nil {
+				c.ABIs = []string{}
+			}
 			return &body[Capabilities]{c}, nil
 		})
 

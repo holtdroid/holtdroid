@@ -1,0 +1,78 @@
+metadata:
+  annotations:
+    holtdroid/artifact-ref: slack/C1/F1/app.apk@1f2e
+    holtdroid/created-at: "2026-10-17T12:00:00Z"
+    holtdroid/last-activity: "2026-10-17T12:00:00Z"
+    holtdroid/location: ""
+    holtdroid/owner: otter
+    holtdroid/package: com.example.app
+  labels:
+    app.kubernetes.io/managed-by: holtdroid-provider-emulator
+    app.kubernetes.io/name: holtdroid-session
+    holtdroid/session: 0a1b2c3d4e
+    holtdroid/slot: k3s-1
+  name: holtdroid-session-0a1b2c3d4e
+  namespace: holtdroid
+spec:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: kubernetes.io/hostname
+            operator: In
+            values:
+            - k3s-1
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchLabels:
+            app.kubernetes.io/managed-by: holtdroid-provider-emulator
+            app.kubernetes.io/name: holtdroid-session
+        topologyKey: kubernetes.io/hostname
+  automountServiceAccountToken: false
+  containers:
+  - env:
+    - name: HOLTDROID_LISTEN
+      value: :8080
+    - name: HOLTDROID_ARTIFACTURL
+      value: http://holtdroid-api-internal:8081/internal/artifacts/abc
+    - name: HOLTDROID_PACKAGE
+      value: com.example.app
+    image: ghcr.io/kriakiku/holtdroid-session:0123abc
+    imagePullPolicy: IfNotPresent
+    name: emulator
+    ports:
+    - containerPort: 8080
+      name: agent
+    readinessProbe:
+      httpGet:
+        path: /v1/health
+        port: agent
+      periodSeconds: 2
+    resources:
+      limits:
+        cpu: "4"
+        memory: 7Gi
+      requests:
+        cpu: "3"
+        memory: 5Gi
+    securityContext:
+      privileged: true
+    volumeMounts:
+    - mountPath: /dev/kvm
+      name: kvm
+    - mountPath: /dev/shm
+      name: shm
+  enableServiceLinks: false
+  restartPolicy: Never
+  terminationGracePeriodSeconds: 5
+  volumes:
+  - hostPath:
+      path: /dev/kvm
+      type: CharDevice
+    name: kvm
+  - emptyDir:
+      medium: Memory
+    name: shm
+status: {}

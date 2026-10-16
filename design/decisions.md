@@ -441,3 +441,27 @@ need `vpn.resolver` set to the cluster DNS IP (found in the end-to-end
 check against sing-box 1.14.2, which also confirmed the rendered config,
 switching through the clash API, per-username routing on a gateway and DNS
 hijacking).
+
+## 29. Emulator slots are nodes; sessions are pinned and their state comes from the Pod
+
+**Context.** Phase 3 needs slot accounting that survives provider restarts
+and an answer to "what state is this session in" without a database or a
+channel from the agent to the provider.
+
+**Decision.** `provider-emulator` lists Nodes (cluster-scoped read, so the
+chart needs a ClusterRole) that match `nodeSelector` — a label selector
+string, because config keys can't contain the dots of label keys — and whose
+taints `tolerations` cover. Each such node is a slot; Create picks the first
+free one under a mutex and pins the Pod to it with required node affinity,
+so the slot is known before scheduling and two sessions never race for a
+node. Pod anti-affinity stays as a second guard. State is mapped from the Pod
+phase and the `emulator` container (running → `booting`, readiness probe on
+the agent's `/v1/health` → `ready`); the provider never calls the agent.
+`agentUrl` is the Pod IP, no per-session Service.
+
+**Consequences.** One provider replica per namespace (the mutex is local; a
+second replica could double-book a node, which anti-affinity would turn into
+a Pending Pod). An agent that fails after boot keeps the device running for
+inspection (#26) and then reads as `booting` from the provider, while the
+session page shows `failed` from the agent's own stream. A Pod that can't be
+scheduled stays `provisioning` until the reaper removes it.

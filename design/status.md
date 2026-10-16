@@ -4,7 +4,7 @@ Snapshot for whoever continues the work — human or agent. Update the
 "Where things stand" and "Next steps" sections whenever a phase moves; the
 rest changes rarely.
 
-_Last updated: 2026-10-16._
+_Last updated: 2026-10-17._
 
 ## Where things stand
 
@@ -44,25 +44,25 @@ deployment"):
 
 **Not built yet**:
 
-- `provider-emulator` — Phase 3. `internal/vpn` (sidecar config rendering,
-  decision #28) is done and waits for it.
+- `provider-emulator` in the chart: the provider itself
+  (`internal/provider/emulator`, `holtdroid provider-emulator`, decision
+  #29) is done and tested against a fake clientset; a read-only run against
+  the homelab cluster listed `k3s-1..3` as slots. It hasn't launched a real
+  session yet.
 - The Slack sync job (independent of the api, writes the source layout).
 - SSH gateway — Phase 4.5 (designed in architecture.md "SSH access").
 - Docker-only provider, physical phones — "Later".
 
 ## Next steps, in order
 
-1. **Phase 3** — `provider-emulator` (Pods + per-session Secret, state in
-   labels and annotations, anti-affinity, `touch`) and a Slack sync job that
-   writes into an S3 source. The provider renders what the Phase 2 Pod
-   proved: `emulator` container (privileged, `/dev/kvm` and `/dev/shm`, env
-   `HOLTDROID_ARTIFACTURL`, `HOLTDROID_PACKAGE`, `HOLTDROID_LOCATION`, and
-   with a VPN `HOLTDROID_CLASHAPI=http://127.0.0.1:9090` +
-   `HOLTDROID_EMULATOR__DNSSERVER=<vpn.dns>`) plus a `vpn` sing-box container
-   (`NET_ADMIN`, `/dev/net/tun`, config Secret from `vpn.Render`). See
-   decisions #26 and #28 for the details that bit. Then wire them into the
-   chart, run a shared VPN gateway for the maintainer's deployment and switch
-   it from fake to emulator plus a Slack-fed source.
+1. **Phase 3** — wire `provider-emulator` into the chart (Deployment,
+   ServiceAccount, Role for Pods/Secrets in the namespace, ClusterRole to
+   list Nodes, NetworkPolicy api → agent port, session image pre-pull
+   DaemonSet, values for `nodeSelector`/`tolerations`/`slots`/`resources`/
+   `vpn`; the chart renders `nodeSelector` as a label selector string), then
+   switch the maintainer's deployment to it with the VPN gateway locations
+   and launch a real session from the UI. Then the Slack sync job that
+   writes into an S3 source.
 2. **Phase 4.5 — SSH gateway**, can run in parallel against the fake
    provider.
 3. Planned, each starting with a decisions.md entry: Phase 4.7 traffic

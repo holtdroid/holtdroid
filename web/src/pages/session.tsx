@@ -28,7 +28,8 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
   const registerFrame = useActivityHeartbeat(provider, id)
   const [status, setStatus] = useState<StatusEvent | null>(null)
 
-  useEventSource<{ state: StatusEvent }>(session ? `${sessionBase(provider, id)}/v1/status` : null, {
+  const agentUp = session !== undefined && session.state !== "provisioning"
+  useEventSource<{ state: StatusEvent }>(agentUp ? `${sessionBase(provider, id)}/v1/status` : null, {
     state: setStatus,
   })
 

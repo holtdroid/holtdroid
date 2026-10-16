@@ -6,17 +6,21 @@ sidebar:
 ---
 
 The `provider-emulator` service creates one Pod per session in its own
-namespace. It needs a ServiceAccount allowed to manage Pods and Secrets there
-(the Helm chart creates it).
+namespace. It needs a ServiceAccount allowed to manage Pods and Secrets there,
+and to list Nodes cluster-wide (the Helm chart creates both).
 
 ```yaml
 listen: ":8080"
+kubeconfig: "" # empty: the Pod's service account
 namespace: holtdroid
 slots: 4
+nodeSelector: "holtdroid/kvm=true" # a label selector
+tolerations:
+  - { key: dedicated, operator: Equal, value: nas, effect: NoSchedule }
 image: ghcr.io/kriakiku/holtdroid-session:0.1.0
+imagePullPolicy: IfNotPresent
 imagePullSecrets: []
-nodeSelector: {}
-tolerations: []
+agentPort: 8080
 resources:
   requests: { cpu: "3", memory: 5Gi }
   limits: { cpu: "4", memory: 7Gi }
@@ -24,13 +28,23 @@ vpn:
   locations: [] # see below; empty means no VPN sidecar
 ```
 
-| Key                           | Meaning                                                  |
-| ----------------------------- | -------------------------------------------------------- |
-| `slots`                       | Maximum concurrent sessions. At most one per node anyway |
-| `image`                       | Session image (emulator + agent)                         |
-| `nodeSelector`, `tolerations` | Where sessions may run. Nodes need `/dev/kvm`            |
-| `resources`                   | Per-session emulator container resources                 |
-| `vpn`                         | Per-session VPN, see below                               |
+| Key                        | Meaning                                                                                                                                                            |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `kubeconfig`               | Path to a kubeconfig. Empty uses the in-cluster service account                                                                                                    |
+| `namespace`                | Where session Pods and their Secrets are created                                                                                                                   |
+| `nodeSelector`             | [Label selector](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors) for nodes that may run sessions. Nodes need `/dev/kvm` |
+| `tolerations`              | Taints session Pods tolerate. Nodes with other `NoSchedule`/`NoExecute` taints are not used                                                                        |
+| `slots`                    | Maximum concurrent sessions; `0` means one per matching node                                                                                                       |
+| `image`, `imagePullPolicy` | Session image (emulator + agent)                                                                                                                                   |
+| `imagePullSecrets`         | Secret names for pulling the session image                                                                                                                         |
+| `agentPort`                | Port the agent listens on inside the Pod; the api reaches it at the Pod IP                                                                                         |
+| `resources`                | Per-session emulator container resources                                                                                                                           |
+| `vpn`                      | Per-session VPN, see below                                                                                                                                         |
+
+Every matching node is one slot, at most one session per node. A session is
+pinned to the first free node; nodes that are not Ready or are cordoned show
+as offline. Session state lives on the Pod, so restarting the provider loses
+nothing. Run one provider replica per namespace.
 
 ## VPN
 

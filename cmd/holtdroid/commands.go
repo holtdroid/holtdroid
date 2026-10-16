@@ -15,6 +15,7 @@ import (
 	"github.com/kriakiku/holtdroid/internal/agent/emulator"
 	"github.com/kriakiku/holtdroid/internal/api"
 	"github.com/kriakiku/holtdroid/internal/contract"
+	emulatorprovider "github.com/kriakiku/holtdroid/internal/provider/emulator"
 	"github.com/kriakiku/holtdroid/internal/provider/fake"
 	"github.com/kriakiku/holtdroid/internal/source"
 	"github.com/kriakiku/holtdroid/internal/sshgateway"
@@ -58,6 +59,31 @@ func providerFakeCmd(c *common) *cobra.Command {
 			mux := http.NewServeMux()
 			contract.RegisterProvider(contract.NewAPI(mux, "Holtdroid fake provider"), p)
 			mux.Handle("/agents/", p.AgentHandler())
+			return serve(cmd.Context(), []listener{{cfg.Listen, mux}})
+		},
+	}
+}
+
+func providerEmulatorCmd(c *common) *cobra.Command {
+	return &cobra.Command{
+		Use:   "provider-emulator",
+		Short: "Run the device provider that starts Android emulator Pods on Kubernetes",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			cfg := emulatorprovider.DefaultConfig()
+			reg, err := loadConfig(c.configPath, &cfg)
+			if err != nil {
+				return err
+			}
+			kube, err := emulatorprovider.Client(cfg)
+			if err != nil {
+				return err
+			}
+			p, err := emulatorprovider.New(cfg, kube, reg)
+			if err != nil {
+				return err
+			}
+			mux := http.NewServeMux()
+			contract.RegisterProvider(contract.NewAPI(mux, "Holtdroid emulator provider"), p)
 			return serve(cmd.Context(), []listener{{cfg.Listen, mux}})
 		},
 	}

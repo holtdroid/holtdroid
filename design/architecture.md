@@ -158,10 +158,13 @@ provisioning → booting → installing → instrumenting → ready → (stoppin
   `now - lastActivity > idleTimeout` (default 30m) or
   `now - createdAt > maxTTL` (default 8h). "Extend" in the UI counts as
   activity.
-- **Slots**: each provider reports capacity. The emulator provider's slot
-  count is configured; one session per node is enforced with required pod
-  anti-affinity, nodes are selected with nodeSelector/tolerations from Helm
-  values. When no slot is free, launching is disabled in the UI.
+- **Slots**: each provider reports capacity. The emulator provider's slots
+  are the nodes matching its `nodeSelector` (a label selector) whose taints
+  its `tolerations` cover, sorted by name and capped at `slots`; not-Ready or
+  cordoned nodes are `offline`. A session takes the first free node and its
+  Pod is pinned there with required node affinity, plus required pod
+  anti-affinity as a safety net (decisions.md #29). When no slot is free,
+  launching is disabled in the UI.
 
 ## Emulator session internals
 
@@ -173,7 +176,17 @@ Session Pod (rendered by `provider-emulator`, golden-tested):
 | `vpn` | upstream `sing-box` | `NET_ADMIN`, `/dev/net/tun`. Config from the per-session Secret |
 
 Plus a Secret (sing-box config, may contain VPN credentials) with an
-ownerReference to the Pod, so it is garbage-collected with it.
+ownerReference to the Pod, so it is garbage-collected with it. The Pod is
+named `holtdroid-session-<id>`, has `restartPolicy: Never`, and carries the
+session in labels (`holtdroid/session`, `holtdroid/slot`) and annotations
+(`holtdroid/owner`, `package`, `artifact-ref`, `location`, `created-at`,
+`last-activity`; `touch` patches the last one). The provider derives the
+session state from the Pod: pending → `provisioning`, the `emulator`
+container running → `booting`, its readiness probe (`GET /v1/health`, 200
+only once the app runs) passing → `ready`, the container or Pod terminated →
+`failed`, deletion requested → `stopping`. The agent streams the finer
+stages itself. `agentUrl` is `http://<pod IP>:<agentPort>`; until the Pod
+has an IP it is empty and the UI does not open the agent's status stream.
 
 Inside `emulator`, the agent starts and supervises:
 

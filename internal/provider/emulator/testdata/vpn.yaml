@@ -1,0 +1,222 @@
+metadata:
+  annotations:
+    holtdroid/artifact-ref: slack/C1/F1/app.apk@1f2e
+    holtdroid/created-at: "2026-10-17T12:00:00Z"
+    holtdroid/last-activity: "2026-10-17T12:00:00Z"
+    holtdroid/location: nl
+    holtdroid/owner: otter
+    holtdroid/package: com.example.app
+  labels:
+    app.kubernetes.io/managed-by: holtdroid-provider-emulator
+    app.kubernetes.io/name: holtdroid-session
+    holtdroid/session: 0a1b2c3d4e
+    holtdroid/slot: k3s-1
+  name: holtdroid-session-0a1b2c3d4e
+  namespace: holtdroid
+spec:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: kubernetes.io/hostname
+            operator: In
+            values:
+            - k3s-1
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchLabels:
+            app.kubernetes.io/managed-by: holtdroid-provider-emulator
+            app.kubernetes.io/name: holtdroid-session
+        topologyKey: kubernetes.io/hostname
+  automountServiceAccountToken: false
+  containers:
+  - env:
+    - name: HOLTDROID_LISTEN
+      value: :8080
+    - name: HOLTDROID_ARTIFACTURL
+      value: http://holtdroid-api-internal:8081/internal/artifacts/abc
+    - name: HOLTDROID_PACKAGE
+      value: com.example.app
+    - name: HOLTDROID_LOCATION
+      value: nl
+    - name: HOLTDROID_CLASHAPI
+      value: http://127.0.0.1:9090
+    - name: HOLTDROID_EMULATOR__DNSSERVER
+      value: 1.1.1.1
+    image: ghcr.io/kriakiku/holtdroid-session:0123abc
+    imagePullPolicy: IfNotPresent
+    name: emulator
+    ports:
+    - containerPort: 8080
+      name: agent
+    readinessProbe:
+      httpGet:
+        path: /v1/health
+        port: agent
+      periodSeconds: 2
+    resources:
+      limits:
+        cpu: "4"
+        memory: 7Gi
+      requests:
+        cpu: "3"
+        memory: 5Gi
+    securityContext:
+      privileged: true
+    volumeMounts:
+    - mountPath: /dev/kvm
+      name: kvm
+    - mountPath: /dev/shm
+      name: shm
+  - args:
+    - run
+    - -c
+    - /etc/sing-box/config.json
+    image: ghcr.io/sagernet/sing-box:v1.14.2
+    name: vpn
+    resources: {}
+    securityContext:
+      capabilities:
+        add:
+        - NET_ADMIN
+    volumeMounts:
+    - mountPath: /dev/net/tun
+      name: tun
+    - mountPath: /etc/sing-box
+      name: vpn-config
+      readOnly: true
+  enableServiceLinks: false
+  imagePullSecrets:
+  - name: ghcr
+  restartPolicy: Never
+  terminationGracePeriodSeconds: 5
+  tolerations:
+  - effect: NoSchedule
+    key: dedicated
+    operator: Equal
+    value: nas
+  volumes:
+  - hostPath:
+      path: /dev/kvm
+      type: CharDevice
+    name: kvm
+  - emptyDir:
+      medium: Memory
+    name: shm
+  - hostPath:
+      path: /dev/net/tun
+      type: CharDevice
+    name: tun
+  - name: vpn-config
+    secret:
+      secretName: holtdroid-session-0a1b2c3d4e
+status: {}
+---
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: holtdroid-provider-emulator
+    app.kubernetes.io/name: holtdroid-session
+    holtdroid/session: 0a1b2c3d4e
+    holtdroid/slot: k3s-1
+  name: holtdroid-session-0a1b2c3d4e
+  namespace: holtdroid
+  ownerReferences:
+  - apiVersion: v1
+    kind: Pod
+    name: holtdroid-session-0a1b2c3d4e
+    uid: 6c1f9e0a-0000-4000-8000-000000000001
+stringData:
+  config.json: |-
+    {
+      "log": {
+        "level": "warn",
+        "timestamp": true
+      },
+      "dns": {
+        "final": "tunnel",
+        "servers": [
+          {
+            "server": "10.43.0.10",
+            "tag": "local",
+            "type": "udp"
+          },
+          {
+            "detour": "select",
+            "server": "1.1.1.1",
+            "tag": "tunnel",
+            "type": "udp"
+          }
+        ]
+      },
+      "inbounds": [
+        {
+          "address": [
+            "198.18.0.1/30",
+            "fdfe:dcba:9876::1/126"
+          ],
+          "auto_route": true,
+          "route_exclude_address": [
+            "10.0.0.0/8",
+            "172.16.0.0/12",
+            "192.168.0.0/16",
+            "fc00::/7"
+          ],
+          "tag": "tun",
+          "type": "tun"
+        }
+      ],
+      "outbounds": [
+        {
+          "tag": "direct",
+          "type": "direct"
+        },
+        {
+          "password": "holtdroid",
+          "server": "vpn-socks.vpn.svc.cluster.local",
+          "server_port": 1080,
+          "tag": "pl",
+          "type": "socks",
+          "udp_over_tcp": true,
+          "username": "pl"
+        },
+        {
+          "server": "10.0.0.9",
+          "server_port": 1080,
+          "tag": "nl",
+          "type": "socks"
+        },
+        {
+          "default": "nl",
+          "interrupt_exist_connections": true,
+          "outbounds": [
+            "direct",
+            "pl",
+            "nl"
+          ],
+          "tag": "select",
+          "type": "selector"
+        }
+      ],
+      "route": {
+        "auto_detect_interface": true,
+        "default_domain_resolver": "local",
+        "final": "select",
+        "rules": [
+          {
+            "action": "sniff"
+          },
+          {
+            "action": "hijack-dns",
+            "protocol": "dns"
+          }
+        ]
+      },
+      "experimental": {
+        "clash_api": {
+          "external_controller": "127.0.0.1:9090"
+        }
+      }
+    }
+type: Opaque
