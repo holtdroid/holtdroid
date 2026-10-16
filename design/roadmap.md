@@ -39,19 +39,21 @@ silently drop any.
 
 Goal: one hand-written Pod on a KVM node proves the device side end to end.
 
-- [ ] `images/session.Dockerfile`: Ubuntu, cmdline-tools, emulator, `system-images;android-33;google_apis;x86_64`, Xvfb, x11vnc, noVNC static, frida-server (pinned, matches frida-go devkit)
-- [ ] `internal/agent/emulator`: process supervision (Xvfb → emulator → x11vnc), boot wait, `adb root`, frida-server start
-- [ ] APK install from a URL; spawn under frida-go with the instrumentation script (WebView debugging + clipboard RPC)
-- [ ] `internal/agent`: status SSE, noVNC bridge (`/display/websockify`)
-- [ ] DevTools: socket discovery, adb forwards, aggregated targets, CDP WS proxy with `Host: localhost`, frontend proxy + cache
-- [ ] Clipboard endpoints + SSE
-- [ ] `vpn` sidecar with a static WireGuard config; `/network` + location switch via clash API
-- [ ] Manual check on a real cluster: ARM-only APK runs (`arm64-v8a` in `ro.product.cpu.abilist`), DevTools shows DOM/console, clipboard both ways, external IP changes with location
-- [ ] Record findings and surprises in `decisions.md`
+- [x] `images/session.Dockerfile`: Ubuntu, emulator + platform-tools + `system-images;android-35;google_apis;x86_64` (pinned zips, no cmdline-tools), baked AVD, Xvfb, x11vnc, noVNC static, frida-server and agent devkit pinned together (decision #23)
+- [x] `internal/agent/emulator`: process supervision (Xvfb → emulator → x11vnc), boot wait, `adb root`, frida-server start
+- [x] APK install from a URL; spawn under frida-go with the instrumentation script (WebView debugging + clipboard RPC)
+- [x] `internal/agent`: status SSE, noVNC bridge (`/display/websockify`)
+- [x] DevTools: socket discovery, adb forwards, aggregated targets, CDP WS proxy with `Host: localhost`, frontend proxy + cache
+- [x] Clipboard endpoints + SSE
+- [x] Agent side of the VPN: `/network` (external IP via `ipInfoURL`) + location switch via the clash API
+- [x] `vpn` sidecar with a static WireGuard config in the hand-written Pod
+- [x] Manual check on a real cluster: ARM-only APK runs (`arm64-v8a` in `ro.product.cpu.abilist`), WebView DevTools socket appears, CDP `Runtime.evaluate` and the frontend work through the agent, clipboard both ways, external IP changes with location
+- [ ] DevTools frontend in the portal against a real WebView page (needs Phase 3 to launch a real session from the UI)
+- [x] Record findings and surprises in `decisions.md` (#25, #26)
 
 ## Phase 3 — Provider, source, api
 
-- [ ] `internal/vpn`: `none`, `wireguard`, `nordvpn` (server recommendations, collision-free picking, `excludeServers`), sing-box rendering with golden tests
+- [ ] `internal/vpn`: `none`, `wireguard`, `nordvpn` (server recommendations, collision-free picking, `excludeServers`), sing-box rendering with golden tests; WireGuard MTU that fits the Pod network, emulator DNS through the tunnel (decision #26)
 - [ ] `provider-emulator`: capacity from nodes + config, Pod/Secret rendering (golden tests), create/list/delete, state from annotations, `touch`
 - [ ] `source-slack`: list, paginate, download; fake Slack server in tests
 - [x] `internal/apk`: metadata + icon + ABIs with a fixture
@@ -97,7 +99,7 @@ Design: decisions.md #22. No backward compatibility before the first release.
 ## Phase 5 — Packaging and docs
 
 - [ ] Helm chart: add source-slack, provider-emulator, RBAC, NetworkPolicy, prepull DaemonSet, values for nodeSelector/tolerations/slots/resources
-- [ ] Release workflow: amd64 session image
+- [x] Release workflow: amd64 session image
 - [ ] Docs site content: install with Helm, Slack app setup, VPN providers, secrets backends, forward-auth examples (Authelia, oauth2-proxy), architecture, writing a source/provider, troubleshooting (KVM, ARM translation, Frida)
 - [x] Docs deployed to GitHub Pages
 

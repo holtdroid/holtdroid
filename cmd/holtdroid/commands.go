@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -9,6 +11,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/kriakiku/holtdroid/internal/agent"
+	"github.com/kriakiku/holtdroid/internal/agent/emulator"
 	"github.com/kriakiku/holtdroid/internal/api"
 	"github.com/kriakiku/holtdroid/internal/contract"
 	"github.com/kriakiku/holtdroid/internal/provider/fake"
@@ -70,6 +74,30 @@ func providerFakeCmd(c *common) *cobra.Command {
 			contract.RegisterProvider(contract.NewAPI(mux, "Holtdroid fake provider"), p)
 			mux.Handle("/agents/", p.AgentHandler())
 			return serve(cmd.Context(), []listener{{cfg.Listen, mux}})
+		},
+	}
+}
+
+func agentCmd(c *common) *cobra.Command {
+	return &cobra.Command{
+		Use:   "agent",
+		Short: "Run the device agent inside a session: emulator, app under Frida, screen and DevTools",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			cfg := agent.DefaultConfig()
+			if _, err := loadConfig(c.configPath, &cfg); err != nil {
+				return err
+			}
+			if cfg.ArtifactURL == "" || cfg.Package == "" {
+				return errors.New("artifactURL and package are required")
+			}
+			log := slog.Default()
+			inst, err := agent.NewFrida(cfg.Serial, cfg.Script, log)
+			if err != nil {
+				return err
+			}
+			adb := agent.ADB{Bin: cfg.ADB, Serial: cfg.Serial}
+			a := agent.New(cfg, adb, inst, emulator.New(cfg.Emulator, adb, log).Run, log)
+			return serve(cmd.Context(), []listener{{cfg.Listen, a.Handler()}}, a.Run)
 		},
 	}
 }

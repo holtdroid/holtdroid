@@ -25,41 +25,37 @@ deployment"):
 - Single Go binary + embedded UI, distroless image, Helm chart, CI, release
   (`ghcr.io/kriakiku/holtdroid:<sha>` per commit), docs site on GitHub Pages.
 
-**Not built yet** — everything that touches a real Android:
+**Session prototype works on the cluster** (Phase 2, decisions #25, #26):
 
-- Session image, real agent (emulator supervision, Frida, ADB, DevTools
-  proxy, clipboard RPC, VPN sidecar) — roadmap Phase 2.
+- `images/session.Dockerfile` (`make session-image`, CI pushes
+  `ghcr.io/kriakiku/holtdroid-session:<sha>`, Android 15 x86_64 with ARM
+  translation) and `holtdroid agent` (`internal/agent`,
+  `internal/agent/emulator`, Frida script in `internal/agent/script`).
+  A hand-written Pod (agent + sing-box sidecar) booted, ran an ARM-only APK
+  under Frida, exposed its WebView DevTools socket, served the screen,
+  clipboard and location switching. The agent can't run under Rosetta on a
+  Mac (Frida needs `eventfd`).
+
+**Not built yet**:
+
 - `provider-emulator`, `internal/vpn`, `source-slack` — Phase 3.
 - SSH gateway — Phase 4.5 (designed in architecture.md "SSH access").
 - Docker-only provider, physical phones — "Later".
 
 ## Next steps, in order
 
-1. **Phase 2 — session prototype.** The riskiest part; do it before anything
-   else. Suggested path:
-   - Write `images/session.Dockerfile` (Ubuntu, Android cmdline-tools,
-     emulator, `system-images;android-33;google_apis;x86_64`, Xvfb, x11vnc,
-     noVNC static files, frida-server pinned to the frida-go devkit version)
-     and an `agent` subcommand built with cgo for it.
-   - Build it for `linux/amd64` only (it is several GB). Either add a second
-     job to `.github/workflows/release.yml` pushing
-     `ghcr.io/kriakiku/holtdroid-session:<sha>`, or for quick iteration push
-     to the maintainer's registry (see below).
-   - Run one hand-written privileged Pod (with `/dev/kvm` hostPath) in a
-     scratch namespace on a KVM node and prove: ARM-only APK installs and
-     runs (`ro.product.cpu.abilist` contains `arm64-v8a`), Frida spawn enables
-     WebView debugging, `webview_devtools_remote_*` appears, DevTools frontend
-     loads through the agent, clipboard RPC works, sing-box tun changes the
-     external IP.
-   - Write down every surprise in `decisions.md`.
-2. **Phase 3** — `internal/vpn` (with golden sing-box configs),
+1. **Phase 3** — `internal/vpn` (golden sing-box configs),
    `provider-emulator` (Pods + per-session Secret, state in labels and
-   annotations, anti-affinity, `touch`), `source-slack`. Wire them into the
-   chart, then switch the maintainer's deployment from fake/dir to
-   emulator/slack.
-3. **Phase 4.5 — SSH gateway**, which can be started earlier against the
-   fake provider if Phase 2 is blocked on hardware.
-4. Remaining Phase 1/5 chores: `CONTRIBUTING.md`, `SECURITY.md`,
+   annotations, anti-affinity, `touch`), `source-slack`. The provider renders what the Phase 2 Pod proved: `emulator` container
+   (privileged, `/dev/kvm` and `/dev/shm`, env `HOLTDROID_ARTIFACTURL`,
+   `HOLTDROID_PACKAGE`, `HOLTDROID_LOCATION`, `HOLTDROID_CLASHAPI`) plus a
+   `vpn` sing-box container (`NET_ADMIN`, `/dev/net/tun`, config Secret with
+   WireGuard MTU 1280 and a `select` selector). See decision #26 for the
+   details that bit. Then wire them into the chart and switch the
+   maintainer's deployment from fake/dir to emulator/slack.
+2. **Phase 4.5 — SSH gateway**, can run in parallel against the fake
+   provider.
+3. Remaining Phase 1/5 chores: `CONTRIBUTING.md`, `SECURITY.md`,
    `.editorconfig`, conformance package.
 
 ## Requirements from the maintainer

@@ -21,6 +21,8 @@ frida-go devkit versions must be pinned together.
 
 ## 2. x86_64 `google_apis` images with ARM translation on KVM
 
+_The API level is superseded by #25._
+
 **Context.** Test APKs are often ARM-only; emulating ARM fully is too slow and
 nodes are x86_64.
 
@@ -273,3 +275,89 @@ cache keep their current homes. Litestream allows exactly one writer, so
 `sqlite` + S3 means `replicas: 1` for the api (the chart must enforce it);
 only `postgres` scales horizontally. sqlc and goose add a build-time and a
 run-time dependency respectively, in exchange for no hand-written ORM layer.
+
+## 23. Frida 17 pinned to frida-go; the script is bundled on the device host
+
+**Context.** frida-go is cgo against `libfrida-core` and only compiles with
+the devkit version it was written for (v1.1.0 fails against 17.23 and builds
+against 17.15.5, the version its CI pins). Frida 17 no longer ships the Java
+bridge inside GumJS: scripts must import `frida-java-bridge` and be bundled.
+
+**Decision.** The session image pins one Frida version (`FRIDA_VERSION` in
+`images/session.Dockerfile`) for both the devkit and `frida-server`, matching
+frida-go's CI. The instrumentation script lives in `internal/agent/script`
+(`agent.js` + a `bun.lock` for `frida-java-bridge`); the image installs its
+`node_modules` and the agent bundles it once at start with Frida's own
+compiler (`frida.NewCompiler().Build`). Only the session binary is built
+with `-tags frida` and cgo; the distroless binary keeps `CGO_ENABLED=0` and
+its `agent` subcommand refuses to start.
+
+**Consequences.** Upgrading Frida means bumping frida-go and the pinned
+version together and re-checking on a device. frida-go treats any script
+message containing `frida:rpc` as an RPC reply, so clipboard text travels as
+the message's binary payload, never in its JSON, and RPC functions return
+`{error}` objects instead of throwing (frida-go drops the error status).
+
+## 24. The agent drives adb through its CLI
+
+**Context.** `electricbubble/gadb` speaks the adb server protocol but has no
+`localabstract:` forwards, no `adb root`, no install and no contexts.
+
+**Decision.** `internal/agent.ADB` runs the platform-tools `adb` binary with
+`exec.CommandContext`; the agent depends on a small `Device` interface so the
+pipeline is tested with a fake.
+
+**Consequences.** One process per adb call (the DevTools scan runs one every
+2 s, which is cheap). The `adb` binary must be in the session image, which it
+is anyway for the emulator.
+
+## 25. Android 15 (API 35) system image
+
+**Context.** Decision #2 assumed every x86_64 image from API 30 ships ARM
+translation. The first device run proved otherwise: `android-33` r17 has
+`ro.product.cpu.abilist=x86_64` and `ro.dalvik.vm.native.bridge=0`, so
+ARM-only APKs fail with `INSTALL_FAILED_NO_MATCHING_ABIS`. Reading
+`build.prop` of every `google_apis;x86_64` image: API 30 translates
+(`arm64-v8a`, `armeabi-v7a`), 31–32 list `arm64-v8a` without a bridge, 33
+has nothing, 34+ ship `libndk_translation.so` again (`x86_64,arm64-v8a`).
+
+**Decision.** Supersedes the API level of #2. The session image uses
+`system-images;android-35;google_apis;x86_64`. Before changing the system
+image, check its `build.prop` for `ro.dalvik.vm.native.bridge` and the ABI
+list.
+
+**Consequences.** 32-bit-only ARM apps (`armeabi-v7a` without `arm64-v8a`)
+don't run; API 30 would be the only image for them. Android 15 ships
+WebView/Chrome 124, which works with the DevTools frontend from
+chrome-devtools-frontend.appspot.com.
+
+## 26. Findings from the first device run (Phase 2)
+
+Session Pod on `k3s-1`: Android boots in ~35 s, the ARM-only test APK
+(46 MB) is installed and running under Frida ~60 s after the Pod starts.
+Verified: the hooked app opens `@webview_devtools_remote_<pid>`; targets,
+the CDP WebSocket through the agent and the cached frontend work (exercised
+with Chrome's `@chrome_devtools_remote` page); clipboard both ways, including
+non-ASCII text; noVNC through the agent; location switching changes the
+egress IP of the agent and of the emulator's traffic.
+
+- `frida-server -D` keeps `adb shell` open unless its stdio is redirected.
+- Frida wrappers received in a hook must be `Java.retain`ed to be used later;
+  JS strings are not converted to `CharSequence` for overload resolution.
+- The emulator window in Xvfb is scaled to fit and has a toolbar. The AVD
+  sets `window.x/y=0` (`emulator-user.ini`), the emulator runs with
+  `-fixed-scale`, and x11vnc clips to the device size (`-clip 720x1280+0+0`),
+  so the browser shows exactly the device screen.
+- A failure after boot (install, crash loop) keeps the device running so it
+  can be inspected; only a dead emulator ends it.
+- sing-box sidecar: the WireGuard MTU must fit the Pod network (flannel
+  VXLAN, MTU 1450), 1280 works, the default 1420 fails with `sendmmsg:
+  message too long`. The selector uses `interrupt_exist_connections`, so the
+  agent drops idle HTTP connections after a switch. The sidecar needs
+  `NET_ADMIN` and `/dev/net/tun` (hostPath), not privileged.
+- DNS from the emulator goes through slirp to the Pod's resolver, which is in
+  the excluded cluster range, so lookups bypass the tunnel. Rendering
+  (`internal/vpn`) should give the emulator a resolver behind the tunnel
+  (sing-box DNS on the tun address, or `-dns-server`).
+- `holtdroid agent` can't run under Rosetta on Apple Silicon (Frida uses
+  `eventfd`); test the session image on a real amd64 node.

@@ -130,7 +130,7 @@ Session Pod (rendered by `provider-emulator`, golden-tested):
 
 | Container | Image | Notes |
 |-----------|-------|-------|
-| `emulator` | `holtdroid-session` | privileged, `/dev/kvm` hostPath, `/dev/shm` memory emptyDir, ~3–4 CPU / 5–7 GiB. Runs `holtdroid agent --kind emulator` as PID 1 supervisor |
+| `emulator` | `holtdroid-session` | privileged, `/dev/kvm` hostPath, `/dev/shm` memory emptyDir, ~3–4 CPU / 5–7 GiB. Runs `holtdroid agent` as PID 1 supervisor |
 | `vpn` | upstream `sing-box` | `NET_ADMIN`, `/dev/net/tun`. Config from the per-session Secret |
 
 Plus a Secret (sing-box config, contains the VPN private key) with an
@@ -139,28 +139,47 @@ ownerReference to the Pod, so it is garbage-collected with it.
 Inside `emulator`, the agent starts and supervises:
 
 1. `Xvfb` → `emulator` (`-gpu swiftshader_indirect -no-snapshot -no-audio
-   -no-boot-anim`, x86_64 `google_apis` API 33 image) → `x11vnc` on
-   localhost.
+   -no-boot-anim -fixed-scale`, x86_64 `google_apis` API 35 image, the `holtdroid` AVD
+   baked into the image) → `x11vnc` on localhost, clipped to the device
+   screen (`internal/agent/emulator`).
+   Any of them exiting fails the session; a later failure (install, crash
+   loop) leaves the device running for inspection.
 2. Waits for `sys.boot_completed`, runs `adb root`, pushes and starts
-   `frida-server`.
-3. Downloads the APK from the api, `adb install -r`.
-4. Spawns the package through frida-go with the instrumentation script:
-   - calls `WebView.setWebContentsDebuggingEnabled(true)` on the main thread
-     before the first WebView is created;
+   `frida-server` (same pinned version as the agent's devkit, decision #23).
+3. Downloads the APK from the api, `adb install -r -g`.
+4. Bundles `internal/agent/script/agent.js` with Frida's compiler and spawns
+   the package under it:
+   - forces `WebView.setWebContentsDebuggingEnabled(true)`: the setter is
+     hooked to always pass `true`, and it is called from
+     `Instrumentation.callApplicationOnCreate` and after every WebView
+     constructor;
    - exports clipboard RPC (`getClip`, `setClip`) and registers an
-     `OnPrimaryClipChangedListener` that emits messages to the agent.
+     `OnPrimaryClipChangedListener` that sends changes to the agent.
    The app is in the foreground, so it is allowed to access the clipboard.
-5. Re-spawns on app crash/exit; `POST /app/restart|reinstall` drive this
-   explicitly.
+   Only the app's main process is instrumented.
+5. Re-spawns on app crash/exit (five exits within a minute fail the
+   session); `POST /app/restart|reinstall` drive this explicitly, reinstall
+   uninstalls first so app data is cleared.
 
-Why the system image works for ARM-only APKs: Google's x86_64 images from
-API 30 ship `libndk_translation`, so ARM native libraries run translated while
+The provider configures the agent through environment variables
+(`HOLTDROID_ARTIFACTURL`, `HOLTDROID_PACKAGE`, `HOLTDROID_LOCATION`,
+`HOLTDROID_CLASHAPI` when a VPN sidecar runs; see `agent.Config` for the
+rest, all with defaults matching the session image).
+
+The pipeline only depends on two interfaces, `agent.Device` (adb) and
+`agent.Instrumenter` (Frida), so it is unit-tested without a device.
+
+Why the system image works for ARM-only APKs: Google's x86_64 images for
+API 30 and 34+ (not 31–33, decision #25) ship `libndk_translation`, so ARM native libraries run translated while
 ART itself stays x86_64 (Frida's Java hooks are unaffected).
 
 ### Screen
 
 The agent serves noVNC static files under `/display/` and bridges its
-WebSocket to `x11vnc` (`coder/websocket` ↔ TCP) — no websockify. The
+WebSocket to `x11vnc` (`coder/websocket` ↔ TCP) — no websockify.
+`GET /display/` redirects to `vnc.html?autoconnect=1&path=…` with the path
+built from `X-Forwarded-Prefix`, because noVNC resolves its WebSocket path
+against the host root. The
 emulator provider advertises `display: novnc`. A future phone provider
 advertises `display: scrcpy` and the UI swaps the renderer.
 
@@ -170,11 +189,14 @@ advertises `display: scrcpy` and the UI swaps the renderer.
   `@webview_devtools_remote_<pid>` (Chrome uses `@chrome_devtools_remote`).
   The agent scans `/proc/net/unix` every 2 s, keeps an
   `adb forward tcp:<port> localabstract:<socket>` per socket and aggregates
-  every socket's `/json` into `GET /devtools/targets`
-  (`{socket, process, id, type, title, url}`).
+  every socket's `/json/list` into `GET /devtools/targets`
+  (`{socket, process, id, type, title, url}`). The process name and the
+  fallback frontend revision come from the socket's `/json/version`
+  (`Android-Package`, `WebKit-Version`).
 - `WS /devtools/{socket}/page/{id}` reverse-proxies to the forwarded port
-  with `Host: localhost`, because the DevTools HTTP handler rejects other Host
-  headers (DNS rebinding protection).
+  with `Host: localhost` and without `Origin`, because the DevTools HTTP
+  handler rejects other Host headers (DNS rebinding protection) and foreign
+  origins.
 - The DevTools frontend is not bundled in WebView. The agent proxies
   `https://chrome-devtools-frontend.appspot.com/serve_rev/@{rev}/…` under
   `/devtools-frontend/@{rev}/…` with an on-disk cache; `rev` comes from
@@ -210,7 +232,8 @@ advertises `display: scrcpy` and the UI swaps the renderer.
   `direct`, behind a `selector` outbound. The clash API listens on
   `127.0.0.1:9090`. `PUT /network/location` on the agent maps to
   `PUT /proxies/select {"name": "<location>"}`. `GET /network` reports the
-  current selection and the external IP/country.
+  current selection and the external IP/country, looked up through the
+  tunnel at `ipInfoURL` (default `https://ipinfo.io/json`, cached 30 s).
 - VPN providers live in `internal/vpn` and are used by the emulator provider
   at session creation:
   - `none` — no sidecar;

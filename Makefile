@@ -3,7 +3,7 @@ BUN     ?= bun
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -s -w -X main.version=$(VERSION)
 
-.PHONY: all build web docs openapi sqlc check test lint fmt dev web-dev image clean
+.PHONY: all build web docs openapi sqlc check test lint fmt dev web-dev image session-image clean
 
 all: build
 
@@ -47,6 +47,9 @@ check: openapi sqlc lint test build docs
 
 image:
 	docker buildx build --platform linux/amd64 -f images/Dockerfile --build-arg VERSION=$(VERSION) -t holtdroid:$(VERSION) --load .
+
+session-image:
+	docker buildx build --platform linux/amd64 -f images/session.Dockerfile --build-arg VERSION=$(VERSION) -t holtdroid-session:$(VERSION) --load .
 
 dev:
 	$(GO) run ./cmd/holtdroid dev --log-format text
