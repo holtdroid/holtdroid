@@ -5,8 +5,8 @@ sidebar:
   order: 2
 ---
 
-import { Code, LinkButton } from "@astrojs/starlight/components"
-import manifest from "../../../../public/slack-app-manifest.yaml?raw"
+import { Code } from "@astrojs/starlight/components"
+import manifest from "../../../assets/slack-app-manifest.yaml?raw"
 
 Holtdroid doesn't talk to Slack itself.
 [holtdroid-slack-sync](https://github.com/kriakiku/holtdroid-slack-sync) is a
@@ -30,22 +30,12 @@ The quickest way is to create it from the manifest:
 
 1. Open [https://api.slack.com/apps](https://api.slack.com/apps) → **Create New App** → **From a
    manifest**, and pick the workspace.
-2. Paste the manifest below, or download it and upload the file. Then click **Create** → **Install to
+2. Paste the manifest below, then click **Create** → **Install to
    Workspace**.
 3. Copy the **Bot User OAuth Token** (`xoxb-…`) from **OAuth &
    Permissions**.
 
 <Code code={manifest} lang="yaml" title="slack-app-manifest.yaml" />
-
-<LinkButton
-  href="/holtdroid/slack-app-manifest.yaml"
-  download="slack-app-manifest.yaml"
-  icon="download"
-  iconPlacement="start"
-  variant="secondary"
->
-  Download manifest
-</LinkButton>
 
 | Scope                                | Needed for                                             |
 | ------------------------------------ | ------------------------------------------------------ |
