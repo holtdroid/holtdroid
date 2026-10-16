@@ -4,6 +4,7 @@ import type { ArtifactView } from "@/api/client"
 import { useArtifact } from "@/api/queries"
 import { ArtifactList } from "@/components/artifact-list"
 import { LaunchDialog } from "@/components/launch-dialog"
+import { QuickLauncher } from "@/components/quick-launcher"
 import { SessionsPanel } from "@/components/sessions-panel"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -14,6 +15,8 @@ export function HomePage() {
   const navigate = useNavigate()
   const linked = useArtifact(search.source ?? "", search.launch ?? "")
   const clearLink = () => void navigate({ to: "/", search: {}, replace: true })
+  const dropQuick = () =>
+    void navigate({ to: "/", search: { source: search.source, launch: search.launch }, replace: true })
 
   const close = () => {
     setLaunching(null)
@@ -40,7 +43,13 @@ export function HomePage() {
         <ArtifactList onLaunch={setLaunching} />
       </div>
       <SessionsPanel />
-      <LaunchDialog artifact={launching ?? (search.launch ? (linked.data ?? null) : null)} onClose={close} />
+      {search.quick && linked.data && (
+        <QuickLauncher artifact={linked.data} onStarted={clearLink} onFallback={dropQuick} />
+      )}
+      <LaunchDialog
+        artifact={launching ?? (search.launch && !search.quick ? (linked.data ?? null) : null)}
+        onClose={close}
+      />
     </div>
   )
 }

@@ -41,7 +41,8 @@ Sync jobs announce builds with a **launch link**:
 `{publicURL}/?source={source}&launch={id}`, `id` = base64url (no padding)
 of the key inside the source — the same ID the UI API uses
 (`GET /api/v1/artifacts/{source}/{id}`). The home page opens the launch
-dialog for it. The Slack sync lives in its own repository,
+dialog for it; with `&quick=1` it starts a session right away on the
+last-used provider and location and falls back to the dialog. The Slack sync lives in its own repository,
 [kriakiku/holtdroid-slack-sync](https://github.com/kriakiku/holtdroid-slack-sync)
 (decision #30).
 

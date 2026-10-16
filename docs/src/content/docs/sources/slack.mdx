@@ -21,8 +21,16 @@ It picks up APKs:
 - inside forwarded messages.
 
 Optionally it reacts to the message once the build is in the source and
-replies in the thread with the app's name, package, version, SDK levels,
-ABIs and a [launch link](/holtdroid/sources/overview/#launch-links).
+replies in the thread with a card. The card shows the app's name, package,
+version, size, SDK levels and ABIs, plus two
+[launch buttons](/holtdroid/sources/overview/#launch-links):
+
+- **Quick launch** starts a device right away with the user's last provider
+  and location;
+- **Launch…** opens the launch dialog.
+
+The buttons are plain links, so the Slack app needs no interactivity
+endpoint.
 
 ## 1. Create the Slack app
 

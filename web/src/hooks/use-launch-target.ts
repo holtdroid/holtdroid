@@ -26,6 +26,7 @@ export function useLaunchTarget(chosenProvider: string | null = null, chosenLoca
   ].find((id): id is string => !!id && locations.some((l) => l.id === id))
 
   return {
+    loaded: providers.isSuccess,
     usable,
     provider,
     locations,
@@ -39,7 +40,13 @@ export function useLaunchTarget(chosenProvider: string | null = null, chosenLoca
 export function useStartSession() {
   const launch = useLaunch()
   const navigate = useNavigate()
-  const start = (artifact: ArtifactView, provider: string, location: string | undefined, onStarted?: () => void) =>
+  const start = (
+    artifact: ArtifactView,
+    provider: string,
+    location: string | undefined,
+    onStarted?: () => void,
+    onFailed?: () => void,
+  ) =>
     launch.mutate(
       { source: artifact.source, artifactId: artifact.id, provider, location },
       {
@@ -48,7 +55,10 @@ export function useStartSession() {
           onStarted?.()
           void navigate({ to: "/session/$provider/$id", params: { provider: session.provider, id: session.id } })
         },
-        onError: (err) => toast.error("Could not launch", { description: err.message }),
+        onError: (err) => {
+          toast.error("Could not launch", { description: err.message })
+          onFailed?.()
+        },
       },
     )
   return { start, isPending: launch.isPending }

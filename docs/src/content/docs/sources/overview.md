@@ -120,5 +120,9 @@ replica — use an S3 source for uploads to run more.
 the portal with the launch dialog for that build. The artifact ID is the
 base64url (no padding) of the file's key inside the source, e.g. `slack` +
 `C0123/F0456/app.apk` → `?source=slack&launch=QzAxMjMvRjA0NTYvYXBwLmFwaw`.
-Sync jobs use it to post "launch this build" links next to the build; a build
+Add `&quick=1` to skip the dialog: the session starts right away on the
+provider and location the user launched with last time (or the first
+provider with a free slot), as the quick launch button in the list does.
+If nothing is free or the launch fails, the dialog opens instead.
+Sync jobs use these links to post launch buttons next to the build; a build
 that is gone or private to someone else shows a notice instead.

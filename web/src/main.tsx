@@ -41,9 +41,10 @@ const rootRoute = createRootRoute({
 const homeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
-  validateSearch: (search: Record<string, unknown>): { source?: string; launch?: string } => ({
+  validateSearch: (search: Record<string, unknown>): { source?: string; launch?: string; quick?: boolean } => ({
     source: typeof search.source === "string" ? search.source : undefined,
     launch: typeof search.launch === "string" ? search.launch : undefined,
+    quick: search.quick === 1 || search.quick === "1" || search.quick === true ? true : undefined,
   }),
   component: HomePage,
 })
