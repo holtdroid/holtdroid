@@ -20,6 +20,7 @@ import (
 	"github.com/kriakiku/holtdroid/internal/contract"
 	"github.com/kriakiku/holtdroid/internal/db"
 	"github.com/kriakiku/holtdroid/internal/secrets"
+	"github.com/kriakiku/holtdroid/internal/source"
 	"github.com/kriakiku/holtdroid/internal/storage"
 )
 
@@ -29,13 +30,14 @@ type Server struct {
 	secrets    *secrets.Registry
 	store      storage.Store
 	db         *db.DB
-	sources    map[string]contract.Source
+	sources    map[string]*source.Source
 	srcOrder   []string
 	providers  map[string]contract.Provider
 	provOrder  []string
 	cache      *Cache
 	activity   *activity
-	warm       chan [2]string
+	warm       chan warmItem
+	library    *library
 	ui         fs.FS
 	lookupHost func(ctx context.Context, host string) ([]string, error)
 	sshHTTP    *http.Client
@@ -53,13 +55,6 @@ func WithSecrets(reg *secrets.Registry) Option { return func(s *Server) { s.secr
 
 func WithStore(store storage.Store) Option { return func(s *Server) { s.store = store } }
 
-func WithSource(name string, src contract.Source) Option {
-	return func(s *Server) {
-		s.sources[name] = src
-		s.srcOrder = append(s.srcOrder, name)
-	}
-}
-
 func WithProvider(name string, p contract.Provider) Option {
 	return func(s *Server) {
 		s.providers[name] = p
@@ -73,16 +68,14 @@ func New(ctx context.Context, cfg Config, opts ...Option) (*Server, error) {
 	}
 	s := &Server{
 		cfg:        cfg,
-		sources:    map[string]contract.Source{},
+		sources:    map[string]*source.Source{},
 		providers:  map[string]contract.Provider{},
-		warm:       make(chan [2]string, 256),
+		warm:       make(chan warmItem, 256),
+		library:    newLibrary(),
 		now:        time.Now,
 		lookupHost: net.DefaultResolver.LookupHost,
 		sshHTTP:    &http.Client{Timeout: 10 * time.Second},
 		log:        slog.Default().With("component", "api"),
-	}
-	for _, e := range cfg.Sources {
-		WithSource(e.Name, contract.NewSourceClient(e.URL, nil))(s)
 	}
 	for _, e := range cfg.Providers {
 		WithProvider(e.Name, contract.NewProviderClient(e.URL, nil))(s)
@@ -92,6 +85,14 @@ func New(ctx context.Context, cfg Config, opts ...Option) (*Server, error) {
 	}
 	if s.secrets == nil {
 		s.secrets = secrets.NewRegistry()
+	}
+	for _, sc := range cfg.Sources {
+		store, err := storage.New(ctx, sc.Storage(), s.secrets)
+		if err != nil {
+			return nil, fmt.Errorf("source %q: %w", sc.Name, err)
+		}
+		s.sources[sc.Name] = source.New(store, sc.ReadOnly)
+		s.srcOrder = append(s.srcOrder, sc.Name)
 	}
 	var err error
 	if s.auth, err = auth.New(ctx, cfg.Auth, s.secrets, cfg.PublicURL); err != nil {
@@ -121,20 +122,21 @@ func (s *Server) recordEvent(ctx context.Context, provider, id, kind, actor, art
 	}
 }
 
-func (s *Server) openArtifact(ctx context.Context, source, id string) (contract.Artifact, io.ReadCloser, error) {
-	src, ok := s.sources[source]
+func (s *Server) source(name string) (*source.Source, error) {
+	src, ok := s.sources[name]
 	if !ok {
-		return contract.Artifact{}, nil, fmt.Errorf("%w: source %q", contract.ErrNotFound, source)
+		return nil, fmt.Errorf("%w: source %q", contract.ErrNotFound, name)
 	}
-	a, err := src.Get(ctx, id)
+	return src, nil
+}
+
+func (s *Server) openArtifact(ctx context.Context, name, id string) (io.ReadCloser, error) {
+	src, err := s.source(name)
 	if err != nil {
-		return contract.Artifact{}, nil, err
+		return nil, err
 	}
 	rc, _, err := src.Open(ctx, id)
-	if err != nil {
-		return contract.Artifact{}, nil, err
-	}
-	return a, rc, nil
+	return rc, err
 }
 
 func NewHumaAPI(mux *http.ServeMux, title, version string) huma.API {
@@ -165,6 +167,9 @@ func (s *Server) Handler() http.Handler {
 		case strings.HasPrefix(p, "/api/v1/auth"), strings.HasPrefix(p, "/api/openapi"),
 			strings.HasPrefix(p, "/api/docs"), strings.HasPrefix(p, "/api/schemas"):
 			optional.ServeHTTP(w, r)
+		case p == uploadPath && r.Method == http.MethodPost:
+			r.Body = http.MaxBytesReader(w, r.Body, int64(s.cfg.Uploads.MaxSize)+1<<20)
+			protected.ServeHTTP(w, r)
 		case strings.HasPrefix(p, "/api/"), strings.HasPrefix(p, "/s/"):
 			protected.ServeHTTP(w, r)
 		default:
@@ -177,8 +182,8 @@ func (s *Server) Handler() http.Handler {
 // exposed through the ingress.
 func (s *Server) InternalHandler() http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /internal/artifacts/{source}/{id}", func(w http.ResponseWriter, r *http.Request) {
-		rc, size, err := s.cache.OpenAPK(r.Context(), r.PathValue("source"), r.PathValue("id"))
+	mux.HandleFunc("GET /internal/artifacts/{key}", func(w http.ResponseWriter, r *http.Request) {
+		rc, size, err := s.cache.OpenAPK(r.Context(), r.PathValue("key"))
 		if errors.Is(err, storage.ErrNotExist) {
 			http.NotFound(w, r)
 			return
@@ -196,14 +201,14 @@ func (s *Server) InternalHandler() http.Handler {
 	return mux
 }
 
-func (s *Server) artifactURL(source, id string) string {
-	return strings.TrimRight(s.cfg.InternalURL, "/") + "/internal/artifacts/" + source + "/" + id
+func (s *Server) artifactURL(key string) string {
+	return strings.TrimRight(s.cfg.InternalURL, "/") + "/internal/artifacts/" + key
 }
 
 // OpenAPI returns the UI API description, used to generate the web client.
 func OpenAPI() *huma.OpenAPI {
 	a, _ := auth.New(context.Background(), auth.Config{Mode: auth.ModeNone}, nil, "")
-	s := &Server{auth: a, sources: map[string]contract.Source{}, providers: map[string]contract.Provider{}}
+	s := &Server{auth: a, sources: map[string]*source.Source{}, providers: map[string]contract.Provider{}}
 	api := NewHumaAPI(http.NewServeMux(), "Holtdroid", "v1")
 	s.register(api)
 	return api.OpenAPI()

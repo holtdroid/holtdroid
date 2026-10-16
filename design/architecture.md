@@ -2,9 +2,9 @@
 
 ## Goals
 
-1. A user opens one URL, sees the APKs that were shared in a source (a Slack
-   channel), picks one and gets a running Android device with that APK
-   installed.
+1. A user opens one URL, sees the APKs in the configured sources (a folder
+   or bucket that a Slack sync or CI fills, plus their own uploads), picks
+   one and gets a running Android device with that APK installed.
 2. In the same page: the device screen (interactive), Chrome DevTools attached
    to the app's WebViews with a target switcher, two-way clipboard sync, and a
    VPN location selector for the device's traffic.
@@ -12,8 +12,8 @@
    and location; sessions are bounded (N slots) and are deleted after a period
    of inactivity or a hard TTL.
 4. The APK is never modified.
-5. Extensible without touching the core: new artifact sources, new device
-   kinds (physical rooted phones next), new VPN vendors, new secret backends.
+5. Extensible without touching the core: new origins of builds (any job
+   that writes files into a source), new device kinds (physical rooted phones next), new VPN vendors, new secret backends.
 
 ### Non-goals (for now)
 
@@ -32,7 +32,6 @@ flowchart LR
 
   subgraph holtdroid namespace
     api["api<br/>(BFF + embedded web UI)"]
-    src["source-slack"]
     prov["provider-emulator"]
     subgraph session["Session Pod (one per device)"]
       agent["agent + emulator"]
@@ -40,10 +39,11 @@ flowchart LR
     end
   end
 
-  api -- Source API --> src
+  api -- "list / download / upload" --> sources[("sources<br/>folder / S3")]
+  sync["sync jobs (Slack, CI, …)<br/>not part of Holtdroid"] -. "*.apk + .meta.json" .-> sources
   api -- Provider API --> prov
   api -- "Agent API (proxied /s/{provider}/{id}/*)" --> agent
-  src -->|Web API| slack[(Slack)]
+  sync -->|Web API| slack[(Slack)]
   prov -->|client-go| k8s[(Kubernetes API)]
   prov -->|server list| nord[(VPN vendor API)]
   agent -->|artifact download| api
@@ -57,15 +57,16 @@ image and Frida on top of the agent.
 
 | Service | Responsibility | Talks to |
 |---------|----------------|----------|
-| `api` | UI REST API and static web UI, registries of sources and providers, APK cache, session proxy `/s/{provider}/{id}/*` (HTTP + WebSocket), activity tracking, idle/TTL reaper, auth | sources, providers, agents |
-| `source-slack` | Lists `.apk` files posted in a configured channel, streams downloads | Slack Web API |
+| `api` | UI REST API and static web UI, artifact sources (list, watch, uploads), APK cache, provider registry, session proxy `/s/{provider}/{id}/*` (HTTP + WebSocket), activity tracking, idle/TTL reaper, auth | source stores, providers, agents |
 | `provider-emulator` | Owns emulator sessions: slot accounting, creates/deletes session Pods and their per-session Secrets, picks VPN servers, reports capabilities | Kubernetes API, VPN vendor API |
 | `agent` | Runs inside a session: boots the device, installs and launches the APK under Frida, serves the screen, DevTools proxy, clipboard, network control, status events | ADB, Frida, sing-box clash API |
 
 The **api is stateless**. Providers are the source of truth for sessions; the
 emulator provider stores everything in Pod labels/annotations. Identities live
 in signed cookies and APKs in a re-fillable cache (`storage`: filesystem or
-S3), so api replicas are interchangeable. Activity
+S3), so api replicas are interchangeable. Sources are folders or S3 prefixes
+the api lists itself (see "Artifact sources" below); uploads are files plus a
+sidecar in a writable source, so they live wherever that source lives. Activity
 timestamps are held in memory by the api and flushed to the provider
 (`POST /sessions/{id}/touch`) at most every 30 s, so an api restart loses at
 most 30 s of activity.
@@ -80,27 +81,65 @@ Litestream replication to S3 and PostgreSQL come later.
 sequenceDiagram
   participant B as Browser
   participant A as api
-  participant S as source-slack
+  participant S as source (folder / S3)
   participant P as provider-emulator
   participant K as Kubernetes
   participant G as agent (session pod)
 
   B->>A: GET /api/artifacts
-  A->>S: GET /artifacts
-  S-->>A: list
-  A-->>B: list (+ cached metadata/icons)
-  B->>A: POST /api/sessions {artifact, provider, location}
-  A->>S: GET /artifacts/{id}/download (if not cached)
+  A->>S: list *.apk + read changed .meta.json
+  S-->>A: objects (key, ETag/mtime)
+  A-->>B: visible artifacts (+ cached metadata/icons)
+  B->>A: POST /api/sessions {source, artifactId, provider, location}
+  A->>S: stat, then download this revision (if not cached)
   A->>A: parse APK (package, version, label, icon), cache
   A->>P: POST /sessions {artifactUrl, package, location, owner}
   P->>K: create Secret (sing-box config) + Pod
   P-->>A: {sessionId, agentUrl, state: provisioning}
   A-->>B: {sessionId}
   B->>A: GET /s/{provider}/{id}/status (SSE, proxied)
-  G->>A: GET /internal/artifacts/{source}/{id} (APK)
+  G->>A: GET /internal/artifacts/{cache key} (APK)
   G-->>B: booting → installing → instrumenting → ready
   B->>A: /s/{provider}/{id}/display, /s/{provider}/{id}/devtools/... (proxied)
 ```
+
+## Artifact sources
+
+A source is a `storage.Store` — a directory or an S3 bucket/prefix — that the
+api lists itself (`internal/source`, decisions.md #27). There is no source
+service: anything that wants to publish builds writes files.
+
+```
+builds/app.apk
+builds/app.apk.meta.json        # optional sidecar
+uploads/3f9a1c02b7d4/my.apk     # portal upload
+uploads/3f9a1c02b7d4/my.apk.meta.json
+```
+
+- **Artifacts.** Every `*.apk` at any depth; hidden entries and unreadable
+  directories are skipped. The key is the artifact's identity inside the
+  source; the UI API exposes it base64url-encoded.
+- **Sidecar.** `<file>.apk.meta.json`, all fields optional, unknown ones
+  ignored: `title`, `note`, `changelog`, `uploadedBy`, `uploadedAt`, `link`,
+  `origin`, `tags`, `owner`, `visibility` (`public`|`private`). Invalid JSON
+  is logged and ignored. Sidecars are memoised by their own revision.
+- **Revisions.** ETag on S3, size + mtime on a filesystem, hashed. The APK
+  cache key is `hash(source, key, revision)`, the provider gets
+  `ArtifactRef = {source}/{key}@{revision}` and an `artifactUrl` pointing at
+  that exact cache entry, so a replaced file never mixes with sessions
+  started from the old one.
+- **Watching.** Each replica lists each source every `pollInterval`
+  (default 30 s) and after its own writes, keeps a fingerprint per source,
+  queues uncached revisions for warm-up and pushes `event: artifacts` with a
+  combined revision over `/api/v1/events`; the UI refetches.
+- **Visibility.** `private` artifacts are listed and launchable only for the
+  `owner` and admins. Visibility changes and deletes are for the owner and
+  admins; ownerless files (dropped by a sync job) only for admins; sources
+  marked `readOnly` refuse both.
+- **Uploads.** `POST /api/v1/uploads` (multipart, `uploads.maxSize`,
+  `uploads.enabled` default true) parses the APK first, writes the sidecar
+  then the file to `{uploads.prefix}/{random}/{sanitized name}` in
+  `uploads.source` (default: the first source) and seeds the cache.
 
 ## Session lifecycle
 

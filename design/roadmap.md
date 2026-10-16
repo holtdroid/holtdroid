@@ -11,8 +11,8 @@ silently drop any.
 
 ## Phase 1 — Scaffold
 
-- [x] Go module `github.com/kriakiku/holtdroid`, `cmd/holtdroid` with cobra subcommands (`api`, `source-dir`, `provider-fake`, `dev`, `openapi`)
-- [x] `internal/contract`: Source/Provider/Agent interfaces, huma registration, Go clients, round-trip tests
+- [x] Go module `github.com/kriakiku/holtdroid`, `cmd/holtdroid` with cobra subcommands (`api`, `provider-fake`, `agent`, `dev`, `openapi`; `source-dir` was removed by decision #27)
+- [x] `internal/contract`: Provider/Agent interfaces (Source removed by decision #27), huma registration, Go clients, round-trip tests
 - [ ] `internal/contract/conformance`: reusable suite for third-party implementations
 - [x] `internal/secrets` (env, file, openbao) with tests
 - [x] `internal/auth` with tests (all modes: see Phase 1.5)
@@ -31,7 +31,7 @@ silently drop any.
 - [x] Login screen, user menu, sign-out / new name in the UI
 - [x] `internal/storage`: filesystem and S3 (minio-go) backends; APK cache on top of it
 - [x] `images/Dockerfile` (distroless, multi-arch) and release workflow: `ghcr.io/kriakiku/holtdroid:<sha>` on every push to `main`, chart to OCI on tags
-- [x] Helm chart `deploy/helm/holtdroid` (api, source-dir, provider-fake, ingress, extraObjects)
+- [x] Helm chart `deploy/helm/holtdroid` (api with a data PVC for the `local` source and uploads, provider-fake, ingress, extraObjects)
 - [x] Live deployment tracking `main` (Argo CD, android.homelab.example)
 - [ ] Session image pre-pull and emulator provider values in the chart (with Phase 3)
 
@@ -55,11 +55,12 @@ Goal: one hand-written Pod on a KVM node proves the device side end to end.
 
 - [ ] `internal/vpn`: `none`, `wireguard`, `nordvpn` (server recommendations, collision-free picking, `excludeServers`), sing-box rendering with golden tests; WireGuard MTU that fits the Pod network, emulator DNS through the tunnel (decision #26)
 - [ ] `provider-emulator`: capacity from nodes + config, Pod/Secret rendering (golden tests), create/list/delete, state from annotations, `touch`
-- [ ] `source-slack`: list, paginate, download; fake Slack server in tests
+- [x] Artifact sources in the api (decision #27): filesystem/S3 stores, `.meta.json` sidecars, revisions keyed into the cache and `ArtifactRef`, polling + `event: artifacts`, uploads (`uploads.*`), public/private, delete by owner/admin, `readOnly` sources; UI upload dialog, drag & drop, changelog/tags, manage menu
+- [ ] Slack sync job, independent of the api: reads channels, writes `{channel}/{file id}/{name}.apk` + sidecar into an S3/folder source; fake Slack server in tests
 - [x] `internal/apk`: metadata + icon + ABIs with a fixture
 - [x] `api`: registries, artifact merge, APK cache (LRU on disk, background warm-up), session create flow, `/s/{provider}/{id}` proxy, input-based activity + flush, reaper, UI API, SSE events, internal artifact endpoint
-- [x] `source/dir` and `provider/fake` (+ fake agent) for `holtdroid dev` and tests
-- [ ] Conformance suite covers Source, Provider, Agent; every implementation runs it (round-trip tests exist for dir + fake)
+- [x] `provider/fake` (+ fake agent) for `holtdroid dev` and tests
+- [ ] Conformance suite covers Provider and Agent; every implementation runs it (round-trip tests exist for fake)
 
 ## Phase 4 — Web UI
 
@@ -98,22 +99,23 @@ Design: decisions.md #22. No backward compatibility before the first release.
 
 ## Phase 5 — Packaging and docs
 
-- [ ] Helm chart: add source-slack, provider-emulator, RBAC, NetworkPolicy, prepull DaemonSet, values for nodeSelector/tolerations/slots/resources
+- [ ] Helm chart: add provider-emulator, RBAC, NetworkPolicy, prepull DaemonSet, values for nodeSelector/tolerations/slots/resources
 - [x] Release workflow: amd64 session image
-- [ ] Docs site content: install with Helm, Slack app setup, VPN providers, secrets backends, forward-auth examples (Authelia, oauth2-proxy), architecture, writing a source/provider, troubleshooting (KVM, ARM translation, Frida)
+- [ ] Docs site content: install with Helm, Slack app setup, VPN providers, secrets backends, forward-auth examples (Authelia, oauth2-proxy), architecture, publishing builds into a source, writing a provider, troubleshooting (KVM, ARM translation, Frida)
 - [x] Docs deployed to GitHub Pages
 
 ## Phase 6 — First deployment
 
 - [x] Deploy to the maintainer's cluster via Argo CD + the Helm chart (portal with fake devices; see status.md)
-- [ ] Switch that deployment to `provider-emulator` + `source-slack` once Phase 3 lands
+- [ ] Switch that deployment to `provider-emulator` + a Slack sync into an S3 source once Phase 3 lands
 - [ ] Fix whatever reality finds; feed it back into docs
 
 ## Later
 
 - [ ] Docker-only deployment: `provider-docker` (Docker Engine API, session state in container labels, VPN sidecar via `network_mode: container:`), `compose.yaml` with api + sources + provider-docker, docs page. Session container spec shared with `provider-emulator` (see architecture.md "Future: Docker-only deployment")
 - [ ] `provider-physical` + phone agent (ws-scrcpy, wireless ADB, WireGuard app intents, cleanup between sessions)
-- [ ] More sources: manual upload, GitHub Releases, generic HTTP/S3 index
+- [ ] More sync jobs (GitHub Releases, CI artifacts) writing the source layout
+- [ ] Listing cache for very large buckets (today every request lists the store)
 - [ ] `.apks` / `.xapk` split APK support
 - [ ] Logcat streaming panel
 - [ ] Session recording / screenshots

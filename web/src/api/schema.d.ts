@@ -20,20 +20,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/artifacts/{source}/{id}/icon": {
+    "/api/v1/artifacts/{source}/{id}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["getArtifactIcon"];
+        get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        /** @description Deletes an artifact and its sidecar. Owner or admin only. */
+        delete: operations["deleteArtifact"];
         options?: never;
         head?: never;
-        patch?: never;
+        /** @description Changes the visibility of an artifact. Owner or admin only. */
+        patch: operations["updateArtifact"];
         trace?: never;
     };
     "/api/v1/auth": {
@@ -93,8 +95,24 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Pushes the full session list whenever it changes. */
+        /** @description Pushes the full session list whenever it changes, and the artifact library revision whenever a source changes. */
         get: operations["streamEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/icons/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getArtifactIcon"];
         put?: never;
         post?: never;
         delete?: never;
@@ -248,31 +266,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getUploads"];
+        put?: never;
+        /** @description Uploads an APK into the uploads source. The file must be a valid APK no larger than uploads.maxSize. */
+        post: operations["uploadArtifact"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        Artifact: {
-            fileName: string;
-            id: string;
-            link?: string;
-            note?: string;
-            /** Format: int64 */
-            size: number;
-            /** Format: date-time */
-            uploadedAt: string;
-            uploadedBy?: string;
-        };
         ArtifactList: {
             errors: components["schemas"]["SourceError"][];
             items: components["schemas"]["ArtifactView"][];
             nextCursor?: string;
         };
         ArtifactView: {
-            artifact: components["schemas"]["Artifact"];
-            hasIcon: boolean;
-            meta?: components["schemas"]["Metadata"];
+            /** @description Parsed from the APK once it is cached */
+            app?: components["schemas"]["Metadata"];
+            /** @description The caller may change visibility or delete it */
+            canManage: boolean;
+            fileName: string;
+            iconUrl?: string;
+            /** @description Opaque, URL-safe */
+            id: string;
+            /** @description Contents of the optional .meta.json sidecar */
+            meta: components["schemas"]["Meta"];
+            /** @description Changes whenever the file is replaced */
+            revision: string;
+            /** Format: int64 */
+            size: number;
             source: string;
+            /** Format: date-time */
+            uploadedAt: string;
+        };
+        ArtifactsEvent: {
+            /** @description Changes whenever any source gains, loses or replaces a file */
+            revision: string;
         };
         AuthStatus: {
             identity?: components["schemas"]["Identity"];
@@ -379,6 +420,36 @@ export interface components {
         LoginInputBody: {
             password: string;
         };
+        Meta: {
+            /** @description What changed in this build, plain text or Markdown */
+            changelog?: string;
+            /** @description Link back to the origin (message, pipeline, release) */
+            link?: string;
+            /** @description Short description, e.g. the Slack message text */
+            note?: string;
+            /** @description Where the build came from, e.g. slack, ci, upload */
+            origin?: string;
+            /** @description Portal user ID that owns the build and may delete it */
+            owner?: string;
+            /** @description Free-form labels such as branch, commit, flavor */
+            tags?: {
+                [key: string]: string;
+            };
+            /** @description Display name instead of the APK label */
+            title?: string;
+            /**
+             * Format: date-time
+             * @description Publication time; defaults to the file's modification time
+             */
+            uploadedAt?: string;
+            /** @description Display name of whoever published the build */
+            uploadedBy?: string;
+            /**
+             * @description private: only the owner and admins see it; default public
+             * @enum {string}
+             */
+            visibility?: "public" | "private";
+        };
         Metadata: {
             abis: string[];
             label?: string;
@@ -390,6 +461,10 @@ export interface components {
             /** Format: int32 */
             versionCode?: number;
             versionName?: string;
+        };
+        PatchArtifactInputBody: {
+            /** @enum {string} */
+            visibility: "public" | "private";
         };
         ProviderView: {
             capabilities: components["schemas"]["Capabilities"];
@@ -426,7 +501,7 @@ export interface components {
             artifactId: string;
             /** Format: date-time */
             createdAt: string;
-            hasIcon: boolean;
+            iconUrl?: string;
             id: string;
             /** Format: date-time */
             idleDeadline: string;
@@ -462,6 +537,13 @@ export interface components {
         };
         SourceView: {
             name: string;
+            readOnly: boolean;
+        };
+        UploadsInfo: {
+            enabled: boolean;
+            /** Format: int64 */
+            maxSize: number;
+            source?: string;
         };
     };
     responses: never;
@@ -475,7 +557,7 @@ export interface operations {
     listArtifacts: {
         parameters: {
             query?: {
-                /** @description Only list this source; enables cursor paging */
+                /** @description Only list this source */
                 source?: string;
                 cursor?: string;
                 limit?: number;
@@ -506,7 +588,7 @@ export interface operations {
             };
         };
     };
-    getArtifactIcon: {
+    deleteArtifact: {
         parameters: {
             query?: never;
             header?: never;
@@ -518,13 +600,47 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description PNG icon */
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    updateArtifact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                source: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchArtifactInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "image/png": unknown;
+                    "application/json": components["schemas"]["ArtifactView"];
                 };
             };
             /** @description Error */
@@ -645,7 +761,18 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "text/event-stream": {
+                    "text/event-stream": ({
+                        data: components["schemas"]["ArtifactsEvent"];
+                        /**
+                         * @description The event name.
+                         * @constant
+                         */
+                        event: "artifacts";
+                        /** @description The event ID. */
+                        id?: number;
+                        /** @description The retry time in milliseconds. */
+                        retry?: number;
+                    } | {
                         data: components["schemas"]["SessionsEvent"];
                         /**
                          * @description The event name.
@@ -656,7 +783,38 @@ export interface operations {
                         id?: number;
                         /** @description The retry time in milliseconds. */
                         retry?: number;
-                    }[];
+                    })[];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getArtifactIcon: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description PNG icon */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": unknown;
                 };
             };
             /** @description Error */
@@ -996,6 +1154,79 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SSHKeysSynced"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getUploads: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadsInfo"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    uploadArtifact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": {
+                    changelog?: string;
+                    /** Format: binary */
+                    file: string;
+                    note?: string;
+                    title?: string;
+                    /**
+                     * @default public
+                     * @enum {string}
+                     */
+                    visibility?: "public" | "private";
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtifactView"];
                 };
             };
             /** @description Error */

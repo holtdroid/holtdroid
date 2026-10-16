@@ -1,5 +1,5 @@
-// Package storage is a minimal object store used for the APK cache, backed by
-// a local directory or an S3-compatible bucket.
+// Package storage is a minimal object store used for artifact sources and the
+// APK cache, backed by a local directory or an S3-compatible bucket.
 package storage
 
 import (
@@ -18,10 +18,12 @@ type Object struct {
 	Key      string
 	Size     int64
 	Modified time.Time
+	ETag     string
 }
 
 type Store interface {
 	Get(ctx context.Context, key string) (io.ReadCloser, int64, error)
+	Stat(ctx context.Context, key string) (Object, error)
 	Put(ctx context.Context, key string, r io.Reader, size int64) error
 	Delete(ctx context.Context, key string) error
 	List(ctx context.Context, prefix string) ([]Object, error)

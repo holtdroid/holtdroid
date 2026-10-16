@@ -3,11 +3,8 @@ package contract_test
 import (
 	"context"
 	"errors"
-	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -16,7 +13,6 @@ import (
 
 	"github.com/kriakiku/holtdroid/internal/contract"
 	"github.com/kriakiku/holtdroid/internal/provider/fake"
-	"github.com/kriakiku/holtdroid/internal/source/dir"
 )
 
 func serve(t *testing.T, register func(huma.API)) string {
@@ -26,55 +22,6 @@ func serve(t *testing.T, register func(huma.API)) string {
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 	return srv.URL
-}
-
-func TestSourceRoundTrip(t *testing.T) {
-	root := t.TempDir()
-	for i, name := range []string{"a.apk", "b.apk", "c.apk", "notes.txt"} {
-		path := filepath.Join(root, name)
-		if err := os.WriteFile(path, []byte(name), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		mtime := time.Date(2026, 1, 1, i, 0, 0, 0, time.UTC)
-		if err := os.Chtimes(path, mtime, mtime); err != nil {
-			t.Fatal(err)
-		}
-	}
-	url := serve(t, func(api huma.API) { contract.RegisterSource(api, dir.New(root)) })
-	c := contract.NewSourceClient(url, nil)
-	ctx := context.Background()
-
-	page, err := c.List(ctx, "", 2)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(page.Items) != 2 || page.Items[0].ID != "c.apk" || page.NextCursor == "" {
-		t.Fatalf("first page %+v", page)
-	}
-	page, err = c.List(ctx, page.NextCursor, 2)
-	if err != nil || len(page.Items) != 1 || page.Items[0].ID != "a.apk" || page.NextCursor != "" {
-		t.Fatalf("second page %+v, %v", page, err)
-	}
-
-	rc, size, err := c.Open(ctx, "b.apk")
-	if err != nil {
-		t.Fatal(err)
-	}
-	raw, _ := io.ReadAll(rc)
-	_ = rc.Close()
-	if string(raw) != "b.apk" || size != 5 {
-		t.Fatalf("download %q (%d)", raw, size)
-	}
-
-	if _, err := c.Get(ctx, "notes.txt"); !errors.Is(err, contract.ErrNotFound) {
-		t.Fatalf("non-apk get: %v", err)
-	}
-	if _, _, err := c.Open(ctx, "../etc/passwd"); !errors.Is(err, contract.ErrNotFound) {
-		t.Fatalf("traversal: %v", err)
-	}
-	if err := c.Health(ctx); err != nil {
-		t.Fatal(err)
-	}
 }
 
 func TestProviderRoundTrip(t *testing.T) {

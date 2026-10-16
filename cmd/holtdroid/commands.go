@@ -16,8 +16,9 @@ import (
 	"github.com/kriakiku/holtdroid/internal/api"
 	"github.com/kriakiku/holtdroid/internal/contract"
 	"github.com/kriakiku/holtdroid/internal/provider/fake"
-	"github.com/kriakiku/holtdroid/internal/source/dir"
+	"github.com/kriakiku/holtdroid/internal/source"
 	"github.com/kriakiku/holtdroid/internal/sshgateway"
+	"github.com/kriakiku/holtdroid/internal/storage"
 	"github.com/kriakiku/holtdroid/web"
 )
 
@@ -40,22 +41,6 @@ func apiCmd(c *common) *cobra.Command {
 				{cfg.Listen, srv.Handler()},
 				{cfg.InternalListen, srv.InternalHandler()},
 			}, srv.Run)
-		},
-	}
-}
-
-func sourceDirCmd(c *common) *cobra.Command {
-	return &cobra.Command{
-		Use:   "source-dir",
-		Short: "Run an artifact source that serves APKs from a directory",
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			cfg := dir.DefaultConfig()
-			if _, err := loadConfig(c.configPath, &cfg); err != nil {
-				return err
-			}
-			mux := http.NewServeMux()
-			contract.RegisterSource(contract.NewAPI(mux, "Holtdroid directory source"), dir.New(cfg.Path))
-			return serve(cmd.Context(), []listener{{cfg.Listen, mux}})
 		},
 	}
 }
@@ -108,6 +93,7 @@ func devCmd() *cobra.Command {
 		agents    string
 		sshKeys   string
 		apks      string
+		uploads   string
 		cacheDir  string
 		authMode  string
 		password  string
@@ -119,12 +105,15 @@ func devCmd() *cobra.Command {
 		Use:   "dev",
 		Short: "Run the api with a directory source and fake devices (local development)",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if cacheDir == "" {
-				var err error
-				if cacheDir, err = os.MkdirTemp("", "holtdroid-cache-"); err != nil {
-					return err
+			for _, dir := range []*string{&cacheDir, &uploads} {
+				if *dir == "" {
+					tmp, err := os.MkdirTemp("", "holtdroid-dev-")
+					if err != nil {
+						return err
+					}
+					defer os.RemoveAll(tmp)
+					*dir = tmp
 				}
-				defer os.RemoveAll(cacheDir)
 			}
 			absAPKs, err := filepath.Abs(apks)
 			if err != nil {
@@ -147,11 +136,12 @@ func devCmd() *cobra.Command {
 			cfg.InternalURL = "http://localhost" + cfg.InternalListen
 			cfg.SSH.Enabled = true
 			cfg.SSH.GatewayURL = "http://127.0.0.1" + sshKeys
-			srv, err := api.New(cmd.Context(), cfg,
-				api.WithUI(web.FS()),
-				api.WithSource("local", dir.New(absAPKs)),
-				api.WithProvider("fake", provider),
-			)
+			cfg.Sources = []source.Config{
+				{Name: "local", Type: "filesystem", Filesystem: storage.FilesystemConfig{Dir: absAPKs}, ReadOnly: true, PollInterval: 5 * time.Second},
+				{Name: "uploads", Type: "filesystem", Filesystem: storage.FilesystemConfig{Dir: uploads}, PollInterval: 5 * time.Second},
+			}
+			cfg.Uploads.Source = "uploads"
+			srv, err := api.New(cmd.Context(), cfg, api.WithUI(web.FS()), api.WithProvider("fake", provider))
 			if err != nil {
 				return err
 			}
@@ -167,7 +157,8 @@ func devCmd() *cobra.Command {
 	cmd.Flags().StringVar(&listen, "listen", ":8080", "portal address")
 	cmd.Flags().StringVar(&agents, "agents", ":8090", "address for the fake device agents")
 	cmd.Flags().StringVar(&sshKeys, "ssh-keys", ":8092", "address for the in-process ssh-gateway key API")
-	cmd.Flags().StringVar(&apks, "apks", "internal/apk/testdata", "directory with APKs to list")
+	cmd.Flags().StringVar(&apks, "apks", "internal/apk/testdata", "read-only directory with APKs to list")
+	cmd.Flags().StringVar(&uploads, "uploads", "", "directory for uploaded APKs (default: a temporary directory)")
 	cmd.Flags().StringVar(&cacheDir, "cache", "", "APK cache directory (default: a temporary directory)")
 	cmd.Flags().StringVar(&authMode, "auth", "anonymous", "sign-in mode: anonymous, password or none")
 	cmd.Flags().StringVar(&password, "password", "", "shared password for --auth password")

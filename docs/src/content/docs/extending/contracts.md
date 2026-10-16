@@ -1,13 +1,13 @@
 ---
 title: Contracts
-description: The HTTP APIs between Holtdroid services, and how to implement your own source or provider.
+description: The HTTP APIs between Holtdroid services, and how to feed builds in or implement your own provider.
 sidebar:
   order: 1
 ---
 
 Holtdroid's extension points are plain HTTP APIs. Anything that speaks them,
-in any language, can plug in: add its URL to the api's `sources` or
-`providers` list.
+in any language, can plug in: add its URL to the api's `providers` list.
+Builds come in through files, not an API.
 
 The Go types and OpenAPI definitions live in
 [`internal/contract`](https://github.com/kriakiku/holtdroid/tree/main/internal/contract);
@@ -16,18 +16,15 @@ the authoritative description is
 Each contract is a Go interface plus a `Register…` function that mounts it on
 an HTTP server, so a Go implementation only has to satisfy the interface.
 
-## Artifact source
+## Artifact sources
 
-| Method | Path                           | Returns                             |
-| ------ | ------------------------------ | ----------------------------------- |
-| `GET`  | `/v1/artifacts?cursor=&limit=` | `{items, nextCursor}`, newest first |
-| `GET`  | `/v1/artifacts/{id}`           | one artifact                        |
-| `GET`  | `/v1/artifacts/{id}/download`  | the APK                             |
-| `GET`  | `/v1/health`                   | `{ok: true}`                        |
-
-An artifact is `{id, fileName, size, uploadedAt, uploadedBy, note, link}`.
-Sources don't parse APKs: the api extracts package, version, label and icon
-itself.
+A source is a folder or an S3 prefix the api lists itself. To feed builds
+from Slack, CI or anywhere else, write `*.apk` files there, each with an
+optional `<file>.apk.meta.json` sidecar (title, note, changelog, uploader,
+link, origin, tags, owner, visibility) — see
+[Artifact sources](/holtdroid/configuration/sources/). The api parses the
+APKs, notices replaced files by their ETag or modification time, and pushes
+changes to the UI.
 
 ## Device provider
 

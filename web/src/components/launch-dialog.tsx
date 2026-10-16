@@ -5,6 +5,7 @@ import { toast } from "sonner"
 import type { ArtifactView } from "@/api/client"
 import { useLaunch, useProviders } from "@/api/queries"
 import { AppIcon } from "@/components/app-icon"
+import { artifactTitle } from "@/components/artifact-list"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -39,8 +40,8 @@ export function LaunchDialog({ artifact, onClose }: { artifact: ArtifactView | n
   const free = provider?.capacity.slots.filter((s) => s.state === "free").length ?? 0
   const total = provider?.capacity.slots.length ?? 0
   const missingABI =
-    artifact?.meta && artifact.meta.abis.length > 0 && provider
-      ? !artifact.meta.abis.some((abi) => provider.capabilities.abis.includes(abi))
+    artifact?.app && artifact.app.abis.length > 0 && provider
+      ? !artifact.app.abis.some((abi) => provider.capabilities.abis.includes(abi))
       : false
 
   const submit = () => {
@@ -48,7 +49,7 @@ export function LaunchDialog({ artifact, onClose }: { artifact: ArtifactView | n
     launch.mutate(
       {
         source: artifact.source,
-        artifactId: artifact.artifact.id,
+        artifactId: artifact.id,
         provider: provider.name,
         location: location === NO_VPN ? undefined : location,
       },
@@ -62,26 +63,19 @@ export function LaunchDialog({ artifact, onClose }: { artifact: ArtifactView | n
     )
   }
 
-  const title = artifact?.meta?.label || artifact?.artifact.fileName
+  const title = artifact ? artifactTitle(artifact) : ""
 
   return (
     <Dialog open={!!artifact} onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         <DialogHeader>
           <div className="flex items-center gap-3">
-            {artifact && (
-              <AppIcon
-                source={artifact.source}
-                id={artifact.artifact.id}
-                hasIcon={artifact.hasIcon}
-                className="size-10"
-              />
-            )}
+            {artifact && <AppIcon src={artifact.iconUrl} className="size-10" />}
             <div className="min-w-0">
               <DialogTitle className="truncate">Launch {title}</DialogTitle>
               <DialogDescription className="truncate font-mono text-xs">
-                {artifact?.meta?.package ?? artifact?.artifact.fileName}
-                {artifact?.meta?.versionName ? ` · ${artifact.meta.versionName}` : ""}
+                {artifact?.app?.package ?? artifact?.fileName}
+                {artifact?.app?.versionName ? ` · ${artifact.app.versionName}` : ""}
               </DialogDescription>
             </div>
           </div>
@@ -137,7 +131,7 @@ export function LaunchDialog({ artifact, onClose }: { artifact: ArtifactView | n
           {missingABI && (
             <Alert>
               <AlertDescription>
-                This APK ships native code for {artifact?.meta?.abis.join(", ")}, which “{provider?.name}” may not run.
+                This APK ships native code for {artifact?.app?.abis.join(", ")}, which “{provider?.name}” may not run.
               </AlertDescription>
             </Alert>
           )}

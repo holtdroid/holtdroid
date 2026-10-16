@@ -101,7 +101,7 @@ function SessionCard({ session: s, now }: { session: SessionView; now: number })
   return (
     <li className="bg-card grid gap-3 rounded-xl border p-3">
       <div className="flex items-start gap-3">
-        <AppIcon source={s.source} id={s.artifactId} hasIcon={s.hasIcon} className="size-10" />
+        <AppIcon src={s.iconUrl} className="size-10" />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="truncate font-medium">{s.label || s.package}</span>

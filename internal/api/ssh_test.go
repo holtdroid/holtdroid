@@ -44,6 +44,7 @@ func newSSHHarness(t *testing.T, enabled bool, replicas int) *sshHarness {
 	cfg := DefaultConfig()
 	cfg.PublicURL = "https://android.example.com"
 	cfg.Storage.Filesystem.Dir = t.TempDir()
+	cfg.Sources[0].Filesystem.Dir = t.TempDir()
 	cfg.Auth.Mode = auth.ModeHeader
 	cfg.SSH.Enabled = enabled
 	cfg.SSH.GatewayURL = "http://gateway-headless:8080"

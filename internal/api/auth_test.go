@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/kriakiku/holtdroid/internal/auth"
-	"github.com/kriakiku/holtdroid/internal/source/dir"
 )
 
 func cookieServer(t *testing.T, mode string) http.Handler {
@@ -21,7 +20,8 @@ func cookieServer(t *testing.T, mode string) http.Handler {
 	cfg.Auth.Mode = mode
 	cfg.Auth.SessionKey = "env:TEST_KEY"
 	cfg.Auth.Password = "env:TEST_PASSWORD"
-	srv, err := New(context.Background(), cfg, WithSource("local", dir.New(t.TempDir())))
+	cfg.Sources[0].Filesystem.Dir = t.TempDir()
+	srv, err := New(context.Background(), cfg)
 	if err != nil {
 		t.Fatal(err)
 	}

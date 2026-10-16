@@ -30,6 +30,14 @@ func toHuma(err error) error {
 	}
 }
 
+type idInput struct {
+	ID string `path:"id" minLength:"1"`
+}
+
+type body[T any] struct {
+	Body T
+}
+
 func registerHealth(api huma.API, tag string) {
 	huma.Register(api, huma.Operation{OperationID: "health", Method: http.MethodGet, Path: "/v1/health", Tags: []string{tag}},
 		func(context.Context, *struct{}) (*body[Health], error) {

@@ -47,6 +47,8 @@ together. Contract changes are compile-checked across services.
 
 ## 4. Services talk over versioned HTTP contracts
 
+_The Source API is superseded by #27; Provider and Agent stand._
+
 **Context.** Sources and device kinds must be addable (physical phones, other
 artifact stores) without touching the core, possibly by third parties in
 other languages.
@@ -176,6 +178,9 @@ session ID instead of a global ID.
 holds no mapping; provider IDs only need to be unique per provider.
 
 ## 16. `holtdroid dev` with a directory source and fake devices
+
+_The `dir` source service is superseded by #27; `holtdroid dev` now uses a
+read-only filesystem source plus a temporary uploads source._
 
 **Decision.** The `dir` source (also a real feature: serve APKs from a mounted
 volume) and the `fake` provider, which implements the full Agent contract
@@ -361,3 +366,37 @@ egress IP of the agent and of the emulator's traffic.
   (sing-box DNS on the tun address, or `-dns-server`).
 - `holtdroid agent` can't run under Rosetta on Apple Silicon (Frida uses
   `eventfd`); test the session image on a real amd64 node.
+
+## 27. Sources are folders or S3 prefixes the api lists itself
+
+Supersedes the Source API of #4 and the `dir` service of #16.
+
+**Context.** Every new origin of builds (Slack, CI, releases) would have
+been a Holtdroid service to write, test, release and keep compatible. Most
+of them only need to copy files somewhere. Users also want to upload their
+own builds, keep some private and delete them, and replaced files must not
+be served from a stale cache.
+
+**Decision.** A source is a `storage.Store` (filesystem or S3) that the api
+lists directly (`internal/source`): every `*.apk` is an artifact, an
+optional `<file>.apk.meta.json` sidecar carries title, note, changelog,
+uploader, link, origin, tags, owner and visibility. Integrations such as a
+Slack sync are independent jobs that write that layout. Each file has a
+revision (ETag, else size + mtime); the APK cache and session
+`ArtifactRef` (`{source}/{key}@{rev}`) are keyed by it, and the api polls
+every source (`pollInterval`) and pushes `event: artifacts` when a
+fingerprint changes. Uploads (`uploads.enabled`, default on) go into a
+writable source under `{prefix}/{random}/{name}` with a sidecar naming the
+uploader as owner; owner and admins may change visibility and delete,
+admins may delete ownerless files; `readOnly` sources refuse both. Private
+artifacts are visible to the owner and admins only. The UI API exposes
+artifact IDs as base64url of the key, so keys with slashes survive proxies
+that reject `%2F`.
+
+**Consequences.** No `source-*` services and no Source contract; one fewer
+hop. Uploads make the uploads source stateful: the chart mounts a PVC at
+`/var/lib/holtdroid` (RWO → one api replica, `Recreate`); S3 sources lift
+that. Listing reads the store on every request (sidecars are memoised by
+revision); very large buckets would need a listing cache. Other replicas
+see uploads at their next poll.
+

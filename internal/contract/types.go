@@ -15,21 +15,6 @@ type Health struct {
 	OK bool `json:"ok"`
 }
 
-type Artifact struct {
-	ID         string    `json:"id"`
-	FileName   string    `json:"fileName"`
-	Size       int64     `json:"size"`
-	UploadedAt time.Time `json:"uploadedAt"`
-	UploadedBy string    `json:"uploadedBy,omitempty"`
-	Note       string    `json:"note,omitempty"`
-	Link       string    `json:"link,omitempty"`
-}
-
-type ArtifactPage struct {
-	Items      []Artifact `json:"items"`
-	NextCursor string     `json:"nextCursor,omitempty"`
-}
-
 type DisplayKind string
 
 const (

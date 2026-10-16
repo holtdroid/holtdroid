@@ -1,42 +1,33 @@
 ---
-title: Slack source
-description: List and download APKs posted in Slack channels.
+title: Builds from Slack
+description: Get APKs posted in Slack channels into a source.
 sidebar:
   order: 5
 ---
 
-The `source-slack` service lists `.apk` files posted in one or more Slack
-channels and streams them to the api on demand.
-
-## Create the Slack app
-
-1. Go to [api.slack.com/apps](https://api.slack.com/apps) → **Create New
-   App** → _From scratch_.
-2. Under **OAuth & Permissions**, add these **bot token scopes**:
-   - `channels:history` (public channels)
-   - `groups:history` (private channels)
-   - `files:read`
-3. **Install to Workspace** and copy the _Bot User OAuth Token_ (`xoxb-…`).
-4. In every channel you want to read, run `/invite @your-app`.
-5. Copy the channel ID: open the channel details, the ID is at the bottom
-   (`C…` or `G…`).
-
-## Configuration
+Holtdroid doesn't talk to Slack itself. A small, independent sync job reads
+the channels and writes each `.apk` with a
+[`.meta.json` sidecar](/holtdroid/configuration/sources/#the-metajson-sidecar)
+into a bucket or folder that the api lists as a source. The job can be
+written, deployed and upgraded on its own, and the same pattern works for CI,
+GitHub Releases or anything else that produces builds.
 
 ```yaml
-listen: ":8080"
-token: env:SLACK_BOT_TOKEN
-channels: [C0123456789]
-pollInterval: 1m
-lookback: 720h
+sources:
+  - name: slack
+    type: s3
+    readOnly: true
+    s3:
+      { endpoint: https://s3.example.com, bucket: apks, prefix: slack, accessKey: env:S3_KEY, secretKey: env:S3_SECRET }
 ```
 
-| Key            | Default | Meaning                              |
-| -------------- | ------- | ------------------------------------ |
-| `token`        | –       | Secret reference to the bot token    |
-| `channels`     | –       | Channel IDs to read                  |
-| `pollInterval` | `1m`    | How often the file list is refreshed |
-| `lookback`     | `720h`  | Ignore messages older than this      |
+A ready-made Slack sync job is planned. Until then, anything that does the
+following works:
 
-Each artifact shows the file name, size, uploader, time, the message text and
-a link back to the message.
+1. Lists messages with files via `conversations.history` (bot scopes
+   `channels:history`, `groups:history`, `files:read`; invite the bot to each
+   channel).
+2. Downloads every `.apk` with `url_private_download` and the bot token.
+3. Writes `{channel}/{file id}/{file name}` and next to it
+   `{file name}.meta.json` with `uploadedBy`, `uploadedAt`, `note` (the
+   message text), `link` (the message permalink) and `origin: "slack"`.

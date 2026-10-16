@@ -13,11 +13,20 @@ publicURL: ""
 existingSecret: ""
 
 # Merged into the api's config file. Everything from the configuration docs
-# can go here except listen addresses, sources and providers, which the
-# chart fills in.
+# can go here except listen addresses and providers, which the chart fills
+# in. Without `sources` the api serves one filesystem source "local" from
+# /var/lib/holtdroid/apks (api.persistence); add S3 sources here, e.g.
+#   sources:
+#     - name: slack
+#       type: s3
+#       readOnly: true
+#       s3: { endpoint: https://s3.example.com, bucket: apks, prefix: slack, accessKey: env:S3_KEY, secretKey: env:S3_SECRET }
 config:
   auth:
     mode: anonymous
+  uploads:
+    enabled: true
+    maxSize: 1GiB
   sessions:
     idleTimeout: 30m
     maxTTL: 8h
@@ -40,24 +49,21 @@ api:
   cacheVolume:
     emptyDir:
       sizeLimit: 25Gi
+  # Mounted at /var/lib/holtdroid: the default "local" source and its
+  # uploads. A ReadWriteOnce claim pins the api to one replica (the chart
+  # switches to the Recreate strategy); use S3 sources to scale out.
+  # Disabled: an emptyDir, so uploads are lost on restart.
+  persistence:
+    enabled: true
+    existingClaim: ""
+    storageClass: ""
+    accessModes: [ReadWriteOnce]
+    size: 10Gi
   env: []
   podAnnotations: {}
   nodeSelector: {}
   tolerations: []
   affinity: {}
-
-sources:
-  # Lists APKs from a volume; mount your own claim or let the chart create one.
-  dir:
-    enabled: false
-    name: local
-    persistence:
-      existingClaim: ""
-      storageClass: ""
-      size: 5Gi
-    resources:
-      requests: { cpu: 5m, memory: 16Mi }
-      limits: { memory: 128Mi }
 
 providers:
   # Simulated devices for trying the UI without KVM.
@@ -70,8 +76,7 @@ providers:
       requests: { cpu: 5m, memory: 16Mi }
       limits: { memory: 128Mi }
 
-# Additional out-of-tree sources/providers: [{name, url}]
-extraSources: []
+# Additional out-of-tree providers: [{name, url}]
 extraProviders: []
 
 ingress:

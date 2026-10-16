@@ -42,17 +42,17 @@ or cluster layout. The maintainer's homelab is just the first deployment.
 ## Repository layout
 
 ```
-cmd/holtdroid/            main + cobra subcommands (api, source-slack, provider-emulator, agent)
+cmd/holtdroid/            main + cobra subcommands (api, provider-fake, provider-emulator, agent, dev)
 internal/
-  contract/               shared request/response types + huma operations for Source/Provider/Agent APIs
+  contract/               shared request/response types + huma operations for Provider/Agent/SSH-gateway APIs
   api/                    BFF: UI REST API, registries, APK cache, session proxy, activity, reaper
-  source/                 source implementations: source/dir (APKs from a directory), source/slack
+  source/                 artifact sources: *.apk + .meta.json sidecars in a storage.Store (folder or S3), listed by the api
   provider/               provider implementations: provider/fake (simulated devices for dev/tests), provider/emulator
   agent/                  device agent: adb, frida, devtools proxy, clipboard, vnc bridge, ssh tunnels; agent/emulator
   sshgateway/             SSH gateway (planned): ADB and published-port tunnels, no shells
   vpn/                    VPN providers (nordvpn, wireguard, none) + sing-box config rendering
   secrets/                secret resolvers: env:, file:, openbao:
-  storage/                object store for the APK cache: filesystem, s3
+  storage/                object store for sources and the APK cache: filesystem, s3
   db/                     api SQL database: goose migrations, sqlc queries (generated code committed)
   auth/                   sign-in modes: anonymous, password, oidc (signed JWT cookie), header, none
   apk/                    APK metadata (package, version, label, icon)
@@ -76,7 +76,7 @@ Directories that do not exist yet are planned — create them exactly there.
   - `spf13/cobra` — CLI;
   - `knadh/koanf/v2` — configuration;
   - `k8s.io/client-go`;
-  - `slack-go/slack`;
+  - `slack-go/slack` (for the planned Slack sync job, not the api);
   - `golang-jwt/jwt/v5`, `coreos/go-oidc/v3`, `golang.org/x/oauth2` — sign-in;
   - `minio/minio-go/v7` — S3 (tests use `johannesboyne/gofakes3`);
   - `shogo82148/androidbinary` — APK parsing;
@@ -125,7 +125,8 @@ Directories that do not exist yet are planned — create them exactly there.
   listed in `design/contracts.md`.
 - Every cross-service call goes through a contract in `internal/contract`.
   The api never talks to Kubernetes, Slack or ADB directly — that is the
-  job of the provider, source and agent.
+  job of the provider, the agent and independent sync jobs that write into
+  sources (folders or S3, decisions.md #27).
 - **Before the first release (`v*` tag) there is no backward compatibility.**
   Config keys, HTTP APIs, contracts, the database schema and stored data may
   change freely: rewrite goose migrations in place instead of stacking
@@ -139,7 +140,8 @@ Directories that do not exist yet are planned — create them exactly there.
   memory or on local disk that a restart or a second replica would miss.
   Session state lives in the provider (emulator: Pod labels/annotations),
   identities in signed cookies (`auth.sessionKey`), activity is flushed to
-  providers, APKs are a re-fillable cache in `storage`. Restarting or
+  providers, APKs are a re-fillable cache in `storage`, uploads are files
+  plus a `.meta.json` sidecar in a source (folder/S3). Restarting or
   rescheduling any service must not lose sessions or sign people out.
 - Secrets are always referenced, never inlined: config values like
   `env:SLACK_BOT_TOKEN`, `file:/run/secrets/slack`,
@@ -177,8 +179,9 @@ make image       # local linux/amd64 image (images/Dockerfile)
 make web-dev      # Vite dev server proxying /api and /s to :8080
 ```
 
-`holtdroid dev` needs no cluster: the `local` source lists APKs from a
-directory (`--apks`) and the `fake` provider simulates devices whose agents
+`holtdroid dev` needs no cluster: the read-only `local` source lists APKs
+from a directory (`--apks`), uploads go to a temporary `uploads` source and
+the `fake` provider simulates devices whose agents
 serve placeholder screen/DevTools pages. Use it for all UI work.
 
 Before calling a task done: `make check` passes and the relevant roadmap item
@@ -187,12 +190,12 @@ is ticked.
 ## Testing expectations
 
 - Unit tests next to the code (`_test.go`), table-driven.
-- Contract tests: every Source/Provider/Agent implementation gets a round-trip
+- Contract tests: every Provider/Agent implementation gets a round-trip
   test through a real `httptest.Server` and the contract's Go client (see
   `internal/contract/contract_test.go`). Once `internal/contract/conformance`
   exists (roadmap), new implementations run it instead.
-- api behaviour is tested end to end in `internal/api/api_test.go` with the
-  `dir` source, the `fake` provider and a controllable clock — extend that
+- api behaviour is tested end to end in `internal/api/api_test.go` with a
+  filesystem source, the `fake` provider and a controllable clock — extend that
   harness rather than mocking the api's internals.
 - External APIs (Slack, NordVPN, OpenBao, Kubernetes) are faked:
   `httptest` servers and `client-go`'s fake clientset. No test hits the

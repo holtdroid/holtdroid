@@ -28,7 +28,9 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
   const registerFrame = useActivityHeartbeat(provider, id)
   const [status, setStatus] = useState<StatusEvent | null>(null)
 
-  useEventSource<StatusEvent>(session ? `${sessionBase(provider, id)}/v1/status` : null, "state", setStatus)
+  useEventSource<{ state: StatusEvent }>(session ? `${sessionBase(provider, id)}/v1/status` : null, {
+    state: setStatus,
+  })
 
   if (isPending) {
     return <Skeleton className="m-6 h-[60vh] rounded-2xl" />
@@ -61,7 +63,7 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
             <ArrowLeftIcon />
           </Link>
         </Button>
-        <AppIcon source={session.source} id={session.artifactId} hasIcon={session.hasIcon} className="size-8" />
+        <AppIcon src={session.iconUrl} className="size-8" />
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="truncate font-medium">{session.label || session.package}</span>

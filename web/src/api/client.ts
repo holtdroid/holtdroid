@@ -8,6 +8,9 @@ type AgentSchemas = AgentComponents["schemas"]
 export type Identity = Schemas["Identity"]
 export type ArtifactView = Schemas["ArtifactView"]
 export type ArtifactList = Schemas["ArtifactList"]
+export type ArtifactsEvent = Schemas["ArtifactsEvent"]
+export type UploadsInfo = Schemas["UploadsInfo"]
+export type Visibility = NonNullable<ArtifactView["meta"]["visibility"]>
 export type ProviderView = Schemas["ProviderView"]
 export type SessionView = Schemas["SessionView"]
 export type SessionsEvent = Schemas["SessionsEvent"]
@@ -57,8 +60,4 @@ export async function unwrap<T>(request: Promise<Result<T>>): Promise<T> {
     throw new ApiError(response.status, detail || `Request failed (${response.status})`, details)
   }
   return data as T
-}
-
-export function iconURL(source: string, id: string) {
-  return `/api/v1/artifacts/${encodeURIComponent(source)}/${encodeURIComponent(id)}/icon`
 }

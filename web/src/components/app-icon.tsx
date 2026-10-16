@@ -1,21 +1,10 @@
 import { SmartphoneIcon } from "lucide-react"
 import { useState } from "react"
-import { iconURL } from "@/api/client"
 import { cn } from "@/lib/utils"
 
-export function AppIcon({
-  source,
-  id,
-  hasIcon,
-  className,
-}: {
-  source: string
-  id: string
-  hasIcon: boolean
-  className?: string
-}) {
-  const [failed, setFailed] = useState(false)
-  if (!hasIcon || failed) {
+export function AppIcon({ src, className }: { src?: string; className?: string }) {
+  const [failed, setFailed] = useState<string>()
+  if (!src || failed === src) {
     return (
       <div className={cn("bg-muted text-muted-foreground grid shrink-0 place-items-center rounded-xl", className)}>
         <SmartphoneIcon className="size-1/2" />
@@ -24,9 +13,9 @@ export function AppIcon({
   }
   return (
     <img
-      src={iconURL(source, id)}
+      src={src}
       alt=""
-      onError={() => setFailed(true)}
+      onError={() => setFailed(src)}
       className={cn("shrink-0 rounded-xl object-contain", className)}
     />
   )

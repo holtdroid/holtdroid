@@ -4,14 +4,14 @@
 </p>
 
 Holtdroid is a self-hosted, browser-based Android sandbox for testing APKs.
-Pick a build from where your team already shares them (Slack today, more
-sources later), launch an Android device on demand, and get — in one browser
+Pick a build from a folder or S3 bucket that your CI or a Slack sync fills, or
+upload your own, launch an Android device on demand, and get — in one browser
 tab — the device screen, Chrome DevTools attached to the app's WebViews,
 clipboard sync and a VPN location switcher. Idle devices shut themselves down.
 
 > **Status:** pre-alpha. The portal (api + web UI) runs locally against
-> simulated devices with `make dev`; the Android emulator, Slack source and
-> Helm chart are next. The plan lives in [`design/`](design/README.md),
+> simulated devices with `make dev`; the Android emulator provider and a
+> Slack sync job are next. The plan lives in [`design/`](design/README.md),
 > the docs at [kriakiku.github.io/holtdroid](https://kriakiku.github.io/holtdroid/).
 
 ## Try it
@@ -37,14 +37,17 @@ make build && ./bin/holtdroid dev --apks ~/Downloads
   or a forward-auth proxy — all stateless.
 - **Sessions with a lifetime.** Bounded slots, idle timeout, max TTL, one
   click to extend.
-- **Pluggable.** Artifact sources, device providers, VPN providers, secret
+- **Builds from anywhere.** Sources are folders or S3 prefixes with an
+  optional `.meta.json` per APK (changelog, origin, tags); replaced files are
+  picked up, and users can upload their own builds as public or private.
+- **Pluggable.** Device providers, VPN providers, secret
   backends and auth are interfaces. Physical rooted phones are the next
   provider on the roadmap.
 
 ## Architecture at a glance
 
 Kubernetes-native. One Go binary (`holtdroid`) runs as several small services
-(`api`, `source-slack`, `provider-emulator`, `agent`), a React + shadcn/ui
+(`api`, `provider-emulator`, `agent`), a React + shadcn/ui
 frontend is embedded in `api`, and a Helm chart ties it together. See
 [`design/architecture.md`](design/architecture.md).
 

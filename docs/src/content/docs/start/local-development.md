@@ -26,8 +26,9 @@ bun install
 
 ## Running without a cluster
 
-`holtdroid dev` starts the portal with authentication off, an artifact source
-named `local` that lists the APKs in a directory, and a `fake` device
+`holtdroid dev` starts the portal with anonymous sign-in, a read-only
+artifact source named `local` that lists the APKs in a directory, a writable
+`uploads` source for the Upload button, and a `fake` device
 provider whose devices boot in a few seconds and serve placeholder screen and
 DevTools pages. Nothing else is needed:
 
@@ -36,8 +37,9 @@ make dev                     # or: go run ./cmd/holtdroid dev --apks ~/Downloads
 make web-dev                 # in a second terminal, then open http://localhost:5173
 ```
 
-Useful flags: `--apks <dir>`, `--slots 4`, `--step-delay 2s`,
-`--idle-timeout 30m`, `--cache <dir>`.
+Useful flags: `--apks <dir>`, `--uploads <dir>` (default: a temporary
+directory), `--slots 4`, `--step-delay 2s`, `--idle-timeout 30m`,
+`--cache <dir>`.
 
 Frontend tooling runs on Bun. Type checking uses TypeScript 7 (the native
 compiler); linting and formatting use oxlint and oxfmt.

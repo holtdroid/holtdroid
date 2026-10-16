@@ -13,31 +13,14 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"github.com/kriakiku/holtdroid/internal/apk"
 	"github.com/kriakiku/holtdroid/internal/auth"
 	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/kriakiku/holtdroid/internal/source"
 )
-
-type ArtifactView struct {
-	Source   string            `json:"source"`
-	Artifact contract.Artifact `json:"artifact"`
-	Meta     *apk.Metadata     `json:"meta,omitempty"`
-	HasIcon  bool              `json:"hasIcon"`
-}
 
 type SourceError struct {
 	Source  string `json:"source"`
 	Message string `json:"message"`
-}
-
-type ArtifactList struct {
-	Items      []ArtifactView `json:"items"`
-	NextCursor string         `json:"nextCursor,omitempty"`
-	Errors     []SourceError  `json:"errors"`
-}
-
-type SourceView struct {
-	Name string `json:"name"`
 }
 
 type ProviderView struct {
@@ -57,7 +40,7 @@ type SessionView struct {
 	ArtifactID   string                `json:"artifactId"`
 	Label        string                `json:"label,omitempty"`
 	VersionName  string                `json:"versionName,omitempty"`
-	HasIcon      bool                  `json:"hasIcon"`
+	IconURL      string                `json:"iconUrl,omitempty"`
 	Location     string                `json:"location,omitempty"`
 	State        contract.SessionState `json:"state" enum:"provisioning,booting,installing,instrumenting,ready,stopping,failed"`
 	Reason       string                `json:"reason,omitempty"`
@@ -81,12 +64,6 @@ type sessionPath struct {
 	ID       string `path:"id"`
 }
 
-type listArtifactsInput struct {
-	Source string `query:"source" doc:"Only list this source; enables cursor paging"`
-	Cursor string `query:"cursor"`
-	Limit  int    `query:"limit" minimum:"1" maximum:"200" default:"50"`
-}
-
 type createSessionInput struct {
 	Body struct {
 		Source     string `json:"source" minLength:"1"`
@@ -104,11 +81,6 @@ type heartbeatInput struct {
 	}
 }
 
-type iconInput struct {
-	Source string `path:"source"`
-	ID     string `path:"id"`
-}
-
 func (s *Server) register(api huma.API) {
 	tags := []string{"ui"}
 
@@ -117,39 +89,6 @@ func (s *Server) register(api huma.API) {
 			id, _ := auth.FromContext(ctx)
 			return &out[auth.Identity]{id}, nil
 		})
-
-	huma.Register(api, huma.Operation{OperationID: "listSources", Method: http.MethodGet, Path: "/api/v1/sources", Tags: tags},
-		func(context.Context, *struct{}) (*out[[]SourceView], error) {
-			views := make([]SourceView, 0, len(s.srcOrder))
-			for _, name := range s.srcOrder {
-				views = append(views, SourceView{Name: name})
-			}
-			return &out[[]SourceView]{views}, nil
-		})
-
-	huma.Register(api, huma.Operation{OperationID: "listArtifacts", Method: http.MethodGet, Path: "/api/v1/artifacts", Tags: tags},
-		func(ctx context.Context, in *listArtifactsInput) (*out[ArtifactList], error) {
-			list, err := s.listArtifacts(ctx, in.Source, in.Cursor, in.Limit)
-			if err != nil {
-				return nil, httpError(err)
-			}
-			return &out[ArtifactList]{list}, nil
-		})
-
-	huma.Register(api, huma.Operation{
-		OperationID: "getArtifactIcon", Method: http.MethodGet, Path: "/api/v1/artifacts/{source}/{id}/icon", Tags: tags,
-		Responses: map[string]*huma.Response{"200": {Description: "PNG icon", Content: map[string]*huma.MediaType{"image/png": {}}}},
-	}, func(ctx context.Context, in *iconInput) (*huma.StreamResponse, error) {
-		raw, err := s.cache.Icon(ctx, in.Source, in.ID)
-		if err != nil {
-			return nil, huma.Error404NotFound("no icon")
-		}
-		return &huma.StreamResponse{Body: func(hctx huma.Context) {
-			hctx.SetHeader("Content-Type", "image/png")
-			hctx.SetHeader("Cache-Control", "public, max-age=86400")
-			_, _ = hctx.BodyWriter().Write(raw)
-		}}, nil
-	})
 
 	huma.Register(api, huma.Operation{OperationID: "listProviders", Method: http.MethodGet, Path: "/api/v1/providers", Tags: tags},
 		func(ctx context.Context, _ *struct{}) (*out[[]ProviderView], error) {
@@ -224,6 +163,7 @@ func (s *Server) register(api huma.API) {
 		return nil, nil
 	})
 
+	s.registerArtifacts(api)
 	s.registerEvents(api)
 	s.registerAuth(api)
 	s.registerSSH(api)
@@ -241,7 +181,7 @@ func httpError(err error) error {
 		return huma.Error409Conflict(err.Error())
 	case errors.Is(err, contract.ErrInvalid):
 		return huma.Error422UnprocessableEntity(err.Error())
-	case errors.Is(err, errForbidden):
+	case errors.Is(err, errForbidden), errors.Is(err, source.ErrReadOnly), errors.Is(err, errUploadsDisabled):
 		return huma.Error403Forbidden(err.Error())
 	default:
 		return huma.Error502BadGateway(err.Error())
@@ -270,80 +210,6 @@ func (s *Server) ownedSession(ctx context.Context, provider, id string) (contrac
 		return nil, contract.Session{}, errForbidden
 	}
 	return p, sess, nil
-}
-
-func (s *Server) listArtifacts(ctx context.Context, source, cursor string, limit int) (ArtifactList, error) {
-	names := s.srcOrder
-	if source != "" {
-		if _, ok := s.sources[source]; !ok {
-			return ArtifactList{}, fmt.Errorf("%w: source %q", contract.ErrNotFound, source)
-		}
-		names = []string{source}
-	} else {
-		cursor = ""
-	}
-
-	type result struct {
-		name string
-		page contract.ArtifactPage
-		err  error
-	}
-	results := make([]result, len(names))
-	var wg sync.WaitGroup
-	for i, name := range names {
-		wg.Go(func() {
-			page, err := s.sources[name].List(ctx, cursor, limit)
-			results[i] = result{name, page, err}
-		})
-	}
-	wg.Wait()
-
-	list := ArtifactList{Items: []ArtifactView{}, Errors: []SourceError{}}
-	for _, r := range results {
-		if r.err != nil {
-			list.Errors = append(list.Errors, SourceError{Source: r.name, Message: r.err.Error()})
-			continue
-		}
-		for _, a := range r.page.Items {
-			list.Items = append(list.Items, s.artifactView(ctx, r.name, a))
-		}
-		if source != "" {
-			list.NextCursor = r.page.NextCursor
-		}
-	}
-	slices.SortStableFunc(list.Items, func(a, b ArtifactView) int {
-		return b.Artifact.UploadedAt.Compare(a.Artifact.UploadedAt)
-	})
-	s.enqueueWarm(list.Items)
-	return list, nil
-}
-
-func (s *Server) artifactView(ctx context.Context, source string, a contract.Artifact) ArtifactView {
-	v := ArtifactView{Source: source, Artifact: a}
-	if e, ok := s.cache.Lookup(ctx, source, a.ID); ok {
-		meta := e.Meta
-		v.Meta = &meta
-		v.HasIcon = e.HasIcon
-	}
-	return v
-}
-
-func (s *Server) enqueueWarm(items []ArtifactView) {
-	n := 0
-	for _, it := range items {
-		if n >= s.cfg.Cache.Warm {
-			return
-		}
-		if it.Meta != nil {
-			continue
-		}
-		n++
-		select {
-		case s.warm <- [2]string{it.Source, it.Artifact.ID}:
-		default:
-			return
-		}
-	}
 }
 
 func (s *Server) listProviders(ctx context.Context) []ProviderView {
@@ -428,7 +294,7 @@ func (s *Server) lastActivity(provider string, sess contract.Session) time.Time 
 }
 
 func (s *Server) view(ctx context.Context, provider string, sess contract.Session) SessionView {
-	source, artifactID := splitRef(sess.ArtifactRef)
+	srcName, key, rev := splitRef(sess.ArtifactRef)
 	last := s.lastActivity(provider, sess)
 	v := SessionView{
 		Provider:     provider,
@@ -436,8 +302,8 @@ func (s *Server) view(ctx context.Context, provider string, sess contract.Sessio
 		Slot:         sess.Slot,
 		Owner:        sess.Owner,
 		Package:      sess.Package,
-		Source:       source,
-		ArtifactID:   artifactID,
+		Source:       srcName,
+		ArtifactID:   encodeID(key),
 		Location:     sess.Location,
 		State:        sess.State,
 		Reason:       sess.Reason,
@@ -446,21 +312,33 @@ func (s *Server) view(ctx context.Context, provider string, sess contract.Sessio
 		IdleDeadline: last.Add(s.cfg.Sessions.IdleTimeout),
 		TTLDeadline:  sess.CreatedAt.Add(s.cfg.Sessions.MaxTTL),
 	}
-	if e, ok := s.cache.Lookup(ctx, source, artifactID); ok {
+	if e, ok := s.cache.Lookup(ctx, srcName, key, rev); ok {
 		v.Label = e.Meta.Label
 		v.VersionName = e.Meta.VersionName
-		v.HasIcon = e.HasIcon
+		v.IconURL = iconURL(e)
 	}
 	return v
 }
 
-func (s *Server) createSession(ctx context.Context, who auth.Identity, source, artifactID, providerName, location string) (SessionView, error) {
+func (s *Server) createSession(ctx context.Context, who auth.Identity, srcName, artifactID, providerName, location string) (SessionView, error) {
 	p, err := s.provider(providerName)
 	if err != nil {
 		return SessionView{}, err
 	}
-	if _, ok := s.sources[source]; !ok {
-		return SessionView{}, fmt.Errorf("%w: source %q", contract.ErrNotFound, source)
+	src, err := s.source(srcName)
+	if err != nil {
+		return SessionView{}, err
+	}
+	key, err := decodeID(artifactID)
+	if err != nil {
+		return SessionView{}, err
+	}
+	artifact, err := src.Get(ctx, key)
+	if err != nil {
+		return SessionView{}, err
+	}
+	if !artifact.VisibleTo(who.User, who.Admin) {
+		return SessionView{}, fmt.Errorf("%w: %s", contract.ErrNotFound, artifactID)
 	}
 	if location != "" {
 		caps, err := p.Capabilities(ctx)
@@ -479,13 +357,14 @@ func (s *Server) createSession(ctx context.Context, who auth.Identity, source, a
 		return SessionView{}, contract.ErrNoCapacity
 	}
 
-	entry, err := s.cache.Ensure(ctx, source, artifactID)
+	entry, err := s.cache.Ensure(ctx, srcName, artifact)
 	if err != nil {
 		return SessionView{}, err
 	}
+	ref := artifactRef(srcName, artifact.ID, artifact.Revision)
 	sess, err := p.Create(ctx, contract.CreateSession{
-		ArtifactURL: s.artifactURL(source, artifactID),
-		ArtifactRef: source + "/" + artifactID,
+		ArtifactURL: s.artifactURL(entry.Key),
+		ArtifactRef: ref,
 		Package:     entry.Meta.Package,
 		Owner:       who.User,
 		Location:    location,
@@ -494,12 +373,17 @@ func (s *Server) createSession(ctx context.Context, who auth.Identity, source, a
 		return SessionView{}, err
 	}
 	s.activity.Mark(sessionKey{providerName, sess.ID})
-	s.recordEvent(ctx, providerName, sess.ID, "created", who.User, source+"/"+artifactID, "")
+	s.recordEvent(ctx, providerName, sess.ID, "created", who.User, ref, "")
 	s.log.Info("session created", "provider", providerName, "session", sess.ID, "owner", who.User, "package", entry.Meta.Package)
 	return s.view(ctx, providerName, sess), nil
 }
 
-func splitRef(ref string) (string, string) {
-	source, id, _ := strings.Cut(ref, "/")
-	return source, id
+func artifactRef(source, id, rev string) string { return source + "/" + id + "@" + rev }
+
+func splitRef(ref string) (source, id, rev string) {
+	source, rest, _ := strings.Cut(ref, "/")
+	if id, rev, ok := strings.CutLast(rest, "@"); ok {
+		return source, id, rev
+	}
+	return source, rest, ""
 }

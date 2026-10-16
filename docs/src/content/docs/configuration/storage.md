@@ -72,7 +72,8 @@ touched cheaply; a bucket lifecycle rule is a fine alternative to `maxSize`.
 
 ## Layout
 
-One prefix per artifact, named after a hash of `source/id`:
+One prefix per artifact revision, named after a hash of source, file and
+revision — a replaced file gets a fresh entry:
 
 ```
 <hash>/app.apk

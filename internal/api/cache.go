@@ -20,15 +20,18 @@ import (
 
 	"github.com/kriakiku/holtdroid/internal/apk"
 	"github.com/kriakiku/holtdroid/internal/contract"
+	src "github.com/kriakiku/holtdroid/internal/source"
 	"github.com/kriakiku/holtdroid/internal/storage"
 )
 
 type CacheEntry struct {
-	Source   string            `json:"source"`
-	Artifact contract.Artifact `json:"artifact"`
-	Meta     apk.Metadata      `json:"meta"`
-	HasIcon  bool              `json:"hasIcon"`
-	Size     int64             `json:"size"`
+	Key      string       `json:"key"`
+	Source   string       `json:"source"`
+	ID       string       `json:"id"`
+	Revision string       `json:"revision"`
+	Meta     apk.Metadata `json:"meta"`
+	HasIcon  bool         `json:"hasIcon"`
+	Size     int64        `json:"size"`
 }
 
 const (
@@ -38,12 +41,13 @@ const (
 )
 
 // Cache keeps downloaded APKs and their parsed metadata in a Store, one
-// prefix per artifact. meta.json is written last and marks a complete entry.
+// prefix per artifact revision, so a replaced file gets a fresh entry.
+// meta.json is written last and marks a complete entry.
 type Cache struct {
 	store   storage.Store
 	tmpDir  string
 	maxSize int64
-	open    func(ctx context.Context, source, id string) (contract.Artifact, io.ReadCloser, error)
+	open    func(ctx context.Context, source, id string) (io.ReadCloser, error)
 	log     *slog.Logger
 
 	sf  singleflight.Group
@@ -51,7 +55,7 @@ type Cache struct {
 	mem map[string]CacheEntry
 }
 
-func NewCache(store storage.Store, maxSize int64, open func(ctx context.Context, source, id string) (contract.Artifact, io.ReadCloser, error)) *Cache {
+func NewCache(store storage.Store, maxSize int64, open func(ctx context.Context, source, id string) (io.ReadCloser, error)) *Cache {
 	return &Cache{
 		store:   store,
 		tmpDir:  os.TempDir(),
@@ -62,27 +66,28 @@ func NewCache(store storage.Store, maxSize int64, open func(ctx context.Context,
 	}
 }
 
-func cacheKey(source, id string) string {
-	sum := sha256.Sum256([]byte(source + "\x00" + id))
+func cacheKey(source, id, rev string) string {
+	sum := sha256.Sum256([]byte(source + "\x00" + id + "\x00" + rev))
 	return hex.EncodeToString(sum[:12])
 }
 
-func objectKey(source, id, name string) string { return path.Join(cacheKey(source, id), name) }
+func (c *Cache) Lookup(ctx context.Context, source, id, rev string) (CacheEntry, bool) {
+	return c.LookupKey(ctx, cacheKey(source, id, rev))
+}
 
-func (c *Cache) Lookup(ctx context.Context, source, id string) (CacheEntry, bool) {
-	key := cacheKey(source, id)
+func (c *Cache) LookupKey(ctx context.Context, key string) (CacheEntry, bool) {
 	c.mu.Lock()
 	e, ok := c.mem[key]
 	c.mu.Unlock()
 	if ok {
 		return e, true
 	}
-	rc, _, err := c.store.Get(ctx, objectKey(source, id, metaObject))
+	rc, _, err := c.store.Get(ctx, path.Join(key, metaObject))
 	if err != nil {
 		return CacheEntry{}, false
 	}
 	defer rc.Close()
-	if err := json.NewDecoder(rc).Decode(&e); err != nil {
+	if err := json.NewDecoder(rc).Decode(&e); err != nil || e.Key != key {
 		return CacheEntry{}, false
 	}
 	c.mu.Lock()
@@ -91,13 +96,19 @@ func (c *Cache) Lookup(ctx context.Context, source, id string) (CacheEntry, bool
 	return e, true
 }
 
-func (c *Cache) OpenAPK(ctx context.Context, source, id string) (io.ReadCloser, int64, error) {
-	_ = c.store.Touch(ctx, objectKey(source, id, apkObject))
-	return c.store.Get(ctx, objectKey(source, id, apkObject))
+func (c *Cache) OpenAPK(ctx context.Context, key string) (io.ReadCloser, int64, error) {
+	if _, ok := c.LookupKey(ctx, key); !ok {
+		return nil, 0, storage.ErrNotExist
+	}
+	_ = c.store.Touch(ctx, path.Join(key, apkObject))
+	return c.store.Get(ctx, path.Join(key, apkObject))
 }
 
-func (c *Cache) Icon(ctx context.Context, source, id string) ([]byte, error) {
-	rc, _, err := c.store.Get(ctx, objectKey(source, id, iconObject))
+func (c *Cache) Icon(ctx context.Context, key string) ([]byte, error) {
+	if _, ok := c.LookupKey(ctx, key); !ok {
+		return nil, storage.ErrNotExist
+	}
+	rc, _, err := c.store.Get(ctx, path.Join(key, iconObject))
 	if err != nil {
 		return nil, err
 	}
@@ -105,12 +116,13 @@ func (c *Cache) Icon(ctx context.Context, source, id string) ([]byte, error) {
 	return io.ReadAll(rc)
 }
 
-func (c *Cache) Ensure(ctx context.Context, source, id string) (CacheEntry, error) {
-	if e, ok := c.Lookup(ctx, source, id); ok {
+func (c *Cache) Ensure(ctx context.Context, source string, a src.Artifact) (CacheEntry, error) {
+	key := cacheKey(source, a.ID, a.Revision)
+	if e, ok := c.LookupKey(ctx, key); ok {
 		return e, nil
 	}
-	v, err, _ := c.sf.Do(cacheKey(source, id), func() (any, error) {
-		return c.fetch(context.WithoutCancel(ctx), source, id)
+	v, err, _ := c.sf.Do(key, func() (any, error) {
+		return c.fetch(context.WithoutCancel(ctx), source, a)
 	})
 	if err != nil {
 		return CacheEntry{}, err
@@ -118,8 +130,8 @@ func (c *Cache) Ensure(ctx context.Context, source, id string) (CacheEntry, erro
 	return v.(CacheEntry), nil
 }
 
-func (c *Cache) fetch(ctx context.Context, source, id string) (CacheEntry, error) {
-	artifact, rc, err := c.open(ctx, source, id)
+func (c *Cache) fetch(ctx context.Context, source string, a src.Artifact) (CacheEntry, error) {
+	rc, err := c.open(ctx, source, a.ID)
 	if err != nil {
 		return CacheEntry{}, err
 	}
@@ -130,31 +142,39 @@ func (c *Cache) fetch(ctx context.Context, source, id string) (CacheEntry, error
 		return CacheEntry{}, err
 	}
 	defer os.Remove(tmp.Name())
-	size, err := io.Copy(tmp, rc)
+	_, err = io.Copy(tmp, rc)
 	if cerr := tmp.Close(); err == nil {
 		err = cerr
 	}
 	if err != nil {
-		return CacheEntry{}, fmt.Errorf("download %s/%s: %w", source, id, err)
+		return CacheEntry{}, fmt.Errorf("download %s/%s: %w", source, a.ID, err)
 	}
 
 	meta, icon, err := apk.Parse(tmp.Name())
 	if err != nil {
-		return CacheEntry{}, fmt.Errorf("%w: %s/%s is not a valid APK: %w", contract.ErrInvalid, source, id, err)
+		return CacheEntry{}, fmt.Errorf("%w: %s/%s is not a valid APK: %w", contract.ErrInvalid, source, a.ID, err)
 	}
-	entry := CacheEntry{Source: source, Artifact: artifact, Meta: meta, HasIcon: icon != nil, Size: size}
+	return c.put(ctx, source, a, tmp.Name(), meta, icon)
+}
 
-	f, err := os.Open(tmp.Name())
+func (c *Cache) put(ctx context.Context, source string, a src.Artifact, file string, meta apk.Metadata, icon []byte) (CacheEntry, error) {
+	f, err := os.Open(file)
 	if err != nil {
 		return CacheEntry{}, err
 	}
-	err = c.store.Put(ctx, objectKey(source, id, apkObject), f, size)
-	_ = f.Close()
+	defer f.Close()
+	info, err := f.Stat()
 	if err != nil {
+		return CacheEntry{}, err
+	}
+	key := cacheKey(source, a.ID, a.Revision)
+	entry := CacheEntry{Key: key, Source: source, ID: a.ID, Revision: a.Revision, Meta: meta, HasIcon: icon != nil, Size: info.Size()}
+
+	if err := c.store.Put(ctx, path.Join(key, apkObject), f, info.Size()); err != nil {
 		return CacheEntry{}, fmt.Errorf("store apk: %w", err)
 	}
 	if icon != nil {
-		if err := c.store.Put(ctx, objectKey(source, id, iconObject), bytes.NewReader(icon), int64(len(icon))); err != nil {
+		if err := c.store.Put(ctx, path.Join(key, iconObject), bytes.NewReader(icon), int64(len(icon))); err != nil {
 			return CacheEntry{}, fmt.Errorf("store icon: %w", err)
 		}
 	}
@@ -162,12 +182,12 @@ func (c *Cache) fetch(ctx context.Context, source, id string) (CacheEntry, error
 	if err != nil {
 		return CacheEntry{}, err
 	}
-	if err := c.store.Put(ctx, objectKey(source, id, metaObject), bytes.NewReader(raw), int64(len(raw))); err != nil {
+	if err := c.store.Put(ctx, path.Join(key, metaObject), bytes.NewReader(raw), int64(len(raw))); err != nil {
 		return CacheEntry{}, fmt.Errorf("store metadata: %w", err)
 	}
 
 	c.mu.Lock()
-	c.mem[cacheKey(source, id)] = entry
+	c.mem[key] = entry
 	c.mu.Unlock()
 
 	c.evict(ctx)

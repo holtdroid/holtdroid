@@ -12,9 +12,10 @@ hybrid apps, support engineers reproducing a customer bug.
 
 ## A session, end to end
 
-1. Open the portal. The home page lists the APKs posted in your configured
-   sources (a Slack channel, for example) with icon, version, package name,
-   who posted it and the message that came with it.
+1. Open the portal. The home page lists the APKs in your configured sources
+   (a folder or bucket that CI or a Slack sync job fills, plus your own
+   uploads) with icon, version, package name, who posted it, its note and
+   changelog.
 2. Pick one, choose a VPN location if you need one, press **Launch**. A free
    slot is assigned and a fresh Android device boots (about a minute).
 3. The APK is installed as-is and started with WebView debugging enabled at
@@ -46,4 +47,5 @@ hybrid apps, support engineers reproducing a customer bug.
 - Permission to run **privileged pods** in Holtdroid's namespace.
 - A forward-auth proxy in front of the ingress (Authelia, oauth2-proxy, …),
   unless you run it locally with authentication disabled.
-- For the Slack source: a Slack app with a bot token.
+- For builds from Slack: a Slack app with a bot token and a small sync job
+  that copies them into a source.

@@ -8,8 +8,8 @@ sidebar:
 import { Steps, Aside } from "@astrojs/starlight/components"
 
 <Aside type="caution">
-  Pre-alpha: the emulator provider and the Slack source are not released yet. Until they are, the chart can run the
-  portal with the directory source and simulated devices, which is enough to try the UI, sign-in and storage setups.
+  Pre-alpha: the emulator provider is not released yet. Until it is, the chart runs the portal with simulated devices,
+  which is enough to try the UI, uploads, sign-in and storage setups.
 </Aside>
 
 <Steps>
@@ -38,10 +38,6 @@ import { Steps, Aside } from "@astrojs/starlight/components"
        mode: anonymous
        sessionKey: env:SESSION_KEY
 
-   sources:
-     dir:
-       enabled: true # upload APKs into the created volume
-
    providers:
      fake:
        enabled: true # simulated devices until the emulator provider lands
@@ -65,14 +61,14 @@ import { Steps, Aside } from "@astrojs/starlight/components"
      --set image.tag="$(git -C holtdroid rev-parse HEAD)"
    ```
 
-4. **Add some APKs** to the directory source and open the URL:
+4. **Open the URL and upload an APK** with the _Upload_ button, or drop files into the `local` source directly:
 
    ```sh
-   kubectl -n holtdroid cp app.apk "$(kubectl -n holtdroid get pod -l app.kubernetes.io/component=source-dir -o name | cut -d/ -f2)":/data/
+   kubectl -n holtdroid cp app.apk "$(kubectl -n holtdroid get pod -l app.kubernetes.io/component=api -o name | cut -d/ -f2)":/var/lib/holtdroid/apks/
    ```
 
-   The source volume is mounted read-only in the source pod; copy through a temporary pod if your cluster enforces
-   that, or point `sources.dir.persistence.existingClaim` at a volume you fill elsewhere.
+   For builds that arrive from CI or Slack, point a sync job at an S3 bucket and add it as a
+   [source](/holtdroid/configuration/sources/).
 
 </Steps>
 
@@ -115,16 +111,16 @@ pod may wait in `ImagePullBackOff` for a few minutes until that commit's image i
 
 ## Chart values
 
-| Value                            | Default                      | Meaning                                                                             |
-| -------------------------------- | ---------------------------- | ----------------------------------------------------------------------------------- |
-| `image.repository` / `tag`       | `ghcr.io/kriakiku/holtdroid` | Tag defaults to the chart's `appVersion`                                            |
-| `publicURL`                      | –                            | External URL; needed for OIDC and secure cookies                                    |
-| `existingSecret`                 | –                            | Secret exposed as env to every component (for `env:` references)                    |
-| `config`                         | anonymous, filesystem        | Merged into the api config, see [Configuration](/holtdroid/configuration/overview/) |
-| `api.replicas`                   | `1`                          | Safe to raise with a shared `sessionKey`                                            |
-| `api.cacheVolume`                | `emptyDir` 25Gi              | Volume for `storage.type: filesystem`                                               |
-| `sources.dir.enabled`            | `false`                      | Directory source with its own PVC                                                   |
-| `providers.fake.enabled`         | `false`                      | Simulated devices                                                                   |
-| `extraSources`, `extraProviders` | `[]`                         | Out-of-tree services: `[{name, url}]`                                               |
-| `ingress.*`                      | disabled                     | Standard Ingress                                                                    |
-| `extraObjects`                   | `[]`                         | Extra manifests, rendered with `tpl`                                                |
+| Value                      | Default                      | Meaning                                                                             |
+| -------------------------- | ---------------------------- | ----------------------------------------------------------------------------------- |
+| `image.repository` / `tag` | `ghcr.io/kriakiku/holtdroid` | Tag defaults to the chart's `appVersion`                                            |
+| `publicURL`                | –                            | External URL; needed for OIDC and secure cookies                                    |
+| `existingSecret`           | –                            | Secret exposed as env to every component (for `env:` references)                    |
+| `config`                   | anonymous, filesystem        | Merged into the api config, see [Configuration](/holtdroid/configuration/overview/) |
+| `api.replicas`             | `1`                          | Safe to raise with a shared `sessionKey`                                            |
+| `api.cacheVolume`          | `emptyDir` 25Gi              | Volume for `storage.type: filesystem`                                               |
+| `api.persistence.*`        | RWO PVC, 10Gi                | Mounted at `/var/lib/holtdroid`: the default `local` source and uploads             |
+| `providers.fake.enabled`   | `false`                      | Simulated devices                                                                   |
+| `extraProviders`           | `[]`                         | Out-of-tree providers: `[{name, url}]`                                              |
+| `ingress.*`                | disabled                     | Standard Ingress                                                                    |
+| `extraObjects`             | `[]`                         | Extra manifests, rendered with `tpl`                                                |

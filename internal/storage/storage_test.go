@@ -76,6 +76,13 @@ func TestStores(t *testing.T) {
 				t.Fatalf("keys %v", keys)
 			}
 
+			if o, err := s.Stat(ctx, "a/app.apk"); err != nil || o.Size != 9 || o.Modified.IsZero() {
+				t.Fatalf("stat %+v, %v", o, err)
+			}
+			if _, err := s.Stat(ctx, "a/missing"); !errors.Is(err, ErrNotExist) {
+				t.Fatalf("missing stat: %v", err)
+			}
+
 			if err := s.Touch(ctx, "a/app.apk"); err != nil {
 				t.Fatal(err)
 			}

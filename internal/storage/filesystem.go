@@ -54,6 +54,24 @@ func (f *Filesystem) Get(_ context.Context, key string) (io.ReadCloser, int64, e
 	return file, info.Size(), nil
 }
 
+func (f *Filesystem) Stat(_ context.Context, key string) (Object, error) {
+	p, err := f.path(key)
+	if err != nil {
+		return Object{}, err
+	}
+	info, err := os.Stat(p)
+	if errors.Is(err, fs.ErrNotExist) {
+		return Object{}, ErrNotExist
+	}
+	if err != nil {
+		return Object{}, err
+	}
+	if info.IsDir() {
+		return Object{}, ErrNotExist
+	}
+	return Object{Key: key, Size: info.Size(), Modified: info.ModTime()}, nil
+}
+
 func (f *Filesystem) Put(_ context.Context, key string, r io.Reader, _ int64) error {
 	p, err := f.path(key)
 	if err != nil {
@@ -96,9 +114,18 @@ func (f *Filesystem) List(_ context.Context, prefix string) ([]Object, error) {
 	var out []Object
 	err := filepath.WalkDir(f.root, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
+			if d != nil && d.IsDir() && p != f.root {
+				return filepath.SkipDir
+			}
 			return err
 		}
-		if d.IsDir() || strings.HasPrefix(d.Name(), ".put-") {
+		if strings.HasPrefix(d.Name(), ".") && p != f.root {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if d.IsDir() {
 			return nil
 		}
 		rel, err := filepath.Rel(f.root, p)

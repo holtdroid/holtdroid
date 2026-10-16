@@ -75,6 +75,14 @@ func (s *S3) Get(ctx context.Context, key string) (io.ReadCloser, int64, error) 
 	return obj, info.Size, nil
 }
 
+func (s *S3) Stat(ctx context.Context, key string) (Object, error) {
+	info, err := s.client.StatObject(ctx, s.bucket, s.prefix+key, minio.StatObjectOptions{})
+	if err != nil {
+		return Object{}, mapS3Err(err)
+	}
+	return Object{Key: key, Size: info.Size, Modified: info.LastModified, ETag: info.ETag}, nil
+}
+
 func (s *S3) Put(ctx context.Context, key string, r io.Reader, size int64) error {
 	_, err := s.client.PutObject(ctx, s.bucket, s.prefix+key, r, size, minio.PutObjectOptions{})
 	return err
@@ -90,7 +98,7 @@ func (s *S3) List(ctx context.Context, prefix string) ([]Object, error) {
 		if obj.Err != nil {
 			return nil, obj.Err
 		}
-		out = append(out, Object{Key: strings.TrimPrefix(obj.Key, s.prefix), Size: obj.Size, Modified: obj.LastModified})
+		out = append(out, Object{Key: strings.TrimPrefix(obj.Key, s.prefix), Size: obj.Size, Modified: obj.LastModified, ETag: obj.ETag})
 	}
 	return out, nil
 }

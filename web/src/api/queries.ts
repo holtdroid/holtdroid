@@ -1,10 +1,20 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEventSource } from "@/hooks/use-event-source"
-import { api, type SessionView, type SessionsEvent, unwrap } from "./client"
+import {
+  api,
+  type ArtifactView,
+  type ArtifactsEvent,
+  type SessionView,
+  type SessionsEvent,
+  unwrap,
+  type Visibility,
+} from "./client"
 
 export const keys = {
   auth: ["auth"] as const,
   sources: ["sources"] as const,
+  uploads: ["uploads"] as const,
+  allArtifacts: ["artifacts"] as const,
   artifacts: (source: string) => ["artifacts", source] as const,
   providers: ["providers"] as const,
   sessions: ["sessions"] as const,
@@ -56,8 +66,55 @@ export function useArtifacts(source: string) {
     queryKey: keys.artifacts(source),
     queryFn: () =>
       unwrap(api.GET("/api/v1/artifacts", { params: { query: source ? { source, limit: 100 } : { limit: 100 } } })),
-    refetchInterval: (query) => (query.state.data?.items.some((a) => !a.meta) ? 3_000 : 60_000),
+    refetchInterval: (query) => (query.state.data?.items.some((a) => !a.app) ? 3_000 : 60_000),
     placeholderData: keepPreviousData,
+  })
+}
+
+export function useUploads() {
+  return useQuery({
+    queryKey: keys.uploads,
+    queryFn: () => unwrap(api.GET("/api/v1/uploads")),
+    staleTime: Infinity,
+  })
+}
+
+export type UploadInput = { file: File; visibility: Visibility; note?: string; changelog?: string }
+
+export function useUpload() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ file, ...fields }: UploadInput) => {
+      const form = new FormData()
+      form.append("file", file, file.name)
+      for (const [key, value] of Object.entries(fields)) {
+        if (value) form.append(key, value)
+      }
+      return unwrap(api.POST("/api/v1/uploads", { body: { file: file.name, ...fields }, bodySerializer: () => form }))
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.allArtifacts }),
+  })
+}
+
+function artifactPath(a: Pick<ArtifactView, "source" | "id">) {
+  return { path: { source: a.source, id: a.id } }
+}
+
+export function useSetVisibility() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ artifact, visibility }: { artifact: ArtifactView; visibility: Visibility }) =>
+      unwrap(api.PATCH("/api/v1/artifacts/{source}/{id}", { params: artifactPath(artifact), body: { visibility } })),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.allArtifacts }),
+  })
+}
+
+export function useDeleteArtifact() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (artifact: ArtifactView) =>
+      unwrap(api.DELETE("/api/v1/artifacts/{source}/{id}", { params: artifactPath(artifact) })),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.allArtifacts }),
   })
 }
 
@@ -78,9 +135,12 @@ export function useSessions() {
 
 export function useSessionEvents() {
   const qc = useQueryClient()
-  useEventSource<SessionsEvent>("/api/v1/events", "sessions", (event) => {
-    qc.setQueryData(keys.sessions, event)
-    void qc.invalidateQueries({ queryKey: keys.providers })
+  useEventSource<{ sessions: SessionsEvent; artifacts: ArtifactsEvent }>("/api/v1/events", {
+    sessions: (event) => {
+      qc.setQueryData(keys.sessions, event)
+      void qc.invalidateQueries({ queryKey: keys.providers })
+    },
+    artifacts: () => void qc.invalidateQueries({ queryKey: keys.allArtifacts }),
   })
 }
 

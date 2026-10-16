@@ -20,7 +20,8 @@ import (
 	"github.com/kriakiku/holtdroid/internal/contract"
 	"github.com/kriakiku/holtdroid/internal/db"
 	"github.com/kriakiku/holtdroid/internal/provider/fake"
-	"github.com/kriakiku/holtdroid/internal/source/dir"
+	"github.com/kriakiku/holtdroid/internal/source"
+	"github.com/kriakiku/holtdroid/internal/storage"
 )
 
 type clock struct {
@@ -69,7 +70,8 @@ func newHarness(t *testing.T, slots int) *harness {
 	cfg.Storage.Filesystem.Dir = t.TempDir()
 	cfg.Auth.Mode = auth.ModeHeader
 	cfg.Auth.AdminGroups = []string{"admins"}
-	srv, err := New(context.Background(), cfg, WithClock(clk.Now), WithSource("local", dir.New(apks)), WithProvider("fake", p))
+	cfg.Sources = []source.Config{{Name: "local", Type: "filesystem", Filesystem: storage.FilesystemConfig{Dir: apks}}}
+	srv, err := New(context.Background(), cfg, WithClock(clk.Now), WithProvider("fake", p))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,12 +122,21 @@ func decode[T any](t *testing.T, rec *httptest.ResponseRecorder) T {
 func (h *harness) create(user string) SessionView {
 	h.t.Helper()
 	rec := h.do(http.MethodPost, "/api/v1/sessions", user, "", map[string]string{
-		"source": "local", "artifactId": "hello.apk", "provider": "fake", "location": "pl",
+		"source": "local", "artifactId": encodeID("hello.apk"), "provider": "fake", "location": "pl",
 	})
 	if rec.Code != http.StatusCreated {
 		h.t.Fatalf("create: %d %s", rec.Code, rec.Body.String())
 	}
 	return decode[SessionView](h.t, rec)
+}
+
+func (h *harness) ref(v SessionView) string {
+	h.t.Helper()
+	sess, err := h.provider.Get(context.Background(), v.ID)
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	return sess.ArtifactRef
 }
 
 func (h *harness) events(id string) []string {
@@ -158,7 +169,7 @@ func TestCreateSession(t *testing.T) {
 	if v.Owner != "otter" || v.Package != "com.example.helloworld" || v.Label != "HelloWorld" || v.Location != "pl" {
 		t.Fatalf("unexpected view %+v", v)
 	}
-	if v.Source != "local" || v.ArtifactID != "hello.apk" {
+	if v.Source != "local" || v.ArtifactID != encodeID("hello.apk") {
 		t.Fatalf("artifact ref %q/%q", v.Source, v.ArtifactID)
 	}
 	if want := h.clock.Now().Add(30 * time.Minute); !v.IdleDeadline.Equal(want) {
@@ -169,7 +180,8 @@ func TestCreateSession(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if sess.ArtifactRef != "local/hello.apk" {
+	src, id, rev := splitRef(sess.ArtifactRef)
+	if src != "local" || id != "hello.apk" || rev == "" {
 		t.Fatalf("artifact ref %q", sess.ArtifactRef)
 	}
 
@@ -178,15 +190,20 @@ func TestCreateSession(t *testing.T) {
 		t.Fatalf("artifacts = %d", len(list.Items))
 	}
 	for _, it := range list.Items {
-		if it.Artifact.ID == "hello.apk" && (it.Meta == nil || it.Meta.Package != "com.example.helloworld") {
+		if it.ID == encodeID("hello.apk") && (it.App == nil || it.App.Package != "com.example.helloworld" || it.Revision != rev) {
 			t.Fatalf("hello.apk metadata missing: %+v", it)
 		}
 	}
 
 	rec := httptest.NewRecorder()
-	h.internal.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/internal/artifacts/local/hello.apk", nil))
+	h.internal.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/internal/artifacts/"+cacheKey(src, id, rev), nil))
 	if rec.Code != http.StatusOK || rec.Body.Len() == 0 {
 		t.Fatalf("internal artifact: %d", rec.Code)
+	}
+	if v.IconURL != "" {
+		if rec := h.do(http.MethodGet, v.IconURL, "otter", "", nil); rec.Code != http.StatusOK {
+			t.Fatalf("icon: %d", rec.Code)
+		}
 	}
 }
 
@@ -197,11 +214,11 @@ func TestCreateSessionErrors(t *testing.T) {
 		body map[string]string
 		code int
 	}{
-		{"unknown provider", map[string]string{"source": "local", "artifactId": "hello.apk", "provider": "nope"}, http.StatusNotFound},
-		{"unknown source", map[string]string{"source": "nope", "artifactId": "hello.apk", "provider": "fake"}, http.StatusNotFound},
-		{"unknown artifact", map[string]string{"source": "local", "artifactId": "missing.apk", "provider": "fake"}, http.StatusNotFound},
-		{"unknown location", map[string]string{"source": "local", "artifactId": "hello.apk", "provider": "fake", "location": "mars"}, http.StatusUnprocessableEntity},
-		{"not an apk", map[string]string{"source": "local", "artifactId": "broken.apk", "provider": "fake"}, http.StatusUnprocessableEntity},
+		{"unknown provider", map[string]string{"source": "local", "artifactId": encodeID("hello.apk"), "provider": "nope"}, http.StatusNotFound},
+		{"unknown source", map[string]string{"source": "nope", "artifactId": encodeID("hello.apk"), "provider": "fake"}, http.StatusNotFound},
+		{"unknown artifact", map[string]string{"source": "local", "artifactId": encodeID("missing.apk"), "provider": "fake"}, http.StatusNotFound},
+		{"unknown location", map[string]string{"source": "local", "artifactId": encodeID("hello.apk"), "provider": "fake", "location": "mars"}, http.StatusUnprocessableEntity},
+		{"not an apk", map[string]string{"source": "local", "artifactId": encodeID("broken.apk"), "provider": "fake"}, http.StatusUnprocessableEntity},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -212,7 +229,7 @@ func TestCreateSessionErrors(t *testing.T) {
 	}
 
 	h.create("otter")
-	rec := h.do(http.MethodPost, "/api/v1/sessions", "otter", "", map[string]string{"source": "local", "artifactId": "hello.apk", "provider": "fake"})
+	rec := h.do(http.MethodPost, "/api/v1/sessions", "otter", "", map[string]string{"source": "local", "artifactId": encodeID("hello.apk"), "provider": "fake"})
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("no capacity: code = %d", rec.Code)
 	}
@@ -221,6 +238,7 @@ func TestCreateSessionErrors(t *testing.T) {
 func TestOwnership(t *testing.T) {
 	h := newHarness(t, 2)
 	v := h.create("otter")
+	ref := h.ref(v)
 	path := "/api/v1/sessions/fake/" + v.ID
 
 	if rec := h.do(http.MethodDelete, path, "beaver", "users", nil); rec.Code != http.StatusForbidden {
@@ -238,7 +256,7 @@ func TestOwnership(t *testing.T) {
 	if rec := h.do(http.MethodGet, path, "otter", "", nil); rec.Code != http.StatusNotFound {
 		t.Fatalf("get after delete: %d", rec.Code)
 	}
-	want := []string{"created|otter|local/hello.apk|", "stopped|root|local/hello.apk|"}
+	want := []string{"created|otter|" + ref + "|", "stopped|root|" + ref + "|"}
 	if got := h.events(v.ID); !slices.Equal(got, want) {
 		t.Fatalf("events = %q, want %q", got, want)
 	}
@@ -249,6 +267,7 @@ func TestReaper(t *testing.T) {
 	h := newHarness(t, 3)
 
 	idle := h.create("otter")
+	ref := h.ref(idle)
 	busy := h.create("otter")
 
 	h.clock.Advance(20 * time.Minute)
@@ -267,7 +286,7 @@ func TestReaper(t *testing.T) {
 	if _, err := h.provider.Get(ctx, busy.ID); err != nil {
 		t.Fatalf("active session reaped: %v", err)
 	}
-	want := []string{"created|otter|local/hello.apk|", "reaped||local/hello.apk|idle timeout"}
+	want := []string{"created|otter|" + ref + "|", "reaped||" + ref + "|idle timeout"}
 	if got := h.events(idle.ID); !slices.Equal(got, want) {
 		t.Fatalf("events = %q, want %q", got, want)
 	}
@@ -340,7 +359,7 @@ func TestRestartKeepsState(t *testing.T) {
 	h := newHarness(t, 2)
 	v := h.create("otter")
 
-	again, err := New(ctx, h.cfg, WithClock(h.clock.Now), WithSource("local", dir.New(h.apks)), WithProvider("fake", h.provider))
+	again, err := New(ctx, h.cfg, WithClock(h.clock.Now), WithProvider("fake", h.provider))
 	if err != nil {
 		t.Fatal(err)
 	}

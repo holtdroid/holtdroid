@@ -4,11 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"regexp"
 	"time"
 
 	"github.com/kriakiku/holtdroid/internal/auth"
 	"github.com/kriakiku/holtdroid/internal/config"
 	"github.com/kriakiku/holtdroid/internal/db"
+	"github.com/kriakiku/holtdroid/internal/source"
 	"github.com/kriakiku/holtdroid/internal/storage"
 )
 
@@ -27,6 +29,13 @@ type SessionsConfig struct {
 type CacheConfig struct {
 	MaxSize config.ByteSize
 	Warm    int
+}
+
+type UploadsConfig struct {
+	Enabled bool
+	Source  string
+	Prefix  string
+	MaxSize config.ByteSize
 }
 
 type SSHConfig struct {
@@ -50,7 +59,8 @@ type Config struct {
 	Database       db.Config
 	Cache          CacheConfig
 	SSH            SSHConfig
-	Sources        []Endpoint
+	Uploads        UploadsConfig
+	Sources        []source.Config
 	Providers      []Endpoint
 }
 
@@ -70,7 +80,29 @@ func DefaultConfig() Config {
 		Database: db.DefaultConfig(),
 		Cache:    CacheConfig{MaxSize: 20 << 30, Warm: 10},
 		SSH:      SSHConfig{PublicPort: 2222, AllowADB: true, AllowReverse: true},
+		Uploads:  UploadsConfig{Enabled: true, Prefix: "uploads", MaxSize: 1 << 30},
+		Sources: []source.Config{{
+			Name:       "local",
+			Type:       "filesystem",
+			Filesystem: storage.FilesystemConfig{Dir: "/var/lib/holtdroid/apks"},
+		}},
 	}
+}
+
+var sourceName = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,62}$`)
+
+// UploadSource is the source uploads go to: uploads.source or the first one.
+func (c Config) UploadSource() string {
+	if !c.Uploads.Enabled {
+		return ""
+	}
+	if c.Uploads.Source != "" {
+		return c.Uploads.Source
+	}
+	if len(c.Sources) > 0 {
+		return c.Sources[0].Name
+	}
+	return ""
 }
 
 func (c Config) Validate() error {
@@ -89,13 +121,38 @@ func (c Config) Validate() error {
 			errs = append(errs, errors.New("ssh.publicPort must be a TCP port"))
 		}
 	}
+	sources := map[string]source.Config{}
+	for _, sc := range c.Sources {
+		if !sourceName.MatchString(sc.Name) {
+			errs = append(errs, fmt.Errorf("source name %q must be lowercase letters, digits, - or _", sc.Name))
+		}
+		if _, dup := sources[sc.Name]; dup {
+			errs = append(errs, fmt.Errorf("duplicate source name %q", sc.Name))
+		}
+		sources[sc.Name] = sc
+		if sc.PollInterval < 0 {
+			errs = append(errs, fmt.Errorf("source %q: pollInterval must not be negative", sc.Name))
+		}
+	}
+	if c.Uploads.Enabled {
+		up, ok := sources[c.UploadSource()]
+		switch {
+		case !ok:
+			errs = append(errs, fmt.Errorf("uploads.source %q is not a configured source", c.UploadSource()))
+		case up.ReadOnly:
+			errs = append(errs, fmt.Errorf("uploads.source %q is read-only", up.Name))
+		}
+		if c.Uploads.MaxSize == 0 {
+			errs = append(errs, errors.New("uploads.maxSize must be positive"))
+		}
+	}
 	seen := map[string]bool{}
-	for _, e := range append(append([]Endpoint{}, c.Sources...), c.Providers...) {
+	for _, e := range c.Providers {
 		if e.Name == "" || e.URL == "" {
-			errs = append(errs, fmt.Errorf("source/provider %q needs name and url", e.Name))
+			errs = append(errs, fmt.Errorf("provider %q needs name and url", e.Name))
 		}
 		if seen[e.Name] {
-			errs = append(errs, fmt.Errorf("duplicate source/provider name %q", e.Name))
+			errs = append(errs, fmt.Errorf("duplicate provider name %q", e.Name))
 		}
 		seen[e.Name] = true
 	}

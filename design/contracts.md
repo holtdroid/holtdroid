@@ -5,7 +5,6 @@ All inter-service APIs are JSON over HTTP, defined once in
 
 | Contract | Interface | Server registration | Go client |
 |----------|-----------|---------------------|-----------|
-| Source | `contract.Source` | `contract.RegisterSource(api, impl)` | `contract.NewSourceClient(url, hc)` |
 | Provider | `contract.Provider` | `contract.RegisterProvider(api, impl)` | `contract.NewProviderClient(url, hc)` |
 | Agent | `contract.Agent` | `contract.RegisterAgent(api, impl)` | — (browsers only, via the api proxy) |
 
@@ -24,42 +23,54 @@ Conventions:
 - Internal endpoints are served on a separate port from anything user-facing
   where a service has both.
 
-## Source API
+## Artifact sources (file layout)
 
-Implemented by `source-*` services. Consumed only by the api.
+Builds are not served through an API: a source is a directory or an S3
+bucket/prefix that the api lists itself (`internal/source`, decisions.md
+#27). The contract for anything that publishes builds (a Slack sync, CI) is
+the layout:
 
-| Method | Path | Response |
-|--------|------|----------|
-| `GET` | `/v1/artifacts?cursor=&limit=` | `{items: Artifact[], nextCursor?}` newest first |
-| `GET` | `/v1/artifacts/{id}` | `Artifact` |
-| `GET` | `/v1/artifacts/{id}/download` | the APK bytes (`application/vnd.android.package-archive`), `Content-Length` when known |
-| `GET` | `/v1/health` | `{ok: true}` |
+- every `*.apk` (any depth, case-insensitive) is an artifact; hidden files
+  and directories are ignored;
+- next to `x.apk` an optional `x.apk.meta.json`, written **before** the APK
+  when owner or visibility matter;
+- replacing a file in place is fine: its revision (ETag, else size + mtime)
+  changes and the api treats it as a new build.
 
 ```go
-type Artifact struct {
-	ID         string    // stable within the source, e.g. Slack file ID
-	FileName   string
-	Size       int64
-	UploadedAt time.Time
-	UploadedBy string    // display name
-	Note       string    // e.g. the Slack message text
-	Link       string    // permalink back to the origin (message/thread)
+type Meta struct { // x.apk.meta.json; every field optional, unknown ones ignored
+	Title      string            // display name instead of the APK label
+	Note       string            // short description, e.g. the Slack message text
+	Changelog  string            // plain text / Markdown
+	UploadedBy string            // display name
+	UploadedAt time.Time         // RFC 3339; default: the file's mtime
+	Link       string            // back to the origin (message, pipeline)
+	Origin     string            // "slack", "ci", "upload", …
+	Tags       map[string]string // branch, commit, flavor, …
+	Owner      string            // portal user ID allowed to manage it
+	Visibility string            // "public" (default) | "private"
 }
 ```
 
-Sources do not parse APKs. The api downloads, parses with
-`internal/apk` (package, versionName, versionCode, label, icon, ABIs,
-minSdk) and caches both file and metadata keyed by `{source}/{id}`.
+Config (api):
 
-### source-slack specifics
+```yaml
+sources:                    # default: one filesystem source "local" at /var/lib/holtdroid/apks
+  - name: slack             # [a-z0-9][a-z0-9_-]*
+    type: s3                # filesystem | s3, options as in storage
+    s3: { endpoint: …, bucket: apks, prefix: slack, accessKey: env:…, secretKey: env:… }
+    readOnly: true          # no deletes/visibility changes through the portal
+    pollInterval: 30s
+uploads:
+  enabled: true
+  source: ""                # default: the first source; must not be readOnly
+  prefix: uploads
+  maxSize: 1GiB
+```
 
-- Config: `token` (secret ref, bot token `xoxb-…`), `channels` (IDs),
-  `pollInterval` (default 1m), `lookback` (default 30d).
-- Bot scopes: `channels:history`, `groups:history`, `files:read`; the bot must
-  be invited to each channel.
-- Lists messages via `conversations.history`, keeps files whose name ends in
-  `.apk` (and optionally `.apks`/`.xapk` later), downloads with
-  `url_private_download` + bearer token.
+The api parses APKs itself (`internal/apk`: package, versionName,
+versionCode, label, icon, ABIs, minSdk) and caches file and metadata keyed by
+`hash(source, key, revision)`.
 
 ## Provider API
 
@@ -98,7 +109,8 @@ type Slot struct {
 }
 
 type CreateSession struct {
-	ArtifactURL string // api-internal URL the agent downloads from
+	ArtifactURL string // api-internal URL the agent downloads from, pinned to one cached revision
+	ArtifactRef string // "{source}/{key}@{revision}", opaque to providers
 	Package     string
 	Owner       string
 	Location    string // optional
@@ -109,7 +121,7 @@ type Session struct {
 	Slot         string
 	Owner        string
 	Package      string
-	ArtifactRef  string // "{source}/{id}"
+	ArtifactRef  string // as given in CreateSession
 	Location     string
 	State        string // provisioning|booting|installing|instrumenting|ready|stopping|failed
 	Reason       string // set when failed
@@ -182,25 +194,30 @@ keeping the provider in the path is what lets the api stay stateless.
 | `GET` | `/api/v1/me` | `{user, name, email, groups, admin}` |
 | `GET` | `/api/v1/ssh` | `{enabled, host?, port, allowADB, allowReverse, clientIsolation}` for the UI; empty `host` = the UI's own host |
 | `PUT` | `/api/v1/ssh/keys` | `{keys: [{name, publicKey}]}` (≤ 32) — the caller's full key list, replaces the previous one on every gateway replica → `{replicas}`; 404 when SSH is disabled, 422 on invalid, duplicate or already-claimed keys (`errors[].location = body.keys[i].publicKey`), 502 when no replica accepted |
-| `GET` | `/api/v1/sources` | configured sources |
-| `GET` | `/api/v1/artifacts?source=&cursor=&limit=` | without `source`: first page of every source merged, newest first; with it: that source, cursor paging. Items carry cached APK metadata once known; per-source failures come back in `errors[]` instead of failing the call |
-| `GET` | `/api/v1/artifacts/{source}/{id}/icon` | PNG, 404 until the APK was parsed |
+| `GET` | `/api/v1/sources` | `[{name, readOnly}]` |
+| `GET` | `/api/v1/artifacts?source=&cursor=&limit=` | artifacts the caller may see (private ones only for owner/admins) from every source or one, newest first, offset cursor. Items: `{source, id, revision, fileName, size, uploadedAt, meta, app?, iconUrl?, canManage}` — `id` is base64url of the key, `meta` the sidecar, `app` the parsed APK once cached; per-source failures come back in `errors[]` |
+| `PATCH` | `/api/v1/artifacts/{source}/{id}` | `{visibility}` → artifact; owner or admin, 403 on `readOnly` sources, 404 when the caller can't see it |
+| `DELETE` | `/api/v1/artifacts/{source}/{id}` | APK + sidecar; owner or admin (ownerless: admin), 403 on `readOnly` sources |
+| `GET` | `/api/v1/icons/{key}` | PNG by cache key (from `iconUrl`), immutable |
+| `GET` | `/api/v1/uploads` | `{enabled, source?, maxSize}` |
+| `POST` | `/api/v1/uploads` | multipart `file` (+ `visibility`, `title`, `note`, `changelog`) → 201 artifact; 403 when disabled, 422 when not an APK, body capped at `maxSize` |
 | `GET` | `/api/v1/providers` | `{name, capabilities, capacity, error?}` per provider |
 | `GET` | `/api/v1/sessions` | `{items, errors}`, each item with `idleDeadline` and `ttlDeadline` |
-| `POST` | `/api/v1/sessions` | `{source, artifactId, provider, location?}`; 409 when no slot is free, 422 for an invalid APK or unknown location |
+| `POST` | `/api/v1/sessions` | `{source, artifactId, provider, location?}`; 404 for artifacts the caller can't see, 409 when no slot is free, 422 for an invalid APK or unknown location |
 | `GET` | `/api/v1/sessions/{provider}/{id}` | one session |
 | `DELETE` | `/api/v1/sessions/{provider}/{id}` | owner or admin only |
 | `POST` | `/api/v1/sessions/{provider}/{id}/extend` | owner or admin only; counts as activity |
 | `POST` | `/api/v1/sessions/{provider}/{id}/heartbeat` | `{active}`; sent every 30 s by a visible session tab, `active` = the user gave input since the previous heartbeat |
-| `GET` | `/api/v1/events` | SSE `event: sessions`, the full `{items, errors}` whenever it changes |
+| `GET` | `/api/v1/events` | SSE `event: sessions`, the full `{items, errors}` whenever it changes; `event: artifacts` `{revision}` whenever any source changes |
 | `*` | `/s/{provider}/{id}/…` | proxy to the session's agent (HTTP + WS); any authenticated user may use it; non-GET requests count as activity |
-| `GET` | `/internal/artifacts/{source}/{id}` | APK download for agents, **internal port only** |
+| `GET` | `/internal/artifacts/{key}` | APK download for agents by cache key, **internal port only** |
 | `GET` | `/internal/sessions/{slug}` | planned, gateway only: `{provider, id, owner, state, tunnelUrl}` |
 | `POST` | `/internal/sessions/{slug}/activity` | planned, gateway only: tunnel traffic counts as activity |
 
-The APK cache is warmed in the background: listing artifacts queues up to
-`cache.warm` uncached ones for download and parsing, so icons and package
-names show up without anyone launching them first.
+The APK cache is warmed in the background: listing artifacts and polling
+sources queue up to `cache.warm` uncached revisions for download and
+parsing, so icons and package names show up without anyone launching them
+first.
 
 ## Configuration and secrets
 
@@ -240,7 +257,14 @@ secrets:
     kubernetes: { role: holtdroid }
 sources:
   - name: slack
-    url: http://holtdroid-source-slack:8080
+    type: s3
+    readOnly: true
+    s3: { endpoint: https://s3.example.com, bucket: apks, prefix: slack, accessKey: env:S3_ACCESS_KEY, secretKey: env:S3_SECRET_KEY }
+  - name: local
+    type: filesystem
+    filesystem: { dir: /var/lib/holtdroid/apks }
+uploads:
+  source: local
 providers:
   - name: emulator
     url: http://holtdroid-provider-emulator:8080

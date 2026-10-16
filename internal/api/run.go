@@ -8,7 +8,8 @@ import (
 )
 
 // Run drives background work until ctx is cancelled: reaping idle and expired
-// sessions, flushing activity to providers and warming the APK cache.
+// sessions, flushing activity to providers, watching sources for changes and
+// warming the APK cache.
 func (s *Server) Run(ctx context.Context) {
 	reap := time.NewTicker(s.cfg.Sessions.ReapInterval)
 	flush := time.NewTicker(s.cfg.Sessions.FlushInterval)
@@ -16,6 +17,7 @@ func (s *Server) Run(ctx context.Context) {
 	defer flush.Stop()
 
 	go s.warmLoop(ctx)
+	go s.watchSources(ctx)
 
 	for {
 		select {
@@ -86,12 +88,12 @@ func (s *Server) warmLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case item := <-s.warm:
-			if _, ok := s.cache.Lookup(ctx, item[0], item[1]); ok {
+			if s.cached(ctx, item.source, item.artifact) {
 				continue
 			}
 			wctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
-			if _, err := s.cache.Ensure(wctx, item[0], item[1]); err != nil {
-				s.log.Debug("cache warm failed", "source", item[0], "artifact", item[1], "err", err)
+			if _, err := s.cache.Ensure(wctx, item.source, item.artifact); err != nil {
+				s.log.Debug("cache warm failed", "source", item.source, "artifact", item.artifact.ID, "err", err)
 			}
 			cancel()
 		}

@@ -17,11 +17,17 @@ deployment"):
   location switcher, extend/stop, reaper.
 - Sign-in: anonymous animal names, shared password, OIDC (PKCE + userinfo),
   forward-auth headers, none. Avatars from the IdP or DiceBear voxel-art.
-- APK cache on filesystem or S3. Stateless api (restart test included).
+- APK cache on filesystem or S3, keyed by file revision. Stateless api
+  (restart test included).
+- Artifact sources built into the api (decision #27): folders or S3
+  prefixes with optional `.meta.json` sidecars (changelog, origin, tags,
+  owner, visibility), change detection by ETag/mtime with polling and an
+  `artifacts` SSE event, uploads from the UI (on by default) with
+  public/private and delete for the owner and admins.
 - In-memory SQLite database in the api (goose + sqlc, `internal/db`); it only
   records session events so far and is empty after a restart (decision #22).
-- `source-dir` (APKs from a volume) and `provider-fake` (fake devices whose
-  agent serves placeholder screen and DevTools pages).
+- `provider-fake` (fake devices whose agent serves placeholder screen and
+  DevTools pages).
 - Single Go binary + embedded UI, distroless image, Helm chart, CI, release
   (`ghcr.io/kriakiku/holtdroid:<sha>` per commit), docs site on GitHub Pages.
 
@@ -38,7 +44,8 @@ deployment"):
 
 **Not built yet**:
 
-- `provider-emulator`, `internal/vpn`, `source-slack` — Phase 3.
+- `provider-emulator`, `internal/vpn` — Phase 3.
+- The Slack sync job (independent of the api, writes the source layout).
 - SSH gateway — Phase 4.5 (designed in architecture.md "SSH access").
 - Docker-only provider, physical phones — "Later".
 
@@ -46,13 +53,14 @@ deployment"):
 
 1. **Phase 3** — `internal/vpn` (golden sing-box configs),
    `provider-emulator` (Pods + per-session Secret, state in labels and
-   annotations, anti-affinity, `touch`), `source-slack`. The provider renders what the Phase 2 Pod proved: `emulator` container
+   annotations, anti-affinity, `touch`), and a Slack sync job that writes
+   into an S3 source. The provider renders what the Phase 2 Pod proved: `emulator` container
    (privileged, `/dev/kvm` and `/dev/shm`, env `HOLTDROID_ARTIFACTURL`,
    `HOLTDROID_PACKAGE`, `HOLTDROID_LOCATION`, `HOLTDROID_CLASHAPI`) plus a
    `vpn` sing-box container (`NET_ADMIN`, `/dev/net/tun`, config Secret with
    WireGuard MTU 1280 and a `select` selector). See decision #26 for the
    details that bit. Then wire them into the chart and switch the
-   maintainer's deployment from fake/dir to emulator/slack.
+   maintainer's deployment from fake to emulator plus a Slack-fed source.
 2. **Phase 4.5 — SSH gateway**, can run in parallel against the fake
    provider.
 3. Remaining Phase 1/5 chores: `CONTRIBUTING.md`, `SECURITY.md`,
@@ -64,7 +72,12 @@ Collected from the design conversation; each is reflected in the docs listed.
 
 - Test APKs arrive in a **Slack channel**; they are often **ARM-only**. A bot
   token with `channels:history`, `groups:history`, `files:read` is available.
-  (architecture.md, contracts.md "source-slack")
+  Slack is read by an **independent sync job** that writes into a folder/S3
+  source, not by the api. (decision #27, contracts.md "Artifact sources")
+- **Sources are a local folder or S3**, with an optional **meta file**
+  (changelog, origin, …) next to each APK; **replaced files are detected**.
+  Users can **upload** APKs (flag, default allowed), make them
+  **public/private** and **delete their own**. (decision #27)
 - **WebView debugging without modifying the APK**, DevTools in the browser
   next to the screen, no adb or local Chrome on the user's machine.
   (decisions #1, #6)
@@ -145,7 +158,7 @@ in-repo work; ask the maintainer for anything cluster-side.
 |------|-------|
 | URL | https://android.homelab.example |
 | Argo CD Application | `homelab.k8s/argocd/holtdroid.yaml` — chart from this repo's `main`, `image.tag=$ARGOCD_APP_REVISION`, values inline |
-| Current setup | `auth.mode: oidc` (Authelia client `holtdroid`, groups `admins`/`users`), `source-dir` on a 2Gi Longhorn PVC (contains `helloworld.apk`), `provider-fake` |
+| Current setup | `auth.mode: oidc` (Authelia client `holtdroid`, groups `admins`/`users`), the default `local` source and uploads on the api's Longhorn PVC `holtdroid-data` (`api.persistence`), `provider-fake` |
 | Secrets (OpenBao KV, mount `secret/`) | `holtdroid` → `session_key`; `oidc/holtdroid` → `client_secret` (+ digest for Authelia); both seeded by `nixos/scripts/openbao-bootstrap.sh`; delivered by an `ExternalSecret` in `extraObjects` |
 | Planned secrets | Slack: put `slack_bot_token` and `slack_channel_id` into `secret/holtdroid` by hand. NordVPN: reuse `secret/vpn` → `nordvpn_private_key`; that key is already used by the torrent `vpn-gateway` (servers `kyiv.ua`, `warsaw.pl`, `astana.kz`, `oslo.no`, `riga.lv` `.wg.nordhold.net`) — put those in `excludeServers` |
 | Nodes for sessions | 4 × x86_64 with `/dev/kvm`: `core` (16 cores, 30 GiB, taint `dedicated=nas:NoSchedule`), `k3s-1..3` (6 cores, 31 GiB each). One session per node |

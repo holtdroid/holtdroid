@@ -16,7 +16,6 @@ flowchart LR
 
   subgraph ns[holtdroid namespace]
     api["api<br/>UI + REST + session proxy"]
-    src["source-slack"]
     prov["provider-emulator"]
     subgraph session["Session Pod"]
       agent["agent + emulator"]
@@ -24,27 +23,27 @@ flowchart LR
     end
   end
 
-  api -- Source API --> src
+  api -- "list + download" --> sources[("Sources<br/>folder / S3")]
+  sync["sync jobs<br/>(Slack, CI, …)"] -. "*.apk + .meta.json" .-> sources
   api -- Provider API --> prov
   api -- "Agent API via /s/{provider}/{id}/" --> agent
-  src --> slack[(Slack)]
   prov --> k8s[(Kubernetes API)]
   agent -. shared network namespace .- vpn
   vpn --> internet[(Internet)]
 ```
 
-| Service               | Role                                                                                                                                                                                                         |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **api**               | Serves the web UI and its REST API, merges artifacts from all sources, caches and parses APKs, asks providers for sessions, proxies all session traffic, tracks activity and reaps idle sessions. Stateless. |
-| **source-slack**      | An _artifact source_: lists `.apk` files posted in Slack channels and streams them.                                                                                                                          |
-| **provider-emulator** | A _device provider_: owns emulator sessions as Kubernetes Pods, accounts for slots, picks VPN servers.                                                                                                       |
-| **agent**             | Runs inside each session: boots the device, installs and instruments the app, serves the screen, DevTools, clipboard and network controls.                                                                   |
+| Service               | Role                                                                                                                                                                                                                           |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **api**               | Serves the web UI and its REST API, lists APKs from folder/S3 sources and takes uploads, caches and parses APKs, asks providers for sessions, proxies all session traffic, tracks activity and reaps idle sessions. Stateless. |
+| **sync jobs**         | Independent of Holtdroid: anything that writes `*.apk` files (and optional `.meta.json` sidecars) into a source, e.g. a Slack channel sync.                                                                                    |
+| **provider-emulator** | A _device provider_: owns emulator sessions as Kubernetes Pods, accounts for slots, picks VPN servers.                                                                                                                         |
+| **agent**             | Runs inside each session: boots the device, installs and instruments the app, serves the screen, DevTools, clipboard and network controls.                                                                                     |
 
 ## Design principles
 
-- **Contracts between services.** Sources, providers and agents are HTTP
-  APIs with a shared conformance suite. The api knows nothing about Slack,
-  Kubernetes or ADB. See [Contracts](/holtdroid/extending/contracts/).
+- **Contracts between services.** Providers and agents are HTTP APIs with a
+  shared conformance suite; sources are a file layout. The api knows nothing
+  about Slack, Kubernetes or ADB. See [Contracts](/holtdroid/extending/contracts/).
 - **Stateless api, no database.** Nothing the api needs lives only in its
   memory or on its disk:
   - sessions belong to providers — the emulator provider keeps them as labels
@@ -54,7 +53,7 @@ flowchart LR
     `auth.sessionKey`;
   - user activity is flushed to the provider every 30 seconds;
   - downloaded APKs are a cache (filesystem or S3) that refills from the
-    sources.
+    sources; uploads and their owner/visibility live as files in a source.
 
   Kill the api, reschedule it to another node or run three replicas — nobody
   notices.
@@ -77,7 +76,7 @@ sequenceDiagram
   participant G as agent
 
   B->>A: POST /api/v1/sessions
-  A->>S: download artifact (if not cached)
+  A->>S: download the APK revision (if not cached)
   A->>A: parse APK metadata
   A->>P: POST /v1/sessions
   P-->>A: session (provisioning)

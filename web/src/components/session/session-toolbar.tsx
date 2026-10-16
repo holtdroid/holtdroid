@@ -85,14 +85,16 @@ function ClipboardControl({ provider, id }: { provider: string; id: string }) {
   const [draft, setDraft] = useState("")
   const [open, setOpen] = useState(false)
 
-  useEventSource<Clipboard>(`/s/${provider}/${id}/v1/clipboard/events`, "clip", (c) => {
-    setDeviceText(c.text)
-    if (document.hasFocus()) {
-      navigator.clipboard.writeText(c.text).then(
-        () => toast("Copied from device", { description: c.text.slice(0, 80) }),
-        () => undefined,
-      )
-    }
+  useEventSource<{ clip: Clipboard }>(`/s/${provider}/${id}/v1/clipboard/events`, {
+    clip: (c) => {
+      setDeviceText(c.text)
+      if (document.hasFocus()) {
+        navigator.clipboard.writeText(c.text).then(
+          () => toast("Copied from device", { description: c.text.slice(0, 80) }),
+          () => undefined,
+        )
+      }
+    },
   })
 
   const send = useMutation({

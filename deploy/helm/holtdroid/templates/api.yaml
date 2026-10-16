@@ -4,18 +4,33 @@
 {{- $_ := set $cfg "internalListen" ":8081" -}}
 {{- $_ := set $cfg "publicURL" .Values.publicURL -}}
 {{- $_ := set $cfg "internalURL" (printf "http://%s-api-internal:8081" $name) -}}
-{{- $sources := list -}}
-{{- if .Values.sources.dir.enabled -}}
-{{- $sources = append $sources (dict "name" .Values.sources.dir.name "url" (printf "http://%s-source-dir:8080" $name)) -}}
-{{- end -}}
-{{- $sources = concat $sources .Values.extraSources -}}
 {{- $providers := list -}}
 {{- if .Values.providers.fake.enabled -}}
 {{- $providers = append $providers (dict "name" .Values.providers.fake.name "url" (printf "http://%s-provider-fake:8080" $name)) -}}
 {{- end -}}
 {{- $providers = concat $providers .Values.extraProviders -}}
-{{- $_ := set $cfg "sources" $sources -}}
 {{- $_ := set $cfg "providers" $providers -}}
+{{- $p := .Values.api.persistence -}}
+{{- if and $p.enabled (not $p.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $name }}-data
+  labels:
+    {{- include "holtdroid.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  accessModes:
+    {{- toYaml $p.accessModes | nindent 4 }}
+  {{- with $p.storageClass }}
+  storageClassName: {{ . }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ $p.size }}
+---
+{{- end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -35,6 +50,10 @@ metadata:
     app.kubernetes.io/component: api
 spec:
   replicas: {{ .Values.api.replicas }}
+  {{- if and $p.enabled (has "ReadWriteOnce" $p.accessModes) }}
+  strategy:
+    type: Recreate
+  {{- end }}
   selector:
     matchLabels:
       {{- include "holtdroid.selector" (dict "root" . "component" "api") | nindent 6 }}
@@ -73,6 +92,7 @@ spec:
             {{- if eq (.Values.config.storage.type | default "filesystem") "filesystem" }}
             - { name: cache, mountPath: {{ .Values.config.storage.filesystem.dir | default "/var/cache/holtdroid" }} }
             {{- end }}
+            - { name: data, mountPath: /var/lib/holtdroid }
       volumes:
         - name: config
           configMap:
@@ -83,6 +103,13 @@ spec:
         - name: cache
           {{- toYaml .Values.api.cacheVolume | nindent 10 }}
         {{- end }}
+        - name: data
+          {{- if $p.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ $p.existingClaim | default (printf "%s-data" $name) }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
       {{- with .Values.api.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
