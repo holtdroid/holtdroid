@@ -44,11 +44,12 @@ deployment"):
 
 **Not built yet**:
 
-- A real session launched from the UI through `provider-emulator`. The
-  provider (decision #29) and its chart wiring are deployed on
-  android.homelab.example (see "Maintainer's deployment"); the pre-pull DaemonSet
-  has the session image on all four nodes, but nobody has started a session
-  yet.
+- Real sessions on android.homelab.example work end to end (2026-10-17): screen
+  over noVNC, DevTools on the app's WebView, location switching through the
+  gateway. Sessions use `holtdroid-session:main` (`pullPolicy: Always`) so a
+  push doesn't leave them waiting for the per-commit build; the session image
+  build caches layers in `ghcr.io/kriakiku/holtdroid-session:buildcache` so a
+  commit only re-pulls the agent layer.
 - The Slack sync on android.homelab.example: deployed
   ([kriakiku/holtdroid-slack-sync](https://github.com/kriakiku/holtdroid-slack-sync),
   decision #30) but waiting for the maintainer's Slack app token and channel
@@ -58,11 +59,9 @@ deployment"):
 
 ## Next steps, in order
 
-1. **Phase 3** — launch a real session on android.homelab.example from the UI
-   (needs the maintainer's Authelia login) and fix what it finds: the
-   NetworkPolicy vs. the kubelet readiness probe, VPN switching through the
-   gateway, DevTools against a real WebView. Then check the Slack sync
-   end to end once its token is in OpenBao.
+1. **Phase 3** — the Slack sync job that writes into an S3 source (work on
+   it has started in parallel: `holtdroid-slack-sync` in the chart), the
+   conformance suite, and whatever more use of real sessions turns up.
 2. **Phase 4.5 — SSH gateway**, can run in parallel against the fake
    provider.
 3. Planned, each starting with a decisions.md entry: Phase 4.7 traffic

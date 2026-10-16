@@ -48,7 +48,7 @@ Goal: one hand-written Pod on a KVM node proves the device side end to end.
 - [x] Agent side of the VPN: `/network` (external IP via `ipInfoURL`) + location switch via the clash API
 - [x] `vpn` sidecar with a static WireGuard config in the hand-written Pod
 - [x] Manual check on a real cluster: ARM-only APK runs (`arm64-v8a` in `ro.product.cpu.abilist`), WebView DevTools socket appears, CDP `Runtime.evaluate` and the frontend work through the agent, clipboard both ways, external IP changes with location
-- [ ] DevTools frontend in the portal against a real WebView page (needs Phase 3 to launch a real session from the UI)
+- [x] DevTools frontend in the portal against a real WebView page (needs Phase 3 to launch a real session from the UI)
 - [x] Record findings and surprises in `decisions.md` (#25, #26)
 
 ## Phase 3 — Provider, source, api
