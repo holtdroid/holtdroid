@@ -20,6 +20,10 @@ type Agent interface {
 	Network(ctx context.Context) (Network, error)
 	SetLocation(ctx context.Context, location string) (Network, error)
 	App(ctx context.Context, action AppAction) error
+	Device(ctx context.Context) (DeviceState, error)
+	UpdateDevice(ctx context.Context, settings DeviceSettings) (DeviceState, error)
+	DeviceAction(ctx context.Context, action DeviceAction) error
+	Screenshot(ctx context.Context) ([]byte, error)
 }
 
 type AppAction string
@@ -39,6 +43,20 @@ type locationInput struct {
 
 type appInput struct {
 	Action AppAction `path:"action" enum:"restart,reinstall"`
+}
+
+type deviceSettingsInput struct {
+	Body DeviceSettings
+}
+
+type deviceActionInput struct {
+	Action DeviceAction `path:"action" enum:"volume-up,volume-down,mute,lock,unlock,back,home,recents,notifications,rotate-left,rotate-right"`
+}
+
+type screenshotOutput struct {
+	ContentType  string `header:"Content-Type"`
+	CacheControl string `header:"Cache-Control"`
+	Body         []byte
 }
 
 func RegisterAgent(api huma.API, a Agent) {
@@ -118,6 +136,44 @@ func RegisterAgent(api huma.API, a Agent) {
 		OperationID: "appAction", Method: http.MethodPost, Path: "/v1/app/{action}", Tags: tags, DefaultStatus: http.StatusAccepted,
 	}, func(ctx context.Context, in *appInput) (*struct{}, error) {
 		return nil, toHuma(a.App(ctx, in.Action))
+	})
+
+	huma.Register(api, huma.Operation{OperationID: "getDevice", Method: http.MethodGet, Path: "/v1/device", Tags: tags},
+		func(ctx context.Context, _ *struct{}) (*body[DeviceState], error) {
+			s, err := a.Device(ctx)
+			if err != nil {
+				return nil, toHuma(err)
+			}
+			return &body[DeviceState]{s}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "updateDevice", Method: http.MethodPatch, Path: "/v1/device", Tags: tags},
+		func(ctx context.Context, in *deviceSettingsInput) (*body[DeviceState], error) {
+			s, err := a.UpdateDevice(ctx, in.Body)
+			if err != nil {
+				return nil, toHuma(err)
+			}
+			return &body[DeviceState]{s}, nil
+		})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "deviceAction", Method: http.MethodPost, Path: "/v1/device/actions/{action}", Tags: tags, DefaultStatus: http.StatusNoContent,
+	}, func(ctx context.Context, in *deviceActionInput) (*struct{}, error) {
+		return nil, toHuma(a.DeviceAction(ctx, in.Action))
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "screenshot", Method: http.MethodGet, Path: "/v1/device/screenshot", Tags: tags,
+		Responses: map[string]*huma.Response{"200": {
+			Description: "PNG of the current screen",
+			Content:     map[string]*huma.MediaType{"image/png": {Schema: &huma.Schema{Type: "string", Format: "binary"}}},
+		}},
+	}, func(ctx context.Context, _ *struct{}) (*screenshotOutput, error) {
+		png, err := a.Screenshot(ctx)
+		if err != nil {
+			return nil, toHuma(err)
+		}
+		return &screenshotOutput{ContentType: "image/png", CacheControl: "no-store", Body: png}, nil
 	})
 }
 

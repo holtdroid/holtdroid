@@ -15,8 +15,9 @@ import (
 	"github.com/frida/frida-go/frida"
 )
 
-// Frida spawns apps through frida-server on the device with the script in
-// dir (agent.js plus its node_modules), bundled once by Frida's compiler.
+// Frida spawns apps through frida-server on the device with the scripts in
+// dir (agent.js for the app, system.js for system_server, plus their
+// node_modules), bundled once by Frida's compiler.
 type Frida struct {
 	serial string
 	dir    string
@@ -25,39 +26,68 @@ type Frida struct {
 	mu     sync.Mutex
 	dev    *frida.Device
 	bundle string
+	system string
 }
 
 func NewFrida(serial, dir string, log *slog.Logger) (Instrumenter, error) {
 	return &Frida{serial: serial, dir: dir, log: log}, nil
 }
 
-func (f *Frida) prepare() (*frida.Device, string, error) {
+func (f *Frida) prepare() error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.dev != nil {
-		return f.dev, f.bundle, nil
+		return nil
 	}
 	opts := frida.NewCompilerOptions()
 	opts.SetProjectRoot(f.dir)
 	opts.SetTypeCheckMode(frida.TypeCheckModeNone)
 	opts.SetSourceMaps(frida.SourceMapsOmitted)
-	bundle, err := frida.NewCompiler().Build(filepath.Join(f.dir, "agent.js"), opts)
+	compiler := frida.NewCompiler()
+	bundle, err := compiler.Build(filepath.Join(f.dir, "agent.js"), opts)
 	if err != nil {
-		return nil, "", fmt.Errorf("compile frida script: %w", err)
+		return fmt.Errorf("compile frida script: %w", err)
+	}
+	system, err := compiler.Build(filepath.Join(f.dir, "system.js"), opts)
+	if err != nil {
+		return fmt.Errorf("compile frida system script: %w", err)
 	}
 	dev, err := frida.DeviceByID(f.serial)
 	if err != nil {
-		return nil, "", fmt.Errorf("frida device %s: %w", f.serial, err)
+		return fmt.Errorf("frida device %s: %w", f.serial, err)
 	}
-	f.dev, f.bundle = dev, bundle
-	return dev, bundle, nil
+	f.dev, f.bundle, f.system = dev, bundle, system
+	return nil
+}
+
+// SetLocales changes the system language the way the Settings app does,
+// from inside system_server, so it applies without a reboot.
+func (f *Frida) SetLocales(ctx context.Context, tags string) error {
+	if err := f.prepare(); err != nil {
+		return err
+	}
+	sess, err := f.dev.AttachWithContext(ctx, "system_server", nil)
+	if err != nil {
+		return fmt.Errorf("attach system_server: %w", err)
+	}
+	defer func() { _ = sess.Detach() }()
+	script, err := sess.CreateScript(f.system)
+	if err != nil {
+		return fmt.Errorf("create script: %w", err)
+	}
+	if err := script.Load(); err != nil {
+		return fmt.Errorf("load script: %w", err)
+	}
+	defer func() { _ = script.Unload() }()
+	_, err = callScript(ctx, script, "setLocales", tags)
+	return err
 }
 
 func (f *Frida) Spawn(_ context.Context, pkg string, onClip func(string)) (App, error) {
-	dev, bundle, err := f.prepare()
-	if err != nil {
+	if err := f.prepare(); err != nil {
 		return nil, err
 	}
+	dev, bundle := f.dev, f.bundle
 	pid, err := dev.Spawn(pkg, nil)
 	if err != nil {
 		return nil, fmt.Errorf("spawn: %w", err)
@@ -123,9 +153,13 @@ func (a *fridaApp) closeDone() { a.once.Do(func() { close(a.done) }) }
 func (a *fridaApp) Done() <-chan struct{} { return a.done }
 
 func (a *fridaApp) call(ctx context.Context, fn string, args ...any) (map[string]any, error) {
+	return callScript(ctx, a.script, fn, args...)
+}
+
+func callScript(ctx context.Context, script *frida.Script, fn string, args ...any) (map[string]any, error) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	ret := a.script.ExportsCallWithContext(ctx, fn, args...)
+	ret := script.ExportsCallWithContext(ctx, fn, args...)
 	if err, ok := ret.(error); ok {
 		return nil, err
 	}

@@ -53,6 +53,7 @@ func DefaultConfig() Config {
 // Instrumenter starts an app with WebView debugging and the clipboard hooks.
 type Instrumenter interface {
 	Spawn(ctx context.Context, pkg string, onClip func(string)) (App, error)
+	SetLocales(ctx context.Context, tags string) error
 }
 
 // App is one instrumented run of the app.
@@ -78,6 +79,7 @@ type Agent struct {
 	network  *Network
 	display  *Display
 	frontend *Frontend
+	controls *Controls
 	actions  chan contract.AppAction
 
 	mu     sync.Mutex
@@ -99,6 +101,7 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 		network:  NewNetwork(cfg.ClashAPI, cfg.IPInfoURL),
 		display:  NewDisplay(cfg.NoVNC, cfg.VNC, log),
 		frontend: NewFrontend(cfg.DevToolsFrontend, filepath.Join(cfg.CacheDir, "devtools-frontend")),
+		controls: NewControls(dev, inst.SetLocales),
 		actions:  make(chan contract.AppAction, 1),
 		status:   contract.StatusEvent{State: contract.StateProvisioning},
 		subs:     map[chan struct{}]struct{}{},
@@ -396,4 +399,20 @@ func (a *Agent) App(_ context.Context, action contract.AppAction) error {
 	default:
 		return errors.New("another app action is in progress")
 	}
+}
+
+func (a *Agent) Device(ctx context.Context) (contract.DeviceState, error) {
+	return a.controls.State(ctx)
+}
+
+func (a *Agent) UpdateDevice(ctx context.Context, settings contract.DeviceSettings) (contract.DeviceState, error) {
+	return a.controls.Update(ctx, settings)
+}
+
+func (a *Agent) DeviceAction(ctx context.Context, action contract.DeviceAction) error {
+	return a.controls.Action(ctx, action)
+}
+
+func (a *Agent) Screenshot(ctx context.Context) ([]byte, error) {
+	return a.dev.Screencap(ctx)
 }

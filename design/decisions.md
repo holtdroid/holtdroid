@@ -496,3 +496,32 @@ don't move with Slack's API. A change to the layout, the sidecar or the
 launch link has to be mirrored in the sync repos, and their copied packages
 can drift from upstream: port fixes both ways.
 
+
+## 31. Device controls go through adb shell; the language through system_server
+
+**Context.** Testers need the hardware buttons, rotation, radios, battery,
+display, language, time zone and clock of the device, from the browser and
+without a reboot or a modified APK.
+
+**Decision.** The agent exposes them as `/v1/device` in the Agent API and
+implements them with stock shell commands over adb (`input keyevent`,
+`settings`, `svc`, `cmd connectivity|power|uimode|alarm|statusbar`,
+`dumpsys battery`, `wm density`, `screencap`) and the emulator console for
+network speed and latency (`adb emu network …`). Android has no shell command
+for the system language, so the agent attaches Frida to `system_server`
+(`internal/agent/script/system.js`) and calls
+`LocalePicker.updateLocales`, the call the Settings app makes; it applies at
+once and persists. The clock is set to real time + offset with
+`cmd alarm set-time` after turning `auto_time` off, and its offset is read by
+comparing `date +%s%N` with the agent's clock. Enabling battery saver unplugs
+the emulated charger first, because Android turns the saver off while
+charging. Rotation locks auto-rotate and sets `user_rotation`; the noVNC
+picture stays in the panel's native orientation, so the UI rotates the
+screen iframe back (the browser maps input through the CSS transform, noVNC
+is unaware).
+
+**Consequences.** No extra on-device tooling; every setting is a plain shell
+string that tests pin down. Inputs that reach the shell are constrained by
+the contract's patterns and enums. The network profile is remembered by the
+agent, not read back from the emulator. When scrcpy replaces noVNC the
+rotation compensation goes away: scrcpy streams the rotated display as is.

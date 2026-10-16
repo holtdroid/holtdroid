@@ -29,6 +29,15 @@ hybrid apps, support engineers reproducing a customer bug.
    - paste your clipboard into the device and receive what the app copies;
    - switch the device's egress country and see its current external IP;
    - restart or reinstall the app, or stop the session.
+
+   A rail next to the screen has the hardware buttons (lock, wake, volume,
+   rotate, back/home/recents, notifications) and a screenshot button. Its
+   **Device settings** panel switches airplane mode, Wi-Fi, mobile data,
+   battery saver, charging and battery level, dark theme, font and display
+   size, emulated network speed, the system language and time zone, and moves
+   the device clock: by a preset (±5 s to ±1 year from real time) or to an
+   exact moment entered in your own time zone.
+
 5. Walk away. After the idle timeout (30 minutes by default) the device is
    deleted and the slot frees up. The home page shows every active session,
    its owner and how long it has left.

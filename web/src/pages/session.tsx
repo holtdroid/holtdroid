@@ -5,6 +5,8 @@ import { toast } from "sonner"
 import { sessionBase, type StatusEvent } from "@/api/client"
 import { canManage, useExtendSession, useMe, useProviders, useSession, useStopSession } from "@/api/queries"
 import { AppIcon } from "@/components/app-icon"
+import { DeviceRail } from "@/components/session/device-rail"
+import { DeviceScreen } from "@/components/session/device-screen"
 import { DevToolsPanel } from "@/components/session/devtools-panel"
 import { SessionToolbar } from "@/components/session/session-toolbar"
 import { StartProgress } from "@/components/session/start-progress"
@@ -125,13 +127,12 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
         ) : (
           <ResizablePanelGroup orientation="horizontal">
             <ResizablePanel defaultSize="42" minSize="20">
-              <iframe
-                ref={registerFrame}
-                title="Device screen"
-                src={`${base}/display/`}
-                className="size-full bg-neutral-950"
-                allow="clipboard-read; clipboard-write"
-              />
+              <div className="flex size-full">
+                <div className="min-w-0 flex-1">
+                  <DeviceScreen provider={provider} id={id} src={`${base}/display/`} frameRef={registerFrame} />
+                </div>
+                <DeviceRail provider={provider} id={id} name={session.package} />
+              </div>
             </ResizablePanel>
             <ResizableHandle withHandle />
             <ResizablePanel defaultSize="58" minSize="20">

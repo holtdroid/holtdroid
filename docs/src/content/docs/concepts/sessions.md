@@ -37,7 +37,8 @@ A session counts as active when someone actually uses it:
 - keyboard, mouse, wheel or touch input anywhere on its session page,
   including the device screen and the DevTools panel, while the tab is
   visible (reported every 30 seconds);
-- a clipboard action, location switch or app restart;
+- a clipboard action, location switch, app restart, device button or
+  device setting change;
 - the user presses **Extend**.
 
 An open tab that nobody touches does **not** keep the device alive.

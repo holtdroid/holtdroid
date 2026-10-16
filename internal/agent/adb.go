@@ -17,6 +17,7 @@ type Device interface {
 	Install(ctx context.Context, apk string) error
 	Forward(ctx context.Context, socket string) (int, error)
 	RemoveForward(ctx context.Context, port int) error
+	Screencap(ctx context.Context) ([]byte, error)
 }
 
 // ADB drives one device through the adb CLI.
@@ -35,6 +36,26 @@ func (a ADB) run(ctx context.Context, args ...string) (string, error) {
 
 func (a ADB) Shell(ctx context.Context, cmd string) (string, error) {
 	return a.run(ctx, "shell", cmd)
+}
+
+func (a ADB) Screencap(ctx context.Context) ([]byte, error) {
+	var stderr bytes.Buffer
+	cmd := exec.CommandContext(ctx, a.Bin, "-s", a.Serial, "exec-out", "screencap", "-p")
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("adb screencap: %w: %s", err, bytes.TrimSpace(stderr.Bytes()))
+	}
+	return out, nil
+}
+
+// Emu sends a command to the emulator console.
+func (a ADB) Emu(ctx context.Context, cmd string) (string, error) {
+	out, err := a.run(ctx, append([]string{"emu"}, strings.Fields(cmd)...)...)
+	if err == nil && strings.HasPrefix(strings.TrimSpace(out), "KO") {
+		err = fmt.Errorf("adb emu %s: %s", cmd, strings.TrimSpace(out))
+	}
+	return out, err
 }
 
 func (a ADB) Install(ctx context.Context, apk string) error {

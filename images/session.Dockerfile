@@ -48,7 +48,7 @@ FROM --platform=$BUILDPLATFORM ${BUN_IMAGE} AS script
 WORKDIR /opt/holtdroid/script
 COPY internal/agent/script/package.json internal/agent/script/bun.lock ./
 RUN bun install --frozen-lockfile --production
-COPY internal/agent/script/agent.js ./
+COPY internal/agent/script/agent.js internal/agent/script/system.js ./
 
 FROM --platform=$BUILDPLATFORM ${GO_IMAGE} AS go
 ARG FRIDA_VERSION

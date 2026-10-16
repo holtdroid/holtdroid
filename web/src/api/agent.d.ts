@@ -52,6 +52,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/device": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getDevice"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["updateDevice"];
+        trace?: never;
+    };
+    "/v1/device/actions/{action}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["deviceAction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/device/screenshot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["screenshot"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/devtools/targets": {
         parameters: {
             query?: never;
@@ -168,6 +216,67 @@ export interface components {
         };
         DevToolsTargets: {
             items: components["schemas"]["DevToolsTarget"][];
+        };
+        DeviceSettings: {
+            airplaneMode?: boolean;
+            /** @description true syncs the clock with real time and keeps it synced */
+            autoTime?: boolean;
+            /** Format: int64 */
+            batteryLevel?: number;
+            batterySaver?: boolean;
+            charging?: boolean;
+            darkMode?: boolean;
+            /**
+             * Format: int64
+             * @description 0 restores the default
+             */
+            density?: number;
+            /** Format: double */
+            fontScale?: number;
+            locale?: string;
+            mobileData?: boolean;
+            /** @enum {string} */
+            networkProfile?: "full" | "lte" | "hsdpa" | "umts" | "edge" | "gprs" | "gsm";
+            /** Format: int64 */
+            rotation?: number;
+            /**
+             * Format: int64
+             * @description sets the device clock to real time plus this many milliseconds and turns autoTime off
+             */
+            timeOffset?: number;
+            timeZone?: string;
+            wifi?: boolean;
+        };
+        DeviceState: {
+            airplaneMode: boolean;
+            autoTime: boolean;
+            /** Format: int64 */
+            batteryLevel: number;
+            batterySaver: boolean;
+            charging: boolean;
+            darkMode: boolean;
+            /** Format: int64 */
+            defaultDensity: number;
+            /** Format: int64 */
+            density: number;
+            /** Format: double */
+            fontScale: number;
+            locale: string;
+            mobileData: boolean;
+            /**
+             * @description empty when the device can't emulate network conditions
+             * @enum {string}
+             */
+            networkProfile?: "full" | "lte" | "hsdpa" | "umts" | "edge" | "gprs" | "gsm";
+            /** Format: int64 */
+            rotation: number;
+            /**
+             * Format: int64
+             * @description device clock minus real time, in milliseconds
+             */
+            timeOffset: number;
+            timeZone: string;
+            wifi: boolean;
         };
         ErrorDetail: {
             /** @description Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id' */
@@ -352,6 +461,128 @@ export interface operations {
                         /** @description The retry time in milliseconds. */
                         retry?: number;
                     }[];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getDevice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceState"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    updateDevice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeviceSettings"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceState"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    deviceAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                action: "volume-up" | "volume-down" | "mute" | "lock" | "unlock" | "back" | "home" | "recents" | "notifications" | "rotate-left" | "rotate-right";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    screenshot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description PNG of the current screen */
+            200: {
+                headers: {
+                    "Cache-Control"?: string;
+                    "Content-Type"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": string;
                 };
             };
             /** @description Error */

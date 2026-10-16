@@ -142,3 +142,70 @@ type Network struct {
 type SetLocation struct {
 	Location string `json:"location" minLength:"1"`
 }
+
+type DeviceAction string
+
+const (
+	DeviceVolumeUp      DeviceAction = "volume-up"
+	DeviceVolumeDown    DeviceAction = "volume-down"
+	DeviceMute          DeviceAction = "mute"
+	DeviceLock          DeviceAction = "lock"
+	DeviceUnlock        DeviceAction = "unlock"
+	DeviceBack          DeviceAction = "back"
+	DeviceHome          DeviceAction = "home"
+	DeviceRecents       DeviceAction = "recents"
+	DeviceNotifications DeviceAction = "notifications"
+	DeviceRotateLeft    DeviceAction = "rotate-left"
+	DeviceRotateRight   DeviceAction = "rotate-right"
+)
+
+// NetworkProfile is an emulated link: speed and latency of a mobile network.
+type NetworkProfile string
+
+const (
+	NetworkFull  NetworkProfile = "full"
+	NetworkLTE   NetworkProfile = "lte"
+	NetworkHSDPA NetworkProfile = "hsdpa"
+	NetworkUMTS  NetworkProfile = "umts"
+	NetworkEDGE  NetworkProfile = "edge"
+	NetworkGPRS  NetworkProfile = "gprs"
+	NetworkGSM   NetworkProfile = "gsm"
+)
+
+type DeviceState struct {
+	AirplaneMode   bool           `json:"airplaneMode"`
+	WiFi           bool           `json:"wifi"`
+	MobileData     bool           `json:"mobileData"`
+	BatterySaver   bool           `json:"batterySaver"`
+	BatteryLevel   int            `json:"batteryLevel"`
+	Charging       bool           `json:"charging"`
+	DarkMode       bool           `json:"darkMode"`
+	FontScale      float64        `json:"fontScale"`
+	Density        int            `json:"density"`
+	DefaultDensity int            `json:"defaultDensity"`
+	Rotation       int            `json:"rotation" minimum:"0" maximum:"3"`
+	NetworkProfile NetworkProfile `json:"networkProfile,omitempty" enum:"full,lte,hsdpa,umts,edge,gprs,gsm" doc:"empty when the device can't emulate network conditions"`
+	TimeZone       string         `json:"timeZone"`
+	Locale         string         `json:"locale"`
+	AutoTime       bool           `json:"autoTime"`
+	TimeOffset     int64          `json:"timeOffset" doc:"device clock minus real time, in milliseconds"`
+}
+
+// DeviceSettings changes the fields that are set and leaves the rest alone.
+type DeviceSettings struct {
+	AirplaneMode   *bool           `json:"airplaneMode,omitempty"`
+	WiFi           *bool           `json:"wifi,omitempty"`
+	MobileData     *bool           `json:"mobileData,omitempty"`
+	BatterySaver   *bool           `json:"batterySaver,omitempty"`
+	BatteryLevel   *int            `json:"batteryLevel,omitempty" minimum:"0" maximum:"100"`
+	Charging       *bool           `json:"charging,omitempty"`
+	DarkMode       *bool           `json:"darkMode,omitempty"`
+	FontScale      *float64        `json:"fontScale,omitempty" minimum:"0.5" maximum:"3"`
+	Density        *int            `json:"density,omitempty" minimum:"0" maximum:"1000" doc:"0 restores the default"`
+	Rotation       *int            `json:"rotation,omitempty" minimum:"0" maximum:"3"`
+	NetworkProfile *NetworkProfile `json:"networkProfile,omitempty" enum:"full,lte,hsdpa,umts,edge,gprs,gsm"`
+	TimeZone       *string         `json:"timeZone,omitempty" pattern:"^[A-Za-z][A-Za-z0-9_+/-]*$" maxLength:"64"`
+	Locale         *string         `json:"locale,omitempty" pattern:"^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{1,8})*$" maxLength:"35"`
+	AutoTime       *bool           `json:"autoTime,omitempty" doc:"true syncs the clock with real time and keeps it synced"`
+	TimeOffset     *int64          `json:"timeOffset,omitempty" minimum:"-3155760000000" maximum:"3155760000000" doc:"sets the device clock to real time plus this many milliseconds and turns autoTime off"`
+}

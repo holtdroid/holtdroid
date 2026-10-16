@@ -21,13 +21,14 @@ type device struct {
 	s         contract.Session
 	clip      string
 	targetGen int
+	settings  contract.DeviceState
 	subs      map[chan struct{}]struct{}
 	done      chan struct{}
 	offers    func(location string) bool
 }
 
 func newDevice(s contract.Session, step time.Duration, offers func(string) bool) *device {
-	d := &device{s: s, subs: map[chan struct{}]struct{}{}, done: make(chan struct{}), offers: offers}
+	d := &device{s: s, settings: defaultSettings(), subs: map[chan struct{}]struct{}{}, done: make(chan struct{}), offers: offers}
 	d.handler = d.buildHandler()
 	go d.run(step)
 	return d

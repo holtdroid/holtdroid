@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -66,8 +67,11 @@ func (d *fakeDevice) Shell(_ context.Context, cmd string) (string, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.shells = append(d.shells, cmd)
-	if cmd == "cat /proc/net/unix" {
+	switch cmd {
+	case "cat /proc/net/unix":
 		return d.unix, nil
+	case "date +%s%N":
+		return strconv.FormatInt(time.Now().UnixNano(), 10), nil
 	}
 	return "", nil
 }
@@ -90,6 +94,10 @@ func (d *fakeDevice) RemoveForward(_ context.Context, port int) error {
 	defer d.mu.Unlock()
 	d.removed = append(d.removed, port)
 	return nil
+}
+
+func (d *fakeDevice) Screencap(context.Context) ([]byte, error) {
+	return []byte("\x89PNG"), nil
 }
 
 func (d *fakeDevice) setUnix(s string) {

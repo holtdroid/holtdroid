@@ -47,11 +47,12 @@ func (a *fakeApp) Kill(context.Context) error {
 }
 
 type fakeInstrumenter struct {
-	mu     sync.Mutex
-	spawns int
-	clip   string
-	onClip func(string)
-	app    *fakeApp
+	mu      sync.Mutex
+	spawns  int
+	clip    string
+	onClip  func(string)
+	app     *fakeApp
+	locales string
 }
 
 func (f *fakeInstrumenter) Spawn(_ context.Context, _ string, onClip func(string)) (App, error) {
@@ -61,6 +62,13 @@ func (f *fakeInstrumenter) Spawn(_ context.Context, _ string, onClip func(string
 	f.onClip = onClip
 	f.app = &fakeApp{done: make(chan struct{}), inst: f}
 	return f.app, nil
+}
+
+func (f *fakeInstrumenter) SetLocales(_ context.Context, tags string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.locales = tags
+	return nil
 }
 
 func (f *fakeInstrumenter) current() (*fakeApp, int) {

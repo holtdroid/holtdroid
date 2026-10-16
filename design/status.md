@@ -14,7 +14,10 @@ deployment"):
 - The portal end to end against **simulated** devices: APK list with parsed
   metadata/icons, launch dialog, sessions panel with slots and idle countdown,
   session page with screen/DevTools split, target switcher, clipboard, VPN
-  location switcher, extend/stop, reaper.
+  location switcher, extend/stop, reaper, device controls (buttons rail,
+  screenshot, settings sheet with radios, battery, display, language, time
+  zone and clock; decision #31; on the real emulator still to be verified,
+  see roadmap Phase 4).
 - Sign-in: anonymous animal names, shared password, OIDC (PKCE + userinfo),
   forward-auth headers, none. Avatars from the IdP or DiceBear voxel-art.
 - APK cache on filesystem or S3, keyed by file revision. Stateless api

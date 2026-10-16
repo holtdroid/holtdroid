@@ -23,6 +23,10 @@ export type DevToolsTarget = AgentSchemas["DevToolsTarget"]
 export type StatusEvent = AgentSchemas["StatusEvent"]
 export type Network = AgentSchemas["Network"]
 export type Clipboard = AgentSchemas["Clipboard"]
+export type DeviceState = AgentSchemas["DeviceState"]
+export type DeviceSettings = AgentSchemas["DeviceSettings"]
+export type NetworkProfile = NonNullable<DeviceState["networkProfile"]>
+export type DeviceAction = AgentPaths["/v1/device/actions/{action}"]["post"]["parameters"]["path"]["action"]
 
 export const api = createClient<paths>({ baseUrl: "" })
 

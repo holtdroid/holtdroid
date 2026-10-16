@@ -1,0 +1,298 @@
+package agent
+
+import (
+	"cmp"
+	"context"
+	"errors"
+	"fmt"
+	"regexp"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/kriakiku/holtdroid/internal/contract"
+)
+
+// console is implemented by devices that have an emulator console.
+type console interface {
+	Emu(ctx context.Context, cmd string) (string, error)
+}
+
+// Controls reads and changes device settings through adb shell.
+type Controls struct {
+	dev     Device
+	locales func(ctx context.Context, tags string) error
+	now     func() time.Time
+
+	mu      sync.Mutex
+	network contract.NetworkProfile
+}
+
+func NewControls(dev Device, locales func(ctx context.Context, tags string) error) *Controls {
+	return &Controls{dev: dev, locales: locales, now: time.Now, network: contract.NetworkFull}
+}
+
+const stateScript = `echo "airplane=$(settings get global airplane_mode_on)"
+echo "wifi=$(settings get global wifi_on)"
+echo "data=$(settings get global mobile_data)"
+echo "saver=$(settings get global low_power)"
+echo "level=$(dumpsys battery get level)"
+echo "ac=$(dumpsys battery get ac)"
+echo "usb=$(dumpsys battery get usb)"
+echo "night=$(cmd uimode night)"
+echo "font=$(settings get system font_scale)"
+echo "density=$(wm density | tr '\n' ' ')"
+echo "rotation=$(settings get system user_rotation)"
+echo "tz=$(getprop persist.sys.timezone)"
+echo "locale=$(getprop persist.sys.locale)"
+echo "productLocale=$(getprop ro.product.locale)"
+echo "autotime=$(settings get global auto_time)"`
+
+var (
+	physicalDensityRe = regexp.MustCompile(`Physical density: (\d+)`)
+	overrideDensityRe = regexp.MustCompile(`Override density: (\d+)`)
+)
+
+func (c *Controls) State(ctx context.Context) (contract.DeviceState, error) {
+	out, err := c.dev.Shell(ctx, stateScript)
+	if err != nil {
+		return contract.DeviceState{}, err
+	}
+	v := map[string]string{}
+	for line := range strings.SplitSeq(out, "\n") {
+		if k, val, ok := strings.Cut(strings.TrimSpace(line), "="); ok {
+			v[k] = strings.TrimSpace(val)
+		}
+	}
+	s := contract.DeviceState{
+		AirplaneMode: v["airplane"] == "1",
+		WiFi:         v["wifi"] == "1" || v["wifi"] == "2",
+		MobileData:   v["data"] != "0",
+		BatterySaver: v["saver"] == "1",
+		Charging:     v["ac"] == "true" || v["usb"] == "true",
+		DarkMode:     strings.Contains(v["night"], ": yes"),
+		FontScale:    1,
+		TimeZone:     cmp.Or(v["tz"], "UTC"),
+		Locale:       cmp.Or(v["locale"], v["productLocale"], "en-US"),
+		AutoTime:     v["autotime"] != "0",
+	}
+	s.BatteryLevel, _ = strconv.Atoi(v["level"])
+	if f, err := strconv.ParseFloat(v["font"], 64); err == nil && f > 0 {
+		s.FontScale = f
+	}
+	if m := physicalDensityRe.FindStringSubmatch(v["density"]); m != nil {
+		s.DefaultDensity, _ = strconv.Atoi(m[1])
+		s.Density = s.DefaultDensity
+	}
+	if m := overrideDensityRe.FindStringSubmatch(v["density"]); m != nil {
+		s.Density, _ = strconv.Atoi(m[1])
+	}
+	if r, err := strconv.Atoi(v["rotation"]); err == nil && r >= 0 && r <= 3 {
+		s.Rotation = r
+	}
+	if _, ok := c.dev.(console); ok {
+		c.mu.Lock()
+		s.NetworkProfile = c.network
+		c.mu.Unlock()
+	}
+	if s.TimeOffset, err = c.timeOffset(ctx); err != nil {
+		return contract.DeviceState{}, err
+	}
+	return s, nil
+}
+
+// timeOffset compares the device clock with ours, taking the middle of the
+// adb round trip as the moment the device read its clock.
+func (c *Controls) timeOffset(ctx context.Context) (int64, error) {
+	before := c.now()
+	out, err := c.dev.Shell(ctx, "date +%s%N")
+	if err != nil {
+		return 0, err
+	}
+	mid := before.Add(c.now().Sub(before) / 2)
+	device, err := parseDeviceClock(out)
+	if err != nil {
+		return 0, err
+	}
+	return device.Sub(mid).Milliseconds(), nil
+}
+
+// parseDeviceClock reads `date +%s%N`; shells without %N print it literally.
+func parseDeviceClock(out string) (time.Time, error) {
+	digits := strings.Map(func(r rune) rune {
+		if r >= '0' && r <= '9' {
+			return r
+		}
+		return -1
+	}, strings.TrimSpace(out))
+	n, err := strconv.ParseInt(digits, 10, 64)
+	if err != nil || digits == "" {
+		return time.Time{}, fmt.Errorf("device clock: unexpected output %q", out)
+	}
+	if len(digits) > 12 {
+		return time.Unix(0, n), nil
+	}
+	return time.Unix(n, 0), nil
+}
+
+func (c *Controls) Update(ctx context.Context, in contract.DeviceSettings) (contract.DeviceState, error) {
+	var cmds []string
+	add := func(cmd ...string) { cmds = append(cmds, cmd...) }
+
+	if in.AirplaneMode != nil {
+		add("cmd connectivity airplane-mode " + pick(*in.AirplaneMode, "enable", "disable"))
+	}
+	if in.WiFi != nil {
+		add("svc wifi " + pick(*in.WiFi, "enable", "disable"))
+	}
+	if in.MobileData != nil {
+		add("svc data " + pick(*in.MobileData, "enable", "disable"))
+	}
+	charging := in.Charging
+	if in.BatterySaver != nil && *in.BatterySaver && charging == nil {
+		charging = new(false)
+	}
+	if charging != nil {
+		if *charging {
+			add("dumpsys battery set ac 1", "dumpsys battery set status 2")
+		} else {
+			add("dumpsys battery unplug", "dumpsys battery set status 3")
+		}
+	}
+	if in.BatteryLevel != nil {
+		add(fmt.Sprintf("dumpsys battery set level %d", *in.BatteryLevel))
+	}
+	if in.BatterySaver != nil {
+		add("cmd power set-mode " + pick(*in.BatterySaver, "1", "0"))
+	}
+	if in.DarkMode != nil {
+		add("cmd uimode night " + pick(*in.DarkMode, "yes", "no"))
+	}
+	if in.FontScale != nil {
+		add("settings put system font_scale " + strconv.FormatFloat(*in.FontScale, 'f', -1, 64))
+	}
+	if in.Density != nil {
+		if *in.Density == 0 {
+			add("wm density reset")
+		} else {
+			add(fmt.Sprintf("wm density %d", *in.Density))
+		}
+	}
+	if in.Rotation != nil {
+		add(rotate(*in.Rotation)...)
+	}
+	if in.TimeZone != nil {
+		add("settings put global auto_time_zone 0", "cmd alarm set-timezone "+*in.TimeZone)
+	}
+	if in.AutoTime != nil && !*in.AutoTime && in.TimeOffset == nil {
+		add("settings put global auto_time 0")
+	}
+	if len(cmds) > 0 {
+		if _, err := c.dev.Shell(ctx, strings.Join(cmds, " && ")); err != nil {
+			return contract.DeviceState{}, err
+		}
+	}
+
+	switch {
+	case in.AutoTime != nil && *in.AutoTime:
+		if err := c.setTime(ctx, 0, true); err != nil {
+			return contract.DeviceState{}, err
+		}
+	case in.TimeOffset != nil:
+		if err := c.setTime(ctx, *in.TimeOffset, false); err != nil {
+			return contract.DeviceState{}, err
+		}
+	}
+
+	if in.NetworkProfile != nil {
+		if err := c.setNetwork(ctx, *in.NetworkProfile); err != nil {
+			return contract.DeviceState{}, err
+		}
+	}
+	if in.Locale != nil {
+		if c.locales == nil {
+			return contract.DeviceState{}, errors.New("changing the system language is not supported here")
+		}
+		if err := c.locales(ctx, *in.Locale); err != nil {
+			return contract.DeviceState{}, fmt.Errorf("set system language: %w", err)
+		}
+	}
+	return c.State(ctx)
+}
+
+func (c *Controls) setTime(ctx context.Context, offset int64, auto bool) error {
+	at := c.now().Add(time.Duration(offset) * time.Millisecond).UnixMilli()
+	_, err := c.dev.Shell(ctx, fmt.Sprintf("settings put global auto_time %s && cmd alarm set-time %d", pick(auto, "1", "0"), at))
+	return err
+}
+
+func (c *Controls) setNetwork(ctx context.Context, p contract.NetworkProfile) error {
+	con, ok := c.dev.(console)
+	if !ok {
+		return fmt.Errorf("%w: this device can't emulate network conditions", contract.ErrInvalid)
+	}
+	delay := string(p)
+	switch p {
+	case contract.NetworkFull, contract.NetworkLTE, contract.NetworkHSDPA:
+		delay = "none"
+	}
+	if _, err := con.Emu(ctx, "network speed "+string(p)); err != nil {
+		return err
+	}
+	if _, err := con.Emu(ctx, "network delay "+delay); err != nil {
+		return err
+	}
+	c.mu.Lock()
+	c.network = p
+	c.mu.Unlock()
+	return nil
+}
+
+var deviceKeys = map[contract.DeviceAction]string{
+	contract.DeviceVolumeUp:      "input keyevent KEYCODE_VOLUME_UP",
+	contract.DeviceVolumeDown:    "input keyevent KEYCODE_VOLUME_DOWN",
+	contract.DeviceMute:          "input keyevent KEYCODE_VOLUME_MUTE",
+	contract.DeviceLock:          "input keyevent KEYCODE_SLEEP",
+	contract.DeviceUnlock:        "input keyevent KEYCODE_WAKEUP && wm dismiss-keyguard",
+	contract.DeviceBack:          "input keyevent KEYCODE_BACK",
+	contract.DeviceHome:          "input keyevent KEYCODE_HOME",
+	contract.DeviceRecents:       "input keyevent KEYCODE_APP_SWITCH",
+	contract.DeviceNotifications: "cmd statusbar expand-notifications",
+}
+
+// Action presses a key or rotates the screen. Rotation values follow
+// Surface.ROTATION_*: turning the device left is +90°.
+func (c *Controls) Action(ctx context.Context, action contract.DeviceAction) error {
+	if cmd, ok := deviceKeys[action]; ok {
+		_, err := c.dev.Shell(ctx, cmd)
+		return err
+	}
+	var step int
+	switch action {
+	case contract.DeviceRotateLeft:
+		step = 1
+	case contract.DeviceRotateRight:
+		step = 3
+	default:
+		return fmt.Errorf("%w: unknown action %q", contract.ErrInvalid, action)
+	}
+	out, err := c.dev.Shell(ctx, "settings get system user_rotation")
+	if err != nil {
+		return err
+	}
+	current, _ := strconv.Atoi(strings.TrimSpace(out))
+	_, err = c.dev.Shell(ctx, strings.Join(rotate((current+step)%4), " && "))
+	return err
+}
+
+func rotate(r int) []string {
+	return []string{"settings put system accelerometer_rotation 0", fmt.Sprintf("settings put system user_rotation %d", r)}
+}
+
+func pick(on bool, yes, no string) string {
+	if on {
+		return yes
+	}
+	return no
+}
