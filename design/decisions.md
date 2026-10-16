@@ -546,3 +546,22 @@ DaemonSet. Argo CD doesn't own the annotation, so it isn't reverted.
 **Consequences.** Private registries that need credentials aren't supported
 by the refresh (it logs a warning and the prepull stays as it is). Pinned
 tags and `IfNotPresent` turn it into a no-op.
+
+## 33. Deployments that follow every commit track a `deploy` branch
+
+**Context.** The live Argo CD Application tracked `main` and used the synced
+commit as the image tag. It rolled out a commit minutes before CI had pushed
+its image; the single provider replica rolls with `maxSurge: 0` (#29), so
+it was gone and the new one sat in `ImagePullBackOff` until the build
+finished, and sessions couldn't be listed or started meanwhile.
+
+**Decision.** The release workflow moves a `deploy` branch to the commit
+after the `holtdroid` image is pushed, only forward (an older run that
+finishes late doesn't move it back). Deployments that follow every commit
+track `deploy`; the session image keeps its own `:main` tag (it builds much
+longer and is pulled per session). #29 stays as is.
+
+**Consequences.** A commit reaches the cluster a few minutes later than
+before, and only with an existing image; the provider still has a short
+restart gap while its new Pod pulls the small image. `main` stays the branch
+everyone works on.

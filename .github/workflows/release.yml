@@ -83,3 +83,23 @@ jobs:
           version="${GITHUB_REF_NAME#v}"
           helm package deploy/helm/holtdroid --version "$version" --app-version "$version"
           helm push "holtdroid-$version.tgz" oci://ghcr.io/${{ github.repository_owner }}/charts
+
+  # Deployments that should only roll out commits whose image exists track
+  # the deploy branch instead of main; it only ever moves forward.
+  deploy-branch:
+    if: github.ref == 'refs/heads/main'
+    needs: image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency: deploy-branch
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - run: |
+          if git fetch origin deploy && ! git merge-base --is-ancestor FETCH_HEAD "$GITHUB_SHA"; then
+            echo "deploy is already past $GITHUB_SHA"
+            exit 0
+          fi
+          git push origin "$GITHUB_SHA:refs/heads/deploy"

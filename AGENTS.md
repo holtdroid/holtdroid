@@ -211,10 +211,10 @@ is ticked.
 ## Releases and the live deployment
 
 Every push to `main` builds `ghcr.io/kriakiku/holtdroid:<full commit sha>`
-(`.github/workflows/release.yml`). The maintainer's cluster runs an Argo CD
-Application that tracks `main` and uses the synced commit as the image tag, so
-**every commit to `main` is deployed** to https://android.homelab.example within a few
-minutes (OIDC via Authelia, directory source, emulator provider). Keep `main`
+(`.github/workflows/release.yml`) and then moves the `deploy` branch to that
+commit. The maintainer's cluster runs an Argo CD Application that tracks
+`deploy` and uses the synced commit as the image tag, so **every commit to
+`main` is deployed** to https://android.homelab.example once its image is built (OIDC via Authelia, directory source, emulator provider). Keep `main`
 green: run `make check` before pushing. Tags `vX.Y.Z` also publish the chart
 to `oci://ghcr.io/kriakiku/charts/holtdroid`.
 
