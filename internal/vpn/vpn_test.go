@@ -179,9 +179,22 @@ func TestOffered(t *testing.T) {
 	if got := cfg.Offered(); !slices.Equal(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
+	if got := cfg.DefaultLocation(); got != Direct {
+		t.Fatalf("default with direct: %q", got)
+	}
 	cfg.Direct = false
 	if got := cfg.Offered(); !slices.Equal(got, want[1:]) {
 		t.Fatalf("without direct: got %v", got)
+	}
+	if got := cfg.DefaultLocation(); got != "de" {
+		t.Fatalf("default without direct: %q", got)
+	}
+	cfg.Default = "pl"
+	if got := cfg.DefaultLocation(); got != "pl" {
+		t.Fatalf("configured default: %q", got)
+	}
+	if got := DefaultConfig().DefaultLocation(); got != "" {
+		t.Fatalf("default while disabled: %q", got)
 	}
 }
 

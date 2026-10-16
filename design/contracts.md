@@ -94,6 +94,7 @@ type Capabilities struct {
 	DevTools  bool
 	Clipboard bool
 	Locations []Location // empty when VPN is not supported/configured
+	DefaultLocation string // where a session starts when CreateSession has no location
 	ABIs      []string   // what the device can run, incl. translated ABIs
 }
 

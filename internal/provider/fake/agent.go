@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
-	"slices"
 
 	"github.com/kriakiku/holtdroid/internal/contract"
 )
@@ -100,7 +99,7 @@ func (d *device) Network(context.Context) (contract.Network, error) {
 }
 
 func (d *device) SetLocation(_ context.Context, location string) (contract.Network, error) {
-	if !slices.ContainsFunc(Locations, func(l contract.Location) bool { return l.ID == location }) {
+	if !d.offers(location) {
 		return contract.Network{}, fmt.Errorf("%w: unknown location %q", contract.ErrInvalid, location)
 	}
 	d.update(func() { d.s.Location = location })

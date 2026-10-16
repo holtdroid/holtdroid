@@ -28,13 +28,13 @@ changes to the UI.
 
 ## Device provider
 
-| Method         | Path                      | Returns                                                       |
-| -------------- | ------------------------- | ------------------------------------------------------------- |
-| `GET`          | `/v1/capabilities`        | display kind, DevTools/clipboard support, VPN locations, ABIs |
-| `GET`          | `/v1/capacity`            | slots with `free`/`busy`/`offline`                            |
-| `GET`/`POST`   | `/v1/sessions`            | list / create                                                 |
-| `GET`/`DELETE` | `/v1/sessions/{id}`       | get / stop                                                    |
-| `POST`         | `/v1/sessions/{id}/touch` | record activity                                               |
+| Method         | Path                      | Returns                                                                           |
+| -------------- | ------------------------- | --------------------------------------------------------------------------------- |
+| `GET`          | `/v1/capabilities`        | display kind, DevTools/clipboard support, VPN locations and the default one, ABIs |
+| `GET`          | `/v1/capacity`            | slots with `free`/`busy`/`offline`                                                |
+| `GET`/`POST`   | `/v1/sessions`            | list / create                                                                     |
+| `GET`/`DELETE` | `/v1/sessions/{id}`       | get / stop                                                                        |
+| `POST`         | `/v1/sessions/{id}/touch` | record activity                                                                   |
 
 The provider is the **source of truth** for its sessions; the api keeps no
 state of its own.

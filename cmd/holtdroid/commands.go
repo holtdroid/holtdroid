@@ -100,6 +100,8 @@ func devCmd() *cobra.Command {
 		slots     int
 		idle      time.Duration
 		stepDelay time.Duration
+		noDirect  bool
+		location  string
 	)
 	cmd := &cobra.Command{
 		Use:   "dev",
@@ -120,7 +122,7 @@ func devCmd() *cobra.Command {
 				return err
 			}
 
-			provider := fake.New(fake.Config{Slots: slots, PublicURL: "http://localhost" + agents, StepDelay: stepDelay})
+			provider := fake.New(fake.Config{Slots: slots, PublicURL: "http://localhost" + agents, StepDelay: stepDelay, NoDirect: noDirect, DefaultLocation: location})
 			gateway := http.NewServeMux()
 			contract.RegisterSSHGateway(contract.NewAPI(gateway, "Holtdroid ssh-gateway keys"), sshgateway.NewKeys(24*time.Hour, nil))
 
@@ -165,6 +167,8 @@ func devCmd() *cobra.Command {
 	cmd.Flags().IntVar(&slots, "slots", 4, "number of fake device slots")
 	cmd.Flags().DurationVar(&idle, "idle-timeout", 30*time.Minute, "session idle timeout")
 	cmd.Flags().DurationVar(&stepDelay, "step-delay", 2*time.Second, "delay between fake boot stages")
+	cmd.Flags().BoolVar(&noDirect, "no-direct", false, "fake devices offer no direct (VPN-less) location")
+	cmd.Flags().StringVar(&location, "default-location", "", "location fake sessions start in (default: the first offered)")
 	return cmd
 }
 

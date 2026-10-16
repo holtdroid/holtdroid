@@ -52,7 +52,7 @@ type harness struct {
 	cfg      Config
 }
 
-func newHarness(t *testing.T, slots int) *harness {
+func newHarness(t *testing.T, slots int, opts ...func(*fake.Config)) *harness {
 	t.Helper()
 	apks := t.TempDir()
 	copyFile(t, "../apk/testdata/helloworld.apk", filepath.Join(apks, "hello.apk"))
@@ -63,7 +63,11 @@ func newHarness(t *testing.T, slots int) *harness {
 	clk := &clock{t: time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)}
 	agents := httptest.NewServer(http.NotFoundHandler())
 	t.Cleanup(agents.Close)
-	p := fake.New(fake.Config{Slots: slots, StepDelay: time.Hour, PublicURL: agents.URL}, fake.WithClock(clk.Now))
+	fc := fake.Config{Slots: slots, StepDelay: time.Hour, PublicURL: agents.URL}
+	for _, opt := range opts {
+		opt(&fc)
+	}
+	p := fake.New(fc, fake.WithClock(clk.Now))
 	agents.Config.Handler = p.AgentHandler()
 
 	cfg := DefaultConfig()
@@ -232,6 +236,24 @@ func TestCreateSessionErrors(t *testing.T) {
 	rec := h.do(http.MethodPost, "/api/v1/sessions", "otter", "", map[string]string{"source": "local", "artifactId": encodeID("hello.apk"), "provider": "fake"})
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("no capacity: code = %d", rec.Code)
+	}
+}
+
+func TestDefaultLocation(t *testing.T) {
+	h := newHarness(t, 2, func(c *fake.Config) { c.NoDirect, c.DefaultLocation = true, "de" })
+	providers := decode[[]ProviderView](t, h.do(http.MethodGet, "/api/v1/providers", "otter", "", nil))
+	caps := providers[0].Capabilities
+	if caps.DefaultLocation != "de" || slices.ContainsFunc(caps.Locations, func(l contract.Location) bool { return l.ID == "direct" }) {
+		t.Fatalf("capabilities %+v", caps)
+	}
+	body := map[string]string{"source": "local", "artifactId": encodeID("hello.apk"), "provider": "fake"}
+	rec := h.do(http.MethodPost, "/api/v1/sessions", "otter", "", body)
+	if v := decode[SessionView](t, rec); rec.Code != http.StatusCreated || v.Location != "de" {
+		t.Fatalf("create without a location: %d %s", rec.Code, rec.Body.String())
+	}
+	body["location"] = "direct"
+	if rec := h.do(http.MethodPost, "/api/v1/sessions", "otter", "", body); rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("direct while disabled: %d %s", rec.Code, rec.Body.String())
 	}
 }
 

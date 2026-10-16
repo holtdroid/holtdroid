@@ -18,15 +18,14 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-
-const NO_VPN = "__none__"
+import { lastLocation, rememberLocation } from "@/lib/last-location"
 
 export function LaunchDialog({ artifact, onClose }: { artifact: ArtifactView | null; onClose: () => void }) {
   const providers = useProviders()
   const launch = useLaunch()
   const navigate = useNavigate()
   const [chosenProvider, setChosenProvider] = useState("")
-  const [location, setLocation] = useState(NO_VPN)
+  const [chosenLocation, setChosenLocation] = useState<string | null>(null)
 
   const usable = useMemo(() => (providers.data ?? []).filter((p) => !p.error), [providers.data])
   const provider =
@@ -35,8 +34,16 @@ export function LaunchDialog({ artifact, onClose }: { artifact: ArtifactView | n
     usable[0]
   const selectProvider = (name: string) => {
     setChosenProvider(name)
-    setLocation(NO_VPN)
+    setChosenLocation(null)
   }
+  const locations = provider?.capabilities.locations ?? []
+  const defaultLocation = provider?.capabilities.defaultLocation
+  const location = [
+    chosenLocation,
+    provider ? lastLocation(provider.name) : null,
+    defaultLocation,
+    locations[0]?.id,
+  ].find((id): id is string => !!id && locations.some((l) => l.id === id))
   const free = provider?.capacity.slots.filter((s) => s.state === "free").length ?? 0
   const total = provider?.capacity.slots.length ?? 0
   const missingABI =
@@ -51,10 +58,11 @@ export function LaunchDialog({ artifact, onClose }: { artifact: ArtifactView | n
         source: artifact.source,
         artifactId: artifact.id,
         provider: provider.name,
-        location: location === NO_VPN ? undefined : location,
+        location,
       },
       {
         onSuccess: (session) => {
+          if (location) rememberLocation(session.provider, location)
           onClose()
           void navigate({ to: "/session/$provider/$id", params: { provider: session.provider, id: session.id } })
         },
@@ -101,18 +109,17 @@ export function LaunchDialog({ artifact, onClose }: { artifact: ArtifactView | n
             </Select>
           </div>
 
-          {provider && provider.capabilities.locations.length > 0 && (
+          {locations.length > 0 && (
             <div className="grid gap-2">
               <Label>VPN location</Label>
-              <Select value={location} onValueChange={setLocation}>
+              <Select value={location ?? ""} onValueChange={setChosenLocation}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NO_VPN}>Provider default</SelectItem>
-                  {provider.capabilities.locations.map((l) => (
+                  {locations.map((l) => (
                     <SelectItem key={l.id} value={l.id}>
-                      {l.label}
+                      {l.id === defaultLocation ? `${l.label} (default)` : l.label}
                     </SelectItem>
                   ))}
                 </SelectContent>

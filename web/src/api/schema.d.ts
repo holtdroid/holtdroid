@@ -325,6 +325,7 @@ export interface components {
         Capabilities: {
             abis: string[];
             clipboard: boolean;
+            defaultLocation?: string;
             devtools: boolean;
             /** @enum {string} */
             display: "novnc" | "scrcpy";

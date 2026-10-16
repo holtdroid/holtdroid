@@ -282,6 +282,10 @@ advertises `display: scrcpy` and the UI swaps the renderer.
   needed for `*.cluster.local` names, which sing-box's `local` sends to mDNS.
 - The clash API listens on `127.0.0.1:9090`. `PUT /network/location` on
   the agent maps to `PUT /proxies/select {"name": "<location>"}`.
+  Capabilities carry the offered locations and `defaultLocation`
+  (`vpn.Config.DefaultLocation`); with `vpn.direct: false` there is no
+  `direct` to pick. The UI preselects the last location the user picked per
+  provider (`localStorage`), else the default.
   `GET /network` reports the current selection and the external
   IP/country, looked up through the tunnel at `ipInfoURL` (default
   `https://ipinfo.io/json`, cached 30 s).

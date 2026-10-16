@@ -125,15 +125,21 @@ func (c Config) Offered() []contract.Location {
 	return out
 }
 
-func (c Config) initial(location string) (string, error) {
+// DefaultLocation is where a session starts without an explicit choice.
+func (c Config) DefaultLocation() string {
 	offered := c.Offered()
 	switch {
-	case location == "" && c.Default != "":
-		location = c.Default
-	case location == "":
-		location = offered[0].ID
+	case len(offered) == 0:
+		return ""
+	case c.Default != "":
+		return c.Default
 	}
-	if !slices.ContainsFunc(offered, func(l contract.Location) bool { return l.ID == location }) {
+	return offered[0].ID
+}
+
+func (c Config) initial(location string) (string, error) {
+	location = cmp.Or(location, c.DefaultLocation())
+	if !slices.ContainsFunc(c.Offered(), func(l contract.Location) bool { return l.ID == location }) {
 		return "", fmt.Errorf("%w: unknown location %q", contract.ErrInvalid, location)
 	}
 	return location, nil

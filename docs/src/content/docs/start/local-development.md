@@ -39,7 +39,8 @@ make web-dev                 # in a second terminal, then open http://localhost:
 
 Useful flags: `--apks <dir>`, `--uploads <dir>` (default: a temporary
 directory), `--slots 4`, `--step-delay 2s`, `--idle-timeout 30m`,
-`--cache <dir>`.
+`--cache <dir>`, `--no-direct` and `--default-location de` (fake VPN
+locations).
 
 Frontend tooling runs on Bun. Type checking uses TypeScript 7 (the native
 compiler); linting and formatting use oxlint and oxfmt.

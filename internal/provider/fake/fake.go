@@ -17,10 +17,12 @@ import (
 )
 
 type Config struct {
-	Listen    string
-	Slots     int
-	PublicURL string
-	StepDelay time.Duration
+	Listen          string
+	Slots           int
+	PublicURL       string
+	StepDelay       time.Duration
+	NoDirect        bool
+	DefaultLocation string
 }
 
 func DefaultConfig() Config {
@@ -35,8 +37,10 @@ var Locations = []contract.Location{
 }
 
 type Provider struct {
-	cfg Config
-	now func() time.Time
+	cfg       Config
+	now       func() time.Time
+	locations []contract.Location
+	location  string
 
 	mu       sync.Mutex
 	sessions map[string]*device
@@ -47,7 +51,14 @@ type Option func(*Provider)
 func WithClock(now func() time.Time) Option { return func(p *Provider) { p.now = now } }
 
 func New(cfg Config, opts ...Option) *Provider {
-	p := &Provider{cfg: cfg, now: time.Now, sessions: map[string]*device{}}
+	p := &Provider{cfg: cfg, now: time.Now, sessions: map[string]*device{}, locations: Locations}
+	if cfg.NoDirect {
+		p.locations = Locations[1:]
+	}
+	p.location = p.locations[0].ID
+	if p.offers(cfg.DefaultLocation) {
+		p.location = cfg.DefaultLocation
+	}
 	for _, opt := range opts {
 		opt(p)
 	}
@@ -56,13 +67,18 @@ func New(cfg Config, opts ...Option) *Provider {
 
 func (p *Provider) Capabilities(context.Context) (contract.Capabilities, error) {
 	return contract.Capabilities{
-		Kind:      "fake",
-		Display:   contract.DisplayNoVNC,
-		DevTools:  true,
-		Clipboard: true,
-		Locations: Locations,
-		ABIs:      []string{"x86_64", "arm64-v8a"},
+		Kind:            "fake",
+		Display:         contract.DisplayNoVNC,
+		DevTools:        true,
+		Clipboard:       true,
+		Locations:       p.locations,
+		DefaultLocation: p.location,
+		ABIs:            []string{"x86_64", "arm64-v8a"},
 	}, nil
+}
+
+func (p *Provider) offers(location string) bool {
+	return slices.ContainsFunc(p.locations, func(l contract.Location) bool { return l.ID == location })
 }
 
 func (p *Provider) slotIDs() []string {
@@ -103,7 +119,7 @@ func (p *Provider) List(context.Context) ([]contract.Session, error) {
 }
 
 func (p *Provider) Create(_ context.Context, req contract.CreateSession) (contract.Session, error) {
-	if req.Location != "" && !slices.ContainsFunc(Locations, func(l contract.Location) bool { return l.ID == req.Location }) {
+	if req.Location != "" && !p.offers(req.Location) {
 		return contract.Session{}, fmt.Errorf("%w: unknown location %q", contract.ErrInvalid, req.Location)
 	}
 	p.mu.Lock()
@@ -125,7 +141,7 @@ func (p *Provider) Create(_ context.Context, req contract.CreateSession) (contra
 	}
 
 	id := randomID()
-	location := cmp.Or(req.Location, "direct")
+	location := cmp.Or(req.Location, p.location)
 	d := newDevice(contract.Session{
 		ID:           id,
 		Slot:         slot,
@@ -137,7 +153,7 @@ func (p *Provider) Create(_ context.Context, req contract.CreateSession) (contra
 		AgentURL:     strings.TrimRight(p.cfg.PublicURL, "/") + "/agents/" + id,
 		CreatedAt:    p.now().UTC(),
 		LastActivity: p.now().UTC(),
-	}, p.cfg.StepDelay)
+	}, p.cfg.StepDelay, p.offers)
 	p.sessions[id] = d
 	return d.session(), nil
 }

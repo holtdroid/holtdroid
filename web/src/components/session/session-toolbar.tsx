@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { useEventSource } from "@/hooks/use-event-source"
 import { countryFlag } from "@/lib/format"
+import { rememberLocation } from "@/lib/last-location"
 
 export function SessionToolbar({
   provider,
@@ -50,6 +51,7 @@ function LocationControl({ provider, id, locations }: { provider: string; id: st
     mutationFn: (location: string) => unwrap(client.PUT("/v1/network/location", { body: { location } })),
     onSuccess: (n) => {
       qc.setQueryData(queryKey, n)
+      rememberLocation(provider, n.location)
       toast.success(`Now browsing from ${n.country || n.location}`, { description: n.externalIp })
     },
     onError: (e) => toast.error("Could not switch location", { description: e.message }),

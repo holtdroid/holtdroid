@@ -23,6 +23,12 @@ in the Pod's network namespace:
 - the device's DNS queries are captured from the tunnel and resolved through
   the selected location, so lookups don't leak.
 
+The launch dialog preselects the location you used last time with that
+provider (remembered in the browser's `localStorage`, also when you switch
+during a session). If there is none, or it is no longer offered, it falls
+back to the configured default (`vpn.default`). With `vpn.direct: false`
+there is no VPN-less option at all.
+
 Android itself is not configured at all; to apps it looks like a normal
 network. Port forwarding (`adb reverse`, [SSH access](/holtdroid/concepts/ssh/))
 runs over loopback and is unaffected by the VPN.

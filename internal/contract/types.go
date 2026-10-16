@@ -28,12 +28,13 @@ type Location struct {
 }
 
 type Capabilities struct {
-	Kind      string      `json:"kind"`
-	Display   DisplayKind `json:"display" enum:"novnc,scrcpy"`
-	DevTools  bool        `json:"devtools"`
-	Clipboard bool        `json:"clipboard"`
-	Locations []Location  `json:"locations"`
-	ABIs      []string    `json:"abis"`
+	Kind            string      `json:"kind"`
+	Display         DisplayKind `json:"display" enum:"novnc,scrcpy"`
+	DevTools        bool        `json:"devtools"`
+	Clipboard       bool        `json:"clipboard"`
+	Locations       []Location  `json:"locations"`
+	DefaultLocation string      `json:"defaultLocation,omitempty"`
+	ABIs            []string    `json:"abis"`
 }
 
 type SlotState string
