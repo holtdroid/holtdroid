@@ -20,6 +20,10 @@ imports it. Read it fully before changing anything.
    they are. Do not relitigate an accepted decision silently: add a new entry
    that supersedes it.
 
+If an `AGENTS.local.md` exists next to this file, read it too: it holds
+machine-specific notes (local paths, how to deploy to the maintainer's
+cluster) and is deliberately not committed.
+
 If the code and the design docs disagree, the docs are wrong or the code is
 — fix one of them in the same change. Never leave them diverged.
 
