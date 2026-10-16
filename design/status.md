@@ -63,7 +63,10 @@ deployment"):
    maintainer's deployment from fake to emulator plus a Slack-fed source.
 2. **Phase 4.5 — SSH gateway**, can run in parallel against the fake
    provider.
-3. Remaining Phase 1/5 chores: `CONTRIBUTING.md`, `SECURITY.md`,
+3. Planned, each starting with a decisions.md entry: Phase 4.7 traffic
+   inspection proxy, Phase 4.8 MCP server, Phase 4.9 audit and telemetry.
+   All optional and off by default.
+4. Remaining Phase 1/5 chores: `CONTRIBUTING.md`, `SECURITY.md`,
    `.editorconfig`, conformance package.
 
 ## Requirements from the maintainer
