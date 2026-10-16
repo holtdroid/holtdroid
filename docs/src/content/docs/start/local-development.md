@@ -29,8 +29,8 @@ bun install
 `holtdroid dev` starts the portal with anonymous sign-in, a read-only
 artifact source named `local` that lists the APKs in a directory, a writable
 `uploads` source for the Upload button, and a `fake` device
-provider whose devices boot in a few seconds and serve placeholder screen and
-DevTools pages. Nothing else is needed:
+provider whose devices boot in a few seconds, stream a short recorded screen
+and serve a placeholder DevTools page. Nothing else is needed:
 
 ```sh
 make dev                     # or: go run ./cmd/holtdroid dev --apks ~/Downloads

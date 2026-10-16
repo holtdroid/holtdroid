@@ -565,3 +565,33 @@ longer and is pulled per session). #29 stays as is.
 before, and only with an existing image; the provider still has a short
 restart gap while its new Pod pulls the small image. `main` stays the branch
 everyone works on.
+
+## 34. The screen is a scrcpy stream, not noVNC
+
+**Context.** The screen went Xvfb → emulator window → x11vnc → noVNC in an
+iframe. Browser touch became X11 mouse clicks on the emulator window: one
+pointer, no pinch, VNC tiles instead of video, and a rotated device showed a
+sideways picture that the UI had to turn back with CSS (#31).
+
+**Decision.** The agent bridges scrcpy (architecture.md "Screen"): one
+`scrcpy-server` per WebSocket on `/display/scrcpy`, started over `adb shell`
+in forward-tunnel mode, its video socket streamed to the browser and the
+browser's control messages written to its control socket. The browser
+parses and decodes with Tango's `@yume-chan/scrcpy` and
+`@yume-chan/scrcpy-decoder-webcodecs` onto a canvas and serializes touch,
+scroll, key and clipboard messages with the same library. The server
+version is pinned to what the library supports (3.3.3; the server refuses a
+client of another version) and bumped together with it. The emulator runs
+`-no-window`; Xvfb, x11vnc and noVNC are gone from the image.
+`capabilities.display` keeps the extension point with `scrcpy` as its only
+value; the fake provider replays a short H.264 recording over the same
+protocol so the UI works without a device. This supersedes the noVNC parts
+of #26 and the rotation compensation of #31.
+
+**Consequences.** Real multi-touch, H.264 at up to 60 fps for less traffic,
+rotation and resizing handled by the stream, the same renderer for a future
+phone provider. The browser needs WebCodecs (current Chrome, Edge, Firefox,
+Safari). Every viewer of a session runs its own encoder on the device. Text
+typed through IME composition isn't forwarded yet. The UI and the agents it
+streams from must speak the same protocol, so the `deploy` branch (#33) now
+also waits for the session image: a commit rolls out once both images exist.

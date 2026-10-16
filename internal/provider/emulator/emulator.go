@@ -184,7 +184,7 @@ func New(cfg Config, kube kubernetes.Interface, sec vpn.Secrets, opts ...Option)
 func (p *Provider) Capabilities(context.Context) (contract.Capabilities, error) {
 	return contract.Capabilities{
 		Kind:            "emulator",
-		Display:         contract.DisplayNoVNC,
+		Display:         contract.DisplayScrcpy,
 		DevTools:        true,
 		Clipboard:       true,
 		Locations:       p.cfg.VPN.Offered(),

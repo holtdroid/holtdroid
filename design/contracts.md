@@ -104,7 +104,7 @@ Implemented by `provider-*` services. Consumed only by the api.
 ```go
 type Capabilities struct {
 	Kind      string     // "emulator", "physical", …
-	Display   string     // "novnc" | "scrcpy"
+	Display   string     // "scrcpy"
 	DevTools  bool
 	Clipboard bool
 	Locations []Location // empty when VPN is not supported/configured
@@ -171,7 +171,7 @@ static assets and WebSockets.
 | `PATCH` | `/v1/device` | `DeviceSettings` (any subset of the writable fields above; `density: 0` restores the default; `timeOffset` sets the clock to real time + offset and turns `autoTime` off; `autoTime: true` syncs the clock) → `DeviceState` | `UpdateDevice` |
 | `POST` | `/v1/device/actions/{volume-up\|volume-down\|mute\|lock\|unlock\|back\|home\|recents\|notifications\|rotate-left\|rotate-right}` | 204 | `DeviceAction` |
 | `GET` | `/v1/device/screenshot` | `image/png` of the current screen | `Screenshot` |
-| `GET` | `/display/` | the screen renderer page, loaded in an iframe as-is; for noVNC it serves its own `vnc.html` and `/display/websockify` | – |
+| `WS` | `/display/scrcpy` | the screen: device → browser binary messages are the scrcpy 3.3.3 video socket after its dummy byte (64-byte device name, codec meta, packets with frame meta), browser → device binary messages are scrcpy control messages (architecture.md "Screen") | – |
 | `WS` | `/devtools/{socket}/page/{id}` | proxied CDP WebSocket | – |
 | `GET` | `/devtools-frontend/@{rev}/…` | cached DevTools frontend; the UI opens `inspector.html?ws(s)=<host>/s/{provider}/{session}/devtools/{socket}/page/{id}` | – |
 

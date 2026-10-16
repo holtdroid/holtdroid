@@ -28,10 +28,7 @@ func (p *Provider) AgentHandler() http.Handler {
 func (d *device) buildHandler() http.Handler {
 	mux := http.NewServeMux()
 	contract.RegisterAgent(contract.NewAPI(mux, "fake agent"), d)
-	mux.HandleFunc("GET /display/", func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_ = displayPage.Execute(w, d.session())
-	})
+	mux.HandleFunc("GET /display/scrcpy", serveScreen)
 	mux.HandleFunc("GET /devtools-frontend/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_ = devtoolsPage.Execute(w, r.URL.Query().Get("wss"))
@@ -147,16 +144,6 @@ func detail(state contract.SessionState) string {
 		return ""
 	}
 }
-
-var displayPage = template.Must(template.New("display").Parse(`<!doctype html>
-<html><head><meta charset="utf-8"><title>Fake device</title>
-<style>
-html,body{margin:0;height:100%;background:#111;display:grid;place-items:center;font:14px system-ui;color:#eee}
-.phone{height:min(92vh,760px);aspect-ratio:9/19.5;border-radius:36px;background:#000;border:10px solid #333;display:grid;place-items:center;text-align:center;padding:24px;box-sizing:border-box}
-.dot{width:12px;height:12px;border-radius:50%;background:#3ddc84;margin:0 auto 16px;animation:p 1.2s infinite}
-@keyframes p{50%{opacity:.2}}
-</style></head>
-<body><div class="phone"><div><div class="dot"></div><b>{{.Package}}</b><br>fake device on {{.Slot}}<br><small>no Android is running</small></div></div></body></html>`))
 
 var devtoolsPage = template.Must(template.New("devtools").Parse(`<!doctype html>
 <html><head><meta charset="utf-8"><title>Fake DevTools</title>

@@ -16,8 +16,8 @@ deployment"):
   session page with screen/DevTools split, target switcher, clipboard, VPN
   location switcher, extend/stop, reaper, device controls (buttons rail,
   screenshot, settings sheet with radios, battery, display, language, time
-  zone and clock; decision #31; on the real emulator still to be verified,
-  see roadmap Phase 4).
+  zone and clock; decision #31), screen over scrcpy with multi-touch
+  (decision #34).
 - Sign-in: anonymous animal names, shared password, OIDC (PKCE + userinfo),
   forward-auth headers, none. Avatars from the IdP or DiceBear voxel-art.
 - APK cache on filesystem or S3, keyed by file revision. Stateless api
@@ -29,7 +29,7 @@ deployment"):
   public/private and delete for the owner and admins.
 - In-memory SQLite database in the api (goose + sqlc, `internal/db`); it only
   records session events so far and is empty after a restart (decision #22).
-- `provider-fake` (fake devices whose agent serves placeholder screen and
+- `provider-fake` (fake devices whose agent streams a recorded screen and serves placeholder
   DevTools pages).
 - Single Go binary + embedded UI, distroless image, Helm chart, CI, release
   (`ghcr.io/kriakiku/holtdroid:<sha>` per commit), docs site on GitHub Pages.
@@ -48,7 +48,7 @@ deployment"):
 **Not built yet**:
 
 - Real sessions on android.homelab.example work end to end (2026-10-17): screen
-  over noVNC, DevTools on the app's WebView, location switching through the
+  over noVNC (scrcpy since decision #34), DevTools on the app's WebView, location switching through the
   gateway. Sessions use `holtdroid-session:main` (`pullPolicy: Always`) so a
   push doesn't leave them waiting for the per-commit build; the session image
   build caches layers in `ghcr.io/kriakiku/holtdroid-session:buildcache` so a

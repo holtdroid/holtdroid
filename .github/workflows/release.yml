@@ -88,7 +88,7 @@ jobs:
   # the deploy branch instead of main; it only ever moves forward.
   deploy-branch:
     if: github.ref == 'refs/heads/main'
-    needs: image
+    needs: [image, session-image]
     runs-on: ubuntu-latest
     permissions:
       contents: write

@@ -18,6 +18,7 @@ type Device interface {
 	Forward(ctx context.Context, socket string) (int, error)
 	RemoveForward(ctx context.Context, port int) error
 	Screencap(ctx context.Context) ([]byte, error)
+	ScrcpyDevice
 }
 
 // ADB drives one device through the adb CLI.
@@ -69,7 +70,24 @@ func (a ADB) Push(ctx context.Context, local, remote string) error {
 }
 
 func (a ADB) Forward(ctx context.Context, socket string) (int, error) {
-	out, err := a.run(ctx, "forward", "tcp:0", "localabstract:"+socket)
+	return a.ForwardTo(ctx, "localabstract:"+socket)
+}
+
+// Run runs a long-lived shell command until it exits or ctx ends; closing
+// the adb connection hangs the remote process up.
+func (a ADB) Run(ctx context.Context, cmd string) error {
+	var out bytes.Buffer
+	c := exec.CommandContext(ctx, a.Bin, "-s", a.Serial, "shell", cmd)
+	c.Stdout, c.Stderr = &out, &out
+	c.WaitDelay = 5 * time.Second
+	if err := c.Run(); err != nil && ctx.Err() == nil {
+		return fmt.Errorf("%w: %s", err, bytes.TrimSpace(out.Bytes()))
+	}
+	return nil
+}
+
+func (a ADB) ForwardTo(ctx context.Context, remote string) (int, error) {
+	out, err := a.run(ctx, "forward", "tcp:0", remote)
 	if err != nil {
 		return 0, err
 	}

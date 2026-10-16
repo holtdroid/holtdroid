@@ -26,8 +26,7 @@ type Config struct {
 	ADB              string
 	Serial           string
 	Script           string
-	NoVNC            string
-	VNC              string
+	Scrcpy           ScrcpyConfig
 	ClashAPI         string
 	IPInfoURL        string
 	DevToolsFrontend string
@@ -41,8 +40,7 @@ func DefaultConfig() Config {
 		ADB:              "adb",
 		Serial:           "emulator-5554",
 		Script:           "/opt/holtdroid/script",
-		NoVNC:            "/opt/novnc",
-		VNC:              "127.0.0.1:5900",
+		Scrcpy:           DefaultScrcpyConfig(),
 		IPInfoURL:        "https://ipinfo.io/json",
 		DevToolsFrontend: "https://chrome-devtools-frontend.appspot.com/serve_rev/",
 		CacheDir:         filepath.Join(os.TempDir(), "holtdroid"),
@@ -77,7 +75,7 @@ type Agent struct {
 	hc       *http.Client
 	devtools *DevTools
 	network  *Network
-	display  *Display
+	screen   *Scrcpy
 	frontend *Frontend
 	controls *Controls
 	actions  chan contract.AppAction
@@ -99,7 +97,7 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 		hc:       &http.Client{Timeout: 10 * time.Minute},
 		devtools: NewDevTools(dev, log),
 		network:  NewNetwork(cfg.ClashAPI, cfg.IPInfoURL),
-		display:  NewDisplay(cfg.NoVNC, cfg.VNC, log),
+		screen:   NewScrcpy(cfg.Scrcpy, dev, log),
 		frontend: NewFrontend(cfg.DevToolsFrontend, filepath.Join(cfg.CacheDir, "devtools-frontend")),
 		controls: NewControls(dev, inst.SetLocales),
 		actions:  make(chan contract.AppAction, 1),
@@ -111,7 +109,7 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 func (a *Agent) Handler() http.Handler {
 	mux := http.NewServeMux()
 	contract.RegisterAgent(contract.NewAPI(mux, "Holtdroid device agent"), a)
-	a.display.Register(mux)
+	a.screen.Register(mux)
 	mux.HandleFunc("GET /devtools/{socket}/page/{id}", a.devtools.ServeCDP)
 	mux.Handle("GET /devtools-frontend/{rev}/{file...}", a.frontend)
 	return mux

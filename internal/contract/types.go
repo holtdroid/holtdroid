@@ -17,10 +17,7 @@ type Health struct {
 
 type DisplayKind string
 
-const (
-	DisplayNoVNC  DisplayKind = "novnc"
-	DisplayScrcpy DisplayKind = "scrcpy"
-)
+const DisplayScrcpy DisplayKind = "scrcpy"
 
 type Location struct {
 	ID    string `json:"id"`
@@ -29,7 +26,7 @@ type Location struct {
 
 type Capabilities struct {
 	Kind            string      `json:"kind"`
-	Display         DisplayKind `json:"display" enum:"novnc,scrcpy"`
+	Display         DisplayKind `json:"display" enum:"scrcpy"`
 	DevTools        bool        `json:"devtools"`
 	Clipboard       bool        `json:"clipboard"`
 	Locations       []Location  `json:"locations"`

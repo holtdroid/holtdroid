@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"net"
@@ -93,6 +94,17 @@ func (d *fakeDevice) RemoveForward(_ context.Context, port int) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.removed = append(d.removed, port)
+	return nil
+}
+
+func (d *fakeDevice) Push(context.Context, string, string) error { return nil }
+
+func (d *fakeDevice) ForwardTo(context.Context, string) (int, error) {
+	return 0, errors.New("no scrcpy here")
+}
+
+func (d *fakeDevice) Run(ctx context.Context, _ string) error {
+	<-ctx.Done()
 	return nil
 }
 
@@ -242,72 +254,6 @@ func TestFrontendCache(t *testing.T) {
 		if code, _ := get(path); code != http.StatusNotFound {
 			t.Errorf("%s: %d", path, code)
 		}
-	}
-}
-
-func TestDisplay(t *testing.T) {
-	vnc, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer vnc.Close()
-	go func() {
-		for {
-			conn, err := vnc.Accept()
-			if err != nil {
-				return
-			}
-			go func() {
-				defer conn.Close()
-				_, _ = io.Copy(conn, conn)
-			}()
-		}
-	}()
-	static := t.TempDir()
-	if err := os.WriteFile(filepath.Join(static, "vnc.html"), []byte("novnc"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	mux := http.NewServeMux()
-	NewDisplay(static, vnc.Addr().String(), slog.New(slog.DiscardHandler)).Register(mux)
-	srv := httptest.NewServer(mux)
-	defer srv.Close()
-
-	req, _ := http.NewRequest(http.MethodGet, srv.URL+"/display/", nil)
-	resp, err := http.DefaultTransport.RoundTrip(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	resp.Body.Close()
-	if loc := resp.Header.Get("Location"); resp.StatusCode != http.StatusFound || strings.Contains(loc, "path=") || !strings.HasPrefix(loc, "vnc.html?") {
-		t.Fatalf("redirect %d %q", resp.StatusCode, loc)
-	}
-	resp, err = http.Get(srv.URL + "/display/vnc.html")
-	if err != nil {
-		t.Fatal(err)
-	}
-	body, _ := io.ReadAll(resp.Body)
-	resp.Body.Close()
-	if string(body) != "novnc" {
-		t.Fatalf("static %q", body)
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	c, _, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(srv.URL, "http")+"/display/websockify",
-		&websocket.DialOptions{Subprotocols: []string{"binary"}, HTTPHeader: http.Header{"Origin": {"https://android.example.com"}}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = c.CloseNow() }()
-	if c.Subprotocol() != "binary" {
-		t.Fatalf("subprotocol %q", c.Subprotocol())
-	}
-	if err := c.Write(ctx, websocket.MessageBinary, []byte("RFB 003.008\n")); err != nil {
-		t.Fatal(err)
-	}
-	_, msg, err := c.Read(ctx)
-	if err != nil || string(msg) != "RFB 003.008\n" {
-		t.Fatalf("echo %q, %v", msg, err)
 	}
 }
 

@@ -27,7 +27,7 @@ make build && ./bin/holtdroid dev --apks ~/Downloads
 
 - **No APK patching.** WebView remote debugging is switched on at runtime
   (Frida on a rooted image), the APK is installed exactly as shipped.
-- **Everything in the browser.** noVNC screen and Chrome DevTools side by
+- **Everything in the browser.** scrcpy screen (multi-touch, H.264 over WebCodecs) and Chrome DevTools side by
   side, same origin, behind your existing forward-auth (Authelia,
   oauth2-proxy, …).
 - **ARM APKs on x86 hosts.** Uses Google's x86_64 system images with built-in

@@ -56,7 +56,6 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
   const state = session.state === "failed" ? "failed" : (status?.state ?? session.state)
   const left = Math.min(new Date(session.idleDeadline).getTime(), new Date(session.ttlDeadline).getTime()) - now
   const manage = canManage(me.data, session)
-  const base = sessionBase(provider, id)
 
   return (
     <div className="flex h-full flex-col">
@@ -129,7 +128,7 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
             <ResizablePanel defaultSize="42" minSize="20">
               <div className="flex size-full">
                 <div className="min-w-0 flex-1">
-                  <DeviceScreen provider={provider} id={id} src={`${base}/display/`} frameRef={registerFrame} />
+                  <DeviceScreen provider={provider} id={id} />
                 </div>
                 <DeviceRail provider={provider} id={id} name={session.package} />
               </div>

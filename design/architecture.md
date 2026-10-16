@@ -191,11 +191,10 @@ has an IP it is empty and the UI does not open the agent's status stream.
 
 Inside `emulator`, the agent starts and supervises:
 
-1. `Xvfb` → `emulator` (`-gpu swiftshader_indirect -no-snapshot -no-audio
-   -no-boot-anim -fixed-scale`, x86_64 `google_apis` API 35 image, the `holtdroid` AVD
-   baked into the image) → `x11vnc` on localhost, clipped to the device
-   screen (`internal/agent/emulator`).
-   Any of them exiting fails the session; a later failure (install, crash
+1. `emulator`, headless (`-no-window -gpu swiftshader_indirect -no-snapshot
+   -no-audio -no-boot-anim`, x86_64 `google_apis` API 35 image, the
+   `holtdroid` AVD baked into the image; `internal/agent/emulator`).
+   Its exit fails the session; a later failure (install, crash
    loop) leaves the device running for inspection.
 2. Waits for `sys.boot_completed`, runs `adb root`, pushes and starts
    `frida-server` (same pinned version as the agent's devkit, decision #23).
@@ -229,14 +228,28 @@ ART itself stays x86_64 (Frida's Java hooks are unaffected).
 
 ### Screen
 
-The agent serves noVNC static files under `/display/` and bridges its
-WebSocket to `x11vnc` (`coder/websocket` ↔ TCP) — no websockify.
-`GET /display/` redirects to `vnc.html?autoconnect=1&reconnect=1&resize=scale`
-without a `path`: noVNC 1.7 resolves its default `websockify` against the page
-when no `host` is given, so it lands on `…/display/websockify` behind any
-proxy prefix. The
-emulator provider advertises `display: novnc`. A future phone provider
-advertises `display: scrcpy` and the UI swaps the renderer.
+scrcpy (decision #34). Every WebSocket on `/display/scrcpy` makes the agent
+push `scrcpy-server` (pinned, in the image at `/opt/scrcpy`) to a fresh path
+— the server deletes its jar when it exits — `adb forward` a local port to
+`localabstract:scrcpy_<scid>`, start the server over `adb shell` with
+`tunnel_forward=true audio=false control=true clipboard_autosync=false
+video_codec=h264`, connect the video socket (retrying until the server's
+dummy byte arrives; adb accepts connections before the server listens) and
+then the control socket. Device → browser messages carry the video socket's
+bytes after the dummy byte: 64-byte device name, codec meta, then packets
+with 12-byte frame headers. Browser → device messages are control messages,
+written to the control socket as is; device messages on it are dropped.
+Closing the WebSocket ends the `adb shell`, which hangs the server up.
+
+The UI (`web/src/lib/scrcpy.ts`) parses the stream with
+`@yume-chan/scrcpy` (`ScrcpyOptions3_3_3`, matching the server version and
+options) and decodes it with `@yume-chan/scrcpy-decoder-webcodecs` onto a
+`<canvas>` (WebGL, bitmap fallback). Pointer events become touch messages —
+the mouse as a generic finger, touch pointers by id, so multi-touch works;
+right click is Back, the wheel scrolls; printable keys go in as text (any
+layout), others as Android key codes; Ctrl/Cmd+V pastes the browser
+clipboard into the focused field. A rotated device streams a rotated
+picture. The fake provider replays a short recording over the same protocol.
 
 ### DevTools
 
@@ -275,8 +288,8 @@ advertises `display: scrcpy` and the UI swaps the renderer.
 - Device → browser: listener events go out over SSE
   `/clipboard/events`. The UI calls `navigator.clipboard.writeText()` when the
   tab is focused and always shows the last value in a popover.
-- Best-effort fallback: x11vnc/noVNC clipboard is also wired, so text works
-  even if the Frida hook is broken.
+- Ctrl/Cmd+V on the focused screen pastes through scrcpy's clipboard
+  message, independent of the Frida hook.
 
 ### VPN
 
@@ -482,7 +495,7 @@ route (Traefik `IngressRouteTCP` on a dedicated entrypoint).
 
 A `provider-physical` service manages an inventory of rooted phones (Magisk,
 wireless ADB). Slots are phones instead of nodes, one long-lived agent per
-phone, `display: scrcpy` via ws-scrcpy, VPN via the WireGuard Android app
+phone, `display: scrcpy` through the same bridge in its agent, VPN via the WireGuard Android app
 controlled by intents, and session end triggers a cleanup (uninstall, clear
 data) instead of a Pod delete. Nothing in api, web or the contracts needs to
 change for it; that is the bar every contract change must keep meeting.

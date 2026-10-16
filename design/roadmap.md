@@ -39,10 +39,10 @@ silently drop any.
 
 Goal: one hand-written Pod on a KVM node proves the device side end to end.
 
-- [x] `images/session.Dockerfile`: Ubuntu, emulator + platform-tools + `system-images;android-35;google_apis;x86_64` (pinned zips, no cmdline-tools), baked AVD, Xvfb, x11vnc, noVNC static, frida-server and agent devkit pinned together (decision #23)
-- [x] `internal/agent/emulator`: process supervision (Xvfb → emulator → x11vnc), boot wait, `adb root`, frida-server start
+- [x] `images/session.Dockerfile`: Ubuntu, emulator + platform-tools + `system-images;android-35;google_apis;x86_64` (pinned zips, no cmdline-tools), baked AVD, frida-server, scrcpy-server and agent devkit pinned together (decision #23)
+- [x] `internal/agent/emulator`: process supervision (headless emulator), boot wait, `adb root`, frida-server start
 - [x] APK install from a URL; spawn under frida-go with the instrumentation script (WebView debugging + clipboard RPC)
-- [x] `internal/agent`: status SSE, noVNC bridge (`/display/websockify`)
+- [x] `internal/agent`: status SSE, screen bridge (`/display/scrcpy`)
 - [x] DevTools: socket discovery, adb forwards, aggregated targets, CDP WS proxy with `Host: localhost`, frontend proxy + cache
 - [x] Clipboard endpoints + SSE
 - [x] Agent side of the VPN: `/network` (external IP via `ipInfoURL`) + location switch via the clash API
@@ -68,9 +68,9 @@ Goal: one hand-written Pod on a KVM node proves the device side end to end.
 - [x] Generated OpenAPI clients for the UI API and the Agent API (`openapi-typescript` + `openapi-fetch`) wired into TanStack Query
 - [x] Home: artifact list (icon, label, version, package, ABIs, uploader, date, note, source filter, search), launch dialog (provider and location preselected from the last launch in `localStorage` — location per provider — falling back to the first free provider and its `defaultLocation`, ABI warning), quick-launch button that launches with those preselected settings without the dialog, sessions panel (slots, owner, uptime, idle progress, location, open/extend/stop), live via SSE
 - [x] Session page: start stepper, resizable split (display | DevTools), toolbar (target select, location select + IP badge, clipboard popover, restart/reinstall/stop), input-based heartbeat, toasts
-- [x] Device controls (decision #31): rail next to the screen (lock/unlock, volume, rotate, back/home/recents, notifications, screenshot) and a non-modal settings sheet (airplane, Wi-Fi, mobile data, battery saver/charging/level, dark theme, font and display size, emulated network speed, system language, time zone, clock presets ±5 s…±1 y and an exact moment in the user's time zone); `/v1/device` in the Agent API; rotated screens are turned back in the browser
-- [ ] Verify device controls on the real emulator: rotation compensation in noVNC, `cmd alarm set-time`/`set-timezone`, locale switch through `system_server`, `date +%s%N`, battery saver after `dumpsys battery unplug`, `adb emu network speed/delay`
-- [ ] Display renderer abstraction (today the agent serves `/display/` and the UI just frames it; revisit when `scrcpy` lands)
+- [x] Device controls (decision #31): rail next to the screen (lock/unlock, volume, rotate, back/home/recents, notifications, screenshot) and a non-modal settings sheet (airplane, Wi-Fi, mobile data, battery saver/charging/level, dark theme, font and display size, emulated network speed, system language, time zone, clock presets ±5 s…±1 y and an exact moment in the user's time zone); `/v1/device` in the Agent API
+- [x] Device controls verified on the real emulator (2026-10-17): `cmd alarm set-time`/`set-timezone`, `date +%s%N`, battery saver after `dumpsys battery unplug`, airplane mode, `adb emu network speed/delay`, rotation, lock/unlock, notifications, locale switch through `system_server`
+- [x] Screen over scrcpy instead of noVNC (decision #34): agent bridge `/display/scrcpy` (scrcpy-server 3.3.3 per connection), headless emulator without Xvfb/x11vnc/noVNC, canvas renderer with `@yume-chan/scrcpy` + WebCodecs (multi-touch, wheel, keyboard as text/key codes, Ctrl/Cmd+V paste), fake provider replays a recording over the same protocol
 
 ## Phase 4.5 — SSH access (ADB and published ports)
 
@@ -167,7 +167,7 @@ leave the process, the api doesn't keep them.
 ## Later
 
 - [ ] Docker-only deployment: `provider-docker` (Docker Engine API, session state in container labels, VPN sidecar via `network_mode: container:`), `compose.yaml` with api + sources + provider-docker, docs page. Session container spec shared with `provider-emulator` (see architecture.md "Future: Docker-only deployment")
-- [ ] `provider-physical` + phone agent (ws-scrcpy, wireless ADB, WireGuard app intents, cleanup between sessions)
+- [ ] `provider-physical` + phone agent (scrcpy bridge as in the emulator agent, wireless ADB, WireGuard app intents, cleanup between sessions)
 - [ ] More sync jobs (GitHub Releases, CI artifacts) writing the source layout
 - [ ] Listing cache for very large buckets (today every request lists the store)
 - [ ] `.apks` / `.xapk` split APK support

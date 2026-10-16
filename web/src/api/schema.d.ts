@@ -328,7 +328,7 @@ export interface components {
             defaultLocation?: string;
             devtools: boolean;
             /** @enum {string} */
-            display: "novnc" | "scrcpy";
+            display: "scrcpy";
             kind: string;
             locations: components["schemas"]["Location"][];
         };

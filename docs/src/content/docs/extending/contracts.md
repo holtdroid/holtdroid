@@ -44,9 +44,9 @@ state of its own.
 
 The agent is what the browser talks to, through the api's proxy at
 `/s/{provider}/{session}/`. It serves
-status as server-sent events, the screen under `/display/`, DevTools targets
+status as server-sent events, the screen as a scrcpy stream on
+`/display/scrcpy`, DevTools targets
 and WebSocket proxying, clipboard and network endpoints, and device controls
 (`/v1/device`: settings, hardware buttons, screenshots). A provider for a new
 kind of device ships its own agent that implements the same API; the UI
-adapts to what `capabilities` advertises (for example `display: novnc` vs
-`display: scrcpy`).
+adapts to what `capabilities` advertises (`display: scrcpy` today).

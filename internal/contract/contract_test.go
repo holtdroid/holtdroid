@@ -30,7 +30,7 @@ func TestProviderRoundTrip(t *testing.T) {
 	ctx := context.Background()
 
 	caps, err := c.Capabilities(ctx)
-	if err != nil || caps.Display != contract.DisplayNoVNC || len(caps.Locations) == 0 {
+	if err != nil || caps.Display != contract.DisplayScrcpy || len(caps.Locations) == 0 {
 		t.Fatalf("capabilities %+v, %v", caps, err)
 	}
 

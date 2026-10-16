@@ -1,6 +1,5 @@
-// Package emulator runs the Android emulator inside the session container:
-// Xvfb, the emulator on that display, x11vnc for the screen and frida-server
-// on the booted device.
+// Package emulator runs the Android emulator inside the session container,
+// headless, and frida-server on the booted device.
 package emulator
 
 import (
@@ -11,7 +10,6 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
-	"strconv"
 	"strings"
 	"time"
 
@@ -23,10 +21,6 @@ type Config struct {
 	AVD         string
 	Args        []string
 	DNSServer   string
-	Display     string
-	Screen      string
-	Clip        string
-	VNCPort     int
 	FridaServer string
 	BootTimeout time.Duration
 }
@@ -35,10 +29,6 @@ func DefaultConfig() Config {
 	return Config{
 		Bin:         "emulator",
 		AVD:         "holtdroid",
-		Display:     ":0",
-		Screen:      "800x1300x24",
-		Clip:        "720x1280+0+0",
-		VNCPort:     5900,
 		FridaServer: "/opt/holtdroid/frida-server",
 		BootTimeout: 5 * time.Minute,
 	}
@@ -70,7 +60,7 @@ func (e *Emulator) Args() []string {
 		"-no-audio",
 		"-no-boot-anim",
 		"-no-metrics",
-		"-fixed-scale",
+		"-no-window",
 		"-gpu", "swiftshader_indirect",
 		"-camera-back", "none",
 		"-camera-front", "none",
@@ -87,7 +77,6 @@ func (e *Emulator) Run(ctx context.Context, booted func()) error {
 	g, ctx := errgroup.WithContext(ctx)
 	start := func(name string, args ...string) {
 		cmd := exec.CommandContext(ctx, name, args...)
-		cmd.Env = append(os.Environ(), "DISPLAY="+e.cfg.Display)
 		cmd.Stdout, cmd.Stderr = os.Stderr, os.Stderr
 		cmd.WaitDelay = 10 * time.Second
 		g.Go(func() error {
@@ -102,16 +91,7 @@ func (e *Emulator) Run(ctx context.Context, booted func()) error {
 		})
 	}
 
-	start("Xvfb", e.cfg.Display, "-screen", "0", e.cfg.Screen, "-nolisten", "tcp")
-	if err := waitFile(ctx, "/tmp/.X11-unix/X"+strings.TrimPrefix(e.cfg.Display, ":")); err != nil {
-		return cmp.Or(g.Wait(), err)
-	}
 	start(e.cfg.Bin, e.Args()...)
-	vnc := []string{"-display", e.cfg.Display, "-forever", "-shared", "-nopw", "-localhost", "-rfbport", strconv.Itoa(e.cfg.VNCPort), "-quiet", "-noxdamage"}
-	if e.cfg.Clip != "" {
-		vnc = append(vnc, "-clip", e.cfg.Clip)
-	}
-	start("x11vnc", vnc...)
 
 	g.Go(func() error {
 		bootCtx, cancel := context.WithTimeout(ctx, e.cfg.BootTimeout)
@@ -151,19 +131,6 @@ func (e *Emulator) prepare(ctx context.Context) error {
 		case <-ctx.Done():
 			return fmt.Errorf("frida-server did not start: %w", ctx.Err())
 		case <-time.After(500 * time.Millisecond):
-		}
-	}
-}
-
-func waitFile(ctx context.Context, path string) error {
-	for {
-		if _, err := os.Stat(path); err == nil {
-			return nil
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(100 * time.Millisecond):
 		}
 	}
 }

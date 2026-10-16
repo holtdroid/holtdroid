@@ -68,7 +68,7 @@ func New(cfg Config, opts ...Option) *Provider {
 func (p *Provider) Capabilities(context.Context) (contract.Capabilities, error) {
 	return contract.Capabilities{
 		Kind:            "fake",
-		Display:         contract.DisplayNoVNC,
+		Display:         contract.DisplayScrcpy,
 		DevTools:        true,
 		Clipboard:       true,
 		Locations:       p.locations,
