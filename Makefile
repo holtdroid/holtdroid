@@ -3,7 +3,7 @@ BUN     ?= bun
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -s -w -X main.version=$(VERSION)
 
-.PHONY: all build web docs openapi check test lint fmt dev web-dev image clean
+.PHONY: all build web docs openapi sqlc check test lint fmt dev web-dev image clean
 
 all: build
 
@@ -25,6 +25,9 @@ openapi:
 	$(GO) run ./cmd/holtdroid openapi agent > web/openapi-agent.json
 	$(BUN) run --cwd web openapi
 
+sqlc:
+	cd internal/db && sqlc generate
+
 test:
 	$(GO) test -race ./...
 
@@ -38,9 +41,9 @@ fmt: node_modules
 	golangci-lint fmt ./...
 	$(BUN) run fmt
 
-check: openapi lint test build docs
+check: openapi sqlc lint test build docs
 	helm lint deploy/helm/holtdroid
-	git diff --exit-code -- web/src/api
+	git diff --exit-code -- web/src/api internal/db
 
 image:
 	docker buildx build --platform linux/amd64 -f images/Dockerfile --build-arg VERSION=$(VERSION) -t holtdroid:$(VERSION) --load .

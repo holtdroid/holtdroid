@@ -10,12 +10,15 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/kriakiku/holtdroid/internal/auth"
 	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/kriakiku/holtdroid/internal/db"
 	"github.com/kriakiku/holtdroid/internal/provider/fake"
 	"github.com/kriakiku/holtdroid/internal/source/dir"
 )
@@ -70,6 +73,7 @@ func newHarness(t *testing.T, slots int) *harness {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { _ = srv.Close() })
 	return &harness{t: t, srv: srv, handler: srv.Handler(), internal: srv.InternalHandler(), provider: p, clock: clk, apks: apks, cfg: cfg}
 }
 
@@ -122,6 +126,19 @@ func (h *harness) create(user string) SessionView {
 		h.t.Fatalf("create: %d %s", rec.Code, rec.Body.String())
 	}
 	return decode[SessionView](h.t, rec)
+}
+
+func (h *harness) events(id string) []string {
+	h.t.Helper()
+	rows, err := h.srv.db.ListSessionEvents(context.Background(), db.ListSessionEventsParams{Provider: "fake", SessionID: id})
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	var out []string
+	for _, r := range rows {
+		out = append(out, strings.Join([]string{r.Kind, r.Actor, r.Artifact, r.Reason}, "|"))
+	}
+	return out
 }
 
 func TestRequiresAuth(t *testing.T) {
@@ -221,6 +238,10 @@ func TestOwnership(t *testing.T) {
 	if rec := h.do(http.MethodGet, path, "otter", "", nil); rec.Code != http.StatusNotFound {
 		t.Fatalf("get after delete: %d", rec.Code)
 	}
+	want := []string{"created|otter|local/hello.apk|", "stopped|root|local/hello.apk|"}
+	if got := h.events(v.ID); !slices.Equal(got, want) {
+		t.Fatalf("events = %q, want %q", got, want)
+	}
 }
 
 func TestReaper(t *testing.T) {
@@ -245,6 +266,10 @@ func TestReaper(t *testing.T) {
 	}
 	if _, err := h.provider.Get(ctx, busy.ID); err != nil {
 		t.Fatalf("active session reaped: %v", err)
+	}
+	want := []string{"created|otter|local/hello.apk|", "reaped||local/hello.apk|idle timeout"}
+	if got := h.events(idle.ID); !slices.Equal(got, want) {
+		t.Fatalf("events = %q, want %q", got, want)
 	}
 
 	h.srv.Flush(ctx)
@@ -319,6 +344,7 @@ func TestRestartKeepsState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { _ = again.Close() })
 	r := httptest.NewRequest(http.MethodGet, "/api/v1/sessions", nil)
 	r.Header.Set("Remote-User", "otter")
 	rec := httptest.NewRecorder()

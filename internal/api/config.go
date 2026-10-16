@@ -8,6 +8,7 @@ import (
 
 	"github.com/kriakiku/holtdroid/internal/auth"
 	"github.com/kriakiku/holtdroid/internal/config"
+	"github.com/kriakiku/holtdroid/internal/db"
 	"github.com/kriakiku/holtdroid/internal/storage"
 )
 
@@ -46,6 +47,7 @@ type Config struct {
 	Auth           auth.Config
 	Sessions       SessionsConfig
 	Storage        storage.Config
+	Database       db.Config
 	Cache          CacheConfig
 	SSH            SSHConfig
 	Sources        []Endpoint
@@ -64,9 +66,10 @@ func DefaultConfig() Config {
 			ReapInterval:  30 * time.Second,
 			FlushInterval: 30 * time.Second,
 		},
-		Storage: storage.DefaultConfig(),
-		Cache:   CacheConfig{MaxSize: 20 << 30, Warm: 10},
-		SSH:     SSHConfig{PublicPort: 2222, AllowADB: true, AllowReverse: true},
+		Storage:  storage.DefaultConfig(),
+		Database: db.DefaultConfig(),
+		Cache:    CacheConfig{MaxSize: 20 << 30, Warm: 10},
+		SSH:      SSHConfig{PublicPort: 2222, AllowADB: true, AllowReverse: true},
 	}
 }
 

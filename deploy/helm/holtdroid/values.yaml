@@ -27,6 +27,8 @@ config:
       dir: /var/cache/holtdroid
   cache:
     maxSize: 20GiB
+  database:
+    type: memory
 
 api:
   replicas: 1

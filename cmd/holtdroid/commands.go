@@ -31,6 +31,7 @@ func apiCmd(c *common) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			defer srv.Close()
 			return serve(cmd.Context(), []listener{
 				{cfg.Listen, srv.Handler()},
 				{cfg.InternalListen, srv.InternalHandler()},
@@ -126,6 +127,7 @@ func devCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			defer srv.Close()
 			return serve(cmd.Context(), []listener{
 				{cfg.Listen, srv.Handler()},
 				{cfg.InternalListen, srv.InternalHandler()},

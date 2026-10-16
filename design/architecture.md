@@ -70,6 +70,10 @@ timestamps are held in memory by the api and flushed to the provider
 (`POST /sessions/{id}/touch`) at most every 30 s, so an api restart loses at
 most 30 s of activity.
 
+The api also has a SQL database (decisions.md #22). For now it is in-memory
+SQLite only, so it holds nothing that must survive a restart; SQLite with
+Litestream replication to S3 and PostgreSQL come later.
+
 ## Request flow: launching a session
 
 ```mermaid

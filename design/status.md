@@ -18,6 +18,8 @@ deployment"):
 - Sign-in: anonymous animal names, shared password, OIDC (PKCE + userinfo),
   forward-auth headers, none. Avatars from the IdP or DiceBear voxel-art.
 - APK cache on filesystem or S3. Stateless api (restart test included).
+- In-memory SQLite database in the api (goose + sqlc, `internal/db`); it only
+  records session events so far and is empty after a restart (decision #22).
 - `source-dir` (APKs from a volume) and `provider-fake` (fake devices whose
   agent serves placeholder screen and DevTools pages).
 - Single Go binary + embedded UI, distroless image, Helm chart, CI, release
@@ -79,8 +81,12 @@ Collected from the design conversation; each is reflected in the docs listed.
   without Kubernetes later, secrets not tied to OpenBao. (contracts.md,
   architecture.md "Future: …")
 - **Open source, not homelab-specific.** Apache-2.0, public docs site.
-- **Stateless api**, no database; session state as labels on what the
-  provider runs. (decisions #5, #17, #18)
+- **Stateless api**; session state as labels on what the provider runs.
+  (decisions #5, #17, #18)
+- **Database**: `memory` (default, SQLite in-memory), later SQLite with
+  Litestream to S3 and PostgreSQL; goose + sqlc. Only in-memory until the
+  first release, and **no backward compatibility before the first release**.
+  (decision #22)
 - Sign-in: **anonymous random animal names**, **shared password**, **OIDC**;
   avatars from the IdP or **DiceBear voxel-art**. (decisions #17, #20)
 - **SSH access**: `ssh <slug>@host` for ADB (`-L`) and publishing local ports

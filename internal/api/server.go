@@ -18,6 +18,7 @@ import (
 
 	"github.com/kriakiku/holtdroid/internal/auth"
 	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/kriakiku/holtdroid/internal/db"
 	"github.com/kriakiku/holtdroid/internal/secrets"
 	"github.com/kriakiku/holtdroid/internal/storage"
 )
@@ -27,6 +28,7 @@ type Server struct {
 	auth       *auth.Authenticator
 	secrets    *secrets.Registry
 	store      storage.Store
+	db         *db.DB
 	sources    map[string]contract.Source
 	srcOrder   []string
 	providers  map[string]contract.Provider
@@ -100,9 +102,23 @@ func New(ctx context.Context, cfg Config, opts ...Option) (*Server, error) {
 			return nil, err
 		}
 	}
+	if s.db, err = db.Open(ctx, cfg.Database); err != nil {
+		return nil, err
+	}
 	s.activity = newActivity(s.now)
 	s.cache = NewCache(s.store, int64(cfg.Cache.MaxSize), s.openArtifact)
 	return s, nil
+}
+
+func (s *Server) Close() error { return s.db.Close() }
+
+func (s *Server) recordEvent(ctx context.Context, provider, id, kind, actor, artifact, reason string) {
+	err := s.db.AddSessionEvent(ctx, db.AddSessionEventParams{
+		At: s.now(), Provider: provider, SessionID: id, Kind: kind, Actor: actor, Artifact: artifact, Reason: reason,
+	})
+	if err != nil {
+		s.log.Warn("could not record session event", "provider", provider, "session", id, "kind", kind, "err", err)
+	}
 }
 
 func (s *Server) openArtifact(ctx context.Context, source, id string) (contract.Artifact, io.ReadCloser, error) {

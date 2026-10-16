@@ -83,6 +83,17 @@ the real agent exists.
 - [ ] Verify on the real emulator: `adb connect` through the tunnel (adbd auth on `google_apis` images), `-R 3000` reachable as `http://localhost:3000` in the app/WebView
 - [ ] Docs page "SSH access" (a planned-feature page exists — update it to match what ships); homelab: Traefik TCP entrypoint on `:2222` for android.homelab.example
 
+## Phase 4.6 — Database
+
+Design: decisions.md #22. No backward compatibility before the first release.
+
+- [x] `internal/db`: `database.type` config (`memory` default), `modernc.org/sqlite` in-memory, goose migrations embedded and run at startup, `sqlc` config + generated queries, `make sqlc` and a drift check in `make check` and CI
+- [x] Wire it into the api and `holtdroid dev`; first table `session_events` (created/stopped/reaped, actor, artifact, reason), write-only for now; tests through `internal/api/api_test.go`
+- [ ] Read side for `session_events` (history in the UI) once there is a use for it
+- [ ] Later: `sqlite` file driver with embedded Litestream (restore on start, replicate to the `storage` S3 settings or its own), chart enforces `replicas: 1`
+- [ ] Later: `postgres` driver (pgx), queries kept to the subset both engines accept, CI runs the db tests against both
+- [ ] Public docs: storage/architecture pages stop saying "no database" once anything persistent ships; configuration page for `database`
+
 ## Phase 5 — Packaging and docs
 
 - [ ] Helm chart: add source-slack, provider-emulator, RBAC, NetworkPolicy, prepull DaemonSet, values for nodeSelector/tolerations/slots/resources

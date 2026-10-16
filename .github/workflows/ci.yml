@@ -18,6 +18,9 @@ jobs:
       - run: make openapi
       - name: Generated API clients are up to date
         run: git diff --exit-code -- web/src/api
+      - run: make sqlc
+      - name: Generated database queries are up to date
+        run: git diff --exit-code -- internal/db
       - run: make lint
       - run: make test
       - run: make build

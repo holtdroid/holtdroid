@@ -25,6 +25,7 @@ func cookieServer(t *testing.T, mode string) http.Handler {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { _ = srv.Close() })
 	return srv.Handler()
 }
 

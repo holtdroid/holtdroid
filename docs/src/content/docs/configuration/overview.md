@@ -48,6 +48,9 @@ cache:
   maxSize: 20GiB
   warm: 10
 
+database:
+  type: memory
+
 secrets:
   openbao:
     address: https://bao.example.com
@@ -75,5 +78,6 @@ providers:
 | `storage.*`             | filesystem  | See [Artifact storage](/holtdroid/configuration/storage/)                       |
 | `cache.maxSize`         | `20GiB`     | Least recently used APKs are evicted beyond this                                |
 | `cache.warm`            | `10`        | Newest uncached APKs per listing to download and parse in the background        |
+| `database.type`         | `memory`    | Only `memory` for now: SQLite in RAM, empty after every restart                 |
 | `sources[]`             | `[]`        | Artifact sources: unique `name` and base `url`                                  |
 | `providers[]`           | `[]`        | Device providers: unique `name` and base `url`                                  |

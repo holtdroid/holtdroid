@@ -193,7 +193,12 @@ func (s *Server) register(api huma.API) {
 		if err != nil {
 			return nil, httpError(err)
 		}
-		return nil, httpError(p.Delete(ctx, sess.ID))
+		if err := p.Delete(ctx, sess.ID); err != nil {
+			return nil, httpError(err)
+		}
+		who, _ := auth.FromContext(ctx)
+		s.recordEvent(ctx, in.Provider, sess.ID, "stopped", who.User, sess.ArtifactRef, "")
+		return nil, nil
 	})
 
 	huma.Register(api, huma.Operation{
@@ -489,6 +494,7 @@ func (s *Server) createSession(ctx context.Context, who auth.Identity, source, a
 		return SessionView{}, err
 	}
 	s.activity.Mark(sessionKey{providerName, sess.ID})
+	s.recordEvent(ctx, providerName, sess.ID, "created", who.User, source+"/"+artifactID, "")
 	s.log.Info("session created", "provider", providerName, "session", sess.ID, "owner", who.User, "package", entry.Meta.Package)
 	return s.view(ctx, providerName, sess), nil
 }

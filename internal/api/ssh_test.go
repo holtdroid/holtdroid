@@ -56,6 +56,7 @@ func newSSHHarness(t *testing.T, enabled bool, replicas int) *sshHarness {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { _ = srv.Close() })
 	srv.sshHTTP = &http.Client{Transport: &http.Transport{
 		DisableKeepAlives: true,
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {

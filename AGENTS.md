@@ -53,6 +53,7 @@ internal/
   vpn/                    VPN providers (nordvpn, wireguard, none) + sing-box config rendering
   secrets/                secret resolvers: env:, file:, openbao:
   storage/                object store for the APK cache: filesystem, s3
+  db/                     api SQL database: goose migrations, sqlc queries (generated code committed)
   auth/                   sign-in modes: anonymous, password, oidc (signed JWT cookie), header, none
   apk/                    APK metadata (package, version, label, icon)
 web/                      React + Vite + TanStack Router/Query + shadcn/ui (embedded into the api binary)
@@ -85,6 +86,10 @@ Directories that do not exist yet are planned — create them exactly there.
   - `net/http/httputil.ReverseProxy`;
   - `golang.org/x/sync` (`errgroup`, `singleflight`);
   - `golang.org/x/crypto/ssh` and `hashicorp/yamux` — SSH gateway and tunnels (planned);
+  - `database/sql` with `modernc.org/sqlite` (in-memory, later file +
+    `benbjohnson/litestream` replication to S3) and `jackc/pgx/v5` (later),
+    `pressly/goose` for migrations, `sqlc` for queries (decisions.md #22;
+    only in-memory SQLite exists so far);
   - `log/slog` for logging.
 
   OpenBao is reached with plain `net/http` (two endpoints), not its client
@@ -120,7 +125,16 @@ Directories that do not exist yet are planned — create them exactly there.
 - Every cross-service call goes through a contract in `internal/contract`.
   The api never talks to Kubernetes, Slack or ADB directly — that is the
   job of the provider, source and agent.
-- The api is stateless and must stay that way: no database, nothing only in
+- **Before the first release (`v*` tag) there is no backward compatibility.**
+  Config keys, HTTP APIs, contracts, the database schema and stored data may
+  change freely: rewrite goose migrations in place instead of stacking
+  compat ones, drop old fields instead of deprecating them. Still keep the
+  docs in sync with the code.
+- The api's database is **in-memory SQLite only** for now (decisions.md
+  #22): it is empty after every restart and per replica. Use it only for data
+  that may be lost; anything that must survive a restart still follows the
+  rule below until persistent backends (SQLite + Litestream, PostgreSQL) land.
+- The api is stateless and must stay that way: no persistent database, nothing only in
   memory or on local disk that a restart or a second replica would miss.
   Session state lives in the provider (emulator: Pod labels/annotations),
   identities in signed cookies (`auth.sessionKey`), activity is flushed to
@@ -154,6 +168,7 @@ make test         # go test -race ./...
 make lint         # golangci-lint + tsc + oxlint + oxfmt --check
 make fmt          # golangci-lint fmt (gofumpt, goimports) + oxfmt
 make openapi      # regenerate web/src/api/*.d.ts from the Go contracts — commit the result
+make sqlc         # regenerate internal/db queries from migrations/ + queries.sql — commit the result
 make build        # web + bin/holtdroid with the UI embedded
 make docs         # docs site into docs/dist
 make dev          # holtdroid dev: api + APKs from internal/apk/testdata + fake devices, anonymous sign-in, on :8080
