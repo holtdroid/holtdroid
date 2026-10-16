@@ -211,7 +211,7 @@ Every push to `main` builds `ghcr.io/kriakiku/holtdroid:<full commit sha>`
 (`.github/workflows/release.yml`). The maintainer's cluster runs an Argo CD
 Application that tracks `main` and uses the synced commit as the image tag, so
 **every commit to `main` is deployed** to https://android.homelab.example within a few
-minutes (OIDC via Authelia, directory source, fake provider). Keep `main`
+minutes (OIDC via Authelia, directory source, emulator provider). Keep `main`
 green: run `make check` before pushing. Tags `vX.Y.Z` also publish the chart
 to `oci://ghcr.io/kriakiku/charts/holtdroid`.
 
