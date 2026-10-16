@@ -58,6 +58,9 @@ func newOIDCClient(ctx context.Context, cfg OIDCConfig, reg *secrets.Registry, p
 	if c.cfg.UsernameClaim == "" {
 		c.cfg.UsernameClaim = "preferred_username"
 	}
+	if c.cfg.PictureClaim == "" {
+		c.cfg.PictureClaim = "picture"
+	}
 	return c, nil
 }
 
@@ -220,10 +223,11 @@ func (a *Authenticator) oidcIdentity(ctx context.Context, code string, st oidcSt
 	}
 
 	id := Identity{
-		User:   firstString(claims, a.oidc.cfg.UsernameClaim, "preferred_username", "email", "sub"),
-		Name:   firstString(claims, "name"),
-		Email:  firstString(claims, "email"),
-		Groups: stringList(claims[a.oidc.cfg.GroupsClaim]),
+		User:    firstString(claims, a.oidc.cfg.UsernameClaim, "preferred_username", "email", "sub"),
+		Name:    firstString(claims, "name"),
+		Email:   firstString(claims, "email"),
+		Picture: firstString(claims, a.oidc.cfg.PictureClaim, "picture"),
+		Groups:  stringList(claims[a.oidc.cfg.GroupsClaim]),
 	}
 	if id.User == "" {
 		return Identity{}, errors.New("id_token has no usable username claim")

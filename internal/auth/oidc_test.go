@@ -75,7 +75,7 @@ func newFakeIdP(t *testing.T) *fakeIdP {
 		_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "at", "token_type": "Bearer", "id_token": raw, "expires_in": 3600})
 	})
 	mux.HandleFunc("/userinfo", func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]any{"sub": "u-1", "name": "Otter", "email": "otter@example.com", "groups": idp.groups})
+		_ = json.NewEncoder(w).Encode(map[string]any{"sub": "u-1", "name": "Otter", "email": "otter@example.com", "groups": idp.groups, "picture": "https://cdn.example.com/otter.png"})
 	})
 	t.Cleanup(idp.Close)
 	return idp
@@ -146,7 +146,8 @@ func TestOIDCFlow(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := Identity{User: "otter", Name: "Otter", Email: "otter@example.com", Groups: []string{"users"}}
-	if id.User != want.User || id.Name != want.Name || id.Email != want.Email || len(id.Groups) != 1 || id.Admin {
+	if id.User != want.User || id.Name != want.Name || id.Email != want.Email || len(id.Groups) != 1 || id.Admin ||
+		id.Picture != "https://cdn.example.com/otter.png" {
 		t.Fatalf("identity %+v", id)
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"slices"
 	"strings"
 	"time"
@@ -26,18 +27,20 @@ const (
 )
 
 type Identity struct {
-	User   string   `json:"user"`
-	Name   string   `json:"name,omitempty"`
-	Email  string   `json:"email,omitempty"`
-	Groups []string `json:"groups"`
-	Admin  bool     `json:"admin"`
+	User    string   `json:"user"`
+	Name    string   `json:"name,omitempty"`
+	Email   string   `json:"email,omitempty"`
+	Picture string   `json:"picture,omitempty" doc:"Avatar URL from the identity provider; the UI generates one from user when empty"`
+	Groups  []string `json:"groups"`
+	Admin   bool     `json:"admin"`
 }
 
 type HeaderConfig struct {
-	User   string
-	Groups string
-	Name   string
-	Email  string
+	User    string
+	Groups  string
+	Name    string
+	Email   string
+	Picture string
 }
 
 type OIDCConfig struct {
@@ -47,6 +50,7 @@ type OIDCConfig struct {
 	Scopes        []string
 	UsernameClaim string
 	GroupsClaim   string
+	PictureClaim  string
 	RedirectURL   string
 }
 
@@ -71,6 +75,7 @@ func DefaultConfig() Config {
 			Scopes:        []string{"openid", "profile", "email", "groups"},
 			UsernameClaim: "preferred_username",
 			GroupsClaim:   "groups",
+			PictureClaim:  "picture",
 		},
 		Header: HeaderConfig{User: "Remote-User", Groups: "Remote-Groups", Name: "Remote-Name", Email: "Remote-Email"},
 	}
@@ -167,10 +172,11 @@ func (a *Authenticator) cookieBased() bool {
 
 type sessionClaims struct {
 	jwt.RegisteredClaims
-	Name   string   `json:"name,omitempty"`
-	Email  string   `json:"email,omitempty"`
-	Groups []string `json:"groups,omitempty"`
-	Mode   string   `json:"mode"`
+	Name    string   `json:"name,omitempty"`
+	Email   string   `json:"email,omitempty"`
+	Picture string   `json:"picture,omitempty"`
+	Groups  []string `json:"groups,omitempty"`
+	Mode    string   `json:"mode"`
 }
 
 const issuer = "holtdroid"
@@ -207,6 +213,9 @@ func (a *Authenticator) fromHeaders(r *http.Request) (Identity, error) {
 	if h.Email != "" {
 		id.Email = r.Header.Get(h.Email)
 	}
+	if h.Picture != "" {
+		id.Picture = r.Header.Get(h.Picture)
+	}
 	return a.authorize(id)
 }
 
@@ -214,6 +223,7 @@ func (a *Authenticator) authorize(id Identity) (Identity, error) {
 	if id.Groups == nil {
 		id.Groups = []string{}
 	}
+	id.Picture = safePicture(id.Picture)
 	if len(a.cfg.AllowedGroups) > 0 && a.cfg.Mode != ModeAnonymous && a.cfg.Mode != ModePassword &&
 		!intersects(id.Groups, a.cfg.AllowedGroups) {
 		return Identity{}, ErrForbidden
@@ -237,7 +247,7 @@ func (a *Authenticator) fromCookie(r *http.Request) (Identity, time.Time, error)
 	if err != nil || claims.Mode != a.cfg.Mode || claims.Subject == "" {
 		return Identity{}, time.Time{}, ErrUnauthenticated
 	}
-	id, err := a.authorize(Identity{User: claims.Subject, Name: claims.Name, Email: claims.Email, Groups: claims.Groups})
+	id, err := a.authorize(Identity{User: claims.Subject, Name: claims.Name, Email: claims.Email, Picture: claims.Picture, Groups: claims.Groups})
 	if err != nil {
 		return Identity{}, time.Time{}, err
 	}
@@ -258,6 +268,7 @@ func (a *Authenticator) SessionCookie(id Identity) (*http.Cookie, error) {
 		ExpiresAt: jwt.NewNumericDate(now.Add(a.cfg.SessionTTL)),
 		Name:      id.Name,
 		Email:     id.Email,
+		Picture:   id.Picture,
 		Groups:    id.Groups,
 		Mode:      a.cfg.Mode,
 	}
@@ -346,6 +357,16 @@ func (a *Authenticator) Middleware(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r.WithContext(WithIdentity(r.Context(), id)))
 	})
+}
+
+// safePicture keeps only absolute http(s) URLs, so a claim can never smuggle a
+// javascript: or data: URL into an <img>.
+func safePicture(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || len(raw) > 2048 {
+		return ""
+	}
+	return u.String()
 }
 
 func intersects(a, b []string) bool {

@@ -77,6 +77,7 @@ auth:
     scopes: [openid, profile, email, groups]
     usernameClaim: preferred_username
     groupsClaim: groups
+    pictureClaim: picture
 ```
 
 Register the client at your provider with:
@@ -125,6 +126,7 @@ auth:
     groups: Remote-Groups
     name: Remote-Name
     email: Remote-Email
+    picture: "" # optional header with an avatar URL
 ```
 
 For oauth2-proxy (`--set-xauthrequest`) use `X-Auth-Request-User`,
@@ -139,3 +141,12 @@ For oauth2-proxy (`--set-xauthrequest`) use `X-Auth-Request-User`,
 
 Everyone can see all sessions. Only the owner or an admin can stop or extend
 one.
+
+## Avatars
+
+When the identity provider supplies a picture (the OIDC `picture` claim, or
+`header.picture` in the header mode), the UI shows it. Otherwise — and in the
+anonymous and password modes — it draws a deterministic
+[DiceBear](https://www.dicebear.com) **Voxel Art** avatar from the username,
+in the browser, so `big-cute-otter` always gets the same little voxel figure.
+Only absolute `http(s)` picture URLs are accepted.

@@ -241,3 +241,26 @@ phone, `display: scrcpy` via ws-scrcpy, VPN via the WireGuard Android app
 controlled by intents, and session end triggers a cleanup (uninstall, clear
 data) instead of a Pod delete. Nothing in api, web or the contracts needs to
 change for it; that is the bar every contract change must keep meeting.
+
+## Future: Docker-only deployment
+
+Kubernetes is not required by the design, only by the first provider. A
+`provider-docker` service would implement the same Provider contract against
+the Docker Engine API on one host:
+
+| Concern | Kubernetes (`provider-emulator`) | Docker (`provider-docker`) |
+|---------|-----------------------------------|----------------------------|
+| Session state | Pod labels/annotations | Container labels (`holtdroid.session=…`) |
+| Slots | Nodes with KVM, anti-affinity | Fixed `slots` per host (CPU/RAM budget) |
+| VPN | `vpn` container in the Pod | sing-box container, emulator joins it with `network_mode: container:<vpn>` |
+| Per-session secret | Secret with ownerReference | Config written to a per-session volume, removed with the session |
+| Agent reachability | Pod IP | Container IP on a dedicated bridge network the api is attached to |
+| Cleanup | Owner references | Delete everything carrying the session label |
+
+The session image, the agent and everything above the Provider contract stay
+the same. To keep the two providers from drifting, the session's container
+set (images, env, devices, mounts, the sing-box config) should be described
+once in a neutral `internal/session` spec that each provider renders into its
+own objects. Several Docker hosts are simply several providers in the api's
+`providers` list. Caveat: the provider needs the Docker socket, i.e. root on
+that host — document it next to the privileged-pod warning.

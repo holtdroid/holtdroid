@@ -55,6 +55,12 @@ frontend is embedded in `api`, and a Helm chart ties it together. See
 - Optionally an OIDC provider, an S3 bucket for the APK cache, or a
   forward-auth proxy.
 
+## Acknowledgements
+
+Generated avatars use [DiceBear](https://www.dicebear.com) (MIT) with the
+“Voxel Art” style by DiceBear, licensed under
+[CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
+
 ## License
 
 [Apache-2.0](LICENSE)

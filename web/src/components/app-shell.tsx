@@ -3,7 +3,6 @@ import { BookOpenIcon, LogOutIcon, MoonIcon, ShieldIcon, ShuffleIcon, SunIcon } 
 import { useTheme } from "next-themes"
 import type { ReactNode } from "react"
 import { useAuth, useLogout, useSessionEvents } from "@/api/queries"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -14,12 +13,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { UserAvatar } from "@/components/user-avatar"
 import logo from "@/logo.svg"
-
-function initials(name: string) {
-  const parts = name.split(/[\s\-_.@]+/).filter(Boolean)
-  return (parts.length > 1 ? parts.slice(-2).map((p) => p[0]) : [name.slice(0, 2)]).join("").toUpperCase()
-}
 
 export function AppShell({ children }: { children: ReactNode }) {
   useSessionEvents()
@@ -61,9 +56,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="ml-1 h-9 gap-2 px-1.5">
-                  <Avatar className="size-7">
-                    <AvatarFallback className="text-[10px]">{initials(display)}</AvatarFallback>
-                  </Avatar>
+                  <UserAvatar user={identity.user} picture={identity.picture} className="size-7" />
                   <span className="hidden max-w-40 truncate text-sm sm:inline">{display}</span>
                 </Button>
               </DropdownMenuTrigger>

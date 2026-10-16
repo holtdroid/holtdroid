@@ -79,6 +79,7 @@ Goal: one hand-written Pod on a KVM node proves the device side end to end.
 - [ ] Fix whatever reality finds; feed it back into docs
 
 ## Later
+- [ ] Docker-only deployment: `provider-docker` (Docker Engine API, session state in container labels, VPN sidecar via `network_mode: container:`), `compose.yaml` with api + sources + provider-docker, docs page. Session container spec shared with `provider-emulator` (see architecture.md "Future: Docker-only deployment")
 
 - [ ] `provider-physical` + phone agent (ws-scrcpy, wireless ADB, WireGuard app intents, cleanup between sessions)
 - [ ] More sources: manual upload, GitHub Releases, generic HTTP/S3 index

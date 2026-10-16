@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { UserAvatar } from "@/components/user-avatar"
 import { useNow } from "@/hooks/use-now"
 import { formatDuration } from "@/lib/format"
 import { cn } from "@/lib/utils"
@@ -106,8 +107,15 @@ function SessionCard({ session: s, now }: { session: SessionView; now: number })
             <span className="truncate font-medium">{s.label || s.package}</span>
             <SessionStateBadge state={s.state} />
           </div>
-          <div className="text-muted-foreground mt-0.5 flex flex-wrap gap-x-3 text-xs">
-            <span>{s.owner}</span>
+          <div className="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-3 text-xs">
+            <span className="inline-flex items-center gap-1.5">
+              <UserAvatar
+                user={s.owner}
+                picture={me.data?.user === s.owner ? me.data.picture : undefined}
+                className="size-4"
+              />
+              {s.owner}
+            </span>
             <span>{s.slot}</span>
             <span>up {formatDuration(uptime)}</span>
             {s.location && (

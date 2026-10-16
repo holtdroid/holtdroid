@@ -215,3 +215,14 @@ manifests via `extraObjects`, so such an Application can stay single-source.
 
 **Consequences.** No image-updater component and no bot commits. A freshly
 synced commit can briefly wait for its image to finish building.
+
+## 20. Generated avatars: DiceBear Voxel Art in the browser
+
+**Decision.** `Identity.picture` comes from the IdP (`picture` claim or a
+configured header) and is accepted only as an absolute http(s) URL. Without
+one, the UI renders a DiceBear `voxel-art` avatar seeded by the username
+(`@dicebear/core` + `@dicebear/styles`, style lazy-loaded as its own chunk).
+
+**Consequences.** No avatar storage or image proxy on the server; every
+user — including anonymous animal names — gets a stable, recognizable face.
+The style is CC0, the library MIT.

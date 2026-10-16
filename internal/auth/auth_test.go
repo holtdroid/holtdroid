@@ -202,3 +202,18 @@ func TestSafeRedirect(t *testing.T) {
 		}
 	}
 }
+
+func TestSafePicture(t *testing.T) {
+	for in, want := range map[string]string{
+		"https://cdn.example.com/a.png": "https://cdn.example.com/a.png",
+		"http://gravatar.local/x":       "http://gravatar.local/x",
+		"javascript:alert(1)":           "",
+		"data:image/svg+xml;base64,AAA": "",
+		"/relative.png":                 "",
+		"":                              "",
+	} {
+		if got := safePicture(in); got != want {
+			t.Errorf("safePicture(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

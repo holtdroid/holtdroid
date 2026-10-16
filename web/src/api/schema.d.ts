@@ -335,6 +335,8 @@ export interface components {
             email?: string;
             groups: string[];
             name?: string;
+            /** @description Avatar URL from the identity provider; the UI generates one from user when empty */
+            picture?: string;
             user: string;
         };
         Location: {
