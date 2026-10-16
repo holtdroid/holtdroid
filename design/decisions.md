@@ -431,6 +431,10 @@ offers a SOCKS inbound where the username selects the location
 emulator gets `-dns-server` (`vpn.dns`) and the sidecar hijacks DNS from the
 tun into a resolver that dials through the selector.
 
+String fields inside an inline outbound may themselves be secret references
+(`password: env:VPN_GATEWAY_PASSWORD`); they are resolved when a session's
+config is rendered, so a shared gateway password never sits in values files.
+
 **Consequences.** Any number of sessions share one key per location without
 collisions; they also share that location's egress IP. Adding a VPN vendor
 is a gateway config change, not a release. The gateway is the operator's to

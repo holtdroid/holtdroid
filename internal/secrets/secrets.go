@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 )
@@ -19,6 +20,14 @@ func (r Ref) Scheme() string {
 }
 
 func (r Ref) IsZero() bool { return r == "" }
+
+var builtinSchemes = []string{"env", "file", "openbao"}
+
+// IsRef reports whether s looks like a reference with a built-in scheme.
+func IsRef(s string) bool {
+	scheme, rest, ok := strings.Cut(s, ":")
+	return ok && rest != "" && slices.Contains(builtinSchemes, scheme)
+}
 
 type Resolver interface {
 	Resolve(ctx context.Context, ref string) (string, error)

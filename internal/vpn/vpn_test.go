@@ -114,6 +114,37 @@ func TestRenderErrors(t *testing.T) {
 	}
 }
 
+func TestRenderFieldRefs(t *testing.T) {
+	out := map[string]any{
+		"type": "wireguard", "private_key": "env:WG_KEY", "address": []any{"10.5.0.2/32"},
+		"peers": []any{map[string]any{"address": "nl1.example.net", "port": 51820, "public_key": "file:/run/nl.pub"}},
+	}
+	socks := gateway("pl")
+	socks["password"] = "env:GATEWAY_PASSWORD"
+	cfg := DefaultConfig()
+	cfg.Locations = []Location{{ID: "nl", Outbound: out}, {ID: "pl", Outbound: socks}}
+	if err := cfg.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	sec := fakeSecrets{"env:WG_KEY": "PRIVATE", "file:/run/nl.pub": "PUBLIC", "env:GATEWAY_PASSWORD": "hunter2"}
+	got, err := cfg.Render(t.Context(), sec, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`"private_key": "PRIVATE"`, `"public_key": "PUBLIC"`, `"password": "hunter2"`, `"10.5.0.2/32"`} {
+		if !strings.Contains(string(got), want) {
+			t.Errorf("render lacks %s:\n%s", want, got)
+		}
+	}
+	if socks["password"] != "env:GATEWAY_PASSWORD" || out["peers"].([]any)[0].(map[string]any)["public_key"] != "file:/run/nl.pub" {
+		t.Fatal("render modified the config")
+	}
+	delete(sec, "env:GATEWAY_PASSWORD")
+	if _, err := cfg.Render(t.Context(), sec, ""); err == nil || !strings.Contains(err.Error(), `"pl"`) {
+		t.Fatalf("missing field secret: %v", err)
+	}
+}
+
 func TestValidate(t *testing.T) {
 	tests := []struct {
 		name string

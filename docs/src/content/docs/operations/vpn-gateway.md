@@ -197,7 +197,7 @@ vpn:
         server: vpn-gateway.vpn.svc.cluster.local
         server_port: 1080
         username: de
-        password: holtdroid
+        password: env:VPN_GATEWAY_PASSWORD # any string field may be a secret reference
         udp_over_tcp: true
     - id: nl
       label: Netherlands

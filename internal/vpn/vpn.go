@@ -35,8 +35,8 @@ type Config struct {
 }
 
 // Location is one egress choice. Outbound is a sing-box outbound or endpoint
-// object without a tag, or a secret reference whose value is that object as
-// JSON.
+// object without a tag, whose string fields may be secret references, or a
+// secret reference whose value is that object as JSON.
 type Location struct {
 	ID       string
 	Label    string
@@ -242,7 +242,11 @@ type sidecar struct {
 func resolve(ctx context.Context, sec Secrets, l Location) (map[string]any, error) {
 	switch o := l.Outbound.(type) {
 	case map[string]any:
-		return o, nil
+		v, err := resolveFields(ctx, sec, o)
+		if err != nil {
+			return nil, fmt.Errorf("vpn location %q: %w", l.ID, err)
+		}
+		return v.(map[string]any), nil
 	case string:
 		value, err := sec.Resolve(ctx, secrets.Ref(o))
 		if err != nil {
@@ -255,6 +259,39 @@ func resolve(ctx context.Context, sec Secrets, l Location) (map[string]any, erro
 		return m, nil
 	}
 	return nil, fmt.Errorf("vpn location %q: no outbound", l.ID)
+}
+
+// resolveFields replaces string values that are secret references, at any
+// depth, with the secret.
+func resolveFields(ctx context.Context, sec Secrets, v any) (any, error) {
+	switch t := v.(type) {
+	case string:
+		if !secrets.IsRef(t) {
+			return t, nil
+		}
+		return sec.Resolve(ctx, secrets.Ref(t))
+	case map[string]any:
+		out := make(map[string]any, len(t))
+		for k, val := range t {
+			r, err := resolveFields(ctx, sec, val)
+			if err != nil {
+				return nil, err
+			}
+			out[k] = r
+		}
+		return out, nil
+	case []any:
+		out := make([]any, len(t))
+		for i, val := range t {
+			r, err := resolveFields(ctx, sec, val)
+			if err != nil {
+				return nil, err
+			}
+			out[i] = r
+		}
+		return out, nil
+	}
+	return v, nil
 }
 
 func outbound(id string, in map[string]any) (map[string]any, error) {

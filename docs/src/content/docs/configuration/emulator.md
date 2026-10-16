@@ -95,23 +95,23 @@ vpn:
         server: vpn-gateway.vpn.svc.cluster.local
         server_port: 1080
         username: de
-        password: holtdroid
+        password: env:VPN_GATEWAY_PASSWORD # any string field may be a secret reference
         udp_over_tcp: true
     - id: nl
       label: Netherlands
       outbound: openbao:secret/holtdroid#vpn_nl # the outbound as JSON
 ```
 
-| Key               | Meaning                                                                                                                                                                                               |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `vpn.image`       | sing-box image for the sidecar (1.12 or newer)                                                                                                                                                        |
-| `vpn.bypassCIDRs` | Ranges that never go through the tunnel. Must include your Pod and Service CIDRs, and the gateway's address                                                                                           |
-| `vpn.dns`         | Resolver (IP) for the device's DNS, queried through the selected location                                                                                                                             |
-| `vpn.resolver`    | Resolver (IP) for host names inside outbounds. Empty uses the Pod's `/etc/resolv.conf`, but sing-box sends `*.local` names to mDNS, so set your cluster DNS here when outbounds use `*.cluster.local` |
-| `vpn.direct`      | Offer a `direct` location (no VPN). Default `true`                                                                                                                                                    |
-| `vpn.default`     | Location a session starts in when the user picks none. Default: `direct`, or the first location                                                                                                       |
-| `vpn.locations`   | `id` (lowercase letters, digits, `-`), `label`, and `outbound`                                                                                                                                        |
-| `…[].outbound`    | A sing-box outbound or endpoint object without `tag`, or a [secret reference](/holtdroid/configuration/secrets/) whose value is that object as JSON. Use a reference whenever it holds credentials    |
+| Key               | Meaning                                                                                                                                                                                                                                                                                                                   |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `vpn.image`       | sing-box image for the sidecar (1.12 or newer)                                                                                                                                                                                                                                                                            |
+| `vpn.bypassCIDRs` | Ranges that never go through the tunnel. Must include your Pod and Service CIDRs, and the gateway's address                                                                                                                                                                                                               |
+| `vpn.dns`         | Resolver (IP) for the device's DNS, queried through the selected location                                                                                                                                                                                                                                                 |
+| `vpn.resolver`    | Resolver (IP) for host names inside outbounds. Empty uses the Pod's `/etc/resolv.conf`, but sing-box sends `*.local` names to mDNS, so set your cluster DNS here when outbounds use `*.cluster.local`                                                                                                                     |
+| `vpn.direct`      | Offer a `direct` location (no VPN). Default `true`                                                                                                                                                                                                                                                                        |
+| `vpn.default`     | Location a session starts in when the user picks none. Default: `direct`, or the first location                                                                                                                                                                                                                           |
+| `vpn.locations`   | `id` (lowercase letters, digits, `-`), `label`, and `outbound`                                                                                                                                                                                                                                                            |
+| `…[].outbound`    | A sing-box outbound or endpoint object without `tag`, or a [secret reference](/holtdroid/configuration/secrets/) whose value is that object as JSON. Inside an object, any string value that is a secret reference (`env:`, `file:`, `openbao:`) is replaced by the secret, at any depth: use that for passwords and keys |
 
 Any outbound works, for example a WireGuard endpoint straight in the sidecar
 (set `mtu: 1280` on overlay networks such as flannel VXLAN). But a WireGuard
