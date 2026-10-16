@@ -247,7 +247,9 @@ advertises `display: scrcpy` and the UI swaps the renderer.
   every socket's `/json/list` into `GET /devtools/targets`
   (`{socket, process, id, type, title, url}`). The process name and the
   fallback frontend revision come from the socket's `/json/version`
-  (`Android-Package`, `WebKit-Version`).
+  (`Android-Package`, `WebKit-Version`). A socket whose `/json/list` fails or times
+  out (a WebView busy navigating) keeps its last list while the socket
+  exists, so the UI doesn't drop and remount the DevTools frame.
 - `WS /devtools/{socket}/page/{id}` reverse-proxies to the forwarded port
   with `Host: localhost` and without `Origin`, because the DevTools HTTP
   handler rejects other Host headers (DNS rebinding protection) and foreign

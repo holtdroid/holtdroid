@@ -302,3 +302,35 @@ func TestDisplay(t *testing.T) {
 		t.Fatalf("echo %q, %v", msg, err)
 	}
 }
+
+func TestDevToolsTargetsSurviveABusyWebView(t *testing.T) {
+	var busy atomic.Bool
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /json/version", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, `{"Android-Package":"com.example.shop","WebKit-Version":"537.36 (@abcdef1234)"}`)
+	})
+	mux.HandleFunc("GET /json/list", func(w http.ResponseWriter, _ *http.Request) {
+		if busy.Load() {
+			http.Error(w, "busy", http.StatusServiceUnavailable)
+			return
+		}
+		_, _ = io.WriteString(w, `[{"id":"P1","type":"page","title":"Checkout","url":"https://shop.example/checkout"}]`)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	port := srv.Listener.Addr().(*net.TCPAddr).Port
+
+	dev := &fakeDevice{unix: procNetUnix, ports: map[string]int{"webview_devtools_remote_4242": port, "chrome_devtools_remote": 1}}
+	d := NewDevTools(dev, slog.New(slog.DiscardHandler))
+	ctx := context.Background()
+	if err := d.scan(ctx); err != nil {
+		t.Fatal(err)
+	}
+	for _, b := range []bool{false, true, false} {
+		busy.Store(b)
+		targets, err := d.Targets(ctx)
+		if err != nil || len(targets) != 1 || targets[0].ID != "P1" {
+			t.Fatalf("busy=%v: targets %+v, %v", b, targets, err)
+		}
+	}
+}

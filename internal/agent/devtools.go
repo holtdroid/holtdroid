@@ -35,6 +35,7 @@ type devtoolsSocket struct {
 	pid     int
 	process string
 	rev     string
+	targets []contract.DevToolsTarget
 }
 
 func NewDevTools(dev Device, log *slog.Logger) *DevTools {
@@ -129,31 +130,50 @@ func (d *DevTools) Targets(ctx context.Context) ([]contract.DevToolsTarget, erro
 		if !ok {
 			continue
 		}
-		var list []struct {
-			ID                  string `json:"id"`
-			Type                string `json:"type"`
-			Title               string `json:"title"`
-			URL                 string `json:"url"`
-			DevtoolsFrontendURL string `json:"devtoolsFrontendUrl"`
-		}
-		if err := d.getJSON(ctx, s.port, "/json/list", &list); err != nil {
-			d.log.Debug("devtools targets", "socket", name, "err", err)
+		targets, err := d.list(ctx, name, s)
+		if err != nil {
+			d.log.Debug("devtools targets, keeping the last list", "socket", name, "err", err)
+			items = append(items, s.targets...)
 			continue
 		}
-		for _, t := range list {
-			items = append(items, contract.DevToolsTarget{
-				Socket:      name,
-				PID:         s.pid,
-				Process:     s.process,
-				ID:          t.ID,
-				Type:        t.Type,
-				Title:       t.Title,
-				URL:         t.URL,
-				FrontendRev: cmp.Or(frontendRev(t.DevtoolsFrontendURL), s.rev),
-			})
+		d.mu.Lock()
+		if live, ok := d.sockets[name]; ok {
+			live.targets = targets
 		}
+		d.mu.Unlock()
+		items = append(items, targets...)
 	}
 	return items, nil
+}
+
+// list asks one socket for its targets. A busy WebView can miss the
+// timeout while it navigates, so Targets falls back to the last answer
+// while the socket exists.
+func (d *DevTools) list(ctx context.Context, name string, s devtoolsSocket) ([]contract.DevToolsTarget, error) {
+	var list []struct {
+		ID                  string `json:"id"`
+		Type                string `json:"type"`
+		Title               string `json:"title"`
+		URL                 string `json:"url"`
+		DevtoolsFrontendURL string `json:"devtoolsFrontendUrl"`
+	}
+	if err := d.getJSON(ctx, s.port, "/json/list", &list); err != nil {
+		return nil, err
+	}
+	out := make([]contract.DevToolsTarget, 0, len(list))
+	for _, t := range list {
+		out = append(out, contract.DevToolsTarget{
+			Socket:      name,
+			PID:         s.pid,
+			Process:     s.process,
+			ID:          t.ID,
+			Type:        t.Type,
+			Title:       t.Title,
+			URL:         t.URL,
+			FrontendRev: cmp.Or(frontendRev(t.DevtoolsFrontendURL), s.rev),
+		})
+	}
+	return out, nil
 }
 
 func (d *DevTools) getJSON(ctx context.Context, port int, path string, v any) error {
