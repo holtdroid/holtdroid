@@ -49,10 +49,10 @@ deployment"):
   android.homelab.example (see "Maintainer's deployment"); the pre-pull DaemonSet
   has the session image on all four nodes, but nobody has started a session
   yet.
-- The Slack sync on android.homelab.example: the job exists
+- The Slack sync on android.homelab.example: deployed
   ([kriakiku/holtdroid-slack-sync](https://github.com/kriakiku/holtdroid-slack-sync),
-  decision #30) but needs the maintainer's Slack app and token before it can
-  be deployed.
+  decision #30) but waiting for the maintainer's Slack app token and channel
+  IDs (see "Maintainer's deployment").
 - SSH gateway — Phase 4.5 (designed in architecture.md "SSH access").
 - Docker-only provider, physical phones — "Later".
 
@@ -61,8 +61,8 @@ deployment"):
 1. **Phase 3** — launch a real session on android.homelab.example from the UI
    (needs the maintainer's Authelia login) and fix what it finds: the
    NetworkPolicy vs. the kubelet readiness probe, VPN switching through the
-   gateway, DevTools against a real WebView. Then deploy the Slack sync into
-   the S3 source once the Slack app exists.
+   gateway, DevTools against a real WebView. Then check the Slack sync
+   end to end once its token is in OpenBao.
 2. **Phase 4.5 — SSH gateway**, can run in parallel against the fake
    provider.
 3. Planned, each starting with a decisions.md entry: Phase 4.7 traffic
@@ -163,9 +163,9 @@ in-repo work; ask the maintainer for anything cluster-side.
 |------|-------|
 | URL | https://android.homelab.example |
 | Argo CD Application | `homelab.k8s/argocd/holtdroid.yaml` — chart from this repo's `main`, `image.tag=$ARGOCD_APP_REVISION`, values inline |
-| Current setup | `auth.mode: oidc` (Authelia client `holtdroid`, groups `admins`/`users`), the default `local` source and uploads on the api's Longhorn PVC `holtdroid-data` (`api.persistence`), `providers.emulator` on `core` (tolerating `dedicated=nas`) and `k3s-1..3`, locations `direct` + the six gateway ones (password via `VPN_GATEWAY_PASSWORD` from `secret/vpn` in the `ExternalSecret`; the `no` id must stay quoted in the values) |
-| Secrets (OpenBao KV, mount `secret/`) | `holtdroid` → `session_key`; `oidc/holtdroid` → `client_secret` (+ digest for Authelia); both seeded by `nixos/scripts/openbao-bootstrap.sh`; delivered by an `ExternalSecret` in `extraObjects` |
-| Planned secrets | Slack: put `slack_bot_token` and `slack_channel_id` into `secret/holtdroid` by hand |
+| Current setup | `auth.mode: oidc` (Authelia client `holtdroid`, groups `admins`/`users`), sources `uploads` (writable, uploads go there) and `slack` (read-only) as prefixes of the bucket `holtdroid` on the homelab S3 gateway `https://s3.homelab.example` (versitygw, region `eu-north-1`, path style); `api.persistence` is off (the old PVC's one upload was copied to S3), `providers.emulator` on `core` (tolerating `dedicated=nas`) and `k3s-1..3`, locations `direct` + the six gateway ones (password via `VPN_GATEWAY_PASSWORD` from `secret/vpn` in the `ExternalSecret`; the `no` id must stay quoted in the values) |
+| Secrets (OpenBao KV, mount `secret/`) | `holtdroid` → `session_key`, `s3_access_key`/`s3_secret_key` (versitygw IAM user `holtdroid`, inline policy on bucket `holtdroid`, issued by hand on the gateway's IAM server); `oidc/holtdroid` → `client_secret` (+ digest for Authelia); both seeded by `nixos/scripts/openbao-bootstrap.sh`; delivered by an `ExternalSecret` in `extraObjects` |
+| Slack sync | Argo CD Application `homelab.k8s/argocd/holtdroid-slack-sync.yaml` (chart from kriakiku/holtdroid-slack-sync `main`), writes `slack/` in the bucket, reacts with `:holtdroid:` and replies with launch links to android.homelab.example. `secret/holtdroid-slack-sync` → `s3_access_key`/`s3_secret_key` (IAM user `holtdroid-slack-sync`) are set; **`slack_bot_token` and `slack_channels` (comma-separated IDs) are missing** — until the maintainer adds them the pod waits in `CreateContainerConfigError` |
 | VPN gateway | The homelab's existing `vpn-gateway` in namespace `downloads` (`homelab.k8s/infrastructure/downloads`, image built from there into zot) is the shared gateway of decision #28. Service `vpn-socks.downloads.svc.cluster.local:1080`; SOCKS users `holtdroid-<cc>` for every NordVPN endpoint of the gateway (`bd`, `kz`, `lv`, `no`, `pl`, `ua`) route to `nord-<cc>`; AirVPN is not offered (its failover moves between NL and LV); one password for all of them in OpenBao `secret/vpn` → `socks_holtdroid_password` (seeded by `openbao-bootstrap.sh`). The provider config needs `vpn.resolver: 10.43.0.10` and `udp_over_tcp: true`. NordVPN account: 6 of 10 connections used by the gateway (ua, pl, kz, no, lv, bd); Finland was tried and dropped: with seven tunnels open one of them (Finland or Bangladesh) kept failing, likely the account limit together with the maintainer's own devices. Bangladesh and Kazakhstan egress IPs are placed elsewhere by ipinfo.io (the agent's default `ipInfoURL`: SG and DE) while ip-api/ipwho.is say BD and KZ; Bangladesh is a Nord virtual location |
 | Nodes for sessions | 4 × x86_64 with `/dev/kvm`: `core` (16 cores, 30 GiB, taint `dedicated=nas:NoSchedule`), `k3s-1..3` (6 cores, 31 GiB each). One session per node |
 | Storage classes | `longhorn`, `local-path`, `nas-hdd` |
