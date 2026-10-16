@@ -15,14 +15,14 @@ silently drop any.
 - [x] `internal/contract`: Source/Provider/Agent interfaces, huma registration, Go clients, round-trip tests
 - [ ] `internal/contract/conformance`: reusable suite for third-party implementations
 - [x] `internal/secrets` (env, file, openbao) with tests
-- [x] `internal/auth` (header, none) with tests
+- [x] `internal/auth` with tests (all modes: see Phase 1.5)
 - [x] Config loading (koanf, YAML + `HOLTDROID_` env) shared helper
 - [x] `web/`: Vite + React + TS 7 strict + Tailwind v4 + shadcn/ui + TanStack Router/Query, embedded via `embed`
 - [x] `docs/`: Astro Starlight site (start, concepts, configuration, operations, extending) with mermaid
 - [x] `Makefile`, `mise.toml`, `golangci-lint` v2 config, oxlint/oxfmt configs, `.gitignore`
 - [ ] `.editorconfig`
 - [x] CI workflow (`make openapi` drift check, lint, test, build, docs) and GitHub Pages docs deploy
-- [ ] `helm lint` in CI once the chart exists
+- [x] `helm lint` in CI
 - [ ] `CONTRIBUTING.md`, `SECURITY.md`
 
 ## Phase 1.5 — Sign-in, storage, delivery
@@ -80,23 +80,24 @@ the real agent exists.
 - [ ] Chart: ssh-gateway Deployment + headless Service + TCP exposure (LoadBalancer/NodePort or Traefik `IngressRouteTCP`), NetworkPolicy gateway → agent tunnel port
 - [ ] Tests: gateway refuses exec/shell/sftp/agent forwarding, refuses any `-L` target except adb, isolation on/off, key expiry and fan-out, end-to-end `-L`/`-R` against the fake agent with `x/crypto/ssh` as the client
 - [ ] Verify on the real emulator: `adb connect` through the tunnel (adbd auth on `google_apis` images), `-R 3000` reachable as `http://localhost:3000` in the app/WebView
-- [ ] Docs page "SSH access"; homelab: Traefik TCP entrypoint on `:2222` for android.homelab.example
+- [ ] Docs page "SSH access" (a planned-feature page exists — update it to match what ships); homelab: Traefik TCP entrypoint on `:2222` for android.homelab.example
 
 ## Phase 5 — Packaging and docs
 
 - [ ] Helm chart: add source-slack, provider-emulator, RBAC, NetworkPolicy, prepull DaemonSet, values for nodeSelector/tolerations/slots/resources
 - [ ] Release workflow: amd64 session image
 - [ ] Docs site content: install with Helm, Slack app setup, VPN providers, secrets backends, forward-auth examples (Authelia, oauth2-proxy), architecture, writing a source/provider, troubleshooting (KVM, ARM translation, Frida)
-- [ ] Docs deployed to GitHub Pages
+- [x] Docs deployed to GitHub Pages
 
 ## Phase 6 — First deployment
 
-- [ ] Deploy to the maintainer's cluster via Argo CD + the Helm chart (tracked in that cluster's GitOps repo, not here)
+- [x] Deploy to the maintainer's cluster via Argo CD + the Helm chart (portal with fake devices; see status.md)
+- [ ] Switch that deployment to `provider-emulator` + `source-slack` once Phase 3 lands
 - [ ] Fix whatever reality finds; feed it back into docs
 
 ## Later
-- [ ] Docker-only deployment: `provider-docker` (Docker Engine API, session state in container labels, VPN sidecar via `network_mode: container:`), `compose.yaml` with api + sources + provider-docker, docs page. Session container spec shared with `provider-emulator` (see architecture.md "Future: Docker-only deployment")
 
+- [ ] Docker-only deployment: `provider-docker` (Docker Engine API, session state in container labels, VPN sidecar via `network_mode: container:`), `compose.yaml` with api + sources + provider-docker, docs page. Session container spec shared with `provider-emulator` (see architecture.md "Future: Docker-only deployment")
 - [ ] `provider-physical` + phone agent (ws-scrcpy, wireless ADB, WireGuard app intents, cleanup between sessions)
 - [ ] More sources: manual upload, GitHub Releases, generic HTTP/S3 index
 - [ ] `.apks` / `.xapk` split APK support

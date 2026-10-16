@@ -1,0 +1,167 @@
+# Status and handoff
+
+Snapshot for whoever continues the work — human or agent. Update the
+"Where things stand" and "Next steps" sections whenever a phase moves; the
+rest changes rarely.
+
+_Last updated: 2026-10-16._
+
+## Where things stand
+
+**Works today** (deployed at https://android.homelab.example, see "Maintainer's
+deployment"):
+
+- The portal end to end against **simulated** devices: APK list with parsed
+  metadata/icons, launch dialog, sessions panel with slots and idle countdown,
+  session page with screen/DevTools split, target switcher, clipboard, VPN
+  location switcher, extend/stop, reaper.
+- Sign-in: anonymous animal names, shared password, OIDC (PKCE + userinfo),
+  forward-auth headers, none. Avatars from the IdP or DiceBear voxel-art.
+- APK cache on filesystem or S3. Stateless api (restart test included).
+- `source-dir` (APKs from a volume) and `provider-fake` (fake devices whose
+  agent serves placeholder screen and DevTools pages).
+- Single Go binary + embedded UI, distroless image, Helm chart, CI, release
+  (`ghcr.io/kriakiku/holtdroid:<sha>` per commit), docs site on GitHub Pages.
+
+**Not built yet** — everything that touches a real Android:
+
+- Session image, real agent (emulator supervision, Frida, ADB, DevTools
+  proxy, clipboard RPC, VPN sidecar) — roadmap Phase 2.
+- `provider-emulator`, `internal/vpn`, `source-slack` — Phase 3.
+- SSH gateway — Phase 4.5 (designed in architecture.md "SSH access").
+- Docker-only provider, physical phones — "Later".
+
+## Next steps, in order
+
+1. **Phase 2 — session prototype.** The riskiest part; do it before anything
+   else. Suggested path:
+   - Write `images/session.Dockerfile` (Ubuntu, Android cmdline-tools,
+     emulator, `system-images;android-33;google_apis;x86_64`, Xvfb, x11vnc,
+     noVNC static files, frida-server pinned to the frida-go devkit version)
+     and an `agent` subcommand built with cgo for it.
+   - Build it for `linux/amd64` only (it is several GB). Either add a second
+     job to `.github/workflows/release.yml` pushing
+     `ghcr.io/kriakiku/holtdroid-session:<sha>`, or for quick iteration push
+     to the maintainer's registry (see below).
+   - Run one hand-written privileged Pod (with `/dev/kvm` hostPath) in a
+     scratch namespace on a KVM node and prove: ARM-only APK installs and
+     runs (`ro.product.cpu.abilist` contains `arm64-v8a`), Frida spawn enables
+     WebView debugging, `webview_devtools_remote_*` appears, DevTools frontend
+     loads through the agent, clipboard RPC works, sing-box tun changes the
+     external IP.
+   - Write down every surprise in `decisions.md`.
+2. **Phase 3** — `internal/vpn` (with golden sing-box configs),
+   `provider-emulator` (Pods + per-session Secret, state in labels and
+   annotations, anti-affinity, `touch`), `source-slack`. Wire them into the
+   chart, then switch the maintainer's deployment from fake/dir to
+   emulator/slack.
+3. **Phase 4.5 — SSH gateway**, which can be started earlier against the
+   fake provider if Phase 2 is blocked on hardware.
+4. Remaining Phase 1/5 chores: `CONTRIBUTING.md`, `SECURITY.md`,
+   `.editorconfig`, conformance package.
+
+## Requirements from the maintainer
+
+Collected from the design conversation; each is reflected in the docs listed.
+
+- Test APKs arrive in a **Slack channel**; they are often **ARM-only**. A bot
+  token with `channels:history`, `groups:history`, `files:read` is available.
+  (architecture.md, contracts.md "source-slack")
+- **WebView debugging without modifying the APK**, DevTools in the browser
+  next to the screen, no adb or local Chrome on the user's machine.
+  (decisions #1, #6)
+- One page per session with **clipboard sync**, **DevTools target
+  switching**, **VPN location switching**. (architecture.md)
+- Home page with **active sessions, owners and remaining lifetime**; idle
+  sessions are shut down; up to **4 parallel devices**, one per node.
+  (architecture.md "Session lifecycle")
+- **Extensible**: other artifact sources, physical rooted phones later, Docker
+  without Kubernetes later, secrets not tied to OpenBao. (contracts.md,
+  architecture.md "Future: …")
+- **Open source, not homelab-specific.** Apache-2.0, public docs site.
+- **Stateless api**, no database; session state as labels on what the
+  provider runs. (decisions #5, #17, #18)
+- Sign-in: **anonymous random animal names**, **shared password**, **OIDC**;
+  avatars from the IdP or **DiceBear voxel-art**. (decisions #17, #20)
+- **SSH access**: `ssh <slug>@host` for ADB (`-L`) and publishing local ports
+  on the device (`-R`), no shells, keys kept in the browser and re-synced,
+  flags `allowADB`=true, `allowReverse`=true, `clientIsolation`=false.
+  (decision #21)
+- Lean containers and a small codebase built on existing libraries; Go
+  backend, Bun + TypeScript 7 + oxc tooling, shadcn/ui. (decisions #3, #13)
+
+## Working agreements
+
+- Talk to the maintainer in **Russian**; everything in the repo is English.
+- Commits: one-line Conventional Commits, no body, no trailers (no
+  `Co-Authored-By`, no "Generated with"). PR descriptions empty.
+- The maintainer allowed the agent to commit and push to `main` — **a push to
+  `main` deploys to android.homelab.example**. Run `make check` first.
+- Don't verify UI by launching headless browsers or Storybook; rely on types,
+  lint, tests and `holtdroid dev` + curl.
+- Never print secrets (tokens, keys, decrypted values) in chat or logs.
+- Write almost no code comments; reasons go to `decisions.md`.
+
+## Gotchas already paid for
+
+- **shadcn CLI** (v4.22) writes `import { cn } from "cn"` into new
+  components and may overwrite `src/lib/utils.ts` with a self-referencing
+  re-export. After `shadcn add`, fix imports to `@/lib/utils` and check
+  `utils.ts`. It also tried to add an `cn` npm dependency — remove it.
+- **Bun** must use the hoisted linker (`bunfig.toml`), otherwise Astro's
+  prerender can't find native optional deps.
+- **TypeScript 7** has no JS API: `openapi-typescript` runs via `bunx` with
+  TS 5 (`web/package.json` → `openapi`). `astro check` doesn't work either.
+- **Vite empties `web/dist`**; `web/public/.keep` is copied back so
+  `//go:embed all:dist` compiles on a fresh checkout. Don't delete either
+  `.keep`.
+- **huma** doesn't read path params from embedded structs — declare them on
+  the input struct itself. Set `huma.DefaultArrayNullable = false` (done in
+  `internal/contract`) or TS types get `| null` arrays.
+- **Go 1.27** allows setting promoted fields directly in struct literals and
+  golangci's `modernize` (`embedlit`) insists on it.
+- **Images must use a numeric user** (`USER 65532:65532`), otherwise
+  `runAsNonRoot` fails with `CreateContainerConfigError`.
+- **oxlint** enforces React-Compiler-era rules (no setState in effects, no
+  ref reads or `Date.now()` during render). Derive state while rendering or
+  use `useEffectEvent`.
+- **Argo CD** `$ARGOCD_APP_REVISION` is used as the image tag; keep the
+  Application single-source and put extra manifests into `extraObjects`.
+- The fake provider keeps sessions in memory: restarting `provider-fake`
+  loses them. That's expected; real providers keep state in the cluster.
+
+## Maintainer's deployment
+
+The first deployment runs in the maintainer's homelab k3s cluster. Its
+GitOps repo and access recipes live outside this repository
+(`~/Developer/homelab` on the maintainer's Mac: `k8s/` = Argo CD apps,
+`nixos/` = hosts and OpenBao bootstrap; its `CLAUDE.md` explains kubectl,
+sops and OpenBao access). An agent without that access can still do all
+in-repo work; ask the maintainer for anything cluster-side.
+
+| What | Where |
+|------|-------|
+| URL | https://android.homelab.example |
+| Argo CD Application | `homelab.k8s/argocd/holtdroid.yaml` — chart from this repo's `main`, `image.tag=$ARGOCD_APP_REVISION`, values inline |
+| Current setup | `auth.mode: oidc` (Authelia client `holtdroid`, groups `admins`/`users`), `source-dir` on a 2Gi Longhorn PVC (contains `helloworld.apk`), `provider-fake` |
+| Secrets (OpenBao KV, mount `secret/`) | `holtdroid` → `session_key`; `oidc/holtdroid` → `client_secret` (+ digest for Authelia); both seeded by `nixos/scripts/openbao-bootstrap.sh`; delivered by an `ExternalSecret` in `extraObjects` |
+| Planned secrets | Slack: put `slack_bot_token` and `slack_channel_id` into `secret/holtdroid` by hand. NordVPN: reuse `secret/vpn` → `nordvpn_private_key`; that key is already used by the torrent `vpn-gateway` (servers `kyiv.ua`, `warsaw.pl`, `astana.kz`, `oslo.no`, `riga.lv` `.wg.nordhold.net`) — put those in `excludeServers` |
+| Nodes for sessions | 4 × x86_64 with `/dev/kvm`: `core` (16 cores, 30 GiB, taint `dedicated=nas:NoSchedule`), `k3s-1..3` (6 cores, 31 GiB each). One session per node |
+| Storage classes | `longhorn`, `local-path`, `nas-hdd` |
+| Ingress / DNS | Traefik; Ingress annotation `external-dns.alpha.kubernetes.io/target: "10.10.4.25"` creates the DNS record |
+| Registries | `ghcr.io/kriakiku/*` (public, from CI); the cluster also has `registry.homelab.example` (zot, needs the `zot-pull-secret` pattern from `homelab.k8s/infrastructure/downloads/secrets.yaml`) |
+| SSH gateway (planned) | needs a Traefik TCP entrypoint `:2222` in `homelab.k8s/infrastructure/traefik` |
+
+Verifying a deploy (needs the maintainer's kubeconfig):
+
+```sh
+export KUBECONFIG=~/.kube/homelab.yaml
+kubectl -n argocd annotate application holtdroid argocd.argoproj.io/refresh=hard --overwrite
+kubectl -n argocd get application holtdroid -o jsonpath='{.status.sync.revision} {.status.sync.status} {.status.health.status}{"\n"}'
+kubectl -n holtdroid get pods
+kubectl -n holtdroid logs deploy/holtdroid-api
+curl -s https://android.homelab.example/api/v1/auth
+```
+
+A new commit can sit in `ImagePullBackOff` for a few minutes until its image
+is built — check `gh run list` before debugging.

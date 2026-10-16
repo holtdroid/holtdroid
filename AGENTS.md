@@ -6,14 +6,17 @@ imports it. Read it fully before changing anything.
 
 ## Read first
 
-1. [`design/README.md`](design/README.md) — index of the design docs.
-2. [`design/architecture.md`](design/architecture.md) — components, data
+1. [`design/status.md`](design/status.md) — where the work stands, what to
+   do next, the maintainer's requirements and working agreements, gotchas,
+   and the live deployment. Update it when you finish a phase.
+2. [`design/README.md`](design/README.md) — index of the design docs.
+3. [`design/architecture.md`](design/architecture.md) — components, data
    flow, session lifecycle.
-3. [`design/contracts.md`](design/contracts.md) — the HTTP contracts between
+4. [`design/contracts.md`](design/contracts.md) — the HTTP contracts between
    services. These are the extension points; do not bypass them.
-4. [`design/roadmap.md`](design/roadmap.md) — what is done, what is next.
+5. [`design/roadmap.md`](design/roadmap.md) — what is done, what is next.
    Pick work from here and tick it off when finished.
-5. [`design/decisions.md`](design/decisions.md) — why things are the way
+6. [`design/decisions.md`](design/decisions.md) — why things are the way
    they are. Do not relitigate an accepted decision silently: add a new entry
    that supersedes it.
 
