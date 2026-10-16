@@ -157,7 +157,8 @@ leave the process, the api doesn't keep them.
 
 - [x] Deploy to the maintainer's cluster via Argo CD + the Helm chart (portal with fake devices; see status.md)
 - [ ] Switch that deployment to `provider-emulator` + a Slack sync into an S3 source once Phase 3 lands
-- [ ] A shared VPN gateway for that deployment (NordVPN key from `secret/vpn`, servers other than the torrent `vpn-gateway`'s), following the "Shared VPN gateway" docs page
+- [x] A shared VPN gateway for that deployment: the homelab `vpn-gateway` (namespace `downloads`) got SOCKS users `holtdroid-{bd,fi,lv,pl}` and NordVPN endpoints for Bangladesh and Finland (see status.md)
+- [ ] Wire those locations into the deployment's `provider-emulator` values (outbounds with the password from `secret/vpn` → `socks_holtdroid_password`, `vpn.resolver`, `vpn.direct` as the maintainer wants)
 - [ ] Fix whatever reality finds; feed it back into docs
 
 ## Later
