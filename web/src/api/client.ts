@@ -1,0 +1,57 @@
+import createClient from "openapi-fetch"
+import type { components as AgentComponents, paths as AgentPaths } from "./agent"
+import type { components, paths } from "./schema"
+
+type Schemas = components["schemas"]
+type AgentSchemas = AgentComponents["schemas"]
+
+export type Identity = Schemas["Identity"]
+export type ArtifactView = Schemas["ArtifactView"]
+export type ArtifactList = Schemas["ArtifactList"]
+export type ProviderView = Schemas["ProviderView"]
+export type SessionView = Schemas["SessionView"]
+export type SessionsEvent = Schemas["SessionsEvent"]
+export type SessionState = SessionView["state"]
+export type Location = Schemas["Location"]
+
+export type DevToolsTarget = AgentSchemas["DevToolsTarget"]
+export type StatusEvent = AgentSchemas["StatusEvent"]
+export type Network = AgentSchemas["Network"]
+export type Clipboard = AgentSchemas["Clipboard"]
+
+export const api = createClient<paths>({ baseUrl: "" })
+
+export function sessionBase(provider: string, id: string) {
+  return `/s/${encodeURIComponent(provider)}/${encodeURIComponent(id)}`
+}
+
+export function agentClient(provider: string, id: string) {
+  return createClient<AgentPaths>({ baseUrl: sessionBase(provider, id) })
+}
+
+export class ApiError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message)
+  }
+}
+
+type Result<T> = { data?: T; error?: unknown; response: Response }
+
+export async function unwrap<T>(request: Promise<Result<T>>): Promise<T> {
+  const { data, error, response } = await request
+  if (error !== undefined || !response.ok) {
+    const detail =
+      error && typeof error === "object" && "detail" in error && typeof error.detail === "string"
+        ? error.detail
+        : response.statusText
+    throw new ApiError(response.status, detail || `Request failed (${response.status})`)
+  }
+  return data as T
+}
+
+export function iconURL(source: string, id: string) {
+  return `/api/v1/artifacts/${encodeURIComponent(source)}/${encodeURIComponent(id)}/icon`
+}

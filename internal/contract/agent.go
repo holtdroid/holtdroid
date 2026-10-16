@@ -1,0 +1,117 @@
+package contract
+
+import (
+	"context"
+	"net/http"
+
+	"github.com/danielgtaylor/huma/v2"
+	"github.com/danielgtaylor/huma/v2/sse"
+)
+
+// Agent is the JSON part of the device agent API. Display assets and the
+// DevTools WebSocket/frontend proxy are plain HTTP routes next to it.
+type Agent interface {
+	Ready(ctx context.Context) bool
+	WatchStatus(ctx context.Context, send func(StatusEvent) error) error
+	Targets(ctx context.Context) ([]DevToolsTarget, error)
+	Clipboard(ctx context.Context) (string, error)
+	SetClipboard(ctx context.Context, text string) error
+	WatchClipboard(ctx context.Context, send func(Clipboard) error) error
+	Network(ctx context.Context) (Network, error)
+	SetLocation(ctx context.Context, location string) (Network, error)
+	App(ctx context.Context, action AppAction) error
+}
+
+type AppAction string
+
+const (
+	AppRestart   AppAction = "restart"
+	AppReinstall AppAction = "reinstall"
+)
+
+type clipboardInput struct {
+	Body Clipboard
+}
+
+type locationInput struct {
+	Body SetLocation
+}
+
+type appInput struct {
+	Action AppAction `path:"action" enum:"restart,reinstall"`
+}
+
+func RegisterAgent(api huma.API, a Agent) {
+	tags := []string{"agent"}
+
+	huma.Register(api, huma.Operation{OperationID: "agentHealth", Method: http.MethodGet, Path: "/v1/health", Tags: tags},
+		func(ctx context.Context, _ *struct{}) (*body[Health], error) {
+			if !a.Ready(ctx) {
+				return nil, huma.Error503ServiceUnavailable("device is not ready")
+			}
+			return &body[Health]{Health{OK: true}}, nil
+		})
+
+	sse.Register(api, huma.Operation{OperationID: "watchStatus", Method: http.MethodGet, Path: "/v1/status", Tags: tags},
+		map[string]any{"state": StatusEvent{}},
+		func(ctx context.Context, _ *struct{}, send sse.Sender) {
+			_ = a.WatchStatus(ctx, func(ev StatusEvent) error { return send.Data(ev) })
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "listTargets", Method: http.MethodGet, Path: "/v1/devtools/targets", Tags: tags},
+		func(ctx context.Context, _ *struct{}) (*body[DevToolsTargets], error) {
+			items, err := a.Targets(ctx)
+			if err != nil {
+				return nil, toHuma(err)
+			}
+			if items == nil {
+				items = []DevToolsTarget{}
+			}
+			return &body[DevToolsTargets]{DevToolsTargets{Items: items}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "getClipboard", Method: http.MethodGet, Path: "/v1/clipboard", Tags: tags},
+		func(ctx context.Context, _ *struct{}) (*body[Clipboard], error) {
+			text, err := a.Clipboard(ctx)
+			if err != nil {
+				return nil, toHuma(err)
+			}
+			return &body[Clipboard]{Clipboard{Text: text}}, nil
+		})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "setClipboard", Method: http.MethodPost, Path: "/v1/clipboard", Tags: tags, DefaultStatus: http.StatusNoContent,
+	}, func(ctx context.Context, in *clipboardInput) (*struct{}, error) {
+		return nil, toHuma(a.SetClipboard(ctx, in.Body.Text))
+	})
+
+	sse.Register(api, huma.Operation{OperationID: "watchClipboard", Method: http.MethodGet, Path: "/v1/clipboard/events", Tags: tags},
+		map[string]any{"clip": Clipboard{}},
+		func(ctx context.Context, _ *struct{}, send sse.Sender) {
+			_ = a.WatchClipboard(ctx, func(c Clipboard) error { return send.Data(c) })
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "getNetwork", Method: http.MethodGet, Path: "/v1/network", Tags: tags},
+		func(ctx context.Context, _ *struct{}) (*body[Network], error) {
+			n, err := a.Network(ctx)
+			if err != nil {
+				return nil, toHuma(err)
+			}
+			return &body[Network]{n}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "setLocation", Method: http.MethodPut, Path: "/v1/network/location", Tags: tags},
+		func(ctx context.Context, in *locationInput) (*body[Network], error) {
+			n, err := a.SetLocation(ctx, in.Body.Location)
+			if err != nil {
+				return nil, toHuma(err)
+			}
+			return &body[Network]{n}, nil
+		})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "appAction", Method: http.MethodPost, Path: "/v1/app/{action}", Tags: tags, DefaultStatus: http.StatusAccepted,
+	}, func(ctx context.Context, in *appInput) (*struct{}, error) {
+		return nil, toHuma(a.App(ctx, in.Action))
+	})
+}

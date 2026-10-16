@@ -1,0 +1,62 @@
+---
+title: Sessions and slots
+description: Session states, activity, idle timeout, TTL and slot accounting.
+sidebar:
+  order: 2
+---
+
+A **session** is one device running one APK for one user. A **slot** is a
+place a session can run: for the emulator provider, a Kubernetes node; for a
+future physical-device provider, a phone.
+
+## States
+
+```mermaid
+stateDiagram-v2
+  [*] --> provisioning
+  provisioning --> booting
+  booting --> installing
+  installing --> instrumenting
+  instrumenting --> ready
+  ready --> stopping
+  provisioning --> failed
+  booting --> failed
+  installing --> failed
+  instrumenting --> failed
+  failed --> stopping
+  stopping --> [*]
+```
+
+`failed` sessions keep their slot until they are stopped or reaped, so the
+reason stays visible on the home page.
+
+## Activity and reaping
+
+A session counts as active when someone actually uses it:
+
+- keyboard, mouse, wheel or touch input anywhere on its session page,
+  including the device screen and the DevTools panel, while the tab is
+  visible (reported every 30 seconds);
+- a clipboard action, location switch or app restart;
+- the user presses **Extend**.
+
+An open tab that nobody touches does **not** keep the device alive.
+
+The api deletes a session when it has been idle longer than
+`sessions.idleTimeout` (default `30m`), or when it is older than
+`sessions.maxTTL` (default `8h`) regardless of activity. The home page shows
+both deadlines as countdowns.
+
+## Slots
+
+Each provider reports its slots as `free`, `busy` or `offline`. The emulator
+provider runs at most one session per node (required pod anti-affinity) and at
+most `slots` sessions overall. Nodes are chosen with the chart's
+`nodeSelector` and `tolerations`. When nothing is free, the UI disables the
+**Launch** button and says why.
+
+## Ownership
+
+The user who launched a session is its owner. Every signed-in user can see
+all sessions; only the owner and members of `auth.adminGroups` can stop or
+extend them.

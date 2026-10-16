@@ -1,0 +1,10 @@
+apiVersion: v2
+name: holtdroid
+description: Browser-based Android sandboxes for testing APKs
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://kriakiku.github.io/holtdroid/
+sources:
+  - https://github.com/kriakiku/holtdroid
+icon: https://raw.githubusercontent.com/kriakiku/holtdroid/main/docs/src/assets/logo.svg

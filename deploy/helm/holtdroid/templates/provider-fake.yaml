@@ -1,0 +1,49 @@
+{{- if .Values.providers.fake.enabled }}
+{{- $name := include "holtdroid.fullname" . -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}-provider-fake
+  labels:
+    {{- include "holtdroid.labels" . | nindent 4 }}
+    app.kubernetes.io/component: provider-fake
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "holtdroid.selector" (dict "root" . "component" "provider-fake") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "holtdroid.selector" (dict "root" . "component" "provider-fake") | nindent 8 }}
+    spec:
+      {{- include "holtdroid.pod" (dict "root" .) | nindent 6 }}
+      containers:
+        - name: provider-fake
+          {{- include "holtdroid.container" (dict "root" .) | nindent 10 }}
+          args: [provider-fake]
+          env:
+            - { name: HOLTDROID_SLOTS, value: {{ .Values.providers.fake.slots | quote }} }
+            - { name: HOLTDROID_STEPDELAY, value: {{ .Values.providers.fake.stepDelay | quote }} }
+            - { name: HOLTDROID_PUBLICURL, value: {{ printf "http://%s-provider-fake:8080" $name | quote }} }
+          ports:
+            - { name: http, containerPort: 8080 }
+          readinessProbe:
+            httpGet: { path: /v1/health, port: http }
+          resources:
+            {{- toYaml .Values.providers.fake.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}-provider-fake
+  labels:
+    {{- include "holtdroid.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "holtdroid.selector" (dict "root" . "component" "provider-fake") | nindent 4 }}
+  ports:
+    - { name: http, port: 8080, targetPort: http }
+{{- end }}

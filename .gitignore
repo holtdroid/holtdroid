@@ -1,0 +1,15 @@
+node_modules/
+/docs/dist/
+/web/dist/*
+!/web/dist/.keep
+.astro/
+/bin/
+/coverage/
+*.test
+*.out
+.env
+.env.*
+.DS_Store
+web/openapi.json
+web/openapi-agent.json
+.serena/

@@ -1,0 +1,25 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: jdx/mise-action@v3
+      - run: bun install --frozen-lockfile
+      - run: make openapi
+      - name: Generated API clients are up to date
+        run: git diff --exit-code -- web/src/api
+      - run: make lint
+      - run: make test
+      - run: make build
+      - run: make docs
+      - run: helm lint deploy/helm/holtdroid

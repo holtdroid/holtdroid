@@ -1,0 +1,8 @@
+**/node_modules
+**/dist
+!web/dist/.keep
+bin
+.git
+.serena
+docs/.astro
+web/openapi*.json

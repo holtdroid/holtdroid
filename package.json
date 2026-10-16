@@ -1,0 +1,19 @@
+{
+  "name": "holtdroid",
+  "private": true,
+  "workspaces": [
+    "docs",
+    "web"
+  ],
+  "devDependencies": {
+    "oxfmt": "^0.73.0",
+    "oxlint": "^1.88.0",
+    "oxlint-tsgolint": "^7.0.2004",
+    "typescript": "7.0.2"
+  },
+  "scripts": {
+    "lint": "oxlint --type-aware web/src",
+    "fmt": "oxfmt web/src docs/src",
+    "fmt:check": "oxfmt --check web/src docs/src"
+  }
+}

@@ -1,0 +1,121 @@
+{{- $name := include "holtdroid.fullname" . -}}
+{{- $cfg := deepCopy .Values.config -}}
+{{- $_ := set $cfg "listen" ":8080" -}}
+{{- $_ := set $cfg "internalListen" ":8081" -}}
+{{- $_ := set $cfg "publicURL" .Values.publicURL -}}
+{{- $_ := set $cfg "internalURL" (printf "http://%s-api-internal:8081" $name) -}}
+{{- $sources := list -}}
+{{- if .Values.sources.dir.enabled -}}
+{{- $sources = append $sources (dict "name" .Values.sources.dir.name "url" (printf "http://%s-source-dir:8080" $name)) -}}
+{{- end -}}
+{{- $sources = concat $sources .Values.extraSources -}}
+{{- $providers := list -}}
+{{- if .Values.providers.fake.enabled -}}
+{{- $providers = append $providers (dict "name" .Values.providers.fake.name "url" (printf "http://%s-provider-fake:8080" $name)) -}}
+{{- end -}}
+{{- $providers = concat $providers .Values.extraProviders -}}
+{{- $_ := set $cfg "sources" $sources -}}
+{{- $_ := set $cfg "providers" $providers -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}-api
+  labels:
+    {{- include "holtdroid.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    {{- toYaml $cfg | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}-api
+  labels:
+    {{- include "holtdroid.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  replicas: {{ .Values.api.replicas }}
+  selector:
+    matchLabels:
+      {{- include "holtdroid.selector" (dict "root" . "component" "api") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "holtdroid.selector" (dict "root" . "component" "api") | nindent 8 }}
+      annotations:
+        checksum/config: {{ toYaml $cfg | sha256sum }}
+        {{- with .Values.api.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- include "holtdroid.pod" (dict "root" .) | nindent 6 }}
+      containers:
+        - name: api
+          {{- include "holtdroid.container" (dict "root" .) | nindent 10 }}
+          args: [api, --config, /etc/holtdroid/config.yaml]
+          {{- with .Values.api.env }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - { name: http, containerPort: 8080 }
+            - { name: internal, containerPort: 8081 }
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.api.resources | nindent 12 }}
+          volumeMounts:
+            - { name: config, mountPath: /etc/holtdroid, readOnly: true }
+            - { name: tmp, mountPath: /tmp }
+            {{- if eq (.Values.config.storage.type | default "filesystem") "filesystem" }}
+            - { name: cache, mountPath: {{ .Values.config.storage.filesystem.dir | default "/var/cache/holtdroid" }} }
+            {{- end }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ $name }}-api
+        - name: tmp
+          emptyDir: {}
+        {{- if eq (.Values.config.storage.type | default "filesystem") "filesystem" }}
+        - name: cache
+          {{- toYaml .Values.api.cacheVolume | nindent 10 }}
+        {{- end }}
+      {{- with .Values.api.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.api.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.api.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}-api
+  labels:
+    {{- include "holtdroid.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "holtdroid.selector" (dict "root" . "component" "api") | nindent 4 }}
+  ports:
+    - { name: http, port: 80, targetPort: http }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}-api-internal
+  labels:
+    {{- include "holtdroid.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "holtdroid.selector" (dict "root" . "component" "api") | nindent 4 }}
+  ports:
+    - { name: internal, port: 8081, targetPort: internal }

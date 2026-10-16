@@ -1,0 +1,46 @@
+---
+title: Holtdroid
+description: Self-hosted, browser-based Android sandboxes for testing APKs — screen, WebView DevTools, clipboard and VPN in one tab.
+template: splash
+hero:
+  tagline: A cozy holt for your test Androids. Pick an APK from Slack, get a running device with its WebViews already open in Chrome DevTools — all in the browser.
+  image:
+    file: ../../assets/logo.svg
+  actions:
+    - text: What is Holtdroid?
+      link: /holtdroid/start/introduction/
+      icon: right-arrow
+    - text: View on GitHub
+      link: https://github.com/kriakiku/holtdroid
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid, Aside } from "@astrojs/starlight/components"
+
+<Aside type="caution" title="Pre-alpha">
+  Holtdroid is being built in the open. These docs describe the target design; sections marked *planned* are not
+  implemented yet. Follow the [roadmap](https://github.com/kriakiku/holtdroid/blob/main/design/roadmap.md).
+</Aside>
+
+<CardGrid stagger>
+  <Card title="No APK patching" icon="approve-check">
+    WebView remote debugging is switched on at runtime. The APK is installed exactly as your team shipped it.
+  </Card>
+  <Card title="Everything in one tab" icon="laptop">
+    Device screen and Chrome DevTools side by side, with a target switcher and two-way clipboard. No adb or local Chrome
+    needed.
+  </Card>
+  <Card title="ARM APKs on x86 nodes" icon="rocket">
+    KVM-accelerated x86_64 Android images with built-in ARM translation run ARM-only builds.
+  </Card>
+  <Card title="Per-session VPN" icon="random">
+    Each device gets its own egress. Switch the country from the toolbar without restarting anything.
+  </Card>
+  <Card title="Sessions that clean up" icon="seti:clock">
+    Bounded slots, idle timeout and max TTL. See who is using what, extend with one click.
+  </Card>
+  <Card title="Pluggable by contract" icon="puzzle">
+    Artifact sources, device providers, VPN vendors, secret backends and auth are swappable. Physical phones are next.
+  </Card>
+</CardGrid>

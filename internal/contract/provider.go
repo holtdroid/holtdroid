@@ -1,0 +1,143 @@
+package contract
+
+import (
+	"context"
+	"net/http"
+	"net/url"
+	"time"
+
+	"github.com/danielgtaylor/huma/v2"
+)
+
+type Provider interface {
+	Capabilities(ctx context.Context) (Capabilities, error)
+	Capacity(ctx context.Context) (Capacity, error)
+	List(ctx context.Context) ([]Session, error)
+	Create(ctx context.Context, req CreateSession) (Session, error)
+	Get(ctx context.Context, id string) (Session, error)
+	Delete(ctx context.Context, id string) error
+	Touch(ctx context.Context, id string, at time.Time) error
+}
+
+type createSessionInput struct {
+	Body CreateSession
+}
+
+type touchInput struct {
+	ID   string `path:"id" minLength:"1"`
+	Body Touch
+}
+
+func RegisterProvider(api huma.API, p Provider) {
+	tags := []string{"provider"}
+
+	huma.Register(api, huma.Operation{OperationID: "getCapabilities", Method: http.MethodGet, Path: "/v1/capabilities", Tags: tags},
+		func(ctx context.Context, _ *struct{}) (*body[Capabilities], error) {
+			c, err := p.Capabilities(ctx)
+			if err != nil {
+				return nil, toHuma(err)
+			}
+			return &body[Capabilities]{c}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "getCapacity", Method: http.MethodGet, Path: "/v1/capacity", Tags: tags},
+		func(ctx context.Context, _ *struct{}) (*body[Capacity], error) {
+			c, err := p.Capacity(ctx)
+			if err != nil {
+				return nil, toHuma(err)
+			}
+			if c.Slots == nil {
+				c.Slots = []Slot{}
+			}
+			return &body[Capacity]{c}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "listSessions", Method: http.MethodGet, Path: "/v1/sessions", Tags: tags},
+		func(ctx context.Context, _ *struct{}) (*body[SessionList], error) {
+			items, err := p.List(ctx)
+			if err != nil {
+				return nil, toHuma(err)
+			}
+			if items == nil {
+				items = []Session{}
+			}
+			return &body[SessionList]{SessionList{Items: items}}, nil
+		})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "createSession", Method: http.MethodPost, Path: "/v1/sessions", Tags: tags, DefaultStatus: http.StatusCreated,
+	}, func(ctx context.Context, in *createSessionInput) (*body[Session], error) {
+		s, err := p.Create(ctx, in.Body)
+		if err != nil {
+			return nil, toHuma(err)
+		}
+		return &body[Session]{s}, nil
+	})
+
+	huma.Register(api, huma.Operation{OperationID: "getSession", Method: http.MethodGet, Path: "/v1/sessions/{id}", Tags: tags},
+		func(ctx context.Context, in *idInput) (*body[Session], error) {
+			s, err := p.Get(ctx, in.ID)
+			if err != nil {
+				return nil, toHuma(err)
+			}
+			return &body[Session]{s}, nil
+		})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "deleteSession", Method: http.MethodDelete, Path: "/v1/sessions/{id}", Tags: tags, DefaultStatus: http.StatusNoContent,
+	}, func(ctx context.Context, in *idInput) (*struct{}, error) {
+		return nil, toHuma(p.Delete(ctx, in.ID))
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "touchSession", Method: http.MethodPost, Path: "/v1/sessions/{id}/touch", Tags: tags, DefaultStatus: http.StatusNoContent,
+	}, func(ctx context.Context, in *touchInput) (*struct{}, error) {
+		return nil, toHuma(p.Touch(ctx, in.ID, in.Body.LastActivity))
+	})
+
+	registerHealth(api, "provider")
+}
+
+type ProviderClient struct{ c client }
+
+func NewProviderClient(baseURL string, hc *http.Client) *ProviderClient {
+	return &ProviderClient{newClient(baseURL, hc)}
+}
+
+func (p *ProviderClient) Capabilities(ctx context.Context) (Capabilities, error) {
+	var c Capabilities
+	err := p.c.do(ctx, http.MethodGet, "/v1/capabilities", nil, &c)
+	return c, err
+}
+
+func (p *ProviderClient) Capacity(ctx context.Context) (Capacity, error) {
+	var c Capacity
+	err := p.c.do(ctx, http.MethodGet, "/v1/capacity", nil, &c)
+	return c, err
+}
+
+func (p *ProviderClient) List(ctx context.Context) ([]Session, error) {
+	var l SessionList
+	err := p.c.do(ctx, http.MethodGet, "/v1/sessions", nil, &l)
+	return l.Items, err
+}
+
+func (p *ProviderClient) Create(ctx context.Context, req CreateSession) (Session, error) {
+	var s Session
+	err := p.c.do(ctx, http.MethodPost, "/v1/sessions", req, &s)
+	return s, err
+}
+
+func (p *ProviderClient) Get(ctx context.Context, id string) (Session, error) {
+	var s Session
+	err := p.c.do(ctx, http.MethodGet, "/v1/sessions/"+url.PathEscape(id), nil, &s)
+	return s, err
+}
+
+func (p *ProviderClient) Delete(ctx context.Context, id string) error {
+	return p.c.do(ctx, http.MethodDelete, "/v1/sessions/"+url.PathEscape(id), nil, nil)
+}
+
+func (p *ProviderClient) Touch(ctx context.Context, id string, at time.Time) error {
+	return p.c.do(ctx, http.MethodPost, "/v1/sessions/"+url.PathEscape(id)+"/touch", Touch{LastActivity: at}, nil)
+}

@@ -1,0 +1,130 @@
+---
+title: Installation
+description: Install Holtdroid on Kubernetes with the Helm chart.
+sidebar:
+  order: 2
+---
+
+import { Steps, Aside } from "@astrojs/starlight/components"
+
+<Aside type="caution">
+  Pre-alpha: the emulator provider and the Slack source are not released yet. Until they are, the chart can run the
+  portal with the directory source and simulated devices, which is enough to try the UI, sign-in and storage setups.
+</Aside>
+
+<Steps>
+
+1. **Pick a sign-in mode** — see [Authentication](/holtdroid/configuration/authentication/). Every mode except
+   `header`/`none` needs a session signing key:
+
+   ```sh
+   kubectl create namespace holtdroid
+   kubectl -n holtdroid create secret generic holtdroid \
+     --from-literal=SESSION_KEY="$(openssl rand -base64 48)"
+   ```
+
+   Add whatever else your config references with `env:` (OIDC client secret, shared password, S3 keys) to the same
+   Secret. External Secrets Operator, Sealed Secrets and friends work just as well — the chart only needs the Secret's
+   name.
+
+2. **Write your values.**
+
+   ```yaml title="values.yaml"
+   publicURL: https://android.example.com
+   existingSecret: holtdroid
+
+   config:
+     auth:
+       mode: anonymous
+       sessionKey: env:SESSION_KEY
+
+   sources:
+     dir:
+       enabled: true # upload APKs into the created volume
+
+   providers:
+     fake:
+       enabled: true # simulated devices until the emulator provider lands
+
+   ingress:
+     enabled: true
+     host: android.example.com
+   ```
+
+3. **Install the chart**, from a release:
+
+   ```sh
+   helm install holtdroid oci://ghcr.io/kriakiku/charts/holtdroid -n holtdroid -f values.yaml
+   ```
+
+   or straight from git, pinning the image to the checked-out commit:
+
+   ```sh
+   git clone https://github.com/kriakiku/holtdroid
+   helm install holtdroid holtdroid/deploy/helm/holtdroid -n holtdroid -f values.yaml \
+     --set image.tag="$(git -C holtdroid rev-parse HEAD)"
+   ```
+
+4. **Add some APKs** to the directory source and open the URL:
+
+   ```sh
+   kubectl -n holtdroid cp app.apk "$(kubectl -n holtdroid get pod -l app.kubernetes.io/component=source-dir -o name | cut -d/ -f2)":/data/
+   ```
+
+   The source volume is mounted read-only in the source pod; copy through a temporary pod if your cluster enforces
+   that, or point `sources.dir.persistence.existingClaim` at a volume you fill elsewhere.
+
+</Steps>
+
+## Tracking `main` with Argo CD
+
+Every commit to `main` publishes `ghcr.io/kriakiku/holtdroid:<commit sha>`. An Argo CD Application can follow the
+branch and use the synced commit as the image tag, so new commits roll out on their own:
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: holtdroid
+  namespace: argocd
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: holtdroid
+  source:
+    repoURL: https://github.com/kriakiku/holtdroid.git
+    targetRevision: main
+    path: deploy/helm/holtdroid
+    helm:
+      parameters:
+        - name: image.tag
+          value: $ARGOCD_APP_REVISION
+      valuesObject:
+        publicURL: https://android.example.com
+        existingSecret: holtdroid
+        # …the rest of your values
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [CreateNamespace=true]
+```
+
+Keep it a single-source Application so `$ARGOCD_APP_REVISION` is the holtdroid commit. Extra manifests (an
+`ExternalSecret`, a Traefik `Middleware`, …) can go into the chart's `extraObjects` value. Right after a push the new
+pod may wait in `ImagePullBackOff` for a few minutes until that commit's image is built.
+
+## Chart values
+
+| Value                            | Default                      | Meaning                                                                             |
+| -------------------------------- | ---------------------------- | ----------------------------------------------------------------------------------- |
+| `image.repository` / `tag`       | `ghcr.io/kriakiku/holtdroid` | Tag defaults to the chart's `appVersion`                                            |
+| `publicURL`                      | –                            | External URL; needed for OIDC and secure cookies                                    |
+| `existingSecret`                 | –                            | Secret exposed as env to every component (for `env:` references)                    |
+| `config`                         | anonymous, filesystem        | Merged into the api config, see [Configuration](/holtdroid/configuration/overview/) |
+| `api.replicas`                   | `1`                          | Safe to raise with a shared `sessionKey`                                            |
+| `api.cacheVolume`                | `emptyDir` 25Gi              | Volume for `storage.type: filesystem`                                               |
+| `sources.dir.enabled`            | `false`                      | Directory source with its own PVC                                                   |
+| `providers.fake.enabled`         | `false`                      | Simulated devices                                                                   |
+| `extraSources`, `extraProviders` | `[]`                         | Out-of-tree services: `[{name, url}]`                                               |
+| `ingress.*`                      | disabled                     | Standard Ingress                                                                    |
+| `extraObjects`                   | `[]`                         | Extra manifests, rendered with `tpl`                                                |

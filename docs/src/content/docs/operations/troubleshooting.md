@@ -1,0 +1,46 @@
+---
+title: Troubleshooting
+description: Common problems with KVM, ARM translation, Frida, DevTools and VPN.
+sidebar:
+  order: 2
+---
+
+## Session stuck in `provisioning`
+
+- `kubectl -n holtdroid describe pod <session>`: usually the session image is
+  still being pulled (several GB) or no node matches `nodeSelector`/
+  `tolerations` with a free slot.
+- Enable the pre-pull DaemonSet to avoid the pull on first use.
+
+## Session fails in `booting`
+
+- `ls -l /dev/kvm` on the node. Without KVM the emulator refuses to start.
+- Nested virtualization (a VM as node) needs it enabled on the hypervisor.
+- Check the emulator logs: `kubectl -n holtdroid logs <session> -c emulator`.
+
+## App installs but crashes immediately
+
+- ARM-only native libraries run through Android's ARM translation layer;
+  a few libraries don't work under it.
+- The app may detect root, an emulator or Frida and exit. The agent log shows
+  the Frida spawn and the app's exit.
+
+## DevTools shows no targets
+
+- The app has not created a WebView yet; targets appear as soon as it does.
+- If the app starts WebViews in a separate process, pick that process in the
+  target selector.
+- Check the agent's `/v1/devtools/targets` through the portal:
+  `https://<portal>/s/<session>/v1/devtools/targets`.
+
+## DevTools panel stays blank
+
+The DevTools frontend is fetched from Google's frontend host the first time a
+WebView revision is seen, then cached. Session Pods need outbound HTTPS for
+that first fetch.
+
+## VPN location doesn't change the IP
+
+- `bypassCIDRs` must not contain the address range of the VPN servers.
+- With `nordvpn`, another client using the same key on the same server will
+  break the tunnel; add its server to `excludeServers`.

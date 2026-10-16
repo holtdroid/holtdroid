@@ -1,0 +1,93 @@
+image:
+  repository: ghcr.io/kriakiku/holtdroid
+  # Defaults to the chart's appVersion.
+  tag: ""
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+# External URL of the portal, e.g. https://android.example.com.
+publicURL: ""
+
+# Name of an existing Secret exposed as environment variables to every
+# component, so config can reference values as env:NAME.
+existingSecret: ""
+
+# Merged into the api's config file. Everything from the configuration docs
+# can go here except listen addresses, sources and providers, which the
+# chart fills in.
+config:
+  auth:
+    mode: anonymous
+  sessions:
+    idleTimeout: 30m
+    maxTTL: 8h
+  storage:
+    type: filesystem
+    filesystem:
+      dir: /var/cache/holtdroid
+  cache:
+    maxSize: 20GiB
+
+api:
+  replicas: 1
+  resources:
+    requests: { cpu: 20m, memory: 64Mi }
+    limits: { memory: 512Mi }
+  # Volume for storage.type=filesystem. The cache is rebuilt from sources,
+  # so an emptyDir keeps the api stateless.
+  cacheVolume:
+    emptyDir:
+      sizeLimit: 25Gi
+  env: []
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+sources:
+  # Lists APKs from a volume; mount your own claim or let the chart create one.
+  dir:
+    enabled: false
+    name: local
+    persistence:
+      existingClaim: ""
+      storageClass: ""
+      size: 5Gi
+    resources:
+      requests: { cpu: 5m, memory: 16Mi }
+      limits: { memory: 128Mi }
+
+providers:
+  # Simulated devices for trying the UI without KVM.
+  fake:
+    enabled: false
+    name: fake
+    slots: 4
+    stepDelay: 3s
+    resources:
+      requests: { cpu: 5m, memory: 16Mi }
+      limits: { memory: 128Mi }
+
+# Additional out-of-tree sources/providers: [{name, url}]
+extraSources: []
+extraProviders: []
+
+ingress:
+  enabled: false
+  className: ""
+  host: ""
+  annotations: {}
+  tls: []
+
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: [ALL]
+
+# Extra manifests rendered with tpl, e.g. an ExternalSecret or a Middleware.
+extraObjects: []

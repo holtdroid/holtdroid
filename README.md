@@ -1,0 +1,60 @@
+<p align="center">
+  <strong>Holtdroid</strong><br>
+  <em>A cozy holt for your test Androids.</em>
+</p>
+
+Holtdroid is a self-hosted, browser-based Android sandbox for testing APKs.
+Pick a build from where your team already shares them (Slack today, more
+sources later), launch an Android device on demand, and get — in one browser
+tab — the device screen, Chrome DevTools attached to the app's WebViews,
+clipboard sync and a VPN location switcher. Idle devices shut themselves down.
+
+> **Status:** pre-alpha. The portal (api + web UI) runs locally against
+> simulated devices with `make dev`; the Android emulator, Slack source and
+> Helm chart are next. The plan lives in [`design/`](design/README.md),
+> the docs at [kriakiku.github.io/holtdroid](https://kriakiku.github.io/holtdroid/).
+
+## Try it
+
+```sh
+mise install && bun install
+make build && ./bin/holtdroid dev --apks ~/Downloads
+# open http://localhost:8080
+```
+
+## Highlights
+
+- **No APK patching.** WebView remote debugging is switched on at runtime
+  (Frida on a rooted image), the APK is installed exactly as shipped.
+- **Everything in the browser.** noVNC screen and Chrome DevTools side by
+  side, same origin, behind your existing forward-auth (Authelia,
+  oauth2-proxy, …).
+- **ARM APKs on x86 hosts.** Uses Google's x86_64 system images with built-in
+  ARM translation and KVM acceleration.
+- **Per-session VPN.** Each device egresses through its own sing-box sidecar;
+  switch country from the UI.
+- **Sign-in your way.** Anonymous animal names, one shared password, OIDC,
+  or a forward-auth proxy — all stateless.
+- **Sessions with a lifetime.** Bounded slots, idle timeout, max TTL, one
+  click to extend.
+- **Pluggable.** Artifact sources, device providers, VPN providers, secret
+  backends and auth are interfaces. Physical rooted phones are the next
+  provider on the roadmap.
+
+## Architecture at a glance
+
+Kubernetes-native. One Go binary (`holtdroid`) runs as several small services
+(`api`, `source-slack`, `provider-emulator`, `agent`), a React + shadcn/ui
+frontend is embedded in `api`, and a Helm chart ties it together. See
+[`design/architecture.md`](design/architecture.md).
+
+## Requirements (planned)
+
+- Kubernetes nodes with `/dev/kvm` (x86_64) for emulator sessions.
+- Privileged pods allowed in the Holtdroid namespace.
+- Optionally an OIDC provider, an S3 bucket for the APK cache, or a
+  forward-auth proxy.
+
+## License
+
+[Apache-2.0](LICENSE)
