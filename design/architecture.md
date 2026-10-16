@@ -284,8 +284,9 @@ advertises `display: scrcpy` and the UI swaps the renderer.
   the agent maps to `PUT /proxies/select {"name": "<location>"}`.
   Capabilities carry the offered locations and `defaultLocation`
   (`vpn.Config.DefaultLocation`); with `vpn.direct: false` there is no
-  `direct` to pick. The UI preselects the last location the user picked per
-  provider (`localStorage`), else the default.
+  `direct` to pick. The UI preselects the last provider launched and the last
+  location the user picked per provider (`localStorage`), else the default;
+  quick launch uses the same choice without the dialog.
   `GET /network` reports the current selection and the external
   IP/country, looked up through the tunnel at `ipInfoURL` (default
   `https://ipinfo.io/json`, cached 30 s).

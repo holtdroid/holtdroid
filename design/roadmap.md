@@ -65,7 +65,7 @@ Goal: one hand-written Pod on a KVM node proves the device side end to end.
 ## Phase 4 — Web UI
 
 - [x] Generated OpenAPI clients for the UI API and the Agent API (`openapi-typescript` + `openapi-fetch`) wired into TanStack Query
-- [x] Home: artifact list (icon, label, version, package, ABIs, uploader, date, note, source filter, search), launch dialog (provider, location preselected from the last one used per provider in `localStorage`, falling back to the provider's `defaultLocation`, ABI warning), sessions panel (slots, owner, uptime, idle progress, location, open/extend/stop), live via SSE
+- [x] Home: artifact list (icon, label, version, package, ABIs, uploader, date, note, source filter, search), launch dialog (provider and location preselected from the last launch in `localStorage` — location per provider — falling back to the first free provider and its `defaultLocation`, ABI warning), quick-launch button that launches with those preselected settings without the dialog, sessions panel (slots, owner, uptime, idle progress, location, open/extend/stop), live via SSE
 - [x] Session page: start stepper, resizable split (display | DevTools), toolbar (target select, location select + IP badge, clipboard popover, restart/reinstall/stop), input-based heartbeat, toasts
 - [ ] Display renderer abstraction (today the agent serves `/display/` and the UI just frames it; revisit when `scrcpy` lands)
 

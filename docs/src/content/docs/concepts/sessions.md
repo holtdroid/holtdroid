@@ -53,7 +53,7 @@ Each provider reports its slots as `free`, `busy` or `offline`. The emulator
 provider runs at most one session per node (required pod anti-affinity) and at
 most `slots` sessions overall. Nodes are chosen with the chart's
 `nodeSelector` and `tolerations`. When nothing is free, the UI disables the
-**Launch** button and says why.
+**Launch** and quick-launch buttons and says why.
 
 ## Ownership
 

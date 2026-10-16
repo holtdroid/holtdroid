@@ -1,9 +1,6 @@
-import { useNavigate } from "@tanstack/react-router"
 import { Loader2Icon, RocketIcon } from "lucide-react"
-import { useMemo, useState } from "react"
-import { toast } from "sonner"
+import { useState } from "react"
 import type { ArtifactView } from "@/api/client"
-import { useLaunch, useProviders } from "@/api/queries"
 import { AppIcon } from "@/components/app-icon"
 import { artifactTitle } from "@/components/artifact-list"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -18,34 +15,20 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { lastLocation, rememberLocation } from "@/lib/last-location"
+import { useLaunchTarget, useStartSession } from "@/hooks/use-launch-target"
 
 export function LaunchDialog({ artifact, onClose }: { artifact: ArtifactView | null; onClose: () => void }) {
-  const providers = useProviders()
-  const launch = useLaunch()
-  const navigate = useNavigate()
-  const [chosenProvider, setChosenProvider] = useState("")
+  const [chosenProvider, setChosenProvider] = useState<string | null>(null)
   const [chosenLocation, setChosenLocation] = useState<string | null>(null)
-
-  const usable = useMemo(() => (providers.data ?? []).filter((p) => !p.error), [providers.data])
-  const provider =
-    usable.find((p) => p.name === chosenProvider) ??
-    usable.find((p) => p.capacity.slots.some((s) => s.state === "free")) ??
-    usable[0]
+  const { usable, provider, locations, defaultLocation, location, free, total } = useLaunchTarget(
+    chosenProvider,
+    chosenLocation,
+  )
+  const launch = useStartSession()
   const selectProvider = (name: string) => {
     setChosenProvider(name)
     setChosenLocation(null)
   }
-  const locations = provider?.capabilities.locations ?? []
-  const defaultLocation = provider?.capabilities.defaultLocation
-  const location = [
-    chosenLocation,
-    provider ? lastLocation(provider.name) : null,
-    defaultLocation,
-    locations[0]?.id,
-  ].find((id): id is string => !!id && locations.some((l) => l.id === id))
-  const free = provider?.capacity.slots.filter((s) => s.state === "free").length ?? 0
-  const total = provider?.capacity.slots.length ?? 0
   const missingABI =
     artifact?.app && artifact.app.abis.length > 0 && provider
       ? !artifact.app.abis.some((abi) => provider.capabilities.abis.includes(abi))
@@ -53,22 +36,7 @@ export function LaunchDialog({ artifact, onClose }: { artifact: ArtifactView | n
 
   const submit = () => {
     if (!artifact || !provider) return
-    launch.mutate(
-      {
-        source: artifact.source,
-        artifactId: artifact.id,
-        provider: provider.name,
-        location,
-      },
-      {
-        onSuccess: (session) => {
-          if (location) rememberLocation(session.provider, location)
-          onClose()
-          void navigate({ to: "/session/$provider/$id", params: { provider: session.provider, id: session.id } })
-        },
-        onError: (err) => toast.error("Could not launch", { description: err.message }),
-      },
-    )
+    launch.start(artifact, provider.name, location, onClose)
   }
 
   const title = artifact ? artifactTitle(artifact) : ""

@@ -2,11 +2,13 @@ import {
   EllipsisVerticalIcon,
   ExternalLinkIcon,
   EyeIcon,
+  Loader2Icon,
   LockIcon,
   RocketIcon,
   SearchIcon,
   Trash2Icon,
   UploadIcon,
+  ZapIcon,
 } from "lucide-react"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
@@ -35,6 +37,8 @@ import {
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { useLaunchTarget, useStartSession } from "@/hooks/use-launch-target"
 import { useNow } from "@/hooks/use-now"
 import { formatBytes, formatRelative } from "@/lib/format"
 import { cn } from "@/lib/utils"
@@ -235,12 +239,43 @@ function ArtifactRow({
           </Button>
         )}
         {a.canManage && <ManageMenu artifact={a} title={title} />}
+        <QuickLaunchButton artifact={a} />
         <Button onClick={() => onLaunch(a)}>
           <RocketIcon />
           Launch
         </Button>
       </div>
     </li>
+  )
+}
+
+function QuickLaunchButton({ artifact }: { artifact: ArtifactView }) {
+  const { provider, locations, location, free } = useLaunchTarget()
+  const launch = useStartSession()
+  const locationLabel = locations.find((l) => l.id === location)?.label
+  const hint = !provider
+    ? "No providers available"
+    : free === 0
+      ? `All slots of “${provider.name}” are busy`
+      : `Quick launch on ${provider.name}${locationLabel ? ` · ${locationLabel}` : ""}`
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span tabIndex={!provider || free === 0 ? 0 : undefined}>
+          <Button
+            variant="outline"
+            size="icon"
+            disabled={!provider || free === 0 || launch.isPending}
+            onClick={() => provider && launch.start(artifact, provider.name, location)}
+          >
+            {launch.isPending ? <Loader2Icon className="animate-spin" /> : <ZapIcon />}
+            <span className="sr-only">Quick launch</span>
+          </Button>
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>{hint}</TooltipContent>
+    </Tooltip>
   )
 }
 

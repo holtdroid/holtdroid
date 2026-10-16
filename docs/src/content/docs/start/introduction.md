@@ -17,7 +17,9 @@ hybrid apps, support engineers reproducing a customer bug.
    uploads) with icon, version, package name, who posted it, its note and
    changelog.
 2. Pick one, choose a VPN location if you need one, press **Launch**. A free
-   slot is assigned and a fresh Android device boots (about a minute).
+   slot is assigned and a fresh Android device boots (about a minute). The
+   ⚡ button next to it skips the dialog and launches with the device and
+   location you used last time (or the defaults).
 3. The APK is installed as-is and started with WebView debugging enabled at
    runtime.
 4. The session page shows the device screen on the left and Chrome DevTools on

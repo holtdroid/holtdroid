@@ -20,7 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { useEventSource } from "@/hooks/use-event-source"
 import { countryFlag } from "@/lib/format"
-import { rememberLocation } from "@/lib/last-location"
+import { rememberLocation } from "@/lib/launch-prefs"
 
 export function SessionToolbar({
   provider,
