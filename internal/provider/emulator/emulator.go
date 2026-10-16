@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"slices"
 	"sync"
@@ -43,6 +44,7 @@ type Config struct {
 	AgentPort        int
 	Resources        Resources
 	VPN              vpn.Config
+	Prepull          Prepull
 }
 
 type Toleration struct {
@@ -69,7 +71,8 @@ func DefaultConfig() Config {
 			Requests: map[string]string{"cpu": "3", "memory": "5Gi"},
 			Limits:   map[string]string{"cpu": "4", "memory": "7Gi"},
 		},
-		VPN: vpn.DefaultConfig(),
+		VPN:     vpn.DefaultConfig(),
+		Prepull: Prepull{Refresh: true, Interval: 5 * time.Minute},
 	}
 }
 
@@ -100,6 +103,9 @@ func (c Config) Validate() error {
 	}
 	if err := c.VPN.Validate(); err != nil {
 		errs = append(errs, err)
+	}
+	if c.Prepull.Refresh && c.Prepull.DaemonSet != "" && c.Prepull.Interval < 30*time.Second {
+		errs = append(errs, fmt.Errorf("prepull.interval %s is shorter than 30s", c.Prepull.Interval))
 	}
 	return errors.Join(errs...)
 }
@@ -151,6 +157,8 @@ type Provider struct {
 	resources corev1.ResourceRequirements
 	selector  labels.Selector
 	agents    *http.Client
+	registry  *registry
+	log       *slog.Logger
 
 	mu sync.Mutex
 }
@@ -165,7 +173,7 @@ func New(cfg Config, kube kubernetes.Interface, sec vpn.Secrets, opts ...Option)
 	}
 	res, _ := cfg.Resources.requirements()
 	sel, _ := labels.Parse(cfg.NodeSelector)
-	p := &Provider{cfg: cfg, kube: kube, secrets: sec, now: time.Now, resources: res, selector: sel, agents: &http.Client{Timeout: 2 * time.Second}}
+	p := &Provider{cfg: cfg, kube: kube, secrets: sec, now: time.Now, resources: res, selector: sel, agents: &http.Client{Timeout: 2 * time.Second}, registry: newRegistry(), log: slog.Default()}
 	for _, opt := range opts {
 		opt(p)
 	}

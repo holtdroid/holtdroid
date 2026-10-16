@@ -525,3 +525,24 @@ string that tests pin down. Inputs that reach the shell are constrained by
 the contract's patterns and enums. The network profile is remembered by the
 agent, not read back from the emulator. When scrcpy replaces noVNC the
 rotation compensation goes away: scrcpy streams the rotated display as is.
+
+## 32. The provider restarts the prepull DaemonSet when the session tag moves
+
+**Context.** The live deployment runs sessions from `holtdroid-session:main`
+with `pullPolicy: Always`, because the per-commit tag appears minutes after
+Argo rolls out. The prepull DaemonSet only pulls when its pods are created,
+so after a push the first session on each node downloaded the changed layers
+itself, and a stop during that pull hung until it finished.
+
+**Decision.** With `prepull.refresh` on (default) and a pull policy of
+`Always`, provider-emulator asks the registry for the tag's digest every
+`interval` (5m) and writes it into the DaemonSet's pod template annotation
+`holtdroid/session-image-digest`, which rolls the pods and makes every node
+pull. The registry is reached with plain `net/http` — one `HEAD` of the
+manifest plus the anonymous bearer-token handshake — rather than a registry
+client library, as with OpenBao (#12). Its RBAC is `get`/`patch` on that one
+DaemonSet. Argo CD doesn't own the annotation, so it isn't reverted.
+
+**Consequences.** Private registries that need credentials aren't supported
+by the refresh (it logs a warning and the prepull stays as it is). Pinned
+tags and `IfNotPresent` turn it into a no-op.

@@ -84,7 +84,7 @@ func providerEmulatorCmd(c *common) *cobra.Command {
 			}
 			mux := http.NewServeMux()
 			contract.RegisterProvider(contract.NewAPI(mux, "Holtdroid emulator provider"), p)
-			return serve(cmd.Context(), []listener{{cfg.Listen, mux}})
+			return serve(cmd.Context(), []listener{{cfg.Listen, mux}}, p.RefreshPrepull)
 		},
 	}
 }

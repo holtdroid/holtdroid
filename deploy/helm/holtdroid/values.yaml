@@ -104,6 +104,12 @@ providers:
     # launch (it is several GB).
     prepull:
       enabled: true
+      # With a moving tag (e.g. main) and pullPolicy Always, the provider
+      # checks the tag's digest in the registry (anonymously) and restarts
+      # the DaemonSet when it moves, so nodes pull the new image right away.
+      refresh:
+        enabled: true
+        interval: 5m
       pauseImage: registry.k8s.io/pause:3.10@sha256:ee6521f290b2168b6e0935a181d4cff9be1ac3f505666ef0e3c98fae8199917a
       resources:
         requests: { cpu: 1m, memory: 4Mi }

@@ -25,6 +25,8 @@
 {{- with $e.vpn }}
 {{- $_ := set $cfg "vpn" . -}}
 {{- end }}
+{{- $refresh := and $e.prepull.enabled $e.prepull.refresh.enabled -}}
+{{- $_ := set $cfg "prepull" (dict "refresh" $refresh "daemonSet" (ternary (printf "%s-session-prepull" $name) "" $refresh) "interval" $e.prepull.refresh.interval) -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -55,6 +57,12 @@ rules:
   - apiGroups: [""]
     resources: [secrets]
     verbs: [create]
+  {{- if $refresh }}
+  - apiGroups: [apps]
+    resources: [daemonsets]
+    resourceNames: [{{ $name }}-session-prepull]
+    verbs: [get, patch]
+  {{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

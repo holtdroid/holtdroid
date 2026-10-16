@@ -65,12 +65,22 @@ providers:
       resources: { requests: { cpu: "3", memory: 5Gi }, limits: { cpu: "4", memory: 7Gi } }
     vpn: {} # the vpn section below
     networkPolicy: { enabled: true } # only the api reaches session agents
-    prepull: { enabled: true } # DaemonSet that pulls the session image onto session nodes
+    prepull:
+      enabled: true # DaemonSet that pulls the session image onto session nodes
+      refresh: { enabled: true, interval: 5m }
 ```
 
 The session image is several GB. The pre-pull DaemonSet runs on the same
 nodes as sessions and keeps the current tag on disk, so the first launch after
 an upgrade doesn't wait for the download.
+
+With a moving tag (`tag: main`) and `pullPolicy: Always`, an upgrade of the
+image doesn't change the chart, so the DaemonSet wouldn't notice it. With
+`prepull.refresh` on (the default), the provider asks the registry for the
+tag's digest every `interval` and, when it moves, restarts the DaemonSet:
+the nodes pull the new layers in the background, before the next session
+needs them. The registry is queried anonymously, which works for public
+images; with a pinned tag or `IfNotPresent` the refresh does nothing.
 
 ## VPN
 
