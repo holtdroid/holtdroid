@@ -52,7 +52,8 @@ spec:
   replicas: {{ .Values.api.replicas }}
   {{- if and $p.enabled (has "ReadWriteOnce" $p.accessModes) }}
   strategy:
-    type: Recreate
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 0, maxUnavailable: 1 }
   {{- end }}
   selector:
     matchLabels:

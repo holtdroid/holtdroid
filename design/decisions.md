@@ -395,7 +395,7 @@ that reject `%2F`.
 
 **Consequences.** No `source-*` services and no Source contract; one fewer
 hop. Uploads make the uploads source stateful: the chart mounts a PVC at
-`/var/lib/holtdroid` (RWO → one api replica, `Recreate`); S3 sources lift
+`/var/lib/holtdroid` (RWO → one api replica, rolled with `maxSurge: 0`); S3 sources lift
 that. Listing reads the store on every request (sidecars are memoised by
 revision); very large buckets would need a listing cache. Other replicas
 see uploads at their next poll.

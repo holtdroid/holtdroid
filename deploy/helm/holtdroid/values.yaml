@@ -51,7 +51,7 @@ api:
       sizeLimit: 25Gi
   # Mounted at /var/lib/holtdroid: the default "local" source and its
   # uploads. A ReadWriteOnce claim pins the api to one replica (the chart
-  # switches to the Recreate strategy); use S3 sources to scale out.
+  # stops the old pod before starting a new one); use S3 sources to scale out.
   # Disabled: an emptyDir, so uploads are lost on restart.
   persistence:
     enabled: true
