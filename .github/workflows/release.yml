@@ -68,6 +68,8 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: VERSION=${{ github.ref_type == 'tag' && github.ref_name || github.sha }}
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}-session:buildcache
+          cache-to: type=registry,ref=ghcr.io/${{ github.repository }}-session:buildcache,mode=max
 
   chart:
     if: github.ref_type == 'tag'
