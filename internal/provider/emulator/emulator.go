@@ -345,10 +345,11 @@ func (p *Provider) Get(ctx context.Context, id string) (contract.Session, error)
 }
 
 func (p *Provider) Delete(ctx context.Context, id string) error {
-	if _, err := p.pod(ctx, id); err != nil {
+	pod, err := p.pod(ctx, id)
+	if err != nil {
 		return err
 	}
-	err := p.kube.CoreV1().Pods(p.cfg.Namespace).Delete(ctx, podName(id), metav1.DeleteOptions{})
+	err = p.kube.CoreV1().Pods(p.cfg.Namespace).Delete(ctx, podName(id), metav1.DeleteOptions{GracePeriodSeconds: gracePeriod(*pod)})
 	if apierrors.IsNotFound(err) {
 		return fmt.Errorf("%w: session %s", contract.ErrNotFound, id)
 	}

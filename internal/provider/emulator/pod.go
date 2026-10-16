@@ -218,6 +218,18 @@ func parseTime(s string, fallback time.Time) time.Time {
 	return t.UTC()
 }
 
+// gracePeriod force-deletes a Pod none of whose containers has started:
+// kubelet doesn't cancel an image pull, so a graceful delete would hold the
+// slot until the pull finishes.
+func gracePeriod(pod corev1.Pod) *int64 {
+	for _, cs := range pod.Status.ContainerStatuses {
+		if cs.State.Running != nil || cs.State.Terminated != nil {
+			return nil
+		}
+	}
+	return new(int64(0))
+}
+
 // podState maps the Pod to a coarse session state; its readiness probe
 // passes only once the app runs.
 func podState(pod corev1.Pod) (contract.SessionState, string) {

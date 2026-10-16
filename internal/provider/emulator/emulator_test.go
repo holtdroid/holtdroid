@@ -429,3 +429,23 @@ func TestPendingDetail(t *testing.T) {
 		}
 	}
 }
+
+func TestGracePeriod(t *testing.T) {
+	running := corev1.ContainerState{Running: &corev1.ContainerStateRunning{}}
+	pulling := corev1.ContainerState{Waiting: &corev1.ContainerStateWaiting{Reason: "ContainerCreating"}}
+	for _, tc := range []struct {
+		name     string
+		statuses []corev1.ContainerStatus
+		force    bool
+	}{
+		{"scheduled", nil, true},
+		{"pulling the image", []corev1.ContainerStatus{{Name: "emulator", State: pulling}, {Name: "vpn", State: pulling}}, true},
+		{"sidecar running", []corev1.ContainerStatus{{Name: "emulator", State: pulling}, {Name: "vpn", State: running}}, false},
+		{"emulator running", []corev1.ContainerStatus{{Name: "emulator", State: running}}, false},
+	} {
+		got := gracePeriod(corev1.Pod{Status: corev1.PodStatus{ContainerStatuses: tc.statuses}})
+		if force := got != nil && *got == 0; force != tc.force {
+			t.Errorf("%s: grace period %v", tc.name, got)
+		}
+	}
+}
