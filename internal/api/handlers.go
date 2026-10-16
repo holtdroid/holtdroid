@@ -44,6 +44,7 @@ type SessionView struct {
 	Location     string                `json:"location,omitempty"`
 	State        contract.SessionState `json:"state" enum:"provisioning,booting,installing,instrumenting,ready,stopping,failed"`
 	Reason       string                `json:"reason,omitempty"`
+	Detail       string                `json:"detail,omitempty"`
 	CreatedAt    time.Time             `json:"createdAt"`
 	LastActivity time.Time             `json:"lastActivity"`
 	IdleDeadline time.Time             `json:"idleDeadline"`
@@ -307,6 +308,7 @@ func (s *Server) view(ctx context.Context, provider string, sess contract.Sessio
 		Location:     sess.Location,
 		State:        sess.State,
 		Reason:       sess.Reason,
+		Detail:       sess.Detail,
 		CreatedAt:    sess.CreatedAt,
 		LastActivity: last,
 		IdleDeadline: last.Add(s.cfg.Sessions.IdleTimeout),

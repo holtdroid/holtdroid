@@ -117,7 +117,11 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
 
       <div className="min-h-0 flex-1">
         {state !== "ready" ? (
-          <StartProgress state={state} detail={status?.detail} reason={session.reason || status?.reason} />
+          <StartProgress
+            state={state}
+            detail={status?.detail || session.detail}
+            reason={session.reason || status?.reason}
+          />
         ) : (
           <ResizablePanelGroup orientation="horizontal">
             <ResizablePanel defaultSize="42" minSize="20">

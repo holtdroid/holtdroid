@@ -94,6 +94,7 @@ type Session struct {
 	Location     string       `json:"location,omitempty"`
 	State        SessionState `json:"state" enum:"provisioning,booting,installing,instrumenting,ready,stopping,failed"`
 	Reason       string       `json:"reason,omitempty"`
+	Detail       string       `json:"detail,omitempty"`
 	AgentURL     string       `json:"agentUrl"`
 	CreatedAt    time.Time    `json:"createdAt"`
 	LastActivity time.Time    `json:"lastActivity"`

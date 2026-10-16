@@ -404,3 +404,28 @@ func TestAgentStatus(t *testing.T) {
 		}
 	}
 }
+
+func TestPendingDetail(t *testing.T) {
+	waiting := func(reason string) corev1.PodStatus {
+		return corev1.PodStatus{Phase: corev1.PodPending, ContainerStatuses: []corev1.ContainerStatus{
+			{Name: "emulator", Image: "session:abc", State: corev1.ContainerState{Waiting: &corev1.ContainerStateWaiting{Reason: reason, Message: "boom"}}},
+		}}
+	}
+	tests := []struct {
+		status corev1.PodStatus
+		want   string
+	}{
+		{corev1.PodStatus{Phase: corev1.PodPending}, ""},
+		{corev1.PodStatus{Phase: corev1.PodPending, Conditions: []corev1.PodCondition{
+			{Type: corev1.PodScheduled, Status: corev1.ConditionFalse, Message: "0/4 nodes are available"},
+		}}, "Waiting for the node: 0/4 nodes are available"},
+		{waiting("ContainerCreating"), "Starting the device container"},
+		{waiting("ImagePullBackOff"), "The session image session:abc can't be pulled yet, retrying (a new build may still be publishing it)"},
+		{waiting("CreateContainerConfigError"), "CreateContainerConfigError: boom"},
+	}
+	for _, tt := range tests {
+		if got := pending(corev1.Pod{Status: tt.status}); got != tt.want {
+			t.Errorf("%+v: detail %q, want %q", tt.status, got, tt.want)
+		}
+	}
+}

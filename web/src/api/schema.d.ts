@@ -502,6 +502,7 @@ export interface components {
             artifactId: string;
             /** Format: date-time */
             createdAt: string;
+            detail?: string;
             iconUrl?: string;
             id: string;
             /** Format: date-time */

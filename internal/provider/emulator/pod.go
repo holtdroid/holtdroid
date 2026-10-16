@@ -186,6 +186,10 @@ func (p *Provider) podSession(pod corev1.Pod) contract.Session {
 	a := pod.Annotations
 	created := parseTime(a[annotationCreatedAt], pod.CreationTimestamp.Time)
 	state, reason := podState(pod)
+	detail := ""
+	if state == contract.StateProvisioning {
+		detail = pending(pod)
+	}
 	agentURL := ""
 	if pod.Status.PodIP != "" {
 		agentURL = "http://" + net.JoinHostPort(pod.Status.PodIP, strconv.Itoa(p.cfg.AgentPort))
@@ -199,6 +203,7 @@ func (p *Provider) podSession(pod corev1.Pod) contract.Session {
 		Location:     a[annotationLocation],
 		State:        state,
 		Reason:       reason,
+		Detail:       detail,
 		AgentURL:     agentURL,
 		CreatedAt:    created,
 		LastActivity: parseTime(a[annotationLastActivity], created),
@@ -236,6 +241,29 @@ func podState(pod corev1.Pod) (contract.SessionState, string) {
 		}
 	}
 	return contract.StateProvisioning, ""
+}
+
+// pending explains what a Pod that hasn't started its emulator waits for.
+func pending(pod corev1.Pod) string {
+	for _, c := range pod.Status.Conditions {
+		if c.Type == corev1.PodScheduled && c.Status == corev1.ConditionFalse {
+			return cmp.Or("Waiting for the node: "+c.Message, "Waiting for the node")
+		}
+	}
+	for _, cs := range pod.Status.ContainerStatuses {
+		w := cs.State.Waiting
+		if cs.Name != containerEmulator || w == nil {
+			continue
+		}
+		switch w.Reason {
+		case "ContainerCreating", "PodInitializing", "":
+			return "Starting the device container"
+		case "ErrImagePull", "ImagePullBackOff":
+			return "The session image " + cs.Image + " can't be pulled yet, retrying (a new build may still be publishing it)"
+		}
+		return w.Reason + ": " + w.Message
+	}
+	return ""
 }
 
 func terminated(pod corev1.Pod) string {

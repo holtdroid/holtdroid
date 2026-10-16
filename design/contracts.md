@@ -134,6 +134,7 @@ type Session struct {
 	Location     string
 	State        string // provisioning|booting|installing|instrumenting|ready|stopping|failed
 	Reason       string // set when failed
+	Detail       string // optional progress note while starting, e.g. "waiting for the session image"
 	AgentURL     string // in-cluster base URL of the agent, never exposed to browsers
 	CreatedAt    time.Time
 	LastActivity time.Time
