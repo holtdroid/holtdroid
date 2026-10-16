@@ -4,7 +4,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httputil"
-	"net/url"
 	"strings"
 
 	"github.com/kriakiku/holtdroid/internal/contract"
@@ -20,23 +19,22 @@ func (s *Server) proxy(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	sess, err := p.Get(r.Context(), id)
-	if errors.Is(err, contract.ErrNotFound) {
+	key := sessionKey{providerName, id}
+	target, err := s.agents.get(r.Context(), key, p)
+	switch {
+	case errors.Is(err, contract.ErrNotFound):
 		http.NotFound(w, r)
 		return
-	}
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadGateway)
+	case errors.Is(err, errNoAgent):
+		http.Error(w, err.Error(), http.StatusServiceUnavailable)
 		return
-	}
-	target, err := url.Parse(sess.AgentURL)
-	if err != nil || sess.AgentURL == "" {
-		http.Error(w, "session has no agent yet", http.StatusServiceUnavailable)
+	case err != nil:
+		http.Error(w, err.Error(), http.StatusBadGateway)
 		return
 	}
 
 	if r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions {
-		s.activity.Mark(sessionKey{providerName, id})
+		s.activity.Mark(key)
 	}
 
 	prefix := "/s/" + providerName + "/" + id
@@ -50,6 +48,7 @@ func (s *Server) proxy(w http.ResponseWriter, r *http.Request) {
 		},
 		FlushInterval: -1,
 		ErrorHandler: func(w http.ResponseWriter, _ *http.Request, err error) {
+			s.agents.forget(key)
 			s.log.Warn("agent proxy error", "provider", providerName, "session", id, "err", err)
 			http.Error(w, "device agent unavailable", http.StatusBadGateway)
 		},

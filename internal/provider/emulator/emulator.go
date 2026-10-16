@@ -146,6 +146,7 @@ func Client(cfg Config) (kubernetes.Interface, error) {
 	if err != nil {
 		return nil, err
 	}
+	rc.QPS, rc.Burst = 50, 100
 	return kubernetes.NewForConfig(rc)
 }
 

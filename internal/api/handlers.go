@@ -136,6 +136,7 @@ func (s *Server) register(api huma.API) {
 		if err := p.Delete(ctx, sess.ID); err != nil {
 			return nil, httpError(err)
 		}
+		s.agents.forget(sessionKey{in.Provider, sess.ID})
 		who, _ := auth.FromContext(ctx)
 		s.recordEvent(ctx, in.Provider, sess.ID, "stopped", who.User, sess.ArtifactRef, "")
 		return nil, nil

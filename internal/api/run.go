@@ -59,6 +59,7 @@ func (s *Server) Reap(ctx context.Context) {
 				s.log.Warn("reaper could not delete session", "provider", provider, "session", sess.ID, "err", err)
 				continue
 			}
+			s.agents.forget(key)
 			s.recordEvent(ctx, provider, sess.ID, "reaped", "", sess.ArtifactRef, reason)
 			s.log.Info("session reaped", "provider", provider, "session", sess.ID, "owner", sess.Owner, "reason", reason)
 		}

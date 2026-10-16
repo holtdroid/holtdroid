@@ -395,3 +395,56 @@ func TestRestartKeepsState(t *testing.T) {
 		t.Fatalf("a fresh api must see sessions and cached metadata: %+v", list.Items)
 	}
 }
+
+type countingProvider struct {
+	*fake.Provider
+	mu   sync.Mutex
+	gets int
+}
+
+func (c *countingProvider) Get(ctx context.Context, id string) (contract.Session, error) {
+	c.mu.Lock()
+	c.gets++
+	c.mu.Unlock()
+	return c.Provider.Get(ctx, id)
+}
+
+func (c *countingProvider) count() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.gets
+}
+
+func TestProxyCachesAgentURL(t *testing.T) {
+	h := newHarness(t, 1)
+	v := h.create("otter")
+	counter := &countingProvider{Provider: h.provider}
+	h.srv.providers["fake"] = counter
+	base := "/s/fake/" + v.ID
+
+	var wg sync.WaitGroup
+	for range 20 {
+		wg.Go(func() {
+			if rec := h.do(http.MethodGet, base+"/v1/network", "otter", "", nil); rec.Code != http.StatusOK {
+				t.Errorf("proxy: %d", rec.Code)
+			}
+		})
+	}
+	wg.Wait()
+	if n := counter.count(); n != 1 {
+		t.Fatalf("%d provider lookups for 20 requests", n)
+	}
+
+	h.clock.Advance(6 * time.Second)
+	h.do(http.MethodGet, base+"/v1/network", "otter", "", nil)
+	if n := counter.count(); n != 2 {
+		t.Fatalf("expired entry not refreshed: %d lookups", n)
+	}
+
+	if rec := h.do(http.MethodDelete, "/api/v1/sessions/fake/"+v.ID, "otter", "", nil); rec.Code != http.StatusNoContent {
+		t.Fatalf("stop: %d", rec.Code)
+	}
+	if rec := h.do(http.MethodGet, base+"/v1/network", "otter", "", nil); rec.Code != http.StatusNotFound {
+		t.Fatalf("proxy after stop: %d", rec.Code)
+	}
+}

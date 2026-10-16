@@ -33,6 +33,7 @@ type Server struct {
 	sources    map[string]*source.Source
 	srcOrder   []string
 	providers  map[string]contract.Provider
+	agents     *agentURLs
 	provOrder  []string
 	cache      *Cache
 	activity   *activity
@@ -77,6 +78,7 @@ func New(ctx context.Context, cfg Config, opts ...Option) (*Server, error) {
 		sshHTTP:    &http.Client{Timeout: 10 * time.Second},
 		log:        slog.Default().With("component", "api"),
 	}
+	s.agents = newAgentURLs(5*time.Second, func() time.Time { return s.now() })
 	for _, e := range cfg.Providers {
 		WithProvider(e.Name, contract.NewProviderClient(e.URL, nil))(s)
 	}
