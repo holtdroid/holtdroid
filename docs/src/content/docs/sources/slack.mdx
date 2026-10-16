@@ -129,6 +129,9 @@ sources:
 | `title`        | the Slack file title, if it differs from the file name                                  |
 | `origin`       | `slack`                                                                                 |
 
+It also writes `{file name}.apk.icon.png`, the launcher icon re-rendered at
+256 px, when one can be extracted.
+
 ## How it polls
 
 Each pass reads the history of the last `lookback` (7 days by default) and

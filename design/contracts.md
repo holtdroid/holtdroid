@@ -34,6 +34,11 @@ the layout:
   and directories are ignored;
 - next to `x.apk` an optional `x.apk.meta.json`, written **before** the APK
   when owner or visibility matter;
+- next to `x.apk` an optional `x.apk.icon.png`, also written **before** the
+  APK. It may be PNG, JPEG or WebP data, up to 4 MiB and 4096 px per side.
+  The api decodes it, re-renders it as a 256 px PNG, and uses it instead of
+  the icon it extracts from the APK. An icon that can't be decoded is
+  ignored;
 - replacing a file in place is fine: its revision (ETag, else size + mtime)
   changes and the api treats it as a new build.
 

@@ -3,6 +3,9 @@ package api
 import (
 	"bytes"
 	"context"
+	"image"
+	"image/color"
+	"image/png"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kriakiku/holtdroid/internal/apk"
 	"github.com/kriakiku/holtdroid/internal/source"
 )
 
@@ -218,5 +222,58 @@ func TestUploadName(t *testing.T) {
 		if got := uploadName(in); got != want {
 			t.Errorf("uploadName(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+func TestIconSidecar(t *testing.T) {
+	red := image.NewNRGBA(image.Rect(0, 0, 32, 32))
+	for x := range 32 {
+		for y := range 32 {
+			red.Set(x, y, color.NRGBA{R: 255, A: 255})
+		}
+	}
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, red); err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name    string
+		sidecar []byte
+		wantRed bool
+	}{
+		{"valid sidecar wins", buf.Bytes(), true},
+		{"garbage sidecar falls back to the apk icon", []byte("<script>alert(1)</script>"), false},
+		{"no sidecar", nil, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := newHarness(t, 1)
+			if tt.sidecar != nil {
+				if err := os.WriteFile(filepath.Join(h.apks, "hello.apk"+source.IconSuffix), tt.sidecar, 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			a, err := h.srv.sources["local"].Get(context.Background(), "hello.apk")
+			if err != nil {
+				t.Fatal(err)
+			}
+			entry, err := h.srv.cache.Ensure(context.Background(), "local", a)
+			if err != nil || !entry.HasIcon {
+				t.Fatalf("entry %+v, %v", entry, err)
+			}
+			rec := h.do(http.MethodGet, iconURL(entry), "otter", "", nil)
+			if rec.Code != http.StatusOK || rec.Header().Get("X-Content-Type-Options") != "nosniff" {
+				t.Fatalf("icon: %d %v", rec.Code, rec.Header())
+			}
+			img, err := png.Decode(rec.Body)
+			if err != nil {
+				t.Fatalf("served icon is not a png: %v", err)
+			}
+			r, g, b, _ := img.At(apk.IconSize/2, apk.IconSize/2).RGBA()
+			if isRed := r>>8 == 255 && g == 0 && b == 0; isRed != tt.wantRed {
+				t.Fatalf("centre pixel %d,%d,%d, want red=%v", r>>8, g>>8, b>>8, tt.wantRed)
+			}
+		})
 	}
 }

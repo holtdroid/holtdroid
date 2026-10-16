@@ -175,6 +175,7 @@ func (s *Server) registerArtifacts(api huma.API) {
 		}
 		return &huma.StreamResponse{Body: func(hctx huma.Context) {
 			hctx.SetHeader("Content-Type", "image/png")
+			hctx.SetHeader("X-Content-Type-Options", "nosniff")
 			hctx.SetHeader("Cache-Control", "private, max-age=31536000, immutable")
 			_, _ = hctx.BodyWriter().Write(raw)
 		}}, nil

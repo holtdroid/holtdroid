@@ -107,7 +107,7 @@ func New(ctx context.Context, cfg Config, opts ...Option) (*Server, error) {
 		return nil, err
 	}
 	s.activity = newActivity(s.now)
-	s.cache = NewCache(s.store, int64(cfg.Cache.MaxSize), s.openArtifact)
+	s.cache = NewCache(s.store, int64(cfg.Cache.MaxSize), s.openArtifact, s.openIcon)
 	return s, nil
 }
 
@@ -137,6 +137,14 @@ func (s *Server) openArtifact(ctx context.Context, name, id string) (io.ReadClos
 	}
 	rc, _, err := src.Open(ctx, id)
 	return rc, err
+}
+
+func (s *Server) openIcon(ctx context.Context, name, id string) (io.ReadCloser, error) {
+	src, err := s.source(name)
+	if err != nil {
+		return nil, err
+	}
+	return src.OpenIcon(ctx, id)
 }
 
 func NewHumaAPI(mux *http.ServeMux, title, version string) huma.API {

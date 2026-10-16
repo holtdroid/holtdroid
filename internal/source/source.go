@@ -25,6 +25,7 @@ import (
 
 const (
 	MetaSuffix  = ".meta.json"
+	IconSuffix  = ".icon.png"
 	maxMetaSize = 1 << 20
 )
 
@@ -225,6 +226,14 @@ func (s *Source) Open(ctx context.Context, id string) (io.ReadCloser, int64, err
 	return rc, size, err
 }
 
+func (s *Source) OpenIcon(ctx context.Context, id string) (io.ReadCloser, error) {
+	if !isAPK(id) {
+		return nil, fmt.Errorf("%w: %s", contract.ErrNotFound, id)
+	}
+	rc, _, err := s.store.Get(ctx, id+IconSuffix)
+	return rc, err
+}
+
 // Put stores an APK and its sidecar. The sidecar goes first so the APK never
 // shows up without its owner and visibility.
 func (s *Source) Put(ctx context.Context, id string, r io.Reader, size int64, meta Meta) (Artifact, error) {
@@ -273,6 +282,9 @@ func (s *Source) Delete(ctx context.Context, id string) error {
 		return err
 	}
 	if err := s.store.Delete(ctx, id); err != nil {
+		return err
+	}
+	if err := s.store.Delete(ctx, id+IconSuffix); err != nil {
 		return err
 	}
 	return s.store.Delete(ctx, id+MetaSuffix)

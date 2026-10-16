@@ -2,10 +2,8 @@ package apk
 
 import (
 	"archive/zip"
-	"bytes"
 	"errors"
 	"fmt"
-	"image/png"
 	"slices"
 	"strings"
 
@@ -22,8 +20,8 @@ type Metadata struct {
 	ABIs        []string `json:"abis"`
 }
 
-// Parse reads package metadata and, when the launcher icon is a bitmap, a PNG
-// of it. Adaptive (XML) icons yield a nil icon.
+// Parse reads package metadata and a normalized launcher icon PNG, nil when
+// the icon can't be rendered.
 func Parse(path string) (Metadata, []byte, error) {
 	pkg, err := androidapk.OpenFile(path)
 	if err != nil {
@@ -47,14 +45,7 @@ func Parse(path string) (Metadata, []byte, error) {
 		return Metadata{}, nil, err
 	}
 
-	var icon []byte
-	if img, err := pkg.Icon(nil); err == nil && img != nil {
-		var buf bytes.Buffer
-		if png.Encode(&buf, img) == nil {
-			icon = buf.Bytes()
-		}
-	}
-	return meta, icon, nil
+	return meta, extractIcon(path, m.App), nil
 }
 
 func abis(path string) ([]string, error) {

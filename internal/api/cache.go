@@ -44,25 +44,27 @@ const (
 // prefix per artifact revision, so a replaced file gets a fresh entry.
 // meta.json is written last and marks a complete entry.
 type Cache struct {
-	store   storage.Store
-	tmpDir  string
-	maxSize int64
-	open    func(ctx context.Context, source, id string) (io.ReadCloser, error)
-	log     *slog.Logger
+	store    storage.Store
+	tmpDir   string
+	maxSize  int64
+	open     func(ctx context.Context, source, id string) (io.ReadCloser, error)
+	openIcon func(ctx context.Context, source, id string) (io.ReadCloser, error)
+	log      *slog.Logger
 
 	sf  singleflight.Group
 	mu  sync.Mutex
 	mem map[string]CacheEntry
 }
 
-func NewCache(store storage.Store, maxSize int64, open func(ctx context.Context, source, id string) (io.ReadCloser, error)) *Cache {
+func NewCache(store storage.Store, maxSize int64, open, openIcon func(ctx context.Context, source, id string) (io.ReadCloser, error)) *Cache {
 	return &Cache{
-		store:   store,
-		tmpDir:  os.TempDir(),
-		maxSize: maxSize,
-		open:    open,
-		log:     slog.Default().With("component", "cache"),
-		mem:     map[string]CacheEntry{},
+		store:    store,
+		tmpDir:   os.TempDir(),
+		maxSize:  maxSize,
+		open:     open,
+		openIcon: openIcon,
+		log:      slog.Default().With("component", "cache"),
+		mem:      map[string]CacheEntry{},
 	}
 }
 
@@ -154,7 +156,30 @@ func (c *Cache) fetch(ctx context.Context, source string, a src.Artifact) (Cache
 	if err != nil {
 		return CacheEntry{}, fmt.Errorf("%w: %s/%s is not a valid APK: %w", contract.ErrInvalid, source, a.ID, err)
 	}
+	if side := c.sidecarIcon(ctx, source, a.ID); side != nil {
+		icon = side
+	}
 	return c.put(ctx, source, a, tmp.Name(), meta, icon)
+}
+
+func (c *Cache) sidecarIcon(ctx context.Context, source, id string) []byte {
+	rc, err := c.openIcon(ctx, source, id)
+	if err != nil {
+		if !errors.Is(err, storage.ErrNotExist) {
+			c.log.Warn("cannot read icon sidecar", "source", source, "artifact", id, "err", err)
+		}
+		return nil
+	}
+	defer rc.Close()
+	raw, err := io.ReadAll(io.LimitReader(rc, apk.MaxIconBytes+1))
+	if err == nil {
+		raw, err = apk.NormalizeIcon(raw)
+	}
+	if err != nil {
+		c.log.Warn("ignoring icon sidecar", "source", source, "artifact", id, "err", err)
+		return nil
+	}
+	return raw
 }
 
 func (c *Cache) put(ctx context.Context, source string, a src.Artifact, file string, meta apk.Metadata, icon []byte) (CacheEntry, error) {
