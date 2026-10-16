@@ -53,8 +53,8 @@ Goal: one hand-written Pod on a KVM node proves the device side end to end.
 
 ## Phase 3 — Provider, source, api
 
-- [ ] `internal/vpn`: `none`, `wireguard`, `nordvpn` (server recommendations, collision-free picking, `excludeServers`), sing-box rendering with golden tests; WireGuard MTU that fits the Pod network, emulator DNS through the tunnel (decision #26)
-- [ ] `provider-emulator`: capacity from nodes + config, Pod/Secret rendering (golden tests), create/list/delete, state from annotations, `touch`
+- [x] `internal/vpn` (decision #28): locations as sing-box outbounds/endpoints (inline or secret ref), optional `direct`, selector + clash API, tun with `bypassCIDRs`, device DNS hijacked through the tunnel (`vpn.dns`, emulator `-dns-server`), `vpn.resolver` for `*.cluster.local`; golden tests checked with `sing-box check` 1.14.2; docs page "Shared VPN gateway" (one sing-box with a tunnel per location, SOCKS user = location)
+- [ ] `provider-emulator`: capacity from nodes + config, Pod/Secret rendering (golden tests), create/list/delete, state from annotations, `touch`; `vpn` config → capabilities `Offered()`, `vpn.Render` into the per-session Secret, `HOLTDROID_CLASHAPI` + `HOLTDROID_EMULATOR__DNSSERVER` when enabled, `Validate()` at startup
 - [x] Artifact sources in the api (decision #27): filesystem/S3 stores, `.meta.json` sidecars, revisions keyed into the cache and `ArtifactRef`, polling + `event: artifacts`, uploads (`uploads.*`), public/private, delete by owner/admin, `readOnly` sources; UI upload dialog, drag & drop, changelog/tags, manage menu
 - [ ] Slack sync job, independent of the api: reads channels, writes `{channel}/{file id}/{name}.apk` + sidecar into an S3/folder source; fake Slack server in tests
 - [x] `internal/apk`: metadata + icon + ABIs with a fixture
@@ -157,6 +157,7 @@ leave the process, the api doesn't keep them.
 
 - [x] Deploy to the maintainer's cluster via Argo CD + the Helm chart (portal with fake devices; see status.md)
 - [ ] Switch that deployment to `provider-emulator` + a Slack sync into an S3 source once Phase 3 lands
+- [ ] A shared VPN gateway for that deployment (NordVPN key from `secret/vpn`, servers other than the torrent `vpn-gateway`'s), following the "Shared VPN gateway" docs page
 - [ ] Fix whatever reality finds; feed it back into docs
 
 ## Later

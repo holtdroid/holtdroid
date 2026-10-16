@@ -97,6 +97,8 @@ location behind a selector switched through the clash API.
 **Consequences.** Switching is instant with no Pod restart. With NordVPN a
 single account key is shared, so the provider must never put two peers on
 the same server (`excludeServers` for peers outside Holtdroid).
+_Partly superseded by #28: locations are sing-box outbounds and vendors live
+in an operator-run gateway._
 
 ## 8. Secrets by reference, pluggable resolvers
 
@@ -400,3 +402,42 @@ that. Listing reads the store on every request (sidecars are memoised by
 revision); very large buckets would need a listing cache. Other replicas
 see uploads at their next poll.
 
+
+## 28. VPN locations are plain sing-box outbounds; vendors live in a shared gateway
+
+Supersedes the WireGuard-per-location part of #7 and the planned `nordvpn`
+and `wireguard` VPN providers.
+
+**Context.** Vendor integrations (NordVPN server picking, per-vendor key
+handling) would be Holtdroid code to write and keep working for every VPN
+service. WireGuard credentials are usually one key per account; the same key
+on the same server from several session Pods makes their handshakes fight,
+and picking a distinct server per session only shifts the problem. A single
+shared sing-box that all devices use, switched by source IP, would break as
+Pod IPs change and would mix sessions' traffic in one place that has to know
+about sessions.
+
+**Decision.** Every session keeps its own sing-box sidecar (tun, selector,
+clash API — switching stays local and instant, and `adb reverse`/SSH tunnels
+over loopback are untouched). A location is `{id, label, outbound}`, where
+`outbound` is any sing-box outbound or endpoint object (inline, or a secret
+reference whose value is the JSON) that `internal/vpn` tags and puts behind
+the selector, plus an optional `direct`. Holtdroid has no vendor code. The
+recommended setup, documented for operators, is one shared sing-box gateway
+they run themselves: it holds one WireGuard (or any) tunnel per location and
+offers a SOCKS inbound where the username selects the location
+(`auth_user` route rules), so every sidecar's outbound is
+`socks://<location>@gateway`. Device DNS is forced through the tunnel: the
+emulator gets `-dns-server` (`vpn.dns`) and the sidecar hijacks DNS from the
+tun into a resolver that dials through the selector.
+
+**Consequences.** Any number of sessions share one key per location without
+collisions; they also share that location's egress IP. Adding a VPN vendor
+is a gateway config change, not a release. The gateway is the operator's to
+run and protect (NetworkPolicy; the SOCKS hop is unencrypted inside the
+cluster). sing-box's `local` DNS server sends `*.local` names — every
+`*.cluster.local` Service — to mDNS, so outbounds naming in-cluster hosts
+need `vpn.resolver` set to the cluster DNS IP (found in the end-to-end
+check against sing-box 1.14.2, which also confirmed the rendered config,
+switching through the clash API, per-username routing on a gateway and DNS
+hijacking).

@@ -44,23 +44,25 @@ deployment"):
 
 **Not built yet**:
 
-- `provider-emulator`, `internal/vpn` — Phase 3.
+- `provider-emulator` — Phase 3. `internal/vpn` (sidecar config rendering,
+  decision #28) is done and waits for it.
 - The Slack sync job (independent of the api, writes the source layout).
 - SSH gateway — Phase 4.5 (designed in architecture.md "SSH access").
 - Docker-only provider, physical phones — "Later".
 
 ## Next steps, in order
 
-1. **Phase 3** — `internal/vpn` (golden sing-box configs),
-   `provider-emulator` (Pods + per-session Secret, state in labels and
-   annotations, anti-affinity, `touch`), and a Slack sync job that writes
-   into an S3 source. The provider renders what the Phase 2 Pod proved: `emulator` container
-   (privileged, `/dev/kvm` and `/dev/shm`, env `HOLTDROID_ARTIFACTURL`,
-   `HOLTDROID_PACKAGE`, `HOLTDROID_LOCATION`, `HOLTDROID_CLASHAPI`) plus a
-   `vpn` sing-box container (`NET_ADMIN`, `/dev/net/tun`, config Secret with
-   WireGuard MTU 1280 and a `select` selector). See decision #26 for the
-   details that bit. Then wire them into the chart and switch the
-   maintainer's deployment from fake to emulator plus a Slack-fed source.
+1. **Phase 3** — `provider-emulator` (Pods + per-session Secret, state in
+   labels and annotations, anti-affinity, `touch`) and a Slack sync job that
+   writes into an S3 source. The provider renders what the Phase 2 Pod
+   proved: `emulator` container (privileged, `/dev/kvm` and `/dev/shm`, env
+   `HOLTDROID_ARTIFACTURL`, `HOLTDROID_PACKAGE`, `HOLTDROID_LOCATION`, and
+   with a VPN `HOLTDROID_CLASHAPI=http://127.0.0.1:9090` +
+   `HOLTDROID_EMULATOR__DNSSERVER=<vpn.dns>`) plus a `vpn` sing-box container
+   (`NET_ADMIN`, `/dev/net/tun`, config Secret from `vpn.Render`). See
+   decisions #26 and #28 for the details that bit. Then wire them into the
+   chart, run a shared VPN gateway for the maintainer's deployment and switch
+   it from fake to emulator plus a Slack-fed source.
 2. **Phase 4.5 — SSH gateway**, can run in parallel against the fake
    provider.
 3. Planned, each starting with a decisions.md entry: Phase 4.7 traffic
@@ -163,7 +165,7 @@ in-repo work; ask the maintainer for anything cluster-side.
 | Argo CD Application | `homelab.k8s/argocd/holtdroid.yaml` — chart from this repo's `main`, `image.tag=$ARGOCD_APP_REVISION`, values inline |
 | Current setup | `auth.mode: oidc` (Authelia client `holtdroid`, groups `admins`/`users`), the default `local` source and uploads on the api's Longhorn PVC `holtdroid-data` (`api.persistence`), `provider-fake` |
 | Secrets (OpenBao KV, mount `secret/`) | `holtdroid` → `session_key`; `oidc/holtdroid` → `client_secret` (+ digest for Authelia); both seeded by `nixos/scripts/openbao-bootstrap.sh`; delivered by an `ExternalSecret` in `extraObjects` |
-| Planned secrets | Slack: put `slack_bot_token` and `slack_channel_id` into `secret/holtdroid` by hand. NordVPN: reuse `secret/vpn` → `nordvpn_private_key`; that key is already used by the torrent `vpn-gateway` (servers `kyiv.ua`, `warsaw.pl`, `astana.kz`, `oslo.no`, `riga.lv` `.wg.nordhold.net`) — put those in `excludeServers` |
+| Planned secrets | Slack: put `slack_bot_token` and `slack_channel_id` into `secret/holtdroid` by hand. NordVPN: reuse `secret/vpn` → `nordvpn_private_key`; that key is already used by the torrent `vpn-gateway` (servers `kyiv.ua`, `warsaw.pl`, `astana.kz`, `oslo.no`, `riga.lv` `.wg.nordhold.net`) — the shared VPN gateway (decision #28) must use other servers |
 | Nodes for sessions | 4 × x86_64 with `/dev/kvm`: `core` (16 cores, 30 GiB, taint `dedicated=nas:NoSchedule`), `k3s-1..3` (6 cores, 31 GiB each). One session per node |
 | Storage classes | `longhorn`, `local-path`, `nas-hdd` |
 | Ingress / DNS | Traefik; Ingress annotation `external-dns.alpha.kubernetes.io/target: "10.10.4.25"` creates the DNS record |

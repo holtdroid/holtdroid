@@ -13,9 +13,14 @@ sidebar:
   its own namespace.
 - **Untrusted code.** APKs are third-party binaries running in a rooted
   Android. They are contained by the emulator, but their network traffic is
-  real: with the `none` VPN provider it leaves from your nodes' network.
-  Keep `vpn.bypassCIDRs` minimal and consider a NetworkPolicy that stops
-  session Pods from reaching anything in-cluster except the api.
+  real: without a VPN (or on the `direct` location) it leaves from your
+  nodes' network. Keep `vpn.bypassCIDRs` minimal, set `vpn.direct: false` if
+  devices must never egress directly, and consider a NetworkPolicy that
+  stops session Pods from reaching anything in-cluster except the api and
+  the VPN gateway.
+- **The VPN gateway** holds your VPN credentials and relays plain SOCKS
+  inside the cluster. Only session Pods should reach it; see
+  [Shared VPN gateway](/holtdroid/operations/vpn-gateway/).
 - **Who can get in.** The default `anonymous` mode lets anyone who reaches the
   URL launch devices. Put it on a private network, or use `password`, `oidc`
   or `header` — see [Authentication](/holtdroid/configuration/authentication/).

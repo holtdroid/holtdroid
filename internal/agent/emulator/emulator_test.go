@@ -66,4 +66,12 @@ func TestArgs(t *testing.T) {
 	if args[0] != "-avd" || args[1] != "holtdroid" || !slices.Contains(args, "swiftshader_indirect") || !slices.Equal(args[len(args)-2:], cfg.Args) {
 		t.Fatalf("args %v", args)
 	}
+	if slices.Contains(args, "-dns-server") {
+		t.Fatalf("dns server without config: %v", args)
+	}
+	cfg.DNSServer = "1.1.1.1"
+	args = New(cfg, nil, nil).Args()
+	if i := slices.Index(args, "-dns-server"); i < 0 || args[i+1] != "1.1.1.1" || !slices.Equal(args[len(args)-2:], cfg.Args) {
+		t.Fatalf("args with dns %v", args)
+	}
 }

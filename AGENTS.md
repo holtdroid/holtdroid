@@ -50,7 +50,7 @@ internal/
   provider/               provider implementations: provider/fake (simulated devices for dev/tests), provider/emulator
   agent/                  device agent: adb, frida, devtools proxy, clipboard, vnc bridge, ssh tunnels; agent/emulator
   sshgateway/             SSH gateway (planned): ADB and published-port tunnels, no shells
-  vpn/                    VPN providers (nordvpn, wireguard, none) + sing-box config rendering
+  vpn/                    sing-box sidecar config: locations as sing-box outbounds, no vendor code
   secrets/                secret resolvers: env:, file:, openbao:
   storage/                object store for sources and the APK cache: filesystem, s3
   db/                     api SQL database: goose migrations, sqlc queries (generated code committed)

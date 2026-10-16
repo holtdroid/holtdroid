@@ -45,9 +45,9 @@ flowchart LR
   api -- "Agent API (proxied /s/{provider}/{id}/*)" --> agent
   sync -->|Web API| slack[(Slack)]
   prov -->|client-go| k8s[(Kubernetes API)]
-  prov -->|server list| nord[(VPN vendor API)]
   agent -->|artifact download| api
   agent -. shares netns .- vpn
+  vpn --> gw[("VPN gateway<br/>(operator's, optional)")]
   vpn --> internet[(Internet)]
 ```
 
@@ -58,7 +58,7 @@ image and Frida on top of the agent.
 | Service | Responsibility | Talks to |
 |---------|----------------|----------|
 | `api` | UI REST API and static web UI, artifact sources (list, watch, uploads), APK cache, provider registry, session proxy `/s/{provider}/{id}/*` (HTTP + WebSocket), activity tracking, idle/TTL reaper, auth | source stores, providers, agents |
-| `provider-emulator` | Owns emulator sessions: slot accounting, creates/deletes session Pods and their per-session Secrets, picks VPN servers, reports capabilities | Kubernetes API, VPN vendor API |
+| `provider-emulator` | Owns emulator sessions: slot accounting, creates/deletes session Pods and their per-session Secrets (rendered sing-box config), reports capabilities | Kubernetes API |
 | `agent` | Runs inside a session: boots the device, installs and launches the APK under Frida, serves the screen, DevTools proxy, clipboard, network control, status events | ADB, Frida, sing-box clash API |
 
 The **api is stateless**. Providers are the source of truth for sessions; the
@@ -172,7 +172,7 @@ Session Pod (rendered by `provider-emulator`, golden-tested):
 | `emulator` | `holtdroid-session` | privileged, `/dev/kvm` hostPath, `/dev/shm` memory emptyDir, ~3–4 CPU / 5–7 GiB. Runs `holtdroid agent` as PID 1 supervisor |
 | `vpn` | upstream `sing-box` | `NET_ADMIN`, `/dev/net/tun`. Config from the per-session Secret |
 
-Plus a Secret (sing-box config, contains the VPN private key) with an
+Plus a Secret (sing-box config, may contain VPN credentials) with an
 ownerReference to the Pod, so it is garbage-collected with it.
 
 Inside `emulator`, the agent starts and supervises:
@@ -202,7 +202,8 @@ Inside `emulator`, the agent starts and supervises:
 
 The provider configures the agent through environment variables
 (`HOLTDROID_ARTIFACTURL`, `HOLTDROID_PACKAGE`, `HOLTDROID_LOCATION`,
-`HOLTDROID_CLASHAPI` when a VPN sidecar runs; see `agent.Config` for the
+`HOLTDROID_CLASHAPI` and `HOLTDROID_EMULATOR__DNSSERVER` when a VPN sidecar
+runs; see `agent.Config` for the
 rest, all with defaults matching the session image).
 
 The pipeline only depends on two interfaces, `agent.Device` (adb) and
@@ -264,24 +265,44 @@ advertises `display: scrcpy` and the UI swaps the renderer.
 
 - The `vpn` sidecar shares the Pod network namespace. sing-box runs a `tun`
   inbound with `auto_route` and `route_exclude_address` for the cluster and
-  LAN CIDRs (from config). Pod-to-api traffic and replies to proxied requests
-  therefore bypass the tunnel, while all emulator egress (TCP, UDP, DNS)
-  goes through it with no configuration inside Android.
-- The config contains one WireGuard endpoint per offered location plus
-  `direct`, behind a `selector` outbound. The clash API listens on
-  `127.0.0.1:9090`. `PUT /network/location` on the agent maps to
-  `PUT /proxies/select {"name": "<location>"}`. `GET /network` reports the
-  current selection and the external IP/country, looked up through the
-  tunnel at `ipInfoURL` (default `https://ipinfo.io/json`, cached 30 s).
-- VPN providers live in `internal/vpn` and are used by the emulator provider
-  at session creation:
-  - `none` — no sidecar;
-  - `wireguard` — a static list of `{location, endpoint, publicKey, …}` from
-    config;
-  - `nordvpn` — queries NordVPN's public server recommendations per country
-    and picks, per location, a server not used by any other live session
-    (and not in `excludeServers`), because the same WireGuard key on the same
-    server from two peers makes their handshakes fight.
+  LAN CIDRs (`vpn.bypassCIDRs`). Pod-to-api traffic and replies to proxied
+  requests therefore bypass the tunnel, while all emulator egress (TCP, UDP,
+  DNS) goes through it with no configuration inside Android. Loopback is
+  never routed, so `adb reverse` and the SSH tunnels are unaffected.
+- A location is `{id, label, outbound}` where `outbound` is any sing-box
+  outbound or endpoint object, inline or as a secret reference resolving to
+  its JSON (decision #28). `internal/vpn` renders them, tagged with the
+  location id, plus `direct` (unless `vpn.direct: false`) behind a
+  `selector` (`interrupt_exist_connections`). Holtdroid has no VPN vendor
+  code.
+- DNS: the emulator is started with `-dns-server <vpn.dns>`, so its queries
+  enter the tun; the sidecar hijacks them and answers through a resolver
+  that dials `vpn.dns` via the selector. Server names inside outbounds are
+  resolved by the Pod's resolver (`local`), or by `vpn.resolver` when set —
+  needed for `*.cluster.local` names, which sing-box's `local` sends to mDNS.
+- The clash API listens on `127.0.0.1:9090`. `PUT /network/location` on
+  the agent maps to `PUT /proxies/select {"name": "<location>"}`.
+  `GET /network` reports the current selection and the external
+  IP/country, looked up through the tunnel at `ipInfoURL` (default
+  `https://ipinfo.io/json`, cached 30 s).
+- Recommended deployment: the operator runs one shared sing-box **VPN
+  gateway** holding one tunnel per location (WireGuard from any vendor, or
+  anything sing-box speaks) with a SOCKS inbound whose username selects the
+  location (`auth_user` route rules); each location's outbound is that SOCKS
+  server with the location as username. One vendor key then serves any
+  number of sessions without WireGuard peer collisions. Public docs:
+  "Shared VPN gateway".
+
+```mermaid
+flowchart LR
+  subgraph pod["Session Pod"]
+    emu["emulator"] --> tun["sing-box sidecar<br/>tun + selector"]
+  end
+  tun -- "socks user=de" --> gw["VPN gateway<br/>(operator's sing-box)"]
+  tun -. direct .-> internet[(Internet)]
+  gw -- "WireGuard de" --> vde[(VPN server DE)]
+  gw -- "WireGuard nl" --> vnl[(VPN server NL)]
+```
 
 ## SSH access (planned)
 

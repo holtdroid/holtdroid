@@ -36,7 +36,7 @@ flowchart LR
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **api**               | Serves the web UI and its REST API, lists APKs from folder/S3 sources and takes uploads, caches and parses APKs, asks providers for sessions, proxies all session traffic, tracks activity and reaps idle sessions. Stateless. |
 | **sync jobs**         | Independent of Holtdroid: anything that writes `*.apk` files (and optional `.meta.json` sidecars) into a source, e.g. a Slack channel sync.                                                                                    |
-| **provider-emulator** | A _device provider_: owns emulator sessions as Kubernetes Pods, accounts for slots, picks VPN servers.                                                                                                                         |
+| **provider-emulator** | A _device provider_: owns emulator sessions as Kubernetes Pods, accounts for slots, renders the VPN sidecar.                                                                                                                   |
 | **agent**             | Runs inside each session: boots the device, installs and instruments the app, serves the screen, DevTools, clipboard and network controls.                                                                                     |
 
 ## Design principles

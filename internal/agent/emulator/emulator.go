@@ -22,6 +22,7 @@ type Config struct {
 	Bin         string
 	AVD         string
 	Args        []string
+	DNSServer   string
 	Display     string
 	Screen      string
 	Clip        string
@@ -63,7 +64,7 @@ func New(cfg Config, adb ADB, log *slog.Logger) *Emulator {
 
 // Args returns the emulator command line.
 func (e *Emulator) Args() []string {
-	return append([]string{
+	args := []string{
 		"-avd", e.cfg.AVD,
 		"-no-snapshot",
 		"-no-audio",
@@ -73,7 +74,11 @@ func (e *Emulator) Args() []string {
 		"-gpu", "swiftshader_indirect",
 		"-camera-back", "none",
 		"-camera-front", "none",
-	}, e.cfg.Args...)
+	}
+	if e.cfg.DNSServer != "" {
+		args = append(args, "-dns-server", e.cfg.DNSServer)
+	}
+	return append(args, e.cfg.Args...)
 }
 
 // Run starts every process, calls booted once Android is up, rooted and

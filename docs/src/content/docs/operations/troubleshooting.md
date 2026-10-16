@@ -42,5 +42,13 @@ that first fetch.
 ## VPN location doesn't change the IP
 
 - `bypassCIDRs` must not contain the address range of the VPN servers.
-- With `nordvpn`, another client using the same key on the same server will
-  break the tunnel; add its server to `excludeServers`.
+- The sidecar logs `lookup ….cluster.local: … mdns: query timeout`: sing-box
+  sends `*.local` names to mDNS. Set `vpn.resolver` to your cluster DNS IP
+  (`kubectl -n kube-system get svc kube-dns`).
+- A WireGuard tunnel that drops whenever another session starts: the same
+  key is in use from several places (other session Pods, or a client outside
+  Holtdroid on the same server). Move WireGuard into a
+  [shared VPN gateway](/holtdroid/operations/vpn-gateway/) and give it
+  servers nobody else uses with that key.
+- WireGuard logs `sendmmsg: message too long`: lower its `mtu` to 1280 on
+  overlay networks.

@@ -1,0 +1,98 @@
+{
+  "log": {
+    "level": "warn",
+    "timestamp": true
+  },
+  "dns": {
+    "final": "tunnel",
+    "servers": [
+      {
+        "server": "10.43.0.10",
+        "tag": "local",
+        "type": "udp"
+      },
+      {
+        "detour": "select",
+        "server": "9.9.9.9",
+        "tag": "tunnel",
+        "type": "udp"
+      }
+    ]
+  },
+  "inbounds": [
+    {
+      "address": [
+        "198.18.0.1/30",
+        "fdfe:dcba:9876::1/126"
+      ],
+      "auto_route": true,
+      "route_exclude_address": [
+        "10.42.0.0/16",
+        "10.43.0.0/16"
+      ],
+      "tag": "tun",
+      "type": "tun"
+    }
+  ],
+  "outbounds": [
+    {
+      "password": "holtdroid",
+      "server": "vpn-gateway.vpn.svc.cluster.local",
+      "server_port": 1080,
+      "tag": "de",
+      "type": "socks",
+      "username": "de"
+    },
+    {
+      "default": "nl",
+      "interrupt_exist_connections": true,
+      "outbounds": [
+        "de",
+        "nl"
+      ],
+      "tag": "select",
+      "type": "selector"
+    }
+  ],
+  "endpoints": [
+    {
+      "address": [
+        "10.5.0.2/32"
+      ],
+      "mtu": 1280,
+      "peers": [
+        {
+          "address": "nl1.example.net",
+          "allowed_ips": [
+            "0.0.0.0/0",
+            "::/0"
+          ],
+          "port": 51820,
+          "public_key": "Z1XXLsKYkYxuiYjJIkRvtIKFepCYHTgON+GwPq7SOV4="
+        }
+      ],
+      "private_key": "YNXtAzepDqRv9H52osJVDQnznT5AL11eBnfXyTMR0Gk=",
+      "tag": "nl",
+      "type": "wireguard"
+    }
+  ],
+  "route": {
+    "auto_detect_interface": true,
+    "default_domain_resolver": "local",
+    "final": "select",
+    "rules": [
+      {
+        "action": "sniff"
+      },
+      {
+        "action": "hijack-dns",
+        "protocol": "dns"
+      }
+    ]
+  },
+  "experimental": {
+    "clash_api": {
+      "external_controller": "127.0.0.1:9090"
+    }
+  }
+}

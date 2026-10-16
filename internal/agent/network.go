@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/kriakiku/holtdroid/internal/vpn"
 )
 
 // Network reports the egress IP and switches the VPN location through the
@@ -25,8 +26,6 @@ type Network struct {
 	checked time.Time
 }
 
-const clashSelector = "select"
-
 func NewNetwork(clashAPI, ipInfoURL string) *Network {
 	return &Network{clash: strings.TrimRight(clashAPI, "/"), ipInfo: ipInfoURL, hc: &http.Client{Timeout: 10 * time.Second}}
 }
@@ -39,12 +38,12 @@ func (n *Network) Get(ctx context.Context) (contract.Network, error) {
 	}
 	n.mu.Unlock()
 
-	loc := "direct"
+	loc := vpn.Direct
 	if n.clash != "" {
 		var sel struct {
 			Now string `json:"now"`
 		}
-		if err := n.call(ctx, http.MethodGet, "/proxies/"+clashSelector, nil, &sel); err != nil {
+		if err := n.call(ctx, http.MethodGet, "/proxies/"+vpn.Selector, nil, &sel); err != nil {
 			return contract.Network{}, err
 		}
 		loc = sel.Now
@@ -68,12 +67,12 @@ func (n *Network) Get(ctx context.Context) (contract.Network, error) {
 
 func (n *Network) SetLocation(ctx context.Context, location string) (contract.Network, error) {
 	if n.clash == "" {
-		if location != "direct" {
+		if location != vpn.Direct {
 			return contract.Network{}, fmt.Errorf("%w: this device has no VPN", contract.ErrInvalid)
 		}
 		return n.Get(ctx)
 	}
-	if err := n.call(ctx, http.MethodPut, "/proxies/"+clashSelector, map[string]string{"name": location}, nil); err != nil {
+	if err := n.call(ctx, http.MethodPut, "/proxies/"+vpn.Selector, map[string]string{"name": location}, nil); err != nil {
 		return contract.Network{}, err
 	}
 	n.mu.Lock()

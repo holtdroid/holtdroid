@@ -6,7 +6,7 @@ sidebar:
 ---
 
 Every emulator session can route all of the device's traffic (TCP, UDP and
-DNS) through a VPN, and the user can switch the country from the session
+DNS) through a VPN, and the user can switch the location from the session
 toolbar at any time.
 
 ## How it works
@@ -15,30 +15,57 @@ The session Pod has a `vpn` sidecar running [sing-box](https://sing-box.sagernet
 in the Pod's network namespace:
 
 - a `tun` inbound with `auto_route` captures all egress from the emulator;
-- cluster and LAN ranges (`providers.emulator.vpn.bypassCIDRs`) are
-  excluded, so the portal can still reach the agent;
-- each offered location is a WireGuard endpoint, plus `direct`, behind a
-  selector;
+- cluster and LAN ranges (`vpn.bypassCIDRs`) are excluded, so the portal can
+  still reach the agent;
+- each location is a sing-box outbound, plus `direct`, behind a selector;
 - switching location changes the selector through sing-box's local API, so
-  the switch is instant and needs no restart.
+  the switch is instant and needs no restart;
+- the device's DNS queries are captured from the tunnel and resolved through
+  the selected location, so lookups don't leak.
 
 Android itself is not configured at all; to apps it looks like a normal
-network.
+network. Port forwarding (`adb reverse`, [SSH access](/holtdroid/concepts/ssh/))
+runs over loopback and is unaffected by the VPN.
 
-## VPN providers
+## Locations are sing-box outbounds
 
-| Provider    | Locations come from                      | Notes                                                       |
-| ----------- | ---------------------------------------- | ----------------------------------------------------------- |
-| `none`      | –                                        | No sidecar, direct egress. Default.                         |
-| `wireguard` | A static list of endpoints in config     | Bring any WireGuard-compatible VPN.                         |
-| `nordvpn`   | NordVPN's public server API, per country | Picks a different server for each live session (see below). |
+Holtdroid has no code for any particular VPN vendor. A location is an id, a
+label and a [sing-box outbound](https://sing-box.sagernet.org/configuration/outbound/)
+(or endpoint, such as WireGuard): SOCKS, Shadowsocks, VLESS, Hysteria,
+WireGuard, anything sing-box speaks. Holtdroid only tags it with the location
+id and puts it behind the selector.
 
-### Sharing one NordVPN key
+Every session Pod runs its own copy of these outbounds. That is fine for
+proxies that accept many connections with the same credentials, but not for
+WireGuard: VPN services usually give one key per account, and the same key
+connected from several Pods at once makes the peers knock each other off.
 
-NordVPN's WireGuard credentials are one key per account. Two peers using the
-same key on the **same server** keep knocking each other off. The `nordvpn`
-provider therefore picks, per location, a server that no other live session
-uses. If the same key is used outside Holtdroid, list those servers in
-`excludeServers`.
+## Recommended: a shared VPN gateway
 
-See [Emulator provider](/holtdroid/configuration/emulator/) for configuration.
+Run one sing-box yourself as a **VPN gateway**. It holds the real VPN
+connection, one tunnel per location, and offers a SOCKS server where the
+username selects the location. Each Holtdroid location is then just "SOCKS to
+the gateway, user `de`":
+
+```mermaid
+flowchart LR
+  subgraph s1["Session Pod 1"]
+    e1["emulator"] --> v1["sing-box sidecar"]
+  end
+  subgraph s2["Session Pod 2"]
+    e2["emulator"] --> v2["sing-box sidecar"]
+  end
+  v1 -- "socks, user de" --> gw["VPN gateway<br/>(your sing-box)"]
+  v2 -- "socks, user nl" --> gw
+  gw -- "WireGuard" --> de[(VPN server DE)]
+  gw -- "WireGuard" --> nl[(VPN server NL)]
+```
+
+- One key per location serves any number of sessions.
+- Switching stays per session: each sidecar has its own selector.
+- Sessions on the same location share its egress IP.
+- Adding a vendor or a country is a change to the gateway, not to Holtdroid.
+
+[Shared VPN gateway](/holtdroid/operations/vpn-gateway/) has a complete
+setup. Configuration keys are on the [emulator provider](/holtdroid/configuration/emulator/#vpn)
+page.

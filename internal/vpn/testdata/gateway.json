@@ -1,0 +1,90 @@
+{
+  "log": {
+    "level": "warn",
+    "timestamp": true
+  },
+  "dns": {
+    "final": "tunnel",
+    "servers": [
+      {
+        "tag": "local",
+        "type": "local"
+      },
+      {
+        "detour": "select",
+        "server": "1.1.1.1",
+        "tag": "tunnel",
+        "type": "udp"
+      }
+    ]
+  },
+  "inbounds": [
+    {
+      "address": [
+        "198.18.0.1/30",
+        "fdfe:dcba:9876::1/126"
+      ],
+      "auto_route": true,
+      "route_exclude_address": [
+        "10.0.0.0/8",
+        "172.16.0.0/12",
+        "192.168.0.0/16",
+        "fc00::/7"
+      ],
+      "tag": "tun",
+      "type": "tun"
+    }
+  ],
+  "outbounds": [
+    {
+      "tag": "direct",
+      "type": "direct"
+    },
+    {
+      "password": "holtdroid",
+      "server": "vpn-gateway.vpn.svc.cluster.local",
+      "server_port": 1080,
+      "tag": "de",
+      "type": "socks",
+      "username": "de"
+    },
+    {
+      "password": "holtdroid",
+      "server": "vpn-gateway.vpn.svc.cluster.local",
+      "server_port": 1080,
+      "tag": "pl",
+      "type": "socks",
+      "username": "pl"
+    },
+    {
+      "default": "direct",
+      "interrupt_exist_connections": true,
+      "outbounds": [
+        "direct",
+        "de",
+        "pl"
+      ],
+      "tag": "select",
+      "type": "selector"
+    }
+  ],
+  "route": {
+    "auto_detect_interface": true,
+    "default_domain_resolver": "local",
+    "final": "select",
+    "rules": [
+      {
+        "action": "sniff"
+      },
+      {
+        "action": "hijack-dns",
+        "protocol": "dns"
+      }
+    ]
+  },
+  "experimental": {
+    "clash_api": {
+      "external_controller": "127.0.0.1:9090"
+    }
+  }
+}
