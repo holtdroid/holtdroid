@@ -22,9 +22,10 @@ A source is a folder or an S3 prefix the api lists itself. To feed builds
 from Slack, CI or anywhere else, write `*.apk` files there, each with an
 optional `<file>.apk.meta.json` sidecar (title, note, changelog, uploader,
 link, origin, tags, owner, visibility) — see
-[Artifact sources](/holtdroid/configuration/sources/). The api parses the
+[Artifact sources](/holtdroid/sources/overview/). The api parses the
 APKs, notices replaced files by their ETag or modification time, and pushes
-changes to the UI.
+changes to the UI. [Writing your own](/holtdroid/sources/custom/) lists the
+principles a sync job should follow.
 
 ## Device provider
 

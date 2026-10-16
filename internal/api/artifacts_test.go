@@ -93,6 +93,15 @@ func TestUploads(t *testing.T) {
 	if got := h.list("otter", "")[key]; !got.CanManage {
 		t.Fatalf("owner view %+v", got)
 	}
+	if rec := h.do(http.MethodGet, artifactPathFor(up), "beaver", "", nil); rec.Code != http.StatusNotFound {
+		t.Fatalf("stranger getting a private upload: %d", rec.Code)
+	}
+	if rec := h.do(http.MethodGet, artifactPathFor(up), "otter", "", nil); rec.Code != http.StatusOK || decode[ArtifactView](t, rec).ID != up.ID {
+		t.Fatalf("owner get: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := h.do(http.MethodGet, "/api/v1/artifacts/local/"+encodeID("missing.apk"), "otter", "", nil); rec.Code != http.StatusNotFound {
+		t.Fatalf("missing artifact: %d", rec.Code)
+	}
 	launch := map[string]string{"source": "local", "artifactId": up.ID, "provider": "fake"}
 	if rec := h.do(http.MethodPost, "/api/v1/sessions", "beaver", "", launch); rec.Code != http.StatusNotFound {
 		t.Fatalf("stranger launching a private upload: %d", rec.Code)

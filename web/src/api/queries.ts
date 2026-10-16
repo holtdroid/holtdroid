@@ -16,6 +16,7 @@ export const keys = {
   uploads: ["uploads"] as const,
   allArtifacts: ["artifacts"] as const,
   artifacts: (source: string) => ["artifacts", source] as const,
+  artifact: (source: string, id: string) => ["artifacts", source, id] as const,
   providers: ["providers"] as const,
   sessions: ["sessions"] as const,
 }
@@ -68,6 +69,15 @@ export function useArtifacts(source: string) {
       unwrap(api.GET("/api/v1/artifacts", { params: { query: source ? { source, limit: 100 } : { limit: 100 } } })),
     refetchInterval: (query) => (query.state.data?.items.some((a) => !a.app) ? 3_000 : 60_000),
     placeholderData: keepPreviousData,
+  })
+}
+
+export function useArtifact(source: string, id: string) {
+  return useQuery({
+    queryKey: keys.artifact(source, id),
+    queryFn: () => unwrap(api.GET("/api/v1/artifacts/{source}/{id}", { params: { path: { source, id } } })),
+    enabled: source !== "" && id !== "",
+    retry: false,
   })
 }
 

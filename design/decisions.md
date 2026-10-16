@@ -475,3 +475,24 @@ api tolerates a provider being briefly unreachable.
 double-book a node; anti-affinity would turn that into a Pending Pod that the
 reaper removes. A Pod that can't be scheduled stays `provisioning` until the
 reaper removes it.
+
+## 30. Sync jobs live in their own repositories
+
+**Context.** Decision #27 made integrations independent jobs that write the
+source layout. The Slack sync was planned as a subcommand of the
+`holtdroid` binary.
+
+**Decision.** Each sync job is its own repository, image and chart, starting
+with [kriakiku/holtdroid-slack-sync](https://github.com/kriakiku/holtdroid-slack-sync).
+It talks to Holtdroid only through the file layout and the launch link
+(`/?source=…&launch=…`, contracts.md "Artifact sources"). It copies the few
+packages it shares with Holtdroid (`storage`, `secrets`, `config`, `apk`)
+instead of importing them, because those are `internal/`. The job is
+stateless like the api: the target listing is its state, and its own Slack
+reaction marks a message as announced.
+
+**Consequences.** Holtdroid no longer depends on `slack-go`, and its releases
+don't move with Slack's API. A change to the layout, the sidecar or the
+launch link has to be mirrored in the sync repos, and their copied packages
+can drift from upstream: port fixes both ways.
+

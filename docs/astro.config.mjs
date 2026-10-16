@@ -20,6 +20,7 @@ export default defineConfig({
 				{ label: 'Start here', items: [{ autogenerate: { directory: 'start' } }] },
 				{ label: 'Concepts', items: [{ autogenerate: { directory: 'concepts' } }] },
 				{ label: 'Configuration', items: [{ autogenerate: { directory: 'configuration' } }] },
+				{ label: 'APK sources', items: [{ autogenerate: { directory: 'sources' } }] },
 				{ label: 'Operations', items: [{ autogenerate: { directory: 'operations' } }] },
 				{ label: 'Extending', items: [{ autogenerate: { directory: 'extending' } }] },
 			],

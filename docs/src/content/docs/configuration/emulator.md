@@ -2,7 +2,7 @@
 title: Emulator provider
 description: Run sessions as Android emulator Pods on KVM-capable Kubernetes nodes.
 sidebar:
-  order: 6
+  order: 5
 ---
 
 The `provider-emulator` service creates one Pod per session in its own

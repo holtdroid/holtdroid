@@ -122,6 +122,15 @@ func (s *Server) registerArtifacts(api huma.API) {
 			return &out[ArtifactList]{list}, nil
 		})
 
+	huma.Register(api, huma.Operation{OperationID: "getArtifact", Method: http.MethodGet, Path: "/api/v1/artifacts/{source}/{id}", Tags: tags},
+		func(ctx context.Context, in *artifactPath) (*out[ArtifactView], error) {
+			_, a, err := s.visibleArtifact(ctx, in.Source, in.ID)
+			if err != nil {
+				return nil, httpError(err)
+			}
+			return &out[ArtifactView]{s.artifactView(ctx, in.Source, a)}, nil
+		})
+
 	huma.Register(api, huma.Operation{
 		OperationID: "updateArtifact", Method: http.MethodPatch, Path: "/api/v1/artifacts/{source}/{id}", Tags: tags,
 		Description: "Changes the visibility of an artifact. Owner or admin only.",
@@ -193,7 +202,7 @@ func (s *Server) registerArtifacts(api huma.API) {
 	})
 }
 
-func (s *Server) managedArtifact(ctx context.Context, name, id string) (*source.Source, source.Artifact, error) {
+func (s *Server) visibleArtifact(ctx context.Context, name, id string) (*source.Source, source.Artifact, error) {
 	src, err := s.source(name)
 	if err != nil {
 		return nil, source.Artifact{}, err
@@ -210,6 +219,15 @@ func (s *Server) managedArtifact(ctx context.Context, name, id string) (*source.
 	if !a.VisibleTo(who.User, who.Admin) {
 		return nil, source.Artifact{}, fmt.Errorf("%w: %s", contract.ErrNotFound, id)
 	}
+	return src, a, nil
+}
+
+func (s *Server) managedArtifact(ctx context.Context, name, id string) (*source.Source, source.Artifact, error) {
+	src, a, err := s.visibleArtifact(ctx, name, id)
+	if err != nil {
+		return nil, source.Artifact{}, err
+	}
+	who, _ := auth.FromContext(ctx)
 	if !a.ManageableBy(who.User, who.Admin) {
 		return nil, source.Artifact{}, errForbidden
 	}

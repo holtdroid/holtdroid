@@ -1,14 +1,16 @@
 ---
-title: Artifact sources
-description: Folders and S3 buckets with APKs, the optional .meta.json sidecar, change tracking and uploads.
+title: Overview
+description: Folders and S3 buckets with APKs, the optional .meta.json sidecar, change tracking, uploads and launch links.
 sidebar:
-  order: 2
+  order: 1
 ---
 
 A **source** is a folder or an S3 bucket (or a prefix in one) with `*.apk`
 files. The api lists it directly — there is no separate source service. How
 the files get there is up to you: copy them by hand, let CI publish them, run
-a small sync job that pulls builds out of Slack, or upload them in the UI.
+a sync job such as [holtdroid-slack-sync](/holtdroid/sources/slack/) that
+pulls builds out of Slack, [write your own](/holtdroid/sources/custom/), or
+upload them in the UI.
 
 ```yaml
 sources:
@@ -111,3 +113,12 @@ Uploads live in the source, not in the cache, so the source has to be
 persistent: the chart mounts a PersistentVolumeClaim at `/var/lib/holtdroid`
 for the default `local` source. A `ReadWriteOnce` claim limits the api to one
 replica — use an S3 source for uploads to run more.
+
+## Launch links
+
+`https://holtdroid.example.com/?source={source}&launch={artifact ID}` opens
+the portal with the launch dialog for that build. The artifact ID is the
+base64url (no padding) of the file's key inside the source, e.g. `slack` +
+`C0123/F0456/app.apk` → `?source=slack&launch=QzAxMjMvRjA0NTYvYXBwLmFwaw`.
+Sync jobs use it to post "launch this build" links next to the build; a build
+that is gone or private to someone else shows a notice instead.

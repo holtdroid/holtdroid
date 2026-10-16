@@ -49,7 +49,10 @@ deployment"):
   android.homelab.example (see "Maintainer's deployment"); the pre-pull DaemonSet
   has the session image on all four nodes, but nobody has started a session
   yet.
-- The Slack sync job (independent of the api, writes the source layout).
+- The Slack sync on android.homelab.example: the job exists
+  ([kriakiku/holtdroid-slack-sync](https://github.com/kriakiku/holtdroid-slack-sync),
+  decision #30) but needs the maintainer's Slack app and token before it can
+  be deployed.
 - SSH gateway — Phase 4.5 (designed in architecture.md "SSH access").
 - Docker-only provider, physical phones — "Later".
 
@@ -58,8 +61,8 @@ deployment"):
 1. **Phase 3** — launch a real session on android.homelab.example from the UI
    (needs the maintainer's Authelia login) and fix what it finds: the
    NetworkPolicy vs. the kubelet readiness probe, VPN switching through the
-   gateway, DevTools against a real WebView. Then the Slack sync job that
-   writes into an S3 source.
+   gateway, DevTools against a real WebView. Then deploy the Slack sync into
+   the S3 source once the Slack app exists.
 2. **Phase 4.5 — SSH gateway**, can run in parallel against the fake
    provider.
 3. Planned, each starting with a decisions.md entry: Phase 4.7 traffic

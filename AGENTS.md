@@ -20,6 +20,10 @@ imports it. Read it fully before changing anything.
    they are. Do not relitigate an accepted decision silently: add a new entry
    that supersedes it.
 
+Sync jobs that publish builds live in their own repositories and only share
+the source layout and launch links with this one (decisions.md #30), e.g.
+[kriakiku/holtdroid-slack-sync](https://github.com/kriakiku/holtdroid-slack-sync).
+
 If an `AGENTS.local.md` exists next to this file, read it too: it holds
 machine-specific notes (local paths, how to deploy to the maintainer's
 cluster) and is deliberately not committed.
@@ -76,7 +80,6 @@ Directories that do not exist yet are planned — create them exactly there.
   - `spf13/cobra` — CLI;
   - `knadh/koanf/v2` — configuration;
   - `k8s.io/client-go`;
-  - `slack-go/slack` (for the planned Slack sync job, not the api);
   - `golang-jwt/jwt/v5`, `coreos/go-oidc/v3`, `golang.org/x/oauth2` — sign-in;
   - `minio/minio-go/v7` — S3 (tests use `johannesboyne/gofakes3`);
   - `shogo82148/androidbinary` — APK parsing;

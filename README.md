@@ -10,8 +10,9 @@ tab — the device screen, Chrome DevTools attached to the app's WebViews,
 clipboard sync and a VPN location switcher. Idle devices shut themselves down.
 
 > **Status:** pre-alpha. The portal (api + web UI) runs locally against
-> simulated devices with `make dev`; the Android emulator provider and a
-> Slack sync job are next. The plan lives in [`design/`](design/README.md),
+> simulated devices with `make dev`; the Android emulator provider is being
+> tried on a real cluster. Builds from Slack come in through
+> [holtdroid-slack-sync](https://github.com/kriakiku/holtdroid-slack-sync). The plan lives in [`design/`](design/README.md),
 > the docs at [kriakiku.github.io/holtdroid](https://kriakiku.github.io/holtdroid/).
 
 ## Try it

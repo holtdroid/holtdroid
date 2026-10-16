@@ -37,6 +37,14 @@ the layout:
 - replacing a file in place is fine: its revision (ETag, else size + mtime)
   changes and the api treats it as a new build.
 
+Sync jobs announce builds with a **launch link**:
+`{publicURL}/?source={source}&launch={id}`, `id` = base64url (no padding)
+of the key inside the source — the same ID the UI API uses
+(`GET /api/v1/artifacts/{source}/{id}`). The home page opens the launch
+dialog for it. The Slack sync lives in its own repository,
+[kriakiku/holtdroid-slack-sync](https://github.com/kriakiku/holtdroid-slack-sync)
+(decision #30).
+
 ```go
 type Meta struct { // x.apk.meta.json; every field optional, unknown ones ignored
 	Title      string            // display name instead of the APK label
