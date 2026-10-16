@@ -23,8 +23,40 @@ ABIs and a [launch link](/holtdroid/sources/overview/#launch-links).
 
 ## 1. Create the Slack app
 
-At <https://api.slack.com/apps> → **Create New App** → **From scratch**, then
-under **OAuth & Permissions** add these bot token scopes:
+The quickest way is to create it from the manifest:
+
+1. Open <https://api.slack.com/apps> → **Create New App** → **From a
+   manifest**, and pick the workspace.
+2. Paste the manifest below (it is also
+   [`slack-app-manifest.yaml`](https://github.com/kriakiku/holtdroid-slack-sync/blob/main/slack-app-manifest.yaml)
+   in the job's repository), then click **Create** → **Install to
+   Workspace**.
+3. Copy the **Bot User OAuth Token** (`xoxb-…`) from **OAuth &
+   Permissions**.
+
+```yaml
+display_information:
+  name: Holtdroid
+  description: Copies APKs posted here into Holtdroid and replies with a launch link.
+  background_color: "#8a5a3c"
+features:
+  bot_user:
+    display_name: Holtdroid
+    always_online: false
+oauth_config:
+  scopes:
+    bot:
+      - channels:history
+      - groups:history
+      - files:read
+      - users:read
+      - reactions:write
+      - chat:write
+settings:
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false
+```
 
 | Scope                                | Needed for                                             |
 | ------------------------------------ | ------------------------------------------------------ |
@@ -34,10 +66,12 @@ under **OAuth & Permissions** add these bot token scopes:
 | `reactions:write`                    | `slack.react` (optional)                               |
 | `chat:write`                         | `slack.reply` (optional)                               |
 
-Install the app to the workspace, copy the **Bot User OAuth Token**
-(`xoxb-…`) and invite the bot to every channel: `/invite @your-bot`. Channels
-are configured by ID (channel details → **About**, at the bottom), e.g.
-`C0123ABCD`.
+Manifests can't set the app icon, so upload it under **Basic Information**
+if you want one.
+
+Then invite the bot to every channel: `/invite @Holtdroid`. Channels are
+configured by ID, e.g. `C0123ABCD`: open the channel details and find the ID
+at the bottom of **About**.
 
 For the reaction, add a custom emoji (**Customize workspace → Emoji**) named
 `holtdroid` from
