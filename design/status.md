@@ -44,25 +44,24 @@ deployment"):
 
 **Not built yet**:
 
-- `provider-emulator` in the chart: the provider itself
-  (`internal/provider/emulator`, `holtdroid provider-emulator`, decision
-  #29) is done and tested against a fake clientset; a read-only run against
-  the homelab cluster listed `k3s-1..3` as slots. It hasn't launched a real
-  session yet.
+- A real session launched through `provider-emulator`. The provider
+  (`internal/provider/emulator`, decision #29) and its chart wiring
+  (`providers.emulator`: RBAC incl. a ClusterRole for Nodes, NetworkPolicy,
+  pre-pull DaemonSet) are done; the rendered objects pass a server-side dry
+  run on the homelab cluster and the provider, run locally with the
+  rendered config, lists `core` and `k3s-1..3` as slots.
 - The Slack sync job (independent of the api, writes the source layout).
 - SSH gateway — Phase 4.5 (designed in architecture.md "SSH access").
 - Docker-only provider, physical phones — "Later".
 
 ## Next steps, in order
 
-1. **Phase 3** — wire `provider-emulator` into the chart (Deployment,
-   ServiceAccount, Role for Pods/Secrets in the namespace, ClusterRole to
-   list Nodes, NetworkPolicy api → agent port, session image pre-pull
-   DaemonSet, values for `nodeSelector`/`tolerations`/`slots`/`resources`/
-   `vpn`; the chart renders `nodeSelector` as a label selector string), then
-   switch the maintainer's deployment to it with the VPN gateway locations
-   and launch a real session from the UI. Then the Slack sync job that
-   writes into an S3 source.
+1. **Phase 3** — switch the maintainer's deployment to
+   `providers.emulator` (values in `homelab.k8s/argocd/holtdroid.yaml`, VPN
+   locations from the gateway with the password from `secret/vpn`) and
+   launch a real session from the UI; check that the NetworkPolicy leaves the
+   kubelet readiness probe alone. Then the Slack sync job that writes into an
+   S3 source.
 2. **Phase 4.5 — SSH gateway**, can run in parallel against the fake
    provider.
 3. Planned, each starting with a decisions.md entry: Phase 4.7 traffic

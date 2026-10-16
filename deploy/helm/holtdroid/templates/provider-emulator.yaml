@@ -1,0 +1,220 @@
+{{- $e := .Values.providers.emulator -}}
+{{- if $e.enabled }}
+{{- $name := include "holtdroid.fullname" . -}}
+{{- $component := "provider-emulator" -}}
+{{- $sessionImage := printf "%s:%s" $e.session.image.repository ($e.session.image.tag | default (include "holtdroid.tag" .)) -}}
+{{- $selector := list -}}
+{{- range $k, $v := $e.nodeSelector }}
+{{- $selector = append $selector (printf "%s=%s" $k $v) -}}
+{{- end }}
+{{- $pullSecrets := list -}}
+{{- range .Values.imagePullSecrets }}
+{{- $pullSecrets = append $pullSecrets .name -}}
+{{- end }}
+{{- $cfg := dict
+  "listen" ":8080"
+  "namespace" .Release.Namespace
+  "slots" $e.slots
+  "nodeSelector" (join "," $selector)
+  "tolerations" $e.tolerations
+  "image" $sessionImage
+  "imagePullPolicy" $e.session.image.pullPolicy
+  "imagePullSecrets" $pullSecrets
+  "resources" $e.session.resources
+-}}
+{{- with $e.vpn }}
+{{- $_ := set $cfg "vpn" . -}}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}-{{ $component }}
+  labels:
+    {{- include "holtdroid.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    {{- toYaml $cfg | nindent 4 }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $name }}-{{ $component }}
+  labels:
+    {{- include "holtdroid.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $name }}-{{ $component }}
+  labels:
+    {{- include "holtdroid.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [get, list, create, delete, patch]
+  - apiGroups: [""]
+    resources: [secrets]
+    verbs: [create]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $name }}-{{ $component }}
+  labels:
+    {{- include "holtdroid.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $name }}-{{ $component }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $name }}-{{ $component }}
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Namespace }}-{{ $name }}-{{ $component }}
+  labels:
+    {{- include "holtdroid.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: [nodes]
+    verbs: [list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Release.Namespace }}-{{ $name }}-{{ $component }}
+  labels:
+    {{- include "holtdroid.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Release.Namespace }}-{{ $name }}-{{ $component }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $name }}-{{ $component }}
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}-{{ $component }}
+  labels:
+    {{- include "holtdroid.labels" . | nindent 4 }}
+    app.kubernetes.io/component: {{ $component }}
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 0, maxUnavailable: 1 }
+  selector:
+    matchLabels:
+      {{- include "holtdroid.selector" (dict "root" . "component" $component) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "holtdroid.selector" (dict "root" . "component" $component) | nindent 8 }}
+      annotations:
+        checksum/config: {{ toYaml $cfg | sha256sum }}
+    spec:
+      {{- include "holtdroid.pod" (dict "root" .) | nindent 6 }}
+      serviceAccountName: {{ $name }}-{{ $component }}
+      containers:
+        - name: {{ $component }}
+          {{- include "holtdroid.container" (dict "root" .) | nindent 10 }}
+          args: [provider-emulator, --config, /etc/holtdroid/config.yaml]
+          ports:
+            - { name: http, containerPort: 8080 }
+          readinessProbe:
+            httpGet: { path: /v1/health, port: http }
+          resources:
+            {{- toYaml $e.resources | nindent 12 }}
+          volumeMounts:
+            - { name: config, mountPath: /etc/holtdroid, readOnly: true }
+      volumes:
+        - name: config
+          configMap:
+            name: {{ $name }}-{{ $component }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}-{{ $component }}
+  labels:
+    {{- include "holtdroid.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "holtdroid.selector" (dict "root" . "component" $component) | nindent 4 }}
+  ports:
+    - { name: http, port: 8080, targetPort: http }
+{{- if $e.networkPolicy.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $name }}-sessions
+  labels:
+    {{- include "holtdroid.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: holtdroid-session
+      app.kubernetes.io/managed-by: holtdroid-provider-emulator
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "holtdroid.selector" (dict "root" . "component" "api") | nindent 14 }}
+      ports:
+        - { protocol: TCP, port: 8080 }
+{{- end }}
+{{- if $e.prepull.enabled }}
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ $name }}-session-prepull
+  labels:
+    {{- include "holtdroid.labels" . | nindent 4 }}
+    app.kubernetes.io/component: session-prepull
+spec:
+  selector:
+    matchLabels:
+      {{- include "holtdroid.selector" (dict "root" . "component" "session-prepull") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "holtdroid.selector" (dict "root" . "component" "session-prepull") | nindent 8 }}
+    spec:
+      {{- include "holtdroid.pod" (dict "root" .) | nindent 6 }}
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 1
+      {{- with $e.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $e.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        - name: session
+          image: {{ $sessionImage }}
+          imagePullPolicy: {{ $e.session.image.pullPolicy }}
+          command: [/usr/local/bin/holtdroid, --version]
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          resources:
+            {{- toYaml $e.prepull.resources | nindent 12 }}
+      containers:
+        - name: pause
+          image: {{ $e.prepull.pauseImage }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          resources:
+            {{- toYaml $e.prepull.resources | nindent 12 }}
+{{- end }}
+{{- end }}

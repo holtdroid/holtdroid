@@ -8,8 +8,8 @@ sidebar:
 import { Steps, Aside } from "@astrojs/starlight/components"
 
 <Aside type="caution">
-  Pre-alpha: the emulator provider is not released yet. Until it is, the chart runs the portal with simulated devices,
-  which is enough to try the UI, uploads, sign-in and storage setups.
+  Pre-alpha: the emulator provider is new and not yet released. Simulated devices (`providers.fake`) are enough to try
+  the UI, uploads, sign-in and storage setups without KVM nodes.
 </Aside>
 
 <Steps>
@@ -39,8 +39,10 @@ import { Steps, Aside } from "@astrojs/starlight/components"
        sessionKey: env:SESSION_KEY
 
    providers:
-     fake:
-       enabled: true # simulated devices until the emulator provider lands
+     emulator:
+       enabled: true
+       nodeSelector: { holtdroid/kvm: "true" } # nodes with /dev/kvm
+       # vpn: { locations: [...] }            # see the emulator provider page
 
    ingress:
      enabled: true
@@ -111,16 +113,17 @@ pod may wait in `ImagePullBackOff` for a few minutes until that commit's image i
 
 ## Chart values
 
-| Value                      | Default                      | Meaning                                                                             |
-| -------------------------- | ---------------------------- | ----------------------------------------------------------------------------------- |
-| `image.repository` / `tag` | `ghcr.io/kriakiku/holtdroid` | Tag defaults to the chart's `appVersion`                                            |
-| `publicURL`                | –                            | External URL; needed for OIDC and secure cookies                                    |
-| `existingSecret`           | –                            | Secret exposed as env to every component (for `env:` references)                    |
-| `config`                   | anonymous, filesystem        | Merged into the api config, see [Configuration](/holtdroid/configuration/overview/) |
-| `api.replicas`             | `1`                          | Safe to raise with a shared `sessionKey`                                            |
-| `api.cacheVolume`          | `emptyDir` 25Gi              | Volume for `storage.type: filesystem`                                               |
-| `api.persistence.*`        | RWO PVC, 10Gi                | Mounted at `/var/lib/holtdroid`: the default `local` source and uploads             |
-| `providers.fake.enabled`   | `false`                      | Simulated devices                                                                   |
-| `extraProviders`           | `[]`                         | Out-of-tree providers: `[{name, url}]`                                              |
-| `ingress.*`                | disabled                     | Standard Ingress                                                                    |
-| `extraObjects`             | `[]`                         | Extra manifests, rendered with `tpl`                                                |
+| Value                      | Default                      | Meaning                                                                                   |
+| -------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------- |
+| `image.repository` / `tag` | `ghcr.io/kriakiku/holtdroid` | Tag defaults to the chart's `appVersion`                                                  |
+| `publicURL`                | –                            | External URL; needed for OIDC and secure cookies                                          |
+| `existingSecret`           | –                            | Secret exposed as env to every component (for `env:` references)                          |
+| `config`                   | anonymous, filesystem        | Merged into the api config, see [Configuration](/holtdroid/configuration/overview/)       |
+| `api.replicas`             | `1`                          | Safe to raise with a shared `sessionKey`                                                  |
+| `api.cacheVolume`          | `emptyDir` 25Gi              | Volume for `storage.type: filesystem`                                                     |
+| `api.persistence.*`        | RWO PVC, 10Gi                | Mounted at `/var/lib/holtdroid`: the default `local` source and uploads                   |
+| `providers.fake.enabled`   | `false`                      | Simulated devices                                                                         |
+| `providers.emulator.*`     | disabled                     | Emulator sessions, see [Emulator provider](/holtdroid/configuration/emulator/#helm-chart) |
+| `extraProviders`           | `[]`                         | Out-of-tree providers: `[{name, url}]`                                                    |
+| `ingress.*`                | disabled                     | Standard Ingress                                                                          |
+| `extraObjects`             | `[]`                         | Extra manifests, rendered with `tpl`                                                      |

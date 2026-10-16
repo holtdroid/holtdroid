@@ -46,6 +46,32 @@ pinned to the first free node; nodes that are not Ready or are cordoned show
 as offline. Session state lives on the Pod, so restarting the provider loses
 nothing. Run one provider replica per namespace.
 
+## Helm chart
+
+`providers.emulator.enabled: true` deploys the provider (one replica) with its
+ServiceAccount, a Role for Pods and Secrets in the release namespace and a
+ClusterRole to list Nodes. The chart fills `namespace`, `image` and
+`imagePullSecrets` itself:
+
+```yaml
+providers:
+  emulator:
+    enabled: true
+    slots: 4
+    nodeSelector: { holtdroid/kvm: "true" } # a map here; the chart turns it into a selector
+    tolerations: []
+    session:
+      image: { repository: ghcr.io/kriakiku/holtdroid-session, tag: "" } # tag defaults to image.tag
+      resources: { requests: { cpu: "3", memory: 5Gi }, limits: { cpu: "4", memory: 7Gi } }
+    vpn: {} # the vpn section below
+    networkPolicy: { enabled: true } # only the api reaches session agents
+    prepull: { enabled: true } # DaemonSet that pulls the session image onto session nodes
+```
+
+The session image is several GB. The pre-pull DaemonSet runs on the same
+nodes as sessions and keeps the current tag on disk, so the first launch after
+an upgrade doesn't wait for the download.
+
 ## VPN
 
 With at least one location, every session Pod gets a `vpn` sidecar (see

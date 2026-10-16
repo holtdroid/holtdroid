@@ -8,6 +8,9 @@
 {{- if .Values.providers.fake.enabled -}}
 {{- $providers = append $providers (dict "name" .Values.providers.fake.name "url" (printf "http://%s-provider-fake:8080" $name)) -}}
 {{- end -}}
+{{- if .Values.providers.emulator.enabled -}}
+{{- $providers = append $providers (dict "name" .Values.providers.emulator.name "url" (printf "http://%s-provider-emulator:8080" $name)) -}}
+{{- end -}}
 {{- $providers = concat $providers .Values.extraProviders -}}
 {{- $_ := set $cfg "providers" $providers -}}
 {{- $p := .Values.api.persistence -}}

@@ -33,7 +33,7 @@ silently drop any.
 - [x] `images/Dockerfile` (distroless, multi-arch) and release workflow: `ghcr.io/kriakiku/holtdroid:<sha>` on every push to `main`, chart to OCI on tags
 - [x] Helm chart `deploy/helm/holtdroid` (api with a data PVC for the `local` source and uploads, provider-fake, ingress, extraObjects)
 - [x] Live deployment tracking `main` (Argo CD, android.homelab.example)
-- [ ] Session image pre-pull and emulator provider values in the chart (with Phase 3)
+- [x] Session image pre-pull and emulator provider values in the chart (with Phase 3)
 
 ## Phase 2 — Session prototype (highest risk)
 
@@ -148,7 +148,7 @@ leave the process, the api doesn't keep them.
 
 ## Phase 5 — Packaging and docs
 
-- [ ] Helm chart: add provider-emulator, RBAC, NetworkPolicy, prepull DaemonSet, values for nodeSelector/tolerations/slots/resources
+- [x] Helm chart: add provider-emulator, RBAC, NetworkPolicy, prepull DaemonSet, values for nodeSelector/tolerations/slots/resources
 - [x] Release workflow: amd64 session image
 - [ ] Docs site content: install with Helm, Slack app setup, VPN providers, secrets backends, forward-auth examples (Authelia, oauth2-proxy), architecture, publishing builds into a source, writing a provider, troubleshooting (KVM, ARM translation, Frida)
 - [x] Docs deployed to GitHub Pages

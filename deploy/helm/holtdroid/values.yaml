@@ -76,6 +76,42 @@ providers:
       requests: { cpu: 5m, memory: 16Mi }
       limits: { memory: 128Mi }
 
+  # Android emulators as Pods on KVM nodes (one session per node). The
+  # provider lists Nodes cluster-wide, so the chart adds a ClusterRole.
+  emulator:
+    enabled: false
+    name: emulator
+    # Maximum concurrent sessions; 0 means one per matching node.
+    slots: 4
+    # Nodes that may run sessions; they need /dev/kvm.
+    nodeSelector: {}
+    tolerations: []
+    session:
+      image:
+        repository: ghcr.io/kriakiku/holtdroid-session
+        # Defaults to image.tag (CI builds both images for every commit).
+        tag: ""
+        pullPolicy: IfNotPresent
+      resources:
+        requests: { cpu: "3", memory: 5Gi }
+        limits: { cpu: "4", memory: 7Gi }
+    # Per-session VPN sidecar, see the emulator provider docs. Empty: no VPN.
+    vpn: {}
+    # Only the api may reach session agents.
+    networkPolicy:
+      enabled: true
+    # Pulls the session image onto every session node ahead of the first
+    # launch (it is several GB).
+    prepull:
+      enabled: true
+      pauseImage: registry.k8s.io/pause:3.10@sha256:ee6521f290b2168b6e0935a181d4cff9be1ac3f505666ef0e3c98fae8199917a
+      resources:
+        requests: { cpu: 1m, memory: 4Mi }
+        limits: { memory: 16Mi }
+    resources:
+      requests: { cpu: 5m, memory: 32Mi }
+      limits: { memory: 128Mi }
+
 # Additional out-of-tree providers: [{name, url}]
 extraProviders: []
 
