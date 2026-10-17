@@ -48,6 +48,11 @@ deployment"):
   bug report zip and bugreportz), plus screen recording in the rail. The
   agent's adb relays refuse `reboot:`/`unroot:`/`remount:`/`tcpip:`/`usb:`.
   The fake provider has a small adbd. Works on the real emulator.
+- Holtdroid WebView (decision #62), a separate app in
+  kriakiku/holtdroid-webview: presets of WebView settings, display modes,
+  viewport framing, freeze, clear data, TLS/proxy/user agent, console and
+  Eruda, GeckoView build, control over `am start`/`am broadcast`; releases
+  from Conventional Commits, Renovate for dependencies. Docs under Tools.
 - A metrics bar at the bottom of the session page (decision #40): device,
   app (fps, jank, CPU/PSS per process), network, storage, temperatures,
   the emulator container's CPU/memory/throttling and the stream.

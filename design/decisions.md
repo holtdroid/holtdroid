@@ -1422,3 +1422,26 @@ bash and zsh; fish, nushell and PowerShell users turn the switch off and loop
 their own way. A port the gateway always refuses (outside `reversePorts`, over
 `maxTunnelsPerConnection`) makes the loop retry every second with the error
 on screen.
+
+## 62. A WebView test browser in its own repository
+
+**Context.** Testing a web page inside a WebView meant finding some app that
+embeds one, and every such app picks its own WebView settings (TLS, user
+agent, viewport, permissions) with no way to change them or to see the page
+under a different setup.
+
+**Decision.** [kriakiku/holtdroid-webview](https://github.com/kriakiku/holtdroid-webview)
+is a separate Android app (Kotlin, Compose), released on its own: a start
+screen with presets of WebView settings, remote debugging on by default, a
+GeckoView build next to the plain one, and live control through
+`am start`/`am broadcast` with one key per setting. It knows nothing about
+Holtdroid's APIs: a session runs it like any uploaded APK and finds its
+WebView through the usual DevTools socket. Releases are tagged from
+Conventional Commits on every push, and Renovate merges dependency updates,
+which then ship as patch releases.
+
+**Consequences.** The portal needs no code for it, and the app is useful
+without Holtdroid. Its user documentation lives on this site
+(`docs/tools/webview.md`) so there is one place to read; the app links to it.
+The GeckoView build is about 100 MB per ABI, so it is a separate APK.
+

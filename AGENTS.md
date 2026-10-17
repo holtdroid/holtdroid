@@ -23,7 +23,10 @@ imports it. Read it fully before changing anything.
 Sync jobs that publish builds live in their own repositories and only share
 the source layout and launch links with this one (decisions.md #30, #43):
 [kriakiku/holtdroid-sync](https://github.com/kriakiku/holtdroid-sync) holds
-the Slack, S3 and GitHub release jobs.
+the Slack, S3 and GitHub release jobs. The WebView test browser is an
+independent Android app in
+[kriakiku/holtdroid-webview](https://github.com/kriakiku/holtdroid-webview)
+(decision #62); its user docs live here in `docs/src/content/docs/tools/`.
 
 If an `AGENTS.local.md` exists next to this file, read it too: it holds
 machine-specific notes (local paths, how to deploy to the maintainer's

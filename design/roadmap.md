@@ -196,6 +196,7 @@ of the same app from it (decision #49).
 - [x] Release workflow: amd64 session image
 - [x] Docs site content: install with Helm, Slack app setup, VPN providers, secrets backends, forward-auth examples (Authelia, oauth2-proxy), architecture, publishing builds into a source, writing a provider, troubleshooting (KVM, ARM translation, Frida)
 - [x] Docs deployed to GitHub Pages
+- [x] WebView test browser with presets, unlocked DevTools and adb control ([kriakiku/holtdroid-webview](https://github.com/kriakiku/holtdroid-webview), decision #62), documented under Tools
 
 ## Phase 6 — First deployment
 

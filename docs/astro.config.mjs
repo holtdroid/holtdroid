@@ -21,6 +21,7 @@ export default defineConfig({
 				{ label: 'Concepts', items: [{ autogenerate: { directory: 'concepts' } }] },
 				{ label: 'Configuration', items: [{ autogenerate: { directory: 'configuration' } }] },
 				{ label: 'APK sources', items: [{ autogenerate: { directory: 'sources' } }] },
+				{ label: 'Tools', items: [{ autogenerate: { directory: 'tools' } }] },
 				{ label: 'Operations', items: [{ autogenerate: { directory: 'operations' } }] },
 				{ label: 'Extending', items: [{ autogenerate: { directory: 'extending' } }] },
 			],
