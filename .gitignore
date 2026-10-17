@@ -15,3 +15,4 @@ web/openapi-agent.json
 .serena/
 AGENTS.local.md
 CLAUDE.local.md
+*.tsbuildinfo
