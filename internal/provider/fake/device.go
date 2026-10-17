@@ -14,6 +14,7 @@ import (
 var progression = []contract.SessionState{
 	contract.StateBooting,
 	contract.StateInstalling,
+	contract.StateRestoring,
 	contract.StateInstrumenting,
 	contract.StateReady,
 }
@@ -51,13 +52,16 @@ func newDevice(s contract.Session, step time.Duration, offers func(string) bool,
 
 func (d *device) run(step time.Duration) {
 	for _, state := range progression {
+		if state == contract.StateRestoring && d.appData == nil {
+			continue
+		}
 		select {
 		case <-d.done:
 			return
 		case <-time.After(step):
 		}
 		d.update(func() { d.s.State = state })
-		if state == contract.StateInstalling && d.appData != nil {
+		if state == contract.StateRestoring {
 			if err := d.restore(context.Background(), *d.appData); err != nil {
 				d.update(func() { d.s.State, d.s.Reason = contract.StateFailed, "restore app data: "+err.Error() })
 				return

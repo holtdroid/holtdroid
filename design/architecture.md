@@ -148,7 +148,7 @@ uploads/3f9a1c02b7d4/my.apk.meta.json
 ## Session lifecycle
 
 ```
-provisioning → booting → installing → instrumenting → ready → (stopping) → gone
+(queued) → provisioning → booting → installing → (restoring) → instrumenting → ready → (stopping) → gone
                                    ↘ failed (reason) ↗
 ```
 
@@ -165,7 +165,12 @@ provisioning → booting → installing → instrumenting → ready → (stoppin
 - **App data** (optional, decisions.md #49): stopping or reaping a `ready`
   session first saves the app's data through the agent into the owner's
   saves in `appData.storage`; a launch may name one of them, and the agent
-  restores it between installing the APK and starting the app.
+  restores it between installing the APK and starting the app, in the
+  `restoring` state.
+- **Queue** (decisions.md #57): when every slot of a provider is busy, the
+  UI's launch request waits in that provider's line in the api until a slot
+  frees up. `queued` is not a session state: no session exists yet, and
+  closing the tab cancels the request and gives up the place.
 - **Slots**: each provider reports capacity. The emulator provider's slots
   are the nodes matching its `nodeSelector` (a label selector) whose taints
   its `tolerations` cover, sorted by name and capped at `slots`; not-Ready or

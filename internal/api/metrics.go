@@ -105,7 +105,7 @@ func (s *Server) observeSessions(ctx context.Context, all map[string][]contract.
 			counts[sess.State]++
 		}
 		for _, state := range []contract.SessionState{
-			contract.StateProvisioning, contract.StateBooting, contract.StateInstalling, contract.StateInstrumenting,
+			contract.StateProvisioning, contract.StateBooting, contract.StateInstalling, contract.StateRestoring, contract.StateInstrumenting,
 			contract.StateReady, contract.StateStopping, contract.StateFailed,
 		} {
 			sessionsGauge.WithLabelValues(provider, string(state)).Set(float64(counts[state]))

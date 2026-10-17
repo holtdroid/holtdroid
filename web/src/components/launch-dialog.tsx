@@ -1,4 +1,4 @@
-import { Loader2Icon, RocketIcon } from "lucide-react"
+import { RocketIcon } from "lucide-react"
 import { useState } from "react"
 import type { ArtifactView } from "@/api/client"
 import { useAppDataFor } from "@/api/queries"
@@ -48,7 +48,7 @@ export function LaunchDialog({ artifact, onClose }: { artifact: ArtifactView | n
   const submit = () => {
     if (!artifact || !provider) return
     const choice = snapshot && { id: snapshot.id, cache: withCache && snapshot.cache }
-    launch.start(artifact, provider.name, location, onClose, undefined, choice)
+    launch(artifact, provider.name, location, choice)
   }
 
   const title = artifact ? artifactTitle(artifact) : ""
@@ -154,9 +154,10 @@ export function LaunchDialog({ artifact, onClose }: { artifact: ArtifactView | n
             </Alert>
           )}
           {provider && free === 0 && (
-            <Alert variant="destructive">
+            <Alert>
               <AlertDescription>
-                All {total} slots of “{provider.name}” are busy. Stop a session or wait for one to expire.
+                All {total} slots of “{provider.name}” are busy. You'll wait in line and the device starts as soon as
+                one frees up, as long as you stay on its page.
               </AlertDescription>
             </Alert>
           )}
@@ -173,9 +174,9 @@ export function LaunchDialog({ artifact, onClose }: { artifact: ArtifactView | n
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={!provider || free === 0 || launch.isPending}>
-            {launch.isPending ? <Loader2Icon className="animate-spin" /> : <RocketIcon />}
-            {launch.isPending ? "Preparing…" : "Launch"}
+          <Button onClick={submit} disabled={!provider}>
+            <RocketIcon />
+            {free === 0 ? "Join the queue" : "Launch"}
           </Button>
         </DialogFooter>
       </DialogContent>

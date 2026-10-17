@@ -16,12 +16,15 @@ stateDiagram-v2
   [*] --> provisioning
   provisioning --> booting
   booting --> installing
+  installing --> restoring
   installing --> instrumenting
+  restoring --> instrumenting
   instrumenting --> ready
   ready --> stopping
   provisioning --> failed
   booting --> failed
   installing --> failed
+  restoring --> failed
   instrumenting --> failed
   failed --> stopping
   stopping --> [*]

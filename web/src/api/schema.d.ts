@@ -673,6 +673,8 @@ export interface components {
             artifactId: string;
             location?: string;
             provider: string;
+            /** @description when every slot is busy, wait in line for one instead of failing; cancelling the request gives up the place */
+            queue?: boolean;
             source: string;
         };
         ErrorDetail: {
@@ -879,6 +881,11 @@ export interface components {
             reverse: components["schemas"]["ReverseTunnel"][];
         };
         SessionView: {
+            /**
+             * @description the app data restored at launch: data, or data with its cache; empty for a fresh install
+             * @enum {string}
+             */
+            appData?: "data" | "cache";
             artifactId: string;
             /** Format: date-time */
             createdAt: string;
@@ -898,7 +905,7 @@ export interface components {
             slot: string;
             source: string;
             /** @enum {string} */
-            state: "provisioning" | "booting" | "installing" | "instrumenting" | "ready" | "stopping" | "failed";
+            state: "provisioning" | "booting" | "installing" | "restoring" | "instrumenting" | "ready" | "stopping" | "failed";
             /** Format: date-time */
             ttlDeadline: string;
             versionName?: string;

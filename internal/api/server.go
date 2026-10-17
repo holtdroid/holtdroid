@@ -48,6 +48,7 @@ type Server struct {
 	sshHTTP        *http.Client
 	audit          *audit.Logger
 	launches       *launches
+	queue          *launchQueue
 	agentTransport http.RoundTripper
 	now            func() time.Time
 	log            *slog.Logger
@@ -86,6 +87,7 @@ func New(ctx context.Context, cfg Config, opts ...Option) (*Server, error) {
 		lookupHost:     net.DefaultResolver.LookupHost,
 		sshHTTP:        &http.Client{Timeout: 10 * time.Second, Transport: telemetry.Transport(nil)},
 		launches:       newLaunches(),
+		queue:          newLaunchQueue(2 * time.Second),
 		agentTransport: telemetry.Transport(nil),
 		log:            slog.Default().With("component", "api"),
 	}

@@ -1,5 +1,6 @@
 metadata:
   annotations:
+    holtdroid/app-data: cache
     holtdroid/artifact-ref: slack/C1/F1/app.apk@1f2e
     holtdroid/created-at: "2026-10-17T12:00:00Z"
     holtdroid/last-activity: "2026-10-17T12:00:00Z"

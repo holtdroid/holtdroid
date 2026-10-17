@@ -183,6 +183,8 @@ of the same app from it (decision #49).
 - [x] api: save on Stop and on reap, save on demand, `appData.storage` (default: the shared store under `app-data/`, safe from cache eviction), retention by count per user and app and by age since last use, private to the owner, `appData.export` switch, audit events and metrics
 - [x] UI: App data page (list, download, delete), save choice and cache checkbox in the launch dialog, quick launch menu on hover with the last choice remembered, "Save app data now" on the session page
 - [x] Tests: api end to end with the fake provider, agent export/restore with a fake device, archive filter, pod golden
+- [x] `restoring` session state with `Session.appData`, shown as its own step while the device starts
+- [x] Launch queue: `queue: true` waits in a per-provider line while every slot is busy, the launch page shows it and leaving the page gives up the place (decision #57)
 - [ ] Android Keystore keys of the app (keystore2), so apps that encrypt with them survive a restore
 - [ ] External app storage (`/sdcard/Android/data/{pkg}`)
 

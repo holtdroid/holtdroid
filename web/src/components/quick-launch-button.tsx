@@ -1,12 +1,4 @@
-import {
-  CheckIcon,
-  DatabaseIcon,
-  HardDriveIcon,
-  Loader2Icon,
-  type LucideIcon,
-  PackageIcon,
-  ZapIcon,
-} from "lucide-react"
+import { CheckIcon, DatabaseIcon, HardDriveIcon, type LucideIcon, PackageIcon, ZapIcon } from "lucide-react"
 import { type ReactNode, useRef, useState } from "react"
 import type { ArtifactView } from "@/api/client"
 import { useAppData } from "@/api/queries"
@@ -29,13 +21,13 @@ export function QuickLaunchButton({ artifact }: { artifact: ArtifactView }) {
   const pkg = artifact.app?.package
   const rules = appData.data
   const latest = rules?.items.find((d) => d.package === pkg)
-  const disabled = !provider || free === 0 || launch.isPending
+  const disabled = !provider
   const locationLabel = locations.find((l) => l.id === location)?.label
   const where = provider ? `${provider.name}${locationLabel ? ` · ${locationLabel}` : ""}` : ""
   const hint = !provider
     ? "No providers available"
     : free === 0
-      ? `All slots of “${provider.name}” are busy`
+      ? `All slots of “${provider.name}” are busy, launching waits in line`
       : `Quick launch on ${where}`
 
   const fire = (m: QuickLaunchMode) => {
@@ -45,12 +37,12 @@ export function QuickLaunchButton({ artifact }: { artifact: ArtifactView }) {
       setMode(m)
       rememberQuickLaunchMode(m)
     }
-    launch.start(artifact, provider.name, location, undefined, undefined, quickAppData(m, rules, pkg))
+    launch(artifact, provider.name, location, quickAppData(m, rules, pkg))
   }
 
   const button = (
     <Button variant="outline" size="icon" disabled={disabled} onClick={() => fire(mode)}>
-      {launch.isPending ? <Loader2Icon className="animate-spin" /> : <ZapIcon />}
+      <ZapIcon />
       <span className="sr-only">Quick launch</span>
     </Button>
   )

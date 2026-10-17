@@ -44,7 +44,8 @@ type SessionView struct {
 	VersionName  string                `json:"versionName,omitempty"`
 	IconURL      string                `json:"iconUrl,omitempty"`
 	Location     string                `json:"location,omitempty"`
-	State        contract.SessionState `json:"state" enum:"provisioning,booting,installing,instrumenting,ready,stopping,failed"`
+	AppData      contract.AppDataKind  `json:"appData,omitempty" enum:"data,cache" doc:"the app data restored at launch: data, or data with its cache; empty for a fresh install"`
+	State        contract.SessionState `json:"state" enum:"provisioning,booting,installing,restoring,instrumenting,ready,stopping,failed"`
 	Reason       string                `json:"reason,omitempty"`
 	Detail       string                `json:"detail,omitempty"`
 	CreatedAt    time.Time             `json:"createdAt"`
@@ -74,6 +75,7 @@ type createSessionInput struct {
 		Provider   string         `json:"provider" minLength:"1"`
 		Location   string         `json:"location,omitempty"`
 		AppData    *AppDataChoice `json:"appData,omitempty" doc:"start the app with saved app data instead of a fresh install"`
+		Queue      bool           `json:"queue,omitempty" doc:"when every slot is busy, wait in line for one instead of failing; cancelling the request gives up the place"`
 	}
 }
 
@@ -119,7 +121,7 @@ func (s *Server) register(api huma.API) {
 		OperationID: "createSession", Method: http.MethodPost, Path: "/api/v1/sessions", Tags: tags, DefaultStatus: http.StatusCreated,
 	}, func(ctx context.Context, in *createSessionInput) (*out[SessionView], error) {
 		id, _ := auth.FromContext(ctx)
-		v, err := s.createSession(ctx, id, in.Body.Source, in.Body.ArtifactID, in.Body.Provider, in.Body.Location, in.Body.AppData)
+		v, err := s.createSession(ctx, id, in.Body.Source, in.Body.ArtifactID, in.Body.Provider, in.Body.Location, in.Body.AppData, in.Body.Queue)
 		result, _ := outcome(err)
 		launchesTotal.WithLabelValues(in.Body.Provider, string(result)).Inc()
 		if err != nil {
@@ -355,6 +357,7 @@ func (s *Server) view(ctx context.Context, provider string, sess contract.Sessio
 		Source:       srcName,
 		ArtifactID:   encodeID(key),
 		Location:     sess.Location,
+		AppData:      sess.AppData,
 		State:        sess.State,
 		Reason:       sess.Reason,
 		Detail:       sess.Detail,
@@ -371,7 +374,7 @@ func (s *Server) view(ctx context.Context, provider string, sess contract.Sessio
 	return v
 }
 
-func (s *Server) createSession(ctx context.Context, who auth.Identity, srcName, artifactID, providerName, location string, choice *AppDataChoice) (SessionView, error) {
+func (s *Server) createSession(ctx context.Context, who auth.Identity, srcName, artifactID, providerName, location string, choice *AppDataChoice, queue bool) (SessionView, error) {
 	p, err := s.provider(providerName)
 	if err != nil {
 		return SessionView{}, err
@@ -400,13 +403,12 @@ func (s *Server) createSession(ctx context.Context, who auth.Identity, srcName, 
 			return SessionView{}, fmt.Errorf("%w: unknown location %q", contract.ErrInvalid, location)
 		}
 	}
-	capacity, err := p.Capacity(ctx)
+	release, err := s.queue.acquire(ctx, providerName, p, queue)
 	if err != nil {
 		return SessionView{}, err
 	}
-	if capacity.Free() == 0 {
-		return SessionView{}, contract.ErrNoCapacity
-	}
+	defer release()
+	ctx = context.WithoutCancel(ctx)
 
 	entry, err := s.cache.Ensure(ctx, srcName, artifact)
 	if err != nil {

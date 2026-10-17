@@ -12,6 +12,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { AppDataPage } from "@/pages/app-data"
 import { AuditPage, validateAuditSearch } from "@/pages/audit"
 import { HomePage } from "@/pages/home"
+import { LaunchPage, validateLaunchSearch } from "@/pages/launch"
 import { SessionPage } from "@/pages/session"
 import { SSHKeysPage } from "@/pages/ssh-keys"
 
@@ -60,6 +61,16 @@ const sessionRoute = createRoute({
   },
 })
 
+const launchRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/launch",
+  validateSearch: validateLaunchSearch,
+  component: function Launch() {
+    const search = launchRoute.useSearch()
+    return <LaunchPage key={JSON.stringify(search)} {...search} />
+  },
+})
+
 const sshKeysRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/ssh",
@@ -79,7 +90,7 @@ const auditRoute = createRoute({
 const appDataRoute = createRoute({ getParentRoute: () => rootRoute, path: "/app-data", component: AppDataPage })
 
 const router = createRouter({
-  routeTree: rootRoute.addChildren([homeRoute, sessionRoute, sshKeysRoute, auditRoute, appDataRoute]),
+  routeTree: rootRoute.addChildren([homeRoute, launchRoute, sessionRoute, sshKeysRoute, auditRoute, appDataRoute]),
 })
 
 declare module "@tanstack/react-router" {

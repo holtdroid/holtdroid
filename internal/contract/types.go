@@ -70,6 +70,7 @@ const (
 	StateProvisioning  SessionState = "provisioning"
 	StateBooting       SessionState = "booting"
 	StateInstalling    SessionState = "installing"
+	StateRestoring     SessionState = "restoring"
 	StateInstrumenting SessionState = "instrumenting"
 	StateReady         SessionState = "ready"
 	StateStopping      SessionState = "stopping"
@@ -85,9 +86,27 @@ type CreateSession struct {
 	AppData     *AppDataRestore `json:"appData,omitempty" doc:"app data to put back after installing the app and before it first starts"`
 }
 
+type AppDataKind string
+
+const (
+	AppDataData  AppDataKind = "data"
+	AppDataCache AppDataKind = "cache"
+)
+
 type AppDataRestore struct {
 	URL   string `json:"url" format:"uri" doc:"a zstd-compressed tar from the agent's app data export"`
 	Cache bool   `json:"cache" doc:"also restore the cache directories, if the archive has them"`
+}
+
+func (r *AppDataRestore) Kind() AppDataKind {
+	switch {
+	case r == nil:
+		return ""
+	case r.Cache:
+		return AppDataCache
+	default:
+		return AppDataData
+	}
 }
 
 // AppDataExport asks the agent to stop the app and stream its private data.
@@ -111,7 +130,8 @@ type Session struct {
 	Package      string       `json:"package"`
 	ArtifactRef  string       `json:"artifactRef"`
 	Location     string       `json:"location,omitempty"`
-	State        SessionState `json:"state" enum:"provisioning,booting,installing,instrumenting,ready,stopping,failed"`
+	AppData      AppDataKind  `json:"appData,omitempty" enum:"data,cache" doc:"the app data restored at launch: data, or data with its cache; empty for a fresh install"`
+	State        SessionState `json:"state" enum:"provisioning,booting,installing,restoring,instrumenting,ready,stopping,failed"`
 	Reason       string       `json:"reason,omitempty"`
 	Detail       string       `json:"detail,omitempty"`
 	AgentURL     string       `json:"agentUrl"`
@@ -129,7 +149,7 @@ type Touch struct {
 }
 
 type StatusEvent struct {
-	State      SessionState `json:"state" enum:"provisioning,booting,installing,instrumenting,ready,stopping,failed"`
+	State      SessionState `json:"state" enum:"provisioning,booting,installing,restoring,instrumenting,ready,stopping,failed"`
 	Reason     string       `json:"reason,omitempty"`
 	Detail     string       `json:"detail,omitempty"`
 	AppRunning bool         `json:"appRunning" doc:"The app is running under instrumentation; once it is closed it stays closed until it is started again"`

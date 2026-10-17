@@ -43,9 +43,7 @@ export function HomePage() {
         <ArtifactList onLaunch={setLaunching} />
       </div>
       <SessionsPanel />
-      {search.quick && linked.data && (
-        <QuickLauncher artifact={linked.data} onStarted={clearLink} onFallback={dropQuick} />
-      )}
+      {search.quick && linked.data && <QuickLauncher artifact={linked.data} onFallback={dropQuick} />}
       <LaunchDialog
         artifact={launching ?? (search.launch && !search.quick ? (linked.data ?? null) : null)}
         onClose={close}

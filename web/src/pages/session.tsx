@@ -154,6 +154,7 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
             state={state ?? session.state}
             detail={status?.detail || session.detail}
             reason={session.reason || status?.reason}
+            appData={session.appData}
           />
         ) : (
           <ResizablePanelGroup orientation="horizontal">

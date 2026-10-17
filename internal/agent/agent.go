@@ -404,13 +404,13 @@ func (a *Agent) fetch(ctx context.Context, url, pattern, what string) (string, e
 }
 
 func (a *Agent) restore(ctx context.Context, req contract.AppDataRestore) error {
-	a.setStatus(contract.StateInstalling, "Downloading app data")
+	a.setStatus(contract.StateRestoring, "Downloading app data")
 	file, err := a.fetch(ctx, req.URL, "holtdroid-*.tar.zst", "app data")
 	if err != nil {
 		return err
 	}
 	defer os.Remove(file)
-	a.setStatus(contract.StateInstalling, "Restoring app data")
+	a.setStatus(contract.StateRestoring, "Restoring app data")
 	if err := restoreAppData(ctx, a.dev, a.cfg.Package, file, req.Cache); err != nil {
 		return err
 	}

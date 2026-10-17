@@ -265,6 +265,70 @@ func TestCreateSessionErrors(t *testing.T) {
 	}
 }
 
+func TestLaunchQueue(t *testing.T) {
+	h := newHarness(t, 1)
+	h.srv.queue.poll = time.Millisecond
+	first := h.create("otter")
+
+	launch := func(ctx context.Context, user string) <-chan *httptest.ResponseRecorder {
+		done := make(chan *httptest.ResponseRecorder, 1)
+		go func() {
+			raw, _ := json.Marshal(map[string]any{"source": "local", "artifactId": encodeID("hello.apk"), "provider": "fake", "queue": true})
+			r := httptest.NewRequestWithContext(ctx, http.MethodPost, "/api/v1/sessions", bytes.NewReader(raw))
+			r.Header.Set("Content-Type", "application/json")
+			r.Header.Set("Remote-User", user)
+			rec := httptest.NewRecorder()
+			h.handler.ServeHTTP(rec, r)
+			done <- rec
+		}()
+		return done
+	}
+	waitLine := func(n int) {
+		t.Helper()
+		for range 1000 {
+			h.srv.queue.mu.Lock()
+			got := len(h.srv.queue.lines["fake"])
+			h.srv.queue.mu.Unlock()
+			if got == n {
+				return
+			}
+			time.Sleep(time.Millisecond)
+		}
+		t.Fatalf("queue never reached %d", n)
+	}
+
+	beaver := launch(context.Background(), "beaver")
+	waitLine(1)
+	ctx, cancel := context.WithCancel(context.Background())
+	stoat := launch(ctx, "stoat")
+	waitLine(2)
+	cancel()
+	<-stoat
+	waitLine(1)
+
+	rec := h.do(http.MethodPost, "/api/v1/sessions", "mole", "", map[string]string{"source": "local", "artifactId": encodeID("hello.apk"), "provider": "fake"})
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("launch past the queue: code = %d", rec.Code)
+	}
+	select {
+	case rec := <-beaver:
+		t.Fatalf("queued launch returned before a slot freed: %d %s", rec.Code, rec.Body.String())
+	default:
+	}
+
+	if rec := h.do(http.MethodDelete, "/api/v1/sessions/fake/"+first.ID, "otter", "", nil); rec.Code != http.StatusNoContent {
+		t.Fatalf("stop: %d", rec.Code)
+	}
+	rec = <-beaver
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("queued launch: %d %s", rec.Code, rec.Body.String())
+	}
+	if v := decode[SessionView](t, rec); v.Owner != "beaver" {
+		t.Fatalf("owner = %q", v.Owner)
+	}
+	waitLine(0)
+}
+
 func TestDefaultLocation(t *testing.T) {
 	h := newHarness(t, 2, func(c *fake.Config) { c.NoDirect, c.DefaultLocation = true, "de" })
 	providers := decode[[]ProviderView](t, h.do(http.MethodGet, "/api/v1/providers", "otter", "", nil))

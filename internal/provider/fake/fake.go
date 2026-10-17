@@ -155,6 +155,7 @@ func (p *Provider) Create(_ context.Context, req contract.CreateSession) (contra
 		Package:      req.Package,
 		ArtifactRef:  req.ArtifactRef,
 		Location:     location,
+		AppData:      req.AppData.Kind(),
 		State:        contract.StateProvisioning,
 		AgentURL:     strings.TrimRight(p.cfg.PublicURL, "/") + "/agents/" + id,
 		TunnelURL:    tunnelURL,

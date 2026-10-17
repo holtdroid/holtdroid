@@ -102,6 +102,9 @@ func TestAppDataSavedOnStopAndRestored(t *testing.T) {
 
 	h.clock.Advance(time.Hour)
 	second := h.launch("otter", &AppDataChoice{ID: snap.ID})
+	if first.AppData != "" || second.AppData != contract.AppDataData {
+		t.Fatalf("app data kinds %q, %q", first.AppData, second.AppData)
+	}
 	if n, _ := h.provider.Restored(second.ID); n != 2 {
 		t.Fatalf("restored %d files without the cache, want 2", n)
 	}
@@ -109,6 +112,9 @@ func TestAppDataSavedOnStopAndRestored(t *testing.T) {
 		t.Fatalf("last used %v, want %v", got.LastUsedAt, h.clock.Now())
 	}
 	third := h.launch("otter", &AppDataChoice{ID: snap.ID, Cache: true})
+	if third.AppData != contract.AppDataCache {
+		t.Fatalf("app data kind %q", third.AppData)
+	}
 	if n, _ := h.provider.Restored(third.ID); n != 3 {
 		t.Fatalf("restored %d files with the cache, want 3", n)
 	}

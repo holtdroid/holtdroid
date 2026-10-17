@@ -592,7 +592,7 @@ export interface components {
             detail?: string;
             reason?: string;
             /** @enum {string} */
-            state: "provisioning" | "booting" | "installing" | "instrumenting" | "ready" | "stopping" | "failed";
+            state: "provisioning" | "booting" | "installing" | "restoring" | "instrumenting" | "ready" | "stopping" | "failed";
         };
         Temperature: {
             /** Format: double */

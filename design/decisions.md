@@ -1308,3 +1308,23 @@ shared preferences, written as root with the launcher stopped).
 screen timeout also lands on it, as on a real phone; `unlock` dismisses it.
 `lock` takes about a second. Apps that fix their orientation still don't
 rotate, as on a real device.
+
+## 57. Launches wait in line while every slot is busy
+
+**Context.** With every slot taken a launch failed with 409, and people
+retried by hand until someone's session ended.
+
+**Decision.** `POST /api/v1/sessions` takes `queue: true`. The api keeps a
+FIFO line per provider in memory: only the front of the line polls the
+provider's capacity (every 2 s) and creates the session, then hands the turn
+on. A launch without `queue` gets 409 while anyone is waiting, so it can't
+jump the line. The request itself is the place in line: the browser opens the
+launch page, which holds the request open, and closing or leaving the page
+aborts it, which drops the place. Once a slot is taken the session is created
+even if the request goes away, so no half-made Pod is left behind; the reaper
+collects it if nobody comes back.
+
+**Consequences.** The line is per api replica and lost on a restart (the
+browser's request fails and the page shows the error). Two replicas don't
+share an order, only the provider's capacity. Proxies in front of the api
+must not cut long-running requests.

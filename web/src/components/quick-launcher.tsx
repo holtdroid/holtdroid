@@ -8,16 +8,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { quickAppData, useLaunchTarget, useStartSession } from "@/hooks/use-launch-target"
 import { quickLaunchMode } from "@/lib/launch-prefs"
 
-export function QuickLauncher({
-  artifact,
-  onStarted,
-  onFallback,
-}: {
-  artifact: ArtifactView
-  onStarted: () => void
-  onFallback: () => void
-}) {
-  const { loaded, provider, location, locations, free } = useLaunchTarget()
+export function QuickLauncher({ artifact, onFallback }: { artifact: ArtifactView; onFallback: () => void }) {
+  const { loaded, provider, location, locations } = useLaunchTarget()
   const launch = useStartSession()
   const appData = useAppData()
   const ready = loaded && !appData.isPending
@@ -25,12 +17,12 @@ export function QuickLauncher({
   const locationLabel = locations.find((l) => l.id === location)?.label
 
   const fire = useEffectEvent(() => {
-    if (!provider || free === 0) {
+    if (!provider) {
       onFallback()
       return
     }
     const choice = quickAppData(quickLaunchMode(), appData.data, artifact.app?.package)
-    launch.start(artifact, provider.name, location, onStarted, onFallback, choice)
+    launch(artifact, provider.name, location, choice)
   })
 
   useEffect(() => {

@@ -1,16 +1,44 @@
 import { CheckIcon, CircleAlertIcon, Loader2Icon } from "lucide-react"
-import type { SessionState } from "@/api/client"
+import type { ReactNode } from "react"
+import type { SessionState, SessionView } from "@/api/client"
 import { cn } from "@/lib/utils"
 
-const steps: { state: SessionState; label: string }[] = [
-  { state: "provisioning", label: "Reserving a device" },
-  { state: "booting", label: "Booting Android" },
-  { state: "installing", label: "Installing the APK" },
-  { state: "instrumenting", label: "Enabling WebView debugging" },
-  { state: "ready", label: "Ready" },
-]
+export type StartState = SessionState | "queued"
 
-export function StartProgress({ state, detail, reason }: { state: SessionState; detail?: string; reason?: string }) {
+function startSteps(queued: boolean, appData: SessionView["appData"]) {
+  const steps: { state: StartState; label: string }[] = [
+    { state: "provisioning", label: "Reserving a device" },
+    { state: "booting", label: "Booting Android" },
+    { state: "installing", label: "Installing the APK" },
+    { state: "instrumenting", label: "Enabling WebView debugging" },
+    { state: "ready", label: "Ready" },
+  ]
+  if (appData) {
+    steps.splice(3, 0, {
+      state: "restoring",
+      label: appData === "cache" ? "Restoring app data and cache" : "Restoring app data",
+    })
+  }
+  if (queued) steps.unshift({ state: "queued", label: "Waiting for a free device" })
+  return steps
+}
+
+export function StartProgress({
+  state,
+  detail,
+  reason,
+  appData,
+  queued = false,
+  children,
+}: {
+  state: StartState
+  detail?: string
+  reason?: string
+  appData?: SessionView["appData"]
+  queued?: boolean
+  children?: ReactNode
+}) {
+  const steps = startSteps(queued, appData)
   const current = steps.findIndex((s) => s.state === state)
   const failed = state === "failed"
 
@@ -47,6 +75,7 @@ export function StartProgress({ state, detail, reason }: { state: SessionState; 
             )
           })}
         </ol>
+        {children && <div className="mt-5 flex justify-end gap-2">{children}</div>}
       </div>
     </div>
   )

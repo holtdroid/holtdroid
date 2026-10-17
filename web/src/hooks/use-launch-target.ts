@@ -1,8 +1,7 @@
-import { useNavigate } from "@tanstack/react-router"
+import { useNavigate, useSearch } from "@tanstack/react-router"
 import { useMemo } from "react"
-import { toast } from "sonner"
 import type { AppDataChoice, AppDataList, ArtifactView, ProviderView } from "@/api/client"
-import { useLaunch, useProviders } from "@/api/queries"
+import { useProviders } from "@/api/queries"
 import { lastLocation, lastProvider, type QuickLaunchMode, rememberLaunch } from "@/lib/launch-prefs"
 
 const freeSlots = (p: ProviderView) => p.capacity.slots.filter((s) => s.state === "free").length
@@ -38,31 +37,23 @@ export function useLaunchTarget(chosenProvider: string | null = null, chosenLoca
 }
 
 export function useStartSession() {
-  const launch = useLaunch()
   const navigate = useNavigate()
-  const start = (
-    artifact: ArtifactView,
-    provider: string,
-    location: string | undefined,
-    onStarted?: () => void,
-    onFailed?: () => void,
-    appData?: AppDataChoice,
-  ) =>
-    launch.mutate(
-      { source: artifact.source, artifactId: artifact.id, provider, location, appData },
-      {
-        onSuccess: (session) => {
-          rememberLaunch(session.provider, location)
-          onStarted?.()
-          void navigate({ to: "/session/$provider/$id", params: { provider: session.provider, id: session.id } })
-        },
-        onError: (err) => {
-          toast.error("Could not launch", { description: err.message })
-          onFailed?.()
-        },
+  const linked = useSearch({ strict: false }).launch !== undefined
+  return (artifact: ArtifactView, provider: string, location: string | undefined, appData?: AppDataChoice) => {
+    rememberLaunch(provider, location)
+    void navigate({
+      to: "/launch",
+      search: {
+        source: artifact.source,
+        artifact: artifact.id,
+        provider,
+        location,
+        data: appData?.id,
+        cache: appData?.cache || undefined,
       },
-    )
-  return { start, isPending: launch.isPending }
+      replace: linked,
+    })
+  }
 }
 
 export function quickAppData(

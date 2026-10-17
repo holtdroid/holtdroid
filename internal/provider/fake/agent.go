@@ -156,6 +156,8 @@ func detail(state contract.SessionState) string {
 		return "Pretending to boot Android"
 	case contract.StateInstalling:
 		return "Installing the APK"
+	case contract.StateRestoring:
+		return "Restoring app data"
 	case contract.StateInstrumenting:
 		return "Enabling WebView debugging"
 	default:

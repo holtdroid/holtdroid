@@ -6,6 +6,7 @@ const labels: Record<SessionState, string> = {
   provisioning: "Provisioning",
   booting: "Booting",
   installing: "Installing",
+  restoring: "Restoring",
   instrumenting: "Instrumenting",
   ready: "Ready",
   stopping: "Stopping",

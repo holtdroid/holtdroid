@@ -135,7 +135,7 @@ type SSHSession struct {
 	Provider  string       `json:"provider"`
 	ID        string       `json:"id"`
 	Owner     string       `json:"owner"`
-	State     SessionState `json:"state" enum:"provisioning,booting,installing,instrumenting,ready,stopping,failed"`
+	State     SessionState `json:"state" enum:"provisioning,booting,installing,restoring,instrumenting,ready,stopping,failed"`
 	TunnelURL string       `json:"tunnelUrl,omitempty"`
 }
 

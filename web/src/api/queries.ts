@@ -170,17 +170,17 @@ export type LaunchInput = {
   provider: string
   location?: string
   appData?: AppDataChoice
+  queue?: boolean
 }
 
 export function useLaunch() {
   const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (body: LaunchInput) => unwrap(api.POST("/api/v1/sessions", { body })),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: keys.sessions })
-      void qc.invalidateQueries({ queryKey: keys.providers })
-    },
-  })
+  return async (body: LaunchInput, signal: AbortSignal) => {
+    const session = await unwrap(api.POST("/api/v1/sessions", { body, signal }))
+    void qc.invalidateQueries({ queryKey: keys.sessions })
+    void qc.invalidateQueries({ queryKey: keys.providers })
+    return session
+  }
 }
 
 export function useStopSession() {

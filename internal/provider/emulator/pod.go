@@ -24,6 +24,7 @@ const (
 	annotationPackage      = "holtdroid/package"
 	annotationArtifactRef  = "holtdroid/artifact-ref"
 	annotationLocation     = "holtdroid/location"
+	annotationAppData      = "holtdroid/app-data"
 	annotationCreatedAt    = "holtdroid/created-at"
 	annotationLastActivity = "holtdroid/last-activity"
 
@@ -166,18 +167,23 @@ func (p *Provider) renderPod(id, slot string, req contract.CreateSession, locati
 		pullSecrets = append(pullSecrets, corev1.LocalObjectReference{Name: s})
 	}
 
+	annotations := map[string]string{
+		annotationOwner:        req.Owner,
+		annotationPackage:      req.Package,
+		annotationArtifactRef:  req.ArtifactRef,
+		annotationLocation:     location,
+		annotationCreatedAt:    at,
+		annotationLastActivity: at,
+	}
+	if req.AppData != nil {
+		annotations[annotationAppData] = string(req.AppData.Kind())
+	}
+
 	return &corev1.Pod{
-		Name:      name,
-		Namespace: p.cfg.Namespace,
-		Labels:    sessionLabels(id, slot),
-		Annotations: map[string]string{
-			annotationOwner:        req.Owner,
-			annotationPackage:      req.Package,
-			annotationArtifactRef:  req.ArtifactRef,
-			annotationLocation:     location,
-			annotationCreatedAt:    at,
-			annotationLastActivity: at,
-		},
+		Name:        name,
+		Namespace:   p.cfg.Namespace,
+		Labels:      sessionLabels(id, slot),
+		Annotations: annotations,
 		Spec: corev1.PodSpec{
 			RestartPolicy:                 corev1.RestartPolicyNever,
 			AutomountServiceAccountToken:  new(false),
@@ -242,6 +248,7 @@ func (p *Provider) podSession(pod corev1.Pod) contract.Session {
 		Package:      a[annotationPackage],
 		ArtifactRef:  a[annotationArtifactRef],
 		Location:     a[annotationLocation],
+		AppData:      contract.AppDataKind(a[annotationAppData]),
 		State:        state,
 		Reason:       reason,
 		Detail:       detail,
