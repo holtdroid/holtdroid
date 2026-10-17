@@ -2,8 +2,11 @@ package auth
 
 import (
 	"context"
+	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/base32"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -167,6 +170,15 @@ func New(ctx context.Context, cfg Config, reg *secrets.Registry, publicURL strin
 }
 
 func (a *Authenticator) Mode() string { return a.cfg.Mode }
+
+// Pseudonym is a stable name for user that doesn't reveal it, keyed with the
+// session key in the cookie-based modes. In the header and none modes there
+// is no key, so it is a plain hash.
+func (a *Authenticator) Pseudonym(user string) string {
+	mac := hmac.New(sha256.New, a.key)
+	mac.Write([]byte("pseudonym\x00" + user))
+	return strings.ToLower(base32.StdEncoding.EncodeToString(mac.Sum(nil)[:10]))
+}
 
 func (a *Authenticator) cookieBased() bool {
 	return a.cfg.Mode == ModeAnonymous || a.cfg.Mode == ModePassword || a.cfg.Mode == ModeOIDC

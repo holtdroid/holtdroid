@@ -29,6 +29,7 @@ import (
 type stubSessions struct {
 	p        *fake.Provider
 	activity atomic.Int32
+	active   sync.Map
 }
 
 func (s *stubSessions) SSHSession(ctx context.Context, slug string) (contract.SSHSession, error) {
@@ -48,7 +49,22 @@ func (s *stubSessions) SSHActivity(ctx context.Context, slug string) error {
 		return err
 	}
 	s.activity.Add(1)
+	s.active.Store(slug, true)
 	return nil
+}
+
+func (s *stubSessions) SSHUserSessions(ctx context.Context, handle string) ([]contract.SSHSession, error) {
+	all, err := s.p.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var out []contract.SSHSession
+	for _, sess := range all {
+		if contract.HandlePrefix+sess.Owner == handle {
+			out = append(out, contract.SSHSession{Provider: "fake", ID: sess.ID, Owner: sess.Owner, State: sess.State, TunnelURL: sess.TunnelURL})
+		}
+	}
+	return out, nil
 }
 
 func (s *stubSessions) RecordAudit(context.Context, []audit.Event) error { return nil }
@@ -158,7 +174,7 @@ func (h *harness) register(user string, admin bool) ssh.Signer {
 		h.t.Fatal(err)
 	}
 	line := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(signer.PublicKey())))
-	if err := h.keys.SetUserKeys(context.Background(), user, contract.UserKeys{Admin: admin, Keys: []string{line}}); err != nil {
+	if err := h.keys.SetUserKeys(context.Background(), user, contract.UserKeys{Handle: contract.HandlePrefix + user, Admin: admin, Keys: []string{line}}); err != nil {
 		h.t.Fatal(err)
 	}
 	return signer
@@ -226,6 +242,9 @@ func TestLogin(t *testing.T) {
 		{"unknown key", slug, unknown, false},
 		{"unknown session", "fake-nope", otter, false},
 		{"no provider prefix", "nope", otter, false},
+		{"own handle", "user-otter", otter, true},
+		{"someone else's handle", "user-badger", otter, false},
+		{"unknown key on a handle", "user-otter", unknown, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -322,6 +341,8 @@ func TestKeyRequests(t *testing.T) {
 		{"added in the portal", slug, nil, "otter", true, true, "check that the portal shows"},
 		{"added by someone who can't use the session", slug, nil, "badger", true, false, "Not found."},
 		{"not added in time", slug, nil, "", true, false, "not added in time"},
+		{"added for the handle", "user-otter", nil, "otter", true, true, "check that the portal shows"},
+		{"no link for an unknown handle", "user-nobody", nil, "", false, false, "Not found."},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -351,7 +372,7 @@ func TestKeyRequests(t *testing.T) {
 						if tt.addAs != "" {
 							go func() {
 								time.Sleep(50 * time.Millisecond)
-								_ = h.keys.SetUserKeys(context.Background(), tt.addAs, contract.UserKeys{Keys: []string{r.PublicKey}})
+								_ = h.keys.SetUserKeys(context.Background(), tt.addAs, contract.UserKeys{Handle: contract.HandlePrefix + tt.addAs, Keys: []string{r.PublicKey}})
 							}()
 						}
 						return nil, nil
@@ -419,6 +440,97 @@ func TestBanner(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestFanout(t *testing.T) {
+	h := newHarness(t, func(c *Config) {
+		c.ReversePorts = "1024-65535"
+		c.RefreshInterval = 20 * time.Millisecond
+		c.ActivityInterval = 20 * time.Millisecond
+	})
+	otter := h.register("otter", false)
+	_, first := h.session("otter")
+	_, other := h.session("badger")
+
+	var banner string
+	c, err := ssh.Dial("tcp", h.addr, &ssh.ClientConfig{
+		User: "user-otter", Auth: []ssh.AuthMethod{ssh.PublicKeys(otter)}, HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		BannerCallback: func(msg string) error { banner += msg; return nil },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { c.Close() })
+	if !strings.Contains(banner, "all of yours") {
+		t.Fatalf("banner %q", banner)
+	}
+
+	ln, err := c.Listen("tcp", "127.0.0.1:3000")
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			go func() {
+				_, _ = io.Copy(conn, conn)
+				conn.Close()
+			}()
+		}
+	}()
+
+	ctx := context.Background()
+	reaches := func(id string) bool {
+		conn, err := h.provider.DialDevice(ctx, id, 3000)
+		if err != nil {
+			return false
+		}
+		defer conn.Close()
+		msg := "ping " + id
+		if _, err := conn.Write([]byte(msg)); err != nil {
+			return false
+		}
+		buf := make([]byte, len(msg))
+		_, err = io.ReadFull(conn, buf)
+		return err == nil && string(buf) == msg
+	}
+	eventually(t, "the port on the running session", func() bool { return reaches(first) })
+	_, second := h.session("otter")
+	eventually(t, "the port on a session started later", func() bool { return reaches(second) })
+	if reaches(other) {
+		t.Fatal("the port reached someone else's session")
+	}
+	eventually(t, "activity on both sessions", func() bool {
+		_, a := h.sessions.active.Load("fake-" + first)
+		_, b := h.sessions.active.Load("fake-" + second)
+		return a && b
+	})
+	if _, ok := h.sessions.active.Load("fake-" + other); ok {
+		t.Fatal("traffic counted for a session it never reached")
+	}
+
+	if err := h.provider.Delete(ctx, first); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(100 * time.Millisecond)
+	if !reaches(second) {
+		t.Fatal("a session ending dropped the others")
+	}
+	if _, err := c.Dial("tcp", "adb:5555"); err == nil {
+		t.Fatal("ADB opened on all sessions at once")
+	}
+
+	ln.Close()
+	eventually(t, "the port to be unpublished", func() bool {
+		conn, err := h.provider.DialDevice(ctx, second, 3000)
+		if err == nil {
+			conn.Close()
+		}
+		return err != nil
+	})
 }
 
 func TestNoIsolationByDefault(t *testing.T) {

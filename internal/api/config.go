@@ -9,6 +9,7 @@ import (
 
 	"github.com/kriakiku/holtdroid/internal/auth"
 	"github.com/kriakiku/holtdroid/internal/config"
+	"github.com/kriakiku/holtdroid/internal/contract"
 	"github.com/kriakiku/holtdroid/internal/db"
 	"github.com/kriakiku/holtdroid/internal/rules"
 	"github.com/kriakiku/holtdroid/internal/source"
@@ -190,6 +191,9 @@ func (c Config) Validate() error {
 		}
 		if seen[e.Name] {
 			errs = append(errs, fmt.Errorf("duplicate provider name %q", e.Name))
+		}
+		if e.Name+"-" == contract.HandlePrefix {
+			errs = append(errs, errors.New(`provider name "user" is reserved for SSH`))
 		}
 		seen[e.Name] = true
 	}

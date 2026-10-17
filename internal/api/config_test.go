@@ -47,6 +47,7 @@ func TestValidateSources(t *testing.T) {
 		{"unknown upload source", func(c *Config) { c.Uploads.Source = "nope" }},
 		{"read-only upload source", func(c *Config) { c.Sources[0].ReadOnly = true }},
 		{"uploads without sources", func(c *Config) { c.Sources = nil }},
+		{"provider named like ssh handles", func(c *Config) { c.Providers = []Endpoint{{Name: "user", URL: "http://p"}} }},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

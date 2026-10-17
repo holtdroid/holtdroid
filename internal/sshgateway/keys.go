@@ -17,6 +17,7 @@ import (
 
 type Identity struct {
 	User   string
+	Handle string
 	Groups []string
 	Admin  bool
 }
@@ -109,7 +110,7 @@ func (k *Keys) SetUserKeys(_ context.Context, user string, in contract.UserKeys)
 		return nil
 	}
 	k.users[user] = &userKeys{
-		id:           Identity{User: user, Groups: slices.Clone(in.Groups), Admin: in.Admin},
+		id:           Identity{User: user, Handle: in.Handle, Groups: slices.Clone(in.Groups), Admin: in.Admin},
 		fingerprints: fingerprints,
 		expires:      now.Add(k.ttl),
 	}
@@ -129,6 +130,19 @@ func (k *Keys) Lookup(fingerprint string) (Identity, bool) {
 		return Identity{}, false
 	}
 	return k.users[user].id, true
+}
+
+// HandleKnown tells whether a user with keys here has this handle.
+func (k *Keys) HandleKnown(handle string) bool {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	k.expire(k.now())
+	for _, uk := range k.users {
+		if uk.id.Handle == handle {
+			return true
+		}
+	}
+	return false
 }
 
 func (k *Keys) expire(now time.Time) {

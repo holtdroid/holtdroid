@@ -26,14 +26,16 @@ import {
   DEFAULT_PORT_RULES,
   expandRules,
   formatPortRule,
+  loadAllDevices,
   loadIncludeADB,
   loadPortRules,
-  type PortRule,
   parsePortRule,
   ruleForwards,
+  saveAllDevices,
   saveIncludeADB,
   savePortRules,
   sshCommand,
+  type PortRule,
 } from "@/lib/ssh-ports"
 import { cn } from "@/lib/utils"
 
@@ -81,7 +83,11 @@ function SSHPanel({ info, slug, tunnels }: { info: SSHInfo; slug: string; tunnel
   const keys = useSSHKeys()
   const [rules, setRules] = useState(loadPortRules)
   const [includeADB, setIncludeADB] = useState(loadIncludeADB)
+  const [allDevices, setAllDevices] = useState(loadAllDevices)
   const host = info.host || window.location.hostname
+  const canAll = info.allowReverse && !!info.handle
+  const all = canAll && allDevices
+  const user = all && info.handle ? info.handle : slug
 
   const updateRules = (next: PortRule[]) => {
     setRules(next)
@@ -91,12 +97,16 @@ function SSHPanel({ info, slug, tunnels }: { info: SSHInfo; slug: string; tunnel
     setIncludeADB(on)
     saveIncludeADB(on)
   }
+  const toggleAll = (on: boolean) => {
+    setAllDevices(on)
+    saveAllDevices(on)
+  }
 
   const forwards = info.allowReverse ? expandRules(rules) : []
-  const adb = info.allowADB && (includeADB || !info.allowReverse)
+  const adb = !all && info.allowADB && (includeADB || !info.allowReverse)
   const tunnelCount = forwards.length + (adb ? 1 : 0)
   const command = sshCommand({
-    user: slug,
+    user,
     host,
     port: info.port,
     skipHostKeyCheck: info.skipHostKeyCheck,
@@ -110,7 +120,8 @@ function SSHPanel({ info, slug, tunnels }: { info: SSHInfo; slug: string; tunnel
       <div className="grid gap-1">
         <span className="font-medium">SSH tunnels</span>
         <span className="text-muted-foreground text-xs">
-          User <code className="font-mono">{slug}</code> on {host}:{info.port}. No shell — only ADB and your ports.
+          User <code className="font-mono">{user}</code> on {host}:{info.port}. No shell — only{" "}
+          {all ? "your ports, on every device you run" : "ADB and your ports"}.
         </span>
       </div>
 
@@ -137,12 +148,20 @@ function SSHPanel({ info, slug, tunnels }: { info: SSHInfo; slug: string; tunnel
       <div className="grid gap-2">
         <div className="flex items-center justify-between gap-2">
           <span className="text-xs font-medium">Command</span>
-          {info.allowADB && info.allowReverse && (
-            <Label className="text-muted-foreground gap-2 text-xs font-normal">
-              Include ADB
-              <Switch size="sm" checked={includeADB} onCheckedChange={toggleADB} />
-            </Label>
-          )}
+          <div className="flex items-center gap-3">
+            {canAll && (
+              <Label className="text-muted-foreground gap-2 text-xs font-normal">
+                All my devices
+                <Switch size="sm" checked={all} onCheckedChange={toggleAll} />
+              </Label>
+            )}
+            {!all && info.allowADB && info.allowReverse && (
+              <Label className="text-muted-foreground gap-2 text-xs font-normal">
+                Include ADB
+                <Switch size="sm" checked={includeADB} onCheckedChange={toggleADB} />
+              </Label>
+            )}
+          </div>
         </div>
         <CopyBlock text={command} />
         {adb && <CopyBlock text="adb connect localhost:5555" />}
@@ -154,6 +173,8 @@ function SSHPanel({ info, slug, tunnels }: { info: SSHInfo; slug: string; tunnel
           </p>
         )}
         <p className="text-muted-foreground text-xs">
+          {all &&
+            "The ports go to every device you run, including ones you start later; ADB needs a single device, so it is left out. "}
           {forwards.length > 0 && "Apps on the device reach your machine's servers as http://localhost:<port>. "}
           {adb && "adb gets a root shell on emulators, without an authorization prompt. "}
           Leave the command running; Ctrl+C closes the tunnels.

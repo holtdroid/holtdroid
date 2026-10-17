@@ -7,6 +7,7 @@ export const DEFAULT_PORT_RULES = ["80", "443", "3000-3010"]
 const MAX_RANGE = 256
 const rulesKey = "holtdroid:ssh:ports"
 const adbKey = "holtdroid:ssh:adb"
+const allKey = "holtdroid:ssh:all"
 
 const isPort = (n: number) => Number.isInteger(n) && n >= 1 && n <= 65535
 
@@ -117,3 +118,7 @@ export const savePortRules = (rules: PortRule[]) => write(rulesKey, JSON.stringi
 export const loadIncludeADB = () => read(adbKey) !== "false"
 
 export const saveIncludeADB = (on: boolean) => write(adbKey, String(on))
+
+export const loadAllDevices = () => read(allKey) === "true"
+
+export const saveAllDevices = (on: boolean) => write(allKey, String(on))

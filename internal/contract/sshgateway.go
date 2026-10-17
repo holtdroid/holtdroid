@@ -34,6 +34,7 @@ type keyRequestInput struct {
 }
 
 type UserKeys struct {
+	Handle string   `json:"handle" doc:"SSH user name for all of the user's sessions, user-{pseudonym}"`
 	Groups []string `json:"groups"`
 	Admin  bool     `json:"admin"`
 	Keys   []string `json:"keys" maxItems:"64" doc:"authorized_keys lines; replaces the user's set and restarts its TTL"`
@@ -122,6 +123,7 @@ func (g *SSHGatewayClient) KeyRequest(ctx context.Context, code string) (KeyRequ
 type SSHSessions interface {
 	SSHSession(ctx context.Context, slug string) (SSHSession, error)
 	SSHActivity(ctx context.Context, slug string) error
+	SSHUserSessions(ctx context.Context, handle string) ([]SSHSession, error)
 	RecordAudit(ctx context.Context, events []audit.Event) error
 }
 
@@ -135,6 +137,18 @@ type SSHSession struct {
 	Owner     string       `json:"owner"`
 	State     SessionState `json:"state" enum:"provisioning,booting,installing,instrumenting,ready,stopping,failed"`
 	TunnelURL string       `json:"tunnelUrl,omitempty"`
+}
+
+// HandlePrefix starts the SSH user name that reaches all of a user's
+// sessions at once, so "user" can't be a provider name.
+const HandlePrefix = "user-"
+
+type SSHUserSessions struct {
+	Sessions []SSHSession `json:"sessions" doc:"every session of the user behind the handle, in any state"`
+}
+
+type handleInput struct {
+	Handle string `path:"handle" minLength:"1" maxLength:"200"`
 }
 
 type slugInput struct {
@@ -159,6 +173,18 @@ func RegisterSSHSessions(api huma.API, s SSHSessions) {
 		return nil, toHuma(s.SSHActivity(ctx, in.Slug))
 	})
 
+	huma.Register(api, huma.Operation{OperationID: "getSSHUserSessions", Method: http.MethodGet, Path: "/internal/users/{handle}/sessions", Tags: tags},
+		func(ctx context.Context, in *handleInput) (*body[SSHUserSessions], error) {
+			sessions, err := s.SSHUserSessions(ctx, in.Handle)
+			if err != nil {
+				return nil, toHuma(err)
+			}
+			if sessions == nil {
+				sessions = []SSHSession{}
+			}
+			return &body[SSHUserSessions]{SSHUserSessions{sessions}}, nil
+		})
+
 	huma.Register(api, huma.Operation{
 		OperationID: "recordAudit", Method: http.MethodPost, Path: "/internal/audit/events", Tags: tags, DefaultStatus: http.StatusNoContent,
 	}, func(ctx context.Context, in *auditEventsInput) (*struct{}, error) {
@@ -176,6 +202,12 @@ func (c *SSHSessionsClient) SSHSession(ctx context.Context, slug string) (SSHSes
 	var s SSHSession
 	err := c.c.do(ctx, http.MethodGet, "/internal/sessions/"+url.PathEscape(slug), nil, &s)
 	return s, err
+}
+
+func (c *SSHSessionsClient) SSHUserSessions(ctx context.Context, handle string) ([]SSHSession, error) {
+	var out SSHUserSessions
+	err := c.c.do(ctx, http.MethodGet, "/internal/users/"+url.PathEscape(handle)+"/sessions", nil, &out)
+	return out.Sessions, err
 }
 
 func (c *SSHSessionsClient) SSHActivity(ctx context.Context, slug string) error {

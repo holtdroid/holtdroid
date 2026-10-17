@@ -236,7 +236,7 @@ key store is `internal/sshgateway.Keys`.
 
 | Method | Path | Notes |
 |--------|------|-------|
-| `PUT` | `/v1/users/{user}/keys` | from the api: `{groups, admin, keys: [authorized_keys lines]}`; replaces that user's set and restarts its TTL; an empty list drops it. 409 with `errors[].location = body.keys[i]` when another user holds a key — nothing is changed then |
+| `PUT` | `/v1/users/{user}/keys` | from the api: `{handle, groups, admin, keys: [authorized_keys lines]}` (`handle` is the user's `user-…` SSH name, decision #50); replaces that user's set and restarts its TTL; an empty list drops it. 409 with `errors[].location = body.keys[i]` when another user holds a key — nothing is changed then |
 | `GET` | `/v1/key-requests/{code}` | from the api: `{publicKey, fingerprint, session, clientIP, expiresAt}` of a connection waiting on this replica for its unknown key to be added (decision #46); 404 when no connection here holds the code. `code` is 16 characters `[a-z2-7]` |
 | `GET` | `/v1/health` | readiness |
 
@@ -261,7 +261,7 @@ keeping the provider in the path is what lets the api stay stateless.
 | `GET` | `/api/v1/auth/oidc/login?redirect=` | public; browser redirect to the IdP |
 | `GET` | `/api/v1/auth/oidc/callback` | public; sets the cookie and redirects back |
 | `GET` | `/api/v1/me` | `{user, name, email, groups, admin}` |
-| `GET` | `/api/v1/ssh` | `{enabled, host?, port, allowADB, allowReverse, clientIsolation, maxTunnels, keyRequests, skipHostKeyCheck}` for the UI; empty `host` = the UI's own host; `skipHostKeyCheck` adds `-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null` to the commands it shows |
+| `GET` | `/api/v1/ssh` | `{enabled, host?, port, allowADB, allowReverse, clientIsolation, maxTunnels, keyRequests, skipHostKeyCheck, handle?}` for the UI; empty `host` = the UI's own host; `handle` is the caller's `user-{pseudonym}` SSH name for all of their sessions; `skipHostKeyCheck` adds `-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null` to the commands it shows |
 | `GET` | `/api/v1/ssh/key-requests/{code}` | the waiting connection behind a link the gateway printed, asked from every replica → `{publicKey, fingerprint, session, clientIP, expiresAt}`; 404 when none holds it (or SSH is disabled), 502 when no replica answered. Adding the key is the ordinary `PUT /api/v1/ssh/keys` |
 | `PUT` | `/api/v1/ssh/keys` | `{keys: [{name, publicKey}]}` (≤ 32) — the caller's full key list, replaces the previous one on every gateway replica → `{replicas}`; 404 when SSH is disabled, 422 on invalid, duplicate or already-claimed keys (`errors[].location = body.keys[i].publicKey`), 502 when no replica accepted |
 | `GET` | `/api/v1/sources` | `[{name, readOnly}]` |
@@ -291,6 +291,7 @@ keeping the provider in the path is what lets the api stay stateless.
 | `GET` | `/internal/app-data/{key}` | app data download for agents, **internal port only**; `key` is `{user hash}/{package}/{id}.tar.zst`, ids carry 96 random bits |
 | `GET` | `/internal/sessions/{slug}` | gateway only, **internal port**: `{provider, id, owner, state, tunnelUrl?}` for slug `{provider}-{id}`; 404 when no provider has it |
 | `POST` | `/internal/sessions/{slug}/activity` | gateway only, **internal port**: tunnel traffic counts as activity → 204; 404 for an unknown session |
+| `GET` | `/internal/users/{handle}/sessions` | gateway only, **internal port**: `{sessions: [SSHSession]}`, every session (any state) whose owner has this `user-…` handle; empty for an unknown handle; 500 if a provider can't list, so the gateway keeps what it has |
 | `POST` | `/internal/audit/events` | gateway only, **internal port**: a JSON array (≤ 1000) of audit events the gateway emitted, kept in the api's audit store → 204; dropped when `audit.store` is off |
 
 The APK cache is warmed in the background: listing artifacts and polling

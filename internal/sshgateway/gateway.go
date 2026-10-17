@@ -40,6 +40,7 @@ type Config struct {
 	KeyTTL                  time.Duration
 	MaxTunnelsPerConnection int
 	ActivityInterval        time.Duration
+	RefreshInterval         time.Duration
 }
 
 func DefaultConfig() Config {
@@ -55,6 +56,7 @@ func DefaultConfig() Config {
 		KeyTTL:                  24 * time.Hour,
 		MaxTunnelsPerConnection: 32,
 		ActivityInterval:        30 * time.Second,
+		RefreshInterval:         5 * time.Second,
 	}
 }
 
@@ -66,8 +68,8 @@ func (c Config) Validate() error {
 	if _, err := parsePorts(c.ReversePorts); err != nil {
 		errs = append(errs, fmt.Errorf("reversePorts: %w", err))
 	}
-	if c.KeyTTL <= 0 || c.ActivityInterval <= 0 || c.KeyRequestTimeout <= 0 {
-		errs = append(errs, errors.New("keyTTL, keyRequestTimeout and activityInterval must be positive"))
+	if c.KeyTTL <= 0 || c.ActivityInterval <= 0 || c.KeyRequestTimeout <= 0 || c.RefreshInterval <= 0 {
+		errs = append(errs, errors.New("keyTTL, keyRequestTimeout, activityInterval and refreshInterval must be positive"))
 	}
 	if c.MaxTunnelsPerConnection < 1 {
 		errs = append(errs, errors.New("maxTunnelsPerConnection must be at least 1"))
@@ -143,6 +145,7 @@ type login struct {
 	slug      string
 	sess      *contract.SSHSession
 	sessErr   *rejection
+	known     *bool
 	rejected  *rejection
 	proven    ssh.PublicKey
 	explained bool
@@ -174,10 +177,43 @@ func (l *login) session(slug string) (contract.SSHSession, *rejection) {
 	return *l.sess, nil
 }
 
+// authorizeHandle lets a user in as their own handle. Like a slug, a handle
+// nobody is known by is "not found" before any key is looked at.
+func (l *login) authorizeHandle(handle string, key ssh.PublicKey) (*ssh.Permissions, *rejection) {
+	id, ok := l.g.keys.Lookup(ssh.FingerprintSHA256(key))
+	if ok {
+		if id.Handle != handle {
+			return nil, notFound
+		}
+		return &ssh.Permissions{Extensions: map[string]string{"user": id.User, "handle": handle}}, nil
+	}
+	if l.known == nil {
+		known := l.g.keys.HandleKnown(handle)
+		if !known {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			sessions, err := l.g.sessions.SSHUserSessions(ctx, handle)
+			cancel()
+			if err != nil {
+				l.g.log.Warn("resolve handle", "handle", handle, "err", err)
+				return nil, &rejection{err, unavailableMessage}
+			}
+			known = len(sessions) > 0
+		}
+		l.known = &known
+	}
+	if !*l.known {
+		return nil, notFound
+	}
+	return nil, &rejection{errUnknownKey, unknownKeyMessage}
+}
+
 // authorize checks the session first and only then the key, maps the key to
 // the user who registered it and checks they may use the session. Forbidden
 // sessions fail like missing ones.
 func (l *login) authorize(slug string, key ssh.PublicKey) (*ssh.Permissions, *rejection) {
+	if isHandle(slug) {
+		return l.authorizeHandle(slug, key)
+	}
 	sess, r := l.session(slug)
 	if r != nil {
 		return nil, r
@@ -313,7 +349,7 @@ func (l *login) request(meta ssh.ConnMetadata, challenge ssh.KeyboardInteractive
 		<-tick.C
 	}
 	keyRequestsTotal.WithLabelValues("added").Inc()
-	l.sess, l.sessErr = nil, nil
+	l.sess, l.sessErr, l.known = nil, nil, nil
 	perms, r := l.authorize(meta.User(), l.proven)
 	if r != nil {
 		l.rejected = r
@@ -406,7 +442,12 @@ func (g *Gateway) handle(ctx context.Context, nc net.Conn) {
 		log.Info("ssh disconnected")
 	}()
 
-	go c.watch(ctx)
+	if handle := sc.Permissions.Extensions["handle"]; handle != "" {
+		c.fan = newFanout(c, handle)
+		go c.fan.run(ctx)
+	} else {
+		go c.watch(ctx)
+	}
 	go c.globalRequests(ctx, reqs)
 	for nch := range chans {
 		go c.channel(ctx, nch)
@@ -430,6 +471,7 @@ type conn struct {
 	mu      sync.Mutex
 	open    int
 	forward map[uint32]*forward
+	fan     *fanout
 }
 
 type forward struct {
@@ -444,7 +486,11 @@ func (c *conn) count(n int) {
 }
 
 func (c *conn) emit(action audit.Action, err error, details map[string]string) {
-	ev := audit.Event{Action: action, Actor: c.user, Provider: c.provider, Session: c.id, ClientIP: c.remote, Details: details}
+	c.emitOn(c.provider, c.id, action, err, details)
+}
+
+func (c *conn) emitOn(provider, id string, action audit.Action, err error, details map[string]string) {
+	ev := audit.Event{Action: action, Actor: c.user, Provider: provider, Session: id, ClientIP: c.remote, Details: details}
 	switch {
 	case err == nil:
 	case errors.Is(err, errDenied):
@@ -456,6 +502,10 @@ func (c *conn) emit(action audit.Action, err error, details map[string]string) {
 }
 
 func (c *conn) tunnelOpened(kind string, port uint32, err error) {
+	c.tunnelOpenedOn(c.provider, c.id, kind, port, err)
+}
+
+func (c *conn) tunnelOpenedOn(provider, id, kind string, port uint32, err error) {
 	result := audit.OK
 	switch {
 	case errors.Is(err, errDenied):
@@ -464,7 +514,7 @@ func (c *conn) tunnelOpened(kind string, port uint32, err error) {
 		result = audit.Failed
 	}
 	tunnelsTotal.WithLabelValues(kind, string(result)).Inc()
-	c.emit(audit.SSHTunnel, err, map[string]string{"kind": kind, "port": strconv.FormatUint(uint64(port), 10)})
+	c.emitOn(provider, id, audit.SSHTunnel, err, map[string]string{"kind": kind, "port": strconv.FormatUint(uint64(port), 10)})
 }
 
 var errDenied = errors.New("not allowed")
@@ -554,8 +604,13 @@ func (c *conn) globalRequests(ctx context.Context, reqs <-chan *ssh.Request) {
 				_ = req.Reply(false, nil)
 				continue
 			}
-			err := c.startForward(ctx, fr)
-			c.tunnelOpened("reverse", fr.Port, err)
+			var err error
+			if c.fan != nil {
+				err = c.fan.add(fr)
+			} else {
+				err = c.startForward(ctx, fr)
+				c.tunnelOpened("reverse", fr.Port, err)
+			}
 			if err != nil {
 				c.log.Info("port not published", "port", fr.Port, "err", err)
 			}
@@ -566,7 +621,11 @@ func (c *conn) globalRequests(ctx context.Context, reqs <-chan *ssh.Request) {
 				_ = req.Reply(false, nil)
 				continue
 			}
-			_ = req.Reply(c.stopForward(fr.Port), nil)
+			if c.fan != nil {
+				_ = req.Reply(c.fan.remove(fr.Port), nil)
+			} else {
+				_ = req.Reply(c.stopForward(fr.Port), nil)
+			}
 		default:
 			if req.WantReply {
 				_ = req.Reply(false, nil)
@@ -614,7 +673,7 @@ func (c *conn) startForward(ctx context.Context, fr forwardRequest) error {
 			if err != nil {
 				break
 			}
-			go c.forwarded(fr, stream)
+			go c.forwarded(fr, stream, c.count)
 		}
 		c.mu.Lock()
 		if c.forward[fr.Port] == f {
@@ -629,7 +688,7 @@ func (c *conn) startForward(ctx context.Context, fr forwardRequest) error {
 	return nil
 }
 
-func (c *conn) forwarded(fr forwardRequest, stream *yamux.Stream) {
+func (c *conn) forwarded(fr forwardRequest, stream *yamux.Stream, count func(int)) {
 	payload := ssh.Marshal(forwardedTCPIP{Addr: fr.Addr, Port: fr.Port, OrigAddr: "127.0.0.1", OrigPort: stream.StreamID()})
 	ch, reqs, err := c.sc.OpenChannel("forwarded-tcpip", payload)
 	if err != nil {
@@ -637,7 +696,7 @@ func (c *conn) forwarded(fr forwardRequest, stream *yamux.Stream) {
 		return
 	}
 	go ssh.DiscardRequests(reqs)
-	contract.Splice(ch, stream, c.count)
+	contract.Splice(ch, stream, count)
 }
 
 func (c *conn) stopForward(port uint32) bool {
@@ -654,6 +713,9 @@ func (c *conn) stopForward(port uint32) bool {
 }
 
 func (c *conn) closeForwards() {
+	if c.fan != nil {
+		c.fan.close()
+	}
 	c.mu.Lock()
 	forwards := c.forward
 	c.forward = map[uint32]*forward{}
@@ -683,6 +745,11 @@ func (c *conn) directTCPIP(ctx context.Context, nch ssh.NewChannel) {
 	var d directTCPIP
 	if err := ssh.Unmarshal(nch.ExtraData(), &d); err != nil {
 		_ = nch.Reject(ssh.ConnectionFailed, "malformed request")
+		return
+	}
+	if c.fan != nil {
+		c.tunnelOpened("adb", d.DestPort, fmt.Errorf("ADB on all sessions at once: %w", errDenied))
+		_ = nch.Reject(ssh.Prohibited, "ADB needs a single session: connect with its id as the user name")
 		return
 	}
 	if !c.g.cfg.AllowADB {
@@ -777,9 +844,21 @@ func waitForInterrupt(ch ssh.Channel) {
 
 func (c *conn) help() string {
 	var b strings.Builder
+	if c.fan != nil {
+		b.WriteString("All your sessions. There is no shell here, only tunnels.\r\n\r\n")
+		c.g.usageAll(&b)
+		return b.String()
+	}
 	fmt.Fprintf(&b, "Session %s. There is no shell here, only tunnels.\r\n\r\n", c.slug)
 	c.g.usage(&b)
 	return b.String()
+}
+
+func (g *Gateway) usageAll(b *strings.Builder) {
+	if g.cfg.AllowReverse {
+		b.WriteString("  Ports    ssh -N -R 3000:localhost:3000 …   every device of yours reaches it as localhost:3000\r\n")
+	}
+	b.WriteString("  ADB      connect with a session id as the user name instead\r\n")
 }
 
 func (g *Gateway) usage(b *strings.Builder) {
@@ -809,8 +888,13 @@ func (l *login) welcome(meta ssh.ConnMetadata, perms *ssh.Permissions) {
 	}
 	var b strings.Builder
 	b.WriteString("\r\n" + strings.ReplaceAll(logo, "\n", "\r\n") + "\r\n")
-	fmt.Fprintf(&b, "  Session  %s, signed in as %s\r\n", meta.User(), perms.Extensions["user"])
-	l.g.usage(&b)
+	if perms.Extensions["handle"] != "" {
+		fmt.Fprintf(&b, "  Sessions all of yours, signed in as %s; new ones join as they start\r\n", perms.Extensions["user"])
+		l.g.usageAll(&b)
+	} else {
+		fmt.Fprintf(&b, "  Session  %s, signed in as %s\r\n", meta.User(), perms.Extensions["user"])
+		l.g.usage(&b)
+	}
 	b.WriteString("\r\n  Only tunnels, no shell. They stay open until you press Ctrl+C.\r\n\r\n")
 	_ = l.pre.SendAuthBanner(b.String())
 }

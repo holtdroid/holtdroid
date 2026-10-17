@@ -31,6 +31,7 @@ type SSHInfo struct {
 	MaxTunnels       int    `json:"maxTunnels" doc:"tunnels one SSH connection may open"`
 	KeyRequests      bool   `json:"keyRequests" doc:"the gateway offers a link to add an unknown key"`
 	SkipHostKeyCheck bool   `json:"skipHostKeyCheck" doc:"commands turn off host key checking"`
+	Handle           string `json:"handle,omitempty" doc:"the caller's SSH user name for publishing ports on all of their sessions at once"`
 }
 
 type SSHKeyRequest struct {
@@ -68,8 +69,12 @@ func (s *Server) registerSSH(api huma.API) {
 	tags := []string{"ssh"}
 
 	huma.Register(api, huma.Operation{OperationID: "getSSH", Method: http.MethodGet, Path: "/api/v1/ssh", Tags: tags},
-		func(context.Context, *struct{}) (*out[SSHInfo], error) {
-			return &out[SSHInfo]{s.sshInfo()}, nil
+		func(ctx context.Context, _ *struct{}) (*out[SSHInfo], error) {
+			info := s.sshInfo()
+			if who, ok := auth.FromContext(ctx); ok && info.Enabled {
+				info.Handle = s.sshHandle(who.User)
+			}
+			return &out[SSHInfo]{info}, nil
 		})
 
 	huma.Register(api, huma.Operation{
@@ -181,7 +186,7 @@ func (s *Server) pushSSHKeys(ctx context.Context, who auth.Identity, lines []str
 	if err != nil {
 		return 0, err
 	}
-	keys := contract.UserKeys{Groups: who.Groups, Admin: who.Admin, Keys: lines}
+	keys := contract.UserKeys{Handle: s.sshHandle(who.User), Groups: who.Groups, Admin: who.Admin, Keys: lines}
 	errs := make([]error, len(urls))
 	var wg sync.WaitGroup
 	for i, u := range urls {
@@ -300,4 +305,24 @@ func (s *Server) SSHActivity(ctx context.Context, slug string) error {
 	}
 	s.activity.Mark(sessionKey{sess.Provider, sess.ID})
 	return nil
+}
+
+func (s *Server) sshHandle(user string) string {
+	return contract.HandlePrefix + s.auth.Pseudonym(user)
+}
+
+func (s *Server) SSHUserSessions(ctx context.Context, handle string) ([]contract.SSHSession, error) {
+	all, errs := s.allSessions(ctx)
+	if len(errs) > 0 {
+		return nil, fmt.Errorf("provider %s: %s", errs[0].Source, errs[0].Message)
+	}
+	var out []contract.SSHSession
+	for _, provider := range s.provOrder {
+		for _, sess := range all[provider] {
+			if sess.Owner != "" && s.sshHandle(sess.Owner) == handle {
+				out = append(out, contract.SSHSession{Provider: provider, ID: sess.ID, Owner: sess.Owner, State: sess.State, TunnelURL: sess.TunnelURL})
+			}
+		}
+	}
+	return out, nil
 }

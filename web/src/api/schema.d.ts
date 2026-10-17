@@ -761,6 +761,8 @@ export interface components {
             allowReverse: boolean;
             clientIsolation: boolean;
             enabled: boolean;
+            /** @description the caller's SSH user name for publishing ports on all of their sessions at once */
+            handle?: string;
             /** @description Host users connect to; empty means the host the UI is served from */
             host?: string;
             /** @description the gateway offers a link to add an unknown key */

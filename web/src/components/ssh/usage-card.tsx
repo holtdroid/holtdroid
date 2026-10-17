@@ -48,6 +48,12 @@ export function UsageCard({ info }: { info: SSHInfo }) {
             <CopyBlock text={`ssh -N${port} -R 3000:localhost:3000 ${target}`} />
           </div>
         )}
+        {info.allowReverse && info.handle && (
+          <div className="grid gap-1.5">
+            <span className="text-xs font-medium">The same on every device you run, now and later</span>
+            <CopyBlock text={`ssh -N${port} -R 3000:localhost:3000 ${info.handle}@${host}`} />
+          </div>
+        )}
         <p className="text-muted-foreground text-xs">
           The SSH button on a session page shows what is connected and builds one command for your whole list of ports.
           Shells are not available — the connection only carries these tunnels.

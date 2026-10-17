@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -134,8 +135,8 @@ func TestSSHKeysSync(t *testing.T) {
 	b, bFP := sshKey(t)
 
 	info := decode[SSHInfo](t, h.do(http.MethodGet, "/api/v1/ssh", "alice", "", nil))
-	want := SSHInfo{Enabled: true, Host: "android.example.com", Port: 2222, AllowADB: true, AllowReverse: true, MaxTunnels: 32, KeyRequests: true}
-	if info != want {
+	want := SSHInfo{Enabled: true, Host: "android.example.com", Port: 2222, AllowADB: true, AllowReverse: true, MaxTunnels: 32, KeyRequests: true, Handle: h.srv.sshHandle("alice")}
+	if info != want || !regexp.MustCompile(`^user-[a-z2-7]{16}$`).MatchString(info.Handle) || info.Handle == h.srv.sshHandle("bob") {
 		t.Fatalf("info = %+v", info)
 	}
 
@@ -145,7 +146,7 @@ func TestSSHKeysSync(t *testing.T) {
 	}
 	for i, store := range h.stores {
 		for _, fp := range []string{aFP, bFP} {
-			if id, ok := store.Lookup(fp); !ok || id.User != "alice" || len(id.Groups) != 1 {
+			if id, ok := store.Lookup(fp); !ok || id.User != "alice" || id.Handle != info.Handle || len(id.Groups) != 1 {
 				t.Fatalf("replica %d lookup %s = %+v, %v", i, fp, id, ok)
 			}
 		}
@@ -284,5 +285,14 @@ func TestInternalSSHSessions(t *testing.T) {
 	}
 	if err := c.SSHActivity(ctx, "fake-nope"); !errors.Is(err, contract.ErrNotFound) {
 		t.Fatalf("activity for an unknown session: %v", err)
+	}
+
+	h.create("badger")
+	mine, err := c.SSHUserSessions(ctx, h.srv.sshHandle("otter"))
+	if err != nil || len(mine) != 1 || mine[0].ID != v.ID || mine[0].Owner != "otter" {
+		t.Fatalf("otter's sessions %+v, %v", mine, err)
+	}
+	if none, err := c.SSHUserSessions(ctx, "user-nobody"); err != nil || len(none) != 0 {
+		t.Fatalf("unknown handle %+v, %v", none, err)
 	}
 }

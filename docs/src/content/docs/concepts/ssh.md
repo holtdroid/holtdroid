@@ -39,6 +39,23 @@ insecure and the agent restarts it as root); a physical phone would ask on its
 screen, which you can accept in the portal. Without `-N`,
 `ssh` prints a short help and holds the tunnels open until you press Ctrl+C.
 
+## All your devices at once
+
+Instead of a session id, connect as your own `user-…` name to publish your
+ports on every device you run:
+
+```sh
+ssh -N -p 2222 -R 3000:localhost:3000 -R 5173:localhost:5173 user-k3zq7c2mxu4hwa5e@android.example.com
+```
+
+The SSH keys page and the **All my devices** switch in the SSH button show
+your name. Devices you start later get the ports within a few seconds, and
+stopped ones drop out; the connection stays open even when none is running.
+Only `-R` works this way. ADB needs one device, so use the session id for
+`-L`. If a device already has a port published by another connection, it is
+skipped there and tried again later. The name is derived from your login but
+doesn't reveal it.
+
 ## Keys stay with you
 
 Add your public keys on the **SSH keys** page. They are kept in your browser

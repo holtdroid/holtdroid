@@ -543,6 +543,24 @@ adds the key to the browser's list like a pasted one. The usual push brings
 it to the gateway, which notices it and finishes the login, checking the
 session as for any key. Decision #46.
 
+### All of a user's sessions at once
+
+`ssh -N -R 3000:localhost:3000 user-{pseudonym}@host` publishes the ports on
+every ready session the user owns, and on sessions they start later. The
+handle is `user-` plus 16 base32 characters of an HMAC of the login with
+`auth.sessionKey`, so it doesn't reveal the login; the api computes it, shows
+it in `GET /api/v1/ssh` and sends it with the user's keys, and the gateway
+lets a key in as a handle only if its owner has that handle. A handle with
+no keys and no sessions is "Not found." like a missing slug.
+
+Such a connection asks `GET /internal/users/{handle}/sessions` every
+`refreshInterval` (5 s) and opens or closes each port's tunnel per session
+with the same `Reverse` call as a single-session `-R`. `-R` is answered at
+once, even with no session running; a device that refuses a port (already
+published there) is retried after 30 s. Traffic counts as activity only for
+the session it went to. The connection stays up when the last session ends,
+and `-L` (ADB) is refused: it needs one device. Decision #50.
+
 ### Activity and lifetime
 
 Traffic through a tunnel counts as activity: the gateway reports

@@ -1108,3 +1108,30 @@ the versionCode is higher. External storage (`/sdcard/Android/data`) is
 not saved. Stopping a session takes as long as the save, bounded by
 `appData.timeout`. A session that dies on its own (node loss, OOM) has no
 save.
+
+## 50. One SSH connection can serve all of a user's sessions
+
+**Context.** Developers often run several devices at once and want their dev
+server on all of them. With one SSH user per session that is one `ssh` per
+device, restarted whenever a device is replaced.
+
+**Decision.** The SSH user name `user-{pseudonym}` stands for all sessions
+the user owns. The pseudonym is the first 10 bytes of
+HMAC-SHA256(`auth.sessionKey`, login) in base32, so the name neither reveals
+the login nor can be computed from it without the key (in the `header` and
+`none` modes there is no key and it is a plain hash). The api derives it and
+pushes it with the user's keys, so the gateway needs no secret. The gateway
+polls `GET /internal/users/{handle}/sessions` every 5 s and keeps one
+`Reverse` tunnel per port and ready session; the agent API is unchanged.
+`-R` is acknowledged before any device has the port, since devices come and
+go; failures show per device in the portal instead. Only `-R` is offered:
+ADB has to pick one device. Activity is counted per session so one open
+connection doesn't keep every device from being reaped. `user` is reserved
+as a provider name.
+
+**Consequences.** A new device gets the ports up to 5 s after it is ready;
+pushing session events to the gateway would remove that delay and is left
+for later. A port already published on a device by another connection is
+skipped there and retried every 30 s. The handle changes if
+`auth.sessionKey` changes.
+
