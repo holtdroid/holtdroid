@@ -16,7 +16,7 @@ import (
 )
 
 // Frida spawns apps through frida-server on the device with the scripts in
-// dir (agent.js for the app, system.js for system_server, plus their
+// dir (agent.ts for the app, system.ts for system_server, plus their
 // node_modules), bundled once by Frida's compiler.
 type Frida struct {
 	serial string
@@ -44,11 +44,11 @@ func (f *Frida) prepare() error {
 	opts.SetTypeCheckMode(frida.TypeCheckModeNone)
 	opts.SetSourceMaps(frida.SourceMapsOmitted)
 	compiler := frida.NewCompiler()
-	bundle, err := compiler.Build(filepath.Join(f.dir, "agent.js"), opts)
+	bundle, err := compiler.Build(filepath.Join(f.dir, "agent.ts"), opts)
 	if err != nil {
 		return fmt.Errorf("compile frida script: %w", err)
 	}
-	system, err := compiler.Build(filepath.Join(f.dir, "system.js"), opts)
+	system, err := compiler.Build(filepath.Join(f.dir, "system.ts"), opts)
 	if err != nil {
 		return fmt.Errorf("compile frida system script: %w", err)
 	}

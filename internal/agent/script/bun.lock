@@ -7,9 +7,14 @@
       "dependencies": {
         "frida-java-bridge": "7.0.13",
       },
+      "devDependencies": {
+        "@types/frida-gum": "19.12.0",
+      },
     },
   },
   "packages": {
+    "@types/frida-gum": ["@types/frida-gum@19.12.0", "", {}, "sha512-fqXtwFA8AwE89tSdNHlaY+hNWI5j62bcO1xk5w0NSuHBIH6KRxYzIK6rp/JP7TXtRKU2ewBwx81FrHTfGF0q7w=="],
+
     "frida-java-bridge": ["frida-java-bridge@7.0.13", "", {}, "sha512-YSyKjxbxKnSi3KSUy9vciOvTOuq0RRh9dkxzkQVEdfIIZlw20zE8D3Cq9eL2FDqUVj4YKas6Wf09kCjL5zbffg=="],
   }
 }

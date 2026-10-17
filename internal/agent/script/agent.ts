@@ -22,7 +22,7 @@ Java.perform(() => {
   }
 
   const Instrumentation = Java.use("android.app.Instrumentation")
-  Instrumentation.callApplicationOnCreate.implementation = function (app) {
+  Instrumentation.callApplicationOnCreate.implementation = function (app: Java.Wrapper) {
     enableDebugging()
     return this.callApplicationOnCreate(app)
   }

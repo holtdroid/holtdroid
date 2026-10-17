@@ -293,7 +293,7 @@ bridge inside GumJS: scripts must import `frida-java-bridge` and be bundled.
 **Decision.** The session image pins one Frida version (`FRIDA_VERSION` in
 `images/session.Dockerfile`) for both the devkit and `frida-server`, matching
 frida-go's CI. The instrumentation script lives in `internal/agent/script`
-(`agent.js` + a `bun.lock` for `frida-java-bridge`); the image installs its
+(`agent.ts` + a `bun.lock` for `frida-java-bridge`, TypeScript that Frida's compiler bundles without type checking; `make lint` runs `tsc` on it with `@types/frida-gum`); the image installs its
 `node_modules` and the agent bundles it once at start with Frida's own
 compiler (`frida.NewCompiler().Build`). Only the session binary is built
 with `-tags frida` and cgo; the distroless binary keeps `CGO_ENABLED=0` and
@@ -509,7 +509,7 @@ implements them with stock shell commands over adb (`input keyevent`,
 `dumpsys battery`, `wm density`, `screencap`) and the emulator console for
 network speed and latency (`adb emu network …`). Android has no shell command
 for the system language, so the agent attaches Frida to `system_server`
-(`internal/agent/script/system.js`) and calls
+(`internal/agent/script/system.ts`) and calls
 `LocalePicker.updateLocales`, the call the Settings app makes; it applies at
 once and persists. The clock is set to real time + offset with
 `cmd alarm set-time` after turning `auto_time` off, and its offset is read by

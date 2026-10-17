@@ -4,5 +4,8 @@
   "type": "module",
   "dependencies": {
     "frida-java-bridge": "7.0.13"
+  },
+  "devDependencies": {
+    "@types/frida-gum": "19.12.0"
   }
 }

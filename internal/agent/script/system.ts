@@ -1,7 +1,7 @@
 import Java from "frida-java-bridge"
 
 rpc.exports = {
-  setLocales(tags) {
+  setLocales(tags: string) {
     return new Promise((resolve) => {
       Java.perform(() => {
         try {
