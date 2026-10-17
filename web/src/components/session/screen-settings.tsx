@@ -1,12 +1,12 @@
 import { KeyboardIcon, MonitorCogIcon } from "lucide-react"
 import type { ReactNode } from "react"
 import { type LiveScreen, useDecodableCodecs, useScreenLive } from "@/components/session/live-screen"
+import { RailButton } from "@/components/session/rail-item"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import {
   defaultScreenPrefs,
   type KeyboardMode,
@@ -43,16 +43,11 @@ export function ScreenSettings({ live }: { live: LiveScreen }) {
 
   return (
     <Popover>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <PopoverTrigger asChild>
-            <Button size="icon-sm" variant="ghost" aria-label="Stream and keyboard">
-              <MonitorCogIcon />
-            </Button>
-          </PopoverTrigger>
-        </TooltipTrigger>
-        <TooltipContent side="left">Stream and keyboard</TooltipContent>
-      </Tooltip>
+      <PopoverTrigger asChild>
+        <RailButton label="Stream and keyboard">
+          <MonitorCogIcon />
+        </RailButton>
+      </PopoverTrigger>
       <PopoverContent side="left" align="end" className="grid w-80 gap-4">
         <div className="grid gap-3">
           <p className="text-sm font-medium">Stream</p>

@@ -1,7 +1,9 @@
 import { type LucideIcon, RotateCcwIcon } from "lucide-react"
 import { type ReactNode, useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
+import { RailItem } from "@/components/session/rail-item"
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
+import { useScreenPrefs } from "@/lib/screen-prefs"
 import { cn } from "@/lib/utils"
 
 export function RailControl({
@@ -27,6 +29,7 @@ export function RailControl({
   disabled?: boolean
   children: ReactNode
 }) {
+  const { railLabels } = useScreenPrefs()
   const [open, setOpen] = useState(false)
   const [pinned, setPinned] = useState(false)
   const timer = useRef<number | undefined>(undefined)
@@ -54,21 +57,24 @@ export function RailControl({
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverAnchor asChild>
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          aria-label={label}
+        <RailItem
+          label={label}
           disabled={disabled}
-          className={cn("relative", active && "bg-accent text-accent-foreground")}
+          className={cn(active && "bg-accent text-accent-foreground", railLabels && changed && "pr-6")}
           onPointerEnter={show}
           onPointerLeave={hide}
           onClick={onClick ?? pin}
         >
           <Icon />
           {changed && (
-            <span className="ring-background absolute top-0.5 right-0.5 size-2 rounded-full bg-amber-500 ring-2" />
+            <span
+              className={cn(
+                "ring-background absolute size-2 rounded-full bg-amber-500 ring-2",
+                railLabels ? "top-1/2 right-2 -translate-y-1/2" : "top-0.5 right-0.5",
+              )}
+            />
           )}
-        </Button>
+        </RailItem>
       </PopoverAnchor>
       <PopoverContent
         side="left"

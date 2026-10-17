@@ -34,7 +34,8 @@ hybrid apps, support engineers reproducing a customer bug.
    rotate, back/home/recents, notifications, quick settings), a screenshot
    button and a switch for the device's audio, which plays in your browser
    by default. When the device vibrates, the page shows a notification and
-   plays a buzz. Its
+   plays a buzz. The arrow at the top of the rail widens it into a menu with
+   section titles and a label next to every icon, and back. Its
    **Stream and keyboard** popover picks the video codec (H.264, H.265 or
    AV1), resolution, frame rate and bitrate, and switches the keyboard
    between text input and a virtual USB keyboard that types in any alphabet

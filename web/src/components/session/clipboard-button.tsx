@@ -10,6 +10,7 @@ import {
 import { type ReactNode, useEffect, useEffectEvent, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import { agentClient, type Clipboard, sessionBase, unwrap } from "@/api/client"
+import { RailItem } from "@/components/session/rail-item"
 import { Button } from "@/components/ui/button"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { useEventSource } from "@/hooks/use-event-source"
@@ -33,14 +34,13 @@ export function ClipboardButton({ provider, id }: { provider: string; id: string
   return (
     <HoverCard openDelay={150} closeDelay={150}>
       <HoverCardTrigger asChild>
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          aria-label={on ? "Turn clipboard sync off" : "Turn clipboard sync on"}
+        <RailItem
+          label={on ? "Turn clipboard sync off" : "Turn clipboard sync on"}
+          text="Clipboard sync"
           onClick={() => setScreenPrefs({ clipboard: !on })}
         >
           {!on ? <ClipboardXIcon /> : mode === "both" ? <ClipboardIcon /> : modes[mode].icon}
-        </Button>
+        </RailItem>
       </HoverCardTrigger>
       <HoverCardContent side="left" align="start" className="flex w-64 flex-col gap-0.5 p-1">
         <div className="grid gap-0.5 px-2 py-1.5">

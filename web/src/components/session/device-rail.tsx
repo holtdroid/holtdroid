@@ -4,6 +4,8 @@ import {
   BellIcon,
   CameraIcon,
   ChevronLeftIcon,
+  ChevronsLeftIcon,
+  ChevronsRightIcon,
   CircleIcon,
   CircleStopIcon,
   HeadphoneOffIcon,
@@ -32,8 +34,7 @@ import { ScreenSettings } from "@/components/session/screen-settings"
 import { useDeviceAction } from "@/components/session/use-device"
 import { Button } from "@/components/ui/button"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
-import { Separator } from "@/components/ui/separator"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { RailButton, RailItem, RailSection } from "@/components/session/rail-item"
 import { useEventSource } from "@/hooks/use-event-source"
 import { useNow } from "@/hooks/use-now"
 import { useUserActivation } from "@/hooks/use-user-activation"
@@ -43,26 +44,36 @@ import { formatDuration } from "@/lib/format"
 import { type Recording, recordingSupported, startRecording } from "@/lib/recorder"
 import type { ScreenControl } from "@/lib/scrcpy"
 import { getScreenPrefs, type LockMode, setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
+import { cn } from "@/lib/utils"
 import { buzz } from "@/lib/vibration"
 
-const groups: { action: DeviceAction; label: string; icon: ReactNode }[][] = [
-  [{ action: "unlock", label: "Wake and unlock", icon: <LockOpenIcon /> }],
-  [
-    { action: "volume-up", label: "Volume up", icon: <Volume2Icon /> },
-    { action: "volume-down", label: "Volume down", icon: <Volume1Icon /> },
-    { action: "mute", label: "Mute", icon: <VolumeXIcon /> },
-  ],
-  [
-    { action: "rotate-left", label: "Rotate left", icon: <RotateCcwSquareIcon /> },
-    { action: "rotate-right", label: "Rotate right", icon: <RotateCwSquareIcon /> },
-  ],
-  [
-    { action: "back", label: "Back", icon: <ChevronLeftIcon /> },
-    { action: "home", label: "Home", icon: <CircleIcon /> },
-    { action: "recents", label: "Recent apps", icon: <SquareIcon /> },
-    { action: "notifications", label: "Notifications", icon: <BellIcon /> },
-    { action: "quick-settings", label: "Quick settings", icon: <ToggleRightIcon /> },
-  ],
+const groups: { title: string; buttons: { action: DeviceAction; label: string; icon: ReactNode }[] }[] = [
+  { title: "Screen", buttons: [{ action: "unlock", label: "Wake and unlock", icon: <LockOpenIcon /> }] },
+  {
+    title: "Volume",
+    buttons: [
+      { action: "volume-up", label: "Volume up", icon: <Volume2Icon /> },
+      { action: "volume-down", label: "Volume down", icon: <Volume1Icon /> },
+      { action: "mute", label: "Mute", icon: <VolumeXIcon /> },
+    ],
+  },
+  {
+    title: "Rotation",
+    buttons: [
+      { action: "rotate-left", label: "Rotate left", icon: <RotateCcwSquareIcon /> },
+      { action: "rotate-right", label: "Rotate right", icon: <RotateCwSquareIcon /> },
+    ],
+  },
+  {
+    title: "Navigation",
+    buttons: [
+      { action: "back", label: "Back", icon: <ChevronLeftIcon /> },
+      { action: "home", label: "Home", icon: <CircleIcon /> },
+      { action: "recents", label: "Recent apps", icon: <SquareIcon /> },
+      { action: "notifications", label: "Notifications", icon: <BellIcon /> },
+      { action: "quick-settings", label: "Quick settings", icon: <ToggleRightIcon /> },
+    ],
+  },
 ]
 
 const viaScreen: Partial<Record<DeviceAction, (c: ScreenControl) => void>> = {
@@ -93,7 +104,7 @@ export function DeviceRail({
 }) {
   const action = useDeviceAction(provider, id)
   const [shooting, setShooting] = useState(false)
-  const { audio } = useScreenPrefs()
+  const { audio, railLabels } = useScreenPrefs()
   const activated = useUserActivation()
   useVibrationAlerts(provider, id, audio && activated)
 
@@ -122,27 +133,40 @@ export function DeviceRail({
   }
 
   return (
-    <div className="bg-background flex flex-col items-center gap-1 overflow-y-auto border-l p-1">
-      <LockButton run={run} />
+    <div
+      className={cn(
+        "bg-background flex shrink-0 flex-col gap-1 overflow-y-auto border-l p-1",
+        railLabels ? "w-48 items-stretch" : "items-center",
+      )}
+    >
+      <RailButton
+        label={railLabels ? "Icons only" : "Show labels"}
+        className="text-muted-foreground"
+        onClick={() => setScreenPrefs({ railLabels: !railLabels })}
+      >
+        {railLabels ? <ChevronsRightIcon /> : <ChevronsLeftIcon />}
+      </RailButton>
       {groups.map((group, i) => (
-        <div key={group.map((b) => b.action).join()} className="contents">
-          {i > 0 && <Separator className="my-1 w-6!" />}
-          {group.map((b) => (
+        <div key={group.title} className="contents">
+          <RailSection title={group.title} />
+          {i === 0 && <LockButton run={run} />}
+          {group.buttons.map((b) => (
             <RailButton key={b.action} label={b.label} onClick={() => run(b.action)}>
               {b.icon}
             </RailButton>
           ))}
         </div>
       ))}
-      <Separator className="my-1 w-6!" />
+      <RailSection title="Capture" />
       <RailButton label="Screenshot" disabled={shooting} onClick={() => void screenshot()}>
         <CameraIcon />
       </RailButton>
       <RecordButton name={name} live={live} />
+      <RailSection title="Stream" separator={false} />
       <AudioButton provider={provider} id={id} live={live} />
       {clipboard && <ClipboardButton provider={provider} id={id} />}
       <ScreenSettings live={live} />
-      <Separator className="my-1 w-6!" />
+      <RailSection title="Device" />
       <DeviceControls provider={provider} id={id} locations={locations} />
     </div>
   )
@@ -159,14 +183,9 @@ function LockButton({ run }: { run: (a: DeviceAction) => void }) {
   return (
     <HoverCard openDelay={150} closeDelay={150}>
       <HoverCardTrigger asChild>
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          aria-label={current.label}
-          onClick={() => run(lockModes[lockMode] ? lockMode : "lock")}
-        >
+        <RailItem label={current.label} onClick={() => run(lockModes[lockMode] ? lockMode : "lock")}>
           {current.icon}
-        </Button>
+        </RailItem>
       </HoverCardTrigger>
       <HoverCardContent side="left" align="start" className="flex w-56 flex-col gap-0.5 p-1">
         {(Object.entries(lockModes) as [LockMode, (typeof lockModes)[LockMode]][]).map(([mode, m]) => (
@@ -214,6 +233,7 @@ function RecordButton({ name, live }: { name: string; live: LiveScreen }) {
 
   return (
     <RailButton
+      text={recording ? "Stop recording" : "Record"}
       label={
         !recordingSupported()
           ? "This browser can't record the screen"
@@ -300,7 +320,7 @@ function AudioButton({ provider, id, live }: { provider: string; id: string; liv
                   : "Connecting device audio…"
 
   return (
-    <RailButton label={label} disabled={supported !== true} onClick={toggle}>
+    <RailButton label={label} text="Device audio" disabled={supported !== true} onClick={toggle}>
       {wanted && unavailable === null ? (
         <HeadphonesIcon className={connected ? undefined : "animate-pulse opacity-60"} />
       ) : (
@@ -338,21 +358,4 @@ function showVibration(v: Vibration, audible: boolean) {
         }
       : undefined,
   })
-}
-
-function RailButton({
-  label,
-  children,
-  ...props
-}: { label: string; children: ReactNode } & React.ComponentProps<typeof Button>) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button size="icon-sm" variant="ghost" aria-label={label} {...props}>
-          {children}
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent side="left">{label}</TooltipContent>
-    </Tooltip>
-  )
 }

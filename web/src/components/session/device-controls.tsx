@@ -36,6 +36,7 @@ import {
 } from "@/api/client"
 import { Combobox, type ComboboxOption } from "@/components/combobox"
 import { ControlGroup, RailControl } from "@/components/session/rail-control"
+import { RailItem } from "@/components/session/rail-item"
 import { TimeDialog } from "@/components/session/time-dialog"
 import { networkKey, useDevice, useNetwork, useUpdateDevice } from "@/components/session/use-device"
 import { Badge } from "@/components/ui/badge"
@@ -95,11 +96,11 @@ const units: { id: string; short: string; one: string; many: string; apply: (d: 
 ]
 
 const placeholders: [string, LucideIcon][] = [
-  ["network", WifiIcon],
-  ["battery", BatteryFullIcon],
-  ["display", SunIcon],
-  ["language", LanguagesIcon],
-  ["time", ClockIcon],
+  ["Network", WifiIcon],
+  ["Battery", BatteryFullIcon],
+  ["Display", SunIcon],
+  ["Language and region", LanguagesIcon],
+  ["Date and time", ClockIcon],
 ]
 
 type Props = { s: DeviceState; set: (patch: DeviceSettings) => void; busy: boolean }
@@ -112,9 +113,9 @@ export function DeviceControls({ provider, id, locations }: { provider: string; 
     return (
       <>
         {placeholders.map(([name, Icon]) => (
-          <Button key={name} size="icon-sm" variant="ghost" disabled aria-label="Loading device settings">
+          <RailItem key={name} label="Loading device settings" text={name} disabled>
             <Icon />
-          </Button>
+          </RailItem>
         ))}
       </>
     )
