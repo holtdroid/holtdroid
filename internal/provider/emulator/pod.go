@@ -81,6 +81,12 @@ func (p *Provider) renderPod(id, slot string, req contract.CreateSession, locati
 	if location != "" {
 		env = append(env, corev1.EnvVar{Name: "HOLTDROID_LOCATION", Value: location})
 	}
+	if req.AppData != nil {
+		env = append(env,
+			corev1.EnvVar{Name: "HOLTDROID_APPDATA__URL", Value: req.AppData.URL},
+			corev1.EnvVar{Name: "HOLTDROID_APPDATA__CACHE", Value: strconv.FormatBool(req.AppData.Cache)},
+		)
+	}
 	node := p.cfg.Nodes[slot]
 	if node.Cores > 0 {
 		env = append(env, corev1.EnvVar{Name: "HOLTDROID_EMULATOR__CORES", Value: strconv.Itoa(node.Cores)})

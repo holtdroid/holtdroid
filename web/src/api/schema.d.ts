@@ -55,6 +55,56 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/app-data": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The caller's saved app data, newest first, and the server's rules for it. */
+        get: operations["listAppData"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/app-data/{package}/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["deleteAppData"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/app-data/{package}/{id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The snapshot as a zstd-compressed tar of the app's /data/data and /data/user_de directories. */
+        get: operations["downloadAppData"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/artifacts": {
         parameters: {
             query?: never;
@@ -236,6 +286,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sessions/{provider}/{id}/app-data": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Saves the app's data now into the session owner's app data. The app is stopped while it is copied and started again. */
+        post: operations["saveSessionAppData"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sessions/{provider}/{id}/extend": {
         parameters: {
             query?: never;
@@ -372,6 +439,62 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AppDataChoice: {
+            /** @description also restore its cache, if it has one */
+            cache: boolean;
+            /** @description a snapshot of the launched app's package */
+            id: string;
+        };
+        AppDataList: {
+            /** @description snapshots may include the app's cache */
+            cache: boolean;
+            enabled: boolean;
+            /** @description snapshots can be downloaded */
+            export: boolean;
+            items: components["schemas"]["AppDataView"][];
+            /**
+             * Format: int64
+             * @description snapshots kept per app, 0 for no limit
+             */
+            keep: number;
+            /**
+             * Format: int64
+             * @description seconds a snapshot is kept after its last use, 0 for no limit
+             */
+            maxAge: number;
+        };
+        AppDataView: {
+            artifactId: string;
+            /** @description the snapshot includes the app's cache */
+            cache: boolean;
+            /**
+             * Format: int64
+             * @description bytes stored
+             */
+            compressed: number;
+            /** Format: date-time */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @description when retention deletes it unless it is used again
+             */
+            expiresAt?: string;
+            iconUrl?: string;
+            id: string;
+            label?: string;
+            /** Format: date-time */
+            lastUsedAt: string;
+            package: string;
+            /**
+             * Format: int64
+             * @description bytes on the device, uncompressed
+             */
+            size: number;
+            source: string;
+            /** Format: int32 */
+            versionCode?: number;
+            versionName?: string;
+        };
         ArtifactList: {
             errors: components["schemas"]["SourceError"][];
             items: components["schemas"]["ArtifactView"][];
@@ -496,6 +619,8 @@ export interface components {
             Value: string;
         };
         CreateSessionInputBody: {
+            /** @description start the app with saved app data instead of a fresh install */
+            appData?: components["schemas"]["AppDataChoice"];
             artifactId: string;
             location?: string;
             provider: string;
@@ -835,6 +960,103 @@ export interface operations {
                 };
                 content: {
                     "application/x-ndjson": unknown;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    listAppData: {
+        parameters: {
+            query?: {
+                /** @description only this app */
+                package?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppDataList"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    deleteAppData: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                package: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    downloadAppData: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                package: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description the archive */
+            200: {
+                headers: {
+                    "Content-Disposition"?: string;
+                    "Content-Length"?: number;
+                    "Content-Type"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zstd": string;
                 };
             };
             /** @description Error */
@@ -1324,6 +1546,38 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    saveSessionAppData: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppDataView"];
+                };
             };
             /** @description Error */
             default: {

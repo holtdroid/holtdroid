@@ -67,6 +67,11 @@ func testAudit(t *testing.T, now func() time.Time) (*audit.Logger, *bytes.Buffer
 
 func newHarness(t *testing.T, slots int, opts ...func(*fake.Config)) *harness {
 	t.Helper()
+	return newHarnessWith(t, slots, nil, opts...)
+}
+
+func newHarnessWith(t *testing.T, slots int, configure func(*Config), opts ...func(*fake.Config)) *harness {
+	t.Helper()
 	apks := t.TempDir()
 	copyFile(t, "../apk/testdata/helloworld.apk", filepath.Join(apks, "hello.apk"))
 	if err := os.WriteFile(filepath.Join(apks, "broken.apk"), []byte("nope"), 0o600); err != nil {
@@ -88,12 +93,19 @@ func newHarness(t *testing.T, slots int, opts ...func(*fake.Config)) *harness {
 	cfg.Auth.Mode = auth.ModeHeader
 	cfg.Auth.AdminGroups = []string{"admins"}
 	cfg.Sources = []source.Config{{Name: "local", Type: "filesystem", Filesystem: storage.FilesystemConfig{Dir: apks}}}
+	internal := httptest.NewServer(http.NotFoundHandler())
+	t.Cleanup(internal.Close)
+	cfg.InternalURL = internal.URL
+	if configure != nil {
+		configure(&cfg)
+	}
 	aud, buf := testAudit(t, clk.Now)
 	srv, err := New(context.Background(), cfg, WithClock(clk.Now), WithProvider("fake", p), WithAudit(aud))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = srv.Close() })
+	internal.Config.Handler = srv.InternalHandler()
 	return &harness{t: t, srv: srv, handler: srv.Handler(), internal: srv.InternalHandler(), provider: p, clock: clk, apks: apks, cfg: cfg, audit: buf}
 }
 

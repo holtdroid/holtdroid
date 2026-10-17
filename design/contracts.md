@@ -155,6 +155,15 @@ type CreateSession struct {
 	Package     string
 	Owner       string
 	Location    string // optional
+	AppData     *AppDataRestore // optional: {url, cache}, decision #49
+}
+
+// The agent downloads url (a zstd tar from /v1/app-data/export) and puts it
+// back after installing the app and before it first starts; cache also
+// restores cache/ and code_cache/. A failed restore fails the session.
+type AppDataRestore struct {
+	URL   string // api-internal, /internal/app-data/{key}
+	Cache bool
 }
 
 type Session struct {
@@ -195,6 +204,7 @@ static assets and WebSockets.
 | `PUT` | `/v1/network/location` | `{location}` → `network` | `SetLocation` |
 | `POST` | `/v1/app/{restart\|reinstall}` | 202; `restart` also starts a closed app, `reinstall` uninstalls first (clears data) and installs the current build | `App` |
 | `POST` | `/v1/install` | `Install` → 204 once the new build runs; 400 with the adb message when it can't be installed (the previous build is kept or put back). Called by providers; the api proxy refuses it from browsers | `Install` |
+| `POST` | `/v1/app-data/export` | `AppDataExport` `{cache, maxCacheSize?, maxSize?, restart}` → `application/zstd` stream of a tar of `/data/data/{pkg}` and `/data/user_de/0/{pkg}` (numeric owners, without `lib`), headers `X-App-Data-Size` (bytes on the device) and `X-App-Data-Cache` (whether `cache/` and `code_cache/` are in it). The app is stopped first; `restart` starts it again afterwards. The cache is left out when it is bigger than `maxCacheSize` or would push the total over `maxSize`; data alone over `maxSize` → 413, no data → 404, another app action running → 423, not `ready` → 400. Called by the api; the proxy refuses it from browsers (decision #49) | `ExportAppData` |
 | `GET` | `/v1/device` | `DeviceState`: `{airplaneMode, wifi, mobileData, batterySaver, batteryLevel, charging, darkMode, fontScale, density, defaultDensity, rotation, networkProfile?, timeZone, locale, autoTime, timeOffset}`; `rotation` is `Surface.ROTATION_*`, `timeOffset` is device clock minus real time in ms, `networkProfile` is absent when the device can't emulate network conditions | `Device` |
 | `PATCH` | `/v1/device` | `DeviceSettings` (any subset of the writable fields above; `density: 0` restores the default; `timeOffset` sets the clock to real time + offset and turns `autoTime` off; `autoTime: true` syncs the clock) → `DeviceState` | `UpdateDevice` |
 | `POST` | `/v1/device/actions/{volume-up\|volume-down\|mute\|lock\|unlock\|back\|home\|recents\|notifications\|quick-settings\|rotate-left\|rotate-right}` | 204 | `DeviceAction` |
@@ -263,9 +273,13 @@ keeping the provider in the path is what lets the api stay stateless.
 | `POST` | `/api/v1/uploads` | multipart `file` (+ `visibility`, `title`, `note`, `changelog`) → 201 artifact; 403 when disabled, 422 when not an APK, body capped at `maxSize` |
 | `GET` | `/api/v1/providers` | `{name, capabilities, capacity, error?}` per provider |
 | `GET` | `/api/v1/sessions` | `{items, errors}`, each item with `idleDeadline` and `ttlDeadline` |
-| `POST` | `/api/v1/sessions` | `{source, artifactId, provider, location?}`; 404 for artifacts the caller can't see, 409 when no slot is free, 422 for an invalid APK or unknown location |
+| `POST` | `/api/v1/sessions` | `{source, artifactId, provider, location?, appData?: {id, cache}}`; 404 for artifacts the caller can't see or app data that isn't the caller's for that package, 403 for `appData` while app data is off, 409 when no slot is free, 422 for an invalid APK or unknown location |
 | `GET` | `/api/v1/sessions/{provider}/{id}` | one session |
-| `DELETE` | `/api/v1/sessions/{provider}/{id}` | owner or admin only |
+| `DELETE` | `/api/v1/sessions/{provider}/{id}` | owner or admin only; with app data on, a `ready` session's app data is saved into the owner's first (a failed save is logged and audited, the session is stopped anyway) |
+| `POST` | `/api/v1/sessions/{provider}/{id}/app-data` | owner or admin; saves the app data now into the session owner's saves and restarts the app → `AppDataView`; 403 when off, 404 when the app has no data, 413 over `appData.maxSize`, 423 while another app action runs |
+| `GET` | `/api/v1/app-data?package=` | the caller's saves, newest first: `{enabled, cache, export, keep, maxAge, items: [{id, package, label?, versionName?, versionCode?, source, artifactId, iconUrl?, cache, size, compressed, createdAt, lastUsedAt, expiresAt?}]}`; `maxAge` in seconds, `size` bytes on the device, `compressed` bytes stored |
+| `DELETE` | `/api/v1/app-data/{package}/{id}` | the caller's own save only (admins included), 404 otherwise |
+| `GET` | `/api/v1/app-data/{package}/{id}/download` | `application/zstd` attachment; 403 when `appData.export` is off |
 | `POST` | `/api/v1/sessions/{provider}/{id}/extend` | owner or admin only; counts as activity |
 | `POST` | `/api/v1/sessions/{provider}/{id}/heartbeat` | `{active}`; sent every 30 s by a visible session tab, `active` = the user gave input since the previous heartbeat |
 | `GET` | `/api/v1/admin/audit` | admins only (403 otherwise): `{enabled, events, oldest?, maxEvents, maxAge (s), persistent, actors, actions}` of the api's audit store |
@@ -274,6 +288,7 @@ keeping the provider in the path is what lets the api stay stateless.
 | `GET` | `/api/v1/events` | SSE `event: sessions`, the full `{items, errors}` whenever it changes; `event: artifacts` `{revision}` whenever any source changes |
 | `*` | `/s/{provider}/{id}/…` | proxy to the session's agent (HTTP + WS); any authenticated user may use it; non-GET requests count as activity |
 | `GET` | `/internal/artifacts/{key}` | APK download for agents by cache key, **internal port only** |
+| `GET` | `/internal/app-data/{key}` | app data download for agents, **internal port only**; `key` is `{user hash}/{package}/{id}.tar.zst`, ids carry 96 random bits |
 | `GET` | `/internal/sessions/{slug}` | gateway only, **internal port**: `{provider, id, owner, state, tunnelUrl?}` for slug `{provider}-{id}`; 404 when no provider has it |
 | `POST` | `/internal/sessions/{slug}/activity` | gateway only, **internal port**: tunnel traffic counts as activity → 204; 404 for an unknown session |
 | `POST` | `/internal/audit/events` | gateway only, **internal port**: a JSON array (≤ 1000) of audit events the gateway emitted, kept in the api's audit store → 204; dropped when `audit.store` is off |

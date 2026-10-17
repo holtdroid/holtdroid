@@ -249,6 +249,8 @@ func devCmd() *cobra.Command {
 				{Name: "uploads", Type: "filesystem", Filesystem: storage.FilesystemConfig{Dir: uploads}, PollInterval: 5 * time.Second},
 			}
 			cfg.Uploads.Source = "uploads"
+			cfg.AppData.Enabled = true
+			cfg.AppData.Cache = true
 			rt := defaultRuntime()
 			rt.telemetry.Metrics.Listen = metrics
 			aud, err := rt.auditLogger(cmd.Context(), "api")

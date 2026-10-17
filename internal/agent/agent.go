@@ -24,6 +24,7 @@ type Config struct {
 	TunnelListen     string
 	ADBAddr          string
 	ArtifactURL      string
+	AppData          contract.AppDataRestore
 	Package          string
 	Location         string
 	ADB              string
@@ -182,7 +183,20 @@ func (a *Agent) Run(parent context.Context) {
 type appRequest struct {
 	action  contract.AppAction
 	install *contract.Install
+	export  *exportRequest
 	done    chan error
+}
+
+type exportRequest struct {
+	ctx    context.Context
+	req    contract.AppDataExport
+	result chan exportResult
+	w      *io.PipeWriter
+}
+
+type exportResult struct {
+	info contract.AppDataInfo
+	err  error
 }
 
 func (a *Agent) run(ctx context.Context) error {
@@ -195,6 +209,11 @@ func (a *Agent) run(ctx context.Context) error {
 	a.setStatus(contract.StateInstalling, "Installing the APK")
 	if err := a.dev.Install(ctx, apk); err != nil {
 		return err
+	}
+	if a.cfg.AppData.URL != "" {
+		if err := a.restore(ctx, a.cfg.AppData); err != nil {
+			return fmt.Errorf("restore app data: %w", err)
+		}
 	}
 	a.setWallpaper(ctx, a.cfg.Session.ArtifactRef, apk)
 	if a.cfg.Location != "" && a.cfg.ClashAPI != "" {
@@ -232,7 +251,7 @@ func (a *Agent) run(ctx context.Context) error {
 			if err != nil && req.done == nil {
 				return err
 			}
-			if a.currentApp() == nil {
+			if a.currentApp() == nil && (req.export == nil || req.export.req.Restart) {
 				if serr := a.spawn(ctx); serr != nil {
 					if req.done != nil {
 						req.done <- serr
@@ -288,6 +307,9 @@ func (a *Agent) kill(ctx context.Context) {
 func (a *Agent) handle(ctx context.Context, req appRequest, apk *string) error {
 	if req.install != nil {
 		return a.install(ctx, *req.install, apk)
+	}
+	if req.export != nil {
+		return a.export(req.export)
 	}
 	a.kill(ctx)
 	if req.action != contract.AppReinstall {
@@ -350,28 +372,81 @@ func (a *Agent) fail(err error) {
 }
 
 func (a *Agent) download(ctx context.Context, artifactURL string) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, artifactURL, nil)
+	return a.fetch(ctx, artifactURL, "holtdroid-*.apk", "APK")
+}
+
+func (a *Agent) fetch(ctx context.Context, url, pattern, what string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return "", err
 	}
 	resp, err := a.hc.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("download APK: %w", err)
+		return "", fmt.Errorf("download %s: %w", what, err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("download APK: %s", resp.Status)
+		return "", fmt.Errorf("download %s: %s", what, resp.Status)
 	}
-	f, err := os.CreateTemp("", "holtdroid-*.apk")
+	f, err := os.CreateTemp("", pattern)
 	if err != nil {
 		return "", err
 	}
 	if _, err := io.Copy(f, resp.Body); err != nil {
 		f.Close()
 		os.Remove(f.Name())
-		return "", fmt.Errorf("download APK: %w", err)
+		return "", fmt.Errorf("download %s: %w", what, err)
 	}
 	return f.Name(), f.Close()
+}
+
+func (a *Agent) restore(ctx context.Context, req contract.AppDataRestore) error {
+	a.setStatus(contract.StateInstalling, "Downloading app data")
+	file, err := a.fetch(ctx, req.URL, "holtdroid-*.tar.zst", "app data")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(file)
+	a.setStatus(contract.StateInstalling, "Restoring app data")
+	if err := restoreAppData(ctx, a.dev, a.cfg.Package, file, req.Cache); err != nil {
+		return err
+	}
+	a.log.Info("restored app data", "cache", req.Cache)
+	return nil
+}
+
+// export stops the app and streams its data into the request's pipe.
+func (a *Agent) export(e *exportRequest) error {
+	err := a.exportTo(e)
+	e.w.CloseWithError(err)
+	return err
+}
+
+func (a *Agent) exportTo(e *exportRequest) error {
+	fail := func(err error) error {
+		e.result <- exportResult{err: err}
+		return err
+	}
+	dev, ok := a.dev.(appDataDevice)
+	if !ok || !packageName.MatchString(a.cfg.Package) {
+		return fail(fmt.Errorf("%w: this device can't export app data", contract.ErrInvalid))
+	}
+	a.kill(e.ctx)
+	entries, err := listAppData(e.ctx, a.dev, a.cfg.Package)
+	if err != nil {
+		return fail(err)
+	}
+	info, paths, err := planExport(entries, e.req)
+	if err != nil {
+		return fail(err)
+	}
+	e.result <- exportResult{info: info}
+	if err := streamExport(e.ctx, dev, paths, e.w); err != nil {
+		a.log.Warn("app data export failed", "err", err)
+		return err
+	}
+	a.log.Info("exported app data", "size", info.Size, "cache", info.Cache)
+	return nil
 }
 
 func (a *Agent) setStatus(state contract.SessionState, detail string) {
@@ -520,6 +595,25 @@ func (a *Agent) Install(ctx context.Context, req contract.Install) error {
 	}
 }
 
+func (a *Agent) ExportAppData(ctx context.Context, req contract.AppDataExport) (contract.AppDataInfo, io.ReadCloser, error) {
+	pr, pw := io.Pipe()
+	e := &exportRequest{ctx: ctx, req: req, result: make(chan exportResult, 1), w: pw}
+	if err := a.request(appRequest{export: e, done: make(chan error, 1)}); err != nil {
+		return contract.AppDataInfo{}, nil, err
+	}
+	select {
+	case r := <-e.result:
+		if r.err != nil {
+			pr.Close()
+			return contract.AppDataInfo{}, nil, r.err
+		}
+		return r.info, pr, nil
+	case <-ctx.Done():
+		pr.CloseWithError(ctx.Err())
+		return contract.AppDataInfo{}, nil, ctx.Err()
+	}
+}
+
 func (a *Agent) request(req appRequest) error {
 	if a.Status(context.Background()).State != contract.StateReady {
 		return fmt.Errorf("%w: the device is busy or not ready", contract.ErrInvalid)
@@ -528,7 +622,7 @@ func (a *Agent) request(req appRequest) error {
 	case a.actions <- req:
 		return nil
 	default:
-		return fmt.Errorf("%w: another app action is in progress", contract.ErrInvalid)
+		return fmt.Errorf("%w: another app action is in progress", contract.ErrBusy)
 	}
 }
 

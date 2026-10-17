@@ -68,23 +68,25 @@ func TestRender(t *testing.T) {
 		name     string
 		cfg      func(*Config)
 		location string
+		appData  *contract.AppDataRestore
 	}{
-		{"plain", func(c *Config) {}, ""},
+		{"plain", func(c *Config) {}, "", nil},
 		{"vpn", func(c *Config) {
 			c.VPN = vpnConfig()
 			c.ImagePullSecrets = []string{"ghcr"}
 			c.GPU = "software"
 			c.Tolerations = []Toleration{{Key: "dedicated", Operator: "Equal", Value: "nas", Effect: "NoSchedule"}}
-		}, "nl"},
+		}, "nl", nil},
 		{"telemetry", func(c *Config) {
 			c.SessionTelemetry = SessionTelemetry{MetricsPort: 9090, Tracing: telemetry.TracingConfig{Enabled: true, Endpoint: "http://otel-collector:4318", Insecure: true, SampleRatio: 0.25}}
-		}, ""},
+		}, "", nil},
 		{"node", func(c *Config) {
 			c.Nodes = map[string]Node{
 				"k3s-1": {Cores: 8, RAM: 8192, Resources: Resources{Requests: map[string]string{"cpu": "3", "memory": "10Gi"}, Limits: map[string]string{"memory": "12Gi"}}},
 				"core":  {Cores: 12},
 			}
-		}, ""},
+		}, "", nil},
+		{"appdata", func(c *Config) {}, "", &contract.AppDataRestore{URL: "http://holtdroid-api-internal:8081/internal/app-data/x.tar.zst", Cache: true}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -95,7 +97,9 @@ func TestRender(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			pod := p.renderPod("0a1b2c3d4e", "k3s-1", req, tt.location, epoch)
+			r := req
+			r.AppData = tt.appData
+			pod := p.renderPod("0a1b2c3d4e", "k3s-1", r, tt.location, epoch)
 			got, err := yaml.Marshal(pod)
 			if err != nil {
 				t.Fatal(err)

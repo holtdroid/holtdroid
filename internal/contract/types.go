@@ -9,6 +9,8 @@ var (
 	ErrNotFound   = errors.New("not found")
 	ErrNoCapacity = errors.New("no free slot")
 	ErrInvalid    = errors.New("invalid request")
+	ErrBusy       = errors.New("busy")
+	ErrTooLarge   = errors.New("too large")
 )
 
 type Health struct {
@@ -75,11 +77,31 @@ const (
 )
 
 type CreateSession struct {
-	ArtifactURL string `json:"artifactUrl" format:"uri"`
-	ArtifactRef string `json:"artifactRef" minLength:"1"`
-	Package     string `json:"package" minLength:"1"`
-	Owner       string `json:"owner" minLength:"1"`
-	Location    string `json:"location,omitempty"`
+	ArtifactURL string          `json:"artifactUrl" format:"uri"`
+	ArtifactRef string          `json:"artifactRef" minLength:"1"`
+	Package     string          `json:"package" minLength:"1"`
+	Owner       string          `json:"owner" minLength:"1"`
+	Location    string          `json:"location,omitempty"`
+	AppData     *AppDataRestore `json:"appData,omitempty" doc:"app data to put back after installing the app and before it first starts"`
+}
+
+type AppDataRestore struct {
+	URL   string `json:"url" format:"uri" doc:"a zstd-compressed tar from the agent's app data export"`
+	Cache bool   `json:"cache" doc:"also restore the cache directories, if the archive has them"`
+}
+
+// AppDataExport asks the agent to stop the app and stream its private data.
+type AppDataExport struct {
+	Cache        bool  `json:"cache" doc:"include cache and code_cache"`
+	MaxCacheSize int64 `json:"maxCacheSize,omitempty" minimum:"0" doc:"bytes; a bigger cache is left out, 0 means no limit"`
+	MaxSize      int64 `json:"maxSize,omitempty" minimum:"0" doc:"bytes; the cache is left out when it would push the archive over this, and data bigger than this is refused; 0 means no limit"`
+	Restart      bool  `json:"restart" doc:"start the app again once the archive is written"`
+}
+
+// AppDataInfo describes an export before its archive is streamed.
+type AppDataInfo struct {
+	Size  int64 `json:"size" doc:"bytes on the device, uncompressed"`
+	Cache bool  `json:"cache" doc:"the archive includes the cache"`
 }
 
 type Session struct {

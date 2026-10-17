@@ -1,6 +1,7 @@
 package fake
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"sync"
@@ -30,10 +31,13 @@ type device struct {
 	subs      map[chan struct{}]struct{}
 	done      chan struct{}
 	offers    func(location string) bool
+	appData   *contract.AppDataRestore
+	files     map[string][]byte
+	restored  int
 }
 
-func newDevice(s contract.Session, step time.Duration, offers func(string) bool) *device {
-	d := &device{s: s, settings: defaultSettings(), subs: map[chan struct{}]struct{}{}, done: make(chan struct{}), offers: offers}
+func newDevice(s contract.Session, step time.Duration, offers func(string) bool, appData *contract.AppDataRestore) *device {
+	d := &device{s: s, settings: defaultSettings(), subs: map[chan struct{}]struct{}{}, done: make(chan struct{}), offers: offers, appData: appData}
 	d.handler = d.buildHandler()
 	d.ports = &fakePorts{}
 	d.tunnels = agent.NewTunnels(d.ports, slog.Default().With("component", "fake-agent", "session", s.ID))
@@ -49,6 +53,12 @@ func (d *device) run(step time.Duration) {
 		case <-time.After(step):
 		}
 		d.update(func() { d.s.State = state })
+		if state == contract.StateInstalling && d.appData != nil {
+			if err := d.restore(context.Background(), *d.appData); err != nil {
+				d.update(func() { d.s.State, d.s.Reason = contract.StateFailed, "restore app data: "+err.Error() })
+				return
+			}
+		}
 	}
 }
 

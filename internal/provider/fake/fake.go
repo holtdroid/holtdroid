@@ -160,7 +160,7 @@ func (p *Provider) Create(_ context.Context, req contract.CreateSession) (contra
 		TunnelURL:    tunnelURL,
 		CreatedAt:    p.now().UTC(),
 		LastActivity: p.now().UTC(),
-	}, p.cfg.StepDelay, p.offers)
+	}, p.cfg.StepDelay, p.offers, req.AppData)
 	p.sessions[id] = d
 	return d.session(), nil
 }

@@ -26,6 +26,10 @@ func toHuma(err error) error {
 		return huma.Error409Conflict(err.Error())
 	case errors.Is(err, ErrInvalid):
 		return huma.Error400BadRequest(err.Error())
+	case errors.Is(err, ErrBusy):
+		return huma.Error423Locked(err.Error())
+	case errors.Is(err, ErrTooLarge):
+		return huma.Error413RequestEntityTooLarge(err.Error())
 	default:
 		return huma.Error500InternalServerError(err.Error())
 	}
@@ -92,6 +96,10 @@ func (e *StatusError) Unwrap() error {
 		return ErrNoCapacity
 	case http.StatusBadRequest, http.StatusUnprocessableEntity:
 		return ErrInvalid
+	case http.StatusLocked:
+		return ErrBusy
+	case http.StatusRequestEntityTooLarge:
+		return ErrTooLarge
 	}
 	return nil
 }

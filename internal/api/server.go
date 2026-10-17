@@ -39,6 +39,7 @@ type Server struct {
 	agents         *agentURLs
 	provOrder      []string
 	cache          *Cache
+	appData        *appDataStore
 	activity       *activity
 	warm           chan warmItem
 	library        *library
@@ -121,6 +122,16 @@ func New(ctx context.Context, cfg Config, opts ...Option) (*Server, error) {
 	}
 	if s.db, err = db.Open(ctx, cfg.Database); err != nil {
 		return nil, err
+	}
+	if cfg.AppData.Enabled {
+		s.appData = &appDataStore{store: s.store, prefix: appDataPrefix}
+		if cfg.AppData.Storage.Type != "" {
+			store, err := storage.New(ctx, cfg.AppData.Storage, s.secrets)
+			if err != nil {
+				return nil, fmt.Errorf("appData.storage: %w", err)
+			}
+			s.appData = &appDataStore{store: store}
+		}
 	}
 	s.auth.OnSignIn = s.signedIn
 	s.activity = newActivity(s.now)
@@ -272,6 +283,7 @@ func (s *Server) InternalHandler() http.Handler {
 		w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
 		_, _ = io.Copy(w, rc)
 	})
+	mux.HandleFunc("GET /internal/app-data/{key...}", s.serveInternalAppData)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
 	contract.RegisterSSHSessions(contract.NewAPI(mux, "Holtdroid api internal"), s)
 	return mux

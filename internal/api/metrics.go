@@ -41,6 +41,14 @@ var (
 		Name: "holtdroid_apk_cache_requests_total",
 		Help: "APK cache lookups by result (hit or miss).",
 	}, []string{"result"})
+	appDataSaves = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "holtdroid_app_data_saves_total",
+		Help: "App data snapshots by trigger (stop, reap, manual) and result (ok, failed, skipped).",
+	}, []string{"trigger", "result"})
+	appDataRestores = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "holtdroid_app_data_restores_total",
+		Help: "Sessions launched with saved app data.",
+	})
 	proxyConnections = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "holtdroid_session_proxy_connections",
 		Help: "Requests and WebSockets open through the session proxy.",

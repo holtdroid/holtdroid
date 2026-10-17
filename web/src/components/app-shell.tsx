@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router"
 import {
   BookOpenIcon,
+  DatabaseIcon,
   KeyRoundIcon,
   LogOutIcon,
   MoonIcon,
@@ -11,7 +12,7 @@ import {
 } from "lucide-react"
 import { useTheme } from "next-themes"
 import type { ReactNode } from "react"
-import { useAuth, useLogout, useSessionEvents } from "@/api/queries"
+import { useAppData, useAuth, useLogout, useSessionEvents } from "@/api/queries"
 import { useSSHKeySync } from "@/api/ssh-keys"
 import { Button } from "@/components/ui/button"
 import {
@@ -30,6 +31,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   useSessionEvents()
   const sshSync = useSSHKeySync()
   const auth = useAuth()
+  const appData = useAppData()
   const logout = useLogout()
   const { resolvedTheme, setTheme } = useTheme()
   const identity = auth.data?.identity
@@ -44,6 +46,19 @@ export function AppShell({ children }: { children: ReactNode }) {
           Holtdroid
         </Link>
         <div className="ml-auto flex items-center gap-1">
+          {appData.data?.enabled && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" asChild>
+                  <Link to="/app-data" activeProps={{ className: "bg-muted" }}>
+                    <DatabaseIcon />
+                    <span className="sr-only">App data</span>
+                  </Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>App data</TooltipContent>
+            </Tooltip>
+          )}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="icon" className="relative" asChild>

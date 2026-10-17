@@ -53,6 +53,18 @@ type SSHConfig struct {
 	SkipHostKeyCheck        bool
 }
 
+type AppDataConfig struct {
+	Enabled      bool
+	Storage      storage.Config
+	Keep         int
+	MaxAge       time.Duration
+	Cache        bool
+	MaxCacheSize config.ByteSize
+	MaxSize      config.ByteSize
+	Export       bool
+	Timeout      time.Duration
+}
+
 type Config struct {
 	Listen         string
 	InternalListen string
@@ -65,6 +77,7 @@ type Config struct {
 	Cache          CacheConfig
 	SSH            SSHConfig
 	Uploads        UploadsConfig
+	AppData        AppDataConfig
 	Sources        []source.Config
 	Providers      []Endpoint
 }
@@ -86,6 +99,9 @@ func DefaultConfig() Config {
 		Cache:    CacheConfig{MaxSize: 20 << 30, Warm: 10},
 		SSH:      SSHConfig{PublicPort: 2222, AllowADB: true, AllowReverse: true, MaxTunnelsPerConnection: 32, KeyRequests: true},
 		Uploads:  UploadsConfig{Enabled: true, Prefix: "uploads", MaxSize: 1 << 30, TemporaryTTL: 7 * 24 * time.Hour},
+		AppData: AppDataConfig{
+			Keep: 6, MaxAge: 7 * 24 * time.Hour, MaxCacheSize: 256 << 20, MaxSize: 1 << 30, Export: true, Timeout: 5 * time.Minute,
+		},
 		Sources: []source.Config{{
 			Name:       "local",
 			Type:       "filesystem",
@@ -157,6 +173,14 @@ func (c Config) Validate() error {
 		}
 		if c.Uploads.TemporaryTTL <= 0 {
 			errs = append(errs, errors.New("uploads.temporaryTTL must be positive"))
+		}
+	}
+	if c.AppData.Enabled {
+		if c.AppData.Keep < 0 || c.AppData.MaxAge < 0 {
+			errs = append(errs, errors.New("appData.keep and appData.maxAge must not be negative"))
+		}
+		if c.AppData.Timeout <= 0 {
+			errs = append(errs, errors.New("appData.timeout must be positive"))
 		}
 	}
 	seen := map[string]bool{}

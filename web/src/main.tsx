@@ -9,6 +9,7 @@ import { AppShell } from "@/components/app-shell"
 import { AuthGate } from "@/components/auth-gate"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { AppDataPage } from "@/pages/app-data"
 import { AuditPage, validateAuditSearch } from "@/pages/audit"
 import { HomePage } from "@/pages/home"
 import { SessionPage } from "@/pages/session"
@@ -75,7 +76,11 @@ const auditRoute = createRoute({
   component: AuditPage,
 })
 
-const router = createRouter({ routeTree: rootRoute.addChildren([homeRoute, sessionRoute, sshKeysRoute, auditRoute]) })
+const appDataRoute = createRoute({ getParentRoute: () => rootRoute, path: "/app-data", component: AppDataPage })
+
+const router = createRouter({
+  routeTree: rootRoute.addChildren([homeRoute, sessionRoute, sshKeysRoute, auditRoute, appDataRoute]),
+})
 
 declare module "@tanstack/react-router" {
   interface Register {

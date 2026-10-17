@@ -50,7 +50,8 @@ status as server-sent events, the screen as a scrcpy stream on
 the device audio on `/display/audio`, DevTools targets
 and WebSocket proxying, clipboard and network endpoints, and device controls
 (`/v1/device`: settings, hardware buttons, screenshots), app actions
-(`/v1/app/restart`, `/v1/app/reinstall`) and `/v1/install` for the provider
-to swap the build. A provider for a new
+(`/v1/app/restart`, `/v1/app/reinstall`), `/v1/install` for the provider
+to swap the build and `/v1/app-data/export` for the api to save the app's
+data (see [App data](/holtdroid/concepts/app-data/)). A provider for a new
 kind of device ships its own agent that implements the same API; the UI
 adapts to what `capabilities` advertises (`display: scrcpy` today).

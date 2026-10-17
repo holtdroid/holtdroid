@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -50,6 +51,30 @@ func (a ADB) Screencap(ctx context.Context) ([]byte, error) {
 		return nil, fmt.Errorf("adb screencap: %w: %s", err, bytes.TrimSpace(stderr.Bytes()))
 	}
 	return out, nil
+}
+
+// ExecOut runs cmd on the device with its raw stdout copied to w.
+func (a ADB) ExecOut(ctx context.Context, cmd string, w io.Writer) error {
+	var stderr bytes.Buffer
+	c := exec.CommandContext(ctx, a.Bin, "-s", a.Serial, "exec-out", cmd)
+	c.Stdout, c.Stderr = w, &stderr
+	c.WaitDelay = 5 * time.Second
+	if err := c.Run(); err != nil {
+		return fmt.Errorf("adb exec-out: %w: %s", err, bytes.TrimSpace(stderr.Bytes()))
+	}
+	return nil
+}
+
+// ExecIn runs cmd on the device with r as its stdin.
+func (a ADB) ExecIn(ctx context.Context, cmd string, r io.Reader) error {
+	var out bytes.Buffer
+	c := exec.CommandContext(ctx, a.Bin, "-s", a.Serial, "exec-in", cmd)
+	c.Stdin, c.Stdout, c.Stderr = r, &out, &out
+	c.WaitDelay = 5 * time.Second
+	if err := c.Run(); err != nil {
+		return fmt.Errorf("adb exec-in: %w: %s", err, bytes.TrimSpace(out.Bytes()))
+	}
+	return nil
 }
 
 // Emu sends a command to the emulator console.

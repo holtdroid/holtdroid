@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/v1/app-data/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Stops the app and streams its private data (/data/data and /data/user_de) as a zstd-compressed tar. */
+        post: operations["exportAppData"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/app/{action}": {
         parameters: {
             query?: never;
@@ -255,6 +272,22 @@ export interface components {
             /** Format: date-time */
             since: string;
             user: string;
+        };
+        AppDataExport: {
+            /** @description include cache and code_cache */
+            cache: boolean;
+            /**
+             * Format: int64
+             * @description bytes; a bigger cache is left out, 0 means no limit
+             */
+            maxCacheSize?: number;
+            /**
+             * Format: int64
+             * @description bytes; the cache is left out when it would push the archive over this, and data bigger than this is refused; 0 means no limit
+             */
+            maxSize?: number;
+            /** @description start the app again once the archive is written */
+            restart: boolean;
         };
         AppLoad: {
             /**
@@ -540,6 +573,43 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    exportAppData: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppDataExport"];
+            };
+        };
+        responses: {
+            /** @description the archive */
+            200: {
+                headers: {
+                    /** @description the archive includes the cache */
+                    "X-App-Data-Cache"?: boolean;
+                    /** @description bytes on the device, uncompressed */
+                    "X-App-Data-Size"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zstd": string;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     appAction: {
         parameters: {
             query?: never;

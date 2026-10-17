@@ -160,6 +160,18 @@ ones for the admin page.
 - [x] Tests: audit event per action in `internal/api/api_test.go`, schema golden file; docs page "Monitoring and audit"
 - [x] Audit log page for admins: bounded `audit.store` in the api (memory, optional JSON lines file; chart: data volume, tmpfs or none), ssh-gateway events forwarded to it, filters, live mode, JSON lines export (decision #48)
 
+## Phase 4.10 — App data
+
+Save an app's private data when a session stops and start the next session
+of the same app from it (decision #49).
+
+- [x] Agent: `/v1/app-data/export` (tar of `/data/data` and `/data/user_de`, zstd, cache optional within `maxCacheSize`/`maxSize`) and restore before the first start with uid remapping and the app's SELinux context; `CreateSession.appData`
+- [x] api: save on Stop and on reap, save on demand, `appData.storage` (default: the shared store under `app-data/`, safe from cache eviction), retention by count per user and app and by age since last use, private to the owner, `appData.export` switch, audit events and metrics
+- [x] UI: App data page (list, download, delete), save choice and cache checkbox in the launch dialog, quick launch menu on hover with the last choice remembered, "Save app data now" on the session page
+- [x] Tests: api end to end with the fake provider, agent export/restore with a fake device, archive filter, pod golden
+- [ ] Android Keystore keys of the app (keystore2), so apps that encrypt with them survive a restore
+- [ ] External app storage (`/sdcard/Android/data/{pkg}`)
+
 ## Phase 5 — Packaging and docs
 
 - [x] Helm chart: add provider-emulator, RBAC, NetworkPolicy, prepull DaemonSet, values for nodeSelector/tolerations/slots/resources

@@ -27,3 +27,14 @@ export function rememberLaunch(provider: string, location: string | undefined) {
   write(providerKey, provider)
   if (location) rememberLocation(provider, location)
 }
+
+export type QuickLaunchMode = "fresh" | "data" | "cache"
+
+const quickModeKey = "holtdroid:quick-launch"
+
+export function quickLaunchMode(): QuickLaunchMode {
+  const v = read(quickModeKey)
+  return v === "fresh" || v === "cache" ? v : "data"
+}
+
+export const rememberQuickLaunchMode = (mode: QuickLaunchMode) => write(quickModeKey, mode)

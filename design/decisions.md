@@ -1037,3 +1037,74 @@ already pins the api to one replica. Like the rest of the internal port,
 port can add events to the page (not to stdout or the sinks), which is one
 more reason to keep the port off the ingress and the record of truth in
 the sinks.
+
+## 49. App data is saved when a session stops and restored on request
+
+**Context.** Every session starts from a fresh install, so testers log in
+and click through onboarding again each time. They want to carry the app's
+state (sign-in, settings, WebView cookies and storage) to the next session
+of the same app, to pick among their last few states, to download them, and
+to optionally keep the cache too. The api is stateless, and the APK is never
+modified.
+
+**Decision.**
+
+- **Agent:** `POST /v1/app-data/export` stops the app (`am force-stop`) and
+  streams `tar --numeric-owner` of the top-level entries of
+  `/data/data/{pkg}` and `/data/user_de/0/{pkg}` (no `lib`) through
+  `adb exec-out`, compressed with zstd (`klauspost/compress`; toybox tar
+  has no zstd, and zstd beats gzip on both speed and size here). The tar is
+  parsed while it streams, so a truncated one fails instead of being stored.
+  `cache/` and `code_cache/` are included only when asked and when they fit
+  `maxCacheSize` and `maxSize` (measured with `du` first); data alone over
+  `maxSize` is refused.
+- **Restore** happens after installing the APK and before the app first
+  starts: the agent empties the app's directories (keeping `lib` and the
+  cache directories installd created), rewrites the archive and pipes it into
+  `tar -x` through `adb exec-in`, then relabels the restored entries with
+  `chcon -hR` using the SELinux context of the app's data directory. The
+  rewrite is what makes it portable: the app usually gets another uid on
+  another device (verified on the session image: 10209 → 10210 after a
+  reinstall), so owners are mapped from the archive's uid to the new one
+  (and the `uid + 10000` cache gid with them), and `restorecon` gives app
+  data no MLS categories (`s0` instead of `s0:c210,…`), which the app may
+  not be able to write. The rewrite also drops anything outside the two
+  directories, other than regular files, directories and symlinks, or below
+  a symlink, because extraction runs as root. A failed restore fails the
+  session rather than starting the app on half its data.
+- **api:** stopping a `ready` session (the Stop button or the reaper) saves
+  first; a failed save is logged and audited and the session is stopped
+  anyway. A save in another replica's hands (the agent answers 423) makes
+  the reaper skip the session for one pass. Users can also save on demand
+  from the session page, which restarts the app. Saves go to
+  `appData.storage` (default: the shared `storage` under `app-data/`, which
+  the APK cache's eviction leaves alone) as
+  `{sha256(user)}/{package}/{id}.tar.zst` plus `{id}.json` written last.
+  The id is a timestamp plus 96 random bits, so the internal download URL
+  handed to the agent can't be guessed. Retention: per user and app the
+  `appData.keep` most recently used stay (default 6), and any save unused for
+  `appData.maxAge` (default 7 days) is deleted when the next save prunes or
+  by an hourly sweep, which also removes archives whose JSON was never
+  written. Launching with a save moves its `lastUsedAt`.
+- **Privacy:** saves are visible, usable, downloadable and deletable only by
+  the user they belong to, admins included. A session's save belongs to
+  its owner even when an admin stops it. The agent's export is refused
+  through the session proxy, which any signed-in user may use.
+  `appData.export: false` hides downloads (403).
+- **UI:** an App data page next to SSH keys; the launch dialog offers "Fresh
+  install" (the default) or one of the app's saves, and a cache checkbox
+  when the server keeps caches and the save has one. The quick launch
+  button opens a menu on hover (fresh, data, data and cache); a plain click
+  uses the last choice from `localStorage` (default: data, the newest save,
+  fresh when there is none).
+- Off by default (`appData.enabled: false`).
+
+**Consequences.** Data the app encrypted with Android Keystore keys doesn't
+survive another device: keystore2 keeps the keys outside the app's
+directories, and copying them is out of scope. Such apps may sign the user
+out or fail to read their files after a restore. A save from a newer build
+may break an older one (database downgrades); the launch dialog warns when
+the versionCode is higher. External storage (`/sdcard/Android/data`) is
+not saved. Stopping a session takes as long as the save, bounded by
+`appData.timeout`. A session that dies on its own (node loss, OOM) has no
+save.

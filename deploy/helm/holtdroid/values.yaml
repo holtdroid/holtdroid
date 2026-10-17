@@ -37,6 +37,10 @@ config:
       dir: /var/cache/holtdroid
   cache:
     maxSize: 20GiB
+  # Save app data when sessions stop (docs: Concepts → App data). Give it a
+  # storage of its own: the default shared storage is the cache volume.
+  appData:
+    enabled: false
   database:
     type: memory
 

@@ -1,10 +1,12 @@
 import { Loader2Icon, RocketIcon } from "lucide-react"
 import { useState } from "react"
 import type { ArtifactView } from "@/api/client"
+import { useAppDataFor } from "@/api/queries"
 import { AppIcon } from "@/components/app-icon"
 import { artifactTitle } from "@/components/artifact-list"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
@@ -16,6 +18,9 @@ import {
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useLaunchTarget, useStartSession } from "@/hooks/use-launch-target"
+import { formatBytes, formatRelative } from "@/lib/format"
+
+const FRESH = "__fresh__"
 
 export function LaunchDialog({ artifact, onClose }: { artifact: ArtifactView | null; onClose: () => void }) {
   const [chosenProvider, setChosenProvider] = useState<string | null>(null)
@@ -25,6 +30,12 @@ export function LaunchDialog({ artifact, onClose }: { artifact: ArtifactView | n
     chosenLocation,
   )
   const launch = useStartSession()
+  const appData = useAppDataFor(artifact?.app?.package)
+  const [chosenData, setChosenData] = useState(FRESH)
+  const [withCache, setWithCache] = useState(false)
+  const snapshot = appData.items.find((d) => d.id === chosenData)
+  const appVersion = artifact?.app?.versionCode ?? 0
+  const newerData = !!snapshot?.versionCode && appVersion > 0 && snapshot.versionCode > appVersion
   const selectProvider = (name: string) => {
     setChosenProvider(name)
     setChosenLocation(null)
@@ -36,7 +47,8 @@ export function LaunchDialog({ artifact, onClose }: { artifact: ArtifactView | n
 
   const submit = () => {
     if (!artifact || !provider) return
-    launch.start(artifact, provider.name, location, onClose)
+    const choice = snapshot && { id: snapshot.id, cache: withCache && snapshot.cache }
+    launch.start(artifact, provider.name, location, onClose, undefined, choice)
   }
 
   const title = artifact ? artifactTitle(artifact) : ""
@@ -96,6 +108,51 @@ export function LaunchDialog({ artifact, onClose }: { artifact: ArtifactView | n
             </div>
           )}
 
+          {appData.data?.enabled && (
+            <div className="grid gap-2">
+              <Label>App data</Label>
+              <Select value={snapshot?.id ?? FRESH} onValueChange={setChosenData}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={FRESH}>Fresh install, no data</SelectItem>
+                  {appData.items.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      Saved {formatRelative(d.createdAt)} · {d.versionName || "unknown build"} · {formatBytes(d.size)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {snapshot && appData.data.cache && (
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="launch-cache"
+                    checked={withCache && snapshot.cache}
+                    disabled={!snapshot.cache}
+                    onCheckedChange={(v) => setWithCache(v === true)}
+                  />
+                  <Label htmlFor="launch-cache" className="font-normal">
+                    {snapshot.cache ? "Also restore the cache" : "This save has no cache"}
+                  </Label>
+                </div>
+              )}
+              {appData.items.length === 0 && (
+                <p className="text-muted-foreground text-xs">
+                  Nothing saved for this app yet. Its data is saved when you stop a session.
+                </p>
+              )}
+            </div>
+          )}
+
+          {newerData && (
+            <Alert>
+              <AlertDescription>
+                This data comes from a newer build ({snapshot?.versionName || snapshot?.versionCode}). The app may fail
+                to read it.
+              </AlertDescription>
+            </Alert>
+          )}
           {provider && free === 0 && (
             <Alert variant="destructive">
               <AlertDescription>

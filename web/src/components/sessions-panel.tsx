@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router"
-import { ClockIcon, GlobeIcon, MonitorSmartphoneIcon, SquareIcon, TimerResetIcon } from "lucide-react"
+import { ClockIcon, GlobeIcon, Loader2Icon, MonitorSmartphoneIcon, SquareIcon, TimerResetIcon } from "lucide-react"
 import { toast } from "sonner"
 import type { SessionView } from "@/api/client"
 import { canManage, useExtendSession, useMe, useProviders, useSessions, useStopSession } from "@/api/queries"
@@ -163,7 +163,7 @@ function SessionCard({ session: s, now }: { session: SessionView; now: number })
           disabled={!manage || stop.isPending}
           onClick={() => stop.mutate(s, { onError: (e) => toast.error("Could not stop", { description: e.message }) })}
         >
-          <SquareIcon />
+          {stop.isPending ? <Loader2Icon className="animate-spin" /> : <SquareIcon />}
           Stop
         </Button>
       </div>

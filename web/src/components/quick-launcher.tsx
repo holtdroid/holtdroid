@@ -1,10 +1,12 @@
 import { Loader2Icon } from "lucide-react"
 import { useEffect, useEffectEvent, useRef } from "react"
 import type { ArtifactView } from "@/api/client"
+import { useAppData } from "@/api/queries"
 import { AppIcon } from "@/components/app-icon"
 import { artifactTitle } from "@/components/artifact-list"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { useLaunchTarget, useStartSession } from "@/hooks/use-launch-target"
+import { quickAppData, useLaunchTarget, useStartSession } from "@/hooks/use-launch-target"
+import { quickLaunchMode } from "@/lib/launch-prefs"
 
 export function QuickLauncher({
   artifact,
@@ -17,6 +19,8 @@ export function QuickLauncher({
 }) {
   const { loaded, provider, location, locations, free } = useLaunchTarget()
   const launch = useStartSession()
+  const appData = useAppData()
+  const ready = loaded && !appData.isPending
   const fired = useRef(false)
   const locationLabel = locations.find((l) => l.id === location)?.label
 
@@ -25,14 +29,15 @@ export function QuickLauncher({
       onFallback()
       return
     }
-    launch.start(artifact, provider.name, location, onStarted, onFallback)
+    const choice = quickAppData(quickLaunchMode(), appData.data, artifact.app?.package)
+    launch.start(artifact, provider.name, location, onStarted, onFallback, choice)
   })
 
   useEffect(() => {
-    if (!loaded || fired.current) return
+    if (!ready || fired.current) return
     fired.current = true
     fire()
-  }, [loaded])
+  }, [ready])
 
   return (
     <Dialog open onOpenChange={(open) => !open && onFallback()}>

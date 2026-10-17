@@ -77,6 +77,8 @@ uploads:
   enabled: true
   maxSize: 1GiB
   temporaryTTL: 168h
+appData:
+  enabled: false
 providers:
   - name: emulator
     url: http://holtdroid-provider-emulator:8080
@@ -99,4 +101,5 @@ providers:
 | `database.type`         | `memory`    | Only `memory` for now: SQLite in RAM, empty after every restart                       |
 | `sources[]`             | `local`     | Folders or S3 buckets with APKs, see [Artifact sources](/holtdroid/sources/overview/) |
 | `uploads.*`             | enabled     | Uploads from the UI, see [Artifact sources](/holtdroid/sources/overview/#uploads)     |
+| `appData.*`             | off         | Save app data between sessions, see [App data](/holtdroid/concepts/app-data/)         |
 | `providers[]`           | `[]`        | Device providers: unique `name` and base `url`                                        |

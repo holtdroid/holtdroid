@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"archive/tar"
 	"context"
 	"errors"
 	"io"
@@ -64,19 +65,56 @@ type fakeDevice struct {
 	installs int
 	shells   []string
 	apks     []string
+	appData  []byte
+	restored []*tar.Header
 }
 
 func (d *fakeDevice) Shell(_ context.Context, cmd string) (string, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.shells = append(d.shells, cmd)
-	switch cmd {
-	case "cat /proc/net/unix":
+	switch {
+	case cmd == "cat /proc/net/unix":
 		return d.unix, nil
-	case "date +%s%N":
+	case cmd == "date +%s%N":
 		return strconv.FormatInt(time.Now().UnixNano(), 10), nil
+	case strings.Contains(cmd, "du -sk"):
+		return "8 /data/data/com.example.shop/files\n4 /data/data/com.example.shop/shared_prefs\n200 /data/data/com.example.shop/cache\n", nil
+	case strings.Contains(cmd, "stat -c"):
+		return "root /data/data/com.example.shop 10234 u:object_r:app_data_file:s0:c234,c256,c512,c768\n", nil
+	case strings.HasPrefix(cmd, "cat "+restoreRCFile):
+		return "0\n", nil
 	}
 	return "", nil
+}
+
+func (d *fakeDevice) ExecOut(_ context.Context, cmd string, w io.Writer) error {
+	d.mu.Lock()
+	d.shells = append(d.shells, cmd)
+	raw := d.appData
+	d.mu.Unlock()
+	_, err := w.Write(raw)
+	return err
+}
+
+func (d *fakeDevice) ExecIn(_ context.Context, cmd string, r io.Reader) error {
+	tr := tar.NewReader(r)
+	var headers []*tar.Header
+	for {
+		h, err := tr.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		headers = append(headers, h)
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.shells = append(d.shells, cmd)
+	d.restored = headers
+	return nil
 }
 
 func (d *fakeDevice) Install(_ context.Context, apk string) error {

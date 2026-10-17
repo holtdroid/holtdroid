@@ -1,9 +1,9 @@
 import { useNavigate } from "@tanstack/react-router"
 import { useMemo } from "react"
 import { toast } from "sonner"
-import type { ArtifactView, ProviderView } from "@/api/client"
+import type { AppDataChoice, AppDataList, ArtifactView, ProviderView } from "@/api/client"
 import { useLaunch, useProviders } from "@/api/queries"
-import { lastLocation, lastProvider, rememberLaunch } from "@/lib/launch-prefs"
+import { lastLocation, lastProvider, type QuickLaunchMode, rememberLaunch } from "@/lib/launch-prefs"
 
 const freeSlots = (p: ProviderView) => p.capacity.slots.filter((s) => s.state === "free").length
 
@@ -46,9 +46,10 @@ export function useStartSession() {
     location: string | undefined,
     onStarted?: () => void,
     onFailed?: () => void,
+    appData?: AppDataChoice,
   ) =>
     launch.mutate(
-      { source: artifact.source, artifactId: artifact.id, provider, location },
+      { source: artifact.source, artifactId: artifact.id, provider, location, appData },
       {
         onSuccess: (session) => {
           rememberLaunch(session.provider, location)
@@ -62,4 +63,14 @@ export function useStartSession() {
       },
     )
   return { start, isPending: launch.isPending }
+}
+
+export function quickAppData(
+  mode: QuickLaunchMode,
+  list: AppDataList | undefined,
+  pkg: string | undefined,
+): AppDataChoice | undefined {
+  if (mode === "fresh" || !list?.enabled || !pkg) return undefined
+  const latest = list.items.find((d) => d.package === pkg)
+  return latest && { id: latest.id, cache: mode === "cache" && list.cache && latest.cache }
 }

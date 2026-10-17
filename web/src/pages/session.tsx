@@ -1,9 +1,9 @@
 import { Link, useNavigate } from "@tanstack/react-router"
-import { ArrowLeftIcon, ClockIcon, SquareIcon, TimerResetIcon } from "lucide-react"
+import { ArrowLeftIcon, ClockIcon, Loader2Icon, SquareIcon, TimerResetIcon } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 import { sessionBase, type StatusEvent } from "@/api/client"
-import { canManage, useExtendSession, useMe, useProviders, useSession, useStopSession } from "@/api/queries"
+import { canManage, useAppData, useExtendSession, useMe, useProviders, useSession, useStopSession } from "@/api/queries"
 import { AppIcon } from "@/components/app-icon"
 import { DeviceRail } from "@/components/session/device-rail"
 import { DeviceScreen } from "@/components/session/device-screen"
@@ -28,6 +28,7 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
   const me = useMe()
   const stop = useStopSession()
   const extend = useExtendSession()
+  const appData = useAppData()
   const navigate = useNavigate()
   const now = useNow()
   const registerFrame = useActivityHeartbeat(provider, id)
@@ -121,8 +122,8 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
               })
             }
           >
-            <SquareIcon />
-            Stop
+            {stop.isPending ? <Loader2Icon className="animate-spin" /> : <SquareIcon />}
+            {stop.isPending && appData.data?.enabled && state === "ready" ? "Saving app data…" : "Stop"}
           </Button>
         </div>
       </div>

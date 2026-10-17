@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/kriakiku/holtdroid/internal/audit"
@@ -19,6 +20,9 @@ func (s *Server) Run(ctx context.Context) {
 
 	go s.warmLoop(ctx)
 	go s.watchSources(ctx)
+	if s.appData != nil {
+		go s.appDataLoop(ctx)
+	}
 
 	for {
 		select {
@@ -56,6 +60,9 @@ func (s *Server) Reap(ctx context.Context) {
 				reason, metric = "idle timeout", "idle"
 			}
 			if reason == "" || sess.State == contract.StateStopping {
+				continue
+			}
+			if _, _, err := s.saveAppData(ctx, provider, sess, "reap", false); errors.Is(err, contract.ErrBusy) {
 				continue
 			}
 			ev := audit.Event{

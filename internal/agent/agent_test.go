@@ -117,6 +117,11 @@ type harness struct {
 
 func newHarness(t *testing.T, boot BootFunc) *harness {
 	t.Helper()
+	return newHarnessWith(t, boot, nil)
+}
+
+func newHarnessWith(t *testing.T, boot BootFunc, configure func(*Config)) *harness {
+	t.Helper()
 	artifact := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.WriteString(w, "PK "+r.URL.Path)
 	}))
@@ -127,6 +132,9 @@ func newHarness(t *testing.T, boot BootFunc) *harness {
 	cfg.Package = "com.example.shop"
 	cfg.IPInfoURL = ""
 	cfg.CacheDir = t.TempDir()
+	if configure != nil {
+		configure(&cfg)
+	}
 	h := &harness{t: t, dev: &fakeDevice{}, inst: &fakeInstrumenter{}, artifacts: artifact.URL, done: make(chan struct{})}
 	if boot == nil {
 		boot = func(ctx context.Context, booted func()) error {

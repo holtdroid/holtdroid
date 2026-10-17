@@ -2,7 +2,9 @@ package contract
 
 import (
 	"context"
+	"io"
 	"net/http"
+	"strconv"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/sse"
@@ -21,6 +23,7 @@ type Agent interface {
 	SetLocation(ctx context.Context, location string) (Network, error)
 	App(ctx context.Context, action AppAction) error
 	Install(ctx context.Context, req Install) error
+	ExportAppData(ctx context.Context, req AppDataExport) (AppDataInfo, io.ReadCloser, error)
 	Device(ctx context.Context) (DeviceState, error)
 	UpdateDevice(ctx context.Context, settings DeviceSettings) (DeviceState, error)
 	DeviceAction(ctx context.Context, action DeviceAction) error
@@ -56,6 +59,15 @@ type appInput struct {
 type installInput struct {
 	Body Install
 }
+
+type exportAppDataInput struct {
+	Body AppDataExport
+}
+
+const (
+	HeaderAppDataSize  = "X-App-Data-Size"
+	HeaderAppDataCache = "X-App-Data-Cache"
+)
 
 type deviceSettingsInput struct {
 	Body DeviceSettings
@@ -173,6 +185,31 @@ func RegisterAgent(api huma.API, a Agent) {
 		return nil, toHuma(a.Install(ctx, in.Body))
 	})
 
+	huma.Register(api, huma.Operation{
+		OperationID: "exportAppData", Method: http.MethodPost, Path: "/v1/app-data/export", Tags: tags,
+		Description: "Stops the app and streams its private data (/data/data and /data/user_de) as a zstd-compressed tar.",
+		Responses: map[string]*huma.Response{"200": {
+			Description: "the archive",
+			Headers: map[string]*huma.Param{
+				HeaderAppDataSize:  {Description: "bytes on the device, uncompressed", Schema: &huma.Schema{Type: "integer"}},
+				HeaderAppDataCache: {Description: "the archive includes the cache", Schema: &huma.Schema{Type: "boolean"}},
+			},
+			Content: map[string]*huma.MediaType{"application/zstd": {Schema: &huma.Schema{Type: "string", Format: "binary"}}},
+		}},
+	}, func(ctx context.Context, in *exportAppDataInput) (*huma.StreamResponse, error) {
+		info, rc, err := a.ExportAppData(ctx, in.Body)
+		if err != nil {
+			return nil, toHuma(err)
+		}
+		return &huma.StreamResponse{Body: func(hc huma.Context) {
+			defer rc.Close()
+			hc.SetHeader("Content-Type", "application/zstd")
+			hc.SetHeader(HeaderAppDataSize, strconv.FormatInt(info.Size, 10))
+			hc.SetHeader(HeaderAppDataCache, strconv.FormatBool(info.Cache))
+			_, _ = io.Copy(hc.BodyWriter(), rc)
+		}}, nil
+	})
+
 	huma.Register(api, huma.Operation{OperationID: "getDevice", Method: http.MethodGet, Path: "/v1/device", Tags: tags},
 		func(ctx context.Context, _ *struct{}) (*body[DeviceState], error) {
 			s, err := a.Device(ctx)
@@ -227,4 +264,15 @@ func (a *AgentClient) Status(ctx context.Context) (StatusEvent, error) {
 
 func (a *AgentClient) Install(ctx context.Context, req Install) error {
 	return a.c.withTimeout(installTimeout).do(ctx, http.MethodPost, "/v1/install", req, nil)
+}
+
+// ExportAppData streams the app's data; ctx bounds the whole transfer.
+func (a *AgentClient) ExportAppData(ctx context.Context, req AppDataExport) (AppDataInfo, io.ReadCloser, error) {
+	resp, err := a.c.withTimeout(0).raw(ctx, http.MethodPost, "/v1/app-data/export", req)
+	if err != nil {
+		return AppDataInfo{}, nil, err
+	}
+	size, _ := strconv.ParseInt(resp.Header.Get(HeaderAppDataSize), 10, 64)
+	cache, _ := strconv.ParseBool(resp.Header.Get(HeaderAppDataCache))
+	return AppDataInfo{Size: size, Cache: cache}, resp.Body, nil
 }

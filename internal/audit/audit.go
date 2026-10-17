@@ -44,6 +44,9 @@ const (
 	SSHDisconnect    Action = "ssh.disconnect"
 	SSHTunnel        Action = "ssh.tunnel"
 	AuditExport      Action = "audit.export"
+	AppDataSave      Action = "appdata.save"
+	AppDataDownload  Action = "appdata.download"
+	AppDataDelete    Action = "appdata.delete"
 )
 
 var Actions = []Action{

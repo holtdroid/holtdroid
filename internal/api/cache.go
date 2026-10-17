@@ -13,6 +13,7 @@ import (
 	"os"
 	"path"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -240,6 +241,9 @@ func (c *Cache) evict(ctx context.Context) {
 	byPrefix := map[string]*cacheItem{}
 	var total int64
 	for _, o := range objs {
+		if strings.HasPrefix(o.Key, appDataPrefix) {
+			continue
+		}
 		prefix, name := path.Split(o.Key)
 		it := byPrefix[prefix]
 		if it == nil {

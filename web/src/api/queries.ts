@@ -2,6 +2,8 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { useEventSource } from "@/hooks/use-event-source"
 import {
   api,
+  type AppDataChoice,
+  type AppDataView,
   type ArtifactView,
   type ArtifactsEvent,
   type SessionView,
@@ -19,6 +21,7 @@ export const keys = {
   artifact: (source: string, id: string) => ["artifacts", source, id] as const,
   providers: ["providers"] as const,
   sessions: ["sessions"] as const,
+  appData: ["app-data"] as const,
 }
 
 export function useAuth() {
@@ -161,7 +164,13 @@ export function useSession(provider: string, id: string) {
   return { ...sessions, session }
 }
 
-export type LaunchInput = { source: string; artifactId: string; provider: string; location?: string }
+export type LaunchInput = {
+  source: string
+  artifactId: string
+  provider: string
+  location?: string
+  appData?: AppDataChoice
+}
 
 export function useLaunch() {
   const qc = useQueryClient()
@@ -182,6 +191,7 @@ export function useStopSession() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: keys.sessions })
       void qc.invalidateQueries({ queryKey: keys.providers })
+      void qc.invalidateQueries({ queryKey: keys.appData })
     },
   })
 }
@@ -214,5 +224,43 @@ export function useInstallBuild() {
         }),
       ),
     onSuccess: () => void qc.invalidateQueries({ queryKey: keys.sessions }),
+  })
+}
+
+export function useAppData() {
+  return useQuery({
+    queryKey: keys.appData,
+    queryFn: () => unwrap(api.GET("/api/v1/app-data")),
+    staleTime: 30_000,
+  })
+}
+
+export function useAppDataFor(pkg: string | undefined) {
+  const list = useAppData()
+  const items = pkg ? (list.data?.items ?? []).filter((d) => d.package === pkg) : []
+  return { ...list, items }
+}
+
+export function appDataDownloadURL(d: Pick<AppDataView, "package" | "id">) {
+  return `/api/v1/app-data/${encodeURIComponent(d.package)}/${encodeURIComponent(d.id)}/download`
+}
+
+export function useDeleteAppData() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (d: Pick<AppDataView, "package" | "id">) =>
+      unwrap(api.DELETE("/api/v1/app-data/{package}/{id}", { params: { path: { package: d.package, id: d.id } } })),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.appData }),
+  })
+}
+
+export function useSaveAppData() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (s: Pick<SessionView, "provider" | "id">) =>
+      unwrap(
+        api.POST("/api/v1/sessions/{provider}/{id}/app-data", { params: { path: { provider: s.provider, id: s.id } } }),
+      ),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.appData }),
   })
 }

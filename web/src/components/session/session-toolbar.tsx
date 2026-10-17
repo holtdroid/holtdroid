@@ -3,6 +3,7 @@ import {
   ClipboardIcon,
   ClipboardPasteIcon,
   CopyIcon,
+  DatabaseIcon,
   EllipsisVerticalIcon,
   GlobeIcon,
   PackageIcon,
@@ -13,6 +14,7 @@ import {
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import { agentClient, type Clipboard, type Location, unwrap } from "@/api/client"
+import { useAppData, useSaveAppData } from "@/api/queries"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -171,6 +173,16 @@ function AppActions({ provider, id, appRunning }: { provider: string; id: string
       toast(a === "reinstall" ? "Reinstalling the app" : appRunning ? "Restarting the app" : "Starting the app"),
     onError: (e) => toast.error("Action failed", { description: e.message }),
   })
+  const appData = useAppData()
+  const save = useSaveAppData()
+  const saveNow = () =>
+    save.mutate(
+      { provider, id },
+      {
+        onSuccess: () => toast.success("App data saved", { description: "Pick it when you launch this app again." }),
+        onError: (e) => toast.error("Could not save app data", { description: e.message }),
+      },
+    )
 
   return (
     <>
@@ -203,6 +215,12 @@ function AppActions({ provider, id, appRunning }: { provider: string; id: string
             <PackageIcon />
             Reinstall app (clears data)
           </DropdownMenuItem>
+          {appData.data?.enabled && (
+            <DropdownMenuItem disabled={save.isPending} onSelect={saveNow}>
+              <DatabaseIcon />
+              Save app data now (restarts the app)
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
     </>

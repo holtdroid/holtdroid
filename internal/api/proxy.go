@@ -46,6 +46,10 @@ func (s *Server) proxy(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "install builds through /api/v1/sessions/{provider}/{id}/install", http.StatusForbidden)
 		return
 	}
+	if rel == "/v1/app-data" || strings.HasPrefix(rel, "/v1/app-data/") {
+		http.Error(w, "app data is saved through /api/v1/sessions/{provider}/{id}/app-data", http.StatusForbidden)
+		return
+	}
 
 	if r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions {
 		s.activity.Mark(key)

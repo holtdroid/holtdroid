@@ -69,10 +69,11 @@ type sessionPath struct {
 
 type createSessionInput struct {
 	Body struct {
-		Source     string `json:"source" minLength:"1"`
-		ArtifactID string `json:"artifactId" minLength:"1"`
-		Provider   string `json:"provider" minLength:"1"`
-		Location   string `json:"location,omitempty"`
+		Source     string         `json:"source" minLength:"1"`
+		ArtifactID string         `json:"artifactId" minLength:"1"`
+		Provider   string         `json:"provider" minLength:"1"`
+		Location   string         `json:"location,omitempty"`
+		AppData    *AppDataChoice `json:"appData,omitempty" doc:"start the app with saved app data instead of a fresh install"`
 	}
 }
 
@@ -118,7 +119,7 @@ func (s *Server) register(api huma.API) {
 		OperationID: "createSession", Method: http.MethodPost, Path: "/api/v1/sessions", Tags: tags, DefaultStatus: http.StatusCreated,
 	}, func(ctx context.Context, in *createSessionInput) (*out[SessionView], error) {
 		id, _ := auth.FromContext(ctx)
-		v, err := s.createSession(ctx, id, in.Body.Source, in.Body.ArtifactID, in.Body.Provider, in.Body.Location)
+		v, err := s.createSession(ctx, id, in.Body.Source, in.Body.ArtifactID, in.Body.Provider, in.Body.Location, in.Body.AppData)
 		result, _ := outcome(err)
 		launchesTotal.WithLabelValues(in.Body.Provider, string(result)).Inc()
 		if err != nil {
@@ -150,7 +151,9 @@ func (s *Server) register(api huma.API) {
 		ev := audit.Event{Action: audit.SessionStop, Provider: in.Provider, Session: in.ID}
 		p, sess, err := s.ownedSession(ctx, in.Provider, in.ID)
 		if err == nil {
+			ctx := context.WithoutCancel(ctx)
 			ev.Artifact = sess.ArtifactRef
+			_, _, _ = s.saveAppData(ctx, in.Provider, sess, "stop", false)
 			err = p.Delete(ctx, sess.ID)
 		}
 		s.emitResult(ctx, ev, err)
@@ -206,6 +209,7 @@ func (s *Server) register(api huma.API) {
 	s.registerAuth(api)
 	s.registerSSH(api)
 	s.registerAudit(api)
+	s.registerAppData(api)
 }
 
 var errForbidden = errors.New("only the owner or an admin can do this")
@@ -220,8 +224,13 @@ func httpError(err error) error {
 		return huma.Error409Conflict(err.Error())
 	case errors.Is(err, contract.ErrInvalid):
 		return huma.Error422UnprocessableEntity(err.Error())
-	case errors.Is(err, errForbidden), errors.Is(err, source.ErrReadOnly), errors.Is(err, errUploadsDisabled):
+	case errors.Is(err, errForbidden), errors.Is(err, source.ErrReadOnly), errors.Is(err, errUploadsDisabled),
+		errors.Is(err, errAppDataDisabled), errors.Is(err, errAppDataExport):
 		return huma.Error403Forbidden(err.Error())
+	case errors.Is(err, contract.ErrBusy):
+		return huma.Error423Locked(err.Error())
+	case errors.Is(err, contract.ErrTooLarge):
+		return huma.Error413RequestEntityTooLarge(err.Error())
 	default:
 		return huma.Error502BadGateway(err.Error())
 	}
@@ -361,7 +370,7 @@ func (s *Server) view(ctx context.Context, provider string, sess contract.Sessio
 	return v
 }
 
-func (s *Server) createSession(ctx context.Context, who auth.Identity, srcName, artifactID, providerName, location string) (SessionView, error) {
+func (s *Server) createSession(ctx context.Context, who auth.Identity, srcName, artifactID, providerName, location string, choice *AppDataChoice) (SessionView, error) {
 	p, err := s.provider(providerName)
 	if err != nil {
 		return SessionView{}, err
@@ -402,6 +411,10 @@ func (s *Server) createSession(ctx context.Context, who auth.Identity, srcName, 
 	if err != nil {
 		return SessionView{}, err
 	}
+	restore, snapshot, err := s.restoreFor(ctx, who.User, entry.Meta.Package, choice)
+	if err != nil {
+		return SessionView{}, err
+	}
 	ref := artifactRef(srcName, artifact.ID, artifact.Revision)
 	sess, err := p.Create(ctx, contract.CreateSession{
 		ArtifactURL: s.artifactURL(entry.Key),
@@ -409,17 +422,20 @@ func (s *Server) createSession(ctx context.Context, who auth.Identity, srcName, 
 		Package:     entry.Meta.Package,
 		Owner:       who.User,
 		Location:    location,
+		AppData:     restore,
 	})
 	if err != nil {
 		return SessionView{}, err
 	}
+	details := map[string]string{"package": entry.Meta.Package, "location": location}
+	if restore != nil {
+		s.markAppDataUsed(ctx, snapshot)
+		details["appData"], details["appDataCache"] = snapshot.ID, strconv.FormatBool(restore.Cache)
+	}
 	s.activity.Mark(sessionKey{providerName, sess.ID})
 	s.launches.add(sessionKey{providerName, sess.ID}, s.now())
 	s.markUsed(ctx, srcName, artifact)
-	s.emit(ctx, audit.Event{
-		Action: audit.SessionLaunch, Provider: providerName, Session: sess.ID, Artifact: ref,
-		Details: map[string]string{"package": entry.Meta.Package, "location": location},
-	})
+	s.emit(ctx, audit.Event{Action: audit.SessionLaunch, Provider: providerName, Session: sess.ID, Artifact: ref, Details: details})
 	s.log.Info("session created", "provider", providerName, "session", sess.ID, "owner", who.User, "package", entry.Meta.Package)
 	return s.view(ctx, providerName, sess), nil
 }

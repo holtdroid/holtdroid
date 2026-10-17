@@ -162,6 +162,10 @@ provisioning → booting → installing → instrumenting → ready → (stoppin
   `now - lastActivity > idleTimeout` (default 30m) or
   `now - createdAt > maxTTL` (default 8h). "Extend" in the UI counts as
   activity.
+- **App data** (optional, decisions.md #49): stopping or reaping a `ready`
+  session first saves the app's data through the agent into the owner's
+  saves in `appData.storage`; a launch may name one of them, and the agent
+  restores it between installing the APK and starting the app.
 - **Slots**: each provider reports capacity. The emulator provider's slots
   are the nodes matching its `nodeSelector` (a label selector) whose taints
   its `tolerations` cover, sorted by name and capped at `slots`; not-Ready or
