@@ -20,17 +20,15 @@ It picks up APKs:
 - in thread replies;
 - inside forwarded messages.
 
-Optionally it reacts to the message once the build is in the source and
-replies in the thread with a card. The card shows the app's name, package,
-version, size, SDK levels and ABIs, plus two
-[launch buttons](/holtdroid/sources/overview/#launch-links):
+Optionally it announces new builds the same way as the other sync jobs:
+one message per pass through [shoutrrr](https://github.com/nicholas-fedor/shoutrrr)
+(Slack, Telegram, Discord, Matrix, ntfy, email, webhooks, …). The message
+lists each build's name, version, package and size, a link to the Slack
+message, and two [launch links](/holtdroid/sources/overview/#launch-links):
 
 - **Quick launch** starts a device right away with the user's last provider
   and location;
-- **Launch…** opens the launch dialog.
-
-The buttons are plain links, so the Slack app needs no interactivity
-endpoint.
+- **Launch** opens the launch dialog.
 
 ## 1. Create the Slack app
 
@@ -50,20 +48,15 @@ The quickest way is to create it from the manifest:
 | `channels:history`, `groups:history` | reading public / private channels                      |
 | `files:read`                         | downloading the APKs                                   |
 | `users:read`                         | uploader names (optional; without it you see user IDs) |
-| `reactions:write`                    | `slack.react` (optional)                               |
-| `chat:write`                         | `slack.reply` (optional)                               |
+| `chat:write`                         | announcements into Slack (optional)                    |
 
 Manifests can't set the app icon, so upload it under **Basic Information**
-if you want one.
+if you want one, e.g.
+[`assets/holtdroid-icon.png`](https://github.com/kriakiku/holtdroid-sync/blob/main/assets/holtdroid-icon.png).
 
 Then invite the bot to every channel: `/invite @Holtdroid`. Channels are
 configured by ID, e.g. `C0123ABCD`: open the channel details and find the ID
 at the bottom of **About**.
-
-For the reaction, add a custom emoji (**Customize workspace → Emoji**) named
-`holtdroid` from
-[`assets/holtdroid-emoji.png`](https://github.com/kriakiku/holtdroid-sync/blob/main/assets/holtdroid-emoji.png).
-Bots can use custom emoji but can't create them. Any stock emoji works too.
 
 ## 2. Deploy the job
 
@@ -73,13 +66,11 @@ picks the Slack sync:
 
 ```yaml
 job: slack
-existingSecret: holtdroid-slack-sync # SLACK_BOT_TOKEN, S3_ACCESS_KEY, S3_SECRET_KEY
+existingSecret: holtdroid-slack-sync # SLACK_BOT_TOKEN, S3_ACCESS_KEY, S3_SECRET_KEY, NOTIFY_URL
 config:
   slack:
     token: env:SLACK_BOT_TOKEN
     channels: [C0123ABCD]
-    react: { enabled: true, emoji: holtdroid }
-    reply: { enabled: true, portalURL: https://holtdroid.example.com, source: slack }
   target:
     type: s3
     s3:
@@ -89,7 +80,15 @@ config:
       prefix: slack
       accessKey: env:S3_ACCESS_KEY
       secretKey: env:S3_SECRET_KEY
+  notify: # optional: announce new builds
+    urls: [env:NOTIFY_URL] # e.g. slack://xoxb:<bot token without xoxb->@C0123ABCD
+    portalURL: https://holtdroid.example.com
+    source: slack
 ```
+
+To announce into the channel itself, reuse the bot token in the shoutrrr
+URL. Builds whose message is older than `notify.maxAge` (24 hours by
+default) aren't announced, so the first pass over `lookback` stays quiet.
 
 Every key can also come from `HOLTDROID_SLACK_SYNC_*` environment variables,
 e.g. `HOLTDROID_SLACK_SYNC_SLACK__CHANNELS=C1,C2`. The full reference is in
@@ -99,7 +98,7 @@ the job's
 ## 3. Add the source to Holtdroid
 
 Point a read-only source at the same place. Its `name` has to match
-`reply.source`, or the launch links in Slack open the wrong source:
+`notify.source`, or the launch links open the wrong source:
 
 ```yaml
 sources:
@@ -147,6 +146,3 @@ Polling has these limits:
 - replies to threads whose parent is older than `lookback` are missed;
 - edits to thread replies that are already synced show up only after the
   thread gets another reply.
-
-The bot's own reaction marks a message as announced. If the source is wiped
-and refilled, messages it already reacted to get no second reply.
