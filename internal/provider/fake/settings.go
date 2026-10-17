@@ -17,7 +17,6 @@ func defaultSettings() contract.DeviceState {
 		WiFi:           true,
 		MobileData:     true,
 		BatteryLevel:   65,
-		Charging:       true,
 		FontScale:      1,
 		Density:        320,
 		DefaultDensity: 320,

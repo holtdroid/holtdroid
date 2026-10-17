@@ -44,7 +44,7 @@ hybrid apps, support engineers reproducing a customer bug.
    it opens the rest:
    - **Network**: click for airplane mode; Wi-Fi, mobile data, emulated
      network speed and the VPN location.
-   - **Battery** (65% at start): click for battery saver; charging and the
+   - **Battery** (65%, on battery, at start): click for battery saver; charging and the
      charge level.
    - **Display**: click to cycle light, dark and matching the portal's theme;
      font and display size.

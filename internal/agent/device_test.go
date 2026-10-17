@@ -65,7 +65,7 @@ autotime=0
 `,
 		clock: "1760003600000000000",
 	}
-	c := NewControls(dev, nil)
+	c := NewControls(dev, "")
 	c.now = func() time.Time { return now }
 	got, err := c.State(context.Background())
 	if err != nil {
@@ -123,7 +123,7 @@ func TestControlsUpdate(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dev := &scriptedDevice{clock: "1760000000"}
-			c := NewControls(dev, nil)
+			c := NewControls(dev, "")
 			c.now = func() time.Time { return now }
 			if _, err := c.Update(context.Background(), tc.in); err != nil {
 				t.Fatal(err)
@@ -139,7 +139,7 @@ func TestControlsUpdate(t *testing.T) {
 }
 
 func TestControlsLocaleUnsupported(t *testing.T) {
-	c := NewControls(&scriptedDevice{clock: "1760000000"}, nil)
+	c := NewControls(&scriptedDevice{clock: "1760000000"}, "")
 	if _, err := c.Update(context.Background(), contract.DeviceSettings{Locales: []string{"ru-RU"}}); err == nil {
 		t.Fatal("want an error without a locale setter")
 	}
@@ -159,14 +159,14 @@ func TestControlsActions(t *testing.T) {
 		{contract.DeviceRotateRight, "settings put system accelerometer_rotation 0 && settings put system user_rotation 2"},
 	} {
 		dev := &scriptedDevice{}
-		if err := NewControls(dev, nil).Action(context.Background(), tc.action); err != nil {
+		if err := NewControls(dev, "").Action(context.Background(), tc.action); err != nil {
 			t.Fatal(err)
 		}
 		if len(dev.cmds) != 1 || dev.cmds[0] != tc.cmd {
 			t.Errorf("%s: %q", tc.action, dev.cmds)
 		}
 	}
-	if err := NewControls(&scriptedDevice{}, nil).Action(context.Background(), "explode"); err == nil {
+	if err := NewControls(&scriptedDevice{}, "").Action(context.Background(), "explode"); err == nil {
 		t.Fatal("unknown action accepted")
 	}
 }
@@ -190,14 +190,12 @@ func TestAgentDeviceAPI(t *testing.T) {
 	if code, _ := h.do(http.MethodPost, "/v1/device/actions/explode", ""); code != http.StatusUnprocessableEntity {
 		t.Fatalf("unknown action %d", code)
 	}
-	h.inst.mu.Lock()
-	locales := h.inst.locales
-	h.inst.mu.Unlock()
 	h.dev.mu.Lock()
 	shells := strings.Join(h.dev.shells, ";")
 	h.dev.mu.Unlock()
-	if locales != "ru-RU,en-US" || !strings.Contains(shells, "cmd alarm set-time") || !strings.Contains(shells, "KEYCODE_HOME") {
-		t.Fatalf("locales %q, shells %s", locales, shells)
+	if !strings.Contains(shells, "CLASSPATH=/data/local/tmp/holtdroid-locales.dex app_process / Locales ru-RU,en-US") ||
+		!strings.Contains(shells, "cmd alarm set-time") || !strings.Contains(shells, "KEYCODE_HOME") {
+		t.Fatalf("shells %s", shells)
 	}
 
 	resp, err := http.Get(h.url + "/v1/device/screenshot")

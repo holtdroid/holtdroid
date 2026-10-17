@@ -251,13 +251,13 @@ function BatteryControl({ s, set, busy }: Props) {
       label="Battery"
       icon={icon}
       active={s.batterySaver}
-      changed={s.batterySaver || !s.charging || level !== defaultBattery}
+      changed={s.batterySaver || s.charging || level !== defaultBattery}
       summary={[`${level}%`, s.charging ? "charging" : "on battery", s.batterySaver && "saver on"]
         .filter(Boolean)
         .join(" · ")}
       hint={`Click the icon to turn battery saver ${s.batterySaver ? "off" : "on"}`}
       onClick={() => set({ batterySaver: !s.batterySaver })}
-      onReset={() => set({ batterySaver: false, charging: true, batteryLevel: defaultBattery })}
+      onReset={() => set({ batterySaver: false, charging: false, batteryLevel: defaultBattery })}
     >
       <ControlGroup>
         <Toggle

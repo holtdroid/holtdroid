@@ -6,6 +6,7 @@ ARG GO_IMAGE=docker.io/library/golang:1.27.2-bookworm@sha256:5cf287a799e6b94384b
 ARG BUN_IMAGE=docker.io/oven/bun:1.4.3@sha256:ec06c3b6cea04192ae6770c434f668ca41d343ad19fa6472216c7b48be39c598
 ARG FRIDA_VERSION=17.15.5
 ARG UBUNTU_IMAGE=docker.io/library/ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55
+ARG JDK_IMAGE=docker.io/library/eclipse-temurin:21-jdk-noble@sha256:9bd188045f522a296ad4fbce642b85524da59ac7c1f2c9a17ea9785b00d5a433
 
 FROM --platform=$BUILDPLATFORM ${GO_IMAGE} AS sdk
 ARG FRIDA_VERSION
@@ -48,6 +49,20 @@ RUN set -eux; \
     chmod 755 /out/opt/holtdroid/frida-server; \
     mv scrcpy-server /out/opt/scrcpy/scrcpy-server; \
     rm -f frida-server.xz
+
+# Locales.java runs on the device through app_process (decision #59).
+FROM --platform=$BUILDPLATFORM ${JDK_IMAGE} AS dex
+ARG R8_VERSION=9.5.26
+ARG R8_SHA256=3502f087388ce95bbf5254555927f09385dc2636873964d0bd53f3eaf4fb49ad
+WORKDIR /src
+COPY images/session/Locales.java ./
+RUN set -eux; \
+    curl -fsSLo r8.jar "https://dl.google.com/dl/android/maven2/com/android/tools/r8/$R8_VERSION/r8-$R8_VERSION.jar"; \
+    echo "$R8_SHA256  r8.jar" | sha256sum -c -; \
+    javac --release 11 -d classes Locales.java; \
+    mkdir -p dex /out/opt/holtdroid; \
+    java -cp r8.jar com.android.tools.r8.D8 --release --min-api 30 --lib "$JAVA_HOME" --output dex classes/Locales.class; \
+    mv dex/classes.dex /out/opt/holtdroid/locales.dex
 
 FROM --platform=$BUILDPLATFORM ${BUN_IMAGE} AS script
 WORKDIR /opt/holtdroid/script
@@ -140,6 +155,7 @@ ENV ANDROID_HOME=/opt/android-sdk \
     PATH=/opt/android-sdk/emulator:/opt/android-sdk/platform-tools:$PATH
 COPY --from=sdk /out/ /
 COPY --from=tools /out/ /
+COPY --from=dex /out/ /
 COPY --from=virtualgl /out/ /
 COPY images/session/avd /root/.android/avd
 COPY --from=bundle /out/ /opt/holtdroid/script/

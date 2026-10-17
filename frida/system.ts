@@ -134,19 +134,6 @@ function render(w: Wallpaper) {
 }
 
 rpc.exports = {
-  setLocales(tags: string) {
-    return new Promise((resolve) => {
-      Java.perform(() => {
-        try {
-          const locales = Java.use("android.os.LocaleList").forLanguageTags(tags)
-          Java.use("com.android.internal.app.LocalePicker").updateLocales(locales)
-          resolve({})
-        } catch (e) {
-          resolve({ error: String(e) })
-        }
-      })
-    })
-  },
   setWallpaper(json: string) {
     return new Promise((resolve) => {
       Java.perform(() => {

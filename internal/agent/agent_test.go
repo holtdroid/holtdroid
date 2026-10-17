@@ -36,7 +36,6 @@ type fakeInstrumenter struct {
 	mu       sync.Mutex
 	spawns   int
 	app      *fakeApp
-	locales  string
 	walls    []Wallpaper
 	launched func(App)
 }
@@ -62,13 +61,6 @@ func (f *fakeInstrumenter) Spawn(context.Context, string) (App, error) {
 	f.spawns++
 	f.app = &fakeApp{done: make(chan struct{}), inst: f}
 	return f.app, nil
-}
-
-func (f *fakeInstrumenter) SetLocales(_ context.Context, tags string) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.locales = tags
-	return nil
 }
 
 func (f *fakeInstrumenter) SetWallpaper(_ context.Context, w Wallpaper) error {

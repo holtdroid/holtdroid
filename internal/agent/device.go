@@ -22,17 +22,19 @@ type console interface {
 
 // Controls reads and changes device settings through adb shell.
 type Controls struct {
-	dev     Device
-	locales func(ctx context.Context, tags string) error
-	now     func() time.Time
+	dev        Device
+	localesDex string
+	now        func() time.Time
 
 	mu      sync.Mutex
 	network contract.NetworkProfile
 	geo     *contract.GeoPoint
 }
 
-func NewControls(dev Device, locales func(ctx context.Context, tags string) error) *Controls {
-	return &Controls{dev: dev, locales: locales, now: time.Now, network: contract.NetworkFull}
+// NewControls changes the system language by running localesDex, a dex
+// file on the agent's disk, with app_process; empty disables it.
+func NewControls(dev Device, localesDex string) *Controls {
+	return &Controls{dev: dev, localesDex: localesDex, now: time.Now, network: contract.NetworkFull}
 }
 
 const stateScript = `echo "airplane=$(settings get global airplane_mode_on)"
@@ -235,7 +237,7 @@ func (c *Controls) Update(ctx context.Context, in contract.DeviceSettings) (cont
 		}
 	}
 	if len(in.Locales) > 0 {
-		if c.locales == nil {
+		if c.localesDex == "" {
 			return contract.DeviceState{}, errors.New("changing the system language is not supported here")
 		}
 		var tags []string
@@ -244,11 +246,21 @@ func (c *Controls) Update(ctx context.Context, in contract.DeviceSettings) (cont
 				tags = append(tags, tag)
 			}
 		}
-		if err := c.locales(ctx, strings.Join(tags, ",")); err != nil {
+		if err := c.setLocales(ctx, strings.Join(tags, ",")); err != nil {
 			return contract.DeviceState{}, fmt.Errorf("set system language: %w", err)
 		}
 	}
 	return c.State(ctx)
+}
+
+const localesRemote = "/data/local/tmp/holtdroid-locales.dex"
+
+func (c *Controls) setLocales(ctx context.Context, tags string) error {
+	if err := c.dev.Push(ctx, c.localesDex, localesRemote); err != nil {
+		return err
+	}
+	_, err := c.dev.Shell(ctx, "CLASSPATH="+localesRemote+" app_process / Locales "+tags)
+	return err
 }
 
 func (c *Controls) setTime(ctx context.Context, offset int64, auto bool) error {

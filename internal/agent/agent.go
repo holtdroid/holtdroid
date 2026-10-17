@@ -30,6 +30,7 @@ type Config struct {
 	ADB              string
 	Serial           string
 	Script           string
+	LocalesDex       string
 	Scrcpy           ScrcpyConfig
 	ClashAPI         string
 	IPInfoURL        string
@@ -48,6 +49,7 @@ func DefaultConfig() Config {
 		ADB:              "adb",
 		Serial:           "emulator-5554",
 		Script:           "/opt/holtdroid/script",
+		LocalesDex:       "/opt/holtdroid/locales.dex",
 		Scrcpy:           DefaultScrcpyConfig(),
 		IPInfoURL:        "https://ipinfo.io/json",
 		DevToolsFrontend: "https://chrome-devtools-frontend.appspot.com/serve_rev/",
@@ -62,7 +64,6 @@ func DefaultConfig() Config {
 type Instrumenter interface {
 	Spawn(ctx context.Context, pkg string) (App, error)
 	Watch(ctx context.Context, pkg string, launched func(App)) error
-	SetLocales(ctx context.Context, tags string) error
 	SetWallpaper(ctx context.Context, w Wallpaper) error
 }
 
@@ -122,7 +123,7 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 		screen:   screen,
 		clip:     NewClipboard(screen, log),
 		frontend: NewFrontend(cfg.DevToolsFrontend, filepath.Join(cfg.CacheDir, "devtools-frontend")),
-		controls: NewControls(dev, inst.SetLocales),
+		controls: NewControls(dev, cfg.LocalesDex),
 		tunnels:  NewTunnels(adbTunnels{adb: dev, addr: cfg.ADBAddr}, log),
 		metrics:  NewMetrics(dev, cfg.Package, os.DirFS("/"), log),
 		vibes:    NewVibrations(dev, log),

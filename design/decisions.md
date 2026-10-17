@@ -505,6 +505,8 @@ can drift from upstream: port fixes both ways.
 
 ## 31. Device controls go through adb shell; the language through system_server
 
+_The language part is superseded by #59._
+
 **Context.** Testers need the hardware buttons, rotation, radios, battery,
 display, language, time zone and clock of the device, from the browser and
 without a reboot or a modified APK.
@@ -1342,7 +1344,7 @@ next display theme); hovering opens a popup with the rest of the section,
 which stays open once you click inside it. The VPN location moved there from
 the header. A section whose settings differ from the defaults gets an amber
 dot and a reset button. The defaults are airplane off, Wi-Fi and mobile data
-on, full speed, charging at 65% (set at boot), saver off, light theme, 100%
+on, full speed, on battery at 65% (set at boot), saver off, light theme, 100%
 font and display size, `en-US`, the emulator's GPS position and real time.
 The time zone counts as a choice, not a change.
 
@@ -1360,3 +1362,21 @@ browser preference. The GPS position is faked with the emulator console's
 the device's language list, which is what the user picked. Apps that read
 the location need location access as usual. Devices without an emulator
 console (phones) report `canFakeGeo: false` and the UI hides the GPS part.
+
+## 59. The system language goes through app_process, not Frida in system_server
+
+**Context.** Changing keyboard layouts attached Frida to `system_server`
+(#31). On the emulator that once crashed `system_server` with a SIGSEGV in
+ART while another thread delivered an exception; Android restarted the whole
+system and the call came back as `DeadSystemException`.
+
+**Decision.** The session image builds `images/session/Locales.java` into a
+1 KB dex (`javac`, then `d8` from the pinned r8 jar). The agent pushes it to
+the device and runs `app_process` as root with the tags; it calls the same
+`LocalePicker.updateLocales` through reflection, so it applies at once and
+persists. Frida stays in `system_server` only for the wallpaper, drawn once
+per install.
+
+**Consequences.** A failure kills a throwaway process, not the system. The
+image build needs a JDK stage. Devices without root would fail the
+`WRITE_SETTINGS` check of the call and need another way.

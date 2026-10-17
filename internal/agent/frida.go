@@ -75,12 +75,6 @@ func CompileScripts(dir string) error {
 	return nil
 }
 
-// SetLocales changes the system language the way the Settings app does,
-// from inside system_server, so it applies without a reboot.
-func (f *Frida) SetLocales(ctx context.Context, tags string) error {
-	return f.callSystem(ctx, "setLocales", tags)
-}
-
 // SetWallpaper renders w with the device's own Canvas and fonts and sets it
 // on the home and lock screens.
 func (f *Frida) SetWallpaper(ctx context.Context, w Wallpaper) error {
