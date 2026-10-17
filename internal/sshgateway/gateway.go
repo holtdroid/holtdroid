@@ -118,8 +118,14 @@ var (
 	errNotConfirmed = errors.New("key was not added in time")
 )
 
-const unknownKeyMessage = "This key is not registered. Add it on the portal's SSH keys page and keep the portal open\r\n" +
-	"for a moment: keys are sent to the gateway while it is open and expire after a while.\r\n"
+const (
+	unknownKeyMessage = "This key is not registered. Add it on the portal's SSH keys page and keep the portal open\r\n" +
+		"for a moment: keys are sent to the gateway while it is open and expire after a while.\r\n"
+	notFoundMessage    = "Not found.\r\n"
+	unavailableMessage = "Temporarily unavailable, try again later.\r\n"
+)
+
+var notFound = &rejection{errNoSession, notFoundMessage}
 
 func New(cfg Config, hostKey ssh.Signer, keys *Keys, sessions contract.SSHSessions, aud *audit.Logger, log *slog.Logger) (*Gateway, error) {
 	if err := cfg.Validate(); err != nil {
@@ -129,44 +135,63 @@ func New(cfg Config, hostKey ssh.Signer, keys *Keys, sessions contract.SSHSessio
 	return &Gateway{cfg: cfg, hostKey: hostKey, keys: keys, sessions: sessions, ports: ports, audit: aud, log: log}, nil
 }
 
-// authorize maps the key to the user who registered it and checks they may
-// use the session named by the SSH user. Unknown sessions and forbidden ones
-// fail the same way so slugs can't be probed.
-func (g *Gateway) authorize(slug string, key ssh.PublicKey) (*ssh.Permissions, *rejection) {
-	id, ok := g.keys.Lookup(ssh.FingerprintSHA256(key))
-	if !ok {
-		return nil, &rejection{errUnknownKey, unknownKeyMessage}
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	sess, err := g.sessions.SSHSession(ctx, slug)
-	switch {
-	case errors.Is(err, contract.ErrNotFound):
-		err = errNoSession
-	case err != nil:
-		g.log.Warn("resolve session", "slug", slug, "err", err)
-		return nil, &rejection{err, "The portal is not reachable right now, try again in a moment.\r\n"}
-	case sess.State != contract.StateReady || sess.TunnelURL == "":
-		err = errNoSession
-	case g.cfg.ClientIsolation && sess.Owner != id.User && !id.Admin:
-		err = errNoSession
-	}
-	if err != nil {
-		return nil, &rejection{err, fmt.Sprintf("No running session %q that you can use.\r\n", slug)}
-	}
-	return &ssh.Permissions{Extensions: map[string]string{
-		"user": id.User, "tunnel": sess.TunnelURL, "provider": sess.Provider, "id": sess.ID,
-	}}, nil
-}
-
 // login is the authentication state of one connection.
 type login struct {
 	g         *Gateway
 	nc        net.Conn
+	pre       ssh.ServerPreAuthConn
 	slug      string
+	sess      *contract.SSHSession
+	sessErr   *rejection
 	rejected  *rejection
 	proven    ssh.PublicKey
 	explained bool
+}
+
+// session resolves the slug once per connection. Anything that isn't a
+// ready session is "not found", with nothing that names the software, so
+// neither slugs nor the gateway itself can be probed.
+func (l *login) session(slug string) (contract.SSHSession, *rejection) {
+	if l.sess == nil && l.sessErr == nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		sess, err := l.g.sessions.SSHSession(ctx, slug)
+		switch {
+		case errors.Is(err, contract.ErrNotFound):
+			l.sessErr = notFound
+		case err != nil:
+			l.g.log.Warn("resolve session", "slug", slug, "err", err)
+			return contract.SSHSession{}, &rejection{err, unavailableMessage}
+		case sess.State != contract.StateReady || sess.TunnelURL == "":
+			l.sessErr = notFound
+		default:
+			l.sess = &sess
+		}
+	}
+	if l.sessErr != nil {
+		return contract.SSHSession{}, l.sessErr
+	}
+	return *l.sess, nil
+}
+
+// authorize checks the session first and only then the key, maps the key to
+// the user who registered it and checks they may use the session. Forbidden
+// sessions fail like missing ones.
+func (l *login) authorize(slug string, key ssh.PublicKey) (*ssh.Permissions, *rejection) {
+	sess, r := l.session(slug)
+	if r != nil {
+		return nil, r
+	}
+	id, ok := l.g.keys.Lookup(ssh.FingerprintSHA256(key))
+	if !ok {
+		return nil, &rejection{errUnknownKey, unknownKeyMessage}
+	}
+	if l.g.cfg.ClientIsolation && sess.Owner != id.User && !id.Admin {
+		return nil, notFound
+	}
+	return &ssh.Permissions{Extensions: map[string]string{
+		"user": id.User, "tunnel": sess.TunnelURL, "provider": sess.Provider, "id": sess.ID,
+	}}, nil
 }
 
 func (g *Gateway) serverConfig(l *login) *ssh.ServerConfig {
@@ -174,7 +199,8 @@ func (g *Gateway) serverConfig(l *login) *ssh.ServerConfig {
 		PublicKeyCallback:           l.publicKey,
 		VerifiedPublicKeyCallback:   l.verified,
 		KeyboardInteractiveCallback: l.explain,
-		ServerVersion:               "SSH-2.0-holtdroid",
+		PreAuthConnCallback:         func(c ssh.ServerPreAuthConn) { l.pre = c },
+		ServerVersion:               serverVersion,
 		MaxAuthTries:                10,
 	}
 	cfg.AddHostKey(g.hostKey)
@@ -185,7 +211,7 @@ func (g *Gateway) serverConfig(l *login) *ssh.ServerConfig {
 // client proves it holds the key before it may be offered to the portal.
 func (l *login) publicKey(meta ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
 	l.slug = meta.User()
-	perms, r := l.g.authorize(meta.User(), key)
+	perms, r := l.authorize(meta.User(), key)
 	if r == nil {
 		return perms, nil
 	}
@@ -199,8 +225,12 @@ func (l *login) publicKey(meta ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permis
 // verified turns a signature by an unknown key into partial success: the
 // client starts over with all its keys, so a registered one still logs in,
 // and only once every key failed does explain offer the proven one.
-func (l *login) verified(_ ssh.ConnMetadata, key ssh.PublicKey, perms *ssh.Permissions, _ string) (*ssh.Permissions, error) {
-	if perms == nil || perms.Extensions["request"] == "" {
+func (l *login) verified(meta ssh.ConnMetadata, key ssh.PublicKey, perms *ssh.Permissions, _ string) (*ssh.Permissions, error) {
+	if perms == nil {
+		return nil, nil
+	}
+	if perms.Extensions["request"] == "" {
+		l.welcome(meta, perms)
 		return perms, nil
 	}
 	l.proven = key
@@ -228,11 +258,13 @@ func (l *login) explain(meta ssh.ConnMetadata, challenge ssh.KeyboardInteractive
 	if l.proven != nil && (l.rejected == nil || errors.Is(l.rejected.reason, errUnknownKey)) {
 		return l.request(meta, challenge)
 	}
-	msg := unknownKeyMessage
-	if l.rejected != nil {
-		msg = l.rejected.message
+	r := l.rejected
+	if r == nil {
+		if _, r = l.session(meta.User()); r == nil {
+			r = &rejection{errUnknownKey, unknownKeyMessage}
+		}
 	}
-	say(challenge, msg)
+	say(challenge, r.message)
 	return nil, errors.New("public key required")
 }
 
@@ -281,12 +313,14 @@ func (l *login) request(meta ssh.ConnMetadata, challenge ssh.KeyboardInteractive
 		<-tick.C
 	}
 	keyRequestsTotal.WithLabelValues("added").Inc()
-	perms, r := g.authorize(meta.User(), l.proven)
+	l.sess, l.sessErr = nil, nil
+	perms, r := l.authorize(meta.User(), l.proven)
 	if r != nil {
 		l.rejected = r
 		say(challenge, r.message)
 		return nil, r.reason
 	}
+	l.welcome(meta, perms)
 	return perms, nil
 }
 
@@ -743,14 +777,42 @@ func waitForInterrupt(ch ssh.Channel) {
 
 func (c *conn) help() string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "Holtdroid: session %s. There is no shell here, only tunnels.\r\n\r\n", c.slug)
-	if c.g.cfg.AllowADB {
-		b.WriteString("  ADB:              ssh -N -L 5555:adb:5555 …   then   adb connect localhost:5555\r\n")
-	}
-	if c.g.cfg.AllowReverse {
-		b.WriteString("  Your local ports: ssh -N -R 3000:localhost:3000 …   the device reaches it as localhost:3000\r\n")
-	}
+	fmt.Fprintf(&b, "Session %s. There is no shell here, only tunnels.\r\n\r\n", c.slug)
+	c.g.usage(&b)
 	return b.String()
+}
+
+func (g *Gateway) usage(b *strings.Builder) {
+	if g.cfg.AllowADB {
+		b.WriteString("  ADB      ssh -N -L 5555:adb:5555 …   then   adb connect localhost:5555\r\n")
+	}
+	if g.cfg.AllowReverse {
+		b.WriteString("  Ports    ssh -N -R 3000:localhost:3000 …   the device reaches it as localhost:3000\r\n")
+	}
+}
+
+// serverVersion is OpenSSH's so the version string doesn't name the gateway.
+const serverVersion = "SSH-2.0-OpenSSH_9.9"
+
+const logo = ` _   _       _ _      _           _     _
+| | | | ___ | | |_ __| |_ __ ___ (_) __| |
+| |_| |/ _ \| | __/ _` + "`" + ` | '__/ _ \| |/ _` + "`" + ` |
+|  _  | (_) | | || (_| | | | (_) | | (_| |
+|_| |_|\___/|_|\__\__,_|_|  \___/|_|\__,_|
+`
+
+// welcome sends the banner once the key is verified, so only users who may
+// use the session ever see the project's name.
+func (l *login) welcome(meta ssh.ConnMetadata, perms *ssh.Permissions) {
+	if l.pre == nil {
+		return
+	}
+	var b strings.Builder
+	b.WriteString("\r\n" + strings.ReplaceAll(logo, "\n", "\r\n") + "\r\n")
+	fmt.Fprintf(&b, "  Session  %s, signed in as %s\r\n", meta.User(), perms.Extensions["user"])
+	l.g.usage(&b)
+	b.WriteString("\r\n  Only tunnels, no shell. They stay open until you press Ctrl+C.\r\n\r\n")
+	_ = l.pre.SendAuthBanner(b.String())
 }
 
 type portSet [][2]int

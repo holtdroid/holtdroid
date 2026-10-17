@@ -509,10 +509,16 @@ and checks:
   any running session;
 - `clientIsolation: true` — only the session owner and `auth.adminGroups`.
 
-Unknown slug, session not `ready`, or a forbidden user all fail the same way
-("no such session") so slugs can't be probed. The reason reaches the client
-only after every key it offered failed (as a keyboard-interactive prompt with
-no questions), and an unregistered key gets a hint to open the portal.
+Unknown slug, session not `ready`, or a forbidden user all fail the same way,
+with a bare "Not found." that doesn't name the software, so neither slugs
+nor the gateway can be probed. The slug is checked before the key (once per
+connection), so a stranger with a wrong slug never learns about the portal.
+The reason reaches the client only after every key it offered failed (as a
+keyboard-interactive prompt with no questions), and an unregistered key on
+an existing session gets a hint to open the portal. The version string is
+OpenSSH's. Only a verified login sees the project's name: a banner with the
+logo, the session and the user, sent as the key is accepted, so it shows
+with `-N` too. Decision #47.
 
 ### Adding an unknown key from the terminal
 

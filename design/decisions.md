@@ -974,3 +974,26 @@ while its connection waits. Clients without keyboard-interactive
 (`BatchMode=yes`) or with it turned off see only "Permission denied", as
 before. Each waiting connection holds a goroutine for up to
 `keyRequestTimeout`, which is why there is the cap of 64 per replica.
+
+## 47. The SSH gateway names itself only to signed-in users
+
+**Context.** The gateway listens on a public port. Its version string
+(`SSH-2.0-holtdroid`), "No running session …" and the portal hints told
+anyone with any key what was behind the port, and a scanner could tell
+missing slugs from existing ones once it had the slug's format.
+
+**Decision.** The server announces itself as `SSH-2.0-OpenSSH_9.9`. The
+slug is resolved before the key is looked at; a missing, not-ready or
+forbidden session answers "Not found." and nothing else, and the portal
+link and hints appear only for an existing session. A failure to reach the
+api reads "Temporarily unavailable". After a key is verified for a session,
+the gateway sends an SSH banner (`SSH_MSG_USERAUTH_BANNER`, still allowed
+before authentication completes) with the logo, the session and the user;
+it reaches `ssh -N`, which never opens a channel to print to.
+
+**Consequences.** The key exchange and algorithm lists still look like Go's
+`x/crypto/ssh` to a fingerprinting tool (HASSH); hiding that is out of
+scope. Every connection costs one session lookup on the api, even from
+scanners. A legitimate user with `clientIsolation` on gets "Not found." for
+someone else's session, like for a missing one. OpenSSH hides banners at
+`LogLevel` below `INFO` (`-q`).

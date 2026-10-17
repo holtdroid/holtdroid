@@ -254,7 +254,8 @@ func TestLoginExplainsOnlyFinalFailure(t *testing.T) {
 	}{
 		{"unknown key before a registered one", slug, []ssh.Signer{unknown, otter}, true, ""},
 		{"only unknown keys", slug, []ssh.Signer{unknown}, false, "This key is not registered"},
-		{"registered key wins over unknown one", "fake-nope", []ssh.Signer{otter, unknown}, false, `No running session "fake-nope"`},
+		{"missing session", "fake-nope", []ssh.Signer{otter, unknown}, false, "Not found."},
+		{"missing session with only unknown keys", "fake-nope", []ssh.Signer{unknown}, false, "Not found."},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -268,7 +269,6 @@ func TestLoginExplainsOnlyFinalFailure(t *testing.T) {
 						return nil, nil
 					}),
 				},
-				BannerCallback:  func(msg string) error { shown.WriteString(msg); return nil },
 				HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 				Timeout:         5 * time.Second,
 			})
@@ -310,14 +310,16 @@ func TestKeyRequests(t *testing.T) {
 		slug    string
 		known   ssh.Signer
 		addAs   string
+		link    bool
 		ok      bool
 		message string
 	}{
-		{"registered key after an unknown one", slug, otter, "", true, ""},
-		{"registered key's reason wins", "fake-nope", otter, "", false, `No running session "fake-nope"`},
-		{"added in the portal", slug, nil, "otter", true, "check that the portal shows"},
-		{"added by someone who can't use the session", slug, nil, "badger", false, `No running session "` + slug + `"`},
-		{"not added in time", slug, nil, "", false, "not added in time"},
+		{"registered key after an unknown one", slug, otter, "", false, true, ""},
+		{"missing session", "fake-nope", otter, "", false, false, "Not found."},
+		{"no link for a missing session", "fake-nope", nil, "", false, false, "Not found."},
+		{"added in the portal", slug, nil, "otter", true, true, "check that the portal shows"},
+		{"added by someone who can't use the session", slug, nil, "badger", true, false, "Not found."},
+		{"not added in time", slug, nil, "", true, false, "not added in time"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -362,11 +364,56 @@ func TestKeyRequests(t *testing.T) {
 			if (err == nil) != tt.ok {
 				t.Fatalf("err = %v, want ok=%v", err, tt.ok)
 			}
-			if requested.Load() != (tt.known == nil) {
-				t.Fatalf("link shown = %v with known key %v", requested.Load(), tt.known != nil)
+			if requested.Load() != tt.link {
+				t.Fatalf("link shown = %v, want %v", requested.Load(), tt.link)
 			}
 			if got := shown.String(); tt.message == "" && got != "" || !strings.Contains(got, tt.message) {
 				t.Fatalf("shown %q, want %q", got, tt.message)
+			}
+		})
+	}
+}
+
+func TestBanner(t *testing.T) {
+	h := newHarness(t, func(c *Config) { c.KeyRequests = false })
+	otter := h.register("otter", false)
+	slug, _ := h.session("otter")
+	stranger := newSigner(t)
+
+	tests := []struct {
+		name   string
+		slug   string
+		signer ssh.Signer
+		banner string
+	}{
+		{"signed in", slug, otter, "Session  " + slug + ", signed in as otter"},
+		{"unknown key", slug, stranger, ""},
+		{"missing session", "fake-nope", otter, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var banner, version string
+			c, err := ssh.Dial("tcp", h.addr, &ssh.ClientConfig{
+				User: tt.slug,
+				Auth: []ssh.AuthMethod{ssh.PublicKeys(tt.signer)},
+				HostKeyCallback: func(_ string, _ net.Addr, _ ssh.PublicKey) error {
+					return nil
+				},
+				BannerCallback: func(msg string) error { banner += msg; return nil },
+				Timeout:        5 * time.Second,
+			})
+			if c != nil {
+				version = string(c.ServerVersion())
+				c.Close()
+			}
+			if (err == nil) != (tt.banner != "") {
+				t.Fatalf("err = %v", err)
+			}
+			if tt.banner == "" && banner != "" || !strings.Contains(banner, tt.banner) {
+				t.Fatalf("banner %q, want %q", banner, tt.banner)
+			}
+			if tt.banner != "" && (!strings.Contains(banner, "|_| |_|\\___/") || version != "SSH-2.0-OpenSSH_9.9") {
+				t.Fatalf("banner %q, version %q", banner, version)
 			}
 		})
 	}
@@ -445,7 +492,7 @@ func TestNoShell(t *testing.T) {
 		}
 		buf := make([]byte, 4096)
 		n, _ := stdout.Read(buf)
-		if !strings.Contains(string(buf[:n]), "session "+slug) {
+		if !strings.Contains(string(buf[:n]), "Session "+slug) {
 			t.Fatalf("shell greeting %q", buf[:n])
 		}
 		_, _ = stdin.Write([]byte{3})

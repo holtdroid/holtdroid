@@ -7,7 +7,8 @@ sidebar:
 
 Every running device can be reached over SSH through one gateway, with
 `{provider}-{session id}` as the user name. The gateway never runs commands,
-it only forwards ADB and ports.
+it only forwards ADB and ports. Once you are in, it greets you with a banner
+naming the session and what you can forward.
 
 ```sh
 # ADB on your machine
@@ -45,6 +46,11 @@ and sent to the gateway while you use the site; the gateway only holds them in
 memory. After a gateway restart, just open the site once and your keys are
 back. If none of the keys your client offers is registered (or they have
 expired), the login fails with a message telling you so.
+
+A session that doesn't exist, isn't running yet or isn't yours (with
+`clientIsolation`) gets just `Not found.`, whatever key you use. The gateway
+says nothing about what it is to anyone who isn't signed in to a session; it
+even announces itself as OpenSSH.
 
 ### Adding a key straight from the terminal
 
