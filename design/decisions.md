@@ -1380,3 +1380,19 @@ per install.
 **Consequences.** A failure kills a throwaway process, not the system. The
 image build needs a JDK stage. Devices without root would fail the
 `WRITE_SETTINGS` check of the call and need another way.
+
+## 60. Sessions are their owner's by default over SSH and ADB
+
+**Context.** Decisions #21 and #51 left `clientIsolation` and `adb.ownerOnly`
+off, so any signed-in user with a key or a session page had a root shell on
+every emulator. The SSH gateway is now reachable from the internet, and the
+portal is meant for people who don't share devices by default.
+
+**Decision.** `sshGateway.clientIsolation` and `adb.ownerOnly` default to
+`true`: only a session's owner and `auth.adminGroups` may tunnel to it or
+open its ADB tools. Everyone else still sees the screen and DevTools.
+Supersedes the defaults in #21 and #51.
+
+**Consequences.** Helping on someone else's device over ADB needs an admin
+or both flags turned off; the UI already hides the ADB tabs and says
+"You can reach your own sessions only." when they apply.

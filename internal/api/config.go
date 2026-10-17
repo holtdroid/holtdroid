@@ -106,8 +106,8 @@ func DefaultConfig() Config {
 		Storage:  storage.DefaultConfig(),
 		Database: db.DefaultConfig(),
 		Cache:    CacheConfig{MaxSize: 20 << 30, Warm: 10},
-		SSH:      SSHConfig{PublicPort: 2222, AllowADB: true, AllowReverse: true, MaxTunnelsPerConnection: 32, KeyRequests: true},
-		ADB:      ADBConfig{Browser: true},
+		SSH:      SSHConfig{PublicPort: 2222, AllowADB: true, AllowReverse: true, ClientIsolation: true, MaxTunnelsPerConnection: 32, KeyRequests: true},
+		ADB:      ADBConfig{Browser: true, OwnerOnly: true},
 		Uploads:  UploadsConfig{Enabled: true, Prefix: "uploads", MaxSize: 1 << 30, TemporaryTTL: 7 * 24 * time.Hour},
 		AppData: AppDataConfig{
 			Keep: 6, MaxAge: 7 * 24 * time.Hour, MaxCacheSize: 256 << 20, MaxSize: 1 << 30, Export: true, Timeout: 5 * time.Minute,

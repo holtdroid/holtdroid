@@ -79,8 +79,8 @@ memory. After a gateway restart, just open the site once and your keys are
 back. If none of the keys your client offers is registered (or they have
 expired), the login fails with a message telling you so.
 
-A session that doesn't exist, isn't running yet or isn't yours (with
-`clientIsolation`) gets just `Not found.`, whatever key you use. The gateway
+A session that doesn't exist, isn't running yet or isn't yours (unless
+`clientIsolation` is off) gets just `Not found.`, whatever key you use. The gateway
 says nothing about what it is to anyone who isn't signed in to a session; it
 even announces itself as OpenSSH.
 
@@ -132,16 +132,16 @@ agents' tunnel port (8081).
 
 ## Operator flags
 
-| Flag                      | Default   | Meaning                                                            |
-| ------------------------- | --------- | ------------------------------------------------------------------ |
-| `allowADB`                | `true`    | Allow `-L …:adb:5555` to the device's ADB                          |
-| `allowReverse`            | `true`    | Allow `-R` to publish client ports on the device's `localhost`     |
-| `clientIsolation`         | `false`   | When `true`, only a session's owner (and admins) can connect to it |
-| `reversePorts`            | `1-65535` | Device ports that may be published, e.g. `80,443,1024-65535`       |
-| `keyTTL`                  | `24h`     | Keys not refreshed by the browser for this long are forgotten      |
-| `maxTunnelsPerConnection` | `32`      | ADB channels plus published ports one SSH connection may hold      |
-| `keyRequests`             | `true`    | Offer a link to add an unknown key from the terminal (see above)   |
-| `skipHostKeyCheck`        | `false`   | Turn off host key checking in the commands the UI shows (below)    |
+| Flag                      | Default   | Meaning                                                          |
+| ------------------------- | --------- | ---------------------------------------------------------------- |
+| `allowADB`                | `true`    | Allow `-L …:adb:5555` to the device's ADB                        |
+| `allowReverse`            | `true`    | Allow `-R` to publish client ports on the device's `localhost`   |
+| `clientIsolation`         | `true`    | Only a session's owner (and admins) can connect to it            |
+| `reversePorts`            | `1-65535` | Device ports that may be published, e.g. `80,443,1024-65535`     |
+| `keyTTL`                  | `24h`     | Keys not refreshed by the browser for this long are forgotten    |
+| `maxTunnelsPerConnection` | `32`      | ADB channels plus published ports one SSH connection may hold    |
+| `keyRequests`             | `true`    | Offer a link to add an unknown key from the terminal (see above) |
+| `skipHostKeyCheck`        | `false`   | Turn off host key checking in the commands the UI shows (below)  |
 
 Published ports are bound on the device's loopback only, so privileged
 ports such as 80 and 443 are fine on emulators (their adbd runs as root).

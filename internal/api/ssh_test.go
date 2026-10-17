@@ -135,7 +135,7 @@ func TestSSHKeysSync(t *testing.T) {
 	b, bFP := sshKey(t)
 
 	info := decode[SSHInfo](t, h.do(http.MethodGet, "/api/v1/ssh", "alice", "", nil))
-	want := SSHInfo{Enabled: true, Host: "android.example.com", Port: 2222, AllowADB: true, AllowReverse: true, MaxTunnels: 32, KeyRequests: true, Handle: h.srv.sshHandle("alice")}
+	want := SSHInfo{Enabled: true, Host: "android.example.com", Port: 2222, AllowADB: true, AllowReverse: true, ClientIsolation: true, MaxTunnels: 32, KeyRequests: true, Handle: h.srv.sshHandle("alice")}
 	if info != want || !regexp.MustCompile(`^user-[a-z2-7]{16}$`).MatchString(info.Handle) || info.Handle == h.srv.sshHandle("bob") {
 		t.Fatalf("info = %+v", info)
 	}

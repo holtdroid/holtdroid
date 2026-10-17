@@ -52,6 +52,7 @@ func DefaultConfig() Config {
 		KeyRequestTimeout:       5 * time.Minute,
 		AllowADB:                true,
 		AllowReverse:            true,
+		ClientIsolation:         true,
 		ReversePorts:            "1-65535",
 		KeyTTL:                  24 * time.Hour,
 		MaxTunnelsPerConnection: 32,

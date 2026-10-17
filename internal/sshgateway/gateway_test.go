@@ -223,7 +223,7 @@ func roundTrip(t *testing.T, c io.ReadWriter, msg string) {
 }
 
 func TestLogin(t *testing.T) {
-	h := newHarness(t, func(c *Config) { c.ClientIsolation = true })
+	h := newHarness(t, nil)
 	otter := h.register("otter", false)
 	admin := h.register("root", true)
 	slug, _ := h.session("otter")
@@ -319,7 +319,6 @@ func newSigner(t *testing.T) ssh.Signer {
 
 func TestKeyRequests(t *testing.T) {
 	h := newHarness(t, func(c *Config) {
-		c.ClientIsolation = true
 		c.KeyRequestTimeout = time.Second
 		c.PortalURL = "https://android.example.com/"
 	})
@@ -534,8 +533,8 @@ func TestFanout(t *testing.T) {
 	})
 }
 
-func TestNoIsolationByDefault(t *testing.T) {
-	h := newHarness(t, nil)
+func TestNoIsolation(t *testing.T) {
+	h := newHarness(t, func(c *Config) { c.ClientIsolation = false })
 	otter := h.register("otter", false)
 	slug, _ := h.session("badger")
 	h.connect(slug, otter)

@@ -40,9 +40,11 @@ func TestBrowserADB(t *testing.T) {
 	h.waitReady(v.ID)
 
 	info := decode[ADBInfo](t, h.do(http.MethodGet, "/api/v1/adb", "otter", "", nil))
-	if !info.Browser || info.OwnerOnly {
+	if !info.Browser || !info.OwnerOnly {
 		t.Fatalf("info %+v", info)
 	}
+
+	h.srv.cfg.ADB.OwnerOnly = false
 
 	ws, code := h.dialADB(srv, v.ID, "beaver", "")
 	if ws == nil {

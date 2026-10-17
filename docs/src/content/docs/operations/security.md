@@ -21,19 +21,19 @@ sidebar:
 - **The VPN gateway** holds your VPN credentials and relays plain SOCKS
   inside the cluster. Only session Pods should reach it; see
   [Shared VPN gateway](/holtdroid/operations/vpn-gateway/).
-- **The SSH gateway** (optional) lets anyone with a registered key tunnel
-  to a device's ADB, which on emulators is a root shell without an
+- **The SSH gateway** (optional) lets a session's owner tunnel to its
+  device's ADB, which on emulators is a root shell without an
   authorization prompt, and publish ports on its loopback. It never runs commands
-  or forwards anywhere else. Turn on `clientIsolation` if users must only
-  reach their own sessions; see [SSH access](/holtdroid/concepts/ssh/).
+  or forwards anywhere else. Turning `clientIsolation` off lets anyone with a
+  registered key reach every session; see [SSH access](/holtdroid/concepts/ssh/).
   With `keyRequests` (default on) a user can add a key by confirming a link
   that `ssh` prints; a user tricked into confirming someone else's link
   gives that person their access, so turn it off if that worries you.
   Leave `skipHostKeyCheck` off unless you accept man-in-the-middle risk on
   the way to the gateway.
-- **ADB tools in the browser** (on by default) give everyone who may open a
-  session a root shell on its emulator. Set `adb.ownerOnly` to limit them to
-  the session's owner and admins, or `adb.browser: false` to turn them off;
+- **ADB tools in the browser** (on by default) give a session's owner and
+  admins a root shell on its emulator. `adb.ownerOnly: false` extends them to
+  everyone who may open the session, `adb.browser: false` turns them off;
   see [ADB tools](/holtdroid/concepts/adb/).
 - **Who can get in.** The default `anonymous` mode lets anyone who reaches the
   URL launch devices. Put it on a private network, or use `password`, `oidc`

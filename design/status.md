@@ -36,7 +36,7 @@ deployment"):
   doze, standby bucket) and Device (props, WebView provider, demo mode,
   bug report zip and bugreportz), plus screen recording in the rail. The
   agent's adb relays refuse `reboot:`/`unroot:`/`remount:`/`tcpip:`/`usb:`.
-  The fake provider has a small adbd. Not yet tried on a real emulator.
+  The fake provider has a small adbd. Works on the real emulator.
 - A metrics bar at the bottom of the session page (decision #40): device,
   app (fps, jank, CPU/PSS per process), network, storage, temperatures,
   the emulator container's CPU/memory/throttling and the stream.
@@ -104,14 +104,10 @@ deployment"):
 1. **Phase 3** — the Slack sync job that writes into an S3 source (work on
    it has started in parallel: `holtdroid-slack-sync` in the chart), the
    conformance suite, and whatever more use of real sessions turns up.
-2. **Phase 4.5 — SSH gateway**: live on the maintainer's deployment, on a non-default port (LAN and
-   WAN). Left: the first real use from a session page with a key from the
-   SSH keys page, and deciding whether `clientIsolation` should be on now
-   that the port is public (adb is a root shell on emulators).
-3. Planned, each starting with a decisions.md entry: Phase 4.7 traffic
+2. Planned, each starting with a decisions.md entry: Phase 4.7 traffic
    inspection proxy, Phase 4.8 MCP server. Both optional and off by
    default; each adds its own audit events and metrics (decision #44).
-4. Remaining Phase 1 chore: the conformance package.
+3. Remaining Phase 1 chore: the conformance package.
 
 ## Requirements from the maintainer
 
@@ -147,7 +143,7 @@ Collected from the design conversation; each is reflected in the docs listed.
   avatars from the IdP or **DiceBear voxel-art**. (decisions #17, #20)
 - **SSH access**: `ssh <slug>@host` for ADB (`-L`) and publishing local ports
   on the device (`-R`), no shells, keys kept in the browser and re-synced,
-  flags `allowADB`=true, `allowReverse`=true, `clientIsolation`=false,
+  flags `allowADB`=true, `allowReverse`=true, `clientIsolation`=true,
   `keyRequests`=true, `skipHostKeyCheck`=false. (decisions #21, #46)
 - Lean containers and a small codebase built on existing libraries; Go
   backend, Bun + TypeScript 7 + oxc tooling, shadcn/ui. (decisions #3, #13)

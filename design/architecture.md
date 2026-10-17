@@ -540,9 +540,10 @@ On login the gateway resolves the slug through the api's internal endpoint
 (`GET /internal/sessions/{slug}` → provider, id, owner, state, tunnel URL)
 and checks:
 
-- `clientIsolation: false` (default) — any user with a registered key may use
-  any running session;
-- `clientIsolation: true` — only the session owner and `auth.adminGroups`.
+- `clientIsolation: true` (default) — only the session owner and
+  `auth.adminGroups`;
+- `clientIsolation: false` — any user with a registered key may use any
+  running session.
 
 Unknown slug, session not `ready`, or a forbidden user all fail the same way,
 with a bare "Not found." that doesn't name the software, so neither slugs
@@ -612,7 +613,7 @@ hostKey: file:/run/secrets/ssh/host_ed25519   # PEM; stable across restarts and 
 apiURL: http://holtdroid-api-internal:8081
 allowADB: true
 allowReverse: true
-clientIsolation: false
+clientIsolation: true
 reversePorts: "1-65535"                        # ports and ranges, comma-separated
 keyTTL: 24h
 maxTunnelsPerConnection: 32
@@ -628,7 +629,7 @@ ssh:
   publicPort: 2222
   allowADB: true            # mirror the gateway flags; the UI only uses them to pick
   allowReverse: true        # which commands to show
-  clientIsolation: false
+  clientIsolation: true
   maxTunnelsPerConnection: 32
 ```
 

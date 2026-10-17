@@ -45,13 +45,14 @@ The rail next to the screen also records the screen to a video file
 ```yaml
 adb:
   browser: true # session pages may open ADB
-  ownerOnly: false # only a session's owner and admins may
+  ownerOnly: true # only a session's owner and admins may
 ```
 
 On emulators ADB is a root shell without an authorization prompt, so anyone
-who may open a session in the portal can run anything on that device. Set
-`ownerOnly` to keep other users to the screen and DevTools of sessions that
-aren't theirs, or `browser: false` to turn the tools off. Each connection is
+with the tools can run anything on that device. With `ownerOnly` (the
+default) other users get only the screen and DevTools of sessions that aren't
+theirs; set it to `false` to give everyone the tools, or `browser: false` to
+turn them off. Each connection is
 audited as `adb.connect` and `adb.disconnect`; see
 [Monitoring and audit](/holtdroid/operations/monitoring/).
 

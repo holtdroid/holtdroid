@@ -47,7 +47,7 @@ config:
   # that is a root shell for everyone who may open the session.
   adb:
     browser: true
-    ownerOnly: false
+    ownerOnly: true
 
 api:
   replicas: 1
@@ -154,7 +154,7 @@ sshGateway:
   allowADB: true
   allowReverse: true
   # Only session owners and admins may connect to a session.
-  clientIsolation: false
+  clientIsolation: true
   # Device ports that may be published. The port is bound on the device's
   # loopback only, so privileged ports are fine on emulators.
   reversePorts: "1-65535"
