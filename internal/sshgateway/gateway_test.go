@@ -882,3 +882,49 @@ func TestParsePorts(t *testing.T) {
 		})
 	}
 }
+
+type stallConn struct {
+	net.Conn
+	stalled atomic.Bool
+	done    chan struct{}
+}
+
+func (c *stallConn) Read(p []byte) (int, error) {
+	if c.stalled.Load() {
+		<-c.done
+		return 0, io.EOF
+	}
+	return c.Conn.Read(p)
+}
+
+func TestKeepalive(t *testing.T) {
+	h := newHarness(t, func(c *Config) { c.KeepaliveInterval = 20 * time.Millisecond })
+	otter := h.register("otter", false)
+	slug, _ := h.session("otter")
+
+	healthy := h.connect(slug, otter)
+	nc, err := net.Dial("tcp", h.addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	conn := &stallConn{Conn: nc, done: make(chan struct{})}
+	t.Cleanup(func() { close(conn.done); nc.Close() })
+	sc, chans, reqs, err := ssh.NewClientConn(conn, h.addr, &ssh.ClientConfig{
+		User:            slug,
+		Auth:            []ssh.AuthMethod{ssh.PublicKeys(otter)},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ssh.NewClient(sc, chans, reqs)
+	conn.stalled.Store(true)
+
+	eventually(t, "the stalled connection to be closed", func() bool {
+		return strings.Count(h.audit.String(), `"ssh.disconnect"`) == 1
+	})
+	time.Sleep(100 * time.Millisecond)
+	if _, _, err := healthy.SendRequest("ping", true, nil); err != nil {
+		t.Fatalf("healthy connection closed: %v", err)
+	}
+}

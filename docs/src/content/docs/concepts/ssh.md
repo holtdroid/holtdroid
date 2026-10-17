@@ -36,6 +36,14 @@ The **SSH** button on the session page builds this command for you:
   the device's port 8080).
 - It turns the list into one command with a `-R` per port, plus `-L` for ADB
   if you want it.
+- With **Reconnect** on (the default), the command is wrapped in a shell loop
+  that starts `ssh` again a second after the connection drops:
+  `while true; do ssh … ; sleep 1 || break; done`. It works in bash and zsh;
+  press Ctrl+C twice to stop it. The added `ServerAliveInterval` notices a
+  dead network within about 30 s, and `ExitOnForwardFailure` makes `ssh`
+  retry until a port the old connection still held is free again. The gateway
+  likewise drops a client that stops answering its keepalives after about
+  30 s (`keepaliveInterval`, 15 s), which releases its ports.
 
 Apps and WebViews on the device reach your servers as
 `http://localhost:<port>`. Plain HTTP to `localhost`, `127.0.0.1` and `::1`

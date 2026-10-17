@@ -30,11 +30,13 @@ import {
   loadAllDevices,
   loadIncludeADB,
   loadPortRules,
+  loadReconnect,
   parsePortRule,
   ruleForwards,
   saveAllDevices,
   saveIncludeADB,
   savePortRules,
+  saveReconnect,
   sshCommand,
   type PortRule,
 } from "@/lib/ssh-ports"
@@ -87,6 +89,7 @@ function SSHPanel({ info, slug, tunnels }: { info: SSHInfo; slug: string; tunnel
   const [rules, setRules] = useState(loadPortRules)
   const [includeADB, setIncludeADB] = useState(loadIncludeADB)
   const [allDevices, setAllDevices] = useState(loadAllDevices)
+  const [reconnect, setReconnect] = useState(loadReconnect)
   const host = info.host || window.location.hostname
   const canAll = info.allowReverse && !!info.handle
   const all = canAll && allDevices
@@ -104,6 +107,10 @@ function SSHPanel({ info, slug, tunnels }: { info: SSHInfo; slug: string; tunnel
     setAllDevices(on)
     saveAllDevices(on)
   }
+  const toggleReconnect = (on: boolean) => {
+    setReconnect(on)
+    saveReconnect(on)
+  }
 
   const forwards = info.allowReverse ? expandRules(rules) : []
   const adb = !all && info.allowADB && (includeADB || !info.allowReverse)
@@ -115,6 +122,7 @@ function SSHPanel({ info, slug, tunnels }: { info: SSHInfo; slug: string; tunnel
     skipHostKeyCheck: info.skipHostKeyCheck,
     forwards,
     adb,
+    reconnect,
   })
   const published = new Set(tunnels.reverse.map((r) => r.port))
 
@@ -152,6 +160,10 @@ function SSHPanel({ info, slug, tunnels }: { info: SSHInfo; slug: string; tunnel
         <div className="flex items-center justify-between gap-2">
           <span className="text-xs font-medium">Command</span>
           <div className="flex items-center gap-3">
+            <Label className="text-muted-foreground gap-2 text-xs font-normal">
+              Reconnect
+              <Switch size="sm" checked={reconnect} onCheckedChange={toggleReconnect} />
+            </Label>
             {canAll && (
               <Label className="text-muted-foreground gap-2 text-xs font-normal">
                 All my devices
@@ -180,7 +192,9 @@ function SSHPanel({ info, slug, tunnels }: { info: SSHInfo; slug: string; tunnel
             "The ports go to every device you run, including ones you start later; ADB needs a single device, so it is left out. "}
           {forwards.length > 0 && "Apps on the device reach your machine's servers as http://localhost:<port>. "}
           {adb && "adb gets a root shell on emulators, without an authorization prompt. "}
-          Leave the command running; Ctrl+C closes the tunnels.
+          {reconnect
+            ? "Leave the command running: it reconnects a second after the connection drops, in bash or zsh. Press Ctrl+C twice to close the tunnels."
+            : "Leave the command running; Ctrl+C closes the tunnels."}
         </p>
       </div>
     </>

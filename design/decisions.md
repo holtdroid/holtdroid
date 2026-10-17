@@ -1398,3 +1398,27 @@ Supersedes the defaults in #21 and #51.
 **Consequences.** Helping on someone else's device over ADB needs an admin
 or both flags turned off; the UI already hides the ADB tabs and says
 "You can reach your own sessions only." when they apply.
+
+## 61. SSH tunnels reconnect through a shell loop and gateway keepalives
+
+**Context.** A laptop going to sleep or switching networks kills the `ssh -N`
+command, and the user had to notice and run it again. Worse, a silently
+dropped connection kept its published ports on the device: the agent refuses
+a port already held, so a fresh connection got everything except the ports.
+
+**Decision.** The SSH button wraps the command in
+`while true; do ssh … ; sleep 1 || break; done` (switch **Reconnect**, on by
+default, stored in the browser), with `ServerAliveInterval=10`,
+`ServerAliveCountMax=3` and `ExitOnForwardFailure=yes`. The gateway sends
+`keepalive@openssh.com` every `keepaliveInterval` (15 s) and disconnects a
+client that doesn't answer within two intervals. No `autossh` and no
+client-side tool: plain `ssh` and a POSIX loop are already everywhere.
+
+**Consequences.** After a drop the tunnels are back within a second of the
+network returning; a port the dead connection held fails the forward and the
+loop retries until the gateway releases it (at most ~30 s). Stopping takes
+Ctrl+C twice in bash (once for `ssh`, once for `sleep`). The loop is for
+bash and zsh; fish, nushell and PowerShell users turn the switch off and loop
+their own way. A port the gateway always refuses (outside `reversePorts`, over
+`maxTunnelsPerConnection`) makes the loop retry every second with the error
+on screen.

@@ -8,6 +8,7 @@ const MAX_RANGE = 256
 const rulesKey = "holtdroid:ssh:ports"
 const adbKey = "holtdroid:ssh:adb"
 const allKey = "holtdroid:ssh:all"
+const reconnectKey = "holtdroid:ssh:reconnect"
 
 const isPort = (n: number) => Number.isInteger(n) && n >= 1 && n <= 65535
 
@@ -49,6 +50,8 @@ export function expandRules(rules: PortRule[]): Forward[] {
   return out
 }
 
+export const RECONNECT_OPTIONS = "-o ServerAliveInterval=10 -o ServerAliveCountMax=3 -o ExitOnForwardFailure=yes"
+
 export const SKIP_HOST_KEY_CHECK = "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
 export function localURL(port: number) {
@@ -71,6 +74,7 @@ export function sshCommand({
   skipHostKeyCheck,
   forwards,
   adb,
+  reconnect,
 }: {
   user: string
   host: string
@@ -78,12 +82,15 @@ export function sshCommand({
   skipHostKeyCheck: boolean
   forwards: Forward[]
   adb: boolean
+  reconnect: boolean
 }) {
   const parts = ["ssh -N", ...sshOptions({ port, skipHostKeyCheck })]
+  if (reconnect) parts.push(RECONNECT_OPTIONS)
   if (adb) parts.push("-L 5555:adb:5555")
   for (const f of forwards) parts.push(`-R ${f.device}:localhost:${f.local}`)
   parts.push(`${user}@${host}`)
-  return parts.join(" ")
+  const command = parts.join(" ")
+  return reconnect ? `while true; do ${command}; sleep 1 || break; done` : command
 }
 
 function read(key: string) {
@@ -128,3 +135,7 @@ export const saveIncludeADB = (on: boolean) => write(adbKey, String(on))
 export const loadAllDevices = () => read(allKey) === "true"
 
 export const saveAllDevices = (on: boolean) => write(allKey, String(on))
+
+export const loadReconnect = () => read(reconnectKey) !== "false"
+
+export const saveReconnect = (on: boolean) => write(reconnectKey, String(on))

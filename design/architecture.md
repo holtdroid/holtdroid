@@ -297,8 +297,10 @@ Android key codes) and a virtual USB keyboard (UHID messages with the HID
 descriptor from `@yume-chan/aoa`), where Android applies its own physical
 keyboard layout so shortcuts and any alphabet work; a button opens the
 device's layout settings. Ctrl/Cmd+V pastes the browser clipboard into the
-focused field. The rail's key buttons, notifications and quick settings go
-over the control socket while the screen is connected and through
+focused field. Cmd/Win and anything pressed with it stay with the browser
+and the OS: the host takes those shortcuts (Cmd+Tab never delivers its
+release), and a lone Meta on Android opens system UI. The rail's key
+buttons, notifications and quick settings go over the control socket while the screen is connected and through
 `/v1/device/actions` otherwise; the screenshot button saves the last
 decoded frame. Returning to the tab asks the server for a key frame
 (`reset video`). Stream settings and the keyboard mode are kept in
@@ -603,6 +605,10 @@ when no browser tab is open — decision #14 still holds for idle *viewers*).
 In quiet intervals it looks the session up instead. Once the session is gone
 or no longer `ready`, or the agent drops a published port, the gateway
 closes the SSH connection.
+It also sends `keepalive@openssh.com` every `keepaliveInterval` and closes a
+connection whose client doesn't answer within two intervals, so a silently
+dropped client releases its ports for the reconnect loop the UI builds
+(decision #61).
 
 ### Configuration
 
@@ -619,6 +625,7 @@ reversePorts: "1-65535"                        # ports and ranges, comma-separat
 keyTTL: 24h
 maxTunnelsPerConnection: 32
 activityInterval: 30s
+keepaliveInterval: 15s                         # a client that misses two in a row is disconnected
 ```
 
 ```yaml

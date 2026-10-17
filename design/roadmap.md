@@ -100,6 +100,7 @@ the real agent exists.
 - [x] Banner with the logo after a verified login, a bare "Not found." for missing or forbidden sessions, OpenSSH's version string (decision #47)
 - [x] Unknown keys from the terminal (decision #46): the gateway has the client prove the key, prints a portal link with a one-time code and waits; the `/ssh` page confirms and adds the key (`sshGateway.keyRequests`, on by default). `sshGateway.skipHostKeyCheck` (off by default) puts `-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null` into the UI's commands
 - [x] homelab (2026-10-17): gateway with its host key (`secret/holtdroid` `ssh_host_key`), Traefik `ssh` entrypoint and `IngressRouteTCP`, the rule for the entrypoint's port on the ingress VIP's node firewall, and the UniFi WAN port forward `homelab-holtdroid-ssh`; the gateway is reachable from the WAN address on a non-default port (`sshGateway.publicPort`; the Service stays on 2222) so scanners of the usual SSH ports don't find it
+- [x] Auto-reconnect (decision #61): UI switch **Reconnect** wraps the command in a `while` loop with a 1 s pause, `ServerAliveInterval` and `ExitOnForwardFailure`; the gateway disconnects clients that stop answering keepalives (`keepaliveInterval`, 15 s)
 
 ## Phase 4.55 — ADB in the browser
 

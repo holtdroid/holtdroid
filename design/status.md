@@ -37,7 +37,9 @@ deployment"):
   An unknown key gets a portal link from `ssh` itself and the connection
   waits for it to be confirmed (decision #46, `keyRequests`, on by default);
   `skipHostKeyCheck` (off by default, on in the maintainer's deployment)
-  puts host-key-check-off options into the UI's commands.
+  puts host-key-check-off options into the UI's commands. The command
+  reconnects a second after a drop and the gateway frees ports of clients
+  that stop answering keepalives (decision #61).
 - ADB in the browser (decision #51): one Tango connection per session page
   through the session proxy (`WS /adb`, `adb.browser`, `adb.ownerOnly`),
   with tabs next to DevTools for Logcat (app-only by uid, crash toast),

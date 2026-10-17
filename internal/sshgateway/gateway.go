@@ -41,6 +41,7 @@ type Config struct {
 	MaxTunnelsPerConnection int
 	ActivityInterval        time.Duration
 	RefreshInterval         time.Duration
+	KeepaliveInterval       time.Duration
 }
 
 func DefaultConfig() Config {
@@ -58,6 +59,7 @@ func DefaultConfig() Config {
 		MaxTunnelsPerConnection: 32,
 		ActivityInterval:        30 * time.Second,
 		RefreshInterval:         5 * time.Second,
+		KeepaliveInterval:       15 * time.Second,
 	}
 }
 
@@ -69,8 +71,8 @@ func (c Config) Validate() error {
 	if _, err := parsePorts(c.ReversePorts); err != nil {
 		errs = append(errs, fmt.Errorf("reversePorts: %w", err))
 	}
-	if c.KeyTTL <= 0 || c.ActivityInterval <= 0 || c.KeyRequestTimeout <= 0 || c.RefreshInterval <= 0 {
-		errs = append(errs, errors.New("keyTTL, keyRequestTimeout, activityInterval and refreshInterval must be positive"))
+	if c.KeyTTL <= 0 || c.ActivityInterval <= 0 || c.KeyRequestTimeout <= 0 || c.RefreshInterval <= 0 || c.KeepaliveInterval <= 0 {
+		errs = append(errs, errors.New("keyTTL, keyRequestTimeout, activityInterval, refreshInterval and keepaliveInterval must be positive"))
 	}
 	if c.MaxTunnelsPerConnection < 1 {
 		errs = append(errs, errors.New("maxTunnelsPerConnection must be at least 1"))
@@ -449,6 +451,7 @@ func (g *Gateway) handle(ctx context.Context, nc net.Conn) {
 	} else {
 		go c.watch(ctx)
 	}
+	go c.keepalive(ctx)
 	go c.globalRequests(ctx, reqs)
 	for nch := range chans {
 		go c.channel(ctx, nch)
@@ -545,6 +548,36 @@ func (c *conn) reserve() (func(), bool) {
 
 // watch reports traffic as session activity and drops the connection once
 // the session is gone.
+func (c *conn) keepalive(ctx context.Context) {
+	every := c.g.cfg.KeepaliveInterval
+	t := time.NewTicker(every)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
+		replied := make(chan error, 1)
+		go func() {
+			_, _, err := c.sc.SendRequest("keepalive@openssh.com", true, nil)
+			replied <- err
+		}()
+		select {
+		case <-ctx.Done():
+			return
+		case err := <-replied:
+			if err == nil {
+				continue
+			}
+		case <-time.After(2 * every):
+		}
+		c.log.Info("client stopped answering keepalives, closing the connection")
+		c.cancel()
+		return
+	}
+}
+
 func (c *conn) watch(ctx context.Context) {
 	t := time.NewTicker(c.g.cfg.ActivityInterval)
 	defer t.Stop()
