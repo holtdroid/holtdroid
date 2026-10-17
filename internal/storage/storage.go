@@ -42,13 +42,15 @@ type FilesystemConfig struct {
 }
 
 type S3Config struct {
-	Endpoint  string
-	Region    string
-	Bucket    string
-	Prefix    string
-	AccessKey secrets.Ref
-	SecretKey secrets.Ref
-	PathStyle bool
+	Endpoint         string
+	Region           string
+	Bucket           string
+	Prefix           string
+	AccessKey        secrets.Ref
+	SecretKey        secrets.Ref
+	PathStyle        bool
+	CredentialsURL   string
+	CredentialsToken secrets.Ref
 }
 
 func DefaultConfig() Config {

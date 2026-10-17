@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/kriakiku/holtdroid/internal/rules"
 	"github.com/kriakiku/holtdroid/internal/storage"
 )
 
@@ -98,6 +99,7 @@ type Config struct {
 	S3           storage.S3Config
 	ReadOnly     bool
 	PollInterval time.Duration
+	Include      []string
 }
 
 func (c Config) Storage() storage.Config {
@@ -112,19 +114,22 @@ type cachedMeta struct {
 type Source struct {
 	store    storage.Store
 	readOnly bool
+	include  rules.Rules
 	log      *slog.Logger
 
 	mu    sync.Mutex
 	metas map[string]cachedMeta
 }
 
-func New(store storage.Store, readOnly bool) *Source {
-	return &Source{store: store, readOnly: readOnly, log: slog.Default().With("component", "source"), metas: map[string]cachedMeta{}}
+func New(store storage.Store, readOnly bool, include rules.Rules) *Source {
+	return &Source{store: store, readOnly: readOnly, include: include, log: slog.Default().With("component", "source"), metas: map[string]cachedMeta{}}
 }
 
 func (s *Source) ReadOnly() bool { return s.readOnly }
 
 func isAPK(key string) bool { return strings.HasSuffix(strings.ToLower(key), ".apk") }
+
+func (s *Source) listed(key string) bool { return isAPK(key) && s.include.Match(key) }
 
 func revision(o storage.Object) string {
 	raw := o.ETag
@@ -149,7 +154,7 @@ func (s *Source) List(ctx context.Context) ([]Artifact, error) {
 	out := []Artifact{}
 	seen := map[string]bool{}
 	for _, o := range objs {
-		if !isAPK(o.Key) {
+		if !s.listed(o.Key) {
 			continue
 		}
 		var side *storage.Object
@@ -173,7 +178,7 @@ func (s *Source) List(ctx context.Context) ([]Artifact, error) {
 }
 
 func (s *Source) Get(ctx context.Context, id string) (Artifact, error) {
-	if !isAPK(id) {
+	if !s.listed(id) {
 		return Artifact{}, fmt.Errorf("%w: %s", contract.ErrNotFound, id)
 	}
 	o, err := s.store.Stat(ctx, id)

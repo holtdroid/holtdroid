@@ -2,7 +2,7 @@
 title: Writing your own
 description: Principles for a sync job that publishes builds from CI, releases or anywhere else into a source.
 sidebar:
-  order: 3
+  order: 4
 ---
 
 There is no plugin API for sources. The contract is the file layout: a job

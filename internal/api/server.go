@@ -19,6 +19,7 @@ import (
 	"github.com/kriakiku/holtdroid/internal/auth"
 	"github.com/kriakiku/holtdroid/internal/contract"
 	"github.com/kriakiku/holtdroid/internal/db"
+	"github.com/kriakiku/holtdroid/internal/rules"
 	"github.com/kriakiku/holtdroid/internal/secrets"
 	"github.com/kriakiku/holtdroid/internal/source"
 	"github.com/kriakiku/holtdroid/internal/storage"
@@ -93,7 +94,11 @@ func New(ctx context.Context, cfg Config, opts ...Option) (*Server, error) {
 		if err != nil {
 			return nil, fmt.Errorf("source %q: %w", sc.Name, err)
 		}
-		s.sources[sc.Name] = source.New(store, sc.ReadOnly)
+		include, err := rules.Parse(sc.Include)
+		if err != nil {
+			return nil, fmt.Errorf("source %q: include: %w", sc.Name, err)
+		}
+		s.sources[sc.Name] = source.New(store, sc.ReadOnly, include)
 		s.srcOrder = append(s.srcOrder, sc.Name)
 	}
 	var err error

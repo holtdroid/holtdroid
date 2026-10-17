@@ -36,11 +36,33 @@ sources:
 | `type`         | `filesystem` | `filesystem` or `s3`; the backend options are the same as for [storage](/holtdroid/configuration/storage/) |
 | `readOnly`     | `false`      | Nobody can delete or change files through the portal; a read-only mount works                              |
 | `pollInterval` | `30s`        | How often the source is listed to notice new, removed or replaced files and push it to the UI              |
+| `include`      | everything   | Only list APKs whose keys match these [rules](#include-rules); not allowed on the uploads source           |
 
 Every `*.apk` (any depth, case-insensitive) is an artifact; other files,
 hidden files and directories that can't be read (`lost+found`) are ignored.
 Newest first, by `uploadedAt` from the sidecar or else the file's
 modification time.
+
+## Include rules
+
+`include` picks builds from a source that holds more than you want to show,
+e.g. a shared bucket. It is a gitignore-style list:
+
+```yaml
+include:
+  - /releases/* # anchored: releases/ and everything below it
+  - "!/releases/night/*" # ...except nightly builds
+  - "*-qa.apk" # a name pattern matches at any depth
+```
+
+- Keys are relative to the source's directory or S3 prefix.
+- `*` matches within one path segment, and `**` spans directories.
+- A pattern that matches a directory matches everything below it.
+- `!` excludes, and the last matching pattern wins.
+- A list that starts with an exclusion starts from "everything".
+- Lines starting with `#` are ignored.
+
+Excluded builds aren't listed and can't be launched.
 
 ## The `.meta.json` sidecar
 

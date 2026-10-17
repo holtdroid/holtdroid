@@ -42,6 +42,24 @@ the layout:
 - replacing a file in place is fine: its revision (ETag, else size + mtime)
   changes and the api treats it as a new build.
 
+A source may carry `include` rules (`internal/rules`, gitignore style:
+`/a/*` is anchored, a bare `*.apk` matches names at any depth, `**` spans
+directories, a pattern that matches a directory matches everything below
+it, `!` excludes, the last match wins, and a list that starts with `!` starts
+from everything). Keys are relative to the source root. Excluded keys are
+neither listed nor launchable. Sync jobs that filter (holtdroid-s3-sync) use
+the same syntax.
+
+An S3 source may get temporary keys from a **credentials endpoint**
+(`s3.credentialsURL`) instead of `accessKey`/`secretKey`. The endpoint is a
+`GET` that returns the ECS container credentials document
+`{"AccessKeyId", "SecretAccessKey", "Token", "Expiration"}`; the
+`Authorization` header carries `s3.credentialsToken` when it is set. The api
+fetches new keys a minute before `Expiration`, and any status other than 200
+is a listing error for that source.
+[kriakiku/holtdroid-s3-sync](https://github.com/kriakiku/holtdroid-s3-sync)'s
+broker implements it on top of AWS IAM Identity Center.
+
 Sync jobs announce builds with a **launch link**:
 `{publicURL}/?source={source}&launch={id}`, `id` = base64url (no padding)
 of the key inside the source — the same ID the UI API uses

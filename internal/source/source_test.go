@@ -15,6 +15,7 @@ import (
 	"github.com/johannesboyne/gofakes3/backend/s3mem"
 
 	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/kriakiku/holtdroid/internal/rules"
 	"github.com/kriakiku/holtdroid/internal/secrets"
 	"github.com/kriakiku/holtdroid/internal/storage"
 )
@@ -67,7 +68,7 @@ func TestList(t *testing.T) {
 			put(t, store, "notes.txt", "ignored")
 			put(t, store, "orphan.apk"+MetaSuffix, `{}`)
 
-			src := New(store, false)
+			src := New(store, false, rules.Rules{})
 			list, err := src.List(ctx)
 			if err != nil {
 				t.Fatal(err)
@@ -111,7 +112,7 @@ func TestWrite(t *testing.T) {
 	ctx := context.Background()
 	for name, store := range stores(t) {
 		t.Run(name, func(t *testing.T) {
-			src := New(store, false)
+			src := New(store, false, rules.Rules{})
 			meta := Meta{Owner: "otter", UploadedBy: "Otter", Visibility: Private, Origin: "upload"}
 			a, err := src.Put(ctx, "uploads/ab/app.apk", strings.NewReader("apk"), 3, meta)
 			if err != nil {
@@ -166,7 +167,7 @@ func TestWrite(t *testing.T) {
 				t.Fatalf("non-apk put: %v", err)
 			}
 
-			ro := New(store, true)
+			ro := New(store, true, rules.Rules{})
 			if _, err := ro.Put(ctx, "x.apk", strings.NewReader("x"), 1, Meta{}); !errors.Is(err, ErrReadOnly) {
 				t.Fatalf("read-only put: %v", err)
 			}
@@ -189,9 +190,31 @@ func TestSkipsHiddenAndUnreadable(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = os.Chmod(dir+"/lost+found", 0o700) })
-	list, err := New(store, true).List(context.Background())
+	list, err := New(store, true, rules.Rules{}).List(context.Background())
 	if err != nil || len(list) != 1 || list[0].ID != "app.apk" {
 		t.Fatalf("list %+v, %v", list, err)
+	}
+}
+
+func TestIncludeRules(t *testing.T) {
+	store, err := storage.NewFilesystem(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"releases/a.apk", "releases/night/b.apk", "other/c.apk"} {
+		put(t, store, key, "x")
+	}
+	include, err := rules.Parse([]string{"/releases/*", "!/releases/night/*"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := New(store, true, include)
+	list, err := src.List(context.Background())
+	if err != nil || len(list) != 1 || list[0].ID != "releases/a.apk" {
+		t.Fatalf("list %+v, %v", list, err)
+	}
+	if _, err := src.Get(context.Background(), "releases/night/b.apk"); !errors.Is(err, contract.ErrNotFound) {
+		t.Fatalf("excluded artifact must not be reachable: %v", err)
 	}
 }
 

@@ -22,7 +22,8 @@ imports it. Read it fully before changing anything.
 
 Sync jobs that publish builds live in their own repositories and only share
 the source layout and launch links with this one (decisions.md #30), e.g.
-[kriakiku/holtdroid-slack-sync](https://github.com/kriakiku/holtdroid-slack-sync).
+[kriakiku/holtdroid-slack-sync](https://github.com/kriakiku/holtdroid-slack-sync)
+and [kriakiku/holtdroid-s3-sync](https://github.com/kriakiku/holtdroid-s3-sync).
 
 If an `AGENTS.local.md` exists next to this file, read it too: it holds
 machine-specific notes (local paths, how to deploy to the maintainer's
@@ -56,7 +57,8 @@ internal/
   sshgateway/             SSH gateway (planned): ADB and published-port tunnels, no shells
   vpn/                    sing-box sidecar config: locations as sing-box outbounds, no vendor code
   secrets/                secret resolvers: env:, file:, openbao:
-  storage/                object store for sources and the APK cache: filesystem, s3
+  storage/                object store for sources and the APK cache: filesystem, s3 (static keys, IAM, or a credentials endpoint)
+  rules/                  gitignore-style include rules for sources
   db/                     api SQL database: goose migrations, sqlc queries (generated code committed)
   auth/                   sign-in modes: anonymous, password, oidc (signed JWT cookie), header, none
   apk/                    APK metadata (package, version, label, icon)

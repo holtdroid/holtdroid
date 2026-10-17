@@ -47,15 +47,17 @@ storage:
     pathStyle: true
 ```
 
-| Key         | Meaning                                                                     |
-| ----------- | --------------------------------------------------------------------------- |
-| `endpoint`  | Base URL; `https://` enables TLS                                            |
-| `region`    | Bucket region, if your store cares                                          |
-| `bucket`    | Existing bucket                                                             |
-| `prefix`    | Optional key prefix, to share a bucket                                      |
-| `accessKey` | Secret reference; leave both keys empty to use IAM roles / instance profile |
-| `secretKey` | Secret reference                                                            |
-| `pathStyle` | `true` for most self-hosted stores (`endpoint/bucket/key`)                  |
+| Key                | Meaning                                                                                                                                                              |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `endpoint`         | Base URL; `https://` enables TLS                                                                                                                                     |
+| `region`           | Bucket region, if your store cares                                                                                                                                   |
+| `bucket`           | Existing bucket                                                                                                                                                      |
+| `prefix`           | Optional key prefix, to share a bucket                                                                                                                               |
+| `accessKey`        | Secret reference; leave both keys empty to use IAM roles / instance profile                                                                                          |
+| `secretKey`        | Secret reference                                                                                                                                                     |
+| `pathStyle`        | `true` for most self-hosted stores (`endpoint/bucket/key`)                                                                                                           |
+| `credentialsURL`   | Fetch temporary keys instead, in the ECS container credentials format (e.g. from [holtdroid-s3-sync](/holtdroid/sources/s3/)'s broker); refreshed before they expire |
+| `credentialsToken` | Secret reference sent as the `Authorization` header to `credentialsURL`                                                                                              |
 
 The api needs `GetObject`, `PutObject`, `DeleteObject` and `ListBucket` on
 the bucket/prefix.

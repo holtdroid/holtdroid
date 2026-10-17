@@ -10,6 +10,7 @@ import (
 	"github.com/kriakiku/holtdroid/internal/auth"
 	"github.com/kriakiku/holtdroid/internal/config"
 	"github.com/kriakiku/holtdroid/internal/db"
+	"github.com/kriakiku/holtdroid/internal/rules"
 	"github.com/kriakiku/holtdroid/internal/source"
 	"github.com/kriakiku/holtdroid/internal/storage"
 )
@@ -133,6 +134,9 @@ func (c Config) Validate() error {
 		if sc.PollInterval < 0 {
 			errs = append(errs, fmt.Errorf("source %q: pollInterval must not be negative", sc.Name))
 		}
+		if _, err := rules.Parse(sc.Include); err != nil {
+			errs = append(errs, fmt.Errorf("source %q: include: %w", sc.Name, err))
+		}
 	}
 	if c.Uploads.Enabled {
 		up, ok := sources[c.UploadSource()]
@@ -141,6 +145,8 @@ func (c Config) Validate() error {
 			errs = append(errs, fmt.Errorf("uploads.source %q is not a configured source", c.UploadSource()))
 		case up.ReadOnly:
 			errs = append(errs, fmt.Errorf("uploads.source %q is read-only", up.Name))
+		case len(up.Include) > 0:
+			errs = append(errs, fmt.Errorf("uploads.source %q has include rules; uploads could land outside them", up.Name))
 		}
 		if c.Uploads.MaxSize == 0 {
 			errs = append(errs, errors.New("uploads.maxSize must be positive"))

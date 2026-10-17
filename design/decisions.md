@@ -664,3 +664,35 @@ default because it works without that. H.265 and AV1 trade device CPU
 (software encoders on the emulator) for bandwidth, and H.265 decoding
 depends on the browser and OS.
 
+## 37. Builds from S3: copies or a credentials broker, both behind include rules
+
+**Context.** Teams already publish builds to S3 buckets, often in AWS
+accounts that only allow short-lived IAM Identity Center sessions approved
+in a browser. The maintainer wants both options: reading the bucket
+directly, and copying builds so they survive the end of a session. Only
+some of the keys in such a bucket matter.
+
+**Decision.** A separate job,
+[kriakiku/holtdroid-s3-sync](https://github.com/kriakiku/holtdroid-s3-sync)
+(decision #30), has two modes.
+
+- *Copy* mirrors the matching APKs into a folder or S3 source, with
+  sidecars and icons.
+- *Broker* serves temporary credentials in the ECS container credentials
+  format.
+
+The job signs in with the OAuth device authorization flow. It posts the
+link to Slack and its log, and keeps the session alive with refresh tokens
+in a 0600 cache file. The api gains two generic pieces and nothing
+AWS-specific:
+
+- `include` rules on any source (`internal/rules`, gitignore syntax);
+- `s3.credentialsURL` on S3 stores, a minio-go credentials provider that
+  fetches and refreshes the ECS document.
+
+**Consequences.** The api still has no AWS SDK, SSO code or Slack. Any
+credentials service that speaks the ECS format plugs in. A broker-backed
+source lists nothing while nobody has approved a login; copies stay. The
+token cache is the job's only state and holds credentials, so it lives on a
+private volume.
+

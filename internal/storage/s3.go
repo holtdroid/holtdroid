@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -29,9 +31,18 @@ func NewS3(ctx context.Context, cfg S3Config, reg *secrets.Registry) (*S3, error
 		return nil, fmt.Errorf("storage: s3.endpoint must be a URL like https://s3.example.com: %q", cfg.Endpoint)
 	}
 	var creds *credentials.Credentials
-	if cfg.AccessKey.IsZero() {
+	switch {
+	case cfg.CredentialsURL != "":
+		b := &brokerCredentials{url: cfg.CredentialsURL, client: &http.Client{Timeout: 15 * time.Second}}
+		if !cfg.CredentialsToken.IsZero() {
+			if b.token, err = reg.Resolve(ctx, cfg.CredentialsToken); err != nil {
+				return nil, err
+			}
+		}
+		creds = credentials.New(b)
+	case cfg.AccessKey.IsZero():
 		creds = credentials.NewIAM("")
-	} else {
+	default:
 		ak, err := reg.Resolve(ctx, cfg.AccessKey)
 		if err != nil {
 			return nil, err
