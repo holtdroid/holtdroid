@@ -74,7 +74,7 @@ deployment"):
 1. **Phase 3** — the Slack sync job that writes into an S3 source (work on
    it has started in parallel: `holtdroid-slack-sync` in the chart), the
    conformance suite, and whatever more use of real sessions turns up.
-2. **Phase 4.5 — SSH gateway**: live on android.homelab.example:2222 (LAN and
+2. **Phase 4.5 — SSH gateway**: live on android.homelab.example:<ssh port> (LAN and
    WAN). Left: the first real use from a session page with a key from the
    SSH keys page, and deciding whether `clientIsolation` should be on now
    that the port is public (adb is a root shell on emulators).
@@ -186,7 +186,7 @@ in-repo work; ask the maintainer for anything cluster-side.
 | Storage classes | `longhorn`, `local-path`, `nas-hdd` |
 | Ingress / DNS | Traefik; Ingress annotation `external-dns.alpha.kubernetes.io/target: "10.10.4.25"` creates the DNS record |
 | Registries | `ghcr.io/kriakiku/*` (public, from CI); the cluster also has `registry.homelab.example` (zot, needs the `zot-pull-secret` pattern from `homelab.k8s/infrastructure/downloads/secrets.yaml`) |
-| SSH gateway | `sshGateway.enabled` in the Application, host key `secret/holtdroid` → `ssh_host_key` (seeded by `openbao-bootstrap.sh`, `SSH_HOST_KEY` in the `ExternalSecret`), `IngressRouteTCP holtdroid-ssh` on Traefik's `ssh` entrypoint (`:2222`, `homelab.k8s/infrastructure/traefik/values.yaml`); 2222 allowed on the ingress VIP by the node firewall (`homelab.nixos/modules/k3s/default.nix`), and the UniFi WAN port forward `homelab-holtdroid-ssh` (2222/tcp → 10.10.4.25:2222, created through the Network API with `secret/unifi` `api_key`, not declared in any repo) |
+| SSH gateway | `sshGateway.enabled` in the Application, host key `secret/holtdroid` → `ssh_host_key` (seeded by `openbao-bootstrap.sh`, `SSH_HOST_KEY` in the `ExternalSecret`), `IngressRouteTCP holtdroid-ssh` on Traefik's `ssh` entrypoint (`:<ssh port>`, an unusual port on purpose; `homelab.k8s/infrastructure/traefik/values.yaml`; `sshGateway.publicPort: <ssh port>`, the Service stays on 2222); <ssh port> allowed on the ingress VIP by the node firewall (`homelab.nixos/modules/k3s/default.nix`), and the UniFi WAN port forward `homelab-holtdroid-ssh` (<ssh port>/tcp → 10.10.4.25:<ssh port>, created through the Network API with `secret/unifi` `api_key`, not declared in any repo) |
 
 Verifying a deploy (needs the maintainer's kubeconfig):
 
