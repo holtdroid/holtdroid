@@ -70,6 +70,11 @@ func (p *Provider) renderPod(id, slot string, req contract.CreateSession, locati
 		{Name: "HOLTDROID_LISTEN", Value: ":" + strconv.Itoa(p.cfg.AgentPort)},
 		{Name: "HOLTDROID_ARTIFACTURL", Value: req.ArtifactURL},
 		{Name: "HOLTDROID_PACKAGE", Value: req.Package},
+		{Name: "HOLTDROID_SESSION__ID", Value: id},
+		{Name: "HOLTDROID_SESSION__OWNER", Value: req.Owner},
+		{Name: "HOLTDROID_SESSION__ARTIFACTREF", Value: req.ArtifactRef},
+		{Name: "HOLTDROID_SESSION__SLOT", Value: slot},
+		{Name: "HOLTDROID_SESSION__CREATEDAT", Value: at},
 	}
 	if location != "" {
 		env = append(env, corev1.EnvVar{Name: "HOLTDROID_LOCATION", Value: location})

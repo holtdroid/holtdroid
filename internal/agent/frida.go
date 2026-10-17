@@ -78,6 +78,20 @@ func CompileScripts(dir string) error {
 // SetLocales changes the system language the way the Settings app does,
 // from inside system_server, so it applies without a reboot.
 func (f *Frida) SetLocales(ctx context.Context, tags string) error {
+	return f.callSystem(ctx, "setLocales", tags)
+}
+
+// SetWallpaper renders w with the device's own Canvas and fonts and sets it
+// on the home and lock screens.
+func (f *Frida) SetWallpaper(ctx context.Context, w Wallpaper) error {
+	raw, err := json.Marshal(w)
+	if err != nil {
+		return err
+	}
+	return f.callSystem(ctx, "setWallpaper", string(raw))
+}
+
+func (f *Frida) callSystem(ctx context.Context, fn string, args ...any) error {
 	if err := f.prepare(); err != nil {
 		return err
 	}
@@ -94,7 +108,7 @@ func (f *Frida) SetLocales(ctx context.Context, tags string) error {
 		return fmt.Errorf("load script: %w", err)
 	}
 	defer func() { _ = script.Unload() }()
-	_, err = callScript(ctx, script, "setLocales", tags)
+	_, err = callScript(ctx, script, fn, args...)
 	return err
 }
 

@@ -199,7 +199,14 @@ Inside `emulator`, the agent starts and supervises:
 2. Waits for `sys.boot_completed`, runs `adb root`, pushes and starts
    `frida-server` (same pinned version as the agent's devkit, decision #23).
 3. Downloads the APK from the api, `adb install -r -d -g` (`-d` lets later
-   builds downgrade).
+   builds downgrade), and in the background sets a generated wallpaper on
+   the home and lock screens: the Holtdroid logo over a debug grid with the
+   session ID, user, start time (UTC), app and build, artifact, node,
+   Holtdroid version and the device's Android, ABIs and display.
+   `system.js` (`frida/system.ts`) draws it with Android's `Canvas` inside
+   `system_server` and calls `WallpaperManager.setBitmap`, so no image or
+   font ships with the agent. It is redrawn after `POST /install`; a
+   failure is only logged.
 4. Spawns the package under `agent.js`, which the session image build
    bundles from `frida/agent.ts`:
    - forces `WebView.setWebContentsDebuggingEnabled(true)`: the setter is
@@ -219,7 +226,8 @@ Inside `emulator`, the agent starts and supervises:
 
 The provider configures the agent through environment variables
 (`HOLTDROID_ARTIFACTURL`, `HOLTDROID_PACKAGE`, `HOLTDROID_LOCATION`,
-`HOLTDROID_CLASHAPI` and `HOLTDROID_EMULATOR__DNSSERVER` when a VPN sidecar
+`HOLTDROID_SESSION__{ID,OWNER,ARTIFACTREF,SLOT,CREATEDAT}` for the
+wallpaper, `HOLTDROID_CLASHAPI` and `HOLTDROID_EMULATOR__DNSSERVER` when a VPN sidecar
 runs; see `agent.Config` for the
 rest, all with defaults matching the session image).
 

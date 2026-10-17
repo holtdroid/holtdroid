@@ -101,6 +101,7 @@ func agentCmd(c *common) *cobra.Command {
 			if cfg.ArtifactURL == "" || cfg.Package == "" {
 				return errors.New("artifactURL and package are required")
 			}
+			cfg.Version = version
 			log := slog.Default()
 			inst, err := agent.NewFrida(cfg.Serial, cfg.Script, log)
 			if err != nil {

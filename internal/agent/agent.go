@@ -33,6 +33,8 @@ type Config struct {
 	DevToolsFrontend string
 	CacheDir         string
 	Emulator         emulator.Config
+	Session          Session
+	Version          string
 }
 
 func DefaultConfig() Config {
@@ -56,6 +58,7 @@ type Instrumenter interface {
 	Spawn(ctx context.Context, pkg string) (App, error)
 	Watch(ctx context.Context, pkg string, launched func(App)) error
 	SetLocales(ctx context.Context, tags string) error
+	SetWallpaper(ctx context.Context, w Wallpaper) error
 }
 
 // App is one instrumented run of the app.
@@ -181,6 +184,7 @@ func (a *Agent) run(ctx context.Context) error {
 	if err := a.dev.Install(ctx, apk); err != nil {
 		return err
 	}
+	a.setWallpaper(ctx, a.cfg.Session.ArtifactRef, apk)
 	if a.cfg.Location != "" && a.cfg.ClashAPI != "" {
 		if _, err := a.network.SetLocation(ctx, a.cfg.Location); err != nil {
 			a.log.Warn("initial location", "location", a.cfg.Location, "err", err)
@@ -310,6 +314,7 @@ func (a *Agent) install(ctx context.Context, req contract.Install, apk *string) 
 	}
 	os.Remove(*apk)
 	*apk = next
+	a.setWallpaper(ctx, req.ArtifactRef, next)
 	a.log.Info("installed another build", "artifact", req.ArtifactRef, "keepData", req.KeepData)
 	return nil
 }

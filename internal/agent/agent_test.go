@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -36,6 +37,7 @@ type fakeInstrumenter struct {
 	spawns   int
 	app      *fakeApp
 	locales  string
+	walls    []Wallpaper
 	launched func(App)
 }
 
@@ -67,6 +69,19 @@ func (f *fakeInstrumenter) SetLocales(_ context.Context, tags string) error {
 	defer f.mu.Unlock()
 	f.locales = tags
 	return nil
+}
+
+func (f *fakeInstrumenter) SetWallpaper(_ context.Context, w Wallpaper) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.walls = append(f.walls, w)
+	return nil
+}
+
+func (f *fakeInstrumenter) wallpapers() []Wallpaper {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]Wallpaper(nil), f.walls...)
 }
 
 func (f *fakeInstrumenter) current() (*fakeApp, int) {
@@ -339,6 +354,10 @@ func TestAgentInstall(t *testing.T) {
 	waitFor(t, func() bool { _, _, n := state(); return n == 4 })
 	if apks, _, _ := state(); apks[len(apks)-1] != "PK /v2.apk" {
 		t.Fatalf("reinstall must use the current build: %v", apks)
+	}
+	waitFor(t, func() bool { return len(h.inst.wallpapers()) == 2 })
+	if w := h.inst.wallpapers()[1]; !slices.Contains(w.Rows, [2]string{"artifact", "local/v2.apk@1"}) {
+		t.Fatalf("wallpaper after install: %v", w.Rows)
 	}
 }
 
