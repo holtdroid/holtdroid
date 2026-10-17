@@ -148,12 +148,13 @@ function clamp(v: number, max: number) {
   return Math.min(Math.max(v, 0), max)
 }
 
-const metaKeys: ["shiftKey" | "altKey" | "ctrlKey" | "metaKey", number][] = [
+const metaKeys: ["shiftKey" | "altKey" | "ctrlKey", number][] = [
   ["shiftKey", AndroidKeyEventMeta.Shift],
   ["altKey", AndroidKeyEventMeta.Alt],
   ["ctrlKey", AndroidKeyEventMeta.Ctrl],
-  ["metaKey", AndroidKeyEventMeta.Meta],
 ]
+
+const hostKey = (e: KeyboardEvent) => e.metaKey || e.key === "Meta" || e.key === "OS"
 
 export class ScreenControl {
   readonly #ws: WebSocket
@@ -229,13 +230,14 @@ export class ScreenControl {
   }
 
   key(e: KeyboardEvent, down: boolean, mode: KeyboardMode): boolean {
+    if (hostKey(e)) return false
     return mode === "uhid" ? this.#hidKey(e, down) : this.#textKey(e, down)
   }
 
   // Printable characters go in as text so any keyboard layout works; other
   // keys as Android key codes, which share their names with KeyboardEvent.code.
   #textKey(e: KeyboardEvent, down: boolean): boolean {
-    const shortcut = e.ctrlKey || e.metaKey || e.altKey
+    const shortcut = e.ctrlKey || e.altKey
     if (down && e.key.length === 1 && !shortcut) {
       this.#send(this.#serializer.injectText(e.key))
       return true

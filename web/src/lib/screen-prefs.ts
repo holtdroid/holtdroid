@@ -35,7 +35,7 @@ export const defaultScreenPrefs: ScreenPrefs = {
   lockMode: "lock",
   recordMode: "screen",
   deviceTheme: "manual",
-  railLabels: false,
+  railLabels: true,
   keyboardLayouts: null,
   clipboard: true,
   clipboardSync: "both",
