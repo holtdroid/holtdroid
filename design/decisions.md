@@ -682,7 +682,8 @@ some of the keys in such a bucket matter.
   format.
 
 The job signs in with the OAuth device authorization flow. It posts the
-link to Slack and its log, and keeps the session alive with refresh tokens
+link through shoutrrr (any chat, push or mail service, at most one
+code per `notify.remind`) and to its log, and keeps the session alive with refresh tokens
 in a 0600 cache file. The api gains two generic pieces and nothing
 AWS-specific:
 
