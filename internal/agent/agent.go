@@ -94,6 +94,7 @@ type Agent struct {
 	frontend *Frontend
 	controls *Controls
 	tunnels  *Tunnels
+	metrics  *Metrics
 	actions  chan appRequest
 	launches chan App
 	busy     atomic.Bool
@@ -121,6 +122,7 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 		frontend: NewFrontend(cfg.DevToolsFrontend, filepath.Join(cfg.CacheDir, "devtools-frontend")),
 		controls: NewControls(dev, inst.SetLocales),
 		tunnels:  NewTunnels(adbTunnels{adb: dev, addr: cfg.ADBAddr}, log),
+		metrics:  NewMetrics(dev, cfg.Package, os.DirFS("/"), log),
 		actions:  make(chan appRequest, 1),
 		launches: make(chan App),
 		status:   contract.StatusEvent{State: contract.StateProvisioning},
@@ -548,4 +550,8 @@ func (a *Agent) Screenshot(ctx context.Context) ([]byte, error) {
 
 func (a *Agent) WatchTunnels(ctx context.Context, send func(contract.Tunnels) error) error {
 	return a.tunnels.Watch(ctx, send)
+}
+
+func (a *Agent) WatchMetrics(ctx context.Context, send func(contract.Metrics) error) error {
+	return a.metrics.Watch(ctx, send)
 }

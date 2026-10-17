@@ -28,10 +28,13 @@ const keyboardId = 1
 
 export class UnsupportedCodecError extends Error {}
 
+export type StreamStats = { frames: number; skipped: number; bytes: number }
+
 export type ScreenConnection = {
   control: ScreenControl
   done: Promise<void>
   snapshot: () => Promise<Blob | undefined>
+  stats: () => StreamStats
   close: () => void
 }
 
@@ -120,13 +123,23 @@ export async function openScreen(
     ? new WebGLVideoFrameRenderer(canvas)
     : new BitmapVideoFrameRenderer(canvas)
   const decoder = new WebCodecsVideoDecoder({ codec: metadata.codec, renderer })
+  let bytes = 0
+  ws.addEventListener("message", (e: MessageEvent<ArrayBuffer>) => {
+    bytes += e.data.byteLength
+  })
   const control = new ScreenControl(ws, canvas, options)
   const done = stream
     .pipeThrough(options.createMediaStreamTransformer())
     .pipeTo(decoder.writable)
     .catch(() => undefined)
     .finally(() => decoder.dispose())
-  return { control, done, snapshot: () => decoder.snapshot(), close: () => ws.close() }
+  return {
+    control,
+    done,
+    snapshot: () => decoder.snapshot(),
+    stats: () => ({ frames: decoder.framesRendered, skipped: decoder.framesSkipped, bytes }),
+    close: () => ws.close(),
+  }
 }
 
 function clamp(v: number, max: number) {

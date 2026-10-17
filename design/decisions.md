@@ -764,3 +764,30 @@ emulator may use the whole node.
 only matters if other workloads share session nodes; operators who need a
 cap set `resources.limits.cpu` themselves. Host GPU rendering stays open
 (it would need an X server on the iGPU inside the session image).
+
+
+## 40. Session metrics come from the agent, sampled only while watched
+
+**Context.** Testers want to see the load while they use an app: is the
+device, the app or the node the bottleneck, does the app drop frames.
+Kubernetes metrics (metrics-server, kubelet, Prometheus) would make the api
+talk to the cluster and tie the feature to one infrastructure, and they say
+nothing about the guest or the app.
+
+**Decision.** The agent serves `GET /v1/metrics` (SSE) and measures what it
+can reach itself: the guest through one `adb shell` script per sample
+(`/proc/stat`, `/proc/meminfo`, `df /data`, `/proc/net/dev`, the app's and
+WebView renderers' `/proc/<pid>/stat` and `smaps_rollup`, frame counters
+from `dumpsys gfxinfo`, `dumpsys thermalservice`) and its own container
+through cgroup v2 and `/sys/class/thermal`, since it shares the container
+with the emulator. Rates come from the difference between two samples.
+Sampling runs every 2 s while at least one browser listens and stops with
+the last one; the UI unsubscribes in hidden tabs. Stream fps and bitrate
+are counted in the browser. Fields a device can't measure are absent, so a
+physical phone later reports the same shape without `host`.
+
+**Consequences.** A watched session spends one adb round trip and two
+`dumpsys` calls every 2 s. An emulator's temperatures are made up by its
+thermal HAL; the UI says so and shows the node's zones next to them. GPU
+load isn't reported: with SwiftShader it is CPU time (decision #39), and
+fps/jank describe the effect better.

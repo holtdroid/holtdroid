@@ -235,3 +235,60 @@ type ReverseTunnel struct {
 	Since       time.Time `json:"since"`
 	Connections int       `json:"connections" doc:"device-side connections open right now"`
 }
+
+// Metrics is one sample of a session's load. Rates are averaged since the
+// previous sample; what a device can't measure is left out.
+type Metrics struct {
+	At       time.Time     `json:"at"`
+	Interval float64       `json:"interval" doc:"seconds since the previous sample"`
+	Device   DeviceLoad    `json:"device"`
+	App      *AppLoad      `json:"app,omitempty" doc:"absent while the app isn't running"`
+	Host     *HostLoad     `json:"host,omitempty" doc:"the container the device runs in, for emulators"`
+	Thermal  []Temperature `json:"thermal"`
+}
+
+type DeviceLoad struct {
+	Cores        int     `json:"cores"`
+	CPU          float64 `json:"cpu" doc:"percent of all cores"`
+	MemoryUsed   int64   `json:"memoryUsed"`
+	MemoryTotal  int64   `json:"memoryTotal"`
+	StorageUsed  int64   `json:"storageUsed" doc:"bytes used on /data"`
+	StorageTotal int64   `json:"storageTotal"`
+	RxRate       float64 `json:"rxRate" doc:"bytes per second received, all interfaces but loopback"`
+	TxRate       float64 `json:"txRate" doc:"bytes per second sent"`
+}
+
+type AppLoad struct {
+	Processes []ProcessLoad `json:"processes" doc:"the app's processes and its WebView renderers"`
+	FPS       float64       `json:"fps" doc:"frames the app rendered per second; 0 while nothing changes on screen"`
+	Jank      float64       `json:"jank" doc:"percent of those frames that missed their deadline"`
+}
+
+type ProcessLoad struct {
+	PID    int     `json:"pid"`
+	Name   string  `json:"name"`
+	CPU    float64 `json:"cpu" doc:"percent of all device cores"`
+	Memory int64   `json:"memory" doc:"proportional set size in bytes"`
+}
+
+type HostLoad struct {
+	CPU         float64 `json:"cpu" doc:"cores in use"`
+	CPULimit    float64 `json:"cpuLimit" doc:"cores the container may use: its limit, or every core of the node"`
+	Throttled   float64 `json:"throttled" doc:"percent of the interval the container was CPU-throttled"`
+	MemoryUsed  int64   `json:"memoryUsed" doc:"working set: usage without inactive page cache"`
+	MemoryLimit int64   `json:"memoryLimit" doc:"the container's memory limit, or the node's memory"`
+}
+
+type TemperatureSource string
+
+const (
+	TemperatureDevice TemperatureSource = "device"
+	TemperatureHost   TemperatureSource = "host"
+)
+
+type Temperature struct {
+	Source  TemperatureSource `json:"source" enum:"device,host"`
+	Type    string            `json:"type" doc:"cpu, gpu, battery, skin, npu, … or the host's thermal zone type"`
+	Name    string            `json:"name" doc:"the sensor, or the host's thermal zone"`
+	Celsius float64           `json:"celsius"`
+}

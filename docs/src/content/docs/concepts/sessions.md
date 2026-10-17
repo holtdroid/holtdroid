@@ -47,6 +47,18 @@ running device:
 
 If the install fails, the previous build keeps running.
 
+## Metrics
+
+A bar at the bottom of the session page shows the load every two seconds:
+device CPU and memory, the app's own CPU and memory per process (WebView
+renderers included), the frames it renders and how many of them are janky,
+network traffic, free space on `/data`, temperatures, the decoded screen
+stream and, for emulators, the CPU, memory and throttling of the container
+the emulator runs in. Hover an item for details. An emulator invents its
+sensor readings; the node's own thermal zones are listed next to them.
+
+The device is only measured while a session page is open and visible.
+
 ## Activity and reaping
 
 A session counts as active when someone actually uses it:

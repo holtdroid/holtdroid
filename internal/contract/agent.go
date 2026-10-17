@@ -26,6 +26,7 @@ type Agent interface {
 	DeviceAction(ctx context.Context, action DeviceAction) error
 	Screenshot(ctx context.Context) ([]byte, error)
 	WatchTunnels(ctx context.Context, send func(Tunnels) error) error
+	WatchMetrics(ctx context.Context, send func(Metrics) error) error
 }
 
 type AppAction string
@@ -131,6 +132,14 @@ func RegisterAgent(api huma.API, a Agent) {
 	}, map[string]any{"tunnels": Tunnels{}},
 		func(ctx context.Context, _ *struct{}, send sse.Sender) {
 			_ = a.WatchTunnels(ctx, func(t Tunnels) error { return send.Data(t) })
+		})
+
+	sse.Register(api, huma.Operation{
+		OperationID: "watchMetrics", Method: http.MethodGet, Path: "/v1/metrics", Tags: tags,
+		Description: "Load samples every few seconds; the device is only measured while someone listens.",
+	}, map[string]any{"metrics": Metrics{}},
+		func(ctx context.Context, _ *struct{}, send sse.Sender) {
+			_ = a.WatchMetrics(ctx, func(m Metrics) error { return send.Data(m) })
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "getNetwork", Method: http.MethodGet, Path: "/v1/network", Tags: tags},

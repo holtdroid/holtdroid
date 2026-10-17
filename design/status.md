@@ -19,6 +19,9 @@ deployment"):
   zone and clock; decision #31), screen over scrcpy with multi-touch
   (decision #34); clipboard through scrcpy, device audio, codec and quality
   settings and a virtual USB keyboard (decision #36).
+- A metrics bar at the bottom of the session page (decision #40): device,
+  app (fps, jank, CPU/PSS per process), network, storage, temperatures,
+  the emulator container's CPU/memory/throttling and the stream.
 - Sign-in: anonymous animal names, shared password, OIDC (PKCE + userinfo),
   forward-auth headers, none. Avatars from the IdP or DiceBear voxel-art.
 - APK cache on filesystem or S3, keyed by file revision. Stateless api

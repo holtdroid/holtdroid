@@ -76,6 +76,7 @@ Goal: one hand-written Pod on a KVM node proves the device side end to end.
 - [x] More from scrcpy and Tango (decision #36): clipboard through a control-only scrcpy server with autosync instead of Frida, every server as the shell user, stream options (H.264/H.265/AV1 checked against the device's encoders, resolution, frame rate, bitrate) in a "Stream and keyboard" popover, device audio (`/display/audio`, Opus, WebCodecs + `@yume-chan/pcm-player`), virtual USB keyboard (UHID) next to text input, screenshots from the decoded frame, key frame on tab return, rail keys/notifications/quick settings over the control socket
 - [x] App lifecycle and versions (decision #35): no automatic restart after the app is closed (`appRunning`, "Start app"), launcher starts instrumented through spawn gating, version switcher on the session page (builds of the same package, keep data or clean install) through `POST /api/v1/sessions/{provider}/{id}/install` → provider → agent
 - [x] Origin links from sidecars accept only absolute `http(s)` URLs (api and UI), with a tooltip on the button
+- [x] Metrics bar at the bottom of the session page (decision #40): device CPU and memory, app CPU/PSS per process (WebView renderers included), app fps and jank from `gfxinfo`, network, `/data`, device and node temperatures, the emulator container's CPU/memory/throttling from cgroup v2, and the browser's stream fps/bitrate; `GET /v1/metrics` in the Agent API, sampled only while watched
 
 ## Phase 4.5 — SSH access (ADB and published ports)
 

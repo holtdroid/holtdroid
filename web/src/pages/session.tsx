@@ -9,6 +9,7 @@ import { DeviceRail } from "@/components/session/device-rail"
 import { DeviceScreen } from "@/components/session/device-screen"
 import { useLiveScreen } from "@/components/session/live-screen"
 import { DevToolsPanel } from "@/components/session/devtools-panel"
+import { MetricsBar } from "@/components/session/metrics-bar"
 import { SessionToolbar } from "@/components/session/session-toolbar"
 import { StartProgress } from "@/components/session/start-progress"
 import { VersionSwitcher } from "@/components/session/version-switcher"
@@ -156,6 +157,7 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
           </ResizablePanelGroup>
         )}
       </div>
+      {state === "ready" && <MetricsBar provider={provider} id={id} live={live} />}
     </div>
   )
 }

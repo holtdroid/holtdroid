@@ -149,6 +149,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Load samples every few seconds; the device is only measured while someone listens. */
+        get: operations["watchMetrics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/network": {
         parameters: {
             query?: never;
@@ -239,6 +256,20 @@ export interface components {
             since: string;
             user: string;
         };
+        AppLoad: {
+            /**
+             * Format: double
+             * @description frames the app rendered per second; 0 while nothing changes on screen
+             */
+            fps: number;
+            /**
+             * Format: double
+             * @description percent of those frames that missed their deadline
+             */
+            jank: number;
+            /** @description the app's processes and its WebView renderers */
+            processes: components["schemas"]["ProcessLoad"][];
+        };
         Clipboard: {
             text: string;
         };
@@ -255,6 +286,36 @@ export interface components {
         };
         DevToolsTargets: {
             items: components["schemas"]["DevToolsTarget"][];
+        };
+        DeviceLoad: {
+            /** Format: int64 */
+            cores: number;
+            /**
+             * Format: double
+             * @description percent of all cores
+             */
+            cpu: number;
+            /** Format: int64 */
+            memoryTotal: number;
+            /** Format: int64 */
+            memoryUsed: number;
+            /**
+             * Format: double
+             * @description bytes per second received, all interfaces but loopback
+             */
+            rxRate: number;
+            /** Format: int64 */
+            storageTotal: number;
+            /**
+             * Format: int64
+             * @description bytes used on /data
+             */
+            storageUsed: number;
+            /**
+             * Format: double
+             * @description bytes per second sent
+             */
+            txRate: number;
         };
         DeviceSettings: {
             airplaneMode?: boolean;
@@ -361,6 +422,33 @@ export interface components {
         Health: {
             ok: boolean;
         };
+        HostLoad: {
+            /**
+             * Format: double
+             * @description cores in use
+             */
+            cpu: number;
+            /**
+             * Format: double
+             * @description cores the container may use: its limit, or every core of the node
+             */
+            cpuLimit: number;
+            /**
+             * Format: int64
+             * @description the container's memory limit, or the node's memory
+             */
+            memoryLimit: number;
+            /**
+             * Format: int64
+             * @description working set: usage without inactive page cache
+             */
+            memoryUsed: number;
+            /**
+             * Format: double
+             * @description percent of the interval the container was CPU-throttled
+             */
+            throttled: number;
+        };
         Install: {
             artifactRef: string;
             /** Format: uri */
@@ -368,10 +456,40 @@ export interface components {
             /** @description Install over the current build, upgrade or downgrade, keeping the app's data; otherwise uninstall it first */
             keepData: boolean;
         };
+        Metrics: {
+            /** @description absent while the app isn't running */
+            app?: components["schemas"]["AppLoad"];
+            /** Format: date-time */
+            at: string;
+            device: components["schemas"]["DeviceLoad"];
+            /** @description the container the device runs in, for emulators */
+            host?: components["schemas"]["HostLoad"];
+            /**
+             * Format: double
+             * @description seconds since the previous sample
+             */
+            interval: number;
+            thermal: components["schemas"]["Temperature"][];
+        };
         Network: {
             country?: string;
             externalIp?: string;
             location: string;
+        };
+        ProcessLoad: {
+            /**
+             * Format: double
+             * @description percent of all device cores
+             */
+            cpu: number;
+            /**
+             * Format: int64
+             * @description proportional set size in bytes
+             */
+            memory: number;
+            name: string;
+            /** Format: int64 */
+            pid: number;
         };
         ReverseTunnel: {
             /**
@@ -398,6 +516,16 @@ export interface components {
             reason?: string;
             /** @enum {string} */
             state: "provisioning" | "booting" | "installing" | "instrumenting" | "ready" | "stopping" | "failed";
+        };
+        Temperature: {
+            /** Format: double */
+            celsius: number;
+            /** @description the sensor, or the host's thermal zone */
+            name: string;
+            /** @enum {string} */
+            source: "device" | "host";
+            /** @description cpu, gpu, battery, skin, npu, … or the host's thermal zone type */
+            type: string;
         };
         Tunnels: {
             adb: components["schemas"]["ADBTunnel"][];
@@ -740,6 +868,46 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    watchMetrics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": {
+                        data: components["schemas"]["Metrics"];
+                        /**
+                         * @description The event name.
+                         * @constant
+                         */
+                        event: "metrics";
+                        /** @description The event ID. */
+                        id?: number;
+                        /** @description The retry time in milliseconds. */
+                        retry?: number;
+                    }[];
+                };
             };
             /** @description Error */
             default: {
