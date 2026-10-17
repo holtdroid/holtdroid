@@ -487,8 +487,9 @@ reaper removes it.
 source layout. The Slack sync was planned as a subcommand of the
 `holtdroid` binary.
 
-**Decision.** Each sync job is its own repository, image and chart, starting
-with [kriakiku/holtdroid-slack-sync](https://github.com/kriakiku/holtdroid-slack-sync).
+**Decision.** Each sync job is its own repository, image and chart
+(superseded by #43: they now share one), starting with
+[kriakiku/holtdroid-slack-sync](https://github.com/kriakiku/holtdroid-slack-sync).
 It talks to Holtdroid only through the file layout and the launch link
 (`/?source=…&launch=…`, contracts.md "Artifact sources"). It copies the few
 packages it shares with Holtdroid (`storage`, `secrets`, `config`, `apk`)
@@ -679,7 +680,7 @@ some of the keys in such a bucket matter.
 
 **Decision.** A separate job,
 [kriakiku/holtdroid-s3-sync](https://github.com/kriakiku/holtdroid-s3-sync)
-(decision #30), has two modes.
+(decision #30; now the `s3` job of holtdroid-sync, #43), has two modes.
 
 - *Copy* mirrors the matching APKs into a folder or S3 source, with
   sidecars and icons.
@@ -845,3 +846,26 @@ harmless. Each launch of a temporary build rewrites its sidecar, which
 changes the library fingerprint and refreshes open lists. Sync jobs can mark
 their own builds temporary the same way. Running sessions keep working after
 a deletion because they use the cached copy.
+
+## 43. Sync jobs share one repository
+
+**Context.** Decision #30 gave each sync job its own repository, image and
+chart. With three of them (Slack, S3, GitHub releases) about 2,000 lines
+were copied three times: the APK parser and icon renderer, storage, secrets,
+config, include rules, the sidecar writing order, pruning, announcements,
+the main boilerplate, the chart and CI. Fixes had to be ported by hand.
+
+**Decision.** All sync jobs live in
+[kriakiku/holtdroid-sync](https://github.com/kriakiku/holtdroid-sync): one
+Go module with a binary per job (`holtdroid-{slack,s3,github}-sync`), shared
+packages for the source layout (`layout`), announcements and the main loop,
+one image `ghcr.io/kriakiku/holtdroid-sync` with every binary, and one chart
+where `job` picks the binary. The rest of #30 stands: the jobs don't import
+Holtdroid's module and talk to it only through the source layout and launch
+links. A separate base module imported by per-job repositories was rejected:
+every shared fix would need a tag and three dependency bumps.
+
+**Consequences.** A shared fix is one change. Jobs are released together; a
+job that didn't change still gets a new image tag. Holtdroid keeps its own
+copy of the shared packages, so the two copies are still synced by hand.
+The old per-job repositories are archived.

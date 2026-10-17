@@ -57,17 +57,18 @@ An S3 source may get temporary keys from a **credentials endpoint**
 `Authorization` header carries `s3.credentialsToken` when it is set. The api
 fetches new keys a minute before `Expiration`, and any status other than 200
 is a listing error for that source.
-[kriakiku/holtdroid-s3-sync](https://github.com/kriakiku/holtdroid-s3-sync)'s
-broker implements it on top of AWS IAM Identity Center.
+The broker of the `s3` job in
+[kriakiku/holtdroid-sync](https://github.com/kriakiku/holtdroid-sync)
+implements it on top of AWS IAM Identity Center.
 
 Sync jobs announce builds with a **launch link**:
 `{publicURL}/?source={source}&launch={id}`, `id` = base64url (no padding)
 of the key inside the source — the same ID the UI API uses
 (`GET /api/v1/artifacts/{source}/{id}`). The home page opens the launch
 dialog for it; with `&quick=1` it starts a session right away on the
-last-used provider and location and falls back to the dialog. The Slack sync lives in its own repository,
-[kriakiku/holtdroid-slack-sync](https://github.com/kriakiku/holtdroid-slack-sync)
-(decision #30).
+last-used provider and location and falls back to the dialog. The sync jobs live in their own repository,
+[kriakiku/holtdroid-sync](https://github.com/kriakiku/holtdroid-sync)
+(decisions #30, #43).
 
 ```go
 type Meta struct { // x.apk.meta.json; every field optional, unknown ones ignored

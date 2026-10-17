@@ -9,7 +9,7 @@ import { Code } from "@astrojs/starlight/components"
 import manifest from "../../../assets/slack-app-manifest.yaml?raw"
 
 Holtdroid doesn't talk to Slack itself.
-[holtdroid-slack-sync](https://github.com/kriakiku/holtdroid-slack-sync) is a
+[holtdroid-slack-sync](https://github.com/kriakiku/holtdroid-sync/blob/main/docs/slack.md) is a
 separate, stateless job that polls channels and writes every `.apk` it finds,
 with a [`.meta.json` sidecar](/holtdroid/sources/overview/#the-metajson-sidecar),
 into a folder or S3 prefix that the api lists as a read-only source.
@@ -62,15 +62,17 @@ at the bottom of **About**.
 
 For the reaction, add a custom emoji (**Customize workspace → Emoji**) named
 `holtdroid` from
-[`assets/holtdroid-emoji.png`](https://github.com/kriakiku/holtdroid-slack-sync/blob/main/assets/holtdroid-emoji.png).
+[`assets/holtdroid-emoji.png`](https://github.com/kriakiku/holtdroid-sync/blob/main/assets/holtdroid-emoji.png).
 Bots can use custom emoji but can't create them. Any stock emoji works too.
 
 ## 2. Deploy the job
 
-The chart is in the job's repository (`deploy/helm/holtdroid-slack-sync`, and
-`oci://ghcr.io/kriakiku/charts/holtdroid-slack-sync` for tagged releases):
+The chart is in the sync repository (`deploy/helm/holtdroid-sync`, and
+`oci://ghcr.io/kriakiku/charts/holtdroid-sync` for tagged releases); `job`
+picks the Slack sync:
 
 ```yaml
+job: slack
 existingSecret: holtdroid-slack-sync # SLACK_BOT_TOKEN, S3_ACCESS_KEY, S3_SECRET_KEY
 config:
   slack:
@@ -92,7 +94,7 @@ config:
 Every key can also come from `HOLTDROID_SLACK_SYNC_*` environment variables,
 e.g. `HOLTDROID_SLACK_SYNC_SLACK__CHANNELS=C1,C2`. The full reference is in
 the job's
-[README](https://github.com/kriakiku/holtdroid-slack-sync#configuration).
+[docs](https://github.com/kriakiku/holtdroid-sync/blob/main/docs/slack.md#configuration).
 
 ## 3. Add the source to Holtdroid
 

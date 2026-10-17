@@ -11,8 +11,8 @@ clipboard sync and a VPN location switcher. Idle devices shut themselves down.
 
 > **Status:** pre-alpha. The portal (api + web UI) runs locally against
 > simulated devices with `make dev`; the Android emulator provider is being
-> tried on a real cluster. Builds from Slack come in through
-> [holtdroid-slack-sync](https://github.com/kriakiku/holtdroid-slack-sync). The plan lives in [`design/`](design/README.md),
+> tried on a real cluster. Builds from Slack, S3 buckets and GitHub releases
+> come in through [holtdroid-sync](https://github.com/kriakiku/holtdroid-sync). The plan lives in [`design/`](design/README.md),
 > the docs at [kriakiku.github.io/holtdroid](https://kriakiku.github.io/holtdroid/).
 
 ## Try it

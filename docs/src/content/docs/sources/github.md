@@ -5,8 +5,8 @@ sidebar:
   order: 4
 ---
 
-[holtdroid-github-sync](https://github.com/kriakiku/holtdroid-github-sync) is
-a separate job with its own image and chart. It polls the releases of one or
+[holtdroid-github-sync](https://github.com/kriakiku/holtdroid-sync/blob/main/docs/github.md) is
+a separate job (`job: github` in the chart `deploy/helm/holtdroid-sync`). It polls the releases of one or
 more repositories and copies their `.apk` assets into a folder or S3 prefix,
 which Holtdroid lists as a read-only source.
 
@@ -45,9 +45,11 @@ repositories, shorter intervals or private repositories.
 
 ## Deploying
 
-The chart is in the job's repository (`deploy/helm/holtdroid-github-sync`):
+The chart is in the sync repository (`deploy/helm/holtdroid-sync`); `job`
+picks the GitHub sync:
 
 ```yaml
+job: github
 existingSecret: holtdroid-github-sync # S3_ACCESS_KEY, S3_SECRET_KEY, NOTIFY_URL
 persistence:
   enabled: false # an S3 target needs no volume
@@ -86,4 +88,4 @@ sources:
 ```
 
 Every option is in the job's
-[README](https://github.com/kriakiku/holtdroid-github-sync#configuration).
+[docs](https://github.com/kriakiku/holtdroid-sync/blob/main/docs/github.md#configuration).
