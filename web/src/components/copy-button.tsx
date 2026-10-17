@@ -3,12 +3,13 @@ import { useState } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { copyText } from "@/lib/clipboard"
 import { cn } from "@/lib/utils"
 
 export function CopyButton({ text, label = "Copy", className }: { text: string; label?: string; className?: string }) {
   const [copied, setCopied] = useState(false)
   const copy = () =>
-    navigator.clipboard.writeText(text).then(
+    copyText(text).then(
       () => {
         setCopied(true)
         window.setTimeout(() => setCopied(false), 1500)

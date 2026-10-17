@@ -14,6 +14,7 @@ import { RailItem } from "@/components/session/rail-item"
 import { Button } from "@/components/ui/button"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { useEventSource } from "@/hooks/use-event-source"
+import { onCopied } from "@/lib/clipboard"
 import { type ClipboardSync, setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
 
 const modes: Record<ClipboardSync, { label: string; hint: string; icon: ReactNode }> = {
@@ -125,6 +126,14 @@ function useClipboardSync(provider: string, id: string, mode: ClipboardSync | nu
       () => setBlocked(true),
     )
   })
+
+  const copied = useEffectEvent((text: string) => {
+    if (!toDevice || !text || text === last.current) return
+    last.current = text
+    send.mutate(text)
+  })
+
+  useEffect(() => (mode ? onCopied((text) => copied(text)) : undefined), [mode])
 
   useEffect(() => {
     if (!mode) return undefined

@@ -359,7 +359,8 @@ codecs and reports that it can't capture audio.
   for permission once, Safari and Firefox mostly refuse without a click) and
   posts new text to `/clipboard`; the agent sends a set-clipboard message
   and waits for the server's acknowledgement. scrcpy caps a message at
-  256 KiB.
+  256 KiB. The portal's own copy buttons (published port links, commands)
+  hand their text straight to the sync, without reading the clipboard.
 - Device → browser: changes go out over SSE `/clipboard/events`. The UI
   calls `navigator.clipboard.writeText()` when the tab is focused, otherwise
   on the next focus. The last synced text is remembered so a value never

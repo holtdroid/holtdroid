@@ -2,6 +2,7 @@ import { toast } from "sonner"
 import type { ReverseTunnel } from "@/api/client"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { copyText } from "@/lib/clipboard"
 import { formatRelative } from "@/lib/format"
 import { localURL } from "@/lib/ssh-ports"
 import { cn } from "@/lib/utils"
@@ -26,7 +27,7 @@ const portState: Record<ReverseTunnel["state"], string> = {
 
 function copyURL(port: number) {
   const url = localURL(port)
-  navigator.clipboard.writeText(url).then(
+  copyText(url).then(
     () => toast.success(`Copied ${url}`),
     () => toast.error("Could not copy to the clipboard"),
   )
