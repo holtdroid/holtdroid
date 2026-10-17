@@ -42,3 +42,7 @@ All of this sits under the session's path on the portal's own origin, so your
 auth cookie covers it and nothing has to be installed on your machine. When
 the app navigates or recreates its WebView, the panel reconnects to the new
 target automatically.
+
+DevTools opens with its own screencast of the page turned off, since the
+session already shows the screen. Turn it on with the phone icon at the left
+of the DevTools toolbar; it is off again the next time a target opens.

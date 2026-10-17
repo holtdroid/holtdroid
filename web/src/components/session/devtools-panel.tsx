@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { BugIcon, RefreshCwIcon } from "lucide-react"
-import { type Ref, useMemo, useState } from "react"
+import { type Ref, useLayoutEffect, useMemo, useState } from "react"
 import { agentClient, type DevToolsTarget, sessionBase, unwrap } from "@/api/client"
 import { Button } from "@/components/ui/button"
 import {
@@ -32,6 +32,10 @@ export function devtoolsURL(provider: string, id: string, t: DevToolsTarget) {
   return `${base}/devtools-frontend/@${encodeURIComponent(t.frontendRev)}/inspector.html?${scheme}=${socket}`
 }
 
+function disableScreencast() {
+  for (const name of ["screencast-enabled", "screencastEnabled"]) localStorage.setItem(name, "false")
+}
+
 export function DevToolsPanel({
   provider,
   id,
@@ -50,6 +54,11 @@ export function DevToolsPanel({
   const items = useMemo(() => targets.data?.items ?? [], [targets.data])
   const [chosen, setChosen] = useState<DevToolsTarget | null>(null)
   const selected = useMemo(() => pick(items, chosen), [items, chosen])
+  const selectedKey = selected ? key(selected) : null
+
+  useLayoutEffect(() => {
+    if (selectedKey) disableScreencast()
+  }, [selectedKey])
 
   const byProcess = useMemo(() => {
     const groups = new Map<string, DevToolsTarget[]>()
