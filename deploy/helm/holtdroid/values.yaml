@@ -100,6 +100,10 @@ providers:
       # host: render on the node's GPU (/dev/dri) through VirtualGL, falling
       # back to software when the node has none. software: SwiftShader.
       gpu: host
+    # Per-node overrides by node name: guest cores, guest RAM in MiB (the
+    # image defaults to 4 and 4096) and container resources, e.g.
+    # core: { cores: 8, ram: 8192, resources: { requests: { cpu: "3", memory: 10Gi }, limits: { memory: 12Gi } } }
+    nodes: {}
     # Per-session VPN sidecar, see the emulator provider docs. Empty: no VPN.
     vpn: {}
     # Only the api (and the ssh-gateway, on the tunnel port) may reach

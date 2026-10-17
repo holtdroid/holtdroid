@@ -24,6 +24,13 @@ agentPort: 8080
 resources:
   requests: { cpu: "3", memory: 5Gi }
   limits: { memory: 7Gi }
+nodes:
+  big-node: # a node name
+    cores: 8 # guest vCPUs; the image defaults to 4
+    ram: 8192 # guest RAM in MiB; the image defaults to 4096
+    resources: # replaces resources above on this node
+      requests: { cpu: "3", memory: 10Gi }
+      limits: { memory: 12Gi }
 gpu: host # or software
 vpn:
   locations: [] # see below; empty means no VPN sidecar
@@ -40,6 +47,7 @@ vpn:
 | `imagePullSecrets`         | Secret names for pulling the session image                                                                                                                         |
 | `agentPort`                | Port the agent listens on inside the Pod; the api reaches it at the Pod IP                                                                                         |
 | `resources`                | Per-session emulator container resources. Leave out a CPU limit: throttling makes the software-rendered screen stutter                                             |
+| `nodes`                    | Per-node overrides by node name: guest `cores`, guest `ram` in MiB, and `resources`. Raise the memory limit together with `ram`                                    |
 | `gpu`                      | `host` renders on the node's GPU, `software` with SwiftShader. See below                                                                                           |
 | `vpn`                      | Per-session VPN, see below                                                                                                                                         |
 | `sessionTelemetry`         | Metrics port and tracing settings passed to session agents, see [Monitoring](/holtdroid/operations/monitoring/)                                                    |
@@ -67,6 +75,7 @@ providers:
       image: { repository: ghcr.io/kriakiku/holtdroid-session, tag: "" } # tag defaults to image.tag
       resources: { requests: { cpu: "3", memory: 5Gi }, limits: { memory: 7Gi } }
       gpu: host
+    nodes: {} # per-node overrides, as above
     vpn: {} # the vpn section below
     networkPolicy: { enabled: true } # only the api reaches session agents
     prepull:

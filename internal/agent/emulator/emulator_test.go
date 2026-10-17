@@ -79,6 +79,14 @@ func TestArgs(t *testing.T) {
 	if i := slices.Index(args, "-dns-server"); i < 0 || args[i+1] != "1.1.1.1" || !slices.Equal(args[len(args)-2:], cfg.Args) {
 		t.Fatalf("args with dns %v", args)
 	}
+	if slices.Contains(args, "-cores") {
+		t.Fatalf("cores without config: %v", args)
+	}
+	cfg.Cores, cfg.RAM = 8, 8192
+	args = New(cfg, nil, nil).Args(false)
+	if i := slices.Index(args, "-cores"); i < 0 || args[i+1] != "8" || args[i+2] != "-memory" || args[i+3] != "8192" {
+		t.Fatalf("args with cores and ram %v", args)
+	}
 }
 
 func TestDevice(t *testing.T) {

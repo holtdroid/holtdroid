@@ -79,6 +79,12 @@ func TestRender(t *testing.T) {
 		{"telemetry", func(c *Config) {
 			c.SessionTelemetry = SessionTelemetry{MetricsPort: 9090, Tracing: telemetry.TracingConfig{Enabled: true, Endpoint: "http://otel-collector:4318", Insecure: true, SampleRatio: 0.25}}
 		}, ""},
+		{"node", func(c *Config) {
+			c.Nodes = map[string]Node{
+				"k3s-1": {Cores: 8, RAM: 8192, Resources: Resources{Requests: map[string]string{"cpu": "3", "memory": "10Gi"}, Limits: map[string]string{"memory": "12Gi"}}},
+				"core":  {Cores: 12},
+			}
+		}, ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -215,6 +221,10 @@ func TestValidate(t *testing.T) {
 		{"namespace", func(c *Config) { c.Namespace = "" }},
 		{"selector", func(c *Config) { c.NodeSelector = "a in (" }},
 		{"resources", func(c *Config) { c.Resources.Limits = map[string]string{"cpu": "lots"} }},
+		{"node cores", func(c *Config) { c.Nodes = map[string]Node{"core": {Cores: -1}} }},
+		{"node resources", func(c *Config) {
+			c.Nodes = map[string]Node{"core": {Resources: Resources{Requests: map[string]string{"memory": "much"}}}}
+		}},
 		{"pull policy", func(c *Config) { c.ImagePullPolicy = "Sometimes" }},
 		{"gpu", func(c *Config) { c.GPU = "vulkan" }},
 		{"vpn", func(c *Config) {

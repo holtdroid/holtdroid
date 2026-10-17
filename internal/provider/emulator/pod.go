@@ -81,6 +81,17 @@ func (p *Provider) renderPod(id, slot string, req contract.CreateSession, locati
 	if location != "" {
 		env = append(env, corev1.EnvVar{Name: "HOLTDROID_LOCATION", Value: location})
 	}
+	node := p.cfg.Nodes[slot]
+	if node.Cores > 0 {
+		env = append(env, corev1.EnvVar{Name: "HOLTDROID_EMULATOR__CORES", Value: strconv.Itoa(node.Cores)})
+	}
+	if node.RAM > 0 {
+		env = append(env, corev1.EnvVar{Name: "HOLTDROID_EMULATOR__RAM", Value: strconv.Itoa(node.RAM)})
+	}
+	resources, ok := p.nodeRes[slot]
+	if !ok {
+		resources = p.resources
+	}
 	ports := []corev1.ContainerPort{
 		{Name: "agent", ContainerPort: int32(p.cfg.AgentPort)},
 		{Name: "tunnel", ContainerPort: int32(p.cfg.TunnelPort)},
@@ -118,7 +129,7 @@ func (p *Provider) renderPod(id, slot string, req contract.CreateSession, locati
 		ImagePullPolicy: corev1.PullPolicy(p.cfg.ImagePullPolicy),
 		Env:             env,
 		Ports:           ports,
-		Resources:       p.resources,
+		Resources:       resources,
 		SecurityContext: &corev1.SecurityContext{Privileged: new(true)},
 		VolumeMounts: []corev1.VolumeMount{
 			{Name: "kvm", MountPath: "/dev/kvm"},

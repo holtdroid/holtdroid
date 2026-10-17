@@ -45,6 +45,7 @@ type Config struct {
 	AgentPort        int
 	TunnelPort       int
 	Resources        Resources
+	Nodes            map[string]Node
 	GPU              string
 	VPN              vpn.Config
 	Prepull          Prepull
@@ -62,6 +63,13 @@ type Toleration struct {
 	Operator string
 	Value    string
 	Effect   string
+}
+
+// Node overrides the session settings on one node, by name.
+type Node struct {
+	Cores     int
+	RAM       int
+	Resources Resources
 }
 
 type Resources struct {
@@ -122,6 +130,14 @@ func (c Config) Validate() error {
 	if _, err := c.Resources.requirements(); err != nil {
 		errs = append(errs, err)
 	}
+	for name, n := range c.Nodes {
+		if n.Cores < 0 || n.RAM < 0 {
+			errs = append(errs, fmt.Errorf("nodes.%s: cores and ram must not be negative", name))
+		}
+		if _, err := n.Resources.requirements(); err != nil {
+			errs = append(errs, fmt.Errorf("nodes.%s: %w", name, err))
+		}
+	}
 	if err := c.VPN.Validate(); err != nil {
 		errs = append(errs, err)
 	}
@@ -177,6 +193,7 @@ type Provider struct {
 	secrets   vpn.Secrets
 	now       func() time.Time
 	resources corev1.ResourceRequirements
+	nodeRes   map[string]corev1.ResourceRequirements
 	selector  labels.Selector
 	agents    *http.Client
 	registry  *registry
@@ -194,8 +211,14 @@ func New(cfg Config, kube kubernetes.Interface, sec vpn.Secrets, opts ...Option)
 		return nil, err
 	}
 	res, _ := cfg.Resources.requirements()
+	nodeRes := map[string]corev1.ResourceRequirements{}
+	for name, n := range cfg.Nodes {
+		if len(n.Resources.Requests)+len(n.Resources.Limits) > 0 {
+			nodeRes[name], _ = n.Resources.requirements()
+		}
+	}
 	sel, _ := labels.Parse(cfg.NodeSelector)
-	p := &Provider{cfg: cfg, kube: kube, secrets: sec, now: time.Now, resources: res, selector: sel, agents: &http.Client{Timeout: 2 * time.Second}, registry: newRegistry(), log: slog.Default()}
+	p := &Provider{cfg: cfg, kube: kube, secrets: sec, now: time.Now, resources: res, nodeRes: nodeRes, selector: sel, agents: &http.Client{Timeout: 2 * time.Second}, registry: newRegistry(), log: slog.Default()}
 	for _, opt := range opts {
 		opt(p)
 	}

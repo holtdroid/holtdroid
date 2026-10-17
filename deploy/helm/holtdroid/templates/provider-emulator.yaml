@@ -21,6 +21,7 @@
   "imagePullPolicy" $e.session.image.pullPolicy
   "imagePullSecrets" $pullSecrets
   "resources" $e.session.resources
+  "nodes" $e.nodes
   "gpu" $e.session.gpu
 -}}
 {{- $_ := set $cfg "telemetry" (include "holtdroid.telemetry" . | fromYaml) -}}

@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -31,6 +32,8 @@ type Config struct {
 	AVD         string
 	Args        []string
 	DNSServer   string
+	Cores       int
+	RAM         int
 	FridaServer string
 	BootTimeout time.Duration
 	GPU         string
@@ -90,6 +93,12 @@ func (e *Emulator) Args(hostGPU bool) []string {
 	}
 	if e.cfg.DNSServer != "" {
 		args = append(args, "-dns-server", e.cfg.DNSServer)
+	}
+	if e.cfg.Cores > 0 {
+		args = append(args, "-cores", strconv.Itoa(e.cfg.Cores))
+	}
+	if e.cfg.RAM > 0 {
+		args = append(args, "-memory", strconv.Itoa(e.cfg.RAM))
 	}
 	return append(args, e.cfg.Args...)
 }
