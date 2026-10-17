@@ -33,10 +33,11 @@ type CacheConfig struct {
 }
 
 type UploadsConfig struct {
-	Enabled bool
-	Source  string
-	Prefix  string
-	MaxSize config.ByteSize
+	Enabled      bool
+	Source       string
+	Prefix       string
+	MaxSize      config.ByteSize
+	TemporaryTTL time.Duration
 }
 
 type SSHConfig struct {
@@ -82,7 +83,7 @@ func DefaultConfig() Config {
 		Database: db.DefaultConfig(),
 		Cache:    CacheConfig{MaxSize: 20 << 30, Warm: 10},
 		SSH:      SSHConfig{PublicPort: 2222, AllowADB: true, AllowReverse: true, MaxTunnelsPerConnection: 32},
-		Uploads:  UploadsConfig{Enabled: true, Prefix: "uploads", MaxSize: 1 << 30},
+		Uploads:  UploadsConfig{Enabled: true, Prefix: "uploads", MaxSize: 1 << 30, TemporaryTTL: 7 * 24 * time.Hour},
 		Sources: []source.Config{{
 			Name:       "local",
 			Type:       "filesystem",
@@ -151,6 +152,9 @@ func (c Config) Validate() error {
 		}
 		if c.Uploads.MaxSize == 0 {
 			errs = append(errs, errors.New("uploads.maxSize must be positive"))
+		}
+		if c.Uploads.TemporaryTTL <= 0 {
+			errs = append(errs, errors.New("uploads.temporaryTTL must be positive"))
 		}
 	}
 	seen := map[string]bool{}

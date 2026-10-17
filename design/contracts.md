@@ -98,6 +98,7 @@ uploads:
   source: ""                # default: the first source; must not be readOnly
   prefix: uploads
   maxSize: 1GiB
+  temporaryTTL: 168h        # temporary uploads are deleted this long after their last launch
 ```
 
 The api parses APKs itself (`internal/apk`: package, versionName,

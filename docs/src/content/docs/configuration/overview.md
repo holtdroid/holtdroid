@@ -63,6 +63,7 @@ sources:
 uploads:
   enabled: true
   maxSize: 1GiB
+  temporaryTTL: 168h
 providers:
   - name: emulator
     url: http://holtdroid-provider-emulator:8080

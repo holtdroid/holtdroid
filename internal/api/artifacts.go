@@ -45,6 +45,7 @@ type ArtifactView struct {
 	App        *apk.Metadata `json:"app,omitempty" doc:"Parsed from the APK once it is cached"`
 	IconURL    string        `json:"iconUrl,omitempty"`
 	CanManage  bool          `json:"canManage" doc:"The caller may change visibility or delete it"`
+	ExpiresAt  time.Time     `json:"expiresAt,omitzero" doc:"When a temporary build is deleted unless a session uses it before"`
 }
 
 type ArtifactList struct {
@@ -59,9 +60,10 @@ type SourceView struct {
 }
 
 type UploadsInfo struct {
-	Enabled bool   `json:"enabled"`
-	Source  string `json:"source,omitempty"`
-	MaxSize int64  `json:"maxSize"`
+	Enabled      bool   `json:"enabled"`
+	Source       string `json:"source,omitempty"`
+	MaxSize      int64  `json:"maxSize"`
+	TemporaryTTL int64  `json:"temporaryTtl" doc:"Seconds a temporary build is kept after its last use"`
 }
 
 type ArtifactsEvent struct {
@@ -83,7 +85,8 @@ type patchArtifactInput struct {
 	Source string `path:"source"`
 	ID     string `path:"id"`
 	Body   struct {
-		Visibility source.Visibility `json:"visibility" enum:"public,private"`
+		Visibility source.Visibility `json:"visibility,omitempty" enum:"public,private"`
+		Temporary  *bool             `json:"temporary,omitempty"`
 	}
 }
 
@@ -98,6 +101,7 @@ type uploadInput struct {
 		Title      string        `form:"title" maxLength:"200" required:"false"`
 		Note       string        `form:"note" maxLength:"4000" required:"false"`
 		Changelog  string        `form:"changelog" maxLength:"65536" required:"false"`
+		Temporary  string        `form:"temporary" enum:"true,false" default:"true" required:"false"`
 	}]
 }
 
@@ -133,14 +137,20 @@ func (s *Server) registerArtifacts(api huma.API) {
 
 	huma.Register(api, huma.Operation{
 		OperationID: "updateArtifact", Method: http.MethodPatch, Path: "/api/v1/artifacts/{source}/{id}", Tags: tags,
-		Description: "Changes the visibility of an artifact. Owner or admin only.",
+		Description: "Changes the visibility of an artifact or whether it is temporary. Owner or admin only.",
 	}, func(ctx context.Context, in *patchArtifactInput) (*out[ArtifactView], error) {
 		src, a, err := s.managedArtifact(ctx, in.Source, in.ID)
 		if err != nil {
 			return nil, httpError(err)
 		}
 		meta := a.Meta
-		meta.Visibility = in.Body.Visibility
+		if in.Body.Visibility != "" {
+			meta.Visibility = in.Body.Visibility
+		}
+		if t := in.Body.Temporary; t != nil && *t != meta.Temporary {
+			meta.Temporary = *t
+			meta.LastUsedAt = s.now().UTC()
+		}
 		if a, err = src.SetMeta(ctx, a.ID, meta); err != nil {
 			return nil, httpError(err)
 		}
@@ -183,7 +193,7 @@ func (s *Server) registerArtifacts(api huma.API) {
 
 	huma.Register(api, huma.Operation{OperationID: "getUploads", Method: http.MethodGet, Path: uploadPath, Tags: tags},
 		func(context.Context, *struct{}) (*out[UploadsInfo], error) {
-			info := UploadsInfo{Enabled: s.cfg.Uploads.Enabled, MaxSize: int64(s.cfg.Uploads.MaxSize)}
+			info := UploadsInfo{Enabled: s.cfg.Uploads.Enabled, MaxSize: int64(s.cfg.Uploads.MaxSize), TemporaryTTL: int64(s.cfg.Uploads.TemporaryTTL / time.Second)}
 			if info.Enabled {
 				info.Source = s.cfg.UploadSource()
 			}
@@ -323,6 +333,7 @@ func (s *Server) artifactView(ctx context.Context, name string, a source.Artifac
 		UploadedAt: a.UploadedAt(),
 		Meta:       a.Meta,
 		CanManage:  a.ManageableBy(who.User, who.Admin) && !s.sources[name].ReadOnly(),
+		ExpiresAt:  s.expiresAt(name, a),
 	}
 	if e, ok := s.cache.Lookup(ctx, name, a.ID, a.Revision); ok {
 		meta := e.Meta
@@ -408,6 +419,7 @@ func (s *Server) upload(ctx context.Context, in *uploadInput) (ArtifactView, err
 		Origin:     "upload",
 		Owner:      who.User,
 		Visibility: source.Visibility(cmp.Or(form.Visibility, string(source.Public))),
+		Temporary:  form.Temporary != "false",
 	}
 	f, err := os.Open(tmp.Name())
 	if err != nil {
@@ -421,7 +433,7 @@ func (s *Server) upload(ctx context.Context, in *uploadInput) (ArtifactView, err
 	if _, err := s.cache.put(ctx, name, a, tmp.Name(), meta, icon); err != nil {
 		s.log.Warn("could not cache uploaded APK", "source", name, "artifact", a.ID, "err", err)
 	}
-	s.log.Info("artifact uploaded", "source", name, "artifact", a.ID, "by", who.User, "package", meta.Package, "visibility", sidecar.Visibility)
+	s.log.Info("artifact uploaded", "source", name, "artifact", a.ID, "by", who.User, "package", meta.Package, "visibility", sidecar.Visibility, "temporary", sidecar.Temporary)
 	s.refreshSource(ctx, name)
 	return s.artifactView(ctx, name, a), nil
 }
@@ -487,12 +499,50 @@ func (l *library) revision(order []string) string {
 	return hex.EncodeToString(h.Sum(nil)[:8])
 }
 
+func (s *Server) expiresAt(name string, a source.Artifact) time.Time {
+	if !a.Meta.Temporary || s.sources[name].ReadOnly() {
+		return time.Time{}
+	}
+	return a.LastUsed().Add(s.cfg.Uploads.TemporaryTTL)
+}
+
+func (s *Server) markUsed(ctx context.Context, name string, a source.Artifact) {
+	src := s.sources[name]
+	if !a.Meta.Temporary || src.ReadOnly() {
+		return
+	}
+	meta := a.Meta
+	meta.LastUsedAt = s.now().UTC()
+	if _, err := src.SetMeta(ctx, a.ID, meta); err != nil {
+		s.log.Warn("could not record artifact use", "source", name, "artifact", a.ID, "err", err)
+	}
+}
+
+func (s *Server) expire(ctx context.Context, name string, items []source.Artifact) []source.Artifact {
+	now := s.now()
+	kept := items[:0]
+	for _, a := range items {
+		if at := s.expiresAt(name, a); at.IsZero() || now.Before(at) {
+			kept = append(kept, a)
+			continue
+		}
+		if err := s.sources[name].Delete(ctx, a.ID); err != nil {
+			s.log.Warn("could not delete expired artifact", "source", name, "artifact", a.ID, "err", err)
+			kept = append(kept, a)
+			continue
+		}
+		s.log.Info("temporary artifact expired", "source", name, "artifact", a.ID, "lastUsed", a.LastUsed())
+	}
+	return kept
+}
+
 func (s *Server) refreshSource(ctx context.Context, name string) {
 	items, err := s.sources[name].List(ctx)
 	if err != nil {
 		s.log.Debug("source poll failed", "source", name, "err", err)
 		return
 	}
+	items = s.expire(ctx, name, items)
 	s.library.set(name, fingerprint(items))
 	n := 0
 	for _, a := range items {

@@ -2,6 +2,8 @@ import {
   EllipsisVerticalIcon,
   ExternalLinkIcon,
   EyeIcon,
+  HourglassIcon,
+  InfinityIcon,
   Loader2Icon,
   LockIcon,
   RocketIcon,
@@ -13,7 +15,7 @@ import {
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import type { ArtifactView } from "@/api/client"
-import { useArtifacts, useDeleteArtifact, useSetVisibility, useSources, useUploads } from "@/api/queries"
+import { useArtifacts, useDeleteArtifact, useSources, useUpdateArtifact, useUploads } from "@/api/queries"
 import { AppIcon } from "@/components/app-icon"
 import { UploadDialog } from "@/components/upload-dialog"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -194,6 +196,20 @@ function ArtifactRow({
               private
             </Badge>
           )}
+          {a.expiresAt && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="outline" className="gap-1">
+                  <HourglassIcon className="size-3" />
+                  temporary
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>
+                Deleted {formatRelative(a.expiresAt, now)} unless launched again
+                <span className="block opacity-70">{new Date(a.expiresAt).toLocaleString()}</span>
+              </TooltipContent>
+            </Tooltip>
+          )}
           {a.app?.abis.map((abi) => (
             <Badge key={abi} variant="outline" className="font-mono text-[10px]">
               {abi}
@@ -294,15 +310,21 @@ function QuickLaunchButton({ artifact }: { artifact: ArtifactView }) {
 }
 
 function ManageMenu({ artifact, title }: { artifact: ArtifactView; title: string }) {
-  const setVisibility = useSetVisibility()
+  const update = useUpdateArtifact()
   const remove = useDeleteArtifact()
   const [confirming, setConfirming] = useState(false)
   const isPrivate = artifact.meta.visibility === "private"
+  const isTemporary = !!artifact.meta.temporary
 
   const toggle = () =>
-    setVisibility.mutate(
+    update.mutate(
       { artifact, visibility: isPrivate ? "public" : "private" },
       { onError: (err) => toast.error("Could not change visibility", { description: err.message }) },
+    )
+  const toggleTemporary = () =>
+    update.mutate(
+      { artifact, temporary: !isTemporary },
+      { onError: (err) => toast.error("Could not change it", { description: err.message }) },
     )
   const confirmDelete = () =>
     remove.mutate(artifact, {
@@ -322,9 +344,13 @@ function ManageMenu({ artifact, title }: { artifact: ArtifactView; title: string
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={toggle} disabled={setVisibility.isPending}>
+          <DropdownMenuItem onSelect={toggle} disabled={update.isPending}>
             {isPrivate ? <EyeIcon /> : <LockIcon />}
             {isPrivate ? "Make public" : "Make private"}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={toggleTemporary} disabled={update.isPending}>
+            {isTemporary ? <InfinityIcon /> : <HourglassIcon />}
+            {isTemporary ? "Make permanent" : "Make temporary"}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem variant="destructive" onSelect={() => setConfirming(true)}>

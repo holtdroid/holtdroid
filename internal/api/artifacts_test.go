@@ -149,6 +149,63 @@ func TestUploads(t *testing.T) {
 	}
 }
 
+func TestTemporaryUploads(t *testing.T) {
+	apk, err := os.ReadFile("../apk/testdata/helloworld.apk")
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := newHarness(t, 2)
+	ctx := context.Background()
+	week := 7 * 24 * time.Hour
+
+	temp := decode[ArtifactView](t, h.upload("otter", "", "temp.apk", apk, nil))
+	kept := decode[ArtifactView](t, h.upload("otter", "", "kept.apk", apk, map[string]string{"temporary": "false"}))
+	if !temp.Meta.Temporary || !temp.ExpiresAt.Equal(h.clock.Now().Add(week)) {
+		t.Fatalf("uploads are temporary by default: %+v", temp)
+	}
+	if kept.Meta.Temporary || !kept.ExpiresAt.IsZero() {
+		t.Fatalf("permanent upload: %+v", kept)
+	}
+	if info := decode[UploadsInfo](t, h.do(http.MethodGet, uploadPath, "otter", "", nil)); info.TemporaryTTL != int64(week/time.Second) {
+		t.Fatalf("uploads info %+v", info)
+	}
+
+	h.clock.Advance(6 * 24 * time.Hour)
+	launch := map[string]string{"source": "local", "artifactId": temp.ID, "provider": "fake"}
+	if rec := h.do(http.MethodPost, "/api/v1/sessions", "beaver", "", launch); rec.Code != http.StatusCreated {
+		t.Fatalf("launch: %d %s", rec.Code, rec.Body.String())
+	}
+	h.clock.Advance(6 * 24 * time.Hour)
+	h.srv.refreshSource(ctx, "local")
+	tempKey, _ := decodeID(temp.ID)
+	keptKey, _ := decodeID(kept.ID)
+	got, ok := h.list("otter", "")[tempKey]
+	if !ok || !got.ExpiresAt.Equal(h.clock.Now().Add(week-6*24*time.Hour)) {
+		t.Fatalf("a launch must restart the countdown: %+v", got)
+	}
+
+	rec := h.do(http.MethodPatch, artifactPathFor(kept), "otter", "", map[string]bool{"temporary": true})
+	if rec.Code != http.StatusOK || !decode[ArtifactView](t, rec).ExpiresAt.Equal(h.clock.Now().Add(week)) {
+		t.Fatalf("making it temporary: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := h.do(http.MethodPatch, artifactPathFor(kept), "otter", "", map[string]bool{"temporary": false}); rec.Code != http.StatusOK || decode[ArtifactView](t, rec).Meta.Temporary {
+		t.Fatalf("making it permanent: %d %s", rec.Code, rec.Body.String())
+	}
+
+	h.clock.Advance(2 * 24 * time.Hour)
+	h.srv.refreshSource(ctx, "local")
+	list := h.list("otter", "")
+	if _, ok := list[tempKey]; ok {
+		t.Fatal("expired temporary upload still listed")
+	}
+	if _, ok := list[keptKey]; !ok {
+		t.Fatal("permanent upload deleted")
+	}
+	if _, err := os.Stat(filepath.Join(h.apks, tempKey+source.MetaSuffix)); !os.IsNotExist(err) {
+		t.Fatalf("sidecar of the expired upload: %v", err)
+	}
+}
+
 func TestUploadLimits(t *testing.T) {
 	apk, err := os.ReadFile("../apk/testdata/helloworld.apk")
 	if err != nil {

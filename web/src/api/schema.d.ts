@@ -34,7 +34,7 @@ export interface paths {
         delete: operations["deleteArtifact"];
         options?: never;
         head?: never;
-        /** @description Changes the visibility of an artifact. Owner or admin only. */
+        /** @description Changes the visibility of an artifact or whether it is temporary. Owner or admin only. */
         patch: operations["updateArtifact"];
         trace?: never;
     };
@@ -314,6 +314,11 @@ export interface components {
             app?: components["schemas"]["Metadata"];
             /** @description The caller may change visibility or delete it */
             canManage: boolean;
+            /**
+             * Format: date-time
+             * @description When a temporary build is deleted unless a session uses it before
+             */
+            expiresAt?: string;
             fileName: string;
             iconUrl?: string;
             /** @description Opaque, URL-safe */
@@ -447,6 +452,11 @@ export interface components {
         Meta: {
             /** @description What changed in this build, plain text or Markdown */
             changelog?: string;
+            /**
+             * Format: date-time
+             * @description When a session last launched or installed it; kept for temporary builds
+             */
+            lastUsedAt?: string;
             /** @description Link back to the origin (message, pipeline, release) */
             link?: string;
             /** @description Short description, e.g. the Slack message text */
@@ -459,6 +469,8 @@ export interface components {
             tags?: {
                 [key: string]: string;
             };
+            /** @description Deleted automatically once unused for uploads.temporaryTTL */
+            temporary?: boolean;
             /** @description Display name instead of the APK label */
             title?: string;
             /**
@@ -487,8 +499,9 @@ export interface components {
             versionName?: string;
         };
         PatchArtifactInputBody: {
+            temporary?: boolean;
             /** @enum {string} */
-            visibility: "public" | "private";
+            visibility?: "public" | "private";
         };
         ProviderView: {
             capabilities: components["schemas"]["Capabilities"];
@@ -574,6 +587,11 @@ export interface components {
             /** Format: int64 */
             maxSize: number;
             source?: string;
+            /**
+             * Format: int64
+             * @description Seconds a temporary build is kept after its last use
+             */
+            temporaryTtl: number;
         };
     };
     responses: never;
@@ -1308,6 +1326,11 @@ export interface operations {
                     /** Format: binary */
                     file: string;
                     note?: string;
+                    /**
+                     * @default true
+                     * @enum {string}
+                     */
+                    temporary?: "true" | "false";
                     title?: string;
                     /**
                      * @default public

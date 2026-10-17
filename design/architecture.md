@@ -140,6 +140,10 @@ uploads/3f9a1c02b7d4/my.apk.meta.json
   `uploads.enabled` default true) parses the APK first, writes the sidecar
   then the file to `{uploads.prefix}/{random}/{sanitized name}` in
   `uploads.source` (default: the first source) and seeds the cache.
+- **Temporary builds.** Uploads are `temporary` by default. A launch or an
+  install records `lastUsedAt` in the sidecar, and the source poll deletes
+  temporary builds unused for `uploads.temporaryTTL` (default 7 days). The
+  owner and admins can toggle it (decision #42).
 
 ## Session lifecycle
 

@@ -5,6 +5,7 @@ import type { Visibility } from "@/api/client"
 import { useUpload, useUploads } from "@/api/queries"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
@@ -17,7 +18,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { formatBytes } from "@/lib/format"
+import { formatBytes, formatSpan } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 export function UploadDialog({
@@ -43,6 +44,7 @@ function UploadForm({ initialFile, onClose }: { initialFile: File | null; onClos
   const upload = useUpload()
   const [file, setFile] = useState(initialFile)
   const [visibility, setVisibility] = useState<Visibility>("public")
+  const [temporary, setTemporary] = useState(true)
   const [note, setNote] = useState("")
   const [changelog, setChangelog] = useState("")
   const [dragging, setDragging] = useState(false)
@@ -53,7 +55,7 @@ function UploadForm({ initialFile, onClose }: { initialFile: File | null; onClos
   const submit = () => {
     if (!file || tooLarge) return
     upload.mutate(
-      { file, visibility, note: note.trim(), changelog: changelog.trim() },
+      { file, visibility, temporary, note: note.trim(), changelog: changelog.trim() },
       {
         onSuccess: (a) => {
           toast.success("Uploaded", { description: a.app?.label || a.fileName })
@@ -123,6 +125,21 @@ function UploadForm({ initialFile, onClose }: { initialFile: File | null; onClos
               <SelectItem value="private">Only me (and admins)</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+        <div className="flex items-start gap-3">
+          <Checkbox
+            id="upload-temporary"
+            checked={temporary}
+            onCheckedChange={(v) => setTemporary(v === true)}
+            className="mt-0.5"
+          />
+          <div className="grid gap-1">
+            <Label htmlFor="upload-temporary">Temporary</Label>
+            <p className="text-muted-foreground text-sm">
+              Deleted automatically {uploads.data ? formatSpan(uploads.data.temporaryTtl) : "a while"} after its last
+              launch. You can make it permanent later.
+            </p>
+          </div>
         </div>
         <div className="grid gap-2">
           <Label htmlFor="upload-note">Note</Label>

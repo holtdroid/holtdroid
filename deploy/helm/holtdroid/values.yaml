@@ -27,6 +27,7 @@ config:
   uploads:
     enabled: true
     maxSize: 1GiB
+    temporaryTTL: 168h
   sessions:
     idleTimeout: 30m
     maxTTL: 8h

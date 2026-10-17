@@ -397,6 +397,7 @@ func (s *Server) createSession(ctx context.Context, who auth.Identity, srcName, 
 		return SessionView{}, err
 	}
 	s.activity.Mark(sessionKey{providerName, sess.ID})
+	s.markUsed(ctx, srcName, artifact)
 	s.recordEvent(ctx, providerName, sess.ID, "created", who.User, ref, "")
 	s.log.Info("session created", "provider", providerName, "session", sess.ID, "owner", who.User, "package", entry.Meta.Package)
 	return s.view(ctx, providerName, sess), nil
@@ -437,6 +438,7 @@ func (s *Server) installArtifact(ctx context.Context, providerName, id, srcName,
 		return SessionView{}, err
 	}
 	s.activity.Mark(sessionKey{providerName, id})
+	s.markUsed(ctx, srcName, artifact)
 	s.recordEvent(ctx, providerName, id, "installed", who.User, ref, "")
 	s.log.Info("session build replaced", "provider", providerName, "session", id, "by", who.User, "artifact", ref, "keepData", keepData)
 	return s.view(ctx, providerName, updated), nil

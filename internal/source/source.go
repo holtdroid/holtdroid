@@ -53,6 +53,8 @@ type Meta struct {
 	Tags       map[string]string `json:"tags,omitempty" doc:"Free-form labels such as branch, commit, flavor"`
 	Owner      string            `json:"owner,omitempty" doc:"Portal user ID that owns the build and may delete it"`
 	Visibility Visibility        `json:"visibility,omitempty" enum:"public,private" doc:"private: only the owner and admins see it; default public"`
+	Temporary  bool              `json:"temporary,omitempty" doc:"Deleted automatically once unused for uploads.temporaryTTL"`
+	LastUsedAt time.Time         `json:"lastUsedAt,omitzero" doc:"When a session last launched or installed it; kept for temporary builds"`
 }
 
 // SafeLink keeps only absolute http(s) URLs, so a sidecar can't smuggle a
@@ -82,6 +84,13 @@ func (a Artifact) UploadedAt() time.Time {
 		return a.Meta.UploadedAt.UTC()
 	}
 	return a.Modified.UTC()
+}
+
+func (a Artifact) LastUsed() time.Time {
+	if a.Meta.LastUsedAt.After(a.UploadedAt()) {
+		return a.Meta.LastUsedAt.UTC()
+	}
+	return a.UploadedAt()
 }
 
 func (a Artifact) VisibleTo(user string, admin bool) bool {

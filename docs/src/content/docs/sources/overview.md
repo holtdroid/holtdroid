@@ -82,7 +82,9 @@ what it knows:
   "origin": "slack",
   "tags": { "branch": "feature/checkout", "commit": "3f2a9c1", "flavor": "staging" },
   "owner": "jane",
-  "visibility": "public"
+  "visibility": "public",
+  "temporary": true,
+  "lastUsedAt": "2026-10-17T08:00:00Z"
 }
 ```
 
@@ -98,6 +100,8 @@ what it knows:
 | `tags`       | String key/values shown as badges and searchable                                         |
 | `owner`      | Portal user ID (as in `/api/v1/me` → `user`) who may delete it and change its visibility |
 | `visibility` | `public` (default) or `private`: only the owner and admins see and launch it             |
+| `temporary`  | `true`: deleted once unused for `uploads.temporaryTTL`; ignored in `readOnly` sources    |
+| `lastUsedAt` | RFC 3339 time of the last launch; the api updates it for temporary builds                |
 
 Write the sidecar **before** the APK when the visibility matters — the api
 lists whatever is there at that moment. A sidecar that isn't valid JSON is
@@ -140,6 +144,7 @@ uploads:
   source: "" # default: the first source
   prefix: uploads
   maxSize: 1GiB
+  temporaryTTL: 168h # temporary builds are deleted 7 days after their last launch
 ```
 
 With uploads enabled every signed-in user gets an **Upload** button (and can
@@ -149,6 +154,13 @@ sidecar that records the uploader as `owner`, the chosen visibility, and an
 optional note and changelog. The owner and admins can make it public or
 private and delete it; admins can also delete builds without an owner in
 writable sources. The uploads source can't be `readOnly`.
+
+Uploads are **temporary** by default (untick the box to keep one). Each
+launch, and each install into a running session, moves the build's
+`lastUsedAt`; once it has gone unused for `temporaryTTL` the api deletes it.
+The owner and admins can make a build permanent or temporary later from its
+menu. A sync job can set `temporary: true` in its own sidecars for the same
+cleanup in any writable source.
 
 Uploads live in the source, not in the cache, so the source has to be
 persistent: the chart mounts a PersistentVolumeClaim at `/var/lib/holtdroid`

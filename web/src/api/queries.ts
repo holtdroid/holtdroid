@@ -89,12 +89,13 @@ export function useUploads() {
   })
 }
 
-export type UploadInput = { file: File; visibility: Visibility; note?: string; changelog?: string }
+export type UploadInput = { file: File; visibility: Visibility; temporary: boolean; note?: string; changelog?: string }
 
 export function useUpload() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ file, ...fields }: UploadInput) => {
+    mutationFn: ({ file, temporary, ...rest }: UploadInput) => {
+      const fields = { ...rest, temporary: temporary ? ("true" as const) : ("false" as const) }
       const form = new FormData()
       form.append("file", file, file.name)
       for (const [key, value] of Object.entries(fields)) {
@@ -110,11 +111,11 @@ function artifactPath(a: Pick<ArtifactView, "source" | "id">) {
   return { path: { source: a.source, id: a.id } }
 }
 
-export function useSetVisibility() {
+export function useUpdateArtifact() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ artifact, visibility }: { artifact: ArtifactView; visibility: Visibility }) =>
-      unwrap(api.PATCH("/api/v1/artifacts/{source}/{id}", { params: artifactPath(artifact), body: { visibility } })),
+    mutationFn: ({ artifact, ...body }: { artifact: ArtifactView; visibility?: Visibility; temporary?: boolean }) =>
+      unwrap(api.PATCH("/api/v1/artifacts/{source}/{id}", { params: artifactPath(artifact), body })),
     onSuccess: () => void qc.invalidateQueries({ queryKey: keys.allArtifacts }),
   })
 }

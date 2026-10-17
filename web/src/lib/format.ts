@@ -8,6 +8,16 @@ export function formatDuration(ms: number) {
   return `${s}s`
 }
 
+export function formatSpan(seconds: number) {
+  const units: [Intl.RelativeTimeFormatUnit, number][] = [
+    ["day", 86_400],
+    ["hour", 3_600],
+    ["minute", 60],
+  ]
+  const [unit, size] = units.find(([, size]) => seconds >= size && seconds % size === 0) ?? ["second", 1]
+  return new Intl.NumberFormat(undefined, { style: "unit", unit, unitDisplay: "long" }).format(seconds / size)
+}
+
 const relative = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" })
 
 export function formatRelative(date: string | number | Date, now = Date.now()) {

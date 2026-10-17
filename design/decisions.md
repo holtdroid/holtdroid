@@ -824,3 +824,24 @@ extra layer that rarely changes). GPUs need a Mesa driver; NVIDIA's
 proprietary driver would need its EGL libraries in the image. The patch is
 dropped once VirtualGL ships the fix. Video encoding for scrcpy stays a
 software encoder inside the guest.
+
+## 42. Temporary uploads expire a while after their last use
+
+**Context.** Uploads are mostly one-off builds for a quick check. Left alone
+they pile up in the uploads source forever, and nobody cleans them by hand.
+
+**Decision.** An upload is temporary unless the uploader unticks the box.
+The sidecar records `temporary: true` and `lastUsedAt`. Launching it or
+installing it into a session moves `lastUsedAt` forward. When a source poll
+finds a temporary build in a writable source whose `max(uploadedAt,
+lastUsedAt) + uploads.temporaryTTL` (default 7 days) has passed, it deletes
+the build. The owner and admins can make a build permanent or temporary at
+any time; making it temporary starts the countdown from that moment.
+Permanent builds don't get their sidecar rewritten on launch.
+
+**Consequences.** The state lives in the sidecar, so the api stays
+stateless, and several replicas may race to delete the same build, which is
+harmless. Each launch of a temporary build rewrites its sidecar, which
+changes the library fingerprint and refreshes open lists. Sync jobs can mark
+their own builds temporary the same way. Running sessions keep working after
+a deletion because they use the cached copy.
