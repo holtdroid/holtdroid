@@ -44,6 +44,7 @@ type Config struct {
 	AgentPort        int
 	TunnelPort       int
 	Resources        Resources
+	GPU              string
 	VPN              vpn.Config
 	Prepull          Prepull
 }
@@ -73,6 +74,7 @@ func DefaultConfig() Config {
 			Requests: map[string]string{"cpu": "3", "memory": "5Gi"},
 			Limits:   map[string]string{"memory": "7Gi"},
 		},
+		GPU:     "host",
 		VPN:     vpn.DefaultConfig(),
 		Prepull: Prepull{Refresh: true, Interval: 5 * time.Minute},
 	}
@@ -94,6 +96,9 @@ func (c Config) Validate() error {
 	}
 	if c.TunnelPort <= 0 || c.TunnelPort > 65535 || c.TunnelPort == c.AgentPort {
 		errs = append(errs, fmt.Errorf("tunnelPort %d is not a port other than agentPort", c.TunnelPort))
+	}
+	if c.GPU != "host" && c.GPU != "software" {
+		errs = append(errs, fmt.Errorf("gpu %q must be host or software", c.GPU))
 	}
 	switch corev1.PullPolicy(c.ImagePullPolicy) {
 	case corev1.PullAlways, corev1.PullIfNotPresent, corev1.PullNever:

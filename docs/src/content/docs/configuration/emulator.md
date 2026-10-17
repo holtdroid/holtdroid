@@ -24,6 +24,7 @@ agentPort: 8080
 resources:
   requests: { cpu: "3", memory: 5Gi }
   limits: { memory: 7Gi }
+gpu: host # or software
 vpn:
   locations: [] # see below; empty means no VPN sidecar
 ```
@@ -39,6 +40,7 @@ vpn:
 | `imagePullSecrets`         | Secret names for pulling the session image                                                                                                                         |
 | `agentPort`                | Port the agent listens on inside the Pod; the api reaches it at the Pod IP                                                                                         |
 | `resources`                | Per-session emulator container resources. Leave out a CPU limit: throttling makes the software-rendered screen stutter                                             |
+| `gpu`                      | `host` renders on the node's GPU, `software` with SwiftShader. See below                                                                                           |
 | `vpn`                      | Per-session VPN, see below                                                                                                                                         |
 
 Every matching node is one slot, at most one session per node. A session is
@@ -63,6 +65,7 @@ providers:
     session:
       image: { repository: ghcr.io/kriakiku/holtdroid-session, tag: "" } # tag defaults to image.tag
       resources: { requests: { cpu: "3", memory: 5Gi }, limits: { memory: 7Gi } }
+      gpu: host
     vpn: {} # the vpn section below
     networkPolicy: { enabled: true } # only the api reaches session agents
     prepull:
@@ -81,6 +84,18 @@ tag's digest every `interval` and, when it moves, restarts the DaemonSet:
 the nodes pull the new layers in the background, before the next session
 needs them. The registry is queried anonymously, which works for public
 images; with a pinned tag or `IfNotPresent` the refresh does nothing.
+
+## GPU
+
+With `gpu: host` (the default) the emulator renders on the node's GPU: the
+agent starts Xvfb and runs the emulator under VirtualGL, which draws its
+OpenGL on the first `/dev/dri/card*` through Mesa. Any GPU with a Mesa driver
+works, integrated ones included (Intel, AMD). Session Pods are privileged, so
+they see the node's devices without extra configuration. A node without
+`/dev/dri` falls back to software rendering and the agent logs a warning.
+
+`gpu: software` always renders with SwiftShader on the CPU. Frames are less
+smooth and the emulator needs about twice the CPU.
 
 ## VPN
 

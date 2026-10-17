@@ -791,3 +791,36 @@ physical phone later reports the same shape without `host`.
 thermal HAL; the UI says so and shows the node's zones next to them. GPU
 load isn't reported: with SwiftShader it is CPU time (decision #39), and
 fps/jank describe the effect better.
+
+
+## 41. Sessions render on the node's GPU through VirtualGL
+
+**Context.** Decision #39 left host GPU rendering open. Every session node
+has an integrated GPU (`/dev/dri`). The emulator's `-gpu host` on Linux needs
+a GLX display. Without one, its EGL-on-EGL path gets a GLES context from
+Mesa, its desktop GL 3.3 shaders don't compile, and the screen is black.
+
+**Decision.** `gpu: host` (provider and agent config, default) runs Xvfb as
+the display and the emulator under VirtualGL (`vglrun -d /dev/dri/cardN`).
+VirtualGL's EGL back end turns the emulator's GLX into EGL on the DRI device,
+so Xvfb never touches the GPU and nothing needs DRM master or an Xorg
+config. VirtualGL 3.1.5 is built in the session image with a three-line
+patch: its EGL back end returns `EGL_TRUE` instead of `Success` from
+`glXGetFBConfigAttrib` for the max pbuffer attributes, and the emulator
+skips every config whose attribute query fails ("found 0 GLES 2.x
+configs"). A container without `/dev/dri/card*` falls back to SwiftShader
+with a warning. `gpu: software` keeps SwiftShader everywhere. Session Pods
+are privileged and already see the node's devices, so no volume is added.
+
+Measured on a k3s node (i5-8500T, UHD 630), 30 scrolls through Settings:
+0.8–1 % janky frames and a p99 frame time of about 30 ms on the GPU,
+against 2.8–3.5 % and 57 ms with SwiftShader, at roughly half the emulator's
+CPU (150–220 % of a core against 320–370 %). On `core` (Ryzen 7 5825U,
+radeonsi) every frame percentile is 16 ms (0.3 % janky) at about 65 % of a
+core. scrcpy's encoder path (`screenrecord`) works unchanged.
+
+**Consequences.** The session image gains Mesa, Xvfb and VirtualGL (an
+extra layer that rarely changes). GPUs need a Mesa driver; NVIDIA's
+proprietary driver would need its EGL libraries in the image. The patch is
+dropped once VirtualGL ships the fix. Video encoding for scrcpy stays a
+software encoder inside the guest.

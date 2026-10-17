@@ -96,6 +96,9 @@ providers:
         requests: { cpu: "3", memory: 5Gi }
         # No CPU limit: CFS throttling makes the software GPU drop frames.
         limits: { memory: 7Gi }
+      # host: render on the node's GPU (/dev/dri) through VirtualGL, falling
+      # back to software when the node has none. software: SwiftShader.
+      gpu: host
     # Per-session VPN sidecar, see the emulator provider docs. Empty: no VPN.
     vpn: {}
     # Only the api (and the ssh-gateway, on the tunnel port) may reach

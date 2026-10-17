@@ -51,6 +51,8 @@ spec:
       value: k3s-1
     - name: HOLTDROID_SESSION__CREATEDAT
       value: "2026-10-17T12:00:00Z"
+    - name: HOLTDROID_EMULATOR__GPU
+      value: software
     - name: HOLTDROID_LOCATION
       value: nl
     - name: HOLTDROID_CLASHAPI

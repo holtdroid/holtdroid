@@ -51,6 +51,8 @@ spec:
       value: k3s-1
     - name: HOLTDROID_SESSION__CREATEDAT
       value: "2026-10-17T12:00:00Z"
+    - name: HOLTDROID_EMULATOR__GPU
+      value: host
     image: ghcr.io/kriakiku/holtdroid-session:0123abc
     imagePullPolicy: IfNotPresent
     name: emulator

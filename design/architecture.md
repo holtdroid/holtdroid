@@ -191,9 +191,12 @@ has an IP it is empty and the UI does not open the agent's status stream.
 
 Inside `emulator`, the agent starts and supervises:
 
-1. `emulator`, headless (`-no-window -gpu swiftshader_indirect -no-snapshot
-   -no-audio -no-boot-anim`, x86_64 `google_apis` API 35 image, the
-   `holtdroid` AVD baked into the image; `internal/agent/emulator`).
+1. `emulator`, headless (`-no-window -no-snapshot -no-audio -no-boot-anim`,
+   x86_64 `google_apis` API 35 image, the `holtdroid` AVD baked into the
+   image; `internal/agent/emulator`). With `HOLTDROID_EMULATOR__GPU=host`
+   (the default) and a `/dev/dri/card*` in the container it runs under
+   VirtualGL on an Xvfb display with `-gpu host`; otherwise with
+   `-gpu swiftshader_indirect` (decision #41).
    Its exit fails the session; a later failure (the first install,
    instrumentation) leaves the device running for inspection.
 2. Waits for `sys.boot_completed`, runs `adb root`, pushes and starts
@@ -227,7 +230,7 @@ Inside `emulator`, the agent starts and supervises:
 The provider configures the agent through environment variables
 (`HOLTDROID_ARTIFACTURL`, `HOLTDROID_PACKAGE`, `HOLTDROID_LOCATION`,
 `HOLTDROID_SESSION__{ID,OWNER,ARTIFACTREF,SLOT,CREATEDAT}` for the
-wallpaper, `HOLTDROID_CLASHAPI` and `HOLTDROID_EMULATOR__DNSSERVER` when a VPN sidecar
+wallpaper, `HOLTDROID_EMULATOR__GPU`, `HOLTDROID_CLASHAPI` and `HOLTDROID_EMULATOR__DNSSERVER` when a VPN sidecar
 runs; see `agent.Config` for the
 rest, all with defaults matching the session image).
 

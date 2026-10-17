@@ -76,6 +76,7 @@ func (p *Provider) renderPod(id, slot string, req contract.CreateSession, locati
 		{Name: "HOLTDROID_SESSION__ARTIFACTREF", Value: req.ArtifactRef},
 		{Name: "HOLTDROID_SESSION__SLOT", Value: slot},
 		{Name: "HOLTDROID_SESSION__CREATEDAT", Value: at},
+		{Name: "HOLTDROID_EMULATOR__GPU", Value: p.cfg.GPU},
 	}
 	if location != "" {
 		env = append(env, corev1.EnvVar{Name: "HOLTDROID_LOCATION", Value: location})

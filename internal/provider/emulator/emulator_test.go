@@ -72,6 +72,7 @@ func TestRender(t *testing.T) {
 		{"vpn", func(c *Config) {
 			c.VPN = vpnConfig()
 			c.ImagePullSecrets = []string{"ghcr"}
+			c.GPU = "software"
 			c.Tolerations = []Toleration{{Key: "dedicated", Operator: "Equal", Value: "nas", Effect: "NoSchedule"}}
 		}, "nl"},
 	}
@@ -211,6 +212,7 @@ func TestValidate(t *testing.T) {
 		{"selector", func(c *Config) { c.NodeSelector = "a in (" }},
 		{"resources", func(c *Config) { c.Resources.Limits = map[string]string{"cpu": "lots"} }},
 		{"pull policy", func(c *Config) { c.ImagePullPolicy = "Sometimes" }},
+		{"gpu", func(c *Config) { c.GPU = "vulkan" }},
 		{"vpn", func(c *Config) {
 			c.VPN.Locations = []vpn.Location{{ID: "direct", Outbound: map[string]any{"type": "direct"}}}
 		}},

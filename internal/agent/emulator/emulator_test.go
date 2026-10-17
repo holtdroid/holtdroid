@@ -3,6 +3,8 @@ package emulator
 import (
 	"context"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -62,16 +64,61 @@ func TestPrepare(t *testing.T) {
 func TestArgs(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.Args = []string{"-memory", "4096"}
-	args := New(cfg, nil, nil).Args()
+	args := New(cfg, nil, nil).Args(false)
 	if args[0] != "-avd" || args[1] != "holtdroid" || !slices.Contains(args, "swiftshader_indirect") || !slices.Equal(args[len(args)-2:], cfg.Args) {
 		t.Fatalf("args %v", args)
+	}
+	if host := New(cfg, nil, nil).Args(true); slices.Index(host, "host") != slices.Index(host, "-gpu")+1 {
+		t.Fatalf("host gpu args %v", host)
 	}
 	if slices.Contains(args, "-dns-server") {
 		t.Fatalf("dns server without config: %v", args)
 	}
 	cfg.DNSServer = "1.1.1.1"
-	args = New(cfg, nil, nil).Args()
+	args = New(cfg, nil, nil).Args(false)
 	if i := slices.Index(args, "-dns-server"); i < 0 || args[i+1] != "1.1.1.1" || !slices.Equal(args[len(args)-2:], cfg.Args) {
 		t.Fatalf("args with dns %v", args)
+	}
+}
+
+func TestDevice(t *testing.T) {
+	dri := t.TempDir()
+	tests := []struct {
+		name  string
+		gpu   string
+		cards []string
+		want  string
+		err   bool
+	}{
+		{"host with a card", GPUHost, []string{"card1", "renderD128"}, "card1", false},
+		{"host without a card", GPUHost, []string{"renderD128"}, "", false},
+		{"software", GPUSoftware, []string{"card0"}, "", false},
+		{"unknown", "vulkan", nil, "", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := filepath.Join(dri, tt.name)
+			if err := os.MkdirAll(dir, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			for _, c := range tt.cards {
+				if err := os.WriteFile(filepath.Join(dir, c), nil, 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			cfg := DefaultConfig()
+			cfg.GPU, cfg.DRI = tt.gpu, dir
+			got, err := New(cfg, nil, slog.New(slog.DiscardHandler)).device()
+			if (err != nil) != tt.err {
+				t.Fatalf("err %v", err)
+			}
+			want := ""
+			if tt.want != "" {
+				want = filepath.Join(dir, tt.want)
+			}
+			if got != want {
+				t.Fatalf("got %q want %q", got, want)
+			}
+		})
 	}
 }

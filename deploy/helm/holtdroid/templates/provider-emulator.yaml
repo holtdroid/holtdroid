@@ -21,6 +21,7 @@
   "imagePullPolicy" $e.session.image.pullPolicy
   "imagePullSecrets" $pullSecrets
   "resources" $e.session.resources
+  "gpu" $e.session.gpu
 -}}
 {{- with $e.vpn }}
 {{- $_ := set $cfg "vpn" . -}}
