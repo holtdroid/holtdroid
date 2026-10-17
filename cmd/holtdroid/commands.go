@@ -90,7 +90,7 @@ func providerEmulatorCmd(c *common) *cobra.Command {
 }
 
 func agentCmd(c *common) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "agent",
 		Short: "Run the device agent inside a session: emulator, app under Frida, screen and DevTools",
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -111,6 +111,16 @@ func agentCmd(c *common) *cobra.Command {
 			return serve(cmd.Context(), []listener{{cfg.Listen, a.Handler()}}, a.Run)
 		},
 	}
+	cmd.AddCommand(&cobra.Command{
+		Use:    "compile-scripts DIR",
+		Short:  "Bundle the Frida scripts in DIR into the JavaScript the agent loads (used by the session image build)",
+		Args:   cobra.ExactArgs(1),
+		Hidden: true,
+		RunE: func(_ *cobra.Command, args []string) error {
+			return agent.CompileScripts(args[0])
+		},
+	})
+	return cmd
 }
 
 func devCmd() *cobra.Command {

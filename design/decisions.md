@@ -292,10 +292,15 @@ bridge inside GumJS: scripts must import `frida-java-bridge` and be bundled.
 
 **Decision.** The session image pins one Frida version (`FRIDA_VERSION` in
 `images/session.Dockerfile`) for both the devkit and `frida-server`, matching
-frida-go's CI. The instrumentation script lives in `frida`
-(`agent.ts` + a `bun.lock` for `frida-java-bridge`, TypeScript that Frida's compiler bundles without type checking; `make lint` runs `tsc` on it with `@types/frida-gum`); the image installs its
-`node_modules` and the agent bundles it once at start with Frida's own
-compiler (`frida.NewCompiler().Build`). Only the session binary is built
+frida-go's CI. The instrumentation scripts live in `frida/` (TypeScript,
+`agent.ts` and `system.ts`, with their own `bun.lock` for
+`frida-java-bridge`; `make lint` type-checks them with `@types/frida-gum`).
+The session image build bundles them with Frida's own compiler
+(`frida.NewCompiler().Build`, type checking off) through the hidden
+`holtdroid agent compile-scripts`, built natively for the build machine
+because Frida doesn't run under amd64 emulation on Apple Silicon; the image
+ships only `agent.js` and `system.js`, so a script that doesn't bundle fails
+the image build instead of a session. Only the session binary is built
 with `-tags frida` and cgo; the distroless binary keeps `CGO_ENABLED=0` and
 its `agent` subcommand refuses to start.
 

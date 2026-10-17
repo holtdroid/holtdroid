@@ -76,6 +76,30 @@ RUN set -eux; \
     CGO_ENABLED=1 GOOS=linux GOARCH=amd64 CC=$cc CGO_CFLAGS=-I/opt/frida CGO_LDFLAGS=-L/opt/frida \
       go build -tags frida -trimpath -ldflags "-s -w -X main.version=$VERSION" -o /out/holtdroid ./cmd/holtdroid
 
+FROM --platform=$BUILDPLATFORM ${GO_IMAGE} AS bundle
+ARG FRIDA_VERSION
+ARG FRIDA_DEVKIT_SHA256_AMD64=4f7b5ebfef5297f3dfc2ebc7629aa0a1d19334988ce95f74dbfd29b8665235e6
+ARG FRIDA_DEVKIT_SHA256_ARM64=27e28644a21050b0c3368a4a195a3d51331c49befcb63b6b67d099dd25a07ade
+RUN set -eux; \
+    case "$(dpkg --print-architecture)" in \
+      amd64) arch=x86_64 sum=$FRIDA_DEVKIT_SHA256_AMD64 ;; \
+      arm64) arch=arm64 sum=$FRIDA_DEVKIT_SHA256_ARM64 ;; \
+    esac; \
+    apt-get update && apt-get install -y --no-install-recommends xz-utils && rm -rf /var/lib/apt/lists/*; \
+    curl -fsSLo devkit.tar.xz "https://github.com/frida/frida/releases/download/$FRIDA_VERSION/frida-core-devkit-$FRIDA_VERSION-linux-$arch.tar.xz"; \
+    echo "$sum  devkit.tar.xz" | sha256sum -c -; \
+    mkdir -p /opt/frida && tar -xJf devkit.tar.xz -C /opt/frida && rm devkit.tar.xz
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY cmd cmd
+COPY internal internal
+COPY web/embed.go web/
+RUN mkdir -p web/dist && touch web/dist/.keep && \
+    CGO_ENABLED=1 CGO_CFLAGS=-I/opt/frida CGO_LDFLAGS=-L/opt/frida go build -tags frida -o /usr/local/bin/holtdroid ./cmd/holtdroid
+COPY --from=script /opt/holtdroid/script /script
+RUN holtdroid agent compile-scripts /script && mkdir /out && cp /script/agent.js /script/system.js /out/
+
 FROM docker.io/library/ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates \
@@ -91,7 +115,7 @@ ENV ANDROID_HOME=/opt/android-sdk \
 COPY --from=sdk /out/ /
 COPY --from=tools /out/ /
 COPY images/session/avd /root/.android/avd
-COPY --from=script /opt/holtdroid/script /opt/holtdroid/script
+COPY --from=bundle /out/ /opt/holtdroid/script/
 COPY --from=go /out/holtdroid /usr/local/bin/holtdroid
 EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/holtdroid"]

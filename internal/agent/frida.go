@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"sync"
 	"time"
@@ -15,9 +16,8 @@ import (
 	"github.com/frida/frida-go/frida"
 )
 
-// Frida spawns apps through frida-server on the device with the scripts in
-// dir (agent.ts for the app, system.ts for system_server, plus their
-// node_modules), bundled once by Frida's compiler.
+// Frida spawns apps through frida-server on the device with the bundles in
+// dir: agent.js for the app, system.js for system_server (CompileScripts).
 type Frida struct {
 	serial string
 	dir    string
@@ -39,24 +39,39 @@ func (f *Frida) prepare() error {
 	if f.dev != nil {
 		return nil
 	}
-	opts := frida.NewCompilerOptions()
-	opts.SetProjectRoot(f.dir)
-	opts.SetTypeCheckMode(frida.TypeCheckModeNone)
-	opts.SetSourceMaps(frida.SourceMapsOmitted)
-	compiler := frida.NewCompiler()
-	bundle, err := compiler.Build(filepath.Join(f.dir, "agent.ts"), opts)
+	bundle, err := os.ReadFile(filepath.Join(f.dir, "agent.js"))
 	if err != nil {
-		return fmt.Errorf("compile frida script: %w", err)
+		return fmt.Errorf("frida script: %w", err)
 	}
-	system, err := compiler.Build(filepath.Join(f.dir, "system.ts"), opts)
+	system, err := os.ReadFile(filepath.Join(f.dir, "system.js"))
 	if err != nil {
-		return fmt.Errorf("compile frida system script: %w", err)
+		return fmt.Errorf("frida system script: %w", err)
 	}
 	dev, err := frida.DeviceByID(f.serial)
 	if err != nil {
 		return fmt.Errorf("frida device %s: %w", f.serial, err)
 	}
-	f.dev, f.bundle, f.system = dev, bundle, system
+	f.dev, f.bundle, f.system = dev, string(bundle), string(system)
+	return nil
+}
+
+// CompileScripts bundles agent.ts and system.ts in dir, with the node_modules
+// next to them, into agent.js and system.js.
+func CompileScripts(dir string) error {
+	opts := frida.NewCompilerOptions()
+	opts.SetProjectRoot(dir)
+	opts.SetTypeCheckMode(frida.TypeCheckModeNone)
+	opts.SetSourceMaps(frida.SourceMapsOmitted)
+	compiler := frida.NewCompiler()
+	for _, name := range []string{"agent", "system"} {
+		bundle, err := compiler.Build(filepath.Join(dir, name+".ts"), opts)
+		if err != nil {
+			return fmt.Errorf("compile %s.ts: %w", name, err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, name+".js"), []byte(bundle), 0o644); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
