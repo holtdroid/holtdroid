@@ -69,7 +69,7 @@ CA is installed on the device.
 ## The page
 
 In Standard and Immersive mode a toolbar shows back, the address (tap to
-edit), reload and the controls button. Edge-to-edge and Kiosk modes hide it;
+edit), the keyboard button, reload and the controls button. Edge-to-edge and Kiosk modes hide it;
 the floating handle (draggable) opens the controls instead. Back goes back in
 history and then to the start screen, or opens the controls when **Back opens
 controls** is on.
@@ -85,7 +85,11 @@ The control panel holds:
 - **Console**: messages the page logged, and a prompt that evaluates
   JavaScript in the page.
 - **Eruda**: injects the [Eruda](https://github.com/liriliri/eruda) in-page
-  DevTools (from jsDelivr, so a strict CSP can block it).
+  DevTools. Eruda is bundled into the APK and injected the way DevTools runs
+  scripts, so it works offline and on pages with a strict Content Security
+  Policy (only its icon font may be blocked there).
+- **Keyboard**: shows or hides the on-screen keyboard for the focused field
+  (see below).
 - **Rotate** and **Settings**: swap the frame's width and height; edit every
   setting of the open page, apply it, or save it as a preset.
 - **Display**: the display mode and the toolbar position.
@@ -95,6 +99,25 @@ The control panel holds:
 - **DevTools**: remote debugging on/off and the `adb forward` command for the
   page's DevTools socket.
 - **Engine**: WebView, GeckoView or a Custom Tab.
+
+## On-screen keyboard
+
+Android hides the on-screen keyboard while a hardware keyboard is attached.
+Holtdroid's emulators report one (`hw.keyboard=yes`), so tapping a field
+there brings up no keyboard; you type through the session's keyboard instead.
+To get the on-screen one, focus the field and press the keyboard button. If
+the system still hides it, the app shows two fixes:
+
+```sh
+# show the on-screen keyboard next to a hardware one, for every app
+adb shell settings put secure show_ime_with_hard_keyboard 1
+
+# or let the app switch that setting on by itself when you press the button
+adb shell pm grant io.github.kriakiku.holtdroid.webview android.permission.WRITE_SECURE_SETTINGS
+```
+
+The same setting is **Use on-screen keyboard** in the system's physical
+keyboard settings, which the dialog opens.
 
 ## Engines
 
@@ -164,7 +187,7 @@ are case-insensitive, numbers are plain integers.
 | `contentAccess`        | boolean                                         | `true`                    | `content://` URLs                                           |
 | `clearOnStart`         | boolean                                         | `false`                   | Wipe all data whenever the page opens                       |
 | `debugging`            | boolean                                         | `true`                    | Remote debugging                                            |
-| `eruda`                | boolean                                         | `false`                   | Inject Eruda                                                |
+| `eruda`                | boolean                                         | `false`                   | Inject the bundled Eruda                                    |
 | `console`              | boolean                                         | `true`                    | Keep console messages                                       |
 | `userScript`           | JavaScript                                      |                           | Injected at document start into every frame                 |
 | `hardwareAcceleration` | boolean                                         | `true`                    | Off renders in software                                     |
@@ -225,6 +248,7 @@ type. Commands go in `cmd`; without one, `am start` opens a page and
 | `eval`                                | `js`                                         | Evaluate JavaScript; prints the JSON result                         |
 | `console`                             | `lines` (default 50)                         | Print the latest console messages                                   |
 | `theme`                               | `theme=system\|light\|dark`                  | Switch the app theme                                                |
+| `keyboard`                            | `show=true\|false`                           | Show, hide or toggle the on-screen keyboard for the focused field   |
 | `state`                               |                                              | Print the screen, page, viewport and every setting as JSON          |
 | `presets`                             |                                              | Print preset ids and names                                          |
 
