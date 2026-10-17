@@ -1,7 +1,7 @@
 import { FileUpIcon, Loader2Icon, UploadIcon } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
-import type { Visibility } from "@/api/client"
+import type { ArtifactView, Visibility } from "@/api/client"
 import { useUpload, useUploads } from "@/api/queries"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -25,21 +25,38 @@ export function UploadDialog({
   open,
   initialFile,
   onClose,
+  onUploaded,
 }: {
   open: boolean
   initialFile: File | null
   onClose: () => void
+  onUploaded: (artifact: ArtifactView) => void
 }) {
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
       <DialogContent>
-        {open && <UploadForm key={initialFile?.name ?? ""} initialFile={initialFile} onClose={onClose} />}
+        {open && (
+          <UploadForm
+            key={initialFile?.name ?? ""}
+            initialFile={initialFile}
+            onClose={onClose}
+            onUploaded={onUploaded}
+          />
+        )}
       </DialogContent>
     </Dialog>
   )
 }
 
-function UploadForm({ initialFile, onClose }: { initialFile: File | null; onClose: () => void }) {
+function UploadForm({
+  initialFile,
+  onClose,
+  onUploaded,
+}: {
+  initialFile: File | null
+  onClose: () => void
+  onUploaded: (artifact: ArtifactView) => void
+}) {
   const uploads = useUploads()
   const upload = useUpload()
   const [file, setFile] = useState(initialFile)
@@ -60,6 +77,7 @@ function UploadForm({ initialFile, onClose }: { initialFile: File | null; onClos
         onSuccess: (a) => {
           toast.success("Uploaded", { description: a.app?.label || a.fileName })
           onClose()
+          onUploaded(a)
         },
         onError: (err) => toast.error("Upload failed", { description: err.message }),
       },

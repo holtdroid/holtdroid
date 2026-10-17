@@ -165,7 +165,12 @@ export function ArtifactList({ onLaunch }: { onLaunch: (artifact: ArtifactView) 
         )}
       </div>
 
-      <UploadDialog open={!!uploading} initialFile={uploading?.file ?? null} onClose={() => setUploading(null)} />
+      <UploadDialog
+        open={!!uploading}
+        initialFile={uploading?.file ?? null}
+        onClose={() => setUploading(null)}
+        onUploaded={onLaunch}
+      />
     </section>
   )
 }
