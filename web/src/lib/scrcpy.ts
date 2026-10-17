@@ -92,7 +92,7 @@ export function openSocket(url: string) {
   return { ws, opened, closed }
 }
 
-type StreamOptions = Omit<ScreenPrefs, "keyboard" | "audio" | "lockMode">
+type StreamOptions = Pick<ScreenPrefs, "codec" | "maxSize" | "maxFps" | "bitRate">
 
 function screenQuery(prefs: StreamOptions) {
   return new URLSearchParams({

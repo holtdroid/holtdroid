@@ -1,51 +1,20 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import {
-  ClipboardIcon,
-  ClipboardPasteIcon,
-  CopyIcon,
-  DatabaseIcon,
-  EllipsisVerticalIcon,
-  GlobeIcon,
-  PackageIcon,
-  PlayIcon,
-  RotateCcwIcon,
-  SendIcon,
-} from "lucide-react"
-import { useMemo, useState } from "react"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { DatabaseIcon, GlobeIcon, PackageIcon, PlayIcon, RotateCcwIcon } from "lucide-react"
+import { useMemo } from "react"
 import { toast } from "sonner"
-import { agentClient, type Clipboard, type Location, unwrap } from "@/api/client"
+import { agentClient, type Location, unwrap } from "@/api/client"
 import { useAppData, useSaveAppData } from "@/api/queries"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { IconButton } from "@/components/session/icon-button"
 import { SSHControl } from "@/components/session/ssh-control"
-import { useEventSource } from "@/hooks/use-event-source"
-import { countryFlag } from "@/lib/format"
+import { networkKey, useNetwork } from "@/components/session/use-device"
 import { rememberLocation } from "@/lib/launch-prefs"
 
-export function SessionToolbar({
-  provider,
-  id,
-  locations,
-  clipboard,
-  appRunning,
-}: {
-  provider: string
-  id: string
-  locations: Location[]
-  clipboard: boolean
-  appRunning: boolean
-}) {
+export function SessionToolbar({ provider, id, locations }: { provider: string; id: string; locations: Location[] }) {
   return (
     <div className="flex items-center gap-2">
       {locations.length > 0 && <LocationControl provider={provider} id={id} locations={locations} />}
-      {clipboard && <ClipboardControl provider={provider} id={id} />}
       <SSHControl provider={provider} id={id} />
-      <AppActions provider={provider} id={id} appRunning={appRunning} />
     </div>
   )
 }
@@ -53,12 +22,11 @@ export function SessionToolbar({
 function LocationControl({ provider, id, locations }: { provider: string; id: string; locations: Location[] }) {
   const client = useMemo(() => agentClient(provider, id), [provider, id])
   const qc = useQueryClient()
-  const queryKey = ["network", provider, id]
-  const network = useQuery({ queryKey, queryFn: () => unwrap(client.GET("/v1/network")), refetchInterval: 30_000 })
+  const network = useNetwork(provider, id)
   const change = useMutation({
     mutationFn: (location: string) => unwrap(client.PUT("/v1/network/location", { body: { location } })),
     onSuccess: (n) => {
-      qc.setQueryData(queryKey, n)
+      qc.setQueryData(networkKey(provider, id), n)
       rememberLocation(provider, n.location)
       toast.success(`Now browsing from ${n.country || n.location}`, { description: n.externalIp })
     },
@@ -66,105 +34,23 @@ function LocationControl({ provider, id, locations }: { provider: string; id: st
   })
 
   return (
-    <div className="flex items-center gap-1.5">
-      <Select value={network.data?.location ?? ""} onValueChange={(v) => change.mutate(v)} disabled={change.isPending}>
-        <SelectTrigger size="sm" className="w-40">
-          <GlobeIcon />
-          <SelectValue placeholder="Location" />
-        </SelectTrigger>
-        <SelectContent>
-          {locations.map((l) => (
-            <SelectItem key={l.id} value={l.id}>
-              {l.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      {network.data?.externalIp && (
-        <Badge variant="outline" className="font-mono" title="External IP">
-          {countryFlag(network.data.country)} {network.data.externalIp}
-        </Badge>
-      )}
-    </div>
+    <Select value={network.data?.location ?? ""} onValueChange={(v) => change.mutate(v)} disabled={change.isPending}>
+      <SelectTrigger size="sm" className="w-40">
+        <GlobeIcon />
+        <SelectValue placeholder="Location" />
+      </SelectTrigger>
+      <SelectContent>
+        {locations.map((l) => (
+          <SelectItem key={l.id} value={l.id}>
+            {l.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   )
 }
 
-function ClipboardControl({ provider, id }: { provider: string; id: string }) {
-  const client = useMemo(() => agentClient(provider, id), [provider, id])
-  const [deviceText, setDeviceText] = useState("")
-  const [draft, setDraft] = useState("")
-  const [open, setOpen] = useState(false)
-
-  useEventSource<{ clip: Clipboard }>(`/s/${provider}/${id}/v1/clipboard/events`, {
-    clip: (c) => {
-      setDeviceText(c.text)
-      if (document.hasFocus()) {
-        navigator.clipboard.writeText(c.text).then(
-          () => toast("Copied from device", { description: c.text.slice(0, 80) }),
-          () => undefined,
-        )
-      }
-    },
-  })
-
-  const send = useMutation({
-    mutationFn: (text: string) => unwrap(client.POST("/v1/clipboard", { body: { text } })),
-    onSuccess: () => toast.success("Sent to device clipboard"),
-    onError: (e) => toast.error("Could not set device clipboard", { description: e.message }),
-  })
-
-  const pasteFromBrowser = async () => {
-    try {
-      const text = await navigator.clipboard.readText()
-      if (text) send.mutate(text)
-    } catch {
-      setOpen(true)
-    }
-  }
-
-  return (
-    <div className="flex items-center">
-      <Button size="sm" variant="outline" className="rounded-r-none" onClick={() => void pasteFromBrowser()}>
-        <ClipboardPasteIcon />
-        Paste to device
-      </Button>
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button size="sm" variant="outline" className="rounded-l-none border-l-0 px-2" aria-label="Clipboard">
-            <ClipboardIcon />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent align="end" className="grid w-80 gap-3">
-          <div className="grid gap-1.5">
-            <span className="text-xs font-medium">Device clipboard</span>
-            <div className="bg-muted max-h-32 overflow-auto rounded-md p-2 font-mono text-xs break-all whitespace-pre-wrap">
-              {deviceText || <span className="text-muted-foreground">Nothing copied on the device yet</span>}
-            </div>
-            <Button
-              size="sm"
-              variant="secondary"
-              disabled={!deviceText}
-              onClick={() => void navigator.clipboard.writeText(deviceText).then(() => toast("Copied"))}
-            >
-              <CopyIcon />
-              Copy to my clipboard
-            </Button>
-          </div>
-          <div className="grid gap-1.5">
-            <span className="text-xs font-medium">Send text to the device</span>
-            <Textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={3} placeholder="Type or paste…" />
-            <Button size="sm" disabled={!draft || send.isPending} onClick={() => send.mutate(draft)}>
-              <SendIcon />
-              Send
-            </Button>
-          </div>
-        </PopoverContent>
-      </Popover>
-    </div>
-  )
-}
-
-function AppActions({ provider, id, appRunning }: { provider: string; id: string; appRunning: boolean }) {
+export function AppActions({ provider, id, appRunning }: { provider: string; id: string; appRunning: boolean }) {
   const client = useMemo(() => agentClient(provider, id), [provider, id])
   const action = useMutation({
     mutationFn: (a: "restart" | "reinstall") =>
@@ -185,44 +71,31 @@ function AppActions({ provider, id, appRunning }: { provider: string; id: string
     )
 
   return (
-    <>
-      {!appRunning && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button size="sm" disabled={action.isPending} onClick={() => action.mutate("restart")}>
-              <PlayIcon />
-              Start app
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-64">
-            The app was closed. Start it here or from the device’s app drawer, DevTools and the clipboard work either
-            way.
-          </TooltipContent>
-        </Tooltip>
+    <div className="flex items-center">
+      <IconButton
+        label={
+          appRunning
+            ? "Restart app"
+            : "Start app. It was closed; the device’s app drawer works too, DevTools and the clipboard attach either way."
+        }
+        variant={appRunning ? "ghost" : "default"}
+        disabled={action.isPending}
+        onClick={() => action.mutate("restart")}
+      >
+        {appRunning ? <RotateCcwIcon /> : <PlayIcon />}
+      </IconButton>
+      <IconButton
+        label="Reinstall app (clears data)"
+        disabled={action.isPending}
+        onClick={() => action.mutate("reinstall")}
+      >
+        <PackageIcon />
+      </IconButton>
+      {appData.data?.enabled && (
+        <IconButton label="Save app data now (restarts the app)" disabled={save.isPending} onClick={saveNow}>
+          <DatabaseIcon />
+        </IconButton>
       )}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button size="icon-sm" variant="ghost" aria-label="App actions">
-            <EllipsisVerticalIcon />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={() => action.mutate("restart")}>
-            {appRunning ? <RotateCcwIcon /> : <PlayIcon />}
-            {appRunning ? "Restart app" : "Start app"}
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => action.mutate("reinstall")}>
-            <PackageIcon />
-            Reinstall app (clears data)
-          </DropdownMenuItem>
-          {appData.data?.enabled && (
-            <DropdownMenuItem disabled={save.isPending} onSelect={saveNow}>
-              <DatabaseIcon />
-              Save app data now (restarts the app)
-            </DropdownMenuItem>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </>
+    </div>
   )
 }

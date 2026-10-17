@@ -21,8 +21,8 @@ A save is taken when:
 
 - you press **Stop**, or the session is stopped for being idle or reaching
   its maximum lifetime;
-- you choose **Save app data now** in the session's app menu. The app is
-  stopped while it is copied and started again.
+- you press **Save app data now** next to the app's name in the session
+  header. The app is stopped while it is copied and started again.
 
 A session that dies on its own (its node goes away) leaves no save.
 

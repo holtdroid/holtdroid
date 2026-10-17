@@ -3,6 +3,7 @@ import {
   ArrowDownIcon,
   ArrowUpIcon,
   CpuIcon,
+  GlobeIcon,
   HardDriveIcon,
   type LucideIcon,
   MemoryStickIcon,
@@ -12,11 +13,12 @@ import {
   TriangleAlertIcon,
 } from "lucide-react"
 import { type ReactNode, useEffect, useState, useSyncExternalStore } from "react"
-import { type Metrics, sessionBase, type Temperature } from "@/api/client"
+import { type Metrics, type Network, sessionBase, type Temperature } from "@/api/client"
 import type { LiveScreen } from "@/components/session/live-screen"
+import { useNetwork } from "@/components/session/use-device"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useEventSource } from "@/hooks/use-event-source"
-import { formatBytes } from "@/lib/format"
+import { countryFlag, formatBytes } from "@/lib/format"
 import type { ScreenConnection, StreamStats } from "@/lib/scrcpy"
 import { cn } from "@/lib/utils"
 
@@ -45,13 +47,24 @@ function worst(...ls: Level[]): Level {
   return levels[Math.max(...ls.map((l) => levels.indexOf(l)))] ?? "ok"
 }
 
-export function MetricsBar({ provider, id, live }: { provider: string; id: string; live: LiveScreen }) {
+export function MetricsBar({
+  provider,
+  id,
+  live,
+  network,
+}: {
+  provider: string
+  id: string
+  live: LiveScreen
+  network: boolean
+}) {
   const visible = useDocumentVisible()
   const [history, setHistory] = useState<Metrics[]>([])
   useEventSource<{ metrics: Metrics }>(visible ? `${sessionBase(provider, id)}/v1/metrics` : null, {
     metrics: (m) => setHistory((h) => [...h.slice(1 - historySize), m]),
   })
   const stream = useStreamRate(live)
+  const egress = useNetwork(provider, id, network).data
   const m = history.at(-1)
 
   return (
@@ -64,14 +77,15 @@ export function MetricsBar({ provider, id, live }: { provider: string; id: strin
           <NetworkStat m={m} history={history} />
           <StorageStat m={m} />
           <ThermalStat m={m} />
-          <div className="ml-auto flex items-center gap-4">
-            {stream && <StreamStat rate={stream} />}
-            {m.host && <HostStat host={m.host} />}
-          </div>
         </>
       ) : (
         <span className="text-muted-foreground">Measuring the device…</span>
       )}
+      <div className="ml-auto flex items-center gap-4">
+        {stream && <StreamStat rate={stream} />}
+        {m?.host && <HostStat host={m.host} />}
+        {network && egress?.externalIp && <EgressStat network={egress} />}
+      </div>
     </footer>
   )
 }
@@ -293,6 +307,26 @@ function HostStat({ host }: { host: NonNullable<Metrics["host"]> }) {
           throttled {percent(host.throttled)}
         </span>
       )}
+    </Stat>
+  )
+}
+
+function EgressStat({ network }: { network: Network }) {
+  return (
+    <Stat
+      icon={GlobeIcon}
+      tip={
+        <>
+          <Title>Device egress</Title>
+          <Row label="External IP" value={network.externalIp ?? "—"} />
+          {network.country && <Row label="Country" value={network.country.toUpperCase()} />}
+          <Row label="Location" value={network.location} />
+        </>
+      }
+    >
+      <Value className="font-mono">
+        {countryFlag(network.country)} {network.externalIp}
+      </Value>
     </Stat>
   )
 }

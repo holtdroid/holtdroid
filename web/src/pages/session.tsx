@@ -11,7 +11,7 @@ import { DeviceScreen } from "@/components/session/device-screen"
 import { useLiveScreen } from "@/components/session/live-screen"
 import { DevToolsPanel } from "@/components/session/devtools-panel"
 import { MetricsBar } from "@/components/session/metrics-bar"
-import { SessionToolbar } from "@/components/session/session-toolbar"
+import { AppActions, SessionToolbar } from "@/components/session/session-toolbar"
 import { StartProgress } from "@/components/session/start-progress"
 import { ToolTabs } from "@/components/session/tool-tabs"
 import { VersionSwitcher } from "@/components/session/version-switcher"
@@ -90,29 +90,27 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
             <ArrowLeftIcon />
           </Link>
         </Button>
-        <AppIcon src={session.iconUrl} className="size-8" />
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="truncate font-medium">{session.label || session.package}</span>
-            <SessionStateBadge state={state ?? session.state} />
-          </div>
-          <div className="text-muted-foreground truncate font-mono text-xs">
-            {session.package}
-            {session.versionName ? ` · ${session.versionName}` : ""} · {session.slot}
-          </div>
+        <div className="-ml-2 flex min-w-0 items-center gap-1">
+          <VersionSwitcher session={session} disabled={state !== "ready" || !manage}>
+            <AppIcon src={session.iconUrl} className="size-8" />
+            <span className="grid min-w-0">
+              <span className="flex items-center gap-2">
+                <span className="truncate font-medium">{session.label || session.package}</span>
+                <SessionStateBadge state={state ?? session.state} />
+              </span>
+              <span className="text-muted-foreground truncate font-mono text-xs">
+                {session.package}
+                {session.versionName ? ` · ${session.versionName}` : ""} · {session.slot}
+              </span>
+            </span>
+          </VersionSwitcher>
+          {state === "ready" && caps && (
+            <AppActions provider={provider} id={id} appRunning={status?.appRunning ?? true} />
+          )}
         </div>
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          {state === "ready" && caps && (
-            <SessionToolbar
-              provider={provider}
-              id={id}
-              locations={caps.locations}
-              clipboard={caps.clipboard}
-              appRunning={status?.appRunning ?? true}
-            />
-          )}
-          <VersionSwitcher session={session} disabled={state !== "ready" || !manage} />
+          {state === "ready" && caps && <SessionToolbar provider={provider} id={id} locations={caps.locations} />}
           <span className="text-muted-foreground inline-flex items-center gap-1 text-xs tabular-nums">
             <ClockIcon className="size-3.5" />
             {formatDuration(left)}
@@ -163,7 +161,13 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
                 <div className="min-w-0 flex-1">
                   <DeviceScreen provider={provider} id={id} live={live} />
                 </div>
-                <DeviceRail provider={provider} id={id} name={session.package} live={live} />
+                <DeviceRail
+                  provider={provider}
+                  id={id}
+                  name={session.package}
+                  live={live}
+                  clipboard={caps?.clipboard ?? false}
+                />
               </div>
             </ResizablePanel>
             <ResizableHandle withHandle />
@@ -181,7 +185,9 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
           </ResizablePanelGroup>
         )}
       </div>
-      {state === "ready" && <MetricsBar provider={provider} id={id} live={live} />}
+      {state === "ready" && (
+        <MetricsBar provider={provider} id={id} live={live} network={(caps?.locations.length ?? 0) > 0} />
+      )}
     </div>
   )
 }

@@ -1,12 +1,11 @@
-import { ArrowDownIcon, CheckIcon, ChevronDownIcon, HistoryIcon, Loader2Icon, SearchIcon } from "lucide-react"
-import { useMemo, useState } from "react"
+import { ArrowDownIcon, CheckIcon, ChevronDownIcon, Loader2Icon, SearchIcon } from "lucide-react"
+import { type ReactNode, useMemo, useState } from "react"
 import { toast } from "sonner"
 import type { ArtifactView, SessionView } from "@/api/client"
 import { useArtifacts, useInstallBuild } from "@/api/queries"
 import { AppIcon } from "@/components/app-icon"
 import { artifactTitle } from "@/components/artifact-list"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -15,7 +14,15 @@ import { useNow } from "@/hooks/use-now"
 import { formatRelative } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
-export function VersionSwitcher({ session, disabled }: { session: SessionView; disabled?: boolean }) {
+export function VersionSwitcher({
+  session,
+  disabled,
+  children,
+}: {
+  session: SessionView
+  disabled?: boolean
+  children: ReactNode
+}) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
   const [keepData, setKeepData] = useState(true)
@@ -67,16 +74,26 @@ export function VersionSwitcher({ session, disabled }: { session: SessionView; d
     )
   }
 
+  if (disabled) return <div className="flex min-w-0 items-center gap-3 px-2 py-1">{children}</div>
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button size="sm" variant="outline" disabled={disabled || install.isPending}>
-          {install.isPending ? <Loader2Icon className="animate-spin" /> : <HistoryIcon />}
-          {session.versionName || "Version"}
-          <ChevronDownIcon className="opacity-60" />
-        </Button>
+        <button
+          type="button"
+          title="Switch version"
+          disabled={install.isPending}
+          className="hover:bg-accent/60 focus-visible:ring-ring data-[state=open]:bg-accent/60 flex min-w-0 items-center gap-3 rounded-lg px-2 py-1 text-left transition-colors outline-none focus-visible:ring-2"
+        >
+          {children}
+          {install.isPending ? (
+            <Loader2Icon className="text-muted-foreground size-4 shrink-0 animate-spin" />
+          ) : (
+            <ChevronDownIcon className="text-muted-foreground size-4 shrink-0" />
+          )}
+        </button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="grid w-[28rem] max-w-[calc(100vw-2rem)] gap-3 p-3">
+      <PopoverContent align="start" className="grid w-[28rem] max-w-[calc(100vw-2rem)] gap-3 p-3">
         <div className="grid gap-1">
           <span className="text-sm font-medium">Switch version</span>
           <span className="text-muted-foreground text-xs">

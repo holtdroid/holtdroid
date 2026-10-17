@@ -351,13 +351,19 @@ codecs and reports that it can't capture audio.
   reconnecting with backoff). Autosync reports every change of the device
   clipboard as a device message; the agent caches the text, so the clipboard
   works whether or not the app runs and needs no Frida.
-- Browser → device: the user clicks "Paste to device" (needs a user gesture
-  for `navigator.clipboard.readText()`), the UI posts to `/clipboard`, the
-  agent sends a set-clipboard message and waits for the server's
-  acknowledgement. scrcpy caps a message at 256 KiB.
+- One button in the device rail controls sync: click turns it on or off,
+  hovering picks the direction (both ways by default, to the device, from
+  the device). Both settings live in `localStorage` with the screen prefs.
+- Browser → device: when the tab gains focus or something is copied in the
+  page, the UI reads `navigator.clipboard.readText()` (the browser may ask
+  for permission once, Safari and Firefox mostly refuse without a click) and
+  posts new text to `/clipboard`; the agent sends a set-clipboard message
+  and waits for the server's acknowledgement. scrcpy caps a message at
+  256 KiB.
 - Device → browser: changes go out over SSE `/clipboard/events`. The UI
-  calls `navigator.clipboard.writeText()` when the tab is focused and always
-  shows the last value in a popover.
+  calls `navigator.clipboard.writeText()` when the tab is focused, otherwise
+  on the next focus. The last synced text is remembered so a value never
+  bounces back.
 - Ctrl/Cmd+V on the focused screen pastes through the screen's own control
   socket.
 

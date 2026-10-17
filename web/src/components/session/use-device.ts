@@ -43,3 +43,17 @@ export function useDeviceAction(provider: string, id: string) {
     onError: (e) => toast.error("Device action failed", { description: e.message }),
   })
 }
+
+export function networkKey(provider: string, id: string) {
+  return ["network", provider, id]
+}
+
+export function useNetwork(provider: string, id: string, enabled = true) {
+  const client = useMemo(() => agentClient(provider, id), [provider, id])
+  return useQuery({
+    queryKey: networkKey(provider, id),
+    queryFn: () => unwrap(client.GET("/v1/network")),
+    refetchInterval: 30_000,
+    enabled,
+  })
+}

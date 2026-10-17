@@ -36,11 +36,13 @@ reason stays visible on the home page.
 ## The app inside a session
 
 When the app is closed or crashes it stays closed: the device stays `ready`
-and the toolbar shows **Start app**. Starting it from the device's app
-drawer works as well; DevTools and clipboard sync attach either way.
+and the play button next to the app's name in the session header starts it
+again; restart, reinstall and **Save app data now** sit next to it. Starting
+it from the device's app drawer works as well; DevTools and clipboard sync
+attach either way.
 
-**Switch version** (the version button in the session header) lists every
-build with the same application ID and installs the chosen one into the
+**Switch version** (click the app's name and icon in the session header)
+lists every build with the same application ID and installs the chosen one into the
 running device:
 
 - with **Keep app data** on (default) it is installed over the current

@@ -7,7 +7,7 @@ export function IconButton({ label, ...props }: { label: string } & React.Compon
       <TooltipTrigger asChild>
         <Button size="icon-sm" variant="ghost" aria-label={label} {...props} />
       </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
+      <TooltipContent className="max-w-64">{label}</TooltipContent>
     </Tooltip>
   )
 }
