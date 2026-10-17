@@ -1,8 +1,11 @@
 import { useQuery } from "@tanstack/react-query"
-import { BugIcon, RefreshCwIcon } from "lucide-react"
-import { type Ref, useLayoutEffect, useMemo, useState } from "react"
+import { BugIcon, RefreshCwIcon, Settings2Icon } from "lucide-react"
+import { useTheme } from "next-themes"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react"
 import { agentClient, type DevToolsTarget, sessionBase, unwrap } from "@/api/client"
 import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import {
   Select,
   SelectContent,
@@ -12,6 +15,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
+import { setDevToolsPrefs, useDevToolsPrefs } from "@/lib/devtools-prefs"
+import { prepareDevTools, styleDevTools } from "@/lib/devtools-style"
 
 const key = (t: DevToolsTarget) => `${t.socket}/${t.id}`
 
@@ -32,10 +38,6 @@ export function devtoolsURL(provider: string, id: string, t: DevToolsTarget) {
   return `${base}/devtools-frontend/@${encodeURIComponent(t.frontendRev)}/inspector.html?${scheme}=${socket}`
 }
 
-function disableScreencast() {
-  for (const name of ["screencast-enabled", "screencastEnabled"]) localStorage.setItem(name, "false")
-}
-
 export function DevToolsPanel({
   provider,
   id,
@@ -43,7 +45,7 @@ export function DevToolsPanel({
 }: {
   provider: string
   id: string
-  frameRef: Ref<HTMLIFrameElement>
+  frameRef: (frame: HTMLIFrameElement | null) => void
 }) {
   const client = useMemo(() => agentClient(provider, id), [provider, id])
   const targets = useQuery({
@@ -56,9 +58,28 @@ export function DevToolsPanel({
   const selected = useMemo(() => pick(items, chosen), [items, chosen])
   const selectedKey = selected ? key(selected) : null
 
+  const prefs = useDevToolsPrefs()
+  const dark = useTheme().resolvedTheme === "dark"
+  const [frame, setFrame] = useState<HTMLIFrameElement | null>(null)
+  const attachFrame = useCallback(
+    (el: HTMLIFrameElement | null) => {
+      frameRef(el)
+      setFrame(el)
+    },
+    [frameRef],
+  )
+
   useLayoutEffect(() => {
-    if (selectedKey) disableScreencast()
-  }, [selectedKey])
+    if (selectedKey) prepareDevTools(prefs, dark)
+  }, [selectedKey, prefs, dark])
+
+  useEffect(() => {
+    if (!frame) return undefined
+    const apply = () => styleDevTools(frame, prefs, dark)
+    apply()
+    frame.addEventListener("load", apply)
+    return () => frame.removeEventListener("load", apply)
+  }, [frame, prefs, dark])
 
   const byProcess = useMemo(() => {
     const groups = new Map<string, DevToolsTarget[]>()
@@ -98,11 +119,32 @@ export function DevToolsPanel({
         <Button variant="ghost" size="icon-sm" onClick={() => void targets.refetch()} aria-label="Refresh targets">
           <RefreshCwIcon className={targets.isFetching ? "animate-spin" : ""} />
         </Button>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon-sm" aria-label="DevTools settings">
+              <Settings2Icon />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="grid w-72 gap-3">
+            <PrefSwitch
+              id="devtools-portal-style"
+              label="Portal font and colors"
+              checked={prefs.portalStyle}
+              onChange={(portalStyle) => setDevToolsPrefs({ portalStyle })}
+            />
+            <PrefSwitch
+              id="devtools-screencast"
+              label="Screencast on open"
+              checked={prefs.screencast}
+              onChange={(screencast) => setDevToolsPrefs({ screencast })}
+            />
+          </PopoverContent>
+        </Popover>
       </div>
       {selected ? (
         <iframe
           key={key(selected)}
-          ref={frameRef}
+          ref={attachFrame}
           title="Chrome DevTools"
           src={devtoolsURL(provider, id, selected)}
           className="min-h-0 w-full flex-1 bg-white"
@@ -114,6 +156,25 @@ export function DevToolsPanel({
             : "No debuggable WebView yet. Targets appear as soon as the app opens one."}
         </div>
       )}
+    </div>
+  )
+}
+
+function PrefSwitch({
+  id,
+  label,
+  checked,
+  onChange,
+}: {
+  id: string
+  label: string
+  checked: boolean
+  onChange: (checked: boolean) => void
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <Label htmlFor={id}>{label}</Label>
+      <Switch id={id} checked={checked} onCheckedChange={onChange} />
     </div>
   )
 }

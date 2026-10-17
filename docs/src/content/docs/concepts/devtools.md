@@ -43,6 +43,12 @@ auth cookie covers it and nothing has to be installed on your machine. When
 the app navigates or recreates its WebView, the panel reconnects to the new
 target automatically.
 
-DevTools opens with its own screencast of the page turned off, since the
-session already shows the screen. Turn it on with the phone icon at the left
-of the DevTools toolbar; it is off again the next time a target opens.
+The settings button next to the target selector holds two switches, saved
+in your browser:
+
+- **Portal font and colors** (on by default): DevTools uses the portal's
+  font, gray accents instead of Chrome's blue, and follows the portal's
+  light or dark theme.
+- **Screencast on open** (off by default): DevTools' own preview of the page
+  is off, since the session already shows the screen. The phone icon at the
+  left of the DevTools toolbar still turns it on for the current target.

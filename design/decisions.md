@@ -1212,3 +1212,31 @@ ports, most of them usually dead. A server that accepts and closes a
 connection without sending anything looks down. A probe costs the live
 server one idle connection for 2 s.
 
+## 53. The portal restyles the DevTools frontend through its design tokens
+
+**Context.** The DevTools frontend in the session page is Chrome's own,
+with its fonts and blue accents, next to a gray portal. It is served from
+the session path on the portal's origin by the agent's frontend cache, so
+the portal can reach into the iframe's document and localStorage.
+
+**Decision.**
+
+- After each load of the iframe the portal adds a `<style>` to its document
+  that overrides the reference palette (`--ref-palette-primary*`,
+  `secondary*`, `neutral*`, `neutral-variant*`) with grays of the same tone
+  (`lab(T 0 0)`), the font tokens (`--default-font-family`, monospace) with
+  the portal's Geist and Tailwind's mono stack, and the blue-tinted dark
+  surfaces. Custom properties inherit into DevTools' shadow roots, so a
+  stylesheet on `:root` reaches every panel. The frontend files are not
+  rewritten: the agent keeps serving them byte for byte.
+- Before the iframe loads, the portal writes DevTools' hosted-mode settings
+  to localStorage: `ui-theme` follows the portal theme, and
+  `screencast-enabled` is off. Both new and old setting names are written,
+  since the frontend revision follows the device's WebView.
+- Both are per-browser switches in the DevTools panel (`holtdroid:devtools`
+  in localStorage), restyling on by default.
+
+**Consequences.** The overrides use DevTools' internal token names, which
+are not an API: a frontend revision that renames them falls back to stock
+DevTools colors, nothing breaks. Chart and syntax colors (tertiary, error,
+token colors) stay DevTools' own.
