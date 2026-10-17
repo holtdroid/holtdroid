@@ -28,8 +28,12 @@ spec:
             - { name: HOLTDROID_SLOTS, value: {{ .Values.providers.fake.slots | quote }} }
             - { name: HOLTDROID_STEPDELAY, value: {{ .Values.providers.fake.stepDelay | quote }} }
             - { name: HOLTDROID_PUBLICURL, value: {{ printf "http://%s-provider-fake:8080" $name | quote }} }
+            {{- if .Values.sshGateway.enabled }}
+            - { name: HOLTDROID_TUNNELURL, value: {{ printf "http://%s-provider-fake:8081" $name | quote }} }
+            {{- end }}
           ports:
             - { name: http, containerPort: 8080 }
+            - { name: tunnel, containerPort: 8081 }
           readinessProbe:
             httpGet: { path: /v1/health, port: http }
           resources:
@@ -46,4 +50,5 @@ spec:
     {{- include "holtdroid.selector" (dict "root" . "component" "provider-fake") | nindent 4 }}
   ports:
     - { name: http, port: 8080, targetPort: http }
+    - { name: tunnel, port: 8081, targetPort: tunnel }
 {{- end }}

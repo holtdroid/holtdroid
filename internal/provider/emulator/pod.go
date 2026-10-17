@@ -68,6 +68,7 @@ func (p *Provider) renderPod(id, slot string, req contract.CreateSession, locati
 
 	env := []corev1.EnvVar{
 		{Name: "HOLTDROID_LISTEN", Value: ":" + strconv.Itoa(p.cfg.AgentPort)},
+		{Name: "HOLTDROID_TUNNELLISTEN", Value: ":" + strconv.Itoa(p.cfg.TunnelPort)},
 		{Name: "HOLTDROID_ARTIFACTURL", Value: req.ArtifactURL},
 		{Name: "HOLTDROID_PACKAGE", Value: req.Package},
 		{Name: "HOLTDROID_SESSION__ID", Value: id},
@@ -99,7 +100,10 @@ func (p *Provider) renderPod(id, slot string, req contract.CreateSession, locati
 		Image:           p.cfg.Image,
 		ImagePullPolicy: corev1.PullPolicy(p.cfg.ImagePullPolicy),
 		Env:             env,
-		Ports:           []corev1.ContainerPort{{Name: "agent", ContainerPort: int32(p.cfg.AgentPort)}},
+		Ports: []corev1.ContainerPort{
+			{Name: "agent", ContainerPort: int32(p.cfg.AgentPort)},
+			{Name: "tunnel", ContainerPort: int32(p.cfg.TunnelPort)},
+		},
 		Resources:       p.resources,
 		SecurityContext: &corev1.SecurityContext{Privileged: new(true)},
 		VolumeMounts: []corev1.VolumeMount{
@@ -195,9 +199,10 @@ func (p *Provider) podSession(pod corev1.Pod) contract.Session {
 	if state == contract.StateProvisioning {
 		detail = pending(pod)
 	}
-	agentURL := ""
+	agentURL, tunnelURL := "", ""
 	if pod.Status.PodIP != "" {
 		agentURL = "http://" + net.JoinHostPort(pod.Status.PodIP, strconv.Itoa(p.cfg.AgentPort))
+		tunnelURL = "http://" + net.JoinHostPort(pod.Status.PodIP, strconv.Itoa(p.cfg.TunnelPort))
 	}
 	return contract.Session{
 		ID:           pod.Labels[labelSession],
@@ -210,6 +215,7 @@ func (p *Provider) podSession(pod corev1.Pod) contract.Session {
 		Reason:       reason,
 		Detail:       detail,
 		AgentURL:     agentURL,
+		TunnelURL:    tunnelURL,
 		CreatedAt:    created,
 		LastActivity: parseTime(a[annotationLastActivity], created),
 	}

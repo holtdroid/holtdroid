@@ -13,6 +13,18 @@
 {{- end -}}
 {{- $providers = concat $providers .Values.extraProviders -}}
 {{- $_ := set $cfg "providers" $providers -}}
+{{- $g := .Values.sshGateway -}}
+{{- if $g.enabled -}}
+{{- $_ := set $cfg "ssh" (dict
+  "enabled" true
+  "gatewayURL" (printf "http://%s-ssh-gateway-headless:8080" $name)
+  "publicHost" $g.publicHost
+  "publicPort" (int ($g.publicPort | default $g.service.port))
+  "allowADB" $g.allowADB
+  "allowReverse" $g.allowReverse
+  "clientIsolation" $g.clientIsolation
+  "maxTunnelsPerConnection" $g.maxTunnelsPerConnection) -}}
+{{- end -}}
 {{- $p := .Values.api.persistence -}}
 {{- if and $p.enabled (not $p.existingClaim) }}
 apiVersion: v1

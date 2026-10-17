@@ -702,3 +702,43 @@ source lists nothing while nobody has approved a login; copies stay. The
 token cache is the job's only state and holds credentials, so it lives on a
 private volume.
 
+
+## 38. SSH tunnels: status from the agent, a port list in the browser, privileged ports allowed
+
+**Context.** Using the gateway from decision #21 means typing a `-R` per
+port, and nobody could tell from the portal whether a tunnel was up. The
+maintainer wants the session page to show which ports are being forwarded,
+an editor for the set of ports one usually forwards, kept in the browser,
+and a single command for all of them. The default set is 80, 443 and
+3000–3010.
+
+**Decision.**
+
+- The agent is the one place that sees every tunnel into its device, whichever
+  gateway replica opened it. It records them (with the SSH user the gateway
+  passes in `X-Holtdroid-User`) and streams them as `GET /v1/tunnels` (SSE)
+  on the normal Agent API, which the UI reaches through the api proxy. The
+  gateway and the api stay stateless, and nothing new is stored.
+- The port list is UI state in `localStorage`: ports, ranges, and
+  `device:local` pairs, the same for every session. The UI expands it into
+  one `ssh -N … -R p:localhost:p …` command, optionally with the ADB `-L`.
+  Nothing on the server knows about the list.
+- `reversePorts` defaults to `1-65535` instead of `1024-65535`. The port is
+  bound on the device's loopback by adbd, which runs as root on emulators,
+  so 80 and 443 can't collide with anything outside the device. Where adbd
+  can't bind a port (a physical phone), the agent's `adb reverse` fails and
+  the client sees a failed forward.
+- An interactive login (`ssh` without `-N`) prints the help and holds the
+  tunnels until Ctrl+C, instead of exiting at once. Commands still never
+  run. Login failures explain themselves with an SSH banner, once per
+  connection.
+- Spliced streams half-close where both ends can (TCP, SSH channels, yamux
+  streams), and the other direction then gets 30 s before both are closed.
+  That keeps `printf … | nc` style requests working without leaving
+  half-open streams around forever. The ADB WebSocket closes outright.
+
+**Consequences.** The status is live and correct with several gateway
+replicas. Who connected is visible to everyone who can see the session, as
+sessions already are. The default command opens 13 tunnels, inside the
+default `maxTunnelsPerConnection` of 32, which the api mirrors so the UI
+can warn. A list stays in one browser, like SSH keys do.

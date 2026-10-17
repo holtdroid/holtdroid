@@ -93,6 +93,7 @@ type Session struct {
 	Reason       string       `json:"reason,omitempty"`
 	Detail       string       `json:"detail,omitempty"`
 	AgentURL     string       `json:"agentUrl"`
+	TunnelURL    string       `json:"tunnelUrl,omitempty" doc:"in-cluster base URL of the agent's tunnel endpoints, for the ssh-gateway only"`
 	CreatedAt    time.Time    `json:"createdAt"`
 	LastActivity time.Time    `json:"lastActivity"`
 }
@@ -215,4 +216,22 @@ type DeviceSettings struct {
 	Locale         *string         `json:"locale,omitempty" pattern:"^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{1,8})*$" maxLength:"35"`
 	AutoTime       *bool           `json:"autoTime,omitempty" doc:"true syncs the clock with real time and keeps it synced"`
 	TimeOffset     *int64          `json:"timeOffset,omitempty" minimum:"-3155760000000" maximum:"3155760000000" doc:"sets the device clock to real time plus this many milliseconds and turns autoTime off"`
+}
+
+// Tunnels is what the ssh-gateway has open into a session right now.
+type Tunnels struct {
+	ADB     []ADBTunnel     `json:"adb"`
+	Reverse []ReverseTunnel `json:"reverse"`
+}
+
+type ADBTunnel struct {
+	User  string    `json:"user"`
+	Since time.Time `json:"since"`
+}
+
+type ReverseTunnel struct {
+	Port        int       `json:"port" doc:"device port published as localhost:{port}"`
+	User        string    `json:"user"`
+	Since       time.Time `json:"since"`
+	Connections int       `json:"connections" doc:"device-side connections open right now"`
 }

@@ -21,6 +21,8 @@ import (
 
 type Config struct {
 	Listen           string
+	TunnelListen     string
+	ADBAddr          string
 	ArtifactURL      string
 	Package          string
 	Location         string
@@ -40,6 +42,8 @@ type Config struct {
 func DefaultConfig() Config {
 	return Config{
 		Listen:           ":8080",
+		TunnelListen:     ":8081",
+		ADBAddr:          "127.0.0.1:5555",
 		ADB:              "adb",
 		Serial:           "emulator-5554",
 		Script:           "/opt/holtdroid/script",
@@ -89,6 +93,7 @@ type Agent struct {
 	clip     clipboardSync
 	frontend *Frontend
 	controls *Controls
+	tunnels  *Tunnels
 	actions  chan appRequest
 	launches chan App
 	busy     atomic.Bool
@@ -115,6 +120,7 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 		clip:     NewClipboard(screen, log),
 		frontend: NewFrontend(cfg.DevToolsFrontend, filepath.Join(cfg.CacheDir, "devtools-frontend")),
 		controls: NewControls(dev, inst.SetLocales),
+		tunnels:  NewTunnels(adbTunnels{adb: dev, addr: cfg.ADBAddr}, log),
 		actions:  make(chan appRequest, 1),
 		launches: make(chan App),
 		status:   contract.StatusEvent{State: contract.StateProvisioning},
@@ -130,6 +136,10 @@ func (a *Agent) Handler() http.Handler {
 	mux.Handle("GET /devtools-frontend/{rev}/{file...}", a.frontend)
 	return mux
 }
+
+// TunnelHandler serves the ssh-gateway's tunnels; it must never be reachable
+// through the api proxy.
+func (a *Agent) TunnelHandler() http.Handler { return a.tunnels.Handler() }
 
 // Run boots the device, installs and instruments the app and keeps it
 // running until ctx ends. Failures end in the failed state; the API keeps
@@ -534,4 +544,8 @@ func (a *Agent) DeviceAction(ctx context.Context, action contract.DeviceAction) 
 
 func (a *Agent) Screenshot(ctx context.Context) ([]byte, error) {
 	return a.dev.Screencap(ctx)
+}
+
+func (a *Agent) WatchTunnels(ctx context.Context, send func(contract.Tunnels) error) error {
+	return a.tunnels.Watch(ctx, send)
 }

@@ -305,6 +305,9 @@ func TestRoundTrip(t *testing.T) {
 		if err != nil || got.State != s.want || got.AgentURL != s.wantAgent {
 			t.Fatalf("pod %+v: session %+v, %v", s.status, got, err)
 		}
+		if wantTunnel := strings.Replace(s.wantAgent, ":8080", ":8081", 1); got.TunnelURL != wantTunnel {
+			t.Fatalf("tunnel url %q, want %q", got.TunnelURL, wantTunnel)
+		}
 		if s.want == contract.StateFailed && got.Reason != "emulator exited with code 1: Error" {
 			t.Fatalf("reason %q", got.Reason)
 		}

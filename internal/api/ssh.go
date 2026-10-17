@@ -7,6 +7,8 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -24,6 +26,7 @@ type SSHInfo struct {
 	AllowADB        bool   `json:"allowADB"`
 	AllowReverse    bool   `json:"allowReverse"`
 	ClientIsolation bool   `json:"clientIsolation"`
+	MaxTunnels      int    `json:"maxTunnels" doc:"tunnels one SSH connection may open"`
 }
 
 type SSHKeyInput struct {
@@ -94,6 +97,7 @@ func (s *Server) sshInfo() SSHInfo {
 	return SSHInfo{
 		Enabled: true, Host: host, Port: c.PublicPort,
 		AllowADB: c.AllowADB, AllowReverse: c.AllowReverse, ClientIsolation: c.ClientIsolation,
+		MaxTunnels: c.MaxTunnelsPerConnection,
 	}
 }
 
@@ -186,4 +190,34 @@ func (s *Server) gatewayReplicas(ctx context.Context) ([]string, error) {
 		urls = append(urls, u.String())
 	}
 	return urls, nil
+}
+
+// SSHSession resolves an SSH user name, "{provider}-{id}", for the gateway.
+func (s *Server) SSHSession(ctx context.Context, slug string) (contract.SSHSession, error) {
+	names := slices.Clone(s.provOrder)
+	slices.SortFunc(names, func(a, b string) int { return len(b) - len(a) })
+	for _, name := range names {
+		id, ok := strings.CutPrefix(slug, name+"-")
+		if !ok || id == "" {
+			continue
+		}
+		sess, err := s.providers[name].Get(ctx, id)
+		if errors.Is(err, contract.ErrNotFound) {
+			continue
+		}
+		if err != nil {
+			return contract.SSHSession{}, err
+		}
+		return contract.SSHSession{Provider: name, ID: sess.ID, Owner: sess.Owner, State: sess.State, TunnelURL: sess.TunnelURL}, nil
+	}
+	return contract.SSHSession{}, fmt.Errorf("%w: session %q", contract.ErrNotFound, slug)
+}
+
+func (s *Server) SSHActivity(ctx context.Context, slug string) error {
+	sess, err := s.SSHSession(ctx, slug)
+	if err != nil {
+		return err
+	}
+	s.activity.Mark(sessionKey{sess.Provider, sess.ID})
+	return nil
 }

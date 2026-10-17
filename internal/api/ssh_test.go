@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"errors"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/kriakiku/holtdroid/internal/auth"
 	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/kriakiku/holtdroid/internal/provider/fake"
 	"github.com/kriakiku/holtdroid/internal/sshgateway"
 )
 
@@ -113,7 +115,7 @@ func TestSSHKeysSync(t *testing.T) {
 	b, bFP := sshKey(t)
 
 	info := decode[SSHInfo](t, h.do(http.MethodGet, "/api/v1/ssh", "alice", "", nil))
-	want := SSHInfo{Enabled: true, Host: "android.example.com", Port: 2222, AllowADB: true, AllowReverse: true}
+	want := SSHInfo{Enabled: true, Host: "android.example.com", Port: 2222, AllowADB: true, AllowReverse: true, MaxTunnels: 32}
 	if info != want {
 		t.Fatalf("info = %+v", info)
 	}
@@ -176,5 +178,38 @@ func TestSSHKeysValidation(t *testing.T) {
 	}
 	if strings.Contains(rec.Body.String(), "BEGIN OPENSSH") {
 		t.Fatal("response echoes the submitted key")
+	}
+}
+
+func TestInternalSSHSessions(t *testing.T) {
+	ctx := context.Background()
+	h := newHarness(t, 2, func(c *fake.Config) { c.TunnelURL = "http://tunnels" })
+	v := h.create("otter")
+	srv := httptest.NewServer(h.internal)
+	t.Cleanup(srv.Close)
+	c := contract.NewSSHSessionsClient(srv.URL, nil)
+
+	got, err := c.SSHSession(ctx, "fake-"+v.ID)
+	want := contract.SSHSession{Provider: "fake", ID: v.ID, Owner: "otter", State: contract.StateProvisioning, TunnelURL: "http://tunnels/agents/" + v.ID}
+	if err != nil || got != want {
+		t.Fatalf("session %+v, %v; want %+v", got, err, want)
+	}
+	for _, slug := range []string{"fake-nope", "other-" + v.ID, "fake-", v.ID} {
+		if _, err := c.SSHSession(ctx, slug); !errors.Is(err, contract.ErrNotFound) {
+			t.Errorf("%s: %v", slug, err)
+		}
+	}
+
+	h.clock.Advance(20 * time.Minute)
+	if err := c.SSHActivity(ctx, "fake-"+v.ID); err != nil {
+		t.Fatal(err)
+	}
+	h.clock.Advance(11 * time.Minute)
+	h.srv.Reap(ctx)
+	if _, err := h.provider.Get(ctx, v.ID); err != nil {
+		t.Fatalf("session with tunnel traffic reaped: %v", err)
+	}
+	if err := c.SSHActivity(ctx, "fake-nope"); !errors.Is(err, contract.ErrNotFound) {
+		t.Fatalf("activity for an unknown session: %v", err)
 	}
 }

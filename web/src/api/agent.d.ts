@@ -213,10 +213,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tunnels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description SSH tunnels into the device; the first event is the current set. */
+        get: operations["watchTunnels"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        ADBTunnel: {
+            /** Format: date-time */
+            since: string;
+            user: string;
+        };
         Clipboard: {
             text: string;
         };
@@ -351,6 +373,21 @@ export interface components {
             externalIp?: string;
             location: string;
         };
+        ReverseTunnel: {
+            /**
+             * Format: int64
+             * @description device-side connections open right now
+             */
+            connections: number;
+            /**
+             * Format: int64
+             * @description device port published as localhost:{port}
+             */
+            port: number;
+            /** Format: date-time */
+            since: string;
+            user: string;
+        };
         SetLocation: {
             location: string;
         };
@@ -361,6 +398,10 @@ export interface components {
             reason?: string;
             /** @enum {string} */
             state: "provisioning" | "booting" | "installing" | "instrumenting" | "ready" | "stopping" | "failed";
+        };
+        Tunnels: {
+            adb: components["schemas"]["ADBTunnel"][];
+            reverse: components["schemas"]["ReverseTunnel"][];
         };
     };
     responses: never;
@@ -824,6 +865,46 @@ export interface operations {
                          * @constant
                          */
                         event: "state";
+                        /** @description The event ID. */
+                        id?: number;
+                        /** @description The retry time in milliseconds. */
+                        retry?: number;
+                    }[];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    watchTunnels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": {
+                        data: components["schemas"]["Tunnels"];
+                        /**
+                         * @description The event name.
+                         * @constant
+                         */
+                        event: "tunnels";
                         /** @description The event ID. */
                         id?: number;
                         /** @description The retry time in milliseconds. */

@@ -506,6 +506,11 @@ export interface components {
             enabled: boolean;
             /** @description Host users connect to; empty means the host the UI is served from */
             host?: string;
+            /**
+             * Format: int64
+             * @description tunnels one SSH connection may open
+             */
+            maxTunnels: number;
             /** Format: int64 */
             port: number;
         };

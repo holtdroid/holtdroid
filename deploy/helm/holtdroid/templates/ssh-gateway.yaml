@@ -1,0 +1,120 @@
+{{- $g := .Values.sshGateway -}}
+{{- if $g.enabled }}
+{{- $name := include "holtdroid.fullname" . -}}
+{{- $component := "ssh-gateway" -}}
+{{- $cfg := dict
+  "listen" ":2222"
+  "httpListen" ":8080"
+  "hostKey" $g.hostKey
+  "apiURL" (printf "http://%s-api-internal:8081" $name)
+  "allowADB" $g.allowADB
+  "allowReverse" $g.allowReverse
+  "clientIsolation" $g.clientIsolation
+  "reversePorts" $g.reversePorts
+  "keyTTL" $g.keyTTL
+  "maxTunnelsPerConnection" $g.maxTunnelsPerConnection
+-}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}-{{ $component }}
+  labels:
+    {{- include "holtdroid.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    {{- toYaml $cfg | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}-{{ $component }}
+  labels:
+    {{- include "holtdroid.labels" . | nindent 4 }}
+    app.kubernetes.io/component: {{ $component }}
+spec:
+  replicas: {{ $g.replicas }}
+  selector:
+    matchLabels:
+      {{- include "holtdroid.selector" (dict "root" . "component" $component) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "holtdroid.selector" (dict "root" . "component" $component) | nindent 8 }}
+      annotations:
+        checksum/config: {{ toYaml $cfg | sha256sum }}
+    spec:
+      {{- include "holtdroid.pod" (dict "root" .) | nindent 6 }}
+      automountServiceAccountToken: false
+      containers:
+        - name: {{ $component }}
+          {{- include "holtdroid.container" (dict "root" .) | nindent 10 }}
+          args: [ssh-gateway, --config, /etc/holtdroid/config.yaml]
+          {{- with $g.env }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - { name: ssh, containerPort: 2222 }
+            - { name: http, containerPort: 8080 }
+          readinessProbe:
+            httpGet: { path: /v1/health, port: http }
+          livenessProbe:
+            tcpSocket: { port: ssh }
+            periodSeconds: 20
+          resources:
+            {{- toYaml $g.resources | nindent 12 }}
+          volumeMounts:
+            - { name: config, mountPath: /etc/holtdroid, readOnly: true }
+      volumes:
+        - name: config
+          configMap:
+            name: {{ $name }}-{{ $component }}
+      {{- with $g.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $g.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $g.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+# Every replica's address, so the api can push key updates to all of them.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}-{{ $component }}-headless
+  labels:
+    {{- include "holtdroid.labels" . | nindent 4 }}
+spec:
+  clusterIP: None
+  selector:
+    {{- include "holtdroid.selector" (dict "root" . "component" $component) | nindent 4 }}
+  ports:
+    - { name: http, port: 8080, targetPort: http }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}-{{ $component }}
+  labels:
+    {{- include "holtdroid.labels" . | nindent 4 }}
+  {{- with $g.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ $g.service.type }}
+  selector:
+    {{- include "holtdroid.selector" (dict "root" . "component" $component) | nindent 4 }}
+  ports:
+    - name: ssh
+      port: {{ $g.service.port }}
+      targetPort: ssh
+      {{- if and $g.service.nodePort (eq $g.service.type "NodePort") }}
+      nodePort: {{ $g.service.nodePort }}
+      {{- end }}
+{{- end }}

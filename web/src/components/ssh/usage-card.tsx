@@ -46,6 +46,7 @@ export function UsageCard({ info }: { info: SSHInfo }) {
           </div>
         )}
         <p className="text-muted-foreground text-xs">
+          The SSH button on a session page shows what is connected and builds one command for your whole list of ports.
           Shells are not available — the connection only carries these tunnels.
         </p>
       </CardContent>

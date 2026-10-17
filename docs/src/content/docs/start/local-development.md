@@ -42,6 +42,12 @@ directory), `--slots 4`, `--step-delay 2s`, `--idle-timeout 30m`,
 `--cache <dir>`, `--no-direct` and `--default-location de` (fake VPN
 locations).
 
+It also runs the SSH gateway on `--ssh :2222` with a temporary host key, so
+the session page's SSH commands work against fake devices. Their ADB is an
+echo server and their published ports are local listeners. Add a key on the
+SSH keys page, then e.g. `ssh -N -p 2222 -o StrictHostKeyChecking=no
+-R 3000:localhost:3000 fake-<id>@localhost`.
+
 Frontend tooling runs on Bun. Type checking uses TypeScript 7 (the native
 compiler); linting and formatting use oxlint and oxfmt.
 

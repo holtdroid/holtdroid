@@ -18,15 +18,17 @@ import (
 
 type Config struct {
 	Listen          string
+	TunnelListen    string
 	Slots           int
 	PublicURL       string
+	TunnelURL       string
 	StepDelay       time.Duration
 	NoDirect        bool
 	DefaultLocation string
 }
 
 func DefaultConfig() Config {
-	return Config{Listen: ":8080", Slots: 4, PublicURL: "http://localhost:8080", StepDelay: 2 * time.Second}
+	return Config{Listen: ":8080", TunnelListen: ":8081", Slots: 4, PublicURL: "http://localhost:8080", StepDelay: 2 * time.Second}
 }
 
 var Locations = []contract.Location{
@@ -142,6 +144,10 @@ func (p *Provider) Create(_ context.Context, req contract.CreateSession) (contra
 
 	id := randomID()
 	location := cmp.Or(req.Location, p.location)
+	tunnelURL := ""
+	if p.cfg.TunnelURL != "" {
+		tunnelURL = strings.TrimRight(p.cfg.TunnelURL, "/") + "/agents/" + id
+	}
 	d := newDevice(contract.Session{
 		ID:           id,
 		Slot:         slot,
@@ -151,6 +157,7 @@ func (p *Provider) Create(_ context.Context, req contract.CreateSession) (contra
 		Location:     location,
 		State:        contract.StateProvisioning,
 		AgentURL:     strings.TrimRight(p.cfg.PublicURL, "/") + "/agents/" + id,
+		TunnelURL:    tunnelURL,
 		CreatedAt:    p.now().UTC(),
 		LastActivity: p.now().UTC(),
 	}, p.cfg.StepDelay, p.offers)

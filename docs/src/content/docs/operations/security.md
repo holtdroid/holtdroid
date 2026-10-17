@@ -21,6 +21,10 @@ sidebar:
 - **The VPN gateway** holds your VPN credentials and relays plain SOCKS
   inside the cluster. Only session Pods should reach it; see
   [Shared VPN gateway](/holtdroid/operations/vpn-gateway/).
+- **The SSH gateway** (optional) lets anyone with a registered key tunnel
+  to a device's ADB and publish ports on its loopback. It never runs commands
+  or forwards anywhere else. Turn on `clientIsolation` if users must only
+  reach their own sessions; see [SSH access](/holtdroid/concepts/ssh/).
 - **Who can get in.** The default `anonymous` mode lets anyone who reaches the
   URL launch devices. Put it on a private network, or use `password`, `oidc`
   or `header` — see [Authentication](/holtdroid/configuration/authentication/).
@@ -31,8 +35,11 @@ sidebar:
 
 ## What the chart does for you
 
-- The api's internal port (artifact downloads for agents) is a separate
-  Service and is never routed by the ingress.
+- The api's internal port (artifact downloads for agents, session lookups
+  for the SSH gateway) is a separate Service and is never routed by the
+  ingress.
+- Session agents accept connections only from the api, and on their tunnel
+  port only from the SSH gateway (NetworkPolicy).
 - Every service except the session's emulator container runs as non-root
   with a read-only root filesystem.
 - Secrets are only referenced in config and resolved in memory; they are

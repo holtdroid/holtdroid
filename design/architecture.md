@@ -385,7 +385,7 @@ flowchart LR
   gw -- "WireGuard nl" --> vnl[(VPN server NL)]
 ```
 
-## SSH access (planned)
+## SSH access
 
 Developers reach a device from their own machine over SSH, without VPNs or
 kubectl:
@@ -399,8 +399,25 @@ adb connect localhost:5555
 ssh -N -p 2222 -R 3000:localhost:3000 -R 5000:localhost:5000 emulator-7f3a9c@android.example.com
 ```
 
-The SSH username is the session **slug** (`{provider}-{id}`), shown with
-ready-to-copy commands on the session page.
+The SSH username is the session **slug** (`{provider}-{id}`). The api
+resolves it by trying the providers whose name plus `-` prefixes the slug,
+longest first.
+
+### On the session page
+
+The toolbar's **SSH** popover (`web/src/components/session/ssh-control.tsx`)
+shows:
+
+- **Connection status**, live from the agent's `GET /v1/tunnels` SSE: open
+  ADB connections with their user, and published ports with their user and
+  the number of device-side connections.
+- **A port list** kept in `localStorage` (`holtdroid:ssh:ports`, default
+  `80`, `443`, `3000-3010`): single ports, ranges up to 256 ports, and
+  `device:local` mappings. Each entry is coloured by whether it is
+  published right now.
+- **One command** with a `-R` per port and optionally `-L 5555:adb:5555`
+  (`holtdroid:ssh:adb`). It warns when the count exceeds the gateway's
+  `maxTunnelsPerConnection`, which the api mirrors as `ssh.maxTunnels`.
 
 ### One gateway, routed by username
 
@@ -412,22 +429,24 @@ is **not a shell server**:
 
 | SSH request | Behaviour |
 |-------------|-----------|
-| `session` channel (shell, exec, subsystem/sftp, pty) | Accepted only to print a short help text (the forwarding commands for this session), then closed with exit status 1. Nothing is ever executed. |
+| `session` channel (shell, exec, subsystem/sftp, pty) | Accepted only to print a short help text. `exec` and subsystems (sftp) then exit with status 1; an interactive `shell` stays open, holding the connection's tunnels, until the client sends Ctrl+C or Ctrl+D. Nothing is ever executed. |
 | `direct-tcpip` (`-L`) | Allowed when `allowADB` is on and the destination is the alias `adb:5555` (also `localhost:5555`). Every other destination is refused — the gateway must never become a proxy into the cluster. |
-| `tcpip-forward` / `cancel-tcpip-forward` (`-R`) | Allowed when `allowReverse` is on and the port is inside `reversePorts` (default `1024-65535`). The requested bind address is ignored; the port is published on the **device's** loopback. |
+| `tcpip-forward` / `cancel-tcpip-forward` (`-R`) | Allowed when `allowReverse` is on and the port is inside `reversePorts` (default `1-65535`; decision #38). Port 0 (dynamic) is refused. The requested bind address is ignored; the port is published on the **device's** loopback. A port another connection already published fails. |
 | agent forwarding, X11, `streamlocal`, env, keepalive@openssh | Agent/X11/streamlocal refused, env ignored, keepalives answered. |
 
 ### Tunnels to the device
 
 The gateway never talks to ADB or the device directly; the session's agent
-does, through a tunnel endpoint on a **separate agent port** (`:8081`) that
-the api's browser proxy cannot reach:
+does, through a tunnel endpoint on a **separate agent port**
+(`tunnelListen`, default `:8081`) that the api's browser proxy cannot reach:
 
 - **ADB (`-L`)** — per SSH channel the gateway opens
   `WS /tunnel/adb` on the agent and splices bytes. The agent connects it to
-  the emulator's adbd (`localhost:5555` inside the pod).
+  the emulator's adbd (`adbAddr`, default `127.0.0.1:5555` inside the pod),
+next to the agent's own adb server connection.
 - **Published ports (`-R`)** — per forward the gateway opens
-  `WS /tunnel/reverse/{port}`. The agent runs `adb reverse tcp:{port}
+  `WS /tunnel/reverse/{port}` and only then answers the `tcpip-forward`
+  request, so a port the device can't publish fails on the client. The agent runs `adb reverse tcp:{port}
   tcp:{local}` so the device's `localhost:{port}` lands on an agent listener,
   and multiplexes each incoming connection as a `hashicorp/yamux` stream over
   that WebSocket; the gateway turns each stream into a `forwarded-tcpip`
@@ -436,6 +455,18 @@ the api's browser proxy cannot reach:
 
 Using `adb reverse` instead of the emulator's `10.0.2.2` alias keeps this
 provider-agnostic: physical phones get the same feature for free.
+
+Both endpoints carry the SSH user in `X-Holtdroid-User`; the agent keeps the
+open tunnels (`internal/agent.Tunnels`) and streams them to the UI. A tunnel
+endpoint that fails before the upgrade answers with a plain HTTP status
+(409 for a port already published, 502 when adb fails). When one direction
+of a spliced stream ends, it is half-closed where the other end can do that
+(TCP, SSH channels, yamux streams) and the rest gets 30 s to finish; the ADB
+WebSocket can't half-close, so its end closes both directions (adb never
+half-closes). The fake
+provider serves the same handler with an echo server as adbd and loopback
+listeners as device ports (`Provider.DialDevice` is "an app on the device"
+in tests).
 
 ### Keys: the browser is the source of truth
 
@@ -462,37 +493,43 @@ provider-agnostic: physical phones get the same feature for free.
 ### Who may connect where
 
 On login the gateway resolves the slug through the api's internal endpoint
-(`GET /internal/sessions/{slug}` → provider, agent tunnel URL, owner) and
-checks:
+(`GET /internal/sessions/{slug}` → provider, id, owner, state, tunnel URL)
+and checks:
 
 - `clientIsolation: false` (default) — any user with a registered key may use
   any running session;
 - `clientIsolation: true` — only the session owner and `auth.adminGroups`.
 
 Unknown slug, session not `ready`, or a forbidden user all fail the same way
-("no such session") so slugs can't be probed.
+("no such session") so slugs can't be probed. The reason reaches the client
+as an SSH banner, once per connection (clients try every key they have), and
+an unregistered key gets a hint to open the portal.
 
 ### Activity and lifetime
 
 Traffic through a tunnel counts as activity: the gateway reports
-`POST /internal/sessions/{slug}/activity` at most every 30 s while bytes
-flow (this is real use of the device even when no browser tab is open —
-decision #14 still holds for idle *viewers*). When a session is deleted, its
-tunnels are closed and SSH clients see the connection drop.
+`POST /internal/sessions/{slug}/activity` at most every 30 s
+(`activityInterval`) while bytes flow (this is real use of the device even
+when no browser tab is open — decision #14 still holds for idle *viewers*).
+In quiet intervals it looks the session up instead. Once the session is gone
+or no longer `ready`, or the agent drops a published port, the gateway
+closes the SSH connection.
 
 ### Configuration
 
 ```yaml
 # ssh-gateway
 listen: ":2222"
-hostKey: file:/run/secrets/ssh/host_ed25519   # stable across restarts and replicas
+httpListen: ":8080"                            # key API for the api, /v1/health
+hostKey: file:/run/secrets/ssh/host_ed25519   # PEM; stable across restarts and replicas; empty = temporary
 apiURL: http://holtdroid-api-internal:8081
 allowADB: true
 allowReverse: true
 clientIsolation: false
-reversePorts: "1024-65535"
+reversePorts: "1-65535"                        # ports and ranges, comma-separated
 keyTTL: 24h
 maxTunnelsPerConnection: 32
+activityInterval: 30s
 ```
 
 ```yaml
@@ -505,6 +542,7 @@ ssh:
   allowADB: true            # mirror the gateway flags; the UI only uses them to pick
   allowReverse: true        # which commands to show
   clientIsolation: false
+  maxTunnelsPerConnection: 32
 ```
 
 `PUT /api/v1/ssh/keys` validates the list (≤ 32 keys, no duplicates, no
@@ -512,11 +550,17 @@ ssh:
 normalized lines to every address. It succeeds when at least one replica
 accepted them; a key another user holds fails the whole update with 422 and
 the per-key `errors[].location` (`body.keys[i].publicKey`) the UI uses to
-mark that row. `holtdroid dev` runs the gateway's key API in-process
-(`--ssh-keys :8092`) so the UI can be exercised without the gateway.
+mark that row. `holtdroid dev` runs the whole gateway in-process (`--ssh :2222`, key API
+on `--ssh-keys :8092`, temporary host key) against the fake devices' tunnel
+endpoints (`--tunnels :8091`).
 
 Exposure is a plain TCP Service (LoadBalancer/NodePort) or an ingress TCP
-route (Traefik `IngressRouteTCP` on a dedicated entrypoint).
+route (Traefik `IngressRouteTCP` on a dedicated entrypoint). The chart
+(`sshGateway.*`) renders the Deployment, a headless Service for key pushes,
+the SSH Service, the api's `ssh` section, and a NetworkPolicy rule that lets
+only the gateway reach the agents' tunnel port. The emulator provider
+publishes that port as `tunnelPort` (default 8081) and reports it as the
+session's `tunnelUrl`.
 
 ## Security model
 

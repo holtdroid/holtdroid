@@ -17,6 +17,8 @@ type Device interface {
 	Install(ctx context.Context, apk string) error
 	Forward(ctx context.Context, socket string) (int, error)
 	RemoveForward(ctx context.Context, port int) error
+	Reverse(ctx context.Context, port, local int) error
+	RemoveReverse(ctx context.Context, port int) error
 	Screencap(ctx context.Context) ([]byte, error)
 	ScrcpyDevice
 }
@@ -100,6 +102,17 @@ func (a ADB) ForwardTo(ctx context.Context, remote string) (int, error) {
 
 func (a ADB) RemoveForward(ctx context.Context, port int) error {
 	_, err := a.run(ctx, "forward", "--remove", "tcp:"+strconv.Itoa(port))
+	return err
+}
+
+// Reverse makes the device's localhost:port reach local on this host.
+func (a ADB) Reverse(ctx context.Context, port, local int) error {
+	_, err := a.run(ctx, "reverse", "tcp:"+strconv.Itoa(port), "tcp:"+strconv.Itoa(local))
+	return err
+}
+
+func (a ADB) RemoveReverse(ctx context.Context, port int) error {
+	_, err := a.run(ctx, "reverse", "--remove", "tcp:"+strconv.Itoa(port))
 	return err
 }
 

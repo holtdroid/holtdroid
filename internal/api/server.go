@@ -193,7 +193,7 @@ func (s *Server) Handler() http.Handler {
 	})
 }
 
-// InternalHandler serves endpoints only agents call; it must never be
+// InternalHandler serves endpoints only agents and the ssh-gateway call; it must never be
 // exposed through the ingress.
 func (s *Server) InternalHandler() http.Handler {
 	mux := http.NewServeMux()
@@ -213,6 +213,7 @@ func (s *Server) InternalHandler() http.Handler {
 		_, _ = io.Copy(w, rc)
 	})
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+	contract.RegisterSSHSessions(contract.NewAPI(mux, "Holtdroid api internal"), s)
 	return mux
 }
 

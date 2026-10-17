@@ -60,6 +60,7 @@ type fakeDevice struct {
 	unix     string
 	ports    map[string]int
 	removed  []int
+	reverses map[int]int
 	installs int
 	shells   []string
 	apks     []string
@@ -104,6 +105,30 @@ func (d *fakeDevice) RemoveForward(_ context.Context, port int) error {
 	defer d.mu.Unlock()
 	d.removed = append(d.removed, port)
 	return nil
+}
+
+func (d *fakeDevice) Reverse(_ context.Context, port, local int) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.reverses == nil {
+		d.reverses = map[int]int{}
+	}
+	d.reverses[port] = local
+	return nil
+}
+
+func (d *fakeDevice) RemoveReverse(_ context.Context, port int) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	delete(d.reverses, port)
+	return nil
+}
+
+func (d *fakeDevice) reversed(port int) (int, bool) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	local, ok := d.reverses[port]
+	return local, ok
 }
 
 func (d *fakeDevice) Push(context.Context, string, string) error { return nil }

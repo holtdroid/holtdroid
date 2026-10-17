@@ -20,6 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { SSHControl } from "@/components/session/ssh-control"
 import { useEventSource } from "@/hooks/use-event-source"
 import { countryFlag } from "@/lib/format"
 import { rememberLocation } from "@/lib/launch-prefs"
@@ -41,6 +42,7 @@ export function SessionToolbar({
     <div className="flex items-center gap-2">
       {locations.length > 0 && <LocationControl provider={provider} id={id} locations={locations} />}
       {clipboard && <ClipboardControl provider={provider} id={id} />}
+      <SSHControl provider={provider} id={id} />
       <AppActions provider={provider} id={id} appRunning={appRunning} />
     </div>
   )

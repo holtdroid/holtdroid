@@ -58,7 +58,11 @@ deployment"):
   ([kriakiku/holtdroid-slack-sync](https://github.com/kriakiku/holtdroid-slack-sync),
   decision #30) but waiting for the maintainer's Slack app token and channel
   IDs (see "Maintainer's deployment").
-- SSH gateway — Phase 4.5 (designed in architecture.md "SSH access").
+- SSH gateway on real devices: the gateway, agent tunnels, chart and the
+  session page's SSH popover are built and tested against fake devices
+  (Phase 4.5, decision #38). Not yet verified on the emulator (`adb connect`
+  through the tunnel, `-R` from a WebView), and not exposed on
+  android.homelab.example yet.
 - Docker-only provider, physical phones — "Later".
 
 ## Next steps, in order
@@ -66,8 +70,9 @@ deployment"):
 1. **Phase 3** — the Slack sync job that writes into an S3 source (work on
    it has started in parallel: `holtdroid-slack-sync` in the chart), the
    conformance suite, and whatever more use of real sessions turns up.
-2. **Phase 4.5 — SSH gateway**, can run in parallel against the fake
-   provider.
+2. **Phase 4.5 — SSH gateway**: expose it on android.homelab.example (host key
+   in OpenBao, Traefik TCP entrypoint `:2222`, `sshGateway.enabled`) and
+   verify ADB and `-R` on a real emulator.
 3. Planned, each starting with a decisions.md entry: Phase 4.7 traffic
    inspection proxy, Phase 4.8 MCP server, Phase 4.9 audit and telemetry.
    All optional and off by default.

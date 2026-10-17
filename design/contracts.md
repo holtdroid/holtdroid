@@ -161,6 +161,7 @@ type Session struct {
 	Reason       string // set when failed
 	Detail       string // optional progress note while starting, e.g. "waiting for the session image"
 	AgentURL     string // in-cluster base URL of the agent, never exposed to browsers
+	TunnelURL    string // optional: base URL of the agent's tunnel endpoints, for the ssh-gateway only
 	CreatedAt    time.Time
 	LastActivity time.Time
 }
@@ -191,21 +192,24 @@ static assets and WebSockets.
 | `PATCH` | `/v1/device` | `DeviceSettings` (any subset of the writable fields above; `density: 0` restores the default; `timeOffset` sets the clock to real time + offset and turns `autoTime` off; `autoTime: true` syncs the clock) → `DeviceState` | `UpdateDevice` |
 | `POST` | `/v1/device/actions/{volume-up\|volume-down\|mute\|lock\|unlock\|back\|home\|recents\|notifications\|quick-settings\|rotate-left\|rotate-right}` | 204 | `DeviceAction` |
 | `GET` | `/v1/device/screenshot` | `image/png` of the current screen | `Screenshot` |
+| `GET` | `/v1/tunnels` | SSE, `event: tunnels` with `{adb: [{user, since}], reverse: [{port, user, since, connections}]}` — what the ssh-gateway has open into the device; the first event is the current set | `WatchTunnels` |
 | `WS` | `/display/scrcpy?codec=&maxSize=&maxFps=&bitRate=` | the screen: device → browser binary messages are the scrcpy 3.3.3 video socket after its dummy byte (64-byte device name, codec meta, packets with frame meta), browser → device binary messages are scrcpy control messages (architecture.md "Screen"). `codec` is `h264` (default), `h265` or `av1`; a codec the device can't encode closes the socket with 4001 (`contract.DisplayUnsupportedCodec`). Invalid options → 400 | – |
 | `WS` | `/display/audio` | device audio: binary messages are a scrcpy 3.3.3 audio socket after its dummy byte (4-byte codec id, `opus` or 0 when the device can't capture, then packets with frame meta); browser messages are ignored | – |
 | `WS` | `/devtools/{socket}/page/{id}` | proxied CDP WebSocket | – |
 | `GET` | `/devtools-frontend/@{rev}/…` | cached DevTools frontend; the UI opens `inspector.html?ws(s)=<host>/s/{provider}/{session}/devtools/{socket}/page/{id}` | – |
 
-Planned tunnel endpoints, served on the agent's **second port** (`:8081`),
-reachable only by the ssh-gateway and never through the api proxy:
+Tunnel endpoints, served on the agent's **second port** (`tunnelListen`,
+`:8081`) at `Session.tunnelUrl`, reachable only by the ssh-gateway and never
+through the api proxy. The gateway's side is `contract.TunnelClient`; the
+agent's is `agent.Tunnels`, which the fake provider reuses.
 
 | Method | Path | Notes |
 |--------|------|-------|
-| `WS` | `/tunnel/adb` | one WebSocket per ADB connection, raw bytes to the device's adbd |
-| `WS` | `/tunnel/reverse/{port}` | publishes device `localhost:{port}` (`adb reverse`); device-side connections arrive as yamux streams over this socket; closing it removes the reverse |
+| `WS` | `/tunnel/adb` | one WebSocket per ADB connection, binary messages carry raw bytes to the device's adbd; 502 before the upgrade when adbd is unreachable |
+| `WS` | `/tunnel/reverse/{port}` | publishes device `localhost:{port}` (`adb reverse`) before the upgrade; device-side connections arrive as yamux streams the agent opens over this socket (the gateway is the yamux server); closing it removes the reverse. 400 for a port outside 1–65535, 409 when the port is already published, 502 when adb fails |
 
-`Session` will gain `tunnelUrl` (the agent's tunnel base URL) next to
-`agentUrl`.
+Both carry `X-Holtdroid-User` (the SSH user, for `/v1/tunnels`).
+Messages are at most 1 MiB.
 
 ### ssh-gateway internal API
 
@@ -216,6 +220,10 @@ key store is `internal/sshgateway.Keys`.
 |--------|------|-------|
 | `PUT` | `/v1/users/{user}/keys` | from the api: `{groups, admin, keys: [authorized_keys lines]}`; replaces that user's set and restarts its TTL; an empty list drops it. 409 with `errors[].location = body.keys[i]` when another user holds a key — nothing is changed then |
 | `GET` | `/v1/health` | readiness |
+
+In the other direction the gateway calls the api's internal port through
+`contract.SSHSessions` / `contract.SSHSessionsClient` (rows at the end of the
+UI API table).
 
 The fake provider (`internal/provider/fake`) implements all of it with
 placeholder HTML for the screen and DevTools pages.
@@ -234,7 +242,7 @@ keeping the provider in the path is what lets the api stay stateless.
 | `GET` | `/api/v1/auth/oidc/login?redirect=` | public; browser redirect to the IdP |
 | `GET` | `/api/v1/auth/oidc/callback` | public; sets the cookie and redirects back |
 | `GET` | `/api/v1/me` | `{user, name, email, groups, admin}` |
-| `GET` | `/api/v1/ssh` | `{enabled, host?, port, allowADB, allowReverse, clientIsolation}` for the UI; empty `host` = the UI's own host |
+| `GET` | `/api/v1/ssh` | `{enabled, host?, port, allowADB, allowReverse, clientIsolation, maxTunnels}` for the UI; empty `host` = the UI's own host |
 | `PUT` | `/api/v1/ssh/keys` | `{keys: [{name, publicKey}]}` (≤ 32) — the caller's full key list, replaces the previous one on every gateway replica → `{replicas}`; 404 when SSH is disabled, 422 on invalid, duplicate or already-claimed keys (`errors[].location = body.keys[i].publicKey`), 502 when no replica accepted |
 | `GET` | `/api/v1/sources` | `[{name, readOnly}]` |
 | `GET` | `/api/v1/artifacts?source=&cursor=&limit=` | artifacts the caller may see (private ones only for owner/admins) from every source or one, newest first, offset cursor. Items: `{source, id, revision, fileName, size, uploadedAt, meta, app?, iconUrl?, canManage}` — `id` is base64url of the key, `meta` the sidecar, `app` the parsed APK once cached; per-source failures come back in `errors[]` |
@@ -253,8 +261,8 @@ keeping the provider in the path is what lets the api stay stateless.
 | `GET` | `/api/v1/events` | SSE `event: sessions`, the full `{items, errors}` whenever it changes; `event: artifacts` `{revision}` whenever any source changes |
 | `*` | `/s/{provider}/{id}/…` | proxy to the session's agent (HTTP + WS); any authenticated user may use it; non-GET requests count as activity |
 | `GET` | `/internal/artifacts/{key}` | APK download for agents by cache key, **internal port only** |
-| `GET` | `/internal/sessions/{slug}` | planned, gateway only: `{provider, id, owner, state, tunnelUrl}` |
-| `POST` | `/internal/sessions/{slug}/activity` | planned, gateway only: tunnel traffic counts as activity |
+| `GET` | `/internal/sessions/{slug}` | gateway only, **internal port**: `{provider, id, owner, state, tunnelUrl?}` for slug `{provider}-{id}`; 404 when no provider has it |
+| `POST` | `/internal/sessions/{slug}/activity` | gateway only, **internal port**: tunnel traffic counts as activity → 204; 404 for an unknown session |
 
 The APK cache is warmed in the background: listing artifacts and polling
 sources queue up to `cache.warm` uncached revisions for download and

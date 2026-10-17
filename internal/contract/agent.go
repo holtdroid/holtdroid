@@ -25,6 +25,7 @@ type Agent interface {
 	UpdateDevice(ctx context.Context, settings DeviceSettings) (DeviceState, error)
 	DeviceAction(ctx context.Context, action DeviceAction) error
 	Screenshot(ctx context.Context) ([]byte, error)
+	WatchTunnels(ctx context.Context, send func(Tunnels) error) error
 }
 
 type AppAction string
@@ -122,6 +123,14 @@ func RegisterAgent(api huma.API, a Agent) {
 		map[string]any{"clip": Clipboard{}},
 		func(ctx context.Context, _ *struct{}, send sse.Sender) {
 			_ = a.WatchClipboard(ctx, func(c Clipboard) error { return send.Data(c) })
+		})
+
+	sse.Register(api, huma.Operation{
+		OperationID: "watchTunnels", Method: http.MethodGet, Path: "/v1/tunnels", Tags: tags,
+		Description: "SSH tunnels into the device; the first event is the current set.",
+	}, map[string]any{"tunnels": Tunnels{}},
+		func(ctx context.Context, _ *struct{}, send sse.Sender) {
+			_ = a.WatchTunnels(ctx, func(t Tunnels) error { return send.Data(t) })
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "getNetwork", Method: http.MethodGet, Path: "/v1/network", Tags: tags},

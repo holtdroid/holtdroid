@@ -97,7 +97,8 @@ providers:
         limits: { cpu: "4", memory: 7Gi }
     # Per-session VPN sidecar, see the emulator provider docs. Empty: no VPN.
     vpn: {}
-    # Only the api may reach session agents.
+    # Only the api (and the ssh-gateway, on the tunnel port) may reach
+    # session agents.
     networkPolicy:
       enabled: true
     # Pulls the session image onto every session node ahead of the first
@@ -117,6 +118,44 @@ providers:
     resources:
       requests: { cpu: 5m, memory: 32Mi }
       limits: { memory: 128Mi }
+
+# SSH access to sessions: `ssh -N -L 5555:adb:5555 -R 3000:localhost:3000
+# {provider}-{id}@host`. Only tunnels, never a shell. Users register public
+# keys in the portal; the gateway keeps them in memory.
+sshGateway:
+  enabled: false
+  replicas: 1
+  # PEM private key, as a secret reference such as env:SSH_HOST_KEY (from
+  # existingSecret) or file:/run/secrets/... Without one every restart
+  # presents a new host key.
+  hostKey: ""
+  # Shown in the UI's commands; defaults to publicURL's host and the
+  # service port.
+  publicHost: ""
+  publicPort: 0
+  allowADB: true
+  allowReverse: true
+  # Only session owners and admins may connect to a session.
+  clientIsolation: false
+  # Device ports that may be published. The port is bound on the device's
+  # loopback only, so privileged ports are fine on emulators.
+  reversePorts: "1-65535"
+  keyTTL: 24h
+  maxTunnelsPerConnection: 32
+  # Expose port 2222 with a LoadBalancer/NodePort here, or keep ClusterIP and
+  # route an ingress TCP entrypoint to it (Traefik IngressRouteTCP).
+  service:
+    type: ClusterIP
+    port: 2222
+    nodePort: null
+    annotations: {}
+  env: []
+  resources:
+    requests: { cpu: 10m, memory: 32Mi }
+    limits: { memory: 128Mi }
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
 
 # Additional out-of-tree providers: [{name, url}]
 extraProviders: []

@@ -82,3 +82,57 @@ func (g *SSHGatewayClient) SetUserKeys(ctx context.Context, user string, keys Us
 	}
 	return err
 }
+
+// SSHSessions is the api's internal API for the ssh-gateway: it resolves the
+// session named by an SSH user name and takes tunnel traffic as activity.
+type SSHSessions interface {
+	SSHSession(ctx context.Context, slug string) (SSHSession, error)
+	SSHActivity(ctx context.Context, slug string) error
+}
+
+type SSHSession struct {
+	Provider  string       `json:"provider"`
+	ID        string       `json:"id"`
+	Owner     string       `json:"owner"`
+	State     SessionState `json:"state" enum:"provisioning,booting,installing,instrumenting,ready,stopping,failed"`
+	TunnelURL string       `json:"tunnelUrl,omitempty"`
+}
+
+type slugInput struct {
+	Slug string `path:"slug" minLength:"1" maxLength:"200"`
+}
+
+func RegisterSSHSessions(api huma.API, s SSHSessions) {
+	tags := []string{"ssh-gateway"}
+
+	huma.Register(api, huma.Operation{OperationID: "getSSHSession", Method: http.MethodGet, Path: "/internal/sessions/{slug}", Tags: tags},
+		func(ctx context.Context, in *slugInput) (*body[SSHSession], error) {
+			sess, err := s.SSHSession(ctx, in.Slug)
+			if err != nil {
+				return nil, toHuma(err)
+			}
+			return &body[SSHSession]{sess}, nil
+		})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "sshActivity", Method: http.MethodPost, Path: "/internal/sessions/{slug}/activity", Tags: tags, DefaultStatus: http.StatusNoContent,
+	}, func(ctx context.Context, in *slugInput) (*struct{}, error) {
+		return nil, toHuma(s.SSHActivity(ctx, in.Slug))
+	})
+}
+
+type SSHSessionsClient struct{ c client }
+
+func NewSSHSessionsClient(baseURL string, hc *http.Client) *SSHSessionsClient {
+	return &SSHSessionsClient{newClient(baseURL, hc)}
+}
+
+func (c *SSHSessionsClient) SSHSession(ctx context.Context, slug string) (SSHSession, error) {
+	var s SSHSession
+	err := c.c.do(ctx, http.MethodGet, "/internal/sessions/"+url.PathEscape(slug), nil, &s)
+	return s, err
+}
+
+func (c *SSHSessionsClient) SSHActivity(ctx context.Context, slug string) error {
+	return c.c.do(ctx, http.MethodPost, "/internal/sessions/"+url.PathEscape(slug)+"/activity", nil, nil)
+}

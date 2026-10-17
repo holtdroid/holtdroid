@@ -1,10 +1,12 @@
 package fake
 
 import (
+	"log/slog"
 	"net/http"
 	"sync"
 	"time"
 
+	"github.com/kriakiku/holtdroid/internal/agent"
 	"github.com/kriakiku/holtdroid/internal/contract"
 )
 
@@ -17,6 +19,8 @@ var progression = []contract.SessionState{
 
 type device struct {
 	handler   http.Handler
+	tunnels   *agent.Tunnels
+	ports     *fakePorts
 	mu        sync.Mutex
 	s         contract.Session
 	clip      string
@@ -31,6 +35,8 @@ type device struct {
 func newDevice(s contract.Session, step time.Duration, offers func(string) bool) *device {
 	d := &device{s: s, settings: defaultSettings(), subs: map[chan struct{}]struct{}{}, done: make(chan struct{}), offers: offers}
 	d.handler = d.buildHandler()
+	d.ports = &fakePorts{}
+	d.tunnels = agent.NewTunnels(d.ports, slog.Default().With("component", "fake-agent", "session", s.ID))
 	go d.run(step)
 	return d
 }
@@ -49,6 +55,7 @@ func (d *device) run(step time.Duration) {
 func (d *device) stop() {
 	d.update(func() { d.s.State = contract.StateStopping })
 	close(d.done)
+	d.tunnels.Close()
 }
 
 func (d *device) session() contract.Session {

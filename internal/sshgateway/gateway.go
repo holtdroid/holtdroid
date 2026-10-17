@@ -1,0 +1,583 @@
+// Package sshgateway is the SSH entry point to sessions: it routes by user
+// name, authenticates against keys pushed by the api, and only carries ADB
+// and published-port tunnels to the session's agent. It never runs commands.
+package sshgateway
+
+import (
+	"context"
+	"crypto/ed25519"
+	"crypto/rand"
+	"errors"
+	"fmt"
+	"log/slog"
+	"net"
+	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"github.com/hashicorp/yamux"
+	"golang.org/x/crypto/ssh"
+
+	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/kriakiku/holtdroid/internal/secrets"
+)
+
+type Config struct {
+	Listen                  string
+	HTTPListen              string
+	HostKey                 secrets.Ref
+	APIURL                  string
+	AllowADB                bool
+	AllowReverse            bool
+	ClientIsolation         bool
+	ReversePorts            string
+	KeyTTL                  time.Duration
+	MaxTunnelsPerConnection int
+	ActivityInterval        time.Duration
+}
+
+func DefaultConfig() Config {
+	return Config{
+		Listen:                  ":2222",
+		HTTPListen:              ":8080",
+		APIURL:                  "http://localhost:8081",
+		AllowADB:                true,
+		AllowReverse:            true,
+		ReversePorts:            "1-65535",
+		KeyTTL:                  24 * time.Hour,
+		MaxTunnelsPerConnection: 32,
+		ActivityInterval:        30 * time.Second,
+	}
+}
+
+func (c Config) Validate() error {
+	var errs []error
+	if c.APIURL == "" {
+		errs = append(errs, errors.New("apiURL is required"))
+	}
+	if _, err := parsePorts(c.ReversePorts); err != nil {
+		errs = append(errs, fmt.Errorf("reversePorts: %w", err))
+	}
+	if c.KeyTTL <= 0 || c.ActivityInterval <= 0 {
+		errs = append(errs, errors.New("keyTTL and activityInterval must be positive"))
+	}
+	if c.MaxTunnelsPerConnection < 1 {
+		errs = append(errs, errors.New("maxTunnelsPerConnection must be at least 1"))
+	}
+	return errors.Join(errs...)
+}
+
+// HostKey reads the PEM private key ref points to. Without one it makes a
+// throwaway key, so clients see a new host key after every restart.
+func HostKey(ctx context.Context, reg *secrets.Registry, ref secrets.Ref, log *slog.Logger) (ssh.Signer, error) {
+	if ref.IsZero() {
+		log.Warn("no hostKey configured, using a temporary one")
+		_, key, err := ed25519.GenerateKey(rand.Reader)
+		if err != nil {
+			return nil, err
+		}
+		return ssh.NewSignerFromKey(key)
+	}
+	pem, err := reg.Resolve(ctx, ref)
+	if err != nil {
+		return nil, fmt.Errorf("hostKey: %w", err)
+	}
+	signer, err := ssh.ParsePrivateKey([]byte(pem))
+	if err != nil {
+		return nil, errors.New("hostKey: not a PEM private key without a passphrase")
+	}
+	return signer, nil
+}
+
+type Gateway struct {
+	cfg      Config
+	keys     *Keys
+	sessions contract.SSHSessions
+	ports    portSet
+	server   *ssh.ServerConfig
+	log      *slog.Logger
+
+	mu       sync.Mutex
+	bannered map[string]bool
+}
+
+var (
+	errUnknownKey = errors.New("unknown key")
+	errNoSession  = errors.New("no such session")
+)
+
+func New(cfg Config, hostKey ssh.Signer, keys *Keys, sessions contract.SSHSessions, log *slog.Logger) (*Gateway, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	ports, _ := parsePorts(cfg.ReversePorts)
+	g := &Gateway{cfg: cfg, keys: keys, sessions: sessions, ports: ports, log: log, bannered: map[string]bool{}}
+	g.server = &ssh.ServerConfig{
+		PublicKeyCallback: g.authenticate,
+		ServerVersion:     "SSH-2.0-holtdroid",
+		MaxAuthTries:      10,
+	}
+	g.server.AddHostKey(hostKey)
+	return g, nil
+}
+
+// authenticate maps the key to the user who registered it and checks they
+// may use the session named by the SSH user. Unknown sessions and forbidden
+// ones fail the same way so slugs can't be probed.
+func (g *Gateway) authenticate(meta ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
+	id, ok := g.keys.Lookup(ssh.FingerprintSHA256(key))
+	if !ok {
+		return nil, g.banner(meta, errUnknownKey,
+			"This key is not registered. Add it on the portal's SSH keys page and keep the portal open\r\n"+
+				"for a moment: keys are sent to the gateway while it is open and expire after a while.\r\n")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	sess, err := g.sessions.SSHSession(ctx, meta.User())
+	switch {
+	case errors.Is(err, contract.ErrNotFound):
+		err = errNoSession
+	case err != nil:
+		g.log.Warn("resolve session", "slug", meta.User(), "err", err)
+		return nil, g.banner(meta, err, "The portal is not reachable right now, try again in a moment.\r\n")
+	case sess.State != contract.StateReady || sess.TunnelURL == "":
+		err = errNoSession
+	case g.cfg.ClientIsolation && sess.Owner != id.User && !id.Admin:
+		err = errNoSession
+	}
+	if err != nil {
+		return nil, g.banner(meta, err, fmt.Sprintf("No running session %q that you can use.\r\n", meta.User()))
+	}
+	return &ssh.Permissions{Extensions: map[string]string{"user": id.User, "tunnel": sess.TunnelURL}}, nil
+}
+
+// banner explains a failed login once per connection; clients try every key
+// they have, and each attempt would print it again.
+func (g *Gateway) banner(meta ssh.ConnMetadata, err error, msg string) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	key := meta.RemoteAddr().String()
+	if g.bannered[key] {
+		return err
+	}
+	g.bannered[key] = true
+	return &ssh.BannerError{Err: err, Message: msg}
+}
+
+// Serve accepts SSH connections on ln until ctx ends.
+func (g *Gateway) Serve(ctx context.Context, ln net.Listener) {
+	stop := context.AfterFunc(ctx, func() { ln.Close() })
+	defer stop()
+	g.log.Info("ssh listening", "addr", ln.Addr().String())
+	for {
+		nc, err := ln.Accept()
+		if err != nil {
+			if ctx.Err() == nil {
+				g.log.Error("ssh accept", "err", err)
+			}
+			return
+		}
+		go g.handle(ctx, nc)
+	}
+}
+
+func (g *Gateway) handle(ctx context.Context, nc net.Conn) {
+	_ = nc.SetDeadline(time.Now().Add(30 * time.Second))
+	sc, chans, reqs, err := ssh.NewServerConn(nc, g.server)
+	g.mu.Lock()
+	delete(g.bannered, nc.RemoteAddr().String())
+	g.mu.Unlock()
+	if err != nil {
+		g.log.Debug("ssh handshake", "remote", nc.RemoteAddr().String(), "err", err)
+		nc.Close()
+		return
+	}
+	_ = nc.SetDeadline(time.Time{})
+
+	ctx, cancel := context.WithCancel(ctx)
+	c := &conn{
+		g:       g,
+		sc:      sc,
+		user:    sc.Permissions.Extensions["user"],
+		slug:    sc.User(),
+		tunnel:  contract.NewTunnelClient(sc.Permissions.Extensions["tunnel"], nil),
+		cancel:  cancel,
+		forward: map[uint32]*forward{},
+	}
+	log := g.log.With("user", c.user, "session", c.slug, "remote", nc.RemoteAddr().String())
+	c.log = log
+	log.Info("ssh connected")
+	stop := context.AfterFunc(ctx, func() { sc.Close() })
+	defer func() {
+		stop()
+		cancel()
+		sc.Close()
+		c.closeForwards()
+		log.Info("ssh disconnected")
+	}()
+
+	go c.watch(ctx)
+	go c.globalRequests(ctx, reqs)
+	for nch := range chans {
+		go c.channel(ctx, nch)
+	}
+}
+
+type conn struct {
+	g      *Gateway
+	sc     *ssh.ServerConn
+	user   string
+	slug   string
+	tunnel *contract.TunnelClient
+	cancel context.CancelFunc
+	log    *slog.Logger
+	bytes  atomic.Int64
+
+	mu      sync.Mutex
+	open    int
+	forward map[uint32]*forward
+}
+
+type forward struct {
+	sess     *yamux.Session
+	canceled atomic.Bool
+}
+
+func (c *conn) count(n int) { c.bytes.Add(int64(n)) }
+
+// reserve takes one of the connection's tunnel slots.
+func (c *conn) reserve() (func(), bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.open >= c.g.cfg.MaxTunnelsPerConnection {
+		return nil, false
+	}
+	c.open++
+	return sync.OnceFunc(func() {
+		c.mu.Lock()
+		c.open--
+		c.mu.Unlock()
+	}), true
+}
+
+// watch reports traffic as session activity and drops the connection once
+// the session is gone.
+func (c *conn) watch(ctx context.Context) {
+	t := time.NewTicker(c.g.cfg.ActivityInterval)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
+		rctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		var err error
+		if c.bytes.Swap(0) > 0 {
+			err = c.g.sessions.SSHActivity(rctx, c.slug)
+		} else {
+			var s contract.SSHSession
+			s, err = c.g.sessions.SSHSession(rctx, c.slug)
+			if err == nil && s.State != contract.StateReady {
+				err = contract.ErrNotFound
+			}
+		}
+		cancel()
+		if errors.Is(err, contract.ErrNotFound) {
+			c.log.Info("session ended, closing the connection")
+			c.cancel()
+			return
+		}
+		if err != nil && ctx.Err() == nil {
+			c.log.Warn("session check", "err", err)
+		}
+	}
+}
+
+type forwardRequest struct {
+	Addr string
+	Port uint32
+}
+
+type forwardedTCPIP struct {
+	Addr     string
+	Port     uint32
+	OrigAddr string
+	OrigPort uint32
+}
+
+type directTCPIP struct {
+	DestAddr string
+	DestPort uint32
+	OrigAddr string
+	OrigPort uint32
+}
+
+func (c *conn) globalRequests(ctx context.Context, reqs <-chan *ssh.Request) {
+	for req := range reqs {
+		switch req.Type {
+		case "tcpip-forward":
+			var fr forwardRequest
+			if err := ssh.Unmarshal(req.Payload, &fr); err != nil {
+				_ = req.Reply(false, nil)
+				continue
+			}
+			err := c.startForward(ctx, fr)
+			if err != nil {
+				c.log.Info("port not published", "port", fr.Port, "err", err)
+			}
+			_ = req.Reply(err == nil, nil)
+		case "cancel-tcpip-forward":
+			var fr forwardRequest
+			if err := ssh.Unmarshal(req.Payload, &fr); err != nil {
+				_ = req.Reply(false, nil)
+				continue
+			}
+			_ = req.Reply(c.stopForward(fr.Port), nil)
+		default:
+			if req.WantReply {
+				_ = req.Reply(false, nil)
+			}
+		}
+	}
+}
+
+func (c *conn) startForward(ctx context.Context, fr forwardRequest) error {
+	switch {
+	case !c.g.cfg.AllowReverse:
+		return errors.New("publishing ports is disabled")
+	case fr.Port == 0 || !c.g.ports.contains(int(fr.Port)):
+		return fmt.Errorf("port %d is not allowed", fr.Port)
+	}
+	c.mu.Lock()
+	_, dup := c.forward[fr.Port]
+	c.mu.Unlock()
+	if dup {
+		return fmt.Errorf("port %d is already published by this connection", fr.Port)
+	}
+	release, ok := c.reserve()
+	if !ok {
+		return errors.New("too many tunnels on one connection")
+	}
+	dctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	sess, err := c.tunnel.Reverse(dctx, int(fr.Port), c.user)
+	cancel()
+	if err != nil {
+		release()
+		return err
+	}
+	f := &forward{sess: sess}
+	c.mu.Lock()
+	c.forward[fr.Port] = f
+	c.mu.Unlock()
+	c.log.Info("port published", "port", fr.Port)
+
+	go func() {
+		defer release()
+		for {
+			stream, err := sess.AcceptStream()
+			if err != nil {
+				break
+			}
+			go c.forwarded(fr, stream)
+		}
+		c.mu.Lock()
+		if c.forward[fr.Port] == f {
+			delete(c.forward, fr.Port)
+		}
+		c.mu.Unlock()
+		if !f.canceled.Load() && ctx.Err() == nil {
+			c.log.Info("device side of a published port went away, closing the connection", "port", fr.Port)
+			c.cancel()
+		}
+	}()
+	return nil
+}
+
+func (c *conn) forwarded(fr forwardRequest, stream *yamux.Stream) {
+	payload := ssh.Marshal(forwardedTCPIP{Addr: fr.Addr, Port: fr.Port, OrigAddr: "127.0.0.1", OrigPort: stream.StreamID()})
+	ch, reqs, err := c.sc.OpenChannel("forwarded-tcpip", payload)
+	if err != nil {
+		stream.Close()
+		return
+	}
+	go ssh.DiscardRequests(reqs)
+	contract.Splice(ch, stream, c.count)
+}
+
+func (c *conn) stopForward(port uint32) bool {
+	c.mu.Lock()
+	f, ok := c.forward[port]
+	delete(c.forward, port)
+	c.mu.Unlock()
+	if ok {
+		f.canceled.Store(true)
+		f.sess.Close()
+		c.log.Info("port unpublished", "port", port)
+	}
+	return ok
+}
+
+func (c *conn) closeForwards() {
+	c.mu.Lock()
+	forwards := c.forward
+	c.forward = map[uint32]*forward{}
+	c.mu.Unlock()
+	for _, f := range forwards {
+		f.canceled.Store(true)
+		f.sess.Close()
+	}
+}
+
+func (c *conn) channel(ctx context.Context, nch ssh.NewChannel) {
+	switch nch.ChannelType() {
+	case "session":
+		ch, reqs, err := nch.Accept()
+		if err != nil {
+			return
+		}
+		c.session(ch, reqs)
+	case "direct-tcpip":
+		c.directTCPIP(ctx, nch)
+	default:
+		_ = nch.Reject(ssh.Prohibited, "only ADB and published-port tunnels are available")
+	}
+}
+
+func (c *conn) directTCPIP(ctx context.Context, nch ssh.NewChannel) {
+	var d directTCPIP
+	if err := ssh.Unmarshal(nch.ExtraData(), &d); err != nil {
+		_ = nch.Reject(ssh.ConnectionFailed, "malformed request")
+		return
+	}
+	if !c.g.cfg.AllowADB {
+		_ = nch.Reject(ssh.Prohibited, "ADB access is disabled")
+		return
+	}
+	if !isADB(d.DestAddr, d.DestPort) {
+		_ = nch.Reject(ssh.Prohibited, "only adb:5555 can be reached through this gateway")
+		return
+	}
+	release, ok := c.reserve()
+	if !ok {
+		_ = nch.Reject(ssh.ResourceShortage, "too many tunnels on one connection")
+		return
+	}
+	defer release()
+	dctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	adb, err := c.tunnel.ADB(dctx, c.user)
+	cancel()
+	if err != nil {
+		c.log.Warn("adb tunnel", "err", err)
+		_ = nch.Reject(ssh.ConnectionFailed, "the device's ADB is not reachable")
+		return
+	}
+	ch, reqs, err := nch.Accept()
+	if err != nil {
+		adb.Close()
+		return
+	}
+	go ssh.DiscardRequests(reqs)
+	contract.Splice(ch, adb, c.count)
+}
+
+func isADB(host string, port uint32) bool {
+	switch strings.ToLower(host) {
+	case "adb", "localhost", "127.0.0.1", "::1":
+		return port == 5555
+	}
+	return false
+}
+
+// session prints how to use the gateway instead of running anything. An
+// interactive login stays open, holding the tunnels, until Ctrl+C or Ctrl+D.
+func (c *conn) session(ch ssh.Channel, reqs <-chan *ssh.Request) {
+	defer ch.Close()
+	for req := range reqs {
+		switch req.Type {
+		case "pty-req", "window-change":
+			_ = req.Reply(true, nil)
+		case "shell":
+			_ = req.Reply(true, nil)
+			go ssh.DiscardRequests(reqs)
+			_, _ = ch.Write([]byte(c.help() + "\r\nConnected; your tunnels stay open until you press Ctrl+C.\r\n"))
+			waitForInterrupt(ch)
+			_, _ = ch.SendRequest("exit-status", false, ssh.Marshal(struct{ Status uint32 }{0}))
+			return
+		case "exec", "subsystem":
+			_ = req.Reply(true, nil)
+			go ssh.DiscardRequests(reqs)
+			_, _ = ch.Stderr().Write([]byte(c.help() + "\r\nCommands can't be run here; add -N to keep just the tunnels.\r\n"))
+			_, _ = ch.SendRequest("exit-status", false, ssh.Marshal(struct{ Status uint32 }{1}))
+			return
+		default:
+			if req.WantReply {
+				_ = req.Reply(false, nil)
+			}
+		}
+	}
+}
+
+func waitForInterrupt(ch ssh.Channel) {
+	buf := make([]byte, 64)
+	for {
+		n, err := ch.Read(buf)
+		for _, b := range buf[:n] {
+			if b == 3 || b == 4 {
+				return
+			}
+		}
+		if err != nil {
+			return
+		}
+	}
+}
+
+func (c *conn) help() string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "Holtdroid: session %s. There is no shell here, only tunnels.\r\n\r\n", c.slug)
+	if c.g.cfg.AllowADB {
+		b.WriteString("  ADB:              ssh -N -L 5555:adb:5555 …   then   adb connect localhost:5555\r\n")
+	}
+	if c.g.cfg.AllowReverse {
+		b.WriteString("  Your local ports: ssh -N -R 3000:localhost:3000 …   the device reaches it as localhost:3000\r\n")
+	}
+	return b.String()
+}
+
+type portSet [][2]int
+
+func parsePorts(spec string) (portSet, error) {
+	var set portSet
+	for part := range strings.SplitSeq(spec, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		lo, hi, isRange := strings.Cut(part, "-")
+		if !isRange {
+			hi = lo
+		}
+		from, err1 := strconv.Atoi(strings.TrimSpace(lo))
+		to, err2 := strconv.Atoi(strings.TrimSpace(hi))
+		if err1 != nil || err2 != nil || from < 1 || to > 65535 || from > to {
+			return nil, fmt.Errorf("%q is not a port or a range like 1024-65535", part)
+		}
+		set = append(set, [2]int{from, to})
+	}
+	if len(set) == 0 {
+		return nil, errors.New("no ports")
+	}
+	return set, nil
+}
+
+func (s portSet) contains(port int) bool {
+	for _, r := range s {
+		if port >= r[0] && port <= r[1] {
+			return true
+		}
+	}
+	return false
+}

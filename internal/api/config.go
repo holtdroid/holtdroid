@@ -40,13 +40,14 @@ type UploadsConfig struct {
 }
 
 type SSHConfig struct {
-	Enabled         bool
-	GatewayURL      string
-	PublicHost      string
-	PublicPort      int
-	AllowADB        bool
-	AllowReverse    bool
-	ClientIsolation bool
+	Enabled                 bool
+	GatewayURL              string
+	PublicHost              string
+	PublicPort              int
+	AllowADB                bool
+	AllowReverse            bool
+	ClientIsolation         bool
+	MaxTunnelsPerConnection int
 }
 
 type Config struct {
@@ -80,7 +81,7 @@ func DefaultConfig() Config {
 		Storage:  storage.DefaultConfig(),
 		Database: db.DefaultConfig(),
 		Cache:    CacheConfig{MaxSize: 20 << 30, Warm: 10},
-		SSH:      SSHConfig{PublicPort: 2222, AllowADB: true, AllowReverse: true},
+		SSH:      SSHConfig{PublicPort: 2222, AllowADB: true, AllowReverse: true, MaxTunnelsPerConnection: 32},
 		Uploads:  UploadsConfig{Enabled: true, Prefix: "uploads", MaxSize: 1 << 30},
 		Sources: []source.Config{{
 			Name:       "local",

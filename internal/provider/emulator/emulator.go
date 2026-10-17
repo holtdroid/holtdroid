@@ -42,6 +42,7 @@ type Config struct {
 	ImagePullPolicy  string
 	ImagePullSecrets []string
 	AgentPort        int
+	TunnelPort       int
 	Resources        Resources
 	VPN              vpn.Config
 	Prepull          Prepull
@@ -67,6 +68,7 @@ func DefaultConfig() Config {
 		Image:           "ghcr.io/kriakiku/holtdroid-session:main",
 		ImagePullPolicy: string(corev1.PullIfNotPresent),
 		AgentPort:       8080,
+		TunnelPort:      8081,
 		Resources: Resources{
 			Requests: map[string]string{"cpu": "3", "memory": "5Gi"},
 			Limits:   map[string]string{"cpu": "4", "memory": "7Gi"},
@@ -89,6 +91,9 @@ func (c Config) Validate() error {
 	}
 	if c.AgentPort <= 0 || c.AgentPort > 65535 {
 		errs = append(errs, fmt.Errorf("agentPort %d is not a port", c.AgentPort))
+	}
+	if c.TunnelPort <= 0 || c.TunnelPort > 65535 || c.TunnelPort == c.AgentPort {
+		errs = append(errs, fmt.Errorf("tunnelPort %d is not a port other than agentPort", c.TunnelPort))
 	}
 	switch corev1.PullPolicy(c.ImagePullPolicy) {
 	case corev1.PullAlways, corev1.PullIfNotPresent, corev1.PullNever:

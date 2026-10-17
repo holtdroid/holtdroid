@@ -35,6 +35,8 @@ spec:
   - env:
     - name: HOLTDROID_LISTEN
       value: :8080
+    - name: HOLTDROID_TUNNELLISTEN
+      value: :8081
     - name: HOLTDROID_ARTIFACTURL
       value: http://holtdroid-api-internal:8081/internal/artifacts/abc
     - name: HOLTDROID_PACKAGE
@@ -55,6 +57,8 @@ spec:
     ports:
     - containerPort: 8080
       name: agent
+    - containerPort: 8081
+      name: tunnel
     readinessProbe:
       httpGet:
         path: /v1/health

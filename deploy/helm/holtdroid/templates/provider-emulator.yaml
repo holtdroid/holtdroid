@@ -178,6 +178,14 @@ spec:
               {{- include "holtdroid.selector" (dict "root" . "component" "api") | nindent 14 }}
       ports:
         - { protocol: TCP, port: 8080 }
+    {{- if .Values.sshGateway.enabled }}
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "holtdroid.selector" (dict "root" . "component" "ssh-gateway") | nindent 14 }}
+      ports:
+        - { protocol: TCP, port: 8081 }
+    {{- end }}
 {{- end }}
 {{- if $e.prepull.enabled }}
 ---
