@@ -22,8 +22,9 @@ imports it. Read it fully before changing anything.
 
 Sync jobs that publish builds live in their own repositories and only share
 the source layout and launch links with this one (decisions.md #30), e.g.
-[kriakiku/holtdroid-slack-sync](https://github.com/kriakiku/holtdroid-slack-sync)
-and [kriakiku/holtdroid-s3-sync](https://github.com/kriakiku/holtdroid-s3-sync).
+[kriakiku/holtdroid-slack-sync](https://github.com/kriakiku/holtdroid-slack-sync),
+[kriakiku/holtdroid-s3-sync](https://github.com/kriakiku/holtdroid-s3-sync)
+and [kriakiku/holtdroid-github-sync](https://github.com/kriakiku/holtdroid-github-sync).
 
 If an `AGENTS.local.md` exists next to this file, read it too: it holds
 machine-specific notes (local paths, how to deploy to the maintainer's

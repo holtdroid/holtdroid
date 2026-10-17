@@ -2,14 +2,15 @@
 title: Writing your own
 description: Principles for a sync job that publishes builds from CI, releases or anywhere else into a source.
 sidebar:
-  order: 4
+  order: 5
 ---
 
 There is no plugin API for sources. The contract is the file layout: a job
 that writes `*.apk` files and their [sidecars](/holtdroid/sources/overview/#the-metajson-sidecar)
 into a folder or an S3 prefix is a source integration. It can be written in
 any language and deployed and released apart from Holtdroid.
-[holtdroid-slack-sync](/holtdroid/sources/slack/) is one example.
+[holtdroid-slack-sync](/holtdroid/sources/slack/) and
+[holtdroid-github-sync](/holtdroid/sources/github/) are examples.
 
 The simplest integration is a CI step:
 

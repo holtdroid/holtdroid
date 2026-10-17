@@ -47,8 +47,8 @@ A source may carry `include` rules (`internal/rules`, gitignore style:
 directories, a pattern that matches a directory matches everything below
 it, `!` excludes, the last match wins, and a list that starts with `!` starts
 from everything). Keys are relative to the source root. Excluded keys are
-neither listed nor launchable. Sync jobs that filter (holtdroid-s3-sync) use
-the same syntax.
+neither listed nor launchable. Sync jobs that filter (holtdroid-s3-sync,
+holtdroid-github-sync) use the same syntax.
 
 An S3 source may get temporary keys from a **credentials endpoint**
 (`s3.credentialsURL`) instead of `accessKey`/`secretKey`. The endpoint is a

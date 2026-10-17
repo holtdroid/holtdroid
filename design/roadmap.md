@@ -59,6 +59,7 @@ Goal: one hand-written Pod on a KVM node proves the device side end to end.
 - [x] Slack sync job, independent of the api (decision #30, [kriakiku/holtdroid-slack-sync](https://github.com/kriakiku/holtdroid-slack-sync)): channels, thread replies and forwards → `{channel}/{file id}/{name}.apk` + sidecar in an S3/folder source; optional reaction and thread reply with APK info and a launch link; fake Slack server in tests
 - [x] Launch links `/?source=…&launch=…` open the launch dialog (`GET /api/v1/artifacts/{source}/{id}`)
 - [x] Builds from S3 buckets ([kriakiku/holtdroid-s3-sync](https://github.com/kriakiku/holtdroid-s3-sync)): copy mode and credentials broker, AWS IAM Identity Center device login with refresh and notifications through shoutrrr; `include` rules on sources and `s3.credentialsURL` in the api
+- [x] Builds from GitHub releases ([kriakiku/holtdroid-github-sync](https://github.com/kriakiku/holtdroid-github-sync)): `.apk` assets of the newest releases → `{owner}/{repo}/{tag}/{asset}` with the release notes as changelog, `include` rules, announcements through shoutrrr
 - [x] `internal/apk`: metadata + icon (densest bitmap or composed adaptive icon, re-rendered at 256 px, untrusted-input limits) + ABIs with a fixture; `x.apk.icon.png` sidecars override the extracted icon
 - [x] `api`: registries, artifact merge, APK cache (LRU on disk, background warm-up), session create flow, `/s/{provider}/{id}` proxy, input-based activity + flush, reaper, UI API, SSE events, internal artifact endpoint
 - [x] `provider/fake` (+ fake agent) for `holtdroid dev` and tests
@@ -172,7 +173,7 @@ leave the process, the api doesn't keep them.
 
 - [ ] Docker-only deployment: `provider-docker` (Docker Engine API, session state in container labels, VPN sidecar via `network_mode: container:`), `compose.yaml` with api + sources + provider-docker, docs page. Session container spec shared with `provider-emulator` (see architecture.md "Future: Docker-only deployment")
 - [ ] `provider-physical` + phone agent (scrcpy bridge as in the emulator agent, wireless ADB, WireGuard app intents, cleanup between sessions)
-- [ ] More sync jobs (GitHub Releases, CI artifacts) writing the source layout
+- [ ] More sync jobs (CI artifacts) writing the source layout
 - [ ] Listing cache for very large buckets (today every request lists the store)
 - [ ] `.apks` / `.xapk` split APK support
 - [ ] Logcat streaming panel

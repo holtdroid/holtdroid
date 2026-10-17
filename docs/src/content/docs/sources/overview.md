@@ -9,7 +9,8 @@ A **source** is a folder or an S3 bucket (or a prefix in one) with `*.apk`
 files. The api lists it directly — there is no separate source service. How
 the files get there is up to you: copy them by hand, let CI publish them, run
 a sync job such as [holtdroid-slack-sync](/holtdroid/sources/slack/) that
-pulls builds out of Slack, [write your own](/holtdroid/sources/custom/), or
+pulls builds out of Slack or [holtdroid-github-sync](/holtdroid/sources/github/)
+that copies GitHub release assets, [write your own](/holtdroid/sources/custom/), or
 upload them in the UI.
 
 ```yaml
