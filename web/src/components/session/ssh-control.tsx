@@ -147,7 +147,7 @@ function SSHPanel({ info, slug, tunnels }: { info: SSHInfo; slug: string; tunnel
         )}
         <p className="text-muted-foreground text-xs">
           {forwards.length > 0 && "Apps on the device reach your machine's servers as http://localhost:<port>. "}
-          {adb && "The first adb connection shows an authorization prompt on the device screen. "}
+          {adb && "adb gets a root shell on emulators, without an authorization prompt. "}
           Leave the command running; Ctrl+C closes the tunnels.
         </p>
       </div>

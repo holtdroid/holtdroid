@@ -91,8 +91,9 @@ the real agent exists.
 - [x] UI: "SSH" popover on the session page (decision #38): live tunnel status from the agent's `GET /v1/tunnels`, port list in `localStorage` (default 80, 443, 3000-3010; ranges and `device:local`), one copyable command for all ports plus optional ADB
 - [x] Chart: ssh-gateway Deployment + headless Service + TCP exposure (LoadBalancer/NodePort or Traefik `IngressRouteTCP`), NetworkPolicy gateway → agent tunnel port
 - [x] Tests: gateway refuses exec/shell/sftp/agent forwarding, refuses any `-L` target except adb, isolation on/off, key expiry and fan-out, end-to-end `-L`/`-R` against the fake agent with `x/crypto/ssh` as the client
-- [ ] Verify on the real emulator: `adb connect` through the tunnel (adbd auth on `google_apis` images), `-R 3000` reachable as `http://localhost:3000` in the app/WebView
-- [ ] Docs page "SSH access" (a planned-feature page exists — update it to match what ships); homelab: Traefik TCP entrypoint on `:2222` for android.homelab.example
+- [x] Verify on the real emulator (2026-10-17, through `kubectl port-forward` to the gateway): `adb connect` through the tunnel gives `device` straight away (`ro.adb.secure=0`, root shell), `-R 3000` and `-R 80` answer on the device's `127.0.0.1`, `GET /v1/tunnels` shows both and the ADB client
+- [x] Docs page "SSH access"
+- [ ] homelab: gateway, host key (`secret/holtdroid` `ssh_host_key`), Traefik `ssh` entrypoint and `IngressRouteTCP` are live; the node firewall rule for 2222 on the ingress VIP is committed in `homelab.nixos` but waits for a `colmena-apply.sh` run
 
 ## Phase 4.6 — Database
 

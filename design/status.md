@@ -58,11 +58,12 @@ deployment"):
   ([kriakiku/holtdroid-slack-sync](https://github.com/kriakiku/holtdroid-slack-sync),
   decision #30) but waiting for the maintainer's Slack app token and channel
   IDs (see "Maintainer's deployment").
-- SSH gateway on real devices: the gateway, agent tunnels, chart and the
-  session page's SSH popover are built and tested against fake devices
-  (Phase 4.5, decision #38). Not yet verified on the emulator (`adb connect`
-  through the tunnel, `-R` from a WebView), and not exposed on
-  android.homelab.example yet.
+- SSH on android.homelab.example from outside the cluster: the gateway runs there
+  (Phase 4.5, decision #38) with its host key from OpenBao and a Traefik `ssh`
+  entrypoint, and ADB plus `-R 80`/`-R 3000` were verified on a real emulator
+  through `kubectl port-forward`. The ingress VIP's firewall rule for 2222 is
+  committed in `homelab.nixos` (`modules/k3s/default.nix`) but not applied:
+  that takes a `colmena-apply.sh` run, which the maintainer approves.
 - Docker-only provider, physical phones — "Later".
 
 ## Next steps, in order
@@ -70,9 +71,9 @@ deployment"):
 1. **Phase 3** — the Slack sync job that writes into an S3 source (work on
    it has started in parallel: `holtdroid-slack-sync` in the chart), the
    conformance suite, and whatever more use of real sessions turns up.
-2. **Phase 4.5 — SSH gateway**: expose it on android.homelab.example (host key
-   in OpenBao, Traefik TCP entrypoint `:2222`, `sshGateway.enabled`) and
-   verify ADB and `-R` on a real emulator.
+2. **Phase 4.5 — SSH gateway**: apply the 2222 firewall rule on every node
+   that runs Traefik (`colmena-apply.sh` in `homelab.nixos`), then try
+   `ssh -p 2222 …@android.homelab.example` from the session page.
 3. Planned, each starting with a decisions.md entry: Phase 4.7 traffic
    inspection proxy, Phase 4.8 MCP server, Phase 4.9 audit and telemetry.
    All optional and off by default.
@@ -181,7 +182,7 @@ in-repo work; ask the maintainer for anything cluster-side.
 | Storage classes | `longhorn`, `local-path`, `nas-hdd` |
 | Ingress / DNS | Traefik; Ingress annotation `external-dns.alpha.kubernetes.io/target: "10.10.4.25"` creates the DNS record |
 | Registries | `ghcr.io/kriakiku/*` (public, from CI); the cluster also has `registry.homelab.example` (zot, needs the `zot-pull-secret` pattern from `homelab.k8s/infrastructure/downloads/secrets.yaml`) |
-| SSH gateway (planned) | needs a Traefik TCP entrypoint `:2222` in `homelab.k8s/infrastructure/traefik` |
+| SSH gateway | `sshGateway.enabled` in the Application, host key `secret/holtdroid` → `ssh_host_key` (seeded by `openbao-bootstrap.sh`, `SSH_HOST_KEY` in the `ExternalSecret`), `IngressRouteTCP holtdroid-ssh` on Traefik's `ssh` entrypoint (`:2222`, `homelab.k8s/infrastructure/traefik/values.yaml`); the VIP firewall must allow 2222 (`homelab.nixos/modules/k3s/default.nix`) |
 
 Verifying a deploy (needs the maintainer's kubeconfig):
 

@@ -30,8 +30,10 @@ The **SSH** button on the session page builds this command for you:
   if you want it.
 
 Apps and WebViews on the device reach your servers as
-`http://localhost:<port>`. The first `adb connect` shows an authorization
-prompt on the device screen; accept it in the portal. Without `-N`,
+`http://localhost:<port>`. On emulators `adb connect` needs no
+authorization prompt and `adb shell` is root (the session image runs adbd
+insecure and the agent restarts it as root); a physical phone would ask on its
+screen, which you can accept in the portal. Without `-N`,
 `ssh` prints a short help and holds the tunnels open until you press Ctrl+C.
 
 ## Keys stay with you

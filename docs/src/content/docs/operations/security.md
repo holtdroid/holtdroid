@@ -22,7 +22,8 @@ sidebar:
   inside the cluster. Only session Pods should reach it; see
   [Shared VPN gateway](/holtdroid/operations/vpn-gateway/).
 - **The SSH gateway** (optional) lets anyone with a registered key tunnel
-  to a device's ADB and publish ports on its loopback. It never runs commands
+  to a device's ADB, which on emulators is a root shell without an
+  authorization prompt, and publish ports on its loopback. It never runs commands
   or forwards anywhere else. Turn on `clientIsolation` if users must only
   reach their own sessions; see [SSH access](/holtdroid/concepts/ssh/).
 - **Who can get in.** The default `anonymous` mode lets anyone who reaches the
