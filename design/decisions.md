@@ -917,3 +917,20 @@ crash. The event schema is a public contract; incompatible changes bump
 `schema`. Proxy (Phase 4.7) and MCP (Phase 4.8) events are added with those
 features. Prometheus histograms of streaming operations (SSE, the screen)
 measure stream lifetime, not latency.
+
+## 45. Cleartext HTTP to loopback is always allowed in the app
+
+**Context.** Published ports (SSH `-R`) appear on the device's loopback, and
+developers point the app's WebView at `http://localhost:<port>`. Apps
+targeting API 28+ forbid cleartext traffic by default, and Android, unlike
+iOS, has no localhost exception, so the WebView fails with
+`ERR_CLEARTEXT_NOT_PERMITTED` before connecting. The APK is never modified,
+so its network security config can't be changed.
+
+**Decision.** `frida/agent.ts` hooks
+`NetworkSecurityPolicy.isCleartextTrafficPermitted(String)` to return `true`
+for `localhost`, `127.0.0.1` and `::1` and defers to the app's policy for
+every other host. Chromium (WebView) and OkHttp ask this per-host overload.
+
+**Consequences.** Loopback cleartext can't be tested as forbidden in a
+session; every real host behaves as the app ships.

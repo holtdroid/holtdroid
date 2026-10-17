@@ -30,7 +30,9 @@ The **SSH** button on the session page builds this command for you:
   if you want it.
 
 Apps and WebViews on the device reach your servers as
-`http://localhost:<port>`. On emulators `adb connect` needs no
+`http://localhost:<port>`. Plain HTTP to `localhost`, `127.0.0.1` and `::1`
+is allowed even when the app's network security config forbids cleartext
+traffic; every other host still follows the app's policy. On emulators `adb connect` needs no
 authorization prompt and `adb shell` is root (the session image runs adbd
 insecure and the agent restarts it as root); a physical phone would ask on its
 screen, which you can accept in the portal. Without `-N`,
@@ -41,8 +43,8 @@ screen, which you can accept in the portal. Without `-N`,
 Add your public keys on the **SSH keys** page. They are kept in your browser
 and sent to the gateway while you use the site; the gateway only holds them in
 memory. After a gateway restart, just open the site once and your keys are
-back. A key that isn't registered (or has expired) gets a message telling
-you so before the login fails.
+back. If none of the keys your client offers is registered (or they have
+expired), the login fails with a message telling you so.
 
 ## Running the gateway
 

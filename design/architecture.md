@@ -219,7 +219,9 @@ Inside `emulator`, the agent starts and supervises:
    - forces `WebView.setWebContentsDebuggingEnabled(true)`: the setter is
      hooked to always pass `true`, and it is called from
      `Instrumentation.callApplicationOnCreate` and after every WebView
-     constructor.
+     constructor;
+   - lets `NetworkSecurityPolicy.isCleartextTrafficPermitted(host)` return
+     `true` for `localhost`, `127.0.0.1` and `::1` (decision #45).
    Only the app's main process is instrumented.
 5. Turns on Frida spawn gating: when the device starts the app by itself
    (the launcher, a broadcast) the main process is instrumented the
