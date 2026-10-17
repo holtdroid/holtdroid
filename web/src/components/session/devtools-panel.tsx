@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
 import { BugIcon, RefreshCwIcon, Settings2Icon } from "lucide-react"
-import { useTheme } from "next-themes"
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react"
 import { agentClient, type DevToolsTarget, sessionBase, unwrap } from "@/api/client"
 import { Button } from "@/components/ui/button"
@@ -59,7 +58,6 @@ export function DevToolsPanel({
   const selectedKey = selected ? key(selected) : null
 
   const prefs = useDevToolsPrefs()
-  const dark = useTheme().resolvedTheme === "dark"
   const [frame, setFrame] = useState<HTMLIFrameElement | null>(null)
   const attachFrame = useCallback(
     (el: HTMLIFrameElement | null) => {
@@ -70,16 +68,16 @@ export function DevToolsPanel({
   )
 
   useLayoutEffect(() => {
-    if (selectedKey) prepareDevTools(prefs, dark)
-  }, [selectedKey, prefs, dark])
+    if (selectedKey) prepareDevTools(prefs)
+  }, [selectedKey, prefs])
 
   useEffect(() => {
     if (!frame) return undefined
-    const apply = () => styleDevTools(frame, prefs, dark)
+    const apply = () => styleDevTools(frame, prefs)
     apply()
     frame.addEventListener("load", apply)
     return () => frame.removeEventListener("load", apply)
-  }, [frame, prefs, dark])
+  }, [frame, prefs])
 
   const byProcess = useMemo(() => {
     const groups = new Map<string, DevToolsTarget[]>()

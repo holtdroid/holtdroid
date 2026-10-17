@@ -30,16 +30,16 @@ function setBoth(names: string[], value: unknown) {
   for (const name of names) localStorage.setItem(name, JSON.stringify(value))
 }
 
-export function prepareDevTools(prefs: DevToolsPrefs, dark: boolean) {
+export function prepareDevTools(prefs: DevToolsPrefs) {
   try {
     setBoth(["screencast-enabled", "screencastEnabled"], prefs.screencast)
-    if (prefs.portalStyle) setBoth(["ui-theme", "uiTheme"], dark ? "dark" : "default")
+    if (prefs.portalStyle) setBoth(["ui-theme", "uiTheme"], "systemPreferred")
   } catch {
     return
   }
 }
 
-export function styleDevTools(frame: HTMLIFrameElement, prefs: DevToolsPrefs, dark: boolean) {
+export function styleDevTools(frame: HTMLIFrameElement, prefs: DevToolsPrefs) {
   let doc: Document | null
   try {
     doc = frame.contentDocument
@@ -53,5 +53,4 @@ export function styleDevTools(frame: HTMLIFrameElement, prefs: DevToolsPrefs, da
   style.id = styleID
   style.textContent = css
   doc.head.append(style)
-  doc.documentElement.classList.toggle("theme-with-dark-background", dark)
 }

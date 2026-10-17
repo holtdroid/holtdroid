@@ -1230,8 +1230,12 @@ the portal can reach into the iframe's document and localStorage.
   stylesheet on `:root` reaches every panel. The frontend files are not
   rewritten: the agent keeps serving them byte for byte.
 - Before the iframe loads, the portal writes DevTools' hosted-mode settings
-  to localStorage: `ui-theme` follows the portal theme, and
-  `screencast-enabled` is off. Both new and old setting names are written,
+  to localStorage: `ui-theme` is `systemPreferred` and
+  `screencast-enabled` is off. Chrome reports the iframe owner's
+  `color-scheme` (set by next-themes) as the frame's
+  `prefers-color-scheme`, so DevTools switches with the portal theme live;
+  an explicit `dark`/`default` would make it ignore that and re-apply its
+  own class over any change from outside. Both new and old setting names are written,
   since the frontend revision follows the device's WebView.
 - Both are per-browser switches in the DevTools panel (`holtdroid:devtools`
   in localStorage), restyling on by default.
