@@ -185,5 +185,47 @@ securityContext:
   capabilities:
     drop: [ALL]
 
+# Prometheus metrics and OpenTelemetry tracing for every component and,
+# with the emulator provider, for session agents. See the "Monitoring and
+# audit" docs page.
+telemetry:
+  metrics:
+    enabled: false
+    # Every pod serves /metrics on this port, named "metrics".
+    port: 9090
+    # PodMonitor (Prometheus Operator) for the components and session pods.
+    podMonitor:
+      enabled: false
+      interval: 30s
+      labels: {}
+    # Who may scrape session pods past the sessions NetworkPolicy.
+    from:
+      - namespaceSelector: {}
+  tracing:
+    enabled: false
+    # OTLP/HTTP endpoint, e.g. http://otel-collector.monitoring:4318. Empty:
+    # the standard OTEL_EXPORTER_OTLP_* variables (api.env and friends).
+    endpoint: ""
+    insecure: false
+    sampleRatio: 1
+
+# Audit log of the api and the ssh-gateway: JSON lines with "log":"audit" on
+# stdout, optionally also as OTLP logs and to a webhook.
+audit:
+  stdout: true
+  otlp:
+    enabled: false
+    endpoint: ""
+    insecure: false
+  webhook:
+    # Secret reference to the URL, e.g. env:AUDIT_WEBHOOK_URL. Empty: off.
+    url: ""
+    # Secret reference to an Authorization header value.
+    authorization: ""
+    batchSize: 100
+    flushInterval: 5s
+    retries: 5
+    timeout: 10s
+
 # Extra manifests rendered with tpl, e.g. an ExternalSecret or a Middleware.
 extraObjects: []

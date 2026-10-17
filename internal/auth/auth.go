@@ -97,6 +97,8 @@ type Authenticator struct {
 	oidc     *oidcClient
 	now      func() time.Time
 	log      *slog.Logger
+
+	OnSignIn func(ctx context.Context, method string, id Identity, err error)
 }
 
 func New(ctx context.Context, cfg Config, reg *secrets.Registry, publicURL string) (*Authenticator, error) {
@@ -226,7 +228,7 @@ func (a *Authenticator) authorize(id Identity) (Identity, error) {
 	id.Picture = safePicture(id.Picture)
 	if len(a.cfg.AllowedGroups) > 0 && a.cfg.Mode != ModeAnonymous && a.cfg.Mode != ModePassword &&
 		!intersects(id.Groups, a.cfg.AllowedGroups) {
-		return Identity{}, ErrForbidden
+		return Identity{User: id.User}, ErrForbidden
 	}
 	id.Admin = intersects(id.Groups, a.cfg.AdminGroups)
 	return id, nil

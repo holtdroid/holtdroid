@@ -121,8 +121,10 @@ func (c *Cache) Icon(ctx context.Context, key string) ([]byte, error) {
 func (c *Cache) Ensure(ctx context.Context, source string, a src.Artifact) (CacheEntry, error) {
 	key := cacheKey(source, a.ID, a.Revision)
 	if e, ok := c.LookupKey(ctx, key); ok {
+		cacheRequests.WithLabelValues("hit").Inc()
 		return e, nil
 	}
+	cacheRequests.WithLabelValues("miss").Inc()
 	v, err, _ := c.sf.Do(key, func() (any, error) {
 		return c.fetch(context.WithoutCancel(ctx), source, a)
 	})

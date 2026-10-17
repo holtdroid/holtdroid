@@ -23,6 +23,7 @@ import (
 
 	"github.com/kriakiku/holtdroid/internal/contract"
 	"github.com/kriakiku/holtdroid/internal/secrets"
+	"github.com/kriakiku/holtdroid/internal/telemetry"
 	"github.com/kriakiku/holtdroid/internal/vpn"
 )
 
@@ -75,6 +76,9 @@ func TestRender(t *testing.T) {
 			c.GPU = "software"
 			c.Tolerations = []Toleration{{Key: "dedicated", Operator: "Equal", Value: "nas", Effect: "NoSchedule"}}
 		}, "nl"},
+		{"telemetry", func(c *Config) {
+			c.SessionTelemetry = SessionTelemetry{MetricsPort: 9090, Tracing: telemetry.TracingConfig{Enabled: true, Endpoint: "http://otel-collector:4318", Insecure: true, SampleRatio: 0.25}}
+		}, ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

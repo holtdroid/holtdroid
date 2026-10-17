@@ -18,6 +18,7 @@ import (
 	"github.com/kriakiku/holtdroid/internal/agent"
 	"github.com/kriakiku/holtdroid/internal/agent/emulator"
 	"github.com/kriakiku/holtdroid/internal/api"
+	"github.com/kriakiku/holtdroid/internal/audit"
 	"github.com/kriakiku/holtdroid/internal/contract"
 	emulatorprovider "github.com/kriakiku/holtdroid/internal/provider/emulator"
 	"github.com/kriakiku/holtdroid/internal/provider/fake"
@@ -33,16 +34,21 @@ func apiCmd(c *common) *cobra.Command {
 		Short: "Run the portal: web UI, REST API, session proxy and reaper",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg := api.DefaultConfig()
-			reg, err := loadConfig(c.configPath, &cfg)
+			rt, err := loadConfig(c.configPath, &cfg)
 			if err != nil {
 				return err
 			}
-			srv, err := api.New(cmd.Context(), cfg, api.WithUI(web.FS()), api.WithSecrets(reg))
+			aud, err := rt.auditLogger(cmd.Context(), "api")
+			if err != nil {
+				return err
+			}
+			defer closeAudit(aud)
+			srv, err := api.New(cmd.Context(), cfg, api.WithUI(web.FS()), api.WithSecrets(rt.secrets), api.WithAudit(aud))
 			if err != nil {
 				return err
 			}
 			defer srv.Close()
-			return serve(cmd.Context(), []listener{
+			return rt.serve(cmd.Context(), "api", []listener{
 				{cfg.Listen, srv.Handler()},
 				{cfg.InternalListen, srv.InternalHandler()},
 			}, srv.Run)
@@ -56,14 +62,15 @@ func providerFakeCmd(c *common) *cobra.Command {
 		Short: "Run a device provider with simulated devices (development only)",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg := fake.DefaultConfig()
-			if _, err := loadConfig(c.configPath, &cfg); err != nil {
+			rt, err := loadConfig(c.configPath, &cfg)
+			if err != nil {
 				return err
 			}
 			p := fake.New(cfg)
 			mux := http.NewServeMux()
 			contract.RegisterProvider(contract.NewAPI(mux, "Holtdroid fake provider"), p)
 			mux.Handle("/agents/", p.AgentHandler())
-			return serve(cmd.Context(), []listener{{cfg.Listen, mux}, {cfg.TunnelListen, p.TunnelHandler()}})
+			return rt.serve(cmd.Context(), "provider", []listener{{cfg.Listen, mux}, {cfg.TunnelListen, p.TunnelHandler()}})
 		},
 	}
 }
@@ -74,7 +81,7 @@ func providerEmulatorCmd(c *common) *cobra.Command {
 		Short: "Run the device provider that starts Android emulator Pods on Kubernetes",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg := emulatorprovider.DefaultConfig()
-			reg, err := loadConfig(c.configPath, &cfg)
+			rt, err := loadConfig(c.configPath, &cfg)
 			if err != nil {
 				return err
 			}
@@ -82,13 +89,13 @@ func providerEmulatorCmd(c *common) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			p, err := emulatorprovider.New(cfg, kube, reg)
+			p, err := emulatorprovider.New(cfg, kube, rt.secrets)
 			if err != nil {
 				return err
 			}
 			mux := http.NewServeMux()
 			contract.RegisterProvider(contract.NewAPI(mux, "Holtdroid emulator provider"), p)
-			return serve(cmd.Context(), []listener{{cfg.Listen, mux}}, p.RefreshPrepull)
+			return rt.serve(cmd.Context(), "provider", []listener{{cfg.Listen, mux}}, p.RefreshPrepull)
 		},
 	}
 }
@@ -99,7 +106,8 @@ func agentCmd(c *common) *cobra.Command {
 		Short: "Run the device agent inside a session: emulator, app under Frida, screen and DevTools",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg := agent.DefaultConfig()
-			if _, err := loadConfig(c.configPath, &cfg); err != nil {
+			rt, err := loadConfig(c.configPath, &cfg)
+			if err != nil {
 				return err
 			}
 			if cfg.ArtifactURL == "" || cfg.Package == "" {
@@ -113,7 +121,7 @@ func agentCmd(c *common) *cobra.Command {
 			}
 			adb := agent.ADB{Bin: cfg.ADB, Serial: cfg.Serial}
 			a := agent.New(cfg, adb, inst, emulator.New(cfg.Emulator, adb, log).Run, log)
-			return serve(cmd.Context(), []listener{{cfg.Listen, a.Handler()}, {cfg.TunnelListen, a.TunnelHandler()}}, a.Run)
+			return rt.serve(cmd.Context(), "agent", []listener{{cfg.Listen, a.Handler()}, {cfg.TunnelListen, a.TunnelHandler()}}, a.Run)
 		},
 	}
 	cmd.AddCommand(&cobra.Command{
@@ -134,17 +142,22 @@ func sshGatewayCmd(c *common) *cobra.Command {
 		Short: "Run the SSH gateway: ADB and published-port tunnels into sessions, no shells",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg := sshgateway.DefaultConfig()
-			reg, err := loadConfig(c.configPath, &cfg)
+			rt, err := loadConfig(c.configPath, &cfg)
 			if err != nil {
 				return err
 			}
 			log := slog.Default().With("component", "ssh-gateway")
-			hostKey, err := sshgateway.HostKey(cmd.Context(), reg, cfg.HostKey, log)
+			hostKey, err := sshgateway.HostKey(cmd.Context(), rt.secrets, cfg.HostKey, log)
 			if err != nil {
 				return err
 			}
+			aud, err := rt.auditLogger(cmd.Context(), "ssh-gateway")
+			if err != nil {
+				return err
+			}
+			defer closeAudit(aud)
 			keys := sshgateway.NewKeys(cfg.KeyTTL, nil)
-			g, err := sshgateway.New(cfg, hostKey, keys, contract.NewSSHSessionsClient(cfg.APIURL, nil), log)
+			g, err := sshgateway.New(cfg, hostKey, keys, contract.NewSSHSessionsClient(cfg.APIURL, nil), aud, log)
 			if err != nil {
 				return err
 			}
@@ -155,7 +168,7 @@ func sshGatewayCmd(c *common) *cobra.Command {
 			}
 			mux := http.NewServeMux()
 			contract.RegisterSSHGateway(contract.NewAPI(mux, "Holtdroid ssh-gateway"), keys)
-			return serve(cmd.Context(), []listener{{cfg.HTTPListen, mux}}, func(ctx context.Context) { g.Serve(ctx, ln) })
+			return rt.serve(cmd.Context(), "ssh-gateway", []listener{{cfg.HTTPListen, mux}}, func(ctx context.Context) { g.Serve(ctx, ln) })
 		},
 	}
 }
@@ -177,6 +190,7 @@ func devCmd() *cobra.Command {
 		stepDelay time.Duration
 		noDirect  bool
 		location  string
+		metrics   string
 	)
 	cmd := &cobra.Command{
 		Use:   "dev",
@@ -228,7 +242,14 @@ func devCmd() *cobra.Command {
 				{Name: "uploads", Type: "filesystem", Filesystem: storage.FilesystemConfig{Dir: uploads}, PollInterval: 5 * time.Second},
 			}
 			cfg.Uploads.Source = "uploads"
-			srv, err := api.New(cmd.Context(), cfg, api.WithUI(web.FS()), api.WithProvider("fake", provider))
+			rt := defaultRuntime()
+			rt.telemetry.Metrics.Listen = metrics
+			aud, err := rt.auditLogger(cmd.Context(), "api")
+			if err != nil {
+				return err
+			}
+			defer closeAudit(aud)
+			srv, err := api.New(cmd.Context(), cfg, api.WithUI(web.FS()), api.WithProvider("fake", provider), api.WithAudit(aud))
 			if err != nil {
 				return err
 			}
@@ -240,11 +261,11 @@ func devCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			g, err := sshgateway.New(gcfg, hostKey, keys, srv, log)
+			g, err := sshgateway.New(gcfg, hostKey, keys, srv, aud, log)
 			if err != nil {
 				return err
 			}
-			return serve(cmd.Context(), []listener{
+			return rt.serve(cmd.Context(), "dev", []listener{
 				{cfg.Listen, srv.Handler()},
 				{cfg.InternalListen, srv.InternalHandler()},
 				{agents, provider.AgentHandler()},
@@ -268,7 +289,16 @@ func devCmd() *cobra.Command {
 	cmd.Flags().DurationVar(&stepDelay, "step-delay", 2*time.Second, "delay between fake boot stages")
 	cmd.Flags().BoolVar(&noDirect, "no-direct", false, "fake devices offer no direct (VPN-less) location")
 	cmd.Flags().StringVar(&location, "default-location", "", "location fake sessions start in (default: the first offered)")
+	cmd.Flags().StringVar(&metrics, "metrics", "", "address for Prometheus metrics (default: off)")
 	return cmd
+}
+
+func closeAudit(aud *audit.Logger) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := aud.Close(ctx); err != nil {
+		slog.Warn("audit sinks did not flush", "err", err)
+	}
 }
 
 func openapiCmd() *cobra.Command {

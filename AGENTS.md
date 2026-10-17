@@ -62,6 +62,8 @@ internal/
   db/                     api SQL database: goose migrations, sqlc queries (generated code committed)
   auth/                   sign-in modes: anonymous, password, oidc (signed JWT cookie), header, none
   apk/                    APK metadata (package, version, label, icon)
+  audit/                  audit events (schema v1): stdout JSON lines, OTLP logs, webhook
+  telemetry/              Prometheus metrics, OpenTelemetry tracing, huma request metrics
 web/                      React + Vite + TanStack Router/Query + shadcn/ui (embedded into the api binary)
 frida/                    Frida scripts (TypeScript, own bun.lock), bundled into agent.js/system.js by the session image build
 docs/                     public documentation site (Astro Starlight)
@@ -97,7 +99,10 @@ Directories that do not exist yet are planned — create them exactly there.
     `benbjohnson/litestream` replication to S3) and `jackc/pgx/v5` (later),
     `pressly/goose` for migrations, `sqlc` for queries (decisions.md #22;
     only in-memory SQLite exists so far);
-  - `log/slog` for logging.
+  - `log/slog` for logging;
+  - `prometheus/client_golang` — metrics;
+  - `go.opentelemetry.io/otel` (+ `otelhttp`, OTLP/HTTP exporters) — tracing
+    and audit events as OTLP logs.
 
   OpenBao is reached with plain `net/http` (two endpoints), not its client
   library — see decisions.md #12.

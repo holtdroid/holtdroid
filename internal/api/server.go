@@ -16,6 +16,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
 
+	"github.com/kriakiku/holtdroid/internal/audit"
 	"github.com/kriakiku/holtdroid/internal/auth"
 	"github.com/kriakiku/holtdroid/internal/contract"
 	"github.com/kriakiku/holtdroid/internal/db"
@@ -23,28 +24,32 @@ import (
 	"github.com/kriakiku/holtdroid/internal/secrets"
 	"github.com/kriakiku/holtdroid/internal/source"
 	"github.com/kriakiku/holtdroid/internal/storage"
+	"github.com/kriakiku/holtdroid/internal/telemetry"
 )
 
 type Server struct {
-	cfg        Config
-	auth       *auth.Authenticator
-	secrets    *secrets.Registry
-	store      storage.Store
-	db         *db.DB
-	sources    map[string]*source.Source
-	srcOrder   []string
-	providers  map[string]contract.Provider
-	agents     *agentURLs
-	provOrder  []string
-	cache      *Cache
-	activity   *activity
-	warm       chan warmItem
-	library    *library
-	ui         fs.FS
-	lookupHost func(ctx context.Context, host string) ([]string, error)
-	sshHTTP    *http.Client
-	now        func() time.Time
-	log        *slog.Logger
+	cfg            Config
+	auth           *auth.Authenticator
+	secrets        *secrets.Registry
+	store          storage.Store
+	db             *db.DB
+	sources        map[string]*source.Source
+	srcOrder       []string
+	providers      map[string]contract.Provider
+	agents         *agentURLs
+	provOrder      []string
+	cache          *Cache
+	activity       *activity
+	warm           chan warmItem
+	library        *library
+	ui             fs.FS
+	lookupHost     func(ctx context.Context, host string) ([]string, error)
+	sshHTTP        *http.Client
+	audit          *audit.Logger
+	launches       *launches
+	agentTransport http.RoundTripper
+	now            func() time.Time
+	log            *slog.Logger
 }
 
 type Option func(*Server)
@@ -56,6 +61,8 @@ func WithUI(ui fs.FS) Option { return func(s *Server) { s.ui = ui } }
 func WithSecrets(reg *secrets.Registry) Option { return func(s *Server) { s.secrets = reg } }
 
 func WithStore(store storage.Store) Option { return func(s *Server) { s.store = store } }
+
+func WithAudit(l *audit.Logger) Option { return func(s *Server) { s.audit = l } }
 
 func WithProvider(name string, p contract.Provider) Option {
 	return func(s *Server) {
@@ -69,15 +76,17 @@ func New(ctx context.Context, cfg Config, opts ...Option) (*Server, error) {
 		return nil, err
 	}
 	s := &Server{
-		cfg:        cfg,
-		sources:    map[string]*source.Source{},
-		providers:  map[string]contract.Provider{},
-		warm:       make(chan warmItem, 256),
-		library:    newLibrary(),
-		now:        time.Now,
-		lookupHost: net.DefaultResolver.LookupHost,
-		sshHTTP:    &http.Client{Timeout: 10 * time.Second},
-		log:        slog.Default().With("component", "api"),
+		cfg:            cfg,
+		sources:        map[string]*source.Source{},
+		providers:      map[string]contract.Provider{},
+		warm:           make(chan warmItem, 256),
+		library:        newLibrary(),
+		now:            time.Now,
+		lookupHost:     net.DefaultResolver.LookupHost,
+		sshHTTP:        &http.Client{Timeout: 10 * time.Second, Transport: telemetry.Transport(nil)},
+		launches:       newLaunches(),
+		agentTransport: telemetry.Transport(nil),
+		log:            slog.Default().With("component", "api"),
 	}
 	s.agents = newAgentURLs(5*time.Second, func() time.Time { return s.now() })
 	for _, e := range cfg.Providers {
@@ -113,6 +122,7 @@ func New(ctx context.Context, cfg Config, opts ...Option) (*Server, error) {
 	if s.db, err = db.Open(ctx, cfg.Database); err != nil {
 		return nil, err
 	}
+	s.auth.OnSignIn = s.signedIn
 	s.activity = newActivity(s.now)
 	s.cache = NewCache(s.store, int64(cfg.Cache.MaxSize), s.openArtifact, s.openIcon)
 	return s, nil
@@ -120,13 +130,62 @@ func New(ctx context.Context, cfg Config, opts ...Option) (*Server, error) {
 
 func (s *Server) Close() error { return s.db.Close() }
 
-func (s *Server) recordEvent(ctx context.Context, provider, id, kind, actor, artifact, reason string) {
+// emit sends an audit event, filling the actor from the request, and keeps
+// session events in the database.
+func (s *Server) emit(ctx context.Context, ev audit.Event) {
+	if who, ok := auth.FromContext(ctx); ok && ev.Actor == "" {
+		ev.Actor, ev.Admin = who.User, who.Admin
+	}
+	if ev.Time.IsZero() {
+		ev.Time = s.now()
+	}
+	if ev.Result == "" {
+		ev.Result = audit.OK
+	}
+	s.audit.Emit(ctx, ev)
+	if ev.Session == "" {
+		return
+	}
 	err := s.db.AddSessionEvent(ctx, db.AddSessionEventParams{
-		At: s.now(), Provider: provider, SessionID: id, Kind: kind, Actor: actor, Artifact: artifact, Reason: reason,
+		At: ev.Time, Provider: ev.Provider, SessionID: ev.Session, Action: string(ev.Action), Result: string(ev.Result),
+		Actor: ev.Actor, Artifact: ev.Artifact, Reason: ev.Reason,
 	})
 	if err != nil {
-		s.log.Warn("could not record session event", "provider", provider, "session", id, "kind", kind, "err", err)
+		s.log.Warn("could not record session event", "provider", ev.Provider, "session", ev.Session, "action", ev.Action, "err", err)
 	}
+}
+
+// outcome maps an error to an audit result and reason.
+func outcome(err error) (audit.Result, string) {
+	switch {
+	case err == nil:
+		return audit.OK, ""
+	case errors.Is(err, errForbidden), errors.Is(err, auth.ErrForbidden), errors.Is(err, auth.ErrBadPassword):
+		return audit.Denied, err.Error()
+	}
+	var he huma.StatusError
+	if errors.As(err, &he) && (he.GetStatus() == http.StatusForbidden || he.GetStatus() == http.StatusUnauthorized) {
+		return audit.Denied, err.Error()
+	}
+	return audit.Failed, err.Error()
+}
+
+func (s *Server) emitResult(ctx context.Context, ev audit.Event, err error) {
+	ev.Result, ev.Reason = outcome(err)
+	s.emit(ctx, ev)
+}
+
+// requested names the artifact a request refers to by its source and
+// encoded id, for audit events of requests that failed before resolving it.
+func requested(source, encoded string) string {
+	if key, err := decodeID(encoded); err == nil {
+		return source + "/" + key
+	}
+	return source + "/" + encoded
+}
+
+func (s *Server) signedIn(ctx context.Context, method string, id auth.Identity, err error) {
+	s.emitResult(ctx, audit.Event{Action: audit.SignIn, Actor: id.User, Admin: id.Admin, Details: map[string]string{"method": method}}, err)
 }
 
 func (s *Server) source(name string) (*source.Source, error) {
@@ -167,6 +226,7 @@ func NewHumaAPI(mux *http.ServeMux, title, version string) huma.API {
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	api := NewHumaAPI(mux, "Holtdroid", "v1")
+	telemetry.Instrument(api, "ui")
 	s.register(api)
 	mux.Handle("/s/{provider}/{id}/", http.HandlerFunc(s.proxy))
 	mux.Handle("/api/v1/auth/oidc/", s.auth.OIDCHandler())
@@ -174,7 +234,7 @@ func (s *Server) Handler() http.Handler {
 
 	protected := s.auth.Middleware(mux)
 	optional := s.auth.Optional(mux)
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return audit.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p := r.URL.Path
 		switch {
 		case p == "/healthz":
@@ -190,7 +250,7 @@ func (s *Server) Handler() http.Handler {
 		default:
 			mux.ServeHTTP(w, r)
 		}
-	})
+	}))
 }
 
 // InternalHandler serves endpoints only agents and the ssh-gateway call; it must never be

@@ -49,3 +49,13 @@ envFrom:
       name: {{ . }}
 {{- end }}
 {{- end -}}
+
+{{- define "holtdroid.telemetry" -}}
+{{- $t := .Values.telemetry -}}
+{{- $out := dict "tracing" $t.tracing -}}
+{{- if $t.metrics.enabled }}
+{{- $_ := set $out "metrics" (dict "listen" (printf ":%d" (int $t.metrics.port))) -}}
+{{- end }}
+{{- toYaml $out -}}
+{{- end -}}
+

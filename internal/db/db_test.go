@@ -42,14 +42,14 @@ func TestSessionEvents(t *testing.T) {
 	t.Cleanup(func() { _ = d.Close() })
 
 	at := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
-	for i, kind := range []string{"created", "stopped"} {
+	for i, action := range []string{"session.launch", "session.stop"} {
 		if err := d.AddSessionEvent(ctx, AddSessionEventParams{
-			At: at.Add(time.Duration(i) * time.Minute), Provider: "fake", SessionID: "s1", Kind: kind, Actor: "otter", Artifact: "local/hello.apk",
+			At: at.Add(time.Duration(i) * time.Minute), Provider: "fake", SessionID: "s1", Action: action, Result: "ok", Actor: "otter", Artifact: "local/hello.apk",
 		}); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if err := d.AddSessionEvent(ctx, AddSessionEventParams{At: at, Provider: "fake", SessionID: "s2", Kind: "created"}); err != nil {
+	if err := d.AddSessionEvent(ctx, AddSessionEventParams{At: at, Provider: "fake", SessionID: "s2", Action: "session.launch", Result: "ok"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -57,7 +57,7 @@ func TestSessionEvents(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(events) != 2 || events[0].Kind != "created" || events[1].Kind != "stopped" || !events[1].At.Equal(at.Add(time.Minute)) {
+	if len(events) != 2 || events[0].Action != "session.launch" || events[1].Action != "session.stop" || !events[1].At.Equal(at.Add(time.Minute)) {
 		t.Fatalf("events = %+v", events)
 	}
 

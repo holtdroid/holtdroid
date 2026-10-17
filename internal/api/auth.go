@@ -7,6 +7,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/kriakiku/holtdroid/internal/audit"
 	"github.com/kriakiku/holtdroid/internal/auth"
 )
 
@@ -48,6 +49,7 @@ func (s *Server) registerAuth(api huma.API) {
 		}
 		if id, ok := s.auth.Anonymous(); ok {
 			c, err := s.auth.SessionCookie(id)
+			s.signedIn(ctx, auth.ModeAnonymous, id, err)
 			if err != nil {
 				return nil, huma.Error500InternalServerError("could not create session")
 			}
@@ -60,8 +62,9 @@ func (s *Server) registerAuth(api huma.API) {
 	huma.Register(api, huma.Operation{
 		OperationID: "login", Method: http.MethodPost, Path: "/api/v1/auth/login", Tags: tags,
 		Description: "Sign in with the shared password (password mode).",
-	}, func(_ context.Context, in *loginInput) (*authOut, error) {
+	}, func(ctx context.Context, in *loginInput) (*authOut, error) {
 		id, err := s.auth.Login(in.Body.Password)
+		s.signedIn(ctx, auth.ModePassword, id, err)
 		switch {
 		case errors.Is(err, auth.ErrBadPassword):
 			return nil, huma.Error401Unauthorized("wrong password")
@@ -77,7 +80,8 @@ func (s *Server) registerAuth(api huma.API) {
 
 	huma.Register(api, huma.Operation{
 		OperationID: "logout", Method: http.MethodPost, Path: "/api/v1/auth/logout", Tags: tags, DefaultStatus: http.StatusNoContent,
-	}, func(context.Context, *struct{}) (*logoutOut, error) {
+	}, func(ctx context.Context, _ *struct{}) (*logoutOut, error) {
+		s.emit(ctx, audit.Event{Action: audit.SignOut})
 		return &logoutOut{SetCookie: s.auth.ClearCookie()}, nil
 	})
 }

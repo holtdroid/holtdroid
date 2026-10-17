@@ -16,8 +16,10 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/kriakiku/holtdroid/internal/audit"
 	"github.com/kriakiku/holtdroid/internal/config"
 	"github.com/kriakiku/holtdroid/internal/secrets"
+	"github.com/kriakiku/holtdroid/internal/telemetry"
 )
 
 var version = "dev"
@@ -83,21 +85,43 @@ type secretsConfig struct {
 	OpenBao secrets.OpenBaoConfig
 }
 
-// loadConfig reads cfg (pre-filled with defaults) and returns a secret
-// registry configured from the same file's "secrets" section.
-func loadConfig[T any](path string, cfg *T) (*secrets.Registry, error) {
+type shared struct {
+	Secrets   secretsConfig
+	Telemetry telemetry.Config
+	Audit     audit.Config
+}
+
+// runtime holds what every component reads from the shared sections of its
+// config file: secrets, telemetry and audit.
+type runtime struct {
+	secrets   *secrets.Registry
+	telemetry telemetry.Config
+	audit     audit.Config
+}
+
+func defaultRuntime() runtime {
+	return runtime{secrets: secrets.NewRegistry(), telemetry: telemetry.DefaultConfig(), audit: audit.DefaultConfig()}
+}
+
+// loadConfig reads cfg (pre-filled with defaults) and the same file's
+// "secrets", "telemetry" and "audit" sections.
+func loadConfig[T any](path string, cfg *T) (runtime, error) {
 	if err := config.Load(path, *cfg, cfg); err != nil {
-		return nil, err
+		return runtime{}, err
 	}
-	var sc struct{ Secrets secretsConfig }
+	sc := shared{Telemetry: telemetry.DefaultConfig(), Audit: audit.DefaultConfig()}
 	if err := config.Load(path, sc, &sc); err != nil {
-		return nil, err
+		return runtime{}, err
 	}
-	reg := secrets.NewRegistry()
+	rt := runtime{secrets: secrets.NewRegistry(), telemetry: sc.Telemetry, audit: sc.Audit}
 	if sc.Secrets.OpenBao.Address != "" {
-		reg.Register("openbao", secrets.NewOpenBao(sc.Secrets.OpenBao, reg, nil))
+		rt.secrets.Register("openbao", secrets.NewOpenBao(sc.Secrets.OpenBao, rt.secrets, nil))
 	}
-	return reg, nil
+	return rt, nil
+}
+
+func (rt runtime) auditLogger(ctx context.Context, service string) (*audit.Logger, error) {
+	return audit.New(ctx, rt.audit, service, version, rt.secrets)
 }
 
 type listener struct {
@@ -106,8 +130,24 @@ type listener struct {
 }
 
 // serve runs HTTP servers and background loops until ctx ends, then shuts the
-// servers down gracefully.
-func serve(ctx context.Context, listeners []listener, loops ...func(context.Context)) error {
+// servers down gracefully. Requests are traced and, with
+// telemetry.metrics.listen set, Prometheus metrics are served there.
+func (rt runtime) serve(ctx context.Context, service string, listeners []listener, loops ...func(context.Context)) error {
+	shutdown, err := telemetry.Setup(ctx, rt.telemetry, service, version)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		sctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		defer cancel()
+		_ = shutdown(sctx)
+	}()
+	for i, l := range listeners {
+		listeners[i].handler = telemetry.Handler(l.handler, service)
+	}
+	if addr := rt.telemetry.Metrics.Listen; addr != "" {
+		listeners = append(listeners, listener{addr, telemetry.MetricsHandler()})
+	}
 	g, ctx := errgroup.WithContext(ctx)
 	for _, l := range listeners {
 		srv := &http.Server{

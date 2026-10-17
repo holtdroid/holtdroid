@@ -587,6 +587,24 @@ session's `tunnelUrl`.
   the owner or a member of `adminGroups` can stop them.
 - Secrets are referenced, never stored in config files or the repo; see
   [contracts.md](contracts.md#configuration-and-secrets).
+- Every action that changes something (sign-in/out, session launch, stop,
+  reap, extend, install, location switch, clipboard writes through the agent
+  API, artifact upload/update/delete, SSH key sync, SSH connections and
+  tunnels) is an audit event: a JSON line with `"log":"audit"` and a schema
+  version on stdout of the api or the ssh-gateway, optionally also OTLP logs
+  and a batched webhook (`internal/audit`, decision #44). Session actions
+  also land in the api's `session_events` table through the same call.
+
+## Observability
+
+Each service can serve Prometheus metrics on a separate port and export
+OpenTelemetry traces over OTLP/HTTP (`internal/telemetry`); both are off by
+default. Contract clients and servers propagate W3C trace context, so a
+launch shows up as one trace through the api, the provider and the agent.
+The chart adds a `metrics` port to every pod, a `PodMonitor` for the
+components and session pods, and lets the scraper past the sessions
+NetworkPolicy. Metric names and the audit schema are listed on the public
+"Monitoring and audit" page.
 
 ## Future: physical devices
 

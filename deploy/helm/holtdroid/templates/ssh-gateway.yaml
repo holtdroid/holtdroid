@@ -13,7 +13,9 @@
   "reversePorts" $g.reversePorts
   "keyTTL" $g.keyTTL
   "maxTunnelsPerConnection" $g.maxTunnelsPerConnection
+  "audit" .Values.audit
 -}}
+{{- $_ := set $cfg "telemetry" (include "holtdroid.telemetry" . | fromYaml) -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -56,6 +58,9 @@ spec:
           ports:
             - { name: ssh, containerPort: 2222 }
             - { name: http, containerPort: 8080 }
+            {{- if .Values.telemetry.metrics.enabled }}
+            - { name: metrics, containerPort: {{ .Values.telemetry.metrics.port }} }
+            {{- end }}
           readinessProbe:
             httpGet: { path: /v1/health, port: http }
           livenessProbe:

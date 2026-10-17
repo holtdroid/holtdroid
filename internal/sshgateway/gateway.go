@@ -20,6 +20,7 @@ import (
 	"github.com/hashicorp/yamux"
 	"golang.org/x/crypto/ssh"
 
+	"github.com/kriakiku/holtdroid/internal/audit"
 	"github.com/kriakiku/holtdroid/internal/contract"
 	"github.com/kriakiku/holtdroid/internal/secrets"
 )
@@ -97,10 +98,16 @@ type Gateway struct {
 	sessions contract.SSHSessions
 	ports    portSet
 	server   *ssh.ServerConfig
+	audit    *audit.Logger
 	log      *slog.Logger
 
 	mu       sync.Mutex
-	bannered map[string]bool
+	bannered map[string]rejection
+}
+
+type rejection struct {
+	slug   string
+	reason string
 }
 
 var (
@@ -108,12 +115,12 @@ var (
 	errNoSession  = errors.New("no such session")
 )
 
-func New(cfg Config, hostKey ssh.Signer, keys *Keys, sessions contract.SSHSessions, log *slog.Logger) (*Gateway, error) {
+func New(cfg Config, hostKey ssh.Signer, keys *Keys, sessions contract.SSHSessions, aud *audit.Logger, log *slog.Logger) (*Gateway, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
 	ports, _ := parsePorts(cfg.ReversePorts)
-	g := &Gateway{cfg: cfg, keys: keys, sessions: sessions, ports: ports, log: log, bannered: map[string]bool{}}
+	g := &Gateway{cfg: cfg, keys: keys, sessions: sessions, ports: ports, audit: aud, log: log, bannered: map[string]rejection{}}
 	g.server = &ssh.ServerConfig{
 		PublicKeyCallback: g.authenticate,
 		ServerVersion:     "SSH-2.0-holtdroid",
@@ -150,7 +157,9 @@ func (g *Gateway) authenticate(meta ssh.ConnMetadata, key ssh.PublicKey) (*ssh.P
 	if err != nil {
 		return nil, g.banner(meta, err, fmt.Sprintf("No running session %q that you can use.\r\n", meta.User()))
 	}
-	return &ssh.Permissions{Extensions: map[string]string{"user": id.User, "tunnel": sess.TunnelURL}}, nil
+	return &ssh.Permissions{Extensions: map[string]string{
+		"user": id.User, "tunnel": sess.TunnelURL, "provider": sess.Provider, "id": sess.ID,
+	}}, nil
 }
 
 // banner explains a failed login once per connection; clients try every key
@@ -159,10 +168,10 @@ func (g *Gateway) banner(meta ssh.ConnMetadata, err error, msg string) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	key := meta.RemoteAddr().String()
-	if g.bannered[key] {
+	if _, ok := g.bannered[key]; ok {
 		return err
 	}
-	g.bannered[key] = true
+	g.bannered[key] = rejection{slug: meta.User(), reason: err.Error()}
 	return &ssh.BannerError{Err: err, Message: msg}
 }
 
@@ -187,34 +196,54 @@ func (g *Gateway) handle(ctx context.Context, nc net.Conn) {
 	_ = nc.SetDeadline(time.Now().Add(30 * time.Second))
 	sc, chans, reqs, err := ssh.NewServerConn(nc, g.server)
 	g.mu.Lock()
+	rejected, wasRejected := g.bannered[nc.RemoteAddr().String()]
 	delete(g.bannered, nc.RemoteAddr().String())
 	g.mu.Unlock()
+	remote := hostOf(nc.RemoteAddr())
 	if err != nil {
 		g.log.Debug("ssh handshake", "remote", nc.RemoteAddr().String(), "err", err)
 		nc.Close()
+		if wasRejected {
+			loginsTotal.WithLabelValues(string(audit.Denied)).Inc()
+			g.audit.Emit(ctx, audit.Event{
+				Action: audit.SSHConnect, Result: audit.Denied, Reason: rejected.reason, ClientIP: remote,
+				Details: map[string]string{"slug": rejected.slug},
+			})
+		}
 		return
 	}
 	_ = nc.SetDeadline(time.Time{})
 
 	ctx, cancel := context.WithCancel(ctx)
 	c := &conn{
-		g:       g,
-		sc:      sc,
-		user:    sc.Permissions.Extensions["user"],
-		slug:    sc.User(),
-		tunnel:  contract.NewTunnelClient(sc.Permissions.Extensions["tunnel"], nil),
-		cancel:  cancel,
-		forward: map[uint32]*forward{},
+		g:        g,
+		sc:       sc,
+		user:     sc.Permissions.Extensions["user"],
+		slug:     sc.User(),
+		tunnel:   contract.NewTunnelClient(sc.Permissions.Extensions["tunnel"], nil),
+		cancel:   cancel,
+		forward:  map[uint32]*forward{},
+		provider: sc.Permissions.Extensions["provider"],
+		id:       sc.Permissions.Extensions["id"],
+		remote:   remote,
 	}
 	log := g.log.With("user", c.user, "session", c.slug, "remote", nc.RemoteAddr().String())
 	c.log = log
 	log.Info("ssh connected")
+	loginsTotal.WithLabelValues(string(audit.OK)).Inc()
+	connectionsGauge.Inc()
+	c.emit(audit.SSHConnect, nil, nil)
+	start := time.Now()
 	stop := context.AfterFunc(ctx, func() { sc.Close() })
 	defer func() {
 		stop()
 		cancel()
 		sc.Close()
 		c.closeForwards()
+		connectionsGauge.Dec()
+		c.emit(audit.SSHDisconnect, nil, map[string]string{
+			"seconds": strconv.Itoa(int(time.Since(start).Seconds())), "bytes": strconv.FormatInt(c.total.Load(), 10),
+		})
 		log.Info("ssh disconnected")
 	}()
 
@@ -226,14 +255,18 @@ func (g *Gateway) handle(ctx context.Context, nc net.Conn) {
 }
 
 type conn struct {
-	g      *Gateway
-	sc     *ssh.ServerConn
-	user   string
-	slug   string
-	tunnel *contract.TunnelClient
-	cancel context.CancelFunc
-	log    *slog.Logger
-	bytes  atomic.Int64
+	g        *Gateway
+	sc       *ssh.ServerConn
+	user     string
+	slug     string
+	provider string
+	id       string
+	remote   string
+	tunnel   *contract.TunnelClient
+	cancel   context.CancelFunc
+	log      *slog.Logger
+	bytes    atomic.Int64
+	total    atomic.Int64
 
 	mu      sync.Mutex
 	open    int
@@ -245,7 +278,45 @@ type forward struct {
 	canceled atomic.Bool
 }
 
-func (c *conn) count(n int) { c.bytes.Add(int64(n)) }
+func (c *conn) count(n int) {
+	c.bytes.Add(int64(n))
+	c.total.Add(int64(n))
+	bytesTotal.Add(float64(n))
+}
+
+func (c *conn) emit(action audit.Action, err error, details map[string]string) {
+	ev := audit.Event{Action: action, Actor: c.user, Provider: c.provider, Session: c.id, ClientIP: c.remote, Details: details}
+	switch {
+	case err == nil:
+	case errors.Is(err, errDenied):
+		ev.Result, ev.Reason = audit.Denied, err.Error()
+	default:
+		ev.Result, ev.Reason = audit.Failed, err.Error()
+	}
+	c.g.audit.Emit(context.Background(), ev)
+}
+
+func (c *conn) tunnelOpened(kind string, port uint32, err error) {
+	result := audit.OK
+	switch {
+	case errors.Is(err, errDenied):
+		result = audit.Denied
+	case err != nil:
+		result = audit.Failed
+	}
+	tunnelsTotal.WithLabelValues(kind, string(result)).Inc()
+	c.emit(audit.SSHTunnel, err, map[string]string{"kind": kind, "port": strconv.FormatUint(uint64(port), 10)})
+}
+
+var errDenied = errors.New("not allowed")
+
+func hostOf(addr net.Addr) string {
+	host, _, err := net.SplitHostPort(addr.String())
+	if err != nil {
+		return addr.String()
+	}
+	return host
+}
 
 // reserve takes one of the connection's tunnel slots.
 func (c *conn) reserve() (func(), bool) {
@@ -325,6 +396,7 @@ func (c *conn) globalRequests(ctx context.Context, reqs <-chan *ssh.Request) {
 				continue
 			}
 			err := c.startForward(ctx, fr)
+			c.tunnelOpened("reverse", fr.Port, err)
 			if err != nil {
 				c.log.Info("port not published", "port", fr.Port, "err", err)
 			}
@@ -347,9 +419,9 @@ func (c *conn) globalRequests(ctx context.Context, reqs <-chan *ssh.Request) {
 func (c *conn) startForward(ctx context.Context, fr forwardRequest) error {
 	switch {
 	case !c.g.cfg.AllowReverse:
-		return errors.New("publishing ports is disabled")
+		return fmt.Errorf("publishing ports is disabled: %w", errDenied)
 	case fr.Port == 0 || !c.g.ports.contains(int(fr.Port)):
-		return fmt.Errorf("port %d is not allowed", fr.Port)
+		return fmt.Errorf("port %d: %w", fr.Port, errDenied)
 	}
 	c.mu.Lock()
 	_, dup := c.forward[fr.Port]
@@ -373,9 +445,11 @@ func (c *conn) startForward(ctx context.Context, fr forwardRequest) error {
 	c.forward[fr.Port] = f
 	c.mu.Unlock()
 	c.log.Info("port published", "port", fr.Port)
+	tunnelsGauge.WithLabelValues("reverse").Inc()
 
 	go func() {
 		defer release()
+		defer tunnelsGauge.WithLabelValues("reverse").Dec()
 		for {
 			stream, err := sess.AcceptStream()
 			if err != nil {
@@ -453,15 +527,18 @@ func (c *conn) directTCPIP(ctx context.Context, nch ssh.NewChannel) {
 		return
 	}
 	if !c.g.cfg.AllowADB {
+		c.tunnelOpened("adb", d.DestPort, fmt.Errorf("ADB access is disabled: %w", errDenied))
 		_ = nch.Reject(ssh.Prohibited, "ADB access is disabled")
 		return
 	}
 	if !isADB(d.DestAddr, d.DestPort) {
+		c.tunnelOpened("adb", d.DestPort, fmt.Errorf("%s:%d: %w", d.DestAddr, d.DestPort, errDenied))
 		_ = nch.Reject(ssh.Prohibited, "only adb:5555 can be reached through this gateway")
 		return
 	}
 	release, ok := c.reserve()
 	if !ok {
+		c.tunnelOpened("adb", d.DestPort, errors.New("too many tunnels on one connection"))
 		_ = nch.Reject(ssh.ResourceShortage, "too many tunnels on one connection")
 		return
 	}
@@ -470,6 +547,7 @@ func (c *conn) directTCPIP(ctx context.Context, nch ssh.NewChannel) {
 	adb, err := c.tunnel.ADB(dctx, c.user)
 	cancel()
 	if err != nil {
+		c.tunnelOpened("adb", d.DestPort, err)
 		c.log.Warn("adb tunnel", "err", err)
 		_ = nch.Reject(ssh.ConnectionFailed, "the device's ADB is not reachable")
 		return
@@ -479,6 +557,9 @@ func (c *conn) directTCPIP(ctx context.Context, nch ssh.NewChannel) {
 		adb.Close()
 		return
 	}
+	c.tunnelOpened("adb", d.DestPort, nil)
+	tunnelsGauge.WithLabelValues("adb").Inc()
+	defer tunnelsGauge.WithLabelValues("adb").Dec()
 	go ssh.DiscardRequests(reqs)
 	contract.Splice(ch, adb, c.count)
 }

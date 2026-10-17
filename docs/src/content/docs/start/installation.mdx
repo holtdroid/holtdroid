@@ -126,4 +126,6 @@ pod may wait in `ImagePullBackOff` for a few minutes until that commit's image i
 | `providers.emulator.*`     | disabled                     | Emulator sessions, see [Emulator provider](/holtdroid/configuration/emulator/#helm-chart) |
 | `extraProviders`           | `[]`                         | Out-of-tree providers: `[{name, url}]`                                                    |
 | `ingress.*`                | disabled                     | Standard Ingress                                                                          |
+| `telemetry.*`              | off                          | Prometheus metrics and tracing, see [Monitoring](/holtdroid/operations/monitoring/)       |
+| `audit.*`                  | stdout                       | Audit log of the api and ssh-gateway, same page                                           |
 | `extraObjects`             | `[]`                         | Extra manifests, rendered with `tpl`                                                      |

@@ -22,6 +22,11 @@ Conventions:
 - Streams are SSE (`text/event-stream`) with a named `event:` per message.
 - Internal endpoints are served on a separate port from anything user-facing
   where a service has both.
+- Requests carry W3C trace context (`traceparent`): the Go clients inject it
+  and every service continues it (decision #44). Implementations in other
+  languages should do the same; it is harmless to ignore.
+- Every service may serve Prometheus metrics on its own port
+  (`telemetry.metrics.listen`), never on a contract port.
 
 ## Artifact sources (file layout)
 
@@ -334,3 +339,12 @@ Secret values are references resolved through `internal/secrets`:
 A plain string without a scheme is rejected for fields typed as secrets, so
 a token can never end up inlined in a config file by accident. New schemes
 are added by implementing `secrets.Resolver` and registering it.
+
+Every service also reads `telemetry` (`metrics.listen`, `tracing.{enabled,
+endpoint, insecure, sampleRatio}`), and the api and the ssh-gateway read
+`audit` (`stdout`, `otlp.{enabled, endpoint, insecure}`, `webhook.{url,
+authorization, batchSize, flushInterval, retries, timeout}`; `url` and
+`authorization` are secret references). `provider-emulator` passes
+`sessionTelemetry.{metricsPort, tracing}` to session agents as
+`HOLTDROID_TELEMETRY__*` variables. The audit event schema (version 1) is in
+`internal/audit` and documented on the public "Monitoring and audit" page.

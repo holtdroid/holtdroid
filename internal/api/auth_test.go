@@ -1,17 +1,25 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kriakiku/holtdroid/internal/auth"
 )
 
 func cookieServer(t *testing.T, mode string) http.Handler {
+	t.Helper()
+	h, _ := cookieServerAudited(t, mode)
+	return h
+}
+
+func cookieServerAudited(t *testing.T, mode string) (http.Handler, *bytes.Buffer) {
 	t.Helper()
 	t.Setenv("TEST_KEY", "0123456789abcdef0123456789abcdef")
 	t.Setenv("TEST_PASSWORD", "hunter2")
@@ -21,12 +29,13 @@ func cookieServer(t *testing.T, mode string) http.Handler {
 	cfg.Auth.SessionKey = "env:TEST_KEY"
 	cfg.Auth.Password = "env:TEST_PASSWORD"
 	cfg.Sources[0].Filesystem.Dir = t.TempDir()
-	srv, err := New(context.Background(), cfg)
+	aud, buf := testAudit(t, time.Now)
+	srv, err := New(context.Background(), cfg, WithAudit(aud))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = srv.Close() })
-	return srv.Handler()
+	return srv.Handler(), buf
 }
 
 func call(h http.Handler, method, path, body string, cookies []*http.Cookie) *httptest.ResponseRecorder {

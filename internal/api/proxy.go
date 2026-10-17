@@ -1,12 +1,18 @@
 package api
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httputil"
 	"path"
 	"strings"
 
+	"github.com/danielgtaylor/huma/v2"
+
+	"github.com/kriakiku/holtdroid/internal/audit"
 	"github.com/kriakiku/holtdroid/internal/contract"
 )
 
@@ -35,13 +41,20 @@ func (s *Server) proxy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	prefix := "/s/" + providerName + "/" + id
-	if path.Clean(strings.TrimPrefix(r.URL.Path, prefix)) == "/v1/install" {
+	rel := path.Clean(strings.TrimPrefix(r.URL.Path, prefix))
+	if rel == "/v1/install" {
 		http.Error(w, "install builds through /api/v1/sessions/{provider}/{id}/install", http.StatusForbidden)
 		return
 	}
 
 	if r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions {
 		s.activity.Mark(key)
+	}
+	proxyConnections.WithLabelValues(providerName).Inc()
+	defer proxyConnections.WithLabelValues(providerName).Dec()
+	ev := s.proxyAudit(r, rel)
+	if ev != nil {
+		ev.Provider, ev.Session = providerName, id
 	}
 
 	rp := &httputil.ReverseProxy{
@@ -53,13 +66,54 @@ func (s *Server) proxy(w http.ResponseWriter, r *http.Request) {
 			pr.SetXForwarded()
 		},
 		FlushInterval: -1,
+		Transport:     s.agentTransport,
+		ModifyResponse: func(resp *http.Response) error {
+			if ev != nil {
+				s.emitResult(r.Context(), *ev, statusError(resp))
+			}
+			return nil
+		},
 		ErrorHandler: func(w http.ResponseWriter, _ *http.Request, err error) {
+			if ev != nil {
+				s.emitResult(r.Context(), *ev, err)
+			}
 			s.agents.forget(key)
 			s.log.Warn("agent proxy error", "provider", providerName, "session", id, "err", err)
 			http.Error(w, "device agent unavailable", http.StatusBadGateway)
 		},
 	}
 	rp.ServeHTTP(w, r)
+}
+
+// proxyAudit returns the audit event for agent calls worth recording, or nil.
+// The clipboard's content is never recorded.
+func (s *Server) proxyAudit(r *http.Request, rel string) *audit.Event {
+	switch {
+	case r.Method == http.MethodPut && rel == "/v1/network/location":
+		head, _ := io.ReadAll(io.LimitReader(r.Body, 4<<10))
+		r.Body = readCloser{io.MultiReader(bytes.NewReader(head), r.Body), r.Body}
+		var in contract.SetLocation
+		_ = json.Unmarshal(head, &in)
+		return &audit.Event{Action: audit.SessionLocation, Details: map[string]string{"location": in.Location}}
+	case r.Method == http.MethodPost && rel == "/v1/clipboard":
+		return &audit.Event{Action: audit.SessionClipboard}
+	}
+	return nil
+}
+
+type readCloser struct {
+	io.Reader
+	io.Closer
+}
+
+func statusError(resp *http.Response) error {
+	switch {
+	case resp.StatusCode < 300:
+		return nil
+	case resp.StatusCode == http.StatusUnauthorized, resp.StatusCode == http.StatusForbidden:
+		return huma.NewError(resp.StatusCode, resp.Status)
+	}
+	return errors.New(resp.Status)
 }
 
 func singleJoin(a, b string) string {

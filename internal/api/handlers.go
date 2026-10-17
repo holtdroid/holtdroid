@@ -7,12 +7,14 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/kriakiku/holtdroid/internal/audit"
 	"github.com/kriakiku/holtdroid/internal/auth"
 	"github.com/kriakiku/holtdroid/internal/contract"
 	"github.com/kriakiku/holtdroid/internal/source"
@@ -117,7 +119,13 @@ func (s *Server) register(api huma.API) {
 	}, func(ctx context.Context, in *createSessionInput) (*out[SessionView], error) {
 		id, _ := auth.FromContext(ctx)
 		v, err := s.createSession(ctx, id, in.Body.Source, in.Body.ArtifactID, in.Body.Provider, in.Body.Location)
+		result, _ := outcome(err)
+		launchesTotal.WithLabelValues(in.Body.Provider, string(result)).Inc()
 		if err != nil {
+			s.emitResult(ctx, audit.Event{
+				Action: audit.SessionLaunch, Provider: in.Body.Provider,
+				Artifact: requested(in.Body.Source, in.Body.ArtifactID), Details: map[string]string{"location": in.Body.Location},
+			}, err)
 			return nil, httpError(err)
 		}
 		return &out[SessionView]{v}, nil
@@ -139,16 +147,18 @@ func (s *Server) register(api huma.API) {
 	huma.Register(api, huma.Operation{
 		OperationID: "deleteSession", Method: http.MethodDelete, Path: "/api/v1/sessions/{provider}/{id}", Tags: tags, DefaultStatus: http.StatusNoContent,
 	}, func(ctx context.Context, in *sessionPath) (*struct{}, error) {
+		ev := audit.Event{Action: audit.SessionStop, Provider: in.Provider, Session: in.ID}
 		p, sess, err := s.ownedSession(ctx, in.Provider, in.ID)
+		if err == nil {
+			ev.Artifact = sess.ArtifactRef
+			err = p.Delete(ctx, sess.ID)
+		}
+		s.emitResult(ctx, ev, err)
 		if err != nil {
 			return nil, httpError(err)
 		}
-		if err := p.Delete(ctx, sess.ID); err != nil {
-			return nil, httpError(err)
-		}
 		s.agents.forget(sessionKey{in.Provider, sess.ID})
-		who, _ := auth.FromContext(ctx)
-		s.recordEvent(ctx, in.Provider, sess.ID, "stopped", who.User, sess.ArtifactRef, "")
+		sessionsEnded.WithLabelValues(in.Provider, "stopped").Inc()
 		return nil, nil
 	})
 
@@ -156,6 +166,7 @@ func (s *Server) register(api huma.API) {
 		OperationID: "extendSession", Method: http.MethodPost, Path: "/api/v1/sessions/{provider}/{id}/extend", Tags: tags,
 	}, func(ctx context.Context, in *sessionPath) (*out[SessionView], error) {
 		_, sess, err := s.ownedSession(ctx, in.Provider, in.ID)
+		s.emitResult(ctx, audit.Event{Action: audit.SessionExtend, Provider: in.Provider, Session: in.ID, Artifact: sess.ArtifactRef}, err)
 		if err != nil {
 			return nil, httpError(err)
 		}
@@ -169,6 +180,10 @@ func (s *Server) register(api huma.API) {
 	}, func(ctx context.Context, in *installInput) (*out[SessionView], error) {
 		v, err := s.installArtifact(ctx, in.Provider, in.ID, in.Body.Source, in.Body.ArtifactID, in.Body.KeepData)
 		if err != nil {
+			s.emitResult(ctx, audit.Event{
+				Action: audit.SessionInstall, Provider: in.Provider, Session: in.ID,
+				Artifact: requested(in.Body.Source, in.Body.ArtifactID), Details: map[string]string{"keepData": strconv.FormatBool(in.Body.KeepData)},
+			}, err)
 			return nil, httpError(err)
 		}
 		return &out[SessionView]{v}, nil
@@ -319,6 +334,7 @@ func (s *Server) lastActivity(provider string, sess contract.Session) time.Time 
 func (s *Server) view(ctx context.Context, provider string, sess contract.Session) SessionView {
 	srcName, key, rev := splitRef(sess.ArtifactRef)
 	last := s.lastActivity(provider, sess)
+	s.launches.observe(provider, sess, s.now())
 	v := SessionView{
 		Provider:     provider,
 		ID:           sess.ID,
@@ -397,8 +413,12 @@ func (s *Server) createSession(ctx context.Context, who auth.Identity, srcName, 
 		return SessionView{}, err
 	}
 	s.activity.Mark(sessionKey{providerName, sess.ID})
+	s.launches.add(sessionKey{providerName, sess.ID}, s.now())
 	s.markUsed(ctx, srcName, artifact)
-	s.recordEvent(ctx, providerName, sess.ID, "created", who.User, ref, "")
+	s.emit(ctx, audit.Event{
+		Action: audit.SessionLaunch, Provider: providerName, Session: sess.ID, Artifact: ref,
+		Details: map[string]string{"package": entry.Meta.Package, "location": location},
+	})
 	s.log.Info("session created", "provider", providerName, "session", sess.ID, "owner", who.User, "package", entry.Meta.Package)
 	return s.view(ctx, providerName, sess), nil
 }
@@ -439,7 +459,10 @@ func (s *Server) installArtifact(ctx context.Context, providerName, id, srcName,
 	}
 	s.activity.Mark(sessionKey{providerName, id})
 	s.markUsed(ctx, srcName, artifact)
-	s.recordEvent(ctx, providerName, id, "installed", who.User, ref, "")
+	s.emit(ctx, audit.Event{
+		Action: audit.SessionInstall, Provider: providerName, Session: id, Artifact: ref,
+		Details: map[string]string{"package": entry.Meta.Package, "keepData": strconv.FormatBool(keepData)},
+	})
 	s.log.Info("session build replaced", "provider", providerName, "session", id, "by", who.User, "artifact", ref, "keepData", keepData)
 	return s.view(ctx, providerName, updated), nil
 }

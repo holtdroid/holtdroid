@@ -27,6 +27,14 @@ deployment"):
 - A metrics bar at the bottom of the session page (decision #40): device,
   app (fps, jank, CPU/PSS per process), network, storage, temperatures,
   the emulator container's CPU/memory/throttling and the stream.
+- Audit log and telemetry (Phase 4.9, decision #44): audit events (schema 1)
+  from the api and the ssh-gateway as JSON lines on stdout, optionally OTLP
+  logs and a batched webhook; `session_events` fed from the same call;
+  Prometheus metrics on `telemetry.metrics.listen` for every service
+  (sessions, slots, launches, launch duration, cache hits, SSH, per-operation
+  request counts) with a `PodMonitor` in the chart; OpenTelemetry tracing
+  across api → provider → agent. All off by default except stdout audit;
+  not enabled on the maintainer's deployment yet.
 - Sign-in: anonymous animal names, shared password, OIDC (PKCE + userinfo),
   forward-auth headers, none. Avatars from the IdP or DiceBear voxel-art.
 - APK cache on filesystem or S3, keyed by file revision. Stateless api
@@ -79,10 +87,9 @@ deployment"):
    SSH keys page, and deciding whether `clientIsolation` should be on now
    that the port is public (adb is a root shell on emulators).
 3. Planned, each starting with a decisions.md entry: Phase 4.7 traffic
-   inspection proxy, Phase 4.8 MCP server, Phase 4.9 audit and telemetry.
-   All optional and off by default.
-4. Remaining Phase 1/5 chores: `CONTRIBUTING.md`, `SECURITY.md`,
-   `.editorconfig`, conformance package.
+   inspection proxy, Phase 4.8 MCP server. Both optional and off by
+   default; each adds its own audit events and metrics (decision #44).
+4. Remaining Phase 1 chore: the conformance package.
 
 ## Requirements from the maintainer
 

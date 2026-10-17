@@ -12,6 +12,8 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
+
+	"github.com/kriakiku/holtdroid/internal/telemetry"
 )
 
 func toHuma(err error) error {
@@ -52,6 +54,11 @@ type client struct {
 func newClient(baseURL string, hc *http.Client) client {
 	if hc == nil {
 		hc = &http.Client{Timeout: 30 * time.Second}
+	}
+	if hc.Transport == nil {
+		traced := *hc
+		traced.Transport = telemetry.Transport(nil)
+		hc = &traced
 	}
 	return client{base: strings.TrimRight(baseURL, "/"), hc: hc}
 }
@@ -143,7 +150,9 @@ func NewAPI(mux *http.ServeMux, title string) huma.API {
 	cfg.DocsPath = ""
 	cfg.SchemasPath = ""
 	cfg.CreateHooks = nil
-	return humago.New(mux, cfg)
+	api := humago.New(mux, cfg)
+	telemetry.Instrument(api, title)
+	return api
 }
 
 // AgentOpenAPI describes the device agent API, used to generate the web client.

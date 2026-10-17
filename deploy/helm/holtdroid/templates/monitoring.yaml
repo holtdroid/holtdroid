@@ -1,0 +1,41 @@
+{{- $m := .Values.telemetry.metrics -}}
+{{- if and $m.enabled $m.podMonitor.enabled }}
+{{- $name := include "holtdroid.fullname" . -}}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "holtdroid.labels" . | nindent 4 }}
+    {{- with $m.podMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Chart.Name }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  podMetricsEndpoints:
+    - port: metrics
+      interval: {{ $m.podMonitor.interval }}
+{{- if .Values.providers.emulator.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ $name }}-sessions
+  labels:
+    {{- include "holtdroid.labels" . | nindent 4 }}
+    {{- with $m.podMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: holtdroid-session
+      app.kubernetes.io/managed-by: holtdroid-provider-emulator
+  podMetricsEndpoints:
+    - port: metrics
+      interval: {{ $m.podMonitor.interval }}
+{{- end }}
+{{- end }}

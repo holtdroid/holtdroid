@@ -20,10 +20,10 @@ silently drop any.
 - [x] `web/`: Vite + React + TS 7 strict + Tailwind v4 + shadcn/ui + TanStack Router/Query, embedded via `embed`
 - [x] `docs/`: Astro Starlight site (start, concepts, configuration, operations, extending) with mermaid
 - [x] `Makefile`, `mise.toml`, `golangci-lint` v2 config, oxlint/oxfmt configs, `.gitignore`
-- [ ] `.editorconfig`
+- [x] `.editorconfig`
 - [x] CI workflow (`make openapi` drift check, lint, test, build, docs) and GitHub Pages docs deploy
 - [x] `helm lint` in CI
-- [ ] `CONTRIBUTING.md`, `SECURITY.md`
+- [x] `CONTRIBUTING.md`, `SECURITY.md`
 
 ## Phase 1.5 — Sign-in, storage, delivery
 
@@ -149,18 +149,18 @@ Make Holtdroid easy to plug into monitoring and log aggregation (Loki,
 ELK, Datadog, …) and answer "who did what, when". Stays stateless: events
 leave the process, the api doesn't keep them.
 
-- [ ] Audit events with a stable, versioned schema emitted as JSON lines through a dedicated `slog` logger (`"log":"audit"`), separate from debug logs, so collectors can route them: sign-in/out, session launch/stop/reap/extend, location switch, proxy on/off, clipboard writes (no content), artifact upload/delete/visibility, SSH key sync, SSH connect/disconnect and every tunnel opened (`-L`/`-R`, port), MCP token issue/revoke and tool calls. Actor, session, provider, client IP, user agent, result
-- [ ] Optional sinks besides stdout: OTLP logs, webhook (batched, retried); config `audit.*`, off except stdout by default
-- [ ] Metrics: Prometheus `/metrics` on a separate port (sessions active/launched/failed, slots, launch duration, APK cache hits, proxy/SSH/MCP connections), from api, provider, agent and ssh-gateway; `ServiceMonitor` in the chart behind a flag
-- [ ] Tracing: OpenTelemetry (`go.opentelemetry.io/otel`) across api → provider → agent with W3C trace context on the contract clients; exporter off by default
-- [ ] `session_events` (Phase 4.6) fed from the same audit events instead of a parallel path
-- [ ] Tests: audit event per action in `internal/api/api_test.go`, schema golden file; docs page "Monitoring and audit"
+- [x] Audit events with a stable, versioned schema emitted as JSON lines through a dedicated `slog` logger (`"log":"audit"`), separate from debug logs, so collectors can route them: sign-in/out, session launch/stop/reap/extend, location switch, proxy on/off, clipboard writes (no content), artifact upload/delete/visibility, SSH key sync, SSH connect/disconnect and every tunnel opened (`-L`/`-R`, port), MCP token issue/revoke and tool calls. Actor, session, provider, client IP, user agent, result (decision #44; proxy and MCP events land with Phases 4.7 and 4.8)
+- [x] Optional sinks besides stdout: OTLP logs, webhook (batched, retried); config `audit.*`, off except stdout by default
+- [x] Metrics: Prometheus `/metrics` on a separate port (sessions active/launched/failed, slots, launch duration, APK cache hits, session-proxy and SSH connections; traffic-proxy and MCP metrics land with Phases 4.7 and 4.8), from api, provider, agent and ssh-gateway; `PodMonitor` in the chart behind a flag (decision #44)
+- [x] Tracing: OpenTelemetry (`go.opentelemetry.io/otel`) across api → provider → agent with W3C trace context on the contract clients; exporter off by default
+- [x] `session_events` (Phase 4.6) fed from the same audit events instead of a parallel path
+- [x] Tests: audit event per action in `internal/api/api_test.go`, schema golden file; docs page "Monitoring and audit"
 
 ## Phase 5 — Packaging and docs
 
 - [x] Helm chart: add provider-emulator, RBAC, NetworkPolicy, prepull DaemonSet, values for nodeSelector/tolerations/slots/resources
 - [x] Release workflow: amd64 session image
-- [ ] Docs site content: install with Helm, Slack app setup, VPN providers, secrets backends, forward-auth examples (Authelia, oauth2-proxy), architecture, publishing builds into a source, writing a provider, troubleshooting (KVM, ARM translation, Frida)
+- [x] Docs site content: install with Helm, Slack app setup, VPN providers, secrets backends, forward-auth examples (Authelia, oauth2-proxy), architecture, publishing builds into a source, writing a provider, troubleshooting (KVM, ARM translation, Frida)
 - [x] Docs deployed to GitHub Pages
 
 ## Phase 6 — First deployment

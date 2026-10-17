@@ -8,12 +8,14 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/kriakiku/holtdroid/internal/audit"
 	"github.com/kriakiku/holtdroid/internal/auth"
 	"github.com/kriakiku/holtdroid/internal/contract"
 	"github.com/kriakiku/holtdroid/internal/sshkey"
@@ -69,6 +71,9 @@ func (s *Server) registerSSH(api huma.API) {
 		}
 		who, _ := auth.FromContext(ctx)
 		replicas, err := s.pushSSHKeys(ctx, who, lines)
+		s.emitResult(ctx, audit.Event{Action: audit.SSHKeys, Details: map[string]string{
+			"keys": strconv.Itoa(len(lines)), "fingerprints": fingerprints(lines), "replicas": strconv.Itoa(replicas),
+		}}, err)
 		if claimed, ok := errors.AsType[*contract.KeysClaimedError](err); ok {
 			details := make([]error, 0, len(claimed.Keys))
 			for _, i := range claimed.Keys {
@@ -126,6 +131,16 @@ func parseSSHKeys(keys []SSHKeyInput) ([]string, error) {
 		return nil, huma.Error422UnprocessableEntity("invalid SSH keys", details...)
 	}
 	return lines, nil
+}
+
+func fingerprints(lines []string) string {
+	out := make([]string, 0, len(lines))
+	for _, l := range lines {
+		if k, err := sshkey.Parse(l); err == nil {
+			out = append(out, k.Fingerprint)
+		}
+	}
+	return strings.Join(out, ",")
 }
 
 func (s *Server) pushSSHKeys(ctx context.Context, who auth.Identity, lines []string) (int, error) {

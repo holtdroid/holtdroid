@@ -81,6 +81,22 @@ func (p *Provider) renderPod(id, slot string, req contract.CreateSession, locati
 	if location != "" {
 		env = append(env, corev1.EnvVar{Name: "HOLTDROID_LOCATION", Value: location})
 	}
+	ports := []corev1.ContainerPort{
+		{Name: "agent", ContainerPort: int32(p.cfg.AgentPort)},
+		{Name: "tunnel", ContainerPort: int32(p.cfg.TunnelPort)},
+	}
+	if mp := p.cfg.SessionTelemetry.MetricsPort; mp != 0 {
+		env = append(env, corev1.EnvVar{Name: "HOLTDROID_TELEMETRY__METRICS__LISTEN", Value: ":" + strconv.Itoa(mp)})
+		ports = append(ports, corev1.ContainerPort{Name: "metrics", ContainerPort: int32(mp)})
+	}
+	if tr := p.cfg.SessionTelemetry.Tracing; tr.Enabled {
+		env = append(env,
+			corev1.EnvVar{Name: "HOLTDROID_TELEMETRY__TRACING__ENABLED", Value: "true"},
+			corev1.EnvVar{Name: "HOLTDROID_TELEMETRY__TRACING__ENDPOINT", Value: tr.Endpoint},
+			corev1.EnvVar{Name: "HOLTDROID_TELEMETRY__TRACING__INSECURE", Value: strconv.FormatBool(tr.Insecure)},
+			corev1.EnvVar{Name: "HOLTDROID_TELEMETRY__TRACING__SAMPLERATIO", Value: strconv.FormatFloat(tr.SampleRatio, 'g', -1, 64)},
+		)
+	}
 	volumes := []corev1.Volume{
 		{Name: "kvm", VolumeSource: hostPath("/dev/kvm")},
 		{Name: "shm", EmptyDir: &corev1.EmptyDirVolumeSource{Medium: corev1.StorageMediumMemory}},
@@ -101,10 +117,7 @@ func (p *Provider) renderPod(id, slot string, req contract.CreateSession, locati
 		Image:           p.cfg.Image,
 		ImagePullPolicy: corev1.PullPolicy(p.cfg.ImagePullPolicy),
 		Env:             env,
-		Ports: []corev1.ContainerPort{
-			{Name: "agent", ContainerPort: int32(p.cfg.AgentPort)},
-			{Name: "tunnel", ContainerPort: int32(p.cfg.TunnelPort)},
-		},
+		Ports:           ports,
 		Resources:       p.resources,
 		SecurityContext: &corev1.SecurityContext{Privileged: new(true)},
 		VolumeMounts: []corev1.VolumeMount{

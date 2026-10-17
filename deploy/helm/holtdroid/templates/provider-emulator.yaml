@@ -23,6 +23,10 @@
   "resources" $e.session.resources
   "gpu" $e.session.gpu
 -}}
+{{- $_ := set $cfg "telemetry" (include "holtdroid.telemetry" . | fromYaml) -}}
+{{- $_ := set $cfg "sessionTelemetry" (dict
+  "metricsPort" (ternary (int .Values.telemetry.metrics.port) 0 .Values.telemetry.metrics.enabled)
+  "tracing" .Values.telemetry.tracing) -}}
 {{- with $e.vpn }}
 {{- $_ := set $cfg "vpn" . -}}
 {{- end }}
@@ -136,6 +140,9 @@ spec:
           args: [provider-emulator, --config, /etc/holtdroid/config.yaml]
           ports:
             - { name: http, containerPort: 8080 }
+            {{- if .Values.telemetry.metrics.enabled }}
+            - { name: metrics, containerPort: {{ .Values.telemetry.metrics.port }} }
+            {{- end }}
           readinessProbe:
             httpGet: { path: /v1/health, port: http }
           resources:
@@ -186,6 +193,12 @@ spec:
               {{- include "holtdroid.selector" (dict "root" . "component" "ssh-gateway") | nindent 14 }}
       ports:
         - { protocol: TCP, port: 8081 }
+    {{- end }}
+    {{- if .Values.telemetry.metrics.enabled }}
+    - from:
+        {{- toYaml .Values.telemetry.metrics.from | nindent 8 }}
+      ports:
+        - { protocol: TCP, port: {{ .Values.telemetry.metrics.port }} }
     {{- end }}
 {{- end }}
 {{- if $e.prepull.enabled }}

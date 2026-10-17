@@ -4,10 +4,12 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -50,7 +52,8 @@ func newSSHHarness(t *testing.T, enabled bool, replicas int) *sshHarness {
 	cfg.Auth.Mode = auth.ModeHeader
 	cfg.SSH.Enabled = enabled
 	cfg.SSH.GatewayURL = "http://gateway-headless:8080"
-	srv, err := New(context.Background(), cfg, WithResolver(func(_ context.Context, host string) ([]string, error) {
+	aud, buf := testAudit(t, time.Now)
+	srv, err := New(context.Background(), cfg, WithAudit(aud), WithResolver(func(_ context.Context, host string) ([]string, error) {
 		if host != "gateway-headless" {
 			t.Errorf("resolved %q", host)
 		}
@@ -69,7 +72,7 @@ func newSSHHarness(t *testing.T, enabled bool, replicas int) *sshHarness {
 			return (&net.Dialer{}).DialContext(ctx, network, backends[addr])
 		},
 	}}
-	h.harness = &harness{t: t, srv: srv, handler: srv.Handler()}
+	h.harness = &harness{t: t, srv: srv, handler: srv.Handler(), audit: buf}
 	return h
 }
 
@@ -151,6 +154,25 @@ func TestSSHKeysSync(t *testing.T) {
 	rec = h.do(http.MethodPut, "/api/v1/ssh/keys", "alice", "", keyList{Keys: []SSHKeyInput{}})
 	if rec.Code != http.StatusBadGateway {
 		t.Fatalf("all down = %d %s", rec.Code, rec.Body)
+	}
+
+	var got []string
+	for line := range strings.Lines(h.audit.String()) {
+		var ev struct {
+			Action, Result, Actor string
+			Details               map[string]string
+		}
+		_ = json.Unmarshal([]byte(line), &ev)
+		got = append(got, strings.Join([]string{ev.Action, ev.Result, ev.Actor, ev.Details["keys"], ev.Details["fingerprints"], ev.Details["replicas"]}, "|"))
+	}
+	wantAudit := []string{
+		"ssh.keys|ok|alice|2|" + aFP + "," + bFP + "|2",
+		"ssh.keys|failed|bob|1|" + bFP + "|0",
+		"ssh.keys|ok|alice|1|" + aFP + "|1",
+		"ssh.keys|failed|alice|0||0",
+	}
+	if !slices.Equal(got, wantAudit) {
+		t.Fatalf("audit %q, want %q", got, wantAudit)
 	}
 }
 

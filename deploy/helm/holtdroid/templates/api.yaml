@@ -4,6 +4,8 @@
 {{- $_ := set $cfg "internalListen" ":8081" -}}
 {{- $_ := set $cfg "publicURL" .Values.publicURL -}}
 {{- $_ := set $cfg "internalURL" (printf "http://%s-api-internal:8081" $name) -}}
+{{- $_ := set $cfg "telemetry" (include "holtdroid.telemetry" . | fromYaml) -}}
+{{- $_ := set $cfg "audit" .Values.audit -}}
 {{- $providers := list -}}
 {{- if .Values.providers.fake.enabled -}}
 {{- $providers = append $providers (dict "name" .Values.providers.fake.name "url" (printf "http://%s-provider-fake:8080" $name)) -}}
@@ -95,6 +97,9 @@ spec:
           ports:
             - { name: http, containerPort: 8080 }
             - { name: internal, containerPort: 8081 }
+            {{- if .Values.telemetry.metrics.enabled }}
+            - { name: metrics, containerPort: {{ .Values.telemetry.metrics.port }} }
+            {{- end }}
           readinessProbe:
             httpGet: { path: /healthz, port: http }
           livenessProbe:

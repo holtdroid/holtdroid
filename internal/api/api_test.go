@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kriakiku/holtdroid/internal/audit"
 	"github.com/kriakiku/holtdroid/internal/auth"
 	"github.com/kriakiku/holtdroid/internal/contract"
 	"github.com/kriakiku/holtdroid/internal/db"
@@ -50,6 +51,17 @@ type harness struct {
 	clock    *clock
 	apks     string
 	cfg      Config
+	audit    *bytes.Buffer
+}
+
+func testAudit(t *testing.T, now func() time.Time) (*audit.Logger, *bytes.Buffer) {
+	t.Helper()
+	buf := &bytes.Buffer{}
+	l, err := audit.New(context.Background(), audit.Config{}, "api", "test", nil, audit.WithStdout(buf), audit.WithClock(now))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return l, buf
 }
 
 func newHarness(t *testing.T, slots int, opts ...func(*fake.Config)) *harness {
@@ -75,12 +87,13 @@ func newHarness(t *testing.T, slots int, opts ...func(*fake.Config)) *harness {
 	cfg.Auth.Mode = auth.ModeHeader
 	cfg.Auth.AdminGroups = []string{"admins"}
 	cfg.Sources = []source.Config{{Name: "local", Type: "filesystem", Filesystem: storage.FilesystemConfig{Dir: apks}}}
-	srv, err := New(context.Background(), cfg, WithClock(clk.Now), WithProvider("fake", p))
+	aud, buf := testAudit(t, clk.Now)
+	srv, err := New(context.Background(), cfg, WithClock(clk.Now), WithProvider("fake", p), WithAudit(aud))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = srv.Close() })
-	return &harness{t: t, srv: srv, handler: srv.Handler(), internal: srv.InternalHandler(), provider: p, clock: clk, apks: apks, cfg: cfg}
+	return &harness{t: t, srv: srv, handler: srv.Handler(), internal: srv.InternalHandler(), provider: p, clock: clk, apks: apks, cfg: cfg, audit: buf}
 }
 
 func copyFile(t *testing.T, from, to string) {
@@ -151,7 +164,7 @@ func (h *harness) events(id string) []string {
 	}
 	var out []string
 	for _, r := range rows {
-		out = append(out, strings.Join([]string{r.Kind, r.Actor, r.Artifact, r.Reason}, "|"))
+		out = append(out, strings.Join([]string{r.Action, r.Result, r.Actor, r.Artifact, r.Reason}, "|"))
 	}
 	return out
 }
@@ -278,7 +291,14 @@ func TestOwnership(t *testing.T) {
 	if rec := h.do(http.MethodGet, path, "otter", "", nil); rec.Code != http.StatusNotFound {
 		t.Fatalf("get after delete: %d", rec.Code)
 	}
-	want := []string{"created|otter|" + ref + "|", "stopped|root|" + ref + "|"}
+	denied := "|only the owner or an admin can do this"
+	want := []string{
+		"session.launch|ok|otter|" + ref + "|",
+		"session.stop|denied|beaver|" + denied,
+		"session.extend|denied|beaver|" + denied,
+		"session.extend|ok|otter|" + ref + "|",
+		"session.stop|ok|root|" + ref + "|",
+	}
 	if got := h.events(v.ID); !slices.Equal(got, want) {
 		t.Fatalf("events = %q, want %q", got, want)
 	}
@@ -308,7 +328,7 @@ func TestReaper(t *testing.T) {
 	if _, err := h.provider.Get(ctx, busy.ID); err != nil {
 		t.Fatalf("active session reaped: %v", err)
 	}
-	want := []string{"created|otter|" + ref + "|", "reaped||" + ref + "|idle timeout"}
+	want := []string{"session.launch|ok|otter|" + ref + "|", "session.reap|ok||" + ref + "|idle timeout"}
 	if got := h.events(idle.ID); !slices.Equal(got, want) {
 		t.Fatalf("events = %q, want %q", got, want)
 	}
@@ -485,7 +505,7 @@ func TestInstallArtifact(t *testing.T) {
 	if got.ArtifactID != encodeID("hello-v2.apk") || got.Label != "HelloWorld" || !strings.HasPrefix(h.ref(got), "local/hello-v2.apk@") {
 		t.Fatalf("after install %+v, ref %s", got, h.ref(got))
 	}
-	if evs := h.events(v.ID); !slices.ContainsFunc(evs, func(e string) bool { return strings.HasPrefix(e, "installed|otter|local/hello-v2.apk@") }) {
+	if evs := h.events(v.ID); !slices.ContainsFunc(evs, func(e string) bool { return strings.HasPrefix(e, "session.install|ok|otter|local/hello-v2.apk@") }) {
 		t.Fatalf("events %v", evs)
 	}
 }

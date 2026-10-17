@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/kriakiku/holtdroid/internal/audit"
 	"github.com/kriakiku/holtdroid/internal/contract"
 )
 
@@ -40,32 +41,43 @@ func (s *Server) Reap(ctx context.Context) {
 		s.log.Warn("reaper could not list sessions", "provider", e.Source, "err", e.Message)
 	}
 	now := s.now()
+	s.observeSessions(ctx, all)
 	alive := map[sessionKey]bool{}
 	for provider, items := range all {
 		for _, sess := range items {
 			key := sessionKey{provider, sess.ID}
 			alive[key] = true
-			reason := ""
+			s.launches.observe(provider, sess, now)
+			reason, metric := "", ""
 			switch {
 			case now.Sub(sess.CreatedAt) > s.cfg.Sessions.MaxTTL:
-				reason = "max TTL reached"
+				reason, metric = "max TTL reached", "ttl"
 			case now.Sub(s.lastActivity(provider, sess)) > s.cfg.Sessions.IdleTimeout:
-				reason = "idle timeout"
+				reason, metric = "idle timeout", "idle"
 			}
 			if reason == "" || sess.State == contract.StateStopping {
 				continue
 			}
+			ev := audit.Event{
+				Action: audit.SessionReap, Provider: provider, Session: sess.ID, Artifact: sess.ArtifactRef,
+				Details: map[string]string{"owner": sess.Owner},
+			}
 			if err := s.providers[provider].Delete(ctx, sess.ID); err != nil {
 				s.log.Warn("reaper could not delete session", "provider", provider, "session", sess.ID, "err", err)
+				ev.Details["trigger"] = reason
+				s.emitResult(ctx, ev, err)
 				continue
 			}
 			s.agents.forget(key)
-			s.recordEvent(ctx, provider, sess.ID, "reaped", "", sess.ArtifactRef, reason)
+			sessionsEnded.WithLabelValues(provider, metric).Inc()
+			ev.Reason = reason
+			s.emit(ctx, ev)
 			s.log.Info("session reaped", "provider", provider, "session", sess.ID, "owner", sess.Owner, "reason", reason)
 		}
 	}
 	if len(errs) == 0 {
 		s.activity.Retain(alive)
+		s.launches.retain(alive)
 	}
 }
 

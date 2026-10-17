@@ -869,3 +869,50 @@ every shared fix would need a tag and three dependency bumps.
 job that didn't change still gets a new image tag. Holtdroid keeps its own
 copy of the shared packages, so the two copies are still synced by hand.
 The old per-job repositories were deleted; their history is not carried over.
+
+## 44. Audit log and telemetry leave the process
+
+**Context.** Operators want to answer "who did what, when" and to plug
+Holtdroid into the monitoring they already run (Prometheus, Loki, ELK,
+Datadog, an OpenTelemetry Collector). The api is stateless and its database
+is in memory, so nothing it keeps would survive a restart anyway.
+
+**Decision.**
+
+- `internal/audit` defines one event (`schema: 1`: time, service, action,
+  result `ok`/`denied`/`failed`, actor, admin, provider, session, artifact,
+  client IP, raw `X-Forwarded-For`, user agent, reason, string details).
+  The api and the ssh-gateway emit it for every state-changing action.
+  Sinks: JSON lines through a dedicated `slog` JSON handler on **stdout**
+  (regular logs stay on stderr) with `"log":"audit"`, on by default;
+  OTLP logs through the OpenTelemetry SDK's batch processor; a webhook that
+  POSTs JSON arrays in batches, retries with backoff and then drops and
+  counts. Emitting never blocks a request on delivery.
+- The api's `session_events` table is written by the same `emit` call
+  instead of a separate path; the table columns follow the event
+  (`action`, `result`).
+- The client IP is the peer address; `X-Forwarded-For` is recorded raw
+  rather than trusted, so no "trusted proxies" setting is needed.
+- Clipboard content is never recorded. Clipboard sync inside the scrcpy
+  stream (decision #36) is invisible to the api and not audited; only writes
+  through the agent's REST endpoint are.
+- `internal/telemetry`: Prometheus metrics with `client_golang` on the
+  default registry, served on `telemetry.metrics.listen`, separate from
+  every API port. Request counts per huma operation come from a middleware
+  on every huma API; domain metrics (sessions, slots, launches, launch
+  duration, cache hits, SSH connections and tunnels) are package-level
+  collectors. Launch duration is measured by the replica that launched the
+  session, the first time it sees the session `ready`.
+- Tracing is OpenTelemetry with `otelhttp` on every server and contract
+  client, W3C trace context propagation, OTLP/HTTP export. Off by default;
+  without an endpoint the exporter follows the standard `OTEL_*` variables.
+- The chart uses a `PodMonitor` instead of a `ServiceMonitor`: session pods
+  have no Service, and per-replica components are scraped individually
+  without adding metrics ports to every Service.
+
+**Consequences.** Audit durability is the destination's job: stdout is
+synchronous, the OTLP and webhook sinks lose at most their buffers on a
+crash. The event schema is a public contract; incompatible changes bump
+`schema`. Proxy (Phase 4.7) and MCP (Phase 4.8) events are added with those
+features. Prometheus histograms of streaming operations (SSE, the screen)
+measure stream lifetime, not latency.

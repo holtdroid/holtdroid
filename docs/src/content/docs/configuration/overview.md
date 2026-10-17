@@ -22,6 +22,19 @@ Logging is configured with flags or environment, not the file:
 Fields that hold credentials only accept **secret references**, never plain
 values — see [Secrets](/holtdroid/configuration/secrets/).
 
+Every service also reads two shared sections: `telemetry` (Prometheus
+metrics on a separate port, OpenTelemetry tracing) and, in the api and the
+ssh-gateway, `audit` (the audit log). Both are described in
+[Monitoring and audit](/holtdroid/operations/monitoring/).
+
+```yaml
+telemetry:
+  metrics: { listen: ":9090" }
+  tracing: { enabled: true, endpoint: http://otel-collector:4318 }
+audit:
+  stdout: true
+```
+
 ## api
 
 ```yaml

@@ -11,15 +11,16 @@ import (
 )
 
 const addSessionEvent = `-- name: AddSessionEvent :exec
-INSERT INTO session_events (at, provider, session_id, kind, actor, artifact, reason)
-VALUES (?, ?, ?, ?, ?, ?, ?)
+INSERT INTO session_events (at, provider, session_id, action, result, actor, artifact, reason)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type AddSessionEventParams struct {
 	At        time.Time
 	Provider  string
 	SessionID string
-	Kind      string
+	Action    string
+	Result    string
 	Actor     string
 	Artifact  string
 	Reason    string
@@ -30,7 +31,8 @@ func (q *Queries) AddSessionEvent(ctx context.Context, arg AddSessionEventParams
 		arg.At,
 		arg.Provider,
 		arg.SessionID,
-		arg.Kind,
+		arg.Action,
+		arg.Result,
 		arg.Actor,
 		arg.Artifact,
 		arg.Reason,
@@ -39,7 +41,7 @@ func (q *Queries) AddSessionEvent(ctx context.Context, arg AddSessionEventParams
 }
 
 const listSessionEvents = `-- name: ListSessionEvents :many
-SELECT id, at, provider, session_id, kind, actor, artifact, reason FROM session_events
+SELECT id, at, provider, session_id, "action", result, actor, artifact, reason FROM session_events
 WHERE provider = ? AND session_id = ?
 ORDER BY id
 `
@@ -63,7 +65,8 @@ func (q *Queries) ListSessionEvents(ctx context.Context, arg ListSessionEventsPa
 			&i.At,
 			&i.Provider,
 			&i.SessionID,
-			&i.Kind,
+			&i.Action,
+			&i.Result,
 			&i.Actor,
 			&i.Artifact,
 			&i.Reason,

@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/kriakiku/holtdroid/internal/telemetry"
 	"github.com/kriakiku/holtdroid/internal/vpn"
 )
 
@@ -47,6 +48,13 @@ type Config struct {
 	GPU              string
 	VPN              vpn.Config
 	Prepull          Prepull
+	SessionTelemetry SessionTelemetry
+}
+
+// SessionTelemetry is what session agents get of the telemetry settings.
+type SessionTelemetry struct {
+	MetricsPort int
+	Tracing     telemetry.TracingConfig
 }
 
 type Toleration struct {
@@ -96,6 +104,9 @@ func (c Config) Validate() error {
 	}
 	if c.TunnelPort <= 0 || c.TunnelPort > 65535 || c.TunnelPort == c.AgentPort {
 		errs = append(errs, fmt.Errorf("tunnelPort %d is not a port other than agentPort", c.TunnelPort))
+	}
+	if p := c.SessionTelemetry.MetricsPort; p < 0 || p > 65535 || (p != 0 && (p == c.AgentPort || p == c.TunnelPort)) {
+		errs = append(errs, fmt.Errorf("sessionTelemetry.metricsPort %d is not a free port", p))
 	}
 	if c.GPU != "host" && c.GPU != "software" {
 		errs = append(errs, fmt.Errorf("gpu %q must be host or software", c.GPU))

@@ -42,6 +42,7 @@ vpn:
 | `resources`                | Per-session emulator container resources. Leave out a CPU limit: throttling makes the software-rendered screen stutter                                             |
 | `gpu`                      | `host` renders on the node's GPU, `software` with SwiftShader. See below                                                                                           |
 | `vpn`                      | Per-session VPN, see below                                                                                                                                         |
+| `sessionTelemetry`         | Metrics port and tracing settings passed to session agents, see [Monitoring](/holtdroid/operations/monitoring/)                                                    |
 
 Every matching node is one slot, at most one session per node. A session is
 pinned to the first free node; nodes that are not Ready or are cordoned show

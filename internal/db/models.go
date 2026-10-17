@@ -13,7 +13,8 @@ type SessionEvent struct {
 	At        time.Time
 	Provider  string
 	SessionID string
-	Kind      string
+	Action    string
+	Result    string
 	Actor     string
 	Artifact  string
 	Reason    string

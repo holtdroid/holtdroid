@@ -28,12 +28,26 @@ spec:
             - { name: HOLTDROID_SLOTS, value: {{ .Values.providers.fake.slots | quote }} }
             - { name: HOLTDROID_STEPDELAY, value: {{ .Values.providers.fake.stepDelay | quote }} }
             - { name: HOLTDROID_PUBLICURL, value: {{ printf "http://%s-provider-fake:8080" $name | quote }} }
+            {{- if .Values.telemetry.metrics.enabled }}
+            - { name: HOLTDROID_TELEMETRY__METRICS__LISTEN, value: {{ printf ":%d" (int .Values.telemetry.metrics.port) | quote }} }
+            {{- end }}
+            {{- with .Values.telemetry.tracing }}
+            {{- if .enabled }}
+            - { name: HOLTDROID_TELEMETRY__TRACING__ENABLED, value: "true" }
+            - { name: HOLTDROID_TELEMETRY__TRACING__ENDPOINT, value: {{ .endpoint | quote }} }
+            - { name: HOLTDROID_TELEMETRY__TRACING__INSECURE, value: {{ .insecure | quote }} }
+            - { name: HOLTDROID_TELEMETRY__TRACING__SAMPLERATIO, value: {{ .sampleRatio | quote }} }
+            {{- end }}
+            {{- end }}
             {{- if .Values.sshGateway.enabled }}
             - { name: HOLTDROID_TUNNELURL, value: {{ printf "http://%s-provider-fake:8081" $name | quote }} }
             {{- end }}
           ports:
             - { name: http, containerPort: 8080 }
             - { name: tunnel, containerPort: 8081 }
+            {{- if .Values.telemetry.metrics.enabled }}
+            - { name: metrics, containerPort: {{ .Values.telemetry.metrics.port }} }
+            {{- end }}
           readinessProbe:
             httpGet: { path: /v1/health, port: http }
           resources:

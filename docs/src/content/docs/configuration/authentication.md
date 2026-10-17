@@ -129,8 +129,75 @@ auth:
     picture: "" # optional header with an avatar URL
 ```
 
-For oauth2-proxy (`--set-xauthrequest`) use `X-Auth-Request-User`,
-`X-Auth-Request-Groups` and `X-Auth-Request-Email`.
+<details>
+<summary>Traefik + Authelia</summary>
+
+A `forwardAuth` middleware on the portal's route, copying Authelia's
+`Remote-*` headers into the request:
+
+```yaml
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: authelia
+  namespace: holtdroid
+spec:
+  forwardAuth:
+    address: http://authelia.authelia.svc.cluster.local/api/authz/forward-auth
+    trustForwardHeader: true
+    authResponseHeaders: [Remote-User, Remote-Groups, Remote-Name, Remote-Email]
+```
+
+```yaml
+# Helm values
+ingress:
+  enabled: true
+  className: traefik
+  host: android.example.com
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: holtdroid-authelia@kubernetescrd
+config:
+  auth:
+    mode: header
+    adminGroups: [admins]
+```
+
+Authelia sends `Remote-Groups` comma-separated, which is what Holtdroid
+expects.
+
+</details>
+
+<details>
+<summary>ingress-nginx + oauth2-proxy</summary>
+
+Run oauth2-proxy with `--set-xauthrequest` (and `--reverse-proxy`), then let
+ingress-nginx ask it about every request:
+
+```yaml
+# Helm values
+ingress:
+  enabled: true
+  className: nginx
+  host: android.example.com
+  annotations:
+    nginx.ingress.kubernetes.io/auth-url: http://oauth2-proxy.auth.svc.cluster.local/oauth2/auth
+    nginx.ingress.kubernetes.io/auth-signin: https://auth.example.com/oauth2/start?rd=$scheme://$host$escaped_request_uri
+    nginx.ingress.kubernetes.io/auth-response-headers: X-Auth-Request-User,X-Auth-Request-Groups,X-Auth-Request-Email
+config:
+  auth:
+    mode: header
+    header:
+      user: X-Auth-Request-User
+      groups: X-Auth-Request-Groups
+      email: X-Auth-Request-Email
+      name: ""
+```
+
+</details>
+
+The api and the ssh-gateway must not be reachable around the proxy: keep the
+Services `ClusterIP` and, if other workloads share the cluster, add a
+NetworkPolicy that only lets the ingress controller reach the api's port 8080.
 
 ## Groups and admins
 

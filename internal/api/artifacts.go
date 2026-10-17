@@ -22,6 +22,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kriakiku/holtdroid/internal/apk"
+	"github.com/kriakiku/holtdroid/internal/audit"
 	"github.com/kriakiku/holtdroid/internal/auth"
 	"github.com/kriakiku/holtdroid/internal/contract"
 	"github.com/kriakiku/holtdroid/internal/source"
@@ -139,19 +140,24 @@ func (s *Server) registerArtifacts(api huma.API) {
 		OperationID: "updateArtifact", Method: http.MethodPatch, Path: "/api/v1/artifacts/{source}/{id}", Tags: tags,
 		Description: "Changes the visibility of an artifact or whether it is temporary. Owner or admin only.",
 	}, func(ctx context.Context, in *patchArtifactInput) (*out[ArtifactView], error) {
+		ev := audit.Event{Action: audit.ArtifactUpdate, Artifact: requested(in.Source, in.ID), Details: map[string]string{"visibility": string(in.Body.Visibility)}}
+		if t := in.Body.Temporary; t != nil {
+			ev.Details["temporary"] = strconv.FormatBool(*t)
+		}
 		src, a, err := s.managedArtifact(ctx, in.Source, in.ID)
+		if err == nil {
+			meta := a.Meta
+			if in.Body.Visibility != "" {
+				meta.Visibility = in.Body.Visibility
+			}
+			if t := in.Body.Temporary; t != nil && *t != meta.Temporary {
+				meta.Temporary = *t
+				meta.LastUsedAt = s.now().UTC()
+			}
+			a, err = src.SetMeta(ctx, a.ID, meta)
+		}
+		s.emitResult(ctx, ev, err)
 		if err != nil {
-			return nil, httpError(err)
-		}
-		meta := a.Meta
-		if in.Body.Visibility != "" {
-			meta.Visibility = in.Body.Visibility
-		}
-		if t := in.Body.Temporary; t != nil && *t != meta.Temporary {
-			meta.Temporary = *t
-			meta.LastUsedAt = s.now().UTC()
-		}
-		if a, err = src.SetMeta(ctx, a.ID, meta); err != nil {
 			return nil, httpError(err)
 		}
 		s.refreshSource(ctx, in.Source)
@@ -162,15 +168,15 @@ func (s *Server) registerArtifacts(api huma.API) {
 		OperationID: "deleteArtifact", Method: http.MethodDelete, Path: "/api/v1/artifacts/{source}/{id}", Tags: tags,
 		DefaultStatus: http.StatusNoContent, Description: "Deletes an artifact and its sidecar. Owner or admin only.",
 	}, func(ctx context.Context, in *artifactPath) (*struct{}, error) {
+		ev := audit.Event{Action: audit.ArtifactDelete, Artifact: requested(in.Source, in.ID)}
 		src, a, err := s.managedArtifact(ctx, in.Source, in.ID)
+		if err == nil {
+			err = src.Delete(ctx, a.ID)
+		}
+		s.emitResult(ctx, ev, err)
 		if err != nil {
 			return nil, httpError(err)
 		}
-		if err := src.Delete(ctx, a.ID); err != nil {
-			return nil, httpError(err)
-		}
-		who, _ := auth.FromContext(ctx)
-		s.log.Info("artifact deleted", "source", in.Source, "artifact", a.ID, "by", who.User)
 		s.refreshSource(ctx, in.Source)
 		return nil, nil
 	})
@@ -207,6 +213,7 @@ func (s *Server) registerArtifacts(api huma.API) {
 	}, func(ctx context.Context, in *uploadInput) (*out[ArtifactView], error) {
 		v, err := s.upload(ctx, in)
 		if err != nil {
+			s.emitResult(ctx, audit.Event{Action: audit.ArtifactUpload, Details: map[string]string{"file": in.RawBody.Data().File.Filename}}, err)
 			return nil, httpError(err)
 		}
 		return &out[ArtifactView]{v}, nil
@@ -433,7 +440,9 @@ func (s *Server) upload(ctx context.Context, in *uploadInput) (ArtifactView, err
 	if _, err := s.cache.put(ctx, name, a, tmp.Name(), meta, icon); err != nil {
 		s.log.Warn("could not cache uploaded APK", "source", name, "artifact", a.ID, "err", err)
 	}
-	s.log.Info("artifact uploaded", "source", name, "artifact", a.ID, "by", who.User, "package", meta.Package, "visibility", sidecar.Visibility, "temporary", sidecar.Temporary)
+	s.emit(ctx, audit.Event{Action: audit.ArtifactUpload, Artifact: name + "/" + a.ID, Details: map[string]string{
+		"package": meta.Package, "version": meta.VersionName, "visibility": string(sidecar.Visibility), "temporary": strconv.FormatBool(sidecar.Temporary),
+	}})
 	s.refreshSource(ctx, name)
 	return s.artifactView(ctx, name, a), nil
 }

@@ -168,6 +168,9 @@ func (a *Authenticator) oidcCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id, err := a.oidcIdentity(r.Context(), r.URL.Query().Get("code"), st)
+	if a.OnSignIn != nil {
+		a.OnSignIn(r.Context(), ModeOIDC, id, err)
+	}
 	if errors.Is(err, ErrForbidden) {
 		http.Error(w, "your account is not allowed to use Holtdroid", http.StatusForbidden)
 		return

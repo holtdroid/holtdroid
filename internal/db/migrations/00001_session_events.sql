@@ -4,7 +4,8 @@ CREATE TABLE session_events (
     at TIMESTAMP NOT NULL,
     provider TEXT NOT NULL,
     session_id TEXT NOT NULL,
-    kind TEXT NOT NULL,
+    action TEXT NOT NULL,
+    result TEXT NOT NULL,
     actor TEXT NOT NULL,
     artifact TEXT NOT NULL,
     reason TEXT NOT NULL

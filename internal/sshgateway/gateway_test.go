@@ -1,10 +1,12 @@
 package sshgateway
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
@@ -18,6 +20,7 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
+	"github.com/kriakiku/holtdroid/internal/audit"
 	"github.com/kriakiku/holtdroid/internal/contract"
 	"github.com/kriakiku/holtdroid/internal/provider/fake"
 )
@@ -71,6 +74,24 @@ type harness struct {
 	sessions *stubSessions
 	keys     *Keys
 	clock    *clock
+	audit    *lockedBuffer
+}
+
+type lockedBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *lockedBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *lockedBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
 }
 
 func newHarness(t *testing.T, mod func(*Config)) *harness {
@@ -93,7 +114,12 @@ func newHarness(t *testing.T, mod func(*Config)) *harness {
 		t.Fatal(err)
 	}
 	sessions := &stubSessions{p: p}
-	g, err := New(cfg, signer, keys, sessions, slog.New(slog.DiscardHandler))
+	buf := &lockedBuffer{}
+	aud, err := audit.New(context.Background(), audit.Config{}, "ssh-gateway", "test", nil, audit.WithStdout(buf))
+	if err != nil {
+		t.Fatal(err)
+	}
+	g, err := New(cfg, signer, keys, sessions, aud, slog.New(slog.DiscardHandler))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +131,7 @@ func newHarness(t *testing.T, mod func(*Config)) *harness {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	go g.Serve(ctx, ln)
-	return &harness{t: t, addr: ln.Addr().String(), provider: p, sessions: sessions, keys: keys, clock: clk}
+	return &harness{t: t, addr: ln.Addr().String(), provider: p, sessions: sessions, keys: keys, clock: clk, audit: buf}
 }
 
 func (h *harness) session(owner string) (slug, id string) {
@@ -335,6 +361,66 @@ func TestADBTunnel(t *testing.T) {
 			conn.Close()
 			t.Fatalf("%s was reachable", target)
 		}
+	}
+}
+
+func TestAuditTrail(t *testing.T) {
+	h := newHarness(t, func(c *Config) { c.ReversePorts = "1024-65535" })
+	otter := h.register("otter", false)
+	slug, id := h.session("otter")
+	_, stranger, _ := ed25519.GenerateKey(rand.Reader)
+	unknown, _ := ssh.NewSignerFromKey(stranger)
+	if c, err := h.dial(slug, unknown); err == nil {
+		c.Close()
+		t.Fatal("unknown key logged in")
+	}
+
+	c, err := h.dial(slug, otter)
+	if err != nil {
+		t.Fatal(err)
+	}
+	conn, err := c.Dial("tcp", "adb:5555")
+	if err != nil {
+		t.Fatal(err)
+	}
+	roundTrip(t, conn, "CNXN")
+	conn.Close()
+	if conn, err := c.Dial("tcp", "adb:22"); err == nil {
+		conn.Close()
+	}
+	ln, err := c.Listen("tcp", "127.0.0.1:3000")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Listen("tcp", "127.0.0.1:80"); err == nil {
+		t.Fatal("port outside reversePorts was published")
+	}
+	ln.Close()
+	c.Close()
+	eventually(t, "the disconnect event", func() bool { return strings.Contains(h.audit.String(), "ssh.disconnect") })
+
+	var got []string
+	for line := range strings.Lines(h.audit.String()) {
+		var ev struct {
+			Action, Result, Actor, Provider, Session, ClientIP string
+			Details                                            map[string]string
+		}
+		if err := json.Unmarshal([]byte(line), &ev); err != nil {
+			t.Fatal(err)
+		}
+		got = append(got, strings.Join([]string{ev.Action, ev.Result, ev.Actor, ev.Provider + "/" + ev.Session, ev.ClientIP, ev.Details["kind"], ev.Details["port"], ev.Details["slug"]}, "|"))
+	}
+	want := []string{
+		"ssh.connect|denied||/|127.0.0.1|||" + slug,
+		"ssh.connect|ok|otter|fake/" + id + "|127.0.0.1|||",
+		"ssh.tunnel|ok|otter|fake/" + id + "|127.0.0.1|adb|5555|",
+		"ssh.tunnel|denied|otter|fake/" + id + "|127.0.0.1|adb|22|",
+		"ssh.tunnel|ok|otter|fake/" + id + "|127.0.0.1|reverse|3000|",
+		"ssh.tunnel|denied|otter|fake/" + id + "|127.0.0.1|reverse|80|",
+		"ssh.disconnect|ok|otter|fake/" + id + "|127.0.0.1|||",
+	}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("audit:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
 }
 
