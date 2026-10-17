@@ -21,7 +21,9 @@ in the Pod's network namespace:
 - switching location changes the selector through sing-box's local API, so
   the switch is instant and needs no restart;
 - the device's DNS queries are captured from the tunnel and resolved through
-  the selected location, so lookups don't leak.
+  the selected location, so lookups don't leak;
+- those lookups return IPv4 addresses only (`AAAA` answers are empty), so
+  the device never tries IPv6 through a location that can't carry it.
 
 The launch dialog and the quick-launch button use the location you used last
 time with that provider (remembered in the browser's `localStorage`, also when you switch

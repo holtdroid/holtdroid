@@ -1267,3 +1267,20 @@ Vibrations arrive up to a second late; a repeating pattern (a ringtone) is
 reported once, with no length. The dumpsys text format is Android 14+;
 older devices report nothing. A reload starts the audio only after the
 first click on the page.
+
+## 55. The VPN sidecar resolves IPv4 only
+
+**Context.** The sidecar's tun has an IPv6 address, so Android resolves
+`AAAA` records and connects to IPv6 first. Typical locations (SOCKS to a
+gateway whose WireGuard tunnels are IPv4-only) reject IPv6 destinations,
+but by then the tun has already accepted the TCP connection, so the app
+sees a reset instead of an unreachable network and never falls back to
+IPv4: every dual-stack host failed.
+
+**Decision.** The sidecar's DNS uses `strategy: ipv4_only`: hijacked `AAAA`
+queries get an empty answer, so the device only ever connects over IPv4.
+The tun keeps its IPv6 address, so IPv6 to literal addresses still goes
+into the tunnel instead of leaking around it.
+
+**Consequences.** No IPv6 through any location, even one that could carry
+it. Apps that connect to IPv6 literals still fail on IPv4-only locations.

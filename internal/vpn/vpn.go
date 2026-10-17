@@ -194,7 +194,8 @@ func (c Config) Render(ctx context.Context, sec Secrets, location string) ([]byt
 				c.resolver(),
 				{"type": "udp", "tag": "tunnel", "server": c.DNS, "detour": Selector},
 			},
-			"final": "tunnel",
+			"final":    "tunnel",
+			"strategy": "ipv4_only",
 		},
 		Inbounds: []obj{{
 			"type":                  "tun",

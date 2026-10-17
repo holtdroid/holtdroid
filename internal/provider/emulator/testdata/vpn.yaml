@@ -163,7 +163,8 @@ stringData:
             "tag": "tunnel",
             "type": "udp"
           }
-        ]
+        ],
+        "strategy": "ipv4_only"
       },
       "inbounds": [
         {
