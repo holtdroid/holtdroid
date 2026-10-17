@@ -1,3 +1,5 @@
+import fixWebmDuration from "fix-webm-duration"
+
 const types = ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm", "video/mp4"]
 
 export type RecordMode = "screen" | "page"
@@ -15,13 +17,20 @@ function record(stream: MediaStream): Recording {
   const mimeType = types.find((t) => MediaRecorder.isTypeSupported(t)) ?? ""
   const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 8_000_000 })
   const chunks: Blob[] = []
+  let started = 0
+  recorder.addEventListener("start", () => (started = performance.now()), { once: true })
   recorder.addEventListener("dataavailable", (e) => chunks.push(e.data))
   const done = new Promise<Blob>((resolve) => {
     recorder.addEventListener(
       "stop",
       () => {
         for (const t of stream.getTracks()) t.stop()
-        resolve(new Blob(chunks, { type: recorder.mimeType }))
+        const blob = new Blob(chunks, { type: recorder.mimeType })
+        resolve(
+          recorder.mimeType.startsWith("video/webm")
+            ? fixWebmDuration(blob, performance.now() - started, { logger: false })
+            : blob,
+        )
       },
       { once: true },
     )
