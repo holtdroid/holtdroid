@@ -10,6 +10,7 @@ import {
   HeadphonesIcon,
   LockIcon,
   LockOpenIcon,
+  PowerIcon,
   RotateCcwSquareIcon,
   RotateCwSquareIcon,
   SquareIcon,
@@ -19,6 +20,7 @@ import {
   VibrateIcon,
   VideoIcon,
   VolumeXIcon,
+  CheckIcon,
 } from "lucide-react"
 import { type ReactNode, useEffect, useState } from "react"
 import { toast } from "sonner"
@@ -28,6 +30,7 @@ import { displayURL, type LiveScreen, useScreenLive } from "@/components/session
 import { ScreenSettings } from "@/components/session/screen-settings"
 import { useDeviceAction } from "@/components/session/use-device"
 import { Button } from "@/components/ui/button"
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Separator } from "@/components/ui/separator"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useEventSource } from "@/hooks/use-event-source"
@@ -38,14 +41,11 @@ import { type AudioConnection, AudioUnavailableError, audioSupported, openAudio 
 import { formatDuration } from "@/lib/format"
 import { type Recording, recordingSupported, startRecording } from "@/lib/recorder"
 import type { ScreenControl } from "@/lib/scrcpy"
-import { setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
+import { type LockMode, setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
 import { buzz } from "@/lib/vibration"
 
 const groups: { action: DeviceAction; label: string; icon: ReactNode }[][] = [
-  [
-    { action: "lock", label: "Lock screen", icon: <LockIcon /> },
-    { action: "unlock", label: "Wake and unlock", icon: <LockOpenIcon /> },
-  ],
+  [{ action: "unlock", label: "Wake and unlock", icon: <LockOpenIcon /> }],
   [
     { action: "volume-up", label: "Volume up", icon: <Volume2Icon /> },
     { action: "volume-down", label: "Volume down", icon: <Volume1Icon /> },
@@ -118,6 +118,7 @@ export function DeviceRail({
 
   return (
     <div className="bg-background flex flex-col items-center gap-1 overflow-y-auto border-l p-1">
+      <LockButton run={run} />
       {groups.map((group, i) => (
         <div key={group.map((b) => b.action).join()} className="contents">
           {i > 0 && <Separator className="my-1 w-6!" />}
@@ -137,6 +138,50 @@ export function DeviceRail({
       <ScreenSettings live={live} />
       <DeviceSettingsSheet provider={provider} id={id} />
     </div>
+  )
+}
+
+const lockModes: Record<LockMode, { label: string; hint: string; icon: ReactNode }> = {
+  lock: { label: "Lock screen", hint: "Show the lock screen", icon: <LockIcon /> },
+  "screen-off": { label: "Turn screen off", hint: "Press the power button", icon: <PowerIcon /> },
+}
+
+function LockButton({ run }: { run: (a: DeviceAction) => void }) {
+  const { lockMode } = useScreenPrefs()
+  const current = lockModes[lockMode] ?? lockModes.lock
+  return (
+    <HoverCard openDelay={150} closeDelay={150}>
+      <HoverCardTrigger asChild>
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          aria-label={current.label}
+          onClick={() => run(lockModes[lockMode] ? lockMode : "lock")}
+        >
+          {current.icon}
+        </Button>
+      </HoverCardTrigger>
+      <HoverCardContent side="left" align="start" className="flex w-56 flex-col gap-0.5 p-1">
+        {(Object.entries(lockModes) as [LockMode, (typeof lockModes)[LockMode]][]).map(([mode, m]) => (
+          <Button
+            key={mode}
+            variant="ghost"
+            className="h-auto justify-start gap-2 px-2 py-1.5 text-left"
+            onClick={() => {
+              setScreenPrefs({ lockMode: mode })
+              run(mode)
+            }}
+          >
+            {m.icon}
+            <span className="flex flex-1 flex-col">
+              <span>{m.label}</span>
+              <span className="text-muted-foreground text-xs font-normal">{m.hint}</span>
+            </span>
+            {mode === lockMode && <CheckIcon className="text-muted-foreground" />}
+          </Button>
+        ))}
+      </HoverCardContent>
+    </HoverCard>
   )
 }
 

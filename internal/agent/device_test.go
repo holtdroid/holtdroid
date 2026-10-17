@@ -147,6 +147,7 @@ func TestControlsActions(t *testing.T) {
 		cmd    string
 	}{
 		{contract.DeviceVolumeUp, "input keyevent KEYCODE_VOLUME_UP"},
+		{contract.DeviceLock, "locksettings set-disabled false && input keyevent KEYCODE_SLEEP && sleep 1 && input keyevent KEYCODE_WAKEUP"},
 		{contract.DeviceUnlock, "input keyevent KEYCODE_WAKEUP && wm dismiss-keyguard"},
 		{contract.DeviceRecents, "input keyevent KEYCODE_APP_SWITCH"},
 		{contract.DeviceQuickSettings, "cmd statusbar expand-settings"},

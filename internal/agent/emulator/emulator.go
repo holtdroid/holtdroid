@@ -192,6 +192,21 @@ func waitDisplay(ctx context.Context) error {
 	}
 }
 
+const allowHomeRotation = `for p in com.google.android.apps.nexuslauncher com.android.launcher3; do
+  [ -d /data/data/$p ] || continue
+  d=/data/data/$p/shared_prefs; f=$d/com.android.launcher3.prefs.xml
+  grep -q pref_allowRotation $f 2>/dev/null && continue
+  am force-stop $p
+  if [ -f $f ]; then
+    sed -i -e 's|<map />|<map></map>|' -e 's|<map>|<map><boolean name="pref_allowRotation" value="true" />|' $f
+  else
+    mkdir -p $d
+    echo '<?xml version="1.0" encoding="utf-8" standalone="yes" ?><map><boolean name="pref_allowRotation" value="true" /></map>' >$f
+    u=$(stat -c %u /data/data/$p); chown -R $u:$u $d; restorecon -R $d
+  fi
+done
+am start -a android.intent.action.MAIN -c android.intent.category.HOME >/dev/null`
+
 func (e *Emulator) prepare(ctx context.Context) error {
 	e.log.Info("waiting for Android to boot")
 	if err := e.adb.WaitBoot(ctx); err != nil {
@@ -200,6 +215,9 @@ func (e *Emulator) prepare(ctx context.Context) error {
 	e.log.Info("android booted")
 	if err := e.adb.Root(ctx); err != nil {
 		return fmt.Errorf("adb root: %w", err)
+	}
+	if _, err := e.adb.Shell(ctx, allowHomeRotation); err != nil {
+		e.log.Warn("could not allow home screen rotation", "err", err)
 	}
 	const remote = "/data/local/tmp/frida-server"
 	if err := e.adb.Push(ctx, e.cfg.FridaServer, remote); err != nil {

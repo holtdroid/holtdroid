@@ -184,6 +184,7 @@ const (
 	DeviceVolumeUp      DeviceAction = "volume-up"
 	DeviceVolumeDown    DeviceAction = "volume-down"
 	DeviceMute          DeviceAction = "mute"
+	DeviceScreenOff     DeviceAction = "screen-off"
 	DeviceLock          DeviceAction = "lock"
 	DeviceUnlock        DeviceAction = "unlock"
 	DeviceBack          DeviceAction = "back"

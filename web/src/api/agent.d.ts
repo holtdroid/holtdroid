@@ -860,7 +860,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                action: "volume-up" | "volume-down" | "mute" | "lock" | "unlock" | "back" | "home" | "recents" | "notifications" | "quick-settings" | "rotate-left" | "rotate-right";
+                action: "volume-up" | "volume-down" | "mute" | "screen-off" | "lock" | "unlock" | "back" | "home" | "recents" | "notifications" | "quick-settings" | "rotate-left" | "rotate-right";
             };
             cookie?: never;
         };

@@ -1284,3 +1284,23 @@ into the tunnel instead of leaking around it.
 
 **Consequences.** No IPv6 through any location, even one that could carry
 it. Apps that connect to IPv6 literals still fail on IPv4-only locations.
+
+## 56. Lock shows the lock screen; the home screen rotates
+
+**Context.** The emulator boots with the lock screen disabled
+(`locksettings get-disabled` is true), so the lock button only turned the
+screen off and waking showed the app again. The rotate buttons set
+`user_rotation`, but the Pixel launcher is portrait-only by default
+(`SCREEN_ORIENTATION_NOSENSOR`), so on the home screen they did nothing.
+
+**Decision.** There are two actions: `screen-off` presses the power button
+(`KEYCODE_SLEEP`), `lock` enables the lock screen, sleeps and wakes the
+device, so it lands on the keyguard. The rail button runs the one picked in
+its hover popup, remembered in the browser. At boot the emulator agent turns
+on the launcher's "Allow home screen rotation" (`pref_allowRotation` in its
+shared preferences, written as root with the launcher stopped).
+
+**Consequences.** After the first `lock` the lock screen stays enabled, so a
+screen timeout also lands on it, as on a real phone; `unlock` dismisses it.
+`lock` takes about a second. Apps that fix their orientation still don't
+rotate, as on a real device.

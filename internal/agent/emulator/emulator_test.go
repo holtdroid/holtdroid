@@ -51,6 +51,7 @@ func TestPrepare(t *testing.T) {
 	want := []string{
 		"wait-boot",
 		"root",
+		allowHomeRotation,
 		"push /opt/holtdroid/frida-server /data/local/tmp/frida-server",
 		"chmod 755 /data/local/tmp/frida-server && /data/local/tmp/frida-server -D </dev/null >/dev/null 2>&1",
 		"pidof frida-server",

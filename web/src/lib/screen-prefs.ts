@@ -2,6 +2,7 @@ import { useSyncExternalStore } from "react"
 
 export type VideoCodec = "h264" | "h265" | "av1"
 export type KeyboardMode = "text" | "uhid"
+export type LockMode = "lock" | "screen-off"
 
 export type ScreenPrefs = {
   codec: VideoCodec
@@ -10,6 +11,7 @@ export type ScreenPrefs = {
   bitRate: number
   keyboard: KeyboardMode
   audio: boolean
+  lockMode: LockMode
 }
 
 export const defaultScreenPrefs: ScreenPrefs = {
@@ -19,6 +21,7 @@ export const defaultScreenPrefs: ScreenPrefs = {
   bitRate: 4_000_000,
   keyboard: "text",
   audio: true,
+  lockMode: "lock",
 }
 
 const key = "holtdroid:screen"

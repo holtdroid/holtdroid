@@ -76,7 +76,7 @@ type deviceSettingsInput struct {
 }
 
 type deviceActionInput struct {
-	Action DeviceAction `path:"action" enum:"volume-up,volume-down,mute,lock,unlock,back,home,recents,notifications,quick-settings,rotate-left,rotate-right"`
+	Action DeviceAction `path:"action" enum:"volume-up,volume-down,mute,screen-off,lock,unlock,back,home,recents,notifications,quick-settings,rotate-left,rotate-right"`
 }
 
 type screenshotOutput struct {
