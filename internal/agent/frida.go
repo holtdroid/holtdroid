@@ -75,8 +75,8 @@ func CompileScripts(dir string) error {
 	return nil
 }
 
-// SetWallpaper renders w with the device's own Canvas and fonts and sets it
-// on the home and lock screens.
+// SetWallpaper renders w with the device's own Canvas and fonts: the logo on
+// the home screen, the logo with w's rows on the lock screen.
 func (f *Frida) SetWallpaper(ctx context.Context, w Wallpaper) error {
 	raw, err := json.Marshal(w)
 	if err != nil {

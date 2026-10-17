@@ -215,9 +215,9 @@ Inside `emulator`, the agent starts and supervises:
 2. Waits for `sys.boot_completed`, runs `adb root`, pushes and starts
    `frida-server` (same pinned version as the agent's devkit, decision #23).
 3. Downloads the APK from the api, `adb install -r -d -g` (`-d` lets later
-   builds downgrade), and in the background sets a generated wallpaper on
-   the home and lock screens: the Holtdroid logo over a debug grid with the
-   session ID, user, start time (UTC), app and build, artifact, node,
+   builds downgrade), and in the background sets generated wallpapers: the
+   Holtdroid logo over a debug grid on the home screen, and on the lock
+   screen the same logo with the session ID, user, start time (UTC), app and build, artifact, node,
    Holtdroid version and the device's Android, ABIs and display.
    `system.js` (`frida/system.ts`) draws it with Android's `Canvas` inside
    `system_server` and calls `WallpaperManager.setBitmap`, so no image or

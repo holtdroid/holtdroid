@@ -37,7 +37,7 @@ function drawLogo(canvas: Java.Wrapper, cx: number, cy: number, size: number) {
   canvas.restore()
 }
 
-function render(w: Wallpaper) {
+function render(w: Wallpaper, details: boolean) {
   const info = Java.use("android.hardware.display.DisplayManagerGlobal").getInstance().getDisplayInfo(0)
   const width: number = Math.min(info.logicalWidth.value, info.logicalHeight.value)
   const height: number = Math.max(info.logicalWidth.value, info.logicalHeight.value)
@@ -78,6 +78,7 @@ function render(w: Wallpaper) {
 
   const cy = 72 * dp + 48 * dp
   drawLogo(canvas, width / 2, cy, 96 * dp)
+  if (!details) return bitmap
 
   const title = paint(0xffe6edf3, 28)
   title.setTypeface(Typeface.DEFAULT_BOLD.value)
@@ -140,11 +141,11 @@ rpc.exports = {
         try {
           const context = Java.use("android.app.ActivityThread").currentActivityThread().getSystemContext()
           const WallpaperManager = Java.use("android.app.WallpaperManager")
-          const which = WallpaperManager.FLAG_SYSTEM.value | WallpaperManager.FLAG_LOCK.value
           const wm = WallpaperManager.getInstance(context)
-          wm.setBitmap
-            .overload("android.graphics.Bitmap", "android.graphics.Rect", "boolean", "int")
-            .call(wm, render(JSON.parse(json)), null, false, which)
+          const set = wm.setBitmap.overload("android.graphics.Bitmap", "android.graphics.Rect", "boolean", "int")
+          const w: Wallpaper = JSON.parse(json)
+          set.call(wm, render(w, false), null, false, WallpaperManager.FLAG_SYSTEM.value)
+          set.call(wm, render(w, true), null, false, WallpaperManager.FLAG_LOCK.value)
           resolve({})
         } catch (e) {
           resolve({ error: String(e) })
