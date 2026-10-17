@@ -265,9 +265,9 @@ function ArtifactRow({
                 </a>
               </Button>
             </TooltipTrigger>
-            <TooltipContent className="text-center">
-              Open where this build came from{a.meta.origin ? ` (${a.meta.origin})` : ""}
-              <span className="block font-mono opacity-70">{link.host}</span>
+            <TooltipContent className="block">
+              Open where this build came from{a.meta.origin ? ` (${a.meta.origin})` : ""}{" "}
+              <span className="font-mono opacity-70">{link.host}</span>
             </TooltipContent>
           </Tooltip>
         )}
