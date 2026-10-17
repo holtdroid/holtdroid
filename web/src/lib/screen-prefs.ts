@@ -13,6 +13,7 @@ export type ScreenPrefs = {
   bitRate: number
   keyboard: KeyboardMode
   audio: boolean
+  vibrationSound: boolean
   lockMode: LockMode
   deviceTheme: DeviceTheme
   keyboardLayouts: string[] | null
@@ -27,6 +28,7 @@ export const defaultScreenPrefs: ScreenPrefs = {
   bitRate: 4_000_000,
   keyboard: "text",
   audio: true,
+  vibrationSound: true,
   lockMode: "lock",
   deviceTheme: "manual",
   keyboardLayouts: null,
@@ -64,6 +66,10 @@ export function setScreenPrefs(patch: Partial<ScreenPrefs>) {
 function subscribe(l: () => void) {
   listeners.add(l)
   return () => listeners.delete(l)
+}
+
+export function getScreenPrefs() {
+  return current
 }
 
 export function useScreenPrefs() {

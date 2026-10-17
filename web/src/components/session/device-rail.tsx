@@ -42,7 +42,7 @@ import { type AudioConnection, AudioUnavailableError, audioSupported, openAudio 
 import { formatDuration } from "@/lib/format"
 import { type Recording, recordingSupported, startRecording } from "@/lib/recorder"
 import type { ScreenControl } from "@/lib/scrcpy"
-import { type LockMode, setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
+import { getScreenPrefs, type LockMode, setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
 import { buzz } from "@/lib/vibration"
 
 const groups: { action: DeviceAction; label: string; icon: ReactNode }[][] = [
@@ -313,15 +313,30 @@ function AudioButton({ provider, id, live }: { provider: string; id: string; liv
 function useVibrationAlerts(provider: string, id: string, audible: boolean) {
   useEventSource<{ vibration: Vibration }>(`${sessionBase(provider, id)}/v1/vibrations`, {
     vibration: (v) => {
-      if (audible) buzz(v.durationMs)
-      toast("Device is vibrating", {
-        id: "vibration",
-        icon: <VibrateIcon className="size-4" />,
-        description: [v.package, v.usage.toLowerCase().replaceAll("_", " "), v.durationMs > 0 && `${v.durationMs} ms`]
-          .filter(Boolean)
-          .join(" · "),
-      })
+      if (audible && getScreenPrefs().vibrationSound) buzz(v.durationMs)
+      showVibration(v, audible)
     },
+  })
+}
+
+function showVibration(v: Vibration, audible: boolean) {
+  const muted = !getScreenPrefs().vibrationSound
+  toast("Device is vibrating", {
+    id: "vibration",
+    icon: <VibrateIcon className="size-4" />,
+    description: [v.package, v.usage.toLowerCase().replaceAll("_", " "), v.durationMs > 0 && `${v.durationMs} ms`]
+      .filter(Boolean)
+      .join(" · "),
+    action: audible
+      ? {
+          label: muted ? "Unmute" : "Mute",
+          onClick: (e) => {
+            e.preventDefault()
+            setScreenPrefs({ vibrationSound: muted })
+            showVibration(v, audible)
+          },
+        }
+      : undefined,
   })
 }
 
