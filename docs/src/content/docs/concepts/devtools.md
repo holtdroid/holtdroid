@@ -43,8 +43,8 @@ auth cookie covers it and nothing has to be installed on your machine. When
 the app navigates or recreates its WebView, the panel reconnects to the new
 target automatically.
 
-Under the target selector, an address bar shows the selected target's
-current URL. Copy it with the button on the right, or type or paste
+Next to the target selector, an address bar shows the selected target's
+current URL. The bug icon in front of them refreshes the target list. Copy it with the button on the right, or type or paste
 another one and press Enter to load it in the WebView (a URL without a
 scheme gets `https://`, or `http://` for `localhost`, `127.x` and
 `10.0.2.2`); Escape restores the current one. The button on the left

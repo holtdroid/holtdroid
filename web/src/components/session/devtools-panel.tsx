@@ -18,9 +18,11 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cdpCall, normalizeURL } from "@/lib/cdp"
 import { setDevToolsPrefs, useDevToolsPrefs } from "@/lib/devtools-prefs"
 import { prepareDevTools, styleDevTools } from "@/lib/devtools-style"
+import { cn } from "@/lib/utils"
 
 const key = (t: DevToolsTarget) => `${t.socket}/${t.id}`
 
@@ -101,7 +103,26 @@ export function DevToolsPanel({
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 border-b p-2">
-        <BugIcon className="text-muted-foreground size-4 shrink-0" />
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="group shrink-0"
+              onClick={() => void targets.refetch()}
+              aria-label="Refresh targets"
+            >
+              <BugIcon className="text-muted-foreground group-hover:hidden group-focus-visible:hidden" />
+              <RefreshCwIcon
+                className={cn(
+                  "hidden group-hover:block group-focus-visible:block",
+                  targets.isFetching && "animate-spin",
+                )}
+              />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Refresh targets</TooltipContent>
+        </Tooltip>
         <Select
           value={selected ? key(selected) : ""}
           onValueChange={(v) => setChosen(items.find((t) => key(t) === v) ?? null)}
@@ -124,9 +145,14 @@ export function DevToolsPanel({
             ))}
           </SelectContent>
         </Select>
-        <Button variant="ghost" size="icon-sm" onClick={() => void targets.refetch()} aria-label="Refresh targets">
-          <RefreshCwIcon className={targets.isFetching ? "animate-spin" : ""} />
-        </Button>
+        {selected && (
+          <UrlBar
+            key={key(selected)}
+            target={selected}
+            socketURL={`${wsScheme()}://${cdpSocket(provider, id, selected)}`}
+            onNavigated={() => void targets.refetch()}
+          />
+        )}
         <Popover>
           <PopoverTrigger asChild>
             <Button variant="ghost" size="icon-sm" aria-label="DevTools settings">
@@ -149,14 +175,6 @@ export function DevToolsPanel({
           </PopoverContent>
         </Popover>
       </div>
-      {selected && (
-        <UrlBar
-          key={key(selected)}
-          target={selected}
-          socketURL={`${wsScheme()}://${cdpSocket(provider, id, selected)}`}
-          onNavigated={() => void targets.refetch()}
-        />
-      )}
       {selected ? (
         <iframe
           key={key(selected)}
@@ -222,7 +240,7 @@ function UrlBar({
 
   return (
     <form
-      className="border-b p-2"
+      className="min-w-0 flex-[2]"
       onSubmit={(e) => {
         e.preventDefault()
         if (draft?.trim()) run("Page.navigate", { url: normalizeURL(draft) })
