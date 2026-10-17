@@ -50,9 +50,9 @@ RUN set -eux; \
 
 FROM --platform=$BUILDPLATFORM ${BUN_IMAGE} AS script
 WORKDIR /opt/holtdroid/script
-COPY internal/agent/script/package.json internal/agent/script/bun.lock ./
+COPY frida/package.json frida/bun.lock ./
 RUN bun install --frozen-lockfile --production
-COPY internal/agent/script/agent.ts internal/agent/script/system.ts ./
+COPY frida/agent.ts frida/system.ts ./
 
 FROM --platform=$BUILDPLATFORM ${GO_IMAGE} AS go
 ARG FRIDA_VERSION

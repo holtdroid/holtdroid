@@ -200,7 +200,7 @@ Inside `emulator`, the agent starts and supervises:
    `frida-server` (same pinned version as the agent's devkit, decision #23).
 3. Downloads the APK from the api, `adb install -r -d -g` (`-d` lets later
    builds downgrade).
-4. Bundles `internal/agent/script/agent.ts` with Frida's compiler and spawns
+4. Bundles `frida/agent.ts` with Frida's compiler and spawns
    the package under it:
    - forces `WebView.setWebContentsDebuggingEnabled(true)`: the setter is
      hooked to always pass `true`, and it is called from

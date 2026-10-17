@@ -16,9 +16,9 @@ web: node_modules
 docs: node_modules
 	$(BUN) run --cwd docs build
 
-node_modules: package.json docs/package.json web/package.json internal/agent/script/package.json
+node_modules: package.json docs/package.json web/package.json frida/package.json
 	$(BUN) install --frozen-lockfile
-	$(BUN) install --frozen-lockfile --cwd internal/agent/script
+	$(BUN) install --frozen-lockfile --cwd frida
 	@touch node_modules
 
 openapi:
@@ -35,7 +35,7 @@ test:
 lint: node_modules
 	golangci-lint run ./...
 	$(BUN) run --cwd web typecheck
-	$(BUN) x tsc -p internal/agent/script
+	$(BUN) x tsc -p frida
 	$(BUN) run lint
 	$(BUN) run fmt:check
 

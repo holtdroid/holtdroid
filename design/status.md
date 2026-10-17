@@ -40,7 +40,7 @@ deployment"):
 - `images/session.Dockerfile` (`make session-image`, CI pushes
   `ghcr.io/kriakiku/holtdroid-session:<sha>`, Android 15 x86_64 with ARM
   translation) and `holtdroid agent` (`internal/agent`,
-  `internal/agent/emulator`, Frida script in `internal/agent/script`).
+  `internal/agent/emulator`, Frida script in `frida`).
   A hand-written Pod (agent + sing-box sidecar) booted, ran an ARM-only APK
   under Frida, exposed its WebView DevTools socket, served the screen,
   clipboard and location switching. The agent can't run under Rosetta on a

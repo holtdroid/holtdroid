@@ -13,7 +13,7 @@
   },
   "scripts": {
     "lint": "oxlint --type-aware web/src",
-    "fmt": "oxfmt web/src docs/src internal/agent/script/agent.ts internal/agent/script/system.ts internal/agent/script/globals.d.ts",
-    "fmt:check": "oxfmt --check web/src docs/src internal/agent/script/agent.ts internal/agent/script/system.ts internal/agent/script/globals.d.ts"
+    "fmt": "oxfmt web/src docs/src frida/agent.ts frida/system.ts frida/globals.d.ts",
+    "fmt:check": "oxfmt --check web/src docs/src frida/agent.ts frida/system.ts frida/globals.d.ts"
   }
 }

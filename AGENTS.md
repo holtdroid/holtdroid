@@ -63,6 +63,7 @@ internal/
   auth/                   sign-in modes: anonymous, password, oidc (signed JWT cookie), header, none
   apk/                    APK metadata (package, version, label, icon)
 web/                      React + Vite + TanStack Router/Query + shadcn/ui (embedded into the api binary)
+frida/                    Frida scripts the agent bundles at start (TypeScript, own bun.lock for the session image)
 docs/                     public documentation site (Astro Starlight)
 design/                   internal design docs for contributors and agents (this is not the public site)
 deploy/helm/holtdroid/    Helm chart
