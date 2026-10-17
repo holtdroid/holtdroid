@@ -301,7 +301,7 @@ its `agent` subcommand refuses to start.
 
 **Consequences.** Upgrading Frida means bumping frida-go and the pinned
 version together and re-checking on a device. frida-go treats any script
-message containing `frida:rpc` as an RPC reply, so clipboard text travels as
+message containing `frida:rpc` as an RPC reply, so clipboard text travelled (until #36) as
 the message's binary payload, never in its JSON, and RPC functions return
 `{error}` objects instead of throwing (frida-go drops the error status).
 
@@ -627,4 +627,40 @@ Every process start on the device waits for one round trip to the agent.
 If the agent's container restarts, it installs the build the session was
 created with again (its env), while the Pod's annotation names the last one
 installed.
+
+## 36. The clipboard, audio and stream options go through scrcpy
+
+**Context.** The clipboard went through the Frida script: an RPC to set it
+and a listener in the app to report changes. It only worked while the app ran
+under Frida, which a physical phone won't have. The screen ran at fixed H.264
+settings, typed text was limited to what scrcpy can inject as text (Latin
+characters), the screenshot waited for `adb screencap`, and there was no
+audio. scrcpy and Tango already cover all of that.
+
+**Decision.** The agent keeps a control-only scrcpy server with
+`clipboard_autosync=true` running from boot and implements the clipboard
+endpoints on top of it; the Frida script only enables WebView debugging.
+Every scrcpy server runs as the shell user (`su 2000` when adbd is root):
+started as root it calls the clipboard service as `com.android.shell`, which
+fails the package check, and the service clears the clipboard. `/display/scrcpy`
+takes the codec (H.264, H.265, AV1), maximum size, frame rate and bitrate as
+query parameters; the agent checks the device's encoders once and closes the
+socket with 4001 for a missing one. `/display/audio` streams Opus from an
+audio-only server, decoded with WebCodecs and played with
+`@yume-chan/pcm-player`. The UI adds a virtual USB keyboard (UHID,
+descriptor from `@yume-chan/aoa`) next to text input, takes screenshots
+from the decoder's last frame, asks for a key frame when the tab becomes
+visible again, and sends key buttons, notifications and quick settings over
+the control socket while the screen is connected. Display power and
+`start app` messages are left out: the emulator has no panel to turn off, and
+starting the app has to go through Frida.
+
+**Consequences.** The clipboard works with the app closed and on devices
+without Frida. Its text is capped by scrcpy's 256 KiB message limit, and the
+first value after an agent restart is only known after the next change.
+Audio is one more encoder per listener and starts only from a click. In the
+USB keyboard mode, layouts are set up on the device; the text mode stays the
+default because it works without that. H.265 and AV1 trade device CPU
+(software encoders on the emulator) for bandwidth, and H.265 decoding
+depends on the browser and OS.
 

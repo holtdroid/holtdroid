@@ -10,6 +10,9 @@ export default defineConfig({
   resolve: {
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
+  optimizeDeps: {
+    exclude: ["@yume-chan/pcm-player"],
+  },
   server: {
     proxy: {
       "/api": backend,

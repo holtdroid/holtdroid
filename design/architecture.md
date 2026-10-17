@@ -205,10 +205,7 @@ Inside `emulator`, the agent starts and supervises:
    - forces `WebView.setWebContentsDebuggingEnabled(true)`: the setter is
      hooked to always pass `true`, and it is called from
      `Instrumentation.callApplicationOnCreate` and after every WebView
-     constructor;
-   - exports clipboard RPC (`getClip`, `setClip`) and registers an
-     `OnPrimaryClipChangedListener` that sends changes to the agent.
-   The app is in the foreground, so it is allowed to access the clipboard.
+     constructor.
    Only the app's main process is instrumented.
 5. Turns on Frida spawn gating: when the device starts the app by itself
    (the launcher, a broadcast) the main process is instrumented the
@@ -235,12 +232,13 @@ ART itself stays x86_64 (Frida's Java hooks are unaffected).
 
 ### Screen
 
-scrcpy (decision #34). Every WebSocket on `/display/scrcpy` makes the agent
-push `scrcpy-server` (pinned, in the image at `/opt/scrcpy`) to a fresh path
-— the server deletes its jar when it exits — `adb forward` a local port to
-`localabstract:scrcpy_<scid>`, start the server over `adb shell` with
-`tunnel_forward=true audio=false control=true clipboard_autosync=false
-video_codec=h264`, connect the video socket (retrying until the server's
+scrcpy (decisions #34, #36). Every WebSocket on `/display/scrcpy` makes the
+agent push `scrcpy-server` (pinned, in the image at `/opt/scrcpy`) to a fresh
+path — the server deletes its jar when it exits — `adb forward` a local port
+to `localabstract:scrcpy_<scid>`, start the server over `adb shell` with
+`tunnel_forward=true audio=false control=true clipboard_autosync=false` plus
+the stream options from the query (`codec` h264/h265/av1, `maxSize`,
+`maxFps`, `bitRate`), connect the video socket (retrying until the server's
 dummy byte arrives; adb accepts connections before the server listens) and
 then the control socket. Device → browser messages carry the video socket's
 bytes after the dummy byte: 64-byte device name, codec meta, then packets
@@ -248,15 +246,42 @@ with 12-byte frame headers. Browser → device messages are control messages,
 written to the control socket as is; device messages on it are dropped.
 Closing the WebSocket ends the `adb shell`, which hangs the server up.
 
+Every scrcpy server runs as the shell user (`su 2000` when adbd is root, as
+on the emulator): the clipboard service refuses root calling as
+`com.android.shell` and clears the clipboard instead. Before starting an
+H.265 or AV1 stream the agent checks the device's encoders once
+(`list_encoders=true`) and closes the WebSocket with code 4001
+(`contract.DisplayUnsupportedCodec`) when there is none; the UI then falls
+back to H.264. The emulator has software encoders for all three.
+
+`/display/audio` works the same way with an audio-only server
+(`video=false audio=true control=false audio_codec=opus
+send_device_meta=false`): the 4-byte codec id (`opus`, or 0/1 when the
+device can't capture), then packets. Capture works with `-no-audio`: the
+guest still has its audio HAL.
+
 The UI (`web/src/lib/scrcpy.ts`) parses the stream with
 `@yume-chan/scrcpy` (`ScrcpyOptions3_3_3`, matching the server version and
 options) and decodes it with `@yume-chan/scrcpy-decoder-webcodecs` onto a
 `<canvas>` (WebGL, bitmap fallback). Pointer events become touch messages —
 the mouse as a generic finger, touch pointers by id, so multi-touch works;
-right click is Back, the wheel scrolls; printable keys go in as text (any
-layout), others as Android key codes; Ctrl/Cmd+V pastes the browser
-clipboard into the focused field. A rotated device streams a rotated
-picture. The fake provider replays a short recording over the same protocol.
+right click is Back, the wheel scrolls. The keyboard has two modes: text
+input (printable keys as text, which only covers Latin characters, others as
+Android key codes) and a virtual USB keyboard (UHID messages with the HID
+descriptor from `@yume-chan/aoa`), where Android applies its own physical
+keyboard layout so shortcuts and any alphabet work; a button opens the
+device's layout settings. Ctrl/Cmd+V pastes the browser clipboard into the
+focused field. The rail's key buttons, notifications and quick settings go
+over the control socket while the screen is connected and through
+`/v1/device/actions` otherwise; the screenshot button saves the last
+decoded frame. Returning to the tab asks the server for a key frame
+(`reset video`). Stream settings and the keyboard mode are kept in
+`localStorage`; codecs the browser can't decode are not offered. Device
+audio (`web/src/lib/audio.ts`) is decoded with WebCodecs `AudioDecoder` and
+played through `@yume-chan/pcm-player`; it starts from a click, as browsers
+require. A rotated device streams a rotated picture. The fake provider
+replays a short H.264 recording over the same protocol, refuses other
+codecs and reports that it can't capture audio.
 
 ### DevTools
 
@@ -289,14 +314,20 @@ picture. The fake provider replays a short recording over the same protocol.
 
 ### Clipboard
 
+- The agent keeps one control-only scrcpy server running from boot
+  (`video=false audio=false control=true clipboard_autosync=true`,
+  reconnecting with backoff). Autosync reports every change of the device
+  clipboard as a device message; the agent caches the text, so the clipboard
+  works whether or not the app runs and needs no Frida.
 - Browser → device: the user clicks "Paste to device" (needs a user gesture
   for `navigator.clipboard.readText()`), the UI posts to `/clipboard`, the
-  agent calls Frida `setClip`.
-- Device → browser: listener events go out over SSE
-  `/clipboard/events`. The UI calls `navigator.clipboard.writeText()` when the
-  tab is focused and always shows the last value in a popover.
-- Ctrl/Cmd+V on the focused screen pastes through scrcpy's clipboard
-  message, independent of the Frida hook.
+  agent sends a set-clipboard message and waits for the server's
+  acknowledgement. scrcpy caps a message at 256 KiB.
+- Device → browser: changes go out over SSE `/clipboard/events`. The UI
+  calls `navigator.clipboard.writeText()` when the tab is focused and always
+  shows the last value in a popover.
+- Ctrl/Cmd+V on the focused screen pastes through the screen's own control
+  socket.
 
 ### VPN
 

@@ -35,6 +35,10 @@ const (
 	AppReinstall AppAction = "reinstall"
 )
 
+// DisplayUnsupportedCodec is the WebSocket close code of /display/scrcpy
+// when the device can't encode the requested codec.
+const DisplayUnsupportedCodec = 4001
+
 type clipboardInput struct {
 	Body Clipboard
 }
@@ -56,7 +60,7 @@ type deviceSettingsInput struct {
 }
 
 type deviceActionInput struct {
-	Action DeviceAction `path:"action" enum:"volume-up,volume-down,mute,lock,unlock,back,home,recents,notifications,rotate-left,rotate-right"`
+	Action DeviceAction `path:"action" enum:"volume-up,volume-down,mute,lock,unlock,back,home,recents,notifications,quick-settings,rotate-left,rotate-right"`
 }
 
 type screenshotOutput struct {

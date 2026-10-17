@@ -7,6 +7,7 @@ import { canManage, useExtendSession, useMe, useProviders, useSession, useStopSe
 import { AppIcon } from "@/components/app-icon"
 import { DeviceRail } from "@/components/session/device-rail"
 import { DeviceScreen } from "@/components/session/device-screen"
+import { useLiveScreen } from "@/components/session/live-screen"
 import { DevToolsPanel } from "@/components/session/devtools-panel"
 import { SessionToolbar } from "@/components/session/session-toolbar"
 import { StartProgress } from "@/components/session/start-progress"
@@ -30,6 +31,7 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
   const now = useNow()
   const registerFrame = useActivityHeartbeat(provider, id)
   const [status, setStatus] = useState<StatusEvent | null>(null)
+  const live = useLiveScreen()
 
   const agentUp = session !== undefined && session.state !== "provisioning"
   useEventSource<{ state: StatusEvent }>(agentUp ? `${sessionBase(provider, id)}/v1/status` : null, {
@@ -136,9 +138,9 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
             <ResizablePanel defaultSize="42" minSize="20">
               <div className="flex size-full">
                 <div className="min-w-0 flex-1">
-                  <DeviceScreen provider={provider} id={id} />
+                  <DeviceScreen provider={provider} id={id} live={live} />
                 </div>
-                <DeviceRail provider={provider} id={id} name={session.package} />
+                <DeviceRail provider={provider} id={id} name={session.package} live={live} />
               </div>
             </ResizablePanel>
             <ResizableHandle withHandle />

@@ -83,7 +83,7 @@ func (f *Frida) SetLocales(ctx context.Context, tags string) error {
 	return err
 }
 
-func (f *Frida) Spawn(_ context.Context, pkg string, onClip func(string)) (App, error) {
+func (f *Frida) Spawn(_ context.Context, pkg string) (App, error) {
 	if err := f.prepare(); err != nil {
 		return nil, err
 	}
@@ -91,12 +91,12 @@ func (f *Frida) Spawn(_ context.Context, pkg string, onClip func(string)) (App, 
 	if err != nil {
 		return nil, fmt.Errorf("spawn: %w", err)
 	}
-	return f.instrument(pid, onClip)
+	return f.instrument(pid)
 }
 
 // Watch gates every process the device starts, instruments the app's main
 // process and resumes all others straight away.
-func (f *Frida) Watch(ctx context.Context, pkg string, onClip func(string), launched func(App)) error {
+func (f *Frida) Watch(ctx context.Context, pkg string, launched func(App)) error {
 	if err := f.prepare(); err != nil {
 		return err
 	}
@@ -110,7 +110,7 @@ func (f *Frida) Watch(ctx context.Context, pkg string, onClip func(string), laun
 				}
 				return
 			}
-			app, err := f.instrument(pid, onClip)
+			app, err := f.instrument(pid)
 			if err != nil {
 				f.log.Warn("instrument app started on the device", "pid", pid, "err", err)
 				_ = dev.Resume(pid)
@@ -130,7 +130,7 @@ func (f *Frida) Watch(ctx context.Context, pkg string, onClip func(string), laun
 }
 
 // instrument loads the script into a suspended process and resumes it.
-func (f *Frida) instrument(pid int, onClip func(string)) (App, error) {
+func (f *Frida) instrument(pid int) (App, error) {
 	dev, bundle := f.dev, f.bundle
 	app := &fridaApp{dev: dev, pid: pid, done: make(chan struct{})}
 	sess, err := dev.Attach(pid, nil)
@@ -147,24 +147,18 @@ func (f *Frida) instrument(pid int, onClip func(string)) (App, error) {
 		_ = dev.Kill(pid)
 		return nil, fmt.Errorf("create script: %w", err)
 	}
-	script.On("message", func(message string, data []byte) {
+	script.On("message", func(message string, _ []byte) {
 		var m struct {
 			Type        string `json:"type"`
 			Description string `json:"description"`
-			Level       string `json:"level"`
-			Payload     struct {
-				Type string `json:"type"`
-			} `json:"payload"`
 		}
 		if json.Unmarshal([]byte(message), &m) != nil {
 			return
 		}
-		switch {
-		case m.Type == "send" && m.Payload.Type == "clip":
-			onClip(string(data))
-		case m.Type == "error":
+		switch m.Type {
+		case "error":
 			f.log.Warn("frida script error", "description", m.Description)
-		case m.Type == "log":
+		case "log":
 			f.log.Info("frida script", "message", message)
 		}
 	})
@@ -192,10 +186,6 @@ func (a *fridaApp) closeDone() { a.once.Do(func() { close(a.done) }) }
 
 func (a *fridaApp) Done() <-chan struct{} { return a.done }
 
-func (a *fridaApp) call(ctx context.Context, fn string, args ...any) (map[string]any, error) {
-	return callScript(ctx, a.script, fn, args...)
-}
-
 func callScript(ctx context.Context, script *frida.Script, fn string, args ...any) (map[string]any, error) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
@@ -211,20 +201,6 @@ func callScript(ctx context.Context, script *frida.Script, fn string, args ...an
 		return nil, fmt.Errorf("%s: %s", fn, msg)
 	}
 	return m, nil
-}
-
-func (a *fridaApp) Clipboard(ctx context.Context) (string, error) {
-	m, err := a.call(ctx, "getClip")
-	if err != nil {
-		return "", err
-	}
-	text, _ := m["text"].(string)
-	return text, nil
-}
-
-func (a *fridaApp) SetClipboard(ctx context.Context, text string) error {
-	_, err := a.call(ctx, "setClip", text)
-	return err
 }
 
 func (a *fridaApp) Kill(ctx context.Context) error {

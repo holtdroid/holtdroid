@@ -15,8 +15,8 @@ change that.
 Session images are rooted `google_apis` builds. After the device boots, the
 agent starts `frida-server`, installs the APK unmodified and **spawns** the
 app under Frida with a small script that enables WebView debugging on the
-main thread before the first WebView is created. The same script also
-provides the clipboard bridge.
+main thread before the first WebView is created. The clipboard doesn't need
+it: it is synced through scrcpy, like the screen.
 
 :::note
 Apps with root, emulator or instrumentation detection may refuse to run.

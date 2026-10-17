@@ -136,7 +136,7 @@ type DevToolsTargets struct {
 }
 
 type Clipboard struct {
-	Text string `json:"text" maxLength:"1048576"`
+	Text string `json:"text" maxLength:"65536"`
 }
 
 type Network struct {
@@ -161,6 +161,7 @@ const (
 	DeviceHome          DeviceAction = "home"
 	DeviceRecents       DeviceAction = "recents"
 	DeviceNotifications DeviceAction = "notifications"
+	DeviceQuickSettings DeviceAction = "quick-settings"
 	DeviceRotateLeft    DeviceAction = "rotate-left"
 	DeviceRotateRight   DeviceAction = "rotate-right"
 )

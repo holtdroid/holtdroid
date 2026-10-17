@@ -17,7 +17,8 @@ deployment"):
   location switcher, extend/stop, reaper, device controls (buttons rail,
   screenshot, settings sheet with radios, battery, display, language, time
   zone and clock; decision #31), screen over scrcpy with multi-touch
-  (decision #34).
+  (decision #34); clipboard through scrcpy, device audio, codec and quality
+  settings and a virtual USB keyboard (decision #36).
 - Sign-in: anonymous animal names, shared password, OIDC (PKCE + userinfo),
   forward-auth headers, none. Avatars from the IdP or DiceBear voxel-art.
 - APK cache on filesystem or S3, keyed by file revision. Stateless api

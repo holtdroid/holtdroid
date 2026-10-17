@@ -149,6 +149,7 @@ func TestControlsActions(t *testing.T) {
 		{contract.DeviceVolumeUp, "input keyevent KEYCODE_VOLUME_UP"},
 		{contract.DeviceUnlock, "input keyevent KEYCODE_WAKEUP && wm dismiss-keyguard"},
 		{contract.DeviceRecents, "input keyevent KEYCODE_APP_SWITCH"},
+		{contract.DeviceQuickSettings, "cmd statusbar expand-settings"},
 		{contract.DeviceRotateLeft, "settings put system accelerometer_rotation 0 && settings put system user_rotation 0"},
 		{contract.DeviceRotateRight, "settings put system accelerometer_rotation 0 && settings put system user_rotation 2"},
 	} {

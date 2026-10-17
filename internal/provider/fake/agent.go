@@ -28,7 +28,8 @@ func (p *Provider) AgentHandler() http.Handler {
 func (d *device) buildHandler() http.Handler {
 	mux := http.NewServeMux()
 	contract.RegisterAgent(contract.NewAPI(mux, "fake agent"), d)
-	mux.HandleFunc("GET /display/scrcpy", serveScreen)
+	mux.HandleFunc("GET /display/scrcpy", d.serveScreen)
+	mux.HandleFunc("GET /display/audio", serveAudio)
 	mux.HandleFunc("GET /devtools-frontend/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_ = devtoolsPage.Execute(w, r.URL.Query().Get("wss"))

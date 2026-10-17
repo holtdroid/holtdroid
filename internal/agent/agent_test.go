@@ -26,21 +26,6 @@ type fakeApp struct {
 func (a *fakeApp) exit()                 { a.once.Do(func() { close(a.done) }) }
 func (a *fakeApp) Done() <-chan struct{} { return a.done }
 
-func (a *fakeApp) Clipboard(context.Context) (string, error) {
-	a.inst.mu.Lock()
-	defer a.inst.mu.Unlock()
-	return a.inst.clip, nil
-}
-
-func (a *fakeApp) SetClipboard(_ context.Context, text string) error {
-	a.inst.mu.Lock()
-	a.inst.clip = text
-	onClip := a.inst.onClip
-	a.inst.mu.Unlock()
-	onClip(text)
-	return nil
-}
-
 func (a *fakeApp) Kill(context.Context) error {
 	a.exit()
 	return nil
@@ -49,17 +34,15 @@ func (a *fakeApp) Kill(context.Context) error {
 type fakeInstrumenter struct {
 	mu       sync.Mutex
 	spawns   int
-	clip     string
-	onClip   func(string)
 	app      *fakeApp
 	locales  string
 	launched func(App)
 }
 
-func (f *fakeInstrumenter) Watch(_ context.Context, _ string, onClip func(string), launched func(App)) error {
+func (f *fakeInstrumenter) Watch(_ context.Context, _ string, launched func(App)) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.onClip, f.launched = onClip, launched
+	f.launched = launched
 	return nil
 }
 
@@ -71,11 +54,10 @@ func (f *fakeInstrumenter) launchOnDevice() {
 	launched(app)
 }
 
-func (f *fakeInstrumenter) Spawn(_ context.Context, _ string, onClip func(string)) (App, error) {
+func (f *fakeInstrumenter) Spawn(context.Context, string) (App, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.spawns++
-	f.onClip = onClip
 	f.app = &fakeApp{done: make(chan struct{}), inst: f}
 	return f.app, nil
 }
@@ -91,6 +73,20 @@ func (f *fakeInstrumenter) current() (*fakeApp, int) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.app, f.spawns
+}
+
+type fakeClipboard struct {
+	mu   sync.Mutex
+	text string
+}
+
+func (c *fakeClipboard) Run(ctx context.Context, _ func(string)) { <-ctx.Done() }
+
+func (c *fakeClipboard) Set(_ context.Context, text string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.text = text
+	return nil
 }
 
 type harness struct {
@@ -125,6 +121,7 @@ func newHarness(t *testing.T, boot BootFunc) *harness {
 		}
 	}
 	h.agent = New(cfg, h.dev, h.inst, boot, slog.New(slog.DiscardHandler))
+	h.agent.clip = &fakeClipboard{}
 	srv := httptest.NewServer(h.agent.Handler())
 	t.Cleanup(srv.Close)
 	h.url = srv.URL
@@ -248,8 +245,8 @@ func TestAgentLifecycle(t *testing.T) {
 	if _, n := h.inst.current(); n != 3 {
 		t.Fatalf("the app was started again by itself: %d spawns", n)
 	}
-	if code, _ := h.do(http.MethodPost, "/v1/clipboard", `{"text":"x"}`); code == http.StatusNoContent {
-		t.Fatal("clipboard without a running app")
+	if code, body := h.do(http.MethodPost, "/v1/clipboard", `{"text":"x"}`); code != http.StatusNoContent {
+		t.Fatalf("clipboard without a running app %d %s", code, body)
 	}
 
 	h.inst.launchOnDevice()

@@ -259,6 +259,7 @@ var deviceKeys = map[contract.DeviceAction]string{
 	contract.DeviceHome:          "input keyevent KEYCODE_HOME",
 	contract.DeviceRecents:       "input keyevent KEYCODE_APP_SWITCH",
 	contract.DeviceNotifications: "cmd statusbar expand-notifications",
+	contract.DeviceQuickSettings: "cmd statusbar expand-settings",
 }
 
 // Action presses a key or rotates the screen. Rotation values follow

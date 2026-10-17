@@ -31,7 +31,12 @@ hybrid apps, support engineers reproducing a customer bug.
    - restart or reinstall the app, or stop the session.
 
    A rail next to the screen has the hardware buttons (lock, wake, volume,
-   rotate, back/home/recents, notifications) and a screenshot button. Its
+   rotate, back/home/recents, notifications, quick settings), a screenshot
+   button and a switch that plays the device's audio in your browser. Its
+   **Stream and keyboard** popover picks the video codec (H.264, H.265 or
+   AV1), resolution, frame rate and bitrate, and switches the keyboard
+   between text input and a virtual USB keyboard that types in any alphabet
+   with the layout set on the device. Its
    **Device settings** panel switches airplane mode, Wi-Fi, mobile data,
    battery saver, charging and battery level, dark theme, font and display
    size, emulated network speed, the system language and time zone, and moves

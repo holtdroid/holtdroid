@@ -76,7 +76,7 @@ func (d *device) DeviceAction(_ context.Context, action contract.DeviceAction) e
 		// Stands in for swiping the app away, so the closed state can be tried out.
 		d.update(func() { d.appClosed = true })
 	case contract.DeviceVolumeUp, contract.DeviceVolumeDown, contract.DeviceMute, contract.DeviceLock, contract.DeviceUnlock,
-		contract.DeviceBack, contract.DeviceHome, contract.DeviceNotifications:
+		contract.DeviceBack, contract.DeviceHome, contract.DeviceNotifications, contract.DeviceQuickSettings:
 	default:
 		return fmt.Errorf("%w: unknown action %q", contract.ErrInvalid, action)
 	}

@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+
+	"github.com/kriakiku/holtdroid/internal/contract"
 )
 
 //go:embed testdata/screen.h264
@@ -60,20 +62,29 @@ func splitH264(stream []byte) []screenPacket {
 }
 
 // serveScreen speaks the agent's /display/scrcpy protocol with a looping
-// recording instead of a device; control messages are read and dropped.
-func serveScreen(w http.ResponseWriter, r *http.Request) {
+// H.264 recording instead of a device. Control messages are dropped except
+// the recents key, which closes the app like the agent action does.
+func (d *device) serveScreen(w http.ResponseWriter, r *http.Request) {
 	ws, err := websocket.Accept(w, r, &websocket.AcceptOptions{InsecureSkipVerify: true})
 	if err != nil {
 		return
 	}
 	defer func() { _ = ws.CloseNow() }()
+	if codec := r.URL.Query().Get("codec"); codec != "" && codec != "h264" {
+		_ = ws.Close(contract.DisplayUnsupportedCodec, "this device has no "+codec+" encoder")
+		return
+	}
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 	go func() {
 		defer cancel()
 		for {
-			if _, _, err := ws.Read(ctx); err != nil {
+			_, msg, err := ws.Read(ctx)
+			if err != nil {
 				return
+			}
+			if isRecentsKey(msg) {
+				d.update(func() { d.appClosed = true })
 			}
 		}
 	}()
@@ -103,6 +114,29 @@ func serveScreen(w http.ResponseWriter, r *http.Request) {
 			if writePacket(ctx, ws, p, pts) != nil {
 				return
 			}
+		}
+	}
+}
+
+// isRecentsKey matches an inject-keycode control message releasing
+// KEYCODE_APP_SWITCH.
+func isRecentsKey(msg []byte) bool {
+	return len(msg) == 14 && msg[0] == 0 && msg[1] == 1 && binary.BigEndian.Uint32(msg[2:]) == 187
+}
+
+// serveAudio answers /display/audio like a device that can't capture audio.
+func serveAudio(w http.ResponseWriter, r *http.Request) {
+	ws, err := websocket.Accept(w, r, &websocket.AcceptOptions{InsecureSkipVerify: true})
+	if err != nil {
+		return
+	}
+	defer func() { _ = ws.CloseNow() }()
+	if ws.Write(r.Context(), websocket.MessageBinary, []byte{0, 0, 0, 0}) != nil {
+		return
+	}
+	for {
+		if _, _, err := ws.Read(r.Context()); err != nil {
+			return
 		}
 	}
 }

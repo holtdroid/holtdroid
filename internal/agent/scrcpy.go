@@ -9,10 +9,16 @@ import (
 	"math/rand/v2"
 	"net"
 	"net/http"
+	"net/url"
+	"regexp"
+	"slices"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/coder/websocket"
+
+	"github.com/kriakiku/holtdroid/internal/contract"
 )
 
 type ScrcpyConfig struct {
@@ -26,23 +32,30 @@ func DefaultScrcpyConfig() ScrcpyConfig {
 	return ScrcpyConfig{Server: "/opt/scrcpy/scrcpy-server", Version: "3.3.3", BitRate: 4_000_000, MaxFPS: 60}
 }
 
+var videoCodecs = []string{"h264", "h265", "av1"}
+
 // ScrcpyDevice is what the screen bridge needs from adb.
 type ScrcpyDevice interface {
 	Push(ctx context.Context, local, remote string) error
 	ForwardTo(ctx context.Context, remote string) (int, error)
 	RemoveForward(ctx context.Context, port int) error
 	Run(ctx context.Context, cmd string) error
+	Shell(ctx context.Context, cmd string) (string, error)
 }
 
-// Scrcpy streams the screen: every WebSocket on /display/scrcpy gets its own
-// scrcpy server on the device. Device→browser messages carry the video
-// socket's bytes (device and codec meta, then packets with frame meta);
-// browser→device messages are control messages, written to the control
-// socket as is.
+// Scrcpy runs scrcpy servers on the device. Every WebSocket on
+// /display/scrcpy gets its own server: device→browser messages carry the
+// video socket's bytes (device and codec meta, then packets with frame
+// meta); browser→device messages are control messages, written to the
+// control socket as is. /display/audio does the same with an audio-only
+// server.
 type Scrcpy struct {
 	cfg ScrcpyConfig
 	dev ScrcpyDevice
 	log *slog.Logger
+
+	mu       sync.Mutex
+	encoders []string
 }
 
 func NewScrcpy(cfg ScrcpyConfig, dev ScrcpyDevice, log *slog.Logger) *Scrcpy {
@@ -50,34 +63,118 @@ func NewScrcpy(cfg ScrcpyConfig, dev ScrcpyDevice, log *slog.Logger) *Scrcpy {
 }
 
 func (s *Scrcpy) Register(mux *http.ServeMux) {
-	mux.HandleFunc("GET /display/scrcpy", s.serve)
+	mux.HandleFunc("GET /display/scrcpy", s.serveVideo)
+	mux.HandleFunc("GET /display/audio", s.serveAudio)
 }
 
-func (s *Scrcpy) serve(w http.ResponseWriter, r *http.Request) {
-	ws, err := websocket.Accept(w, r, &websocket.AcceptOptions{InsecureSkipVerify: true})
+type videoOptions struct {
+	codec   string
+	maxSize int
+	maxFPS  int
+	bitRate int
+}
+
+func (s *Scrcpy) videoOptions(q url.Values) (videoOptions, error) {
+	o := videoOptions{codec: "h264", maxFPS: s.cfg.MaxFPS, bitRate: s.cfg.BitRate}
+	if c := q.Get("codec"); c != "" {
+		if !slices.Contains(videoCodecs, c) {
+			return o, fmt.Errorf("unknown codec %q", c)
+		}
+		o.codec = c
+	}
+	for _, p := range []struct {
+		name     string
+		dst      *int
+		min, max int
+		zero     bool
+	}{
+		{"maxSize", &o.maxSize, 240, 4096, true},
+		{"maxFps", &o.maxFPS, 1, 120, false},
+		{"bitRate", &o.bitRate, 100_000, 50_000_000, false},
+	} {
+		v := q.Get(p.name)
+		if v == "" {
+			continue
+		}
+		n, err := strconv.Atoi(v)
+		if err != nil || (n < p.min || n > p.max) && (n != 0 || !p.zero) {
+			return o, fmt.Errorf("%s must be between %d and %d", p.name, p.min, p.max)
+		}
+		*p.dst = n
+	}
+	return o, nil
+}
+
+func (s *Scrcpy) serveVideo(w http.ResponseWriter, r *http.Request) {
+	o, err := s.videoOptions(r.URL.Query())
 	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	defer func() { _ = ws.CloseNow() }()
-	ws.SetReadLimit(1 << 20)
-
-	ctx, cancel := context.WithCancel(r.Context())
+	ws, ctx, cancel, ok := accept(w, r)
+	if !ok {
+		return
+	}
 	defer cancel()
-	video, control, err := s.start(ctx)
+	defer func() { _ = ws.CloseNow() }()
+	if o.codec != "h264" {
+		if found, err := s.supports(ctx, o.codec); err == nil && !found {
+			_ = ws.Close(contract.DisplayUnsupportedCodec, "this device has no "+o.codec+" encoder")
+			return
+		}
+	}
+	conns, err := s.start(ctx, fmt.Sprintf("audio=false control=true clipboard_autosync=false "+
+		"video_codec=%s video_bit_rate=%d max_fps=%d max_size=%d", o.codec, o.bitRate, o.maxFPS, o.maxSize), 2)
 	if err != nil {
 		s.log.Warn("scrcpy start", "err", err)
 		_ = ws.Close(websocket.StatusTryAgainLater, "screen is not available yet")
 		return
 	}
+	bridge(ctx, cancel, ws, conns[0], conns[1])
+}
+
+func (s *Scrcpy) serveAudio(w http.ResponseWriter, r *http.Request) {
+	ws, ctx, cancel, ok := accept(w, r)
+	if !ok {
+		return
+	}
+	defer cancel()
+	defer func() { _ = ws.CloseNow() }()
+	conns, err := s.start(ctx, "video=false audio=true control=false audio_codec=opus send_device_meta=false", 1)
+	if err != nil {
+		s.log.Warn("scrcpy audio start", "err", err)
+		_ = ws.Close(websocket.StatusTryAgainLater, "audio is not available yet")
+		return
+	}
+	bridge(ctx, cancel, ws, conns[0], nil)
+}
+
+func accept(w http.ResponseWriter, r *http.Request) (*websocket.Conn, context.Context, context.CancelFunc, bool) {
+	ws, err := websocket.Accept(w, r, &websocket.AcceptOptions{InsecureSkipVerify: true})
+	if err != nil {
+		return nil, nil, nil, false
+	}
+	ws.SetReadLimit(1 << 20)
+	ctx, cancel := context.WithCancel(r.Context())
+	return ws, ctx, cancel, true
+}
+
+// bridge copies stream to the WebSocket and the WebSocket's binary messages
+// to control; without a control socket they are dropped.
+func bridge(ctx context.Context, cancel context.CancelFunc, ws *websocket.Conn, stream, control net.Conn) {
 	go func() {
 		<-ctx.Done()
-		video.Close()
-		control.Close()
+		stream.Close()
+		if control != nil {
+			control.Close()
+		}
 	}()
-	go func() {
-		_, _ = io.Copy(io.Discard, control)
-		cancel()
-	}()
+	if control != nil {
+		go func() {
+			_, _ = io.Copy(io.Discard, control)
+			cancel()
+		}()
+	}
 	go func() {
 		defer cancel()
 		for {
@@ -85,7 +182,7 @@ func (s *Scrcpy) serve(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				return
 			}
-			if typ != websocket.MessageBinary {
+			if typ != websocket.MessageBinary || control == nil {
 				continue
 			}
 			if _, err := control.Write(data); err != nil {
@@ -95,7 +192,7 @@ func (s *Scrcpy) serve(w http.ResponseWriter, r *http.Request) {
 	}()
 	buf := make([]byte, 256<<10)
 	for {
-		n, err := video.Read(buf)
+		n, err := stream.Read(buf)
 		if n > 0 {
 			if werr := ws.Write(ctx, websocket.MessageBinary, buf[:n]); werr != nil {
 				return
@@ -103,25 +200,50 @@ func (s *Scrcpy) serve(w http.ResponseWriter, r *http.Request) {
 		}
 		if err != nil {
 			if ctx.Err() == nil {
-				_ = ws.Close(websocket.StatusGoingAway, "screen stream ended")
+				_ = ws.Close(websocket.StatusGoingAway, "stream ended")
 			}
 			return
 		}
 	}
 }
 
-// start runs a scrcpy server until ctx ends and connects its video and
-// control sockets.
+var encoderRe = regexp.MustCompile(`--video-codec=(\w+)`)
+
+// supports reports whether the device has an encoder for codec. The list is
+// read once from the server.
+func (s *Scrcpy) supports(ctx context.Context, codec string) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.encoders == nil {
+		jar := "/data/local/tmp/holtdroid-scrcpy-list.jar"
+		if err := s.dev.Push(ctx, s.cfg.Server, jar); err != nil {
+			return false, err
+		}
+		out, err := s.dev.Shell(ctx, s.command(jar, "log_level=info list_encoders=true")+"; rm -f "+jar)
+		if err != nil {
+			return false, err
+		}
+		encoders := []string{}
+		for _, m := range encoderRe.FindAllStringSubmatch(out, -1) {
+			encoders = append(encoders, m[1])
+		}
+		s.encoders = encoders
+	}
+	return slices.Contains(s.encoders, codec), nil
+}
+
+// start runs a scrcpy server with opts until ctx ends and connects its
+// sockets, in scrcpy's order: video, audio, control.
 // The server deletes its jar when it exits, so every run pushes its own.
-func (s *Scrcpy) start(ctx context.Context) (video, control net.Conn, err error) {
+func (s *Scrcpy) start(ctx context.Context, opts string, sockets int) ([]net.Conn, error) {
 	scid := fmt.Sprintf("%08x", rand.Int32())
 	jar := "/data/local/tmp/holtdroid-scrcpy-" + scid + ".jar"
 	if err := s.dev.Push(ctx, s.cfg.Server, jar); err != nil {
-		return nil, nil, fmt.Errorf("push scrcpy server: %w", err)
+		return nil, fmt.Errorf("push scrcpy server: %w", err)
 	}
 	port, err := s.dev.ForwardTo(ctx, "localabstract:scrcpy_"+scid)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	go func() {
 		<-ctx.Done()
@@ -129,33 +251,41 @@ func (s *Scrcpy) start(ctx context.Context) (video, control net.Conn, err error)
 	}()
 
 	exited := make(chan error, 1)
-	go func() { exited <- s.dev.Run(ctx, s.command(jar, scid)) }()
+	cmd := s.command(jar, "scid="+scid+" log_level=warn tunnel_forward=true "+opts)
+	go func() { exited <- s.dev.Run(ctx, cmd) }()
 
 	addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(port))
 	deadline := time.Now().Add(15 * time.Second)
+	var first net.Conn
 	for {
-		video, err = dialScrcpy(ctx, addr)
+		first, err = dialScrcpy(ctx, addr)
 		if err == nil {
 			break
 		}
 		select {
 		case err := <-exited:
-			return nil, nil, fmt.Errorf("scrcpy server exited: %w", errors.Join(err, errors.New("no connection")))
+			return nil, fmt.Errorf("scrcpy server exited: %w", errors.Join(err, errors.New("no connection")))
 		case <-ctx.Done():
-			return nil, nil, ctx.Err()
+			return nil, ctx.Err()
 		case <-time.After(100 * time.Millisecond):
 		}
 		if time.Now().After(deadline) {
-			return nil, nil, fmt.Errorf("scrcpy server did not accept a connection: %w", err)
+			return nil, fmt.Errorf("scrcpy server did not accept a connection: %w", err)
 		}
 	}
+	conns := []net.Conn{first}
 	var d net.Dialer
-	control, err = d.DialContext(ctx, "tcp", addr)
-	if err != nil {
-		video.Close()
-		return nil, nil, err
+	for len(conns) < sockets {
+		c, err := d.DialContext(ctx, "tcp", addr)
+		if err != nil {
+			for _, c := range conns {
+				c.Close()
+			}
+			return nil, err
+		}
+		conns = append(conns, c)
 	}
-	return video, control, nil
+	return conns, nil
 }
 
 // dialScrcpy connects the first socket. adb accepts a forwarded connection
@@ -176,9 +306,10 @@ func dialScrcpy(ctx context.Context, addr string) (net.Conn, error) {
 	return c, nil
 }
 
-func (s *Scrcpy) command(jar, scid string) string {
-	return fmt.Sprintf("CLASSPATH=%s app_process / com.genymobile.scrcpy.Server %s scid=%s log_level=warn "+
-		"tunnel_forward=true audio=false control=true clipboard_autosync=false video_codec=h264 "+
-		"video_bit_rate=%d max_fps=%d",
-		jar, s.cfg.Version, scid, s.cfg.BitRate, s.cfg.MaxFPS)
+// command starts the server as the shell user even when adbd runs as root:
+// the clipboard service rejects root calling as com.android.shell and clears
+// the clipboard instead.
+func (s *Scrcpy) command(jar, opts string) string {
+	return fmt.Sprintf(`u=; [ "$(id -u)" = 0 ] && u="su 2000"; $u sh -c 'CLASSPATH=%s app_process / com.genymobile.scrcpy.Server %s %s'`,
+		jar, s.cfg.Version, opts)
 }

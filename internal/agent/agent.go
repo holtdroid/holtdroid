@@ -49,21 +49,24 @@ func DefaultConfig() Config {
 	}
 }
 
-// Instrumenter starts an app with WebView debugging and the clipboard hooks.
-// Watch instruments the app whenever the device starts it by itself (the
-// launcher icon, a broadcast) and hands it to launched.
+// Instrumenter starts an app with WebView debugging. Watch instruments the
+// app whenever the device starts it by itself (the launcher icon, a
+// broadcast) and hands it to launched.
 type Instrumenter interface {
-	Spawn(ctx context.Context, pkg string, onClip func(string)) (App, error)
-	Watch(ctx context.Context, pkg string, onClip func(string), launched func(App)) error
+	Spawn(ctx context.Context, pkg string) (App, error)
+	Watch(ctx context.Context, pkg string, launched func(App)) error
 	SetLocales(ctx context.Context, tags string) error
 }
 
 // App is one instrumented run of the app.
 type App interface {
 	Done() <-chan struct{}
-	Clipboard(ctx context.Context) (string, error)
-	SetClipboard(ctx context.Context, text string) error
 	Kill(ctx context.Context) error
+}
+
+type clipboardSync interface {
+	Run(ctx context.Context, onChange func(string))
+	Set(ctx context.Context, text string) error
 }
 
 // BootFunc brings the device up, calls booted once it accepts adb commands
@@ -80,6 +83,7 @@ type Agent struct {
 	devtools *DevTools
 	network  *Network
 	screen   *Scrcpy
+	clip     clipboardSync
 	frontend *Frontend
 	controls *Controls
 	actions  chan appRequest
@@ -88,12 +92,13 @@ type Agent struct {
 
 	mu     sync.Mutex
 	status contract.StatusEvent
-	clip   string
+	text   string
 	app    App
 	subs   map[chan struct{}]struct{}
 }
 
 func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Logger) *Agent {
+	screen := NewScrcpy(cfg.Scrcpy, dev, log)
 	return &Agent{
 		cfg:      cfg,
 		dev:      dev,
@@ -103,7 +108,8 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 		hc:       &http.Client{Timeout: 10 * time.Minute},
 		devtools: NewDevTools(dev, log),
 		network:  NewNetwork(cfg.ClashAPI, cfg.IPInfoURL),
-		screen:   NewScrcpy(cfg.Scrcpy, dev, log),
+		screen:   screen,
+		clip:     NewClipboard(screen, log),
 		frontend: NewFrontend(cfg.DevToolsFrontend, filepath.Join(cfg.CacheDir, "devtools-frontend")),
 		controls: NewControls(dev, inst.SetLocales),
 		actions:  make(chan appRequest, 1),
@@ -145,6 +151,7 @@ func (a *Agent) Run(parent context.Context) {
 		return
 	}
 	go a.devtools.Run(ctx, 2*time.Second)
+	go a.clip.Run(ctx, a.onClip)
 
 	if err := a.run(ctx); err != nil {
 		a.fail(err)
@@ -179,7 +186,7 @@ func (a *Agent) run(ctx context.Context) error {
 			a.log.Warn("initial location", "location", a.cfg.Location, "err", err)
 		}
 	}
-	if err := a.inst.Watch(ctx, a.cfg.Package, a.onClip, a.launched); err != nil {
+	if err := a.inst.Watch(ctx, a.cfg.Package, a.launched); err != nil {
 		a.log.Warn("app launches from the device won't be instrumented", "err", err)
 	}
 	if err := a.spawn(ctx); err != nil {
@@ -228,7 +235,7 @@ func (a *Agent) run(ctx context.Context) error {
 
 func (a *Agent) spawn(ctx context.Context) error {
 	a.setStatus(contract.StateInstrumenting, "Enabling WebView debugging")
-	app, err := a.inst.Spawn(ctx, a.cfg.Package, a.onClip)
+	app, err := a.inst.Spawn(ctx, a.cfg.Package)
 	if err != nil {
 		return fmt.Errorf("start %s: %w", a.cfg.Package, err)
 	}
@@ -373,7 +380,7 @@ func (a *Agent) currentApp() App {
 
 func (a *Agent) onClip(text string) {
 	a.mu.Lock()
-	a.clip = text
+	a.text = text
 	a.mu.Unlock()
 	a.notify()
 }
@@ -408,7 +415,7 @@ func (a *Agent) subscribe() (<-chan struct{}, func()) {
 func (a *Agent) snapshot() (contract.StatusEvent, string) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	return a.status, a.clip
+	return a.status, a.text
 }
 
 func (a *Agent) Status(context.Context) contract.StatusEvent {
@@ -439,24 +446,17 @@ func (a *Agent) Targets(ctx context.Context) ([]contract.DevToolsTarget, error) 
 	return a.devtools.Targets(ctx)
 }
 
-func (a *Agent) Clipboard(ctx context.Context) (string, error) {
-	if app := a.currentApp(); app != nil {
-		text, err := app.Clipboard(ctx)
-		if err == nil {
-			return text, nil
-		}
-		a.log.Warn("read clipboard", "err", err)
-	}
-	_, clip := a.snapshot()
-	return clip, nil
+func (a *Agent) Clipboard(context.Context) (string, error) {
+	_, text := a.snapshot()
+	return text, nil
 }
 
 func (a *Agent) SetClipboard(ctx context.Context, text string) error {
-	app := a.currentApp()
-	if app == nil {
-		return errors.New("the app is not running")
+	if err := a.clip.Set(ctx, text); err != nil {
+		return err
 	}
-	return app.SetClipboard(ctx, text)
+	a.onClip(text)
+	return nil
 }
 
 func (a *Agent) WatchClipboard(ctx context.Context, send func(contract.Clipboard) error) error {
