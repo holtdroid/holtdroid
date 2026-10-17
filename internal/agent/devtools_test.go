@@ -82,8 +82,8 @@ func (d *fakeDevice) Shell(_ context.Context, cmd string) (string, error) {
 		return "8 /data/data/com.example.shop/files\n4 /data/data/com.example.shop/shared_prefs\n200 /data/data/com.example.shop/cache\n", nil
 	case strings.Contains(cmd, "stat -c"):
 		return "root /data/data/com.example.shop 10234 u:object_r:app_data_file:s0:c234,c256,c512,c768\n", nil
-	case strings.HasPrefix(cmd, "cat "+restoreRCFile):
-		return "0\n", nil
+	case strings.HasPrefix(cmd, "tar -xf "+restoreFile):
+		return "rc=0\n", nil
 	}
 	return "", nil
 }
@@ -95,26 +95,6 @@ func (d *fakeDevice) ExecOut(_ context.Context, cmd string, w io.Writer) error {
 	d.mu.Unlock()
 	_, err := w.Write(raw)
 	return err
-}
-
-func (d *fakeDevice) ExecIn(_ context.Context, cmd string, r io.Reader) error {
-	tr := tar.NewReader(r)
-	var headers []*tar.Header
-	for {
-		h, err := tr.Next()
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		if err != nil {
-			return err
-		}
-		headers = append(headers, h)
-	}
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	d.shells = append(d.shells, cmd)
-	d.restored = headers
-	return nil
 }
 
 func (d *fakeDevice) Install(_ context.Context, apk string) error {
@@ -169,7 +149,32 @@ func (d *fakeDevice) reversed(port int) (int, bool) {
 	return local, ok
 }
 
-func (d *fakeDevice) Push(context.Context, string, string) error { return nil }
+func (d *fakeDevice) Push(_ context.Context, local, remote string) error {
+	if remote != restoreFile {
+		return nil
+	}
+	f, err := os.Open(local)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	tr := tar.NewReader(f)
+	var headers []*tar.Header
+	for {
+		h, err := tr.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		headers = append(headers, h)
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.restored = headers
+	return nil
+}
 
 func (d *fakeDevice) ForwardTo(context.Context, string) (int, error) {
 	return 0, errors.New("no scrcpy here")

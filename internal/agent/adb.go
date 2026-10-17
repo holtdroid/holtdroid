@@ -65,18 +65,6 @@ func (a ADB) ExecOut(ctx context.Context, cmd string, w io.Writer) error {
 	return nil
 }
 
-// ExecIn runs cmd on the device with r as its stdin.
-func (a ADB) ExecIn(ctx context.Context, cmd string, r io.Reader) error {
-	var out bytes.Buffer
-	c := exec.CommandContext(ctx, a.Bin, "-s", a.Serial, "exec-in", cmd)
-	c.Stdin, c.Stdout, c.Stderr = r, &out, &out
-	c.WaitDelay = 5 * time.Second
-	if err := c.Run(); err != nil {
-		return fmt.Errorf("adb exec-in: %w: %s", err, bytes.TrimSpace(out.Bytes()))
-	}
-	return nil
-}
-
 // Emu sends a command to the emulator console.
 func (a ADB) Emu(ctx context.Context, cmd string) (string, error) {
 	out, err := a.run(ctx, append([]string{"emu"}, strings.Fields(cmd)...)...)

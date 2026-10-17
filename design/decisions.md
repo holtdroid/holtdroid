@@ -1060,15 +1060,16 @@ modified.
   `maxSize` is refused.
 - **Restore** happens after installing the APK and before the app first
   starts: the agent empties the app's directories (keeping `lib` and the
-  cache directories installd created), rewrites the archive and pipes it into
-  `tar -x` through `adb exec-in`, then relabels the restored entries with
+  cache directories installd created), rewrites the archive, `adb push`es it
+  and extracts it with `tar -x` in `adb shell`, then relabels the restored entries with
   `chcon -hR` using the SELinux context of the app's data directory. The
   rewrite is what makes it portable: the app usually gets another uid on
   another device (verified on the session image: 10209 → 10210 after a
   reinstall), so owners are mapped from the archive's uid to the new one
   (and the `uid + 10000` cache gid with them), and `restorecon` gives app
   data no MLS categories (`s0` instead of `s0:c210,…`), which the app may
-  not be able to write. The rewrite also drops anything outside the two
+  not be able to write. Piping into `adb exec-in` was dropped: adbd kills
+  the command once its stdin closes, so tar's exit status is lost. The rewrite also drops anything outside the two
   directories, other than regular files, directories and symlinks, or below
   a symlink, because extraction runs as root. A failed restore fails the
   session rather than starting the app on half its data.

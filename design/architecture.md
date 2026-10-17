@@ -627,8 +627,8 @@ session's `tunnelUrl`.
   `allowedGroups` restricts `oidc`/`header`.
 - Session pods are **privileged** (KVM, the emulator's networking). Run them in
   a dedicated namespace on nodes you are fine dedicating to this.
-- Agents are reachable only from the api and the ssh-gateway (NetworkPolicy in
-  the chart); every browser request goes through the api's proxy and auth.
+- Agents are reachable only from the api, their provider (status, installs)
+  and the ssh-gateway (NetworkPolicy in the chart); every browser request goes through the api's proxy and auth.
   The agent's tunnel port is never proxied to browsers.
 - The ssh-gateway executes nothing and forwards only to the session's ADB and
   to explicitly published device ports; see "SSH access".

@@ -77,7 +77,7 @@ providers:
       gpu: host
     nodes: {} # per-node overrides, as above
     vpn: {} # the vpn section below
-    networkPolicy: { enabled: true } # only the api reaches session agents
+    networkPolicy: { enabled: true } # only the api and the provider reach session agents
     prepull:
       enabled: true # DaemonSet that pulls the session image onto session nodes
       refresh: { enabled: true, interval: 5m }

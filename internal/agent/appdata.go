@@ -18,10 +18,11 @@ import (
 	"github.com/kriakiku/holtdroid/internal/contract"
 )
 
-// appDataDevice streams bytes to and from a command on the device.
+// appDataDevice streams a command's output from the device and copies
+// files onto it.
 type appDataDevice interface {
 	ExecOut(ctx context.Context, cmd string, w io.Writer) error
-	ExecIn(ctx context.Context, cmd string, r io.Reader) error
+	Push(ctx context.Context, local, remote string) error
 }
 
 var packageName = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+$`)
@@ -234,15 +235,14 @@ for r in /data/data/%[1]s /data/user_de/0/%[1]s; do
   done
 done`
 
-const (
-	restoreErrFile = "/data/local/tmp/holtdroid-appdata.err"
-	restoreRCFile  = "/data/local/tmp/holtdroid-appdata.rc"
-)
+const restoreFile = "/data/local/tmp/holtdroid-appdata.tar"
 
 // restoreAppData replaces the app's data with the archive at file. The app
-// must be installed and not running.
+// must be installed and not running. The archive is pushed rather than piped
+// through adb exec-in: adbd kills the command once its stdin closes, so its
+// exit status would be lost.
 func restoreAppData(ctx context.Context, dev Device, pkg, file string, cache bool) error {
-	stream, ok := dev.(appDataDevice)
+	push, ok := dev.(appDataDevice)
 	if !ok || !packageName.MatchString(pkg) {
 		return errors.New("this device can't restore app data")
 	}
@@ -266,40 +266,22 @@ func restoreAppData(ctx context.Context, dev Device, pkg, file string, cache boo
 		return fmt.Errorf("%s has no data directory", pkg)
 	}
 
-	src, err := os.Open(file)
+	local, err := rewriteArchive(file, newAppDataFilter(pkg, uid, cache))
 	if err != nil {
 		return err
 	}
-	defer src.Close()
-	zr, err := zstd.NewReader(src)
+	defer os.Remove(local)
+	if err := push.Push(ctx, local, restoreFile); err != nil {
+		return err
+	}
+	res, err := dev.Shell(ctx, fmt.Sprintf(`tar -xf %[1]s -C / --numeric-owner 2>&1; echo "rc=$?"; rm -f %[1]s`, restoreFile))
 	if err != nil {
 		return err
 	}
-	defer zr.Close()
-	filter := newAppDataFilter(pkg, uid, cache)
-	pr, pw := io.Pipe()
-	done := make(chan error, 1)
-	go func() {
-		err := rewriteTar(zr, pw, filter.keep)
-		pw.CloseWithError(err)
-		done <- err
-	}()
-	cmd := fmt.Sprintf("tar -xf - -C / --numeric-owner 2>%s; echo $? >%s", restoreErrFile, restoreRCFile)
-	err = stream.ExecIn(ctx, cmd, pr)
-	pr.CloseWithError(err)
-	if terr := <-done; terr != nil {
-		return terr
-	}
-	if err != nil {
-		return err
-	}
-	res, err := dev.Shell(ctx, fmt.Sprintf("cat %[1]s; cat %[2]s; rm -f %[1]s %[2]s", restoreRCFile, restoreErrFile))
-	if err != nil {
-		return err
-	}
-	rc, msg, _ := strings.Cut(strings.TrimSpace(res), "\n")
+	res = strings.TrimSpace(res)
+	msg, rc, _ := strings.Cut(res, "rc=")
 	if strings.TrimSpace(rc) != "0" {
-		return fmt.Errorf("tar on the device: exit %s: %s", strings.TrimSpace(rc), strings.TrimSpace(msg))
+		return fmt.Errorf("tar on the device: %s", strings.TrimSpace(cmp.Or(msg, res)))
 	}
 
 	var relabel []string
@@ -310,4 +292,28 @@ func restoreAppData(ctx context.Context, dev Device, pkg, file string, cache boo
 	}
 	_, err = dev.Shell(ctx, strings.Join(relabel, "\n"))
 	return err
+}
+
+// rewriteArchive decompresses file through filter into a temporary tar.
+func rewriteArchive(file string, filter *appDataFilter) (string, error) {
+	src, err := os.Open(file)
+	if err != nil {
+		return "", err
+	}
+	defer src.Close()
+	zr, err := zstd.NewReader(src)
+	if err != nil {
+		return "", err
+	}
+	defer zr.Close()
+	dst, err := os.CreateTemp("", "holtdroid-appdata-*.tar")
+	if err != nil {
+		return "", err
+	}
+	if err := cmp.Or(rewriteTar(zr, dst, filter.keep), dst.Close()); err != nil {
+		dst.Close()
+		os.Remove(dst.Name())
+		return "", err
+	}
+	return dst.Name(), nil
 }
