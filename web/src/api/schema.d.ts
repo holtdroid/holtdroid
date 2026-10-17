@@ -434,6 +434,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/ssh/tunnels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The caller's SSH tunnels that are open right now, by session. */
+        get: operations["listSSHTunnels"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/uploads": {
         parameters: {
             query?: never;
@@ -460,6 +477,16 @@ export interface components {
             browser: boolean;
             /** @description only a session's owner and admins may */
             ownerOnly: boolean;
+        };
+        ADBTunnel: {
+            /**
+             * @description ssh: through the ssh-gateway, browser: the portal's own ADB connection
+             * @enum {string}
+             */
+            client: "ssh" | "browser";
+            /** Format: date-time */
+            since: string;
+            user: string;
         };
         AppDataChoice: {
             /** @description also restore its cache, if it has one */
@@ -778,6 +805,26 @@ export interface components {
         PutSSHKeysInputBody: {
             keys: components["schemas"]["SSHKeyInput"][];
         };
+        ReverseTunnel: {
+            /**
+             * Format: int64
+             * @description device-side connections open right now
+             */
+            connections: number;
+            /**
+             * Format: int64
+             * @description device port published as localhost:{port}
+             */
+            port: number;
+            /** Format: date-time */
+            since: string;
+            /**
+             * @description whether a server answers behind the port on the publisher's machine
+             * @enum {string}
+             */
+            state: "unknown" | "up" | "down";
+            user: string;
+        };
         SSHInfo: {
             allowADB: boolean;
             allowReverse: boolean;
@@ -820,6 +867,16 @@ export interface components {
              * @description ssh-gateway replicas that accepted the keys
              */
             replicas: number;
+        };
+        SSHTunnelList: {
+            /** @description only sessions where the caller has a tunnel open */
+            sessions: components["schemas"]["SSHTunnels"][];
+        };
+        SSHTunnels: {
+            adb: components["schemas"]["ADBTunnel"][];
+            id: string;
+            provider: string;
+            reverse: components["schemas"]["ReverseTunnel"][];
         };
         SessionView: {
             artifactId: string;
@@ -1854,6 +1911,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SSHKeysSynced"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    listSSHTunnels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SSHTunnelList"];
                 };
             };
             /** @description Error */

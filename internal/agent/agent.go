@@ -645,6 +645,10 @@ func (a *Agent) Screenshot(ctx context.Context) ([]byte, error) {
 	return a.dev.Screencap(ctx)
 }
 
+func (a *Agent) Tunnels(context.Context) (contract.Tunnels, error) {
+	return a.tunnels.Snapshot(), nil
+}
+
 func (a *Agent) WatchTunnels(ctx context.Context, probe bool, send func(contract.Tunnels) error) error {
 	return a.tunnels.Watch(ctx, probe, send)
 }

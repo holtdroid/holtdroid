@@ -1,6 +1,7 @@
 import { useSearch } from "@tanstack/react-router"
 import { InfoIcon } from "lucide-react"
 import { useSSHInfo, useSSHKeys, useSSHKeySync } from "@/api/ssh-keys"
+import { ActiveTunnels } from "@/components/ssh/active-tunnels"
 import { AddKeyForm } from "@/components/ssh/add-key-form"
 import { KeyList } from "@/components/ssh/key-list"
 import { KeyRequestCard } from "@/components/ssh/key-request-card"
@@ -43,6 +44,8 @@ export function SSHKeysPage() {
           )}
 
           {request && <KeyRequestCard key={request} code={request} full={list.length >= MAX_KEYS} />}
+
+          {info.data?.enabled && <ActiveTunnels />}
 
           <AddKeyForm full={list.length >= MAX_KEYS} />
 

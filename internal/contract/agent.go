@@ -29,6 +29,7 @@ type Agent interface {
 	UpdateDevice(ctx context.Context, settings DeviceSettings) (DeviceState, error)
 	DeviceAction(ctx context.Context, action DeviceAction) error
 	Screenshot(ctx context.Context) ([]byte, error)
+	Tunnels(ctx context.Context) (Tunnels, error)
 	WatchTunnels(ctx context.Context, probe bool, send func(Tunnels) error) error
 	WatchMetrics(ctx context.Context, send func(Metrics) error) error
 }
@@ -147,6 +148,17 @@ func RegisterAgent(api huma.API, a Agent) {
 			_ = a.WatchVibrations(ctx, func(v Vibration) error { return send.Data(v) })
 		})
 
+	huma.Register(api, huma.Operation{
+		OperationID: "getTunnels", Method: http.MethodGet, Path: "/v1/tunnels/current", Tags: tags,
+		Description: "SSH tunnels into the device right now.",
+	}, func(ctx context.Context, _ *struct{}) (*body[Tunnels], error) {
+		t, err := a.Tunnels(ctx)
+		if err != nil {
+			return nil, toHuma(err)
+		}
+		return &body[Tunnels]{t}, nil
+	})
+
 	sse.Register(api, huma.Operation{
 		OperationID: "watchTunnels", Method: http.MethodGet, Path: "/v1/tunnels", Tags: tags,
 		Description: "SSH tunnels into the device; the first event is the current set.",
@@ -263,6 +275,12 @@ type AgentClient struct{ c client }
 
 func NewAgentClient(baseURL string, hc *http.Client) *AgentClient {
 	return &AgentClient{newClient(baseURL, hc)}
+}
+
+func (a *AgentClient) Tunnels(ctx context.Context) (Tunnels, error) {
+	var t Tunnels
+	err := a.c.do(ctx, http.MethodGet, "/v1/tunnels/current", nil, &t)
+	return t, err
 }
 
 func (a *AgentClient) Status(ctx context.Context) (StatusEvent, error) {

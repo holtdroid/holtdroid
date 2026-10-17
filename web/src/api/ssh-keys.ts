@@ -11,6 +11,7 @@ const sshKeys = {
   info: ["ssh"] as const,
   keys: (user: string) => ["ssh", "keys", user] as const,
   request: (code: string) => ["ssh", "request", code] as const,
+  tunnels: ["ssh", "tunnels"] as const,
   sync: (user: string, blobs: string[]) => ["ssh", "sync", user, blobs] as const,
 }
 
@@ -19,6 +20,16 @@ export function useSSHInfo() {
     queryKey: sshKeys.info,
     queryFn: () => unwrap(api.GET("/api/v1/ssh")),
     staleTime: Infinity,
+  })
+}
+
+export function useSSHTunnels() {
+  const info = useSSHInfo()
+  return useQuery({
+    queryKey: sshKeys.tunnels,
+    queryFn: () => unwrap(api.GET("/api/v1/ssh/tunnels")),
+    enabled: !!info.data?.enabled,
+    refetchInterval: 5000,
   })
 }
 

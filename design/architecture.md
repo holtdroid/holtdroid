@@ -499,6 +499,10 @@ in tests).
 
 ### Keys: the browser is the source of truth
 
+- The **SSH keys** page also lists the caller's open tunnels by device
+  (`GET /api/v1/ssh/tunnels`, polled every 5 s; the api collects them from
+  the agents), with the same port chips as the session popover, and the
+  header's key button carries a green count of those devices.
 - Users manage public keys on an **SSH keys** page. The list lives in the
   browser (IndexedDB) — add, rename, remove — and is never stored on the
   server.

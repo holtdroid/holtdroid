@@ -66,6 +66,11 @@ Only `-R` works this way. ADB needs one device, so use the session id for
 skipped there and tried again later. The name is derived from your login but
 doesn't reveal it.
 
+The **SSH keys** page lists every tunnel you have open right now, grouped by
+device, and the key button in the header shows a green count of those
+devices. The colours there are from the last check, which runs while a
+session's SSH popover is open.
+
 ## Keys stay with you
 
 Add your public keys on the **SSH keys** page. They are kept in your browser

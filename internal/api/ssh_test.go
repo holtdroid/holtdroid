@@ -296,3 +296,57 @@ func TestInternalSSHSessions(t *testing.T) {
 		t.Fatalf("unknown handle %+v, %v", none, err)
 	}
 }
+
+func TestSSHTunnels(t *testing.T) {
+	ctx := context.Background()
+	tunnels := httptest.NewServer(http.NotFoundHandler())
+	t.Cleanup(tunnels.Close)
+	h := newHarness(t, 3, func(c *fake.Config) {
+		c.StepDelay = time.Millisecond
+		c.TunnelURL = tunnels.URL
+	})
+	tunnels.Config.Handler = h.provider.TunnelHandler()
+	h.srv.cfg.SSH.Enabled = true
+
+	mine := h.create("otter")
+	shared := h.create("badger")
+	idle := h.create("otter")
+	for _, v := range []SessionView{mine, shared, idle} {
+		h.waitReady(v.ID)
+	}
+	open := func(v SessionView, port int, user string) {
+		t.Helper()
+		sess, err := h.provider.Get(ctx, v.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ys, err := contract.NewTunnelClient(sess.TunnelURL, nil).Reverse(ctx, port, user)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { ys.Close() })
+	}
+	open(mine, 3000, "otter")
+	open(shared, 3001, "otter")
+	open(shared, 4000, "badger")
+
+	list := decode[SSHTunnelList](t, h.do(http.MethodGet, "/api/v1/ssh/tunnels", "otter", "", nil))
+	got := map[string][]int{}
+	for _, s := range list.Sessions {
+		for _, r := range s.Reverse {
+			got[s.ID] = append(got[s.ID], r.Port)
+		}
+	}
+	want := map[string][]int{mine.ID: {3000}, shared.ID: {3001}}
+	if len(list.Sessions) != 2 || !slices.Equal(got[mine.ID], want[mine.ID]) || !slices.Equal(got[shared.ID], want[shared.ID]) {
+		t.Fatalf("otter's tunnels %+v", list)
+	}
+	if list := decode[SSHTunnelList](t, h.do(http.MethodGet, "/api/v1/ssh/tunnels", "carol", "", nil)); len(list.Sessions) != 0 {
+		t.Fatalf("carol's tunnels %+v", list)
+	}
+
+	h.srv.cfg.SSH.Enabled = false
+	if list := decode[SSHTunnelList](t, h.do(http.MethodGet, "/api/v1/ssh/tunnels", "otter", "", nil)); len(list.Sessions) != 0 {
+		t.Fatalf("tunnels with ssh off %+v", list)
+	}
+}

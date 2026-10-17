@@ -107,6 +107,17 @@ func (s *Server) registerSSH(api huma.API) {
 	})
 
 	huma.Register(api, huma.Operation{
+		OperationID: "listSSHTunnels", Method: http.MethodGet, Path: "/api/v1/ssh/tunnels", Tags: tags,
+		Description: "The caller's SSH tunnels that are open right now, by session.",
+	}, func(ctx context.Context, _ *struct{}) (*out[SSHTunnelList], error) {
+		if !s.cfg.SSH.Enabled {
+			return &out[SSHTunnelList]{SSHTunnelList{Sessions: []SSHTunnels{}}}, nil
+		}
+		who, _ := auth.FromContext(ctx)
+		return &out[SSHTunnelList]{s.sshTunnels(ctx, who.User)}, nil
+	})
+
+	huma.Register(api, huma.Operation{
 		OperationID: "getSSHKeyRequest", Method: http.MethodGet, Path: "/api/v1/ssh/key-requests/{code}", Tags: tags,
 		Description: "An SSH connection waiting for its key to be added, from the link the gateway printed.",
 	}, func(ctx context.Context, in *keyRequestInput) (*out[SSHKeyRequest], error) {
@@ -325,4 +336,67 @@ func (s *Server) SSHUserSessions(ctx context.Context, handle string) ([]contract
 		}
 	}
 	return out, nil
+}
+
+// SSHTunnels are the caller's SSH tunnels into one session.
+type SSHTunnels struct {
+	Provider string                   `json:"provider"`
+	ID       string                   `json:"id"`
+	ADB      []contract.ADBTunnel     `json:"adb"`
+	Reverse  []contract.ReverseTunnel `json:"reverse"`
+}
+
+type SSHTunnelList struct {
+	Sessions []SSHTunnels `json:"sessions" doc:"only sessions where the caller has a tunnel open"`
+}
+
+// sshTunnels asks the agent of every ready session for what is open and
+// keeps the caller's SSH tunnels. Agents that don't answer are left out.
+func (s *Server) sshTunnels(ctx context.Context, user string) SSHTunnelList {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	all, _ := s.allSessions(ctx)
+	var ready []sessionKey
+	for _, provider := range s.provOrder {
+		for _, sess := range all[provider] {
+			if sess.State == contract.StateReady {
+				ready = append(ready, sessionKey{provider, sess.ID})
+			}
+		}
+	}
+	found := make([]SSHTunnels, len(ready))
+	var wg sync.WaitGroup
+	for i, key := range ready {
+		wg.Go(func() {
+			u, err := s.agents.get(ctx, key, s.providers[key.Provider])
+			if err != nil {
+				return
+			}
+			t, err := contract.NewAgentClient(u.String(), &http.Client{Transport: s.agentTransport}).Tunnels(ctx)
+			if err != nil {
+				s.log.Debug("session tunnels", "provider", key.Provider, "id", key.ID, "err", err)
+				return
+			}
+			mine := SSHTunnels{Provider: key.Provider, ID: key.ID, ADB: []contract.ADBTunnel{}, Reverse: []contract.ReverseTunnel{}}
+			for _, a := range t.ADB {
+				if a.Client == contract.ADBClientSSH && a.User == user {
+					mine.ADB = append(mine.ADB, a)
+				}
+			}
+			for _, r := range t.Reverse {
+				if r.User == user {
+					mine.Reverse = append(mine.Reverse, r)
+				}
+			}
+			found[i] = mine
+		})
+	}
+	wg.Wait()
+	out := SSHTunnelList{Sessions: []SSHTunnels{}}
+	for _, t := range found {
+		if len(t.ADB)+len(t.Reverse) > 0 {
+			out.Sessions = append(out.Sessions, t)
+		}
+	}
+	return out
 }
