@@ -489,7 +489,7 @@ source layout. The Slack sync was planned as a subcommand of the
 
 **Decision.** Each sync job is its own repository, image and chart
 (superseded by #43: they now share one), starting with
-[kriakiku/holtdroid-slack-sync](https://github.com/kriakiku/holtdroid-slack-sync).
+holtdroid-slack-sync.
 It talks to Holtdroid only through the file layout and the launch link
 (`/?source=…&launch=…`, contracts.md "Artifact sources"). It copies the few
 packages it shares with Holtdroid (`storage`, `secrets`, `config`, `apk`)
@@ -679,7 +679,7 @@ directly, and copying builds so they survive the end of a session. Only
 some of the keys in such a bucket matter.
 
 **Decision.** A separate job,
-[kriakiku/holtdroid-s3-sync](https://github.com/kriakiku/holtdroid-s3-sync)
+holtdroid-s3-sync
 (decision #30; now the `s3` job of holtdroid-sync, #43), has two modes.
 
 - *Copy* mirrors the matching APKs into a folder or S3 source, with
@@ -868,4 +868,4 @@ every shared fix would need a tag and three dependency bumps.
 **Consequences.** A shared fix is one change. Jobs are released together; a
 job that didn't change still gets a new image tag. Holtdroid keeps its own
 copy of the shared packages, so the two copies are still synced by hand.
-The old per-job repositories are archived.
+The old per-job repositories were deleted; their history is not carried over.
