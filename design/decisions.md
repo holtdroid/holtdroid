@@ -664,7 +664,7 @@ starting the app has to go through Frida.
 **Consequences.** The clipboard works with the app closed and on devices
 without Frida. Its text is capped by scrcpy's 256 KiB message limit, and the
 first value after an agent restart is only known after the next change.
-Audio is one more encoder per listener and starts only from a click. In the
+Audio is one more encoder per listener and starts only from a click (on by default since decision #54). In the
 USB keyboard mode, layouts are set up on the device; the text mode stays the
 default because it works without that. H.265 and AV1 trade device CPU
 (software encoders on the emulator) for bandwidth, and H.265 decoding
@@ -1240,3 +1240,30 @@ the portal can reach into the iframe's document and localStorage.
 are not an API: a frontend revision that renames them falls back to stock
 DevTools colors, nothing breaks. Chart and syntax colors (tertiary, error,
 token colors) stay DevTools' own.
+
+## 54. Device audio on by default, vibrations as a toast and a buzz
+
+**Context.** Device audio started only from a click (decision #36), so
+sounds of the app under test went unheard unless someone remembered the
+switch. An emulator's vibrations aren't visible or audible at all, while
+apps use them for notifications and calls.
+
+**Decision.** The audio switch is a stream setting (`audio`, on by
+default, kept in localStorage). The page connects once the screen is live
+and the page has a user activation (`navigator.userActivation`), so the
+`AudioContext` is allowed to run, and reconnects every 3 s after a drop
+until the switch is turned off or the device reports it can't capture.
+For vibrations the agent polls `dumpsys vibrator_manager` once a second
+while someone watches `/v1/vibrations`, reads the current vibration and
+the recent history, keys entries by their create time and reports the
+ones that are new since the previous poll, leaving touch feedback out.
+This needs no Frida, so it works with the app closed and on devices
+without it. The page shows a toast with the package, usage and length,
+and, with the audio switch on, plays a buzz synthesized with Web Audio
+(a low-passed 165 Hz sawtooth with a 23 Hz rattle), 150 ms to 3 s long.
+
+**Consequences.** One more audio encoder per open session page.
+Vibrations arrive up to a second late; a repeating pattern (a ringtone) is
+reported once, with no length. The dumpsys text format is Android 14+;
+older devices report nothing. A reload starts the audio only after the
+first click on the page.

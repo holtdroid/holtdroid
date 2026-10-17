@@ -108,6 +108,7 @@ Design: decision #51, architecture.md "ADB in the browser".
 - [x] Fake adbd in the fake provider: shell v1/v2 with a pty, exec, sync v1, binary logcat with a generator and `am crash`, `pm`/`am`/`dumpsys`/`settings`/`cmd`/`bugreportz`, a small file system
 - [x] UI: one Tango connection per session page; tabs next to DevTools: Logcat, Files, Terminal, App, Device; crash toast; screen recording from the rail
 - [x] Tests: `internal/adbproto`, the relay's filter, the fake adbd, the proxy end to end with audit; `bun test` for the dumpsys parsers
+- [x] Device audio on by default; vibrations (`/v1/vibrations` from `dumpsys vibrator_manager`, fake agent every 45 s) as a toast plus a synthesized buzz (decision #54)
 - [ ] Verify on the real emulator: several adbd connections at once (agent, SSH, tabs), logcat under load, pushes over 1 MiB, bugreportz streaming, the WebView provider switch
 
 ## Phase 4.6 — Database

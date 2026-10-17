@@ -19,6 +19,7 @@ type Agent interface {
 	Clipboard(ctx context.Context) (string, error)
 	SetClipboard(ctx context.Context, text string) error
 	WatchClipboard(ctx context.Context, send func(Clipboard) error) error
+	WatchVibrations(ctx context.Context, send func(Vibration) error) error
 	Network(ctx context.Context) (Network, error)
 	SetLocation(ctx context.Context, location string) (Network, error)
 	App(ctx context.Context, action AppAction) error
@@ -136,6 +137,14 @@ func RegisterAgent(api huma.API, a Agent) {
 		map[string]any{"clip": Clipboard{}},
 		func(ctx context.Context, _ *struct{}, send sse.Sender) {
 			_ = a.WatchClipboard(ctx, func(c Clipboard) error { return send.Data(c) })
+		})
+
+	sse.Register(api, huma.Operation{
+		OperationID: "watchVibrations", Method: http.MethodGet, Path: "/v1/vibrations", Tags: tags,
+		Description: "Vibrations that start after the stream opens, without touch feedback; the device is only polled while someone listens.",
+	}, map[string]any{"vibration": Vibration{}},
+		func(ctx context.Context, _ *struct{}, send sse.Sender) {
+			_ = a.WatchVibrations(ctx, func(v Vibration) error { return send.Data(v) })
 		})
 
 	sse.Register(api, huma.Operation{

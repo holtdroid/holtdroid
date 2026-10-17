@@ -47,7 +47,7 @@ The agent is what the browser talks to, through the api's proxy at
 `/s/{provider}/{session}/`. It serves
 status as server-sent events, the screen as a scrcpy stream on
 `/display/scrcpy` (codec, size, frame rate and bitrate as query parameters),
-the device audio on `/display/audio`, DevTools targets
+the device audio on `/display/audio`, vibrations on `/v1/vibrations`, DevTools targets
 and WebSocket proxying, clipboard and network endpoints, and device controls
 (`/v1/device`: settings, hardware buttons, screenshots), app actions
 (`/v1/app/restart`, `/v1/app/reinstall`), `/v1/install` for the provider

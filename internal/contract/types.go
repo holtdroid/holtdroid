@@ -162,6 +162,12 @@ type Clipboard struct {
 	Text string `json:"text" maxLength:"65536"`
 }
 
+type Vibration struct {
+	Usage      string `json:"usage" doc:"VibrationAttributes usage: NOTIFICATION, ALARM, RINGTONE, COMMUNICATION_REQUEST, MEDIA, UNKNOWN, …"`
+	Package    string `json:"package,omitempty"`
+	DurationMS int64  `json:"durationMs" doc:"0 when the length isn't known yet (a running or repeating pattern)"`
+}
+
 type Network struct {
 	Location   string `json:"location"`
 	ExternalIP string `json:"externalIp,omitempty"`

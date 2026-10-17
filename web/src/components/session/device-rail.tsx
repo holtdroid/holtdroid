@@ -16,12 +16,13 @@ import {
   ToggleRightIcon,
   Volume1Icon,
   Volume2Icon,
+  VibrateIcon,
   VideoIcon,
   VolumeXIcon,
 } from "lucide-react"
-import { type ReactNode, useEffect, useRef, useState } from "react"
+import { type ReactNode, useEffect, useState } from "react"
 import { toast } from "sonner"
-import { type DeviceAction, sessionBase } from "@/api/client"
+import { type DeviceAction, sessionBase, type Vibration } from "@/api/client"
 import { DeviceSettingsSheet } from "@/components/session/device-settings"
 import { displayURL, type LiveScreen, useScreenLive } from "@/components/session/live-screen"
 import { ScreenSettings } from "@/components/session/screen-settings"
@@ -29,12 +30,16 @@ import { useDeviceAction } from "@/components/session/use-device"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { useEventSource } from "@/hooks/use-event-source"
 import { useNow } from "@/hooks/use-now"
+import { useUserActivation } from "@/hooks/use-user-activation"
 import { download, stamp } from "@/lib/adb"
-import { type AudioConnection, audioSupported, openAudio } from "@/lib/audio"
+import { type AudioConnection, AudioUnavailableError, audioSupported, openAudio } from "@/lib/audio"
 import { formatDuration } from "@/lib/format"
 import { type Recording, recordingSupported, startRecording } from "@/lib/recorder"
 import type { ScreenControl } from "@/lib/scrcpy"
+import { setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
+import { buzz } from "@/lib/vibration"
 
 const groups: { action: DeviceAction; label: string; icon: ReactNode }[][] = [
   [
@@ -83,6 +88,9 @@ export function DeviceRail({
 }) {
   const action = useDeviceAction(provider, id)
   const [shooting, setShooting] = useState(false)
+  const { audio } = useScreenPrefs()
+  const activated = useUserActivation()
+  useVibrationAlerts(provider, id, audio && activated)
 
   const run = (a: DeviceAction) => {
     const control = live.connection?.control
@@ -125,7 +133,7 @@ export function DeviceRail({
         <CameraIcon />
       </RailButton>
       <RecordButton name={name} live={live} />
-      <AudioButton provider={provider} id={id} />
+      <AudioButton provider={provider} id={id} live={live} />
       <ScreenSettings live={live} />
       <DeviceSettingsSheet provider={provider} id={id} />
     </div>
@@ -170,46 +178,99 @@ function RecordButton({ name, live }: { name: string; live: LiveScreen }) {
   )
 }
 
-function AudioButton({ provider, id }: { provider: string; id: string }) {
-  const [state, setState] = useState<"off" | "starting" | "on">("off")
-  const conn = useRef<AudioConnection | null>(null)
+function AudioButton({ provider, id, live }: { provider: string; id: string; live: LiveScreen }) {
+  const { audio: wanted } = useScreenPrefs()
+  const screenLive = useScreenLive(live)
+  const activated = useUserActivation()
   const supported = useQuery({ queryKey: ["audio-supported"], queryFn: audioSupported, staleTime: Infinity }).data
+  const [connected, setConnected] = useState(false)
+  const [unavailable, setUnavailable] = useState<string | null>(null)
+  const [lastError, setLastError] = useState<string | null>(null)
+  const active = wanted && supported === true && screenLive && activated && unavailable === null
 
-  useEffect(() => () => conn.current?.close(), [])
+  useEffect(() => {
+    if (!active) return undefined
+    let stopped = false
+    let conn: AudioConnection | null = null
+    let retry: ReturnType<typeof setTimeout> | undefined
+    const connect = async () => {
+      try {
+        conn = await openAudio(displayURL(provider, id, "audio"))
+        if (stopped) return
+        setConnected(true)
+        setLastError(null)
+        await conn.done
+      } catch (e) {
+        if (e instanceof AudioUnavailableError) {
+          setUnavailable(e.message)
+          return
+        }
+        setLastError(e instanceof Error ? e.message : String(e))
+      } finally {
+        conn?.close()
+        conn = null
+        setConnected(false)
+      }
+      if (!stopped) retry = setTimeout(() => void connect(), 3000)
+    }
+    void connect()
+    return () => {
+      stopped = true
+      clearTimeout(retry)
+      conn?.close()
+    }
+  }, [active, provider, id])
 
-  const toggle = async () => {
-    if (conn.current) {
-      conn.current.close()
+  const toggle = () => {
+    if (unavailable !== null) {
+      setUnavailable(null)
+      setScreenPrefs({ audio: true })
       return
     }
-    setState("starting")
-    try {
-      const c = await openAudio(displayURL(provider, id, "audio"))
-      conn.current = c
-      setState("on")
-      await c.done
-    } catch (e) {
-      toast.error("Could not play the device audio", { description: e instanceof Error ? e.message : String(e) })
-    }
-    conn.current = null
-    setState("off")
+    setScreenPrefs({ audio: !wanted })
   }
 
-  return (
-    <RailButton
-      label={
-        supported === false
-          ? "This browser can't play the device audio"
-          : state === "on"
+  const label =
+    supported === false
+      ? "This browser can't play the device audio"
+      : unavailable !== null
+        ? `${unavailable}. Click to try again`
+        : !wanted
+          ? "Play device audio"
+          : connected
             ? "Stop device audio"
-            : "Play device audio"
-      }
-      disabled={state === "starting" || supported !== true}
-      onClick={() => void toggle()}
-    >
-      {state === "on" ? <HeadphonesIcon /> : <HeadphoneOffIcon />}
+            : !activated
+              ? "Device audio starts after your first click on the page"
+              : !screenLive
+                ? "Device audio starts with the screen"
+                : lastError
+                  ? `Reconnecting device audio: ${lastError}`
+                  : "Connecting device audio…"
+
+  return (
+    <RailButton label={label} disabled={supported !== true} onClick={toggle}>
+      {wanted && unavailable === null ? (
+        <HeadphonesIcon className={connected ? undefined : "animate-pulse opacity-60"} />
+      ) : (
+        <HeadphoneOffIcon />
+      )}
     </RailButton>
   )
+}
+
+function useVibrationAlerts(provider: string, id: string, audible: boolean) {
+  useEventSource<{ vibration: Vibration }>(`${sessionBase(provider, id)}/v1/vibrations`, {
+    vibration: (v) => {
+      if (audible) buzz(v.durationMs)
+      toast("Device is vibrating", {
+        id: "vibration",
+        icon: <VibrateIcon className="size-4" />,
+        description: [v.package, v.usage.toLowerCase().replaceAll("_", " "), v.durationMs > 0 && `${v.durationMs} ms`]
+          .filter(Boolean)
+          .join(" · "),
+      })
+    },
+  })
 }
 
 function RailButton({

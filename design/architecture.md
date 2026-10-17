@@ -299,8 +299,14 @@ decoded frame. Returning to the tab asks the server for a key frame
 (`reset video`). Stream settings and the keyboard mode are kept in
 `localStorage`; codecs the browser can't decode are not offered. Device
 audio (`web/src/lib/audio.ts`) is decoded with WebCodecs `AudioDecoder` and
-played through `@yume-chan/pcm-player`; it starts from a click, as browsers
-require. A rotated device streams a rotated picture. The fake provider
+played through `@yume-chan/pcm-player`. It is on by default (`audio` in
+the stream settings): it connects once the screen is live and the page has
+had a click or key press, as browsers require, and reconnects after a drop.
+Vibrations come from `/v1/vibrations`: the agent polls `dumpsys
+vibrator_manager` every second while someone listens and reports entries
+that are new in its current vibration or recent history; the page shows a
+toast and, with the audio switch on, plays a synthesized motor buzz of the
+vibration's length (`web/src/lib/vibration.ts`). A rotated device streams a rotated picture. The fake provider
 replays a short H.264 recording over the same protocol, refuses other
 codecs and reports that it can't capture audio.
 

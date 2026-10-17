@@ -32,7 +32,9 @@ hybrid apps, support engineers reproducing a customer bug.
 
    A rail next to the screen has the hardware buttons (lock, wake, volume,
    rotate, back/home/recents, notifications, quick settings), a screenshot
-   button and a switch that plays the device's audio in your browser. Its
+   button and a switch for the device's audio, which plays in your browser
+   by default. When the device vibrates, the page shows a notification and
+   plays a buzz. Its
    **Stream and keyboard** popover picks the video codec (H.264, H.265 or
    AV1), resolution, frame rate and bitrate, and switches the keyboard
    between text input and a virtual USB keyboard that types in any alphabet

@@ -264,6 +264,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/vibrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Vibrations that start after the stream opens, without touch feedback; the device is only polled while someone listens. */
+        get: operations["watchVibrations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -573,6 +590,16 @@ export interface components {
         Tunnels: {
             adb: components["schemas"]["ADBTunnel"][];
             reverse: components["schemas"]["ReverseTunnel"][];
+        };
+        Vibration: {
+            /**
+             * Format: int64
+             * @description 0 when the length isn't known yet (a running or repeating pattern)
+             */
+            durationMs: number;
+            package?: string;
+            /** @description VibrationAttributes usage: NOTIFICATION, ALARM, RINGTONE, COMMUNICATION_REQUEST, MEDIA, UNKNOWN, … */
+            usage: string;
         };
     };
     responses: never;
@@ -1156,6 +1183,46 @@ export interface operations {
                          * @constant
                          */
                         event: "tunnels";
+                        /** @description The event ID. */
+                        id?: number;
+                        /** @description The retry time in milliseconds. */
+                        retry?: number;
+                    }[];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    watchVibrations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": {
+                        data: components["schemas"]["Vibration"];
+                        /**
+                         * @description The event name.
+                         * @constant
+                         */
+                        event: "vibration";
                         /** @description The event ID. */
                         id?: number;
                         /** @description The retry time in milliseconds. */

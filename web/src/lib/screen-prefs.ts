@@ -9,6 +9,7 @@ export type ScreenPrefs = {
   maxFps: number
   bitRate: number
   keyboard: KeyboardMode
+  audio: boolean
 }
 
 export const defaultScreenPrefs: ScreenPrefs = {
@@ -17,6 +18,7 @@ export const defaultScreenPrefs: ScreenPrefs = {
   maxFps: 60,
   bitRate: 4_000_000,
   keyboard: "text",
+  audio: true,
 }
 
 const key = "holtdroid:screen"
