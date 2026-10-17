@@ -37,8 +37,15 @@ DevTools:
   the tab, device and app details, ready to attach to a bug; **Full Android bug
   report** runs Android's own `bugreportz`.
 
-The rail next to the screen also records the screen to a video file
-(WebM, or MP4 where the browser can't write WebM).
+The rail next to the screen also records to a video file (WebM, or MP4
+where the browser can't write WebM). Hover **Record** to pick what it
+records; the choice is remembered in the browser:
+
+- **Device screen** (default): only the device display.
+- **Whole page**: the portal tab itself, with DevTools, the console and the
+  rest of the page, plus the tab's sound. The browser asks for permission
+  to share the tab each time. Stop with the button or the browser's own
+  "Stop sharing"; either way the file is saved.
 
 ## Configuration
 

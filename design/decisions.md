@@ -1163,7 +1163,9 @@ almost no Go code, one feature at a time.
   data, doze, standby bucket) and Device (props, WebView provider switch,
   demo mode, a client-side bug report zip and Android's own bugreport).
   Screen recording records the decoded canvas with `MediaRecorder`; it needs
-  no adb.
+  no adb. A "whole page" mode records the portal tab itself through
+  `getDisplayMedia` with `preferCurrentTab` (DevTools, console and tab
+  sound included), at the cost of the browser's share prompt each time.
 - Both relays parse adb packets and answer OPENs of services that restart
   adbd or the device or move adb elsewhere (`reboot:`, `unroot:`,
   `remount:`, `tcpip:`, `usb:`, `sideload:`, `*-verity:`) with CLSE: any of
