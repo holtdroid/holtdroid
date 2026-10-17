@@ -742,3 +742,25 @@ replicas. Who connected is visible to everyone who can see the session, as
 sessions already are. The default command opens 13 tunnels, inside the
 default `maxTunnelsPerConnection` of 32, which the api mirrors so the UI
 can warn. A list stays in one browser, like SSH keys do.
+
+
+## 39. Session containers get no CPU limit
+
+**Context.** Sessions felt sluggish over both noVNC and scrcpy. The
+emulator renders with SwiftShader (`-gpu swiftshader_indirect`), so the
+"GPU" is host CPU threads on top of the four guest vCPUs, all inside a
+`cpu: 4` limit. Scrolling Settings 30 times on a k3s node (i5-8500T) under
+that limit gave 23–45 % janky frames and a GPU p90 of 4950 ms; without the
+limit, 3–7 % janky frames and a GPU p90 of about 25 ms. `-gpu swangle`
+was worse (47 %). Host GPU rendering on the nodes' iGPUs doesn't work
+headless: gfxstream needs a GLX display for GLES, and EGL-on-EGL renders
+black because its shaders target desktop GL.
+
+**Decision.** The default session resources keep the CPU request (3) and
+the memory limit but drop the CPU limit. One session runs per node, so the
+emulator may use the whole node.
+
+**Consequences.** A busy session can take every core of its node, which
+only matters if other workloads share session nodes; operators who need a
+cap set `resources.limits.cpu` themselves. Host GPU rendering stays open
+(it would need an X server on the iGPU inside the session image).

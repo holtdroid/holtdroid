@@ -71,7 +71,7 @@ func DefaultConfig() Config {
 		TunnelPort:      8081,
 		Resources: Resources{
 			Requests: map[string]string{"cpu": "3", "memory": "5Gi"},
-			Limits:   map[string]string{"cpu": "4", "memory": "7Gi"},
+			Limits:   map[string]string{"memory": "7Gi"},
 		},
 		VPN:     vpn.DefaultConfig(),
 		Prepull: Prepull{Refresh: true, Interval: 5 * time.Minute},

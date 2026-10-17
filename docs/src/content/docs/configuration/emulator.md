@@ -23,7 +23,7 @@ imagePullSecrets: []
 agentPort: 8080
 resources:
   requests: { cpu: "3", memory: 5Gi }
-  limits: { cpu: "4", memory: 7Gi }
+  limits: { memory: 7Gi }
 vpn:
   locations: [] # see below; empty means no VPN sidecar
 ```
@@ -38,7 +38,7 @@ vpn:
 | `image`, `imagePullPolicy` | Session image (emulator + agent)                                                                                                                                   |
 | `imagePullSecrets`         | Secret names for pulling the session image                                                                                                                         |
 | `agentPort`                | Port the agent listens on inside the Pod; the api reaches it at the Pod IP                                                                                         |
-| `resources`                | Per-session emulator container resources                                                                                                                           |
+| `resources`                | Per-session emulator container resources. Leave out a CPU limit: throttling makes the software-rendered screen stutter                                             |
 | `vpn`                      | Per-session VPN, see below                                                                                                                                         |
 
 Every matching node is one slot, at most one session per node. A session is
@@ -62,7 +62,7 @@ providers:
     tolerations: []
     session:
       image: { repository: ghcr.io/kriakiku/holtdroid-session, tag: "" } # tag defaults to image.tag
-      resources: { requests: { cpu: "3", memory: 5Gi }, limits: { cpu: "4", memory: 7Gi } }
+      resources: { requests: { cpu: "3", memory: 5Gi }, limits: { memory: 7Gi } }
     vpn: {} # the vpn section below
     networkPolicy: { enabled: true } # only the api reaches session agents
     prepull:

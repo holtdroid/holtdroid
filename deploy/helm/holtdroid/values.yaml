@@ -94,7 +94,8 @@ providers:
         pullPolicy: IfNotPresent
       resources:
         requests: { cpu: "3", memory: 5Gi }
-        limits: { cpu: "4", memory: 7Gi }
+        # No CPU limit: CFS throttling makes the software GPU drop frames.
+        limits: { memory: 7Gi }
     # Per-session VPN sidecar, see the emulator provider docs. Empty: no VPN.
     vpn: {}
     # Only the api (and the ssh-gateway, on the tunnel port) may reach
