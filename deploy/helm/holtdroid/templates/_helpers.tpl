@@ -59,3 +59,22 @@ envFrom:
 {{- toYaml $out -}}
 {{- end -}}
 
+
+{{- define "holtdroid.auditStorePath" -}}
+{{- $p := .Values.audit.store.persistence -}}
+{{- if eq $p "data" -}}/var/lib/holtdroid/audit/events.jsonl
+{{- else if eq $p "volume" -}}/var/lib/holtdroid-audit/events.jsonl
+{{- else if ne $p "none" -}}{{ fail "audit.store.persistence must be data, volume or none" }}
+{{- end -}}
+{{- end -}}
+
+{{- define "holtdroid.audit" -}}
+{{- $a := .root.Values.audit -}}
+{{- $out := dict "stdout" $a.stdout "otlp" $a.otlp "webhook" $a.webhook -}}
+{{- if eq .component "api" -}}
+{{- $_ := set $out "store" (dict "enabled" $a.store.enabled "maxEvents" (int $a.store.maxEvents) "maxAge" $a.store.maxAge "path" (include "holtdroid.auditStorePath" .root)) -}}
+{{- else -}}
+{{- $_ := set $out "forward" $a.store.enabled -}}
+{{- end -}}
+{{- toYaml $out -}}
+{{- end -}}

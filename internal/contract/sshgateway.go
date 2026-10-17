@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
+
+	"github.com/kriakiku/holtdroid/internal/audit"
 )
 
 // SSHGateway is the internal API every ssh-gateway replica serves to the api.
@@ -115,10 +117,16 @@ func (g *SSHGatewayClient) KeyRequest(ctx context.Context, code string) (KeyRequ
 }
 
 // SSHSessions is the api's internal API for the ssh-gateway: it resolves the
-// session named by an SSH user name and takes tunnel traffic as activity.
+// session named by an SSH user name, takes tunnel traffic as activity and
+// keeps the gateway's audit events in the api's audit store.
 type SSHSessions interface {
 	SSHSession(ctx context.Context, slug string) (SSHSession, error)
 	SSHActivity(ctx context.Context, slug string) error
+	RecordAudit(ctx context.Context, events []audit.Event) error
+}
+
+type auditEventsInput struct {
+	Body []audit.Event `maxItems:"1000"`
 }
 
 type SSHSession struct {
@@ -150,6 +158,12 @@ func RegisterSSHSessions(api huma.API, s SSHSessions) {
 	}, func(ctx context.Context, in *slugInput) (*struct{}, error) {
 		return nil, toHuma(s.SSHActivity(ctx, in.Slug))
 	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "recordAudit", Method: http.MethodPost, Path: "/internal/audit/events", Tags: tags, DefaultStatus: http.StatusNoContent,
+	}, func(ctx context.Context, in *auditEventsInput) (*struct{}, error) {
+		return nil, toHuma(s.RecordAudit(ctx, in.Body))
+	})
 }
 
 type SSHSessionsClient struct{ c client }
@@ -166,4 +180,8 @@ func (c *SSHSessionsClient) SSHSession(ctx context.Context, slug string) (SSHSes
 
 func (c *SSHSessionsClient) SSHActivity(ctx context.Context, slug string) error {
 	return c.c.do(ctx, http.MethodPost, "/internal/sessions/"+url.PathEscape(slug)+"/activity", nil, nil)
+}
+
+func (c *SSHSessionsClient) RecordAudit(ctx context.Context, events []audit.Event) error {
+	return c.c.do(ctx, http.MethodPost, "/internal/audit/events", events, nil)
 }

@@ -221,7 +221,8 @@ telemetry:
     sampleRatio: 1
 
 # Audit log of the api and the ssh-gateway: JSON lines with "log":"audit" on
-# stdout, optionally also as OTLP logs and to a webhook.
+# stdout, optionally also as OTLP logs, to a webhook and into a bounded store
+# the api shows to admins.
 audit:
   stdout: true
   otlp:
@@ -237,6 +238,27 @@ audit:
     flushInterval: 5s
     retries: 5
     timeout: 10s
+  # Recent events the api keeps for the admin "Audit log" page; the
+  # ssh-gateway forwards its events there. Meant for small installs: each api
+  # replica keeps its own copy. Long-term storage is the job of the sinks above.
+  store:
+    enabled: true
+    # Oldest events are dropped beyond either limit. 10000 events take
+    # about 5 MiB of memory; maxAge 0 means no age limit.
+    maxEvents: 10000
+    maxAge: 720h
+    # Where events survive a restart, as a JSON lines file of at most about
+    # twice maxEvents lines:
+    #   data   — on the api data volume (api.persistence), survives everything
+    #   volume — on audit.store.volume below, e.g. tmpfs: survives container
+    #            restarts but not a new pod; its size counts against the
+    #            api memory limit
+    #   none   — process memory only, empty after every restart
+    persistence: data
+    volume:
+      emptyDir:
+        medium: Memory
+        sizeLimit: 32Mi
 
 # Extra manifests rendered with tpl, e.g. an ExternalSecret or a Middleware.
 extraObjects: []

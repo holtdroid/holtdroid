@@ -1,5 +1,14 @@
 import { Link } from "@tanstack/react-router"
-import { BookOpenIcon, KeyRoundIcon, LogOutIcon, MoonIcon, ShieldIcon, ShuffleIcon, SunIcon } from "lucide-react"
+import {
+  BookOpenIcon,
+  KeyRoundIcon,
+  LogOutIcon,
+  MoonIcon,
+  ScrollTextIcon,
+  ShieldIcon,
+  ShuffleIcon,
+  SunIcon,
+} from "lucide-react"
 import { useTheme } from "next-themes"
 import type { ReactNode } from "react"
 import { useAuth, useLogout, useSessionEvents } from "@/api/queries"
@@ -49,6 +58,19 @@ export function AppShell({ children }: { children: ReactNode }) {
             </TooltipTrigger>
             <TooltipContent>{sshSync.isError ? "SSH keys are not synced" : "SSH keys"}</TooltipContent>
           </Tooltip>
+          {identity?.admin && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" asChild>
+                  <Link to="/audit" activeProps={{ className: "bg-muted" }}>
+                    <ScrollTextIcon />
+                    <span className="sr-only">Audit log</span>
+                  </Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Audit log</TooltipContent>
+            </Tooltip>
+          )}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="icon" asChild>

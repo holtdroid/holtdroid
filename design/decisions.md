@@ -997,3 +997,43 @@ scope. Every connection costs one session lookup on the api, even from
 scanners. A legitimate user with `clientIsolation` on gets "Not found." for
 someone else's session, like for a missing one. OpenSSH hides banners at
 `LogLevel` below `INFO` (`-q`).
+
+## 48. A bounded audit store for the admin page
+
+**Context.** Decision #44 sends audit events out of the process and keeps
+nothing. A homelab without Loki or ELK then has no way to answer "who
+stopped my session" short of grepping pod logs, and those are gone after the
+next deploy. The api is stateless (decision #22: in-memory data must be
+fine to lose), so whatever it keeps can only be a convenience.
+
+**Decision.** This partly supersedes #44's "nothing is kept".
+
+- `audit.store` (api only, on by default): an in-memory list of the most
+  recent events, bounded by `maxEvents` (10 000, about 5 MiB) and `maxAge`
+  (30 days). With `path` it is mirrored to a JSON lines file: appended per
+  event, read back on start (unparsable lines skipped), rewritten through a
+  temp file and rename once it holds twice as many lines as events kept.
+  Not the in-memory SQLite: it is empty after every restart, and the file
+  needs no schema. Queries scan the list newest first; at this size that is
+  cheaper than keeping indexes.
+- The ssh-gateway forwards its events with `audit.forward` to
+  `POST /internal/audit/events` on the api's internal port through
+  `contract.SSHSessions`, reusing the webhook's batching sink, so the page
+  covers SSH too. The api stores them without re-emitting: the gateway's own
+  sinks already have them.
+- Admin-only UI API `/api/v1/admin/audit` (info), `/events` (filters,
+  `before` cursor) and `/export` (JSON lines, audited as `audit.export`).
+- The chart chooses where the file lives (`audit.store.persistence`): the
+  api data volume (default), a separate volume (by default a tmpfs
+  `emptyDir`), or nowhere.
+
+**Consequences.** Each api replica keeps its own events and the gateway's
+batches land on whichever replica the Service picks, so with several
+replicas the page is partial; the docs say to use the sinks for anything
+complete or durable. A crash loses at most the line being written. The
+file on a ReadWriteOnce data volume needs no new constraint: that volume
+already pins the api to one replica. Like the rest of the internal port,
+`/internal/audit/events` is unauthenticated: anything that can reach that
+port can add events to the page (not to stdout or the sinks), which is one
+more reason to keep the port off the ingress and the record of truth in
+the sinks.

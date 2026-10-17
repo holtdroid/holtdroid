@@ -72,51 +72,58 @@ func (s *otlpSink) Write(ctx context.Context, ev Event) {
 
 func (s *otlpSink) Close(ctx context.Context) error { return s.provider.Shutdown(ctx) }
 
-// webhookSink POSTs events as JSON arrays in batches, retrying with backoff;
-// a batch that still fails is dropped and counted.
-type webhookSink struct {
+// batchSink hands events to send in batches, retrying with backoff; a
+// batch that still fails is dropped and counted.
+type batchSink struct {
+	name   string
 	cfg    WebhookConfig
-	url    string
-	authz  string
-	hc     *http.Client
+	send   func(context.Context, []Event) error
 	events chan Event
 	done   chan struct{}
 	sleep  func(context.Context, time.Duration) bool
 }
 
-const webhookBuffer = 4096
+const batchBuffer = 4096
 
-func newWebhookSink(ctx context.Context, cfg WebhookConfig, reg *secrets.Registry) (*webhookSink, error) {
+func newBatchSink(ctx context.Context, name string, cfg WebhookConfig, send func(context.Context, []Event) error) *batchSink {
+	s := &batchSink{
+		name:   name,
+		cfg:    cfg,
+		send:   send,
+		events: make(chan Event, batchBuffer),
+		done:   make(chan struct{}),
+		sleep:  sleepCtx,
+	}
+	go s.run(context.WithoutCancel(ctx))
+	return s
+}
+
+func newWebhookSink(ctx context.Context, cfg WebhookConfig, reg *secrets.Registry) (*batchSink, error) {
 	target, err := reg.Resolve(ctx, cfg.URL)
 	if err != nil {
 		return nil, fmt.Errorf("audit.webhook.url: %w", err)
 	}
-	s := &webhookSink{
-		cfg:    cfg,
-		url:    target,
-		hc:     &http.Client{Timeout: cfg.Timeout, Transport: telemetry.Transport(nil)},
-		events: make(chan Event, webhookBuffer),
-		done:   make(chan struct{}),
-		sleep:  sleepCtx,
-	}
+	var authz string
 	if !cfg.Authorization.IsZero() {
-		if s.authz, err = reg.Resolve(ctx, cfg.Authorization); err != nil {
+		if authz, err = reg.Resolve(ctx, cfg.Authorization); err != nil {
 			return nil, fmt.Errorf("audit.webhook.authorization: %w", err)
 		}
 	}
-	go s.run(context.WithoutCancel(ctx))
-	return s, nil
+	hc := &http.Client{Timeout: cfg.Timeout, Transport: telemetry.Transport(nil)}
+	return newBatchSink(ctx, "webhook", cfg, func(ctx context.Context, batch []Event) error {
+		return post(ctx, hc, target, authz, batch)
+	}), nil
 }
 
-func (s *webhookSink) Write(_ context.Context, ev Event) {
+func (s *batchSink) Write(_ context.Context, ev Event) {
 	select {
 	case s.events <- ev:
 	default:
-		dropped.WithLabelValues("webhook").Inc()
+		dropped.WithLabelValues(s.name).Inc()
 	}
 }
 
-func (s *webhookSink) Close(ctx context.Context) error {
+func (s *batchSink) Close(ctx context.Context) error {
 	close(s.events)
 	select {
 	case <-s.done:
@@ -126,7 +133,7 @@ func (s *webhookSink) Close(ctx context.Context) error {
 	}
 }
 
-func (s *webhookSink) run(ctx context.Context) {
+func (s *batchSink) run(ctx context.Context) {
 	defer close(s.done)
 	ticker := time.NewTicker(s.cfg.FlushInterval)
 	defer ticker.Stop()
@@ -154,15 +161,11 @@ func (s *webhookSink) run(ctx context.Context) {
 	}
 }
 
-func (s *webhookSink) deliver(ctx context.Context, batch []Event) {
-	raw, err := json.Marshal(batch)
-	if err != nil {
-		dropped.WithLabelValues("webhook").Add(float64(len(batch)))
-		return
-	}
+func (s *batchSink) deliver(ctx context.Context, batch []Event) {
 	backoff := time.Second
+	var err error
 	for attempt := 0; ; attempt++ {
-		err = s.post(ctx, raw)
+		err = s.send(ctx, batch)
 		if err == nil {
 			return
 		}
@@ -171,20 +174,24 @@ func (s *webhookSink) deliver(ctx context.Context, batch []Event) {
 		}
 		backoff = min(backoff*2, 30*time.Second)
 	}
-	dropped.WithLabelValues("webhook").Add(float64(len(batch)))
-	slog.Warn("audit webhook dropped a batch", "events", len(batch), "err", err)
+	dropped.WithLabelValues(s.name).Add(float64(len(batch)))
+	slog.Warn("audit sink dropped a batch", "sink", s.name, "events", len(batch), "err", err)
 }
 
-func (s *webhookSink) post(ctx context.Context, body []byte) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.url, bytes.NewReader(body))
+func post(ctx context.Context, hc *http.Client, target, authz string, batch []Event) error {
+	body, err := json.Marshal(batch)
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Content-Type", "application/json")
-	if s.authz != "" {
-		req.Header.Set("Authorization", s.authz)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, target, bytes.NewReader(body))
+	if err != nil {
+		return redact(err)
 	}
-	resp, err := s.hc.Do(req)
+	req.Header.Set("Content-Type", "application/json")
+	if authz != "" {
+		req.Header.Set("Authorization", authz)
+	}
+	resp, err := hc.Do(req)
 	if err != nil {
 		return fmt.Errorf("post: %w", redact(err))
 	}

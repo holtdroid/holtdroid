@@ -39,6 +39,10 @@ deployment"):
   request counts) with a `PodMonitor` in the chart; OpenTelemetry tracing
   across api → provider → agent. All off by default except stdout audit;
   not enabled on the maintainer's deployment yet.
+- Audit log page for admins (decision #48): the api keeps up to
+  `audit.store.maxEvents` / `maxAge` recent events in memory, mirrored to a
+  JSON lines file on the data volume in the chart; the ssh-gateway forwards
+  its events. Filters, live refresh, per-event detail, JSON lines export.
 - Sign-in: anonymous animal names, shared password, OIDC (PKCE + userinfo),
   forward-auth headers, none. Avatars from the IdP or DiceBear voxel-art.
 - APK cache on filesystem or S3, keyed by file revision. Stateless api

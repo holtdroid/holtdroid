@@ -5,10 +5,11 @@ sidebar:
   order: 4
 ---
 
-Holtdroid keeps nothing about its own operation: metrics, traces and audit
-events all leave the process for whatever you already run (Prometheus,
-Loki, Elasticsearch, Datadog, an OpenTelemetry Collector). Everything below is
-off by default except audit lines on stdout.
+Metrics, traces and audit events leave the process for whatever you already
+run (Prometheus, Loki, Elasticsearch, Datadog, an OpenTelemetry Collector).
+For small installs without such a stack, the api also keeps a bounded list
+of recent audit events that admins can browse in the portal. Everything
+below is off by default except audit lines on stdout and that list.
 
 Every service reads the same two sections from its config file, `telemetry`
 and `audit`. The audit log only comes from the api and the ssh-gateway.
@@ -143,6 +144,7 @@ while their regular logs go to stderr. Every audit line has
 | `ssh.connect`       | `slug` when denied                              | From the ssh-gateway                                                                                                      |
 | `ssh.disconnect`    | `seconds`, `bytes`                              |                                                                                                                           |
 | `ssh.tunnel`        | `kind` (`adb`, `reverse`), `port`               | Every `-L 5555:adb:5555` and `-R` request                                                                                 |
+| `audit.export`      | `events`, `q`                                   | An admin downloaded events from the audit page                                                                            |
 
 Session actions are also kept in the api's database for the session's
 lifetime.
@@ -173,6 +175,43 @@ audit:
   `holtdroid_audit_dropped_total`, as are events that arrive while 4096 are
   already waiting. Events still queued are sent on shutdown.
 
-Holtdroid doesn't keep audit events itself, so durability is the
-destination's job. For a complete trail, collect stdout: it is written
-synchronously.
+Durability is the destination's job. For a complete trail, collect stdout:
+it is written synchronously.
+
+### Audit log in the portal
+
+Admins (members of `auth.adminGroups`) get an **Audit log** page: events
+newest first, filters by action or action group, user, result, service,
+time range and free text, a live mode that refreshes every 5 seconds, a
+detail view per event and an export of the filtered events as JSON lines.
+Clicking a user, an action or a session in the table filters by it.
+
+```yaml
+audit:
+  store:
+    enabled: true
+    maxEvents: 10000 # the oldest events are dropped beyond either limit
+    maxAge: 720h # 0: no age limit
+    path: /var/lib/holtdroid/audit/events.jsonl # empty: memory only
+```
+
+The api keeps the events in memory; 10 000 of them take about 5 MiB. With
+`path`, they are also appended to a JSON lines file, read back on start,
+and the file is rewritten whenever it holds twice as many lines as events
+are kept, so it stays bounded. The ssh-gateway sends its events to the api
+in batches when its `audit.forward` is on (the chart does that whenever
+`audit.store.enabled` is set).
+
+In the chart, `audit.store.persistence` decides where the file lives:
+
+| Value            | Where                                               | Survives                                      |
+| ---------------- | --------------------------------------------------- | --------------------------------------------- |
+| `data` (default) | the api data volume (`api.persistence`)             | restarts and new pods, if the volume is a PVC |
+| `volume`         | `audit.store.volume`, by default a tmpfs `emptyDir` | container restarts, not a new pod             |
+| `none`           | nowhere, memory only                                | nothing                                       |
+
+A tmpfs volume counts against the api container's memory limit.
+
+The page is a convenience, not an archive: each api replica keeps its own
+events (with several replicas, each page load shows one replica's view),
+and it never replaces collecting stdout or the sinks above.

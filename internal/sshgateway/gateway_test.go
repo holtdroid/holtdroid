@@ -51,6 +51,8 @@ func (s *stubSessions) SSHActivity(ctx context.Context, slug string) error {
 	return nil
 }
 
+func (s *stubSessions) RecordAudit(context.Context, []audit.Event) error { return nil }
+
 type clock struct {
 	mu sync.Mutex
 	t  time.Time

@@ -15,7 +15,7 @@
   "reversePorts" $g.reversePorts
   "keyTTL" $g.keyTTL
   "maxTunnelsPerConnection" $g.maxTunnelsPerConnection
-  "audit" .Values.audit
+  "audit" (include "holtdroid.audit" (dict "root" . "component" "ssh-gateway") | fromYaml)
 -}}
 {{- $_ := set $cfg "telemetry" (include "holtdroid.telemetry" . | fromYaml) -}}
 apiVersion: v1

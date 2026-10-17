@@ -97,7 +97,7 @@ func TestWebhookGivesUpWithoutLeakingTheURL(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = s.post(context.Background(), []byte("[]"))
+	err = s.send(context.Background(), nil)
 	if err == nil || strings.Contains(err.Error(), "hush") {
 		t.Fatalf("err = %v", err)
 	}

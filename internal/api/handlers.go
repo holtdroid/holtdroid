@@ -205,6 +205,7 @@ func (s *Server) register(api huma.API) {
 	s.registerEvents(api)
 	s.registerAuth(api)
 	s.registerSSH(api)
+	s.registerAudit(api)
 }
 
 var errForbidden = errors.New("only the owner or an admin can do this")

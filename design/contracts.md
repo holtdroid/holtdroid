@@ -268,11 +268,15 @@ keeping the provider in the path is what lets the api stay stateless.
 | `DELETE` | `/api/v1/sessions/{provider}/{id}` | owner or admin only |
 | `POST` | `/api/v1/sessions/{provider}/{id}/extend` | owner or admin only; counts as activity |
 | `POST` | `/api/v1/sessions/{provider}/{id}/heartbeat` | `{active}`; sent every 30 s by a visible session tab, `active` = the user gave input since the previous heartbeat |
+| `GET` | `/api/v1/admin/audit` | admins only (403 otherwise): `{enabled, events, oldest?, maxEvents, maxAge (s), persistent, actors, actions}` of the api's audit store |
+| `GET` | `/api/v1/admin/audit/events?action=&result=&service=&actor=&session=&q=&since=&until=&before=&limit=` | admins only: `{items, next?}` newest first; `action`, `result`, `service` take comma-separated lists, an action matches exactly or by group (`session` = `session.*`), `q` searches every field case-insensitively, `before` is the `next` of the previous page, `limit` ≤ 500 (default 100); 404 when the store is off |
+| `GET` | `/api/v1/admin/audit/export?…` | admins only: every event matching the same filters as `application/x-ndjson`, newest first; emits `audit.export` |
 | `GET` | `/api/v1/events` | SSE `event: sessions`, the full `{items, errors}` whenever it changes; `event: artifacts` `{revision}` whenever any source changes |
 | `*` | `/s/{provider}/{id}/…` | proxy to the session's agent (HTTP + WS); any authenticated user may use it; non-GET requests count as activity |
 | `GET` | `/internal/artifacts/{key}` | APK download for agents by cache key, **internal port only** |
 | `GET` | `/internal/sessions/{slug}` | gateway only, **internal port**: `{provider, id, owner, state, tunnelUrl?}` for slug `{provider}-{id}`; 404 when no provider has it |
 | `POST` | `/internal/sessions/{slug}/activity` | gateway only, **internal port**: tunnel traffic counts as activity → 204; 404 for an unknown session |
+| `POST` | `/internal/audit/events` | gateway only, **internal port**: a JSON array (≤ 1000) of audit events the gateway emitted, kept in the api's audit store → 204; dropped when `audit.store` is off |
 
 The APK cache is warmed in the background: listing artifacts and polling
 sources queue up to `cache.warm` uncached revisions for download and
@@ -346,7 +350,10 @@ Every service also reads `telemetry` (`metrics.listen`, `tracing.{enabled,
 endpoint, insecure, sampleRatio}`), and the api and the ssh-gateway read
 `audit` (`stdout`, `otlp.{enabled, endpoint, insecure}`, `webhook.{url,
 authorization, batchSize, flushInterval, retries, timeout}`; `url` and
-`authorization` are secret references). `provider-emulator` passes
+`authorization` are secret references; api only: `store.{enabled,
+maxEvents, maxAge, path}`; ssh-gateway only: `forward`, which sends its
+events to the api's `/internal/audit/events` with the webhook's batching
+settings). `provider-emulator` passes
 `sessionTelemetry.{metricsPort, tracing}` to session agents as
 `HOLTDROID_TELEMETRY__*` variables. The audit event schema (version 1) is in
 `internal/audit` and documented on the public "Monitoring and audit" page.

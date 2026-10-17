@@ -620,7 +620,10 @@ session's `tunnelUrl`.
   tunnels) is an audit event: a JSON line with `"log":"audit"` and a schema
   version on stdout of the api or the ssh-gateway, optionally also OTLP logs
   and a batched webhook (`internal/audit`, decision #44). Session actions
-  also land in the api's `session_events` table through the same call.
+  also land in the api's `session_events` table through the same call. The
+  api keeps a bounded list of recent events (`audit.store`, optionally a
+  JSON lines file) that admins browse on the Audit log page; the
+  ssh-gateway forwards its events there (decision #48).
 
 ## Observability
 

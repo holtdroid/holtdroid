@@ -1,6 +1,6 @@
 // Package audit records who did what, when: a versioned event schema
-// written as JSON lines to stdout and optionally to OTLP logs and a webhook.
-// Events leave the process; nothing is kept.
+// written as JSON lines to stdout and optionally to OTLP logs, a webhook and
+// a bounded store of recent events for the admin page.
 package audit
 
 import (
@@ -43,7 +43,14 @@ const (
 	SSHConnect       Action = "ssh.connect"
 	SSHDisconnect    Action = "ssh.disconnect"
 	SSHTunnel        Action = "ssh.tunnel"
+	AuditExport      Action = "audit.export"
 )
+
+var Actions = []Action{
+	SignIn, SignOut, SessionLaunch, SessionStop, SessionReap, SessionExtend, SessionInstall, SessionLocation,
+	SessionClipboard, ArtifactUpload, ArtifactUpdate, ArtifactDelete, SSHKeys, SSHConnect, SSHDisconnect, SSHTunnel,
+	AuditExport,
+}
 
 type Result string
 
@@ -58,7 +65,7 @@ type Event struct {
 	Schema       int               `json:"schema"`
 	Service      string            `json:"service"`
 	Action       Action            `json:"action"`
-	Result       Result            `json:"result"`
+	Result       Result            `json:"result" enum:"ok,denied,failed"`
 	Actor        string            `json:"actor,omitempty"`
 	Admin        bool              `json:"admin,omitempty"`
 	Provider     string            `json:"provider,omitempty"`
@@ -80,6 +87,8 @@ type Config struct {
 	Stdout  bool
 	OTLP    OTLPConfig
 	Webhook WebhookConfig
+	Store   StoreConfig
+	Forward bool
 }
 
 type OTLPConfig struct {
@@ -101,12 +110,16 @@ func DefaultConfig() Config {
 	return Config{
 		Stdout:  true,
 		Webhook: WebhookConfig{BatchSize: 100, FlushInterval: 5 * time.Second, Retries: 5, Timeout: 10 * time.Second},
+		Store:   StoreConfig{Enabled: true, MaxEvents: 10000, MaxAge: 30 * 24 * time.Hour},
 	}
 }
 
 func (c Config) Validate() error {
-	if !c.Webhook.URL.IsZero() && (c.Webhook.BatchSize < 1 || c.Webhook.FlushInterval <= 0 || c.Webhook.Retries < 0 || c.Webhook.Timeout <= 0) {
+	if (!c.Webhook.URL.IsZero() || c.Forward) && (c.Webhook.BatchSize < 1 || c.Webhook.FlushInterval <= 0 || c.Webhook.Retries < 0 || c.Webhook.Timeout <= 0) {
 		return errors.New("audit.webhook: batchSize, flushInterval and timeout must be positive, retries not negative")
+	}
+	if c.Store.Enabled && (c.Store.MaxEvents < 1 || c.Store.MaxAge < 0) {
+		return errors.New("audit.store: maxEvents must be positive, maxAge not negative")
 	}
 	return nil
 }
@@ -126,6 +139,7 @@ var (
 type Logger struct {
 	service string
 	sinks   []Sink
+	store   *Store
 	now     func() time.Time
 }
 
@@ -137,6 +151,12 @@ func WithSink(s Sink) Option { return func(l *Logger) { l.sinks = append(l.sinks
 
 func WithStdout(w io.Writer) Option {
 	return func(l *Logger) { l.sinks = append(l.sinks, newSlogSink(w)) }
+}
+
+// WithForward sends events in batches to another service's store, with the
+// webhook's batching and retry settings.
+func WithForward(ctx context.Context, cfg WebhookConfig, send func(context.Context, []Event) error) Option {
+	return func(l *Logger) { l.sinks = append(l.sinks, newBatchSink(ctx, "forward", cfg, send)) }
 }
 
 func New(ctx context.Context, cfg Config, service, version string, reg *secrets.Registry, opts ...Option) (*Logger, error) {
@@ -164,7 +184,23 @@ func New(ctx context.Context, cfg Config, service, version string, reg *secrets.
 	for _, opt := range opts {
 		opt(l)
 	}
+	if cfg.Store.Enabled {
+		s, err := OpenStore(cfg.Store, func() time.Time { return l.now() })
+		if err != nil {
+			return nil, err
+		}
+		l.store = s
+		l.sinks = append(l.sinks, s)
+	}
 	return l, nil
+}
+
+// Store is the store of recent events, nil unless audit.store is enabled.
+func (l *Logger) Store() *Store {
+	if l == nil {
+		return nil
+	}
+	return l.store
 }
 
 // Emit fills in the schema, service, time and client of ev and hands it to

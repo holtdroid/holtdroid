@@ -57,7 +57,8 @@ type harness struct {
 func testAudit(t *testing.T, now func() time.Time) (*audit.Logger, *bytes.Buffer) {
 	t.Helper()
 	buf := &bytes.Buffer{}
-	l, err := audit.New(context.Background(), audit.Config{}, "api", "test", nil, audit.WithStdout(buf), audit.WithClock(now))
+	cfg := audit.Config{Store: audit.StoreConfig{Enabled: true, MaxEvents: 1000}}
+	l, err := audit.New(context.Background(), cfg, "api", "test", nil, audit.WithStdout(buf), audit.WithClock(now))
 	if err != nil {
 		t.Fatal(err)
 	}

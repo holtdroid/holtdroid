@@ -152,13 +152,19 @@ func sshGatewayCmd(c *common) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			aud, err := rt.auditLogger(cmd.Context(), "ssh-gateway")
+			sessions := contract.NewSSHSessionsClient(cfg.APIURL, nil)
+			rt.audit.Store.Enabled = false
+			var opts []audit.Option
+			if rt.audit.Forward {
+				opts = append(opts, audit.WithForward(cmd.Context(), rt.audit.Webhook, sessions.RecordAudit))
+			}
+			aud, err := rt.auditLogger(cmd.Context(), "ssh-gateway", opts...)
 			if err != nil {
 				return err
 			}
 			defer closeAudit(aud)
 			keys := sshgateway.NewKeys(cfg.KeyTTL, nil)
-			g, err := sshgateway.New(cfg, hostKey, keys, contract.NewSSHSessionsClient(cfg.APIURL, nil), aud, log)
+			g, err := sshgateway.New(cfg, hostKey, keys, sessions, aud, log)
 			if err != nil {
 				return err
 			}

@@ -120,8 +120,8 @@ func loadConfig[T any](path string, cfg *T) (runtime, error) {
 	return rt, nil
 }
 
-func (rt runtime) auditLogger(ctx context.Context, service string) (*audit.Logger, error) {
-	return audit.New(ctx, rt.audit, service, version, rt.secrets)
+func (rt runtime) auditLogger(ctx context.Context, service string, opts ...audit.Option) (*audit.Logger, error) {
+	return audit.New(ctx, rt.audit, service, version, rt.secrets, opts...)
 }
 
 type listener struct {

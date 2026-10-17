@@ -5,7 +5,8 @@
 {{- $_ := set $cfg "publicURL" .Values.publicURL -}}
 {{- $_ := set $cfg "internalURL" (printf "http://%s-api-internal:8081" $name) -}}
 {{- $_ := set $cfg "telemetry" (include "holtdroid.telemetry" . | fromYaml) -}}
-{{- $_ := set $cfg "audit" .Values.audit -}}
+{{- $_ := set $cfg "audit" (include "holtdroid.audit" (dict "root" . "component" "api") | fromYaml) -}}
+{{- $auditVolume := and .Values.audit.store.enabled (eq .Values.audit.store.persistence "volume") -}}
 {{- $providers := list -}}
 {{- if .Values.providers.fake.enabled -}}
 {{- $providers = append $providers (dict "name" .Values.providers.fake.name "url" (printf "http://%s-provider-fake:8080" $name)) -}}
@@ -116,6 +117,9 @@ spec:
             - { name: cache, mountPath: {{ .Values.config.storage.filesystem.dir | default "/var/cache/holtdroid" }} }
             {{- end }}
             - { name: data, mountPath: /var/lib/holtdroid }
+            {{- if $auditVolume }}
+            - { name: audit, mountPath: /var/lib/holtdroid-audit }
+            {{- end }}
       volumes:
         - name: config
           configMap:
@@ -133,6 +137,10 @@ spec:
           {{- else }}
           emptyDir: {}
           {{- end }}
+        {{- if $auditVolume }}
+        - name: audit
+          {{- toYaml .Values.audit.store.volume | nindent 10 }}
+        {{- end }}
       {{- with .Values.api.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

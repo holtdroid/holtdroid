@@ -4,6 +4,57 @@
  */
 
 export interface paths {
+    "/api/v1/admin/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description What the api's audit store keeps. Admins only. */
+        get: operations["getAuditInfo"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/audit/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Recent audit events, newest first. Admins only. */
+        get: operations["listAuditEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/audit/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Every matching audit event as JSON lines, newest first. Admins only. */
+        get: operations["exportAuditEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/artifacts": {
         parameters: {
             query?: never;
@@ -354,6 +405,57 @@ export interface components {
             /** @description Changes whenever any source gains, loses or replaces a file */
             revision: string;
         };
+        AuditEvent: {
+            action: string;
+            actor?: string;
+            admin?: boolean;
+            artifact?: string;
+            clientIp?: string;
+            details?: {
+                [key: string]: string;
+            };
+            forwardedFor?: string;
+            /** Format: int64 */
+            id: number;
+            provider?: string;
+            reason?: string;
+            /** @enum {string} */
+            result: "ok" | "denied" | "failed";
+            /** Format: int64 */
+            schema: number;
+            service: string;
+            session?: string;
+            /** Format: date-time */
+            time: string;
+            userAgent?: string;
+        };
+        AuditInfo: {
+            actions: string[];
+            actors: string[];
+            /** @description audit.store is on: events can be browsed here */
+            enabled: boolean;
+            /** Format: int64 */
+            events: number;
+            /**
+             * Format: int64
+             * @description seconds, 0: no age limit
+             */
+            maxAge: number;
+            /** Format: int64 */
+            maxEvents: number;
+            /** Format: date-time */
+            oldest?: string;
+            /** @description kept in a file across restarts */
+            persistent: boolean;
+        };
+        AuditPage: {
+            items: components["schemas"]["AuditEvent"][];
+            /**
+             * Format: int64
+             * @description pass as before for older events; absent on the last page
+             */
+            next?: number;
+        };
         AuthStatus: {
             identity?: components["schemas"]["Identity"];
             /** @description Where to send the browser to sign in (oidc) */
@@ -633,6 +735,119 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getAuditInfo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditInfo"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    listAuditEvents: {
+        parameters: {
+            query?: {
+                /** @description actions or categories, e.g. session or ssh.tunnel */
+                action?: string[];
+                /** @description ok, denied or failed */
+                result?: string[];
+                service?: string[];
+                actor?: string;
+                session?: string;
+                /** @description case-insensitive text in any field */
+                q?: string;
+                since?: string;
+                until?: string;
+                before?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditPage"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    exportAuditEvents: {
+        parameters: {
+            query?: {
+                /** @description actions or categories, e.g. session or ssh.tunnel */
+                action?: string[];
+                /** @description ok, denied or failed */
+                result?: string[];
+                service?: string[];
+                actor?: string;
+                session?: string;
+                /** @description case-insensitive text in any field */
+                q?: string;
+                since?: string;
+                until?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description JSON lines */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/x-ndjson": unknown;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     listArtifacts: {
         parameters: {
             query?: {

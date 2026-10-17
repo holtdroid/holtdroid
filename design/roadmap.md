@@ -149,7 +149,8 @@ nothing is mounted and the UI shows nothing. Needs a decision entry first.
 
 Make Holtdroid easy to plug into monitoring and log aggregation (Loki,
 ELK, Datadog, …) and answer "who did what, when". Stays stateless: events
-leave the process, the api doesn't keep them.
+leave the process; the api only keeps a bounded, losable list of recent
+ones for the admin page.
 
 - [x] Audit events with a stable, versioned schema emitted as JSON lines through a dedicated `slog` logger (`"log":"audit"`), separate from debug logs, so collectors can route them: sign-in/out, session launch/stop/reap/extend, location switch, proxy on/off, clipboard writes (no content), artifact upload/delete/visibility, SSH key sync, SSH connect/disconnect and every tunnel opened (`-L`/`-R`, port), MCP token issue/revoke and tool calls. Actor, session, provider, client IP, user agent, result (decision #44; proxy and MCP events land with Phases 4.7 and 4.8)
 - [x] Optional sinks besides stdout: OTLP logs, webhook (batched, retried); config `audit.*`, off except stdout by default
@@ -157,6 +158,7 @@ leave the process, the api doesn't keep them.
 - [x] Tracing: OpenTelemetry (`go.opentelemetry.io/otel`) across api → provider → agent with W3C trace context on the contract clients; exporter off by default
 - [x] `session_events` (Phase 4.6) fed from the same audit events instead of a parallel path
 - [x] Tests: audit event per action in `internal/api/api_test.go`, schema golden file; docs page "Monitoring and audit"
+- [x] Audit log page for admins: bounded `audit.store` in the api (memory, optional JSON lines file; chart: data volume, tmpfs or none), ssh-gateway events forwarded to it, filters, live mode, JSON lines export (decision #48)
 
 ## Phase 5 — Packaging and docs
 

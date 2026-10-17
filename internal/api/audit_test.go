@@ -5,13 +5,16 @@ import (
 	"encoding/json"
 	"flag"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/kriakiku/holtdroid/internal/audit"
 	"github.com/kriakiku/holtdroid/internal/auth"
 	"github.com/kriakiku/holtdroid/internal/contract"
 	"github.com/kriakiku/holtdroid/internal/provider/fake"
@@ -129,5 +132,73 @@ func TestAuditSignIn(t *testing.T) {
 	want := []string{"auth.signin|denied|password|192.0.2.1", "auth.signin|ok|password|192.0.2.1", "auth.signout|ok||192.0.2.1"}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("events %q, want %q", got, want)
+	}
+}
+
+func TestAuditLogPage(t *testing.T) {
+	h := newHarness(t, 2)
+	v := h.create("otter")
+	h.expect(http.StatusForbidden, http.MethodDelete, "/api/v1/sessions/fake/"+v.ID, "beaver", "", nil)
+	internal := httptest.NewServer(h.internal)
+	t.Cleanup(internal.Close)
+	gw := contract.NewSSHSessionsClient(internal.URL, nil)
+	if err := gw.RecordAudit(context.Background(), []audit.Event{
+		{Time: h.clock.Now(), Schema: audit.Schema, Service: "ssh-gateway", Action: audit.SSHConnect, Result: audit.OK, Actor: "otter", Session: v.ID},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	h.expect(http.StatusForbidden, http.MethodGet, "/api/v1/admin/audit/events", "otter", "", nil)
+	h.expect(http.StatusForbidden, http.MethodGet, "/api/v1/admin/audit", "otter", "", nil)
+	h.expect(http.StatusUnprocessableEntity, http.MethodGet, "/api/v1/admin/audit/events?result=maybe", "root", "admins", nil)
+
+	info := decode[AuditInfo](t, h.do(http.MethodGet, "/api/v1/admin/audit", "root", "admins", nil))
+	if !info.Enabled || info.Events != 3 || info.MaxEvents != 1000 || strings.Join(info.Actors, ",") != "beaver,otter" {
+		t.Fatalf("info %+v", info)
+	}
+
+	tests := []struct {
+		query string
+		want  []string
+	}{
+		{"", []string{"ssh.connect", "session.stop", "session.launch"}},
+		{"?action=session", []string{"session.stop", "session.launch"}},
+		{"?action=ssh.connect,session.launch", []string{"ssh.connect", "session.launch"}},
+		{"?result=denied", []string{"session.stop"}},
+		{"?actor=otter&service=api", []string{"session.launch"}},
+		{"?q=GATEWAY", []string{"ssh.connect"}},
+		{"?session=" + v.ID + "&since=2026-01-01T12:00:00Z", []string{"ssh.connect", "session.stop", "session.launch"}},
+		{"?until=2026-01-01T12:00:00Z", nil},
+	}
+	for _, tt := range tests {
+		page := decode[AuditPage](t, h.do(http.MethodGet, "/api/v1/admin/audit/events"+tt.query, "root", "admins", nil))
+		var got []string
+		for _, e := range page.Items {
+			got = append(got, string(e.Action))
+		}
+		if strings.Join(got, ",") != strings.Join(tt.want, ",") {
+			t.Errorf("%q: %v, want %v", tt.query, got, tt.want)
+		}
+	}
+
+	first := decode[AuditPage](t, h.do(http.MethodGet, "/api/v1/admin/audit/events?limit=2", "root", "admins", nil))
+	if len(first.Items) != 2 || first.Next == 0 {
+		t.Fatalf("first page %+v", first)
+	}
+	rest := decode[AuditPage](t, h.do(http.MethodGet, "/api/v1/admin/audit/events?limit=2&before="+strconv.FormatUint(first.Next, 10), "root", "admins", nil))
+	if len(rest.Items) != 1 || rest.Items[0].Action != audit.SessionLaunch || rest.Next != 0 {
+		t.Fatalf("second page %+v", rest)
+	}
+
+	rec := h.do(http.MethodGet, "/api/v1/admin/audit/export?action=session", "root", "admins", nil)
+	if rec.Code != http.StatusOK || rec.Header().Get("Content-Type") != "application/x-ndjson" ||
+		!strings.Contains(rec.Header().Get("Content-Disposition"), "holtdroid-audit-20260101T120000Z.jsonl") {
+		t.Fatalf("export: %d %v", rec.Code, rec.Header())
+	}
+	if n := strings.Count(rec.Body.String(), "\n"); n != 2 {
+		t.Fatalf("export has %d lines: %s", n, rec.Body.String())
+	}
+	if !strings.Contains(h.audit.String(), `"action":"audit.export"`) {
+		t.Fatal("export not audited")
 	}
 }
