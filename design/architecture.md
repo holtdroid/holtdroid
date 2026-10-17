@@ -514,6 +514,25 @@ Unknown slug, session not `ready`, or a forbidden user all fail the same way
 only after every key it offered failed (as a keyboard-interactive prompt with
 no questions), and an unregistered key gets a hint to open the portal.
 
+### Adding an unknown key from the terminal
+
+With `keyRequests: true` (default) the gateway lets the first unknown key a
+client offers through to the signature, so the client proves it holds the
+private key, and answers with partial success. The client starts over with
+all its keys: a registered one still logs in as usual. Only when every key
+failed and none was a registered key refused for another reason does the
+keyboard-interactive step print a link,
+`{portalURL}/ssh?request={code}`, with the key's fingerprint, and hold the
+connection for `keyRequestTimeout` (default 5 min).
+
+The code lives only in the memory of the replica holding the connection
+(`sshgateway.Keys`, at most 64 at a time). The portal's `/ssh` page reads it
+through `GET /api/v1/ssh/key-requests/{code}` (the api asks every replica),
+shows the fingerprint, session and client IP with a warning, and on confirm
+adds the key to the browser's list like a pasted one. The usual push brings
+it to the gateway, which notices it and finishes the login, checking the
+session as for any key. Decision #46.
+
 ### Activity and lifetime
 
 Traffic through a tunnel counts as activity: the gateway reports

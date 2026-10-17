@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 )
@@ -13,6 +14,21 @@ import (
 // SSHGateway is the internal API every ssh-gateway replica serves to the api.
 type SSHGateway interface {
 	SetUserKeys(ctx context.Context, user string, keys UserKeys) error
+	KeyRequest(ctx context.Context, code string) (KeyRequest, error)
+}
+
+// KeyRequest is an SSH connection waiting on one replica for its unknown key
+// to be added in the portal. The client has proven it holds the private key.
+type KeyRequest struct {
+	PublicKey   string    `json:"publicKey" doc:"authorized_keys line"`
+	Fingerprint string    `json:"fingerprint"`
+	Session     string    `json:"session" doc:"SSH user name the client asked for"`
+	ClientIP    string    `json:"clientIP"`
+	ExpiresAt   time.Time `json:"expiresAt"`
+}
+
+type keyRequestInput struct {
+	Code string `path:"code" pattern:"^[a-z2-7]{16}$"`
 }
 
 type UserKeys struct {
@@ -52,6 +68,15 @@ func RegisterSSHGateway(api huma.API, g SSHGateway) {
 		return nil, toHuma(err)
 	})
 
+	huma.Register(api, huma.Operation{OperationID: "getKeyRequest", Method: http.MethodGet, Path: "/v1/key-requests/{code}", Tags: tags},
+		func(ctx context.Context, in *keyRequestInput) (*body[KeyRequest], error) {
+			r, err := g.KeyRequest(ctx, in.Code)
+			if err != nil {
+				return nil, toHuma(err)
+			}
+			return &body[KeyRequest]{r}, nil
+		})
+
 	registerHealth(api, "ssh-gateway")
 }
 
@@ -81,6 +106,12 @@ func (g *SSHGatewayClient) SetUserKeys(ctx context.Context, user string, keys Us
 		return claimed
 	}
 	return err
+}
+
+func (g *SSHGatewayClient) KeyRequest(ctx context.Context, code string) (KeyRequest, error) {
+	var r KeyRequest
+	err := g.c.do(ctx, http.MethodGet, "/v1/key-requests/"+url.PathEscape(code), nil, &r)
+	return r, err
 }
 
 // SSHSessions is the api's internal API for the ssh-gateway: it resolves the

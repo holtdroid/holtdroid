@@ -7,6 +7,8 @@
   "httpListen" ":8080"
   "hostKey" $g.hostKey
   "apiURL" (printf "http://%s-api-internal:8081" $name)
+  "portalURL" .Values.publicURL
+  "keyRequests" $g.keyRequests
   "allowADB" $g.allowADB
   "allowReverse" $g.allowReverse
   "clientIsolation" $g.clientIsolation

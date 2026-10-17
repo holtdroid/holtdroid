@@ -1,7 +1,9 @@
+import { useSearch } from "@tanstack/react-router"
 import { InfoIcon } from "lucide-react"
 import { useSSHInfo, useSSHKeys, useSSHKeySync } from "@/api/ssh-keys"
 import { AddKeyForm } from "@/components/ssh/add-key-form"
 import { KeyList } from "@/components/ssh/key-list"
+import { KeyRequestCard } from "@/components/ssh/key-request-card"
 import { SyncStatus } from "@/components/ssh/sync-status"
 import { KeygenCard, UsageCard } from "@/components/ssh/usage-card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -9,6 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 const MAX_KEYS = 32
 
 export function SSHKeysPage() {
+  const { request } = useSearch({ from: "/ssh" })
   const info = useSSHInfo()
   const keys = useSSHKeys()
   const sync = useSSHKeySync()
@@ -38,6 +41,8 @@ export function SSHKeysPage() {
               </AlertDescription>
             </Alert>
           )}
+
+          {request && <KeyRequestCard key={request} code={request} full={list.length >= MAX_KEYS} />}
 
           <AddKeyForm full={list.length >= MAX_KEYS} />
 

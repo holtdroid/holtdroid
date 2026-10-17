@@ -49,6 +49,8 @@ type SSHConfig struct {
 	AllowReverse            bool
 	ClientIsolation         bool
 	MaxTunnelsPerConnection int
+	KeyRequests             bool
+	SkipHostKeyCheck        bool
 }
 
 type Config struct {
@@ -82,7 +84,7 @@ func DefaultConfig() Config {
 		Storage:  storage.DefaultConfig(),
 		Database: db.DefaultConfig(),
 		Cache:    CacheConfig{MaxSize: 20 << 30, Warm: 10},
-		SSH:      SSHConfig{PublicPort: 2222, AllowADB: true, AllowReverse: true, MaxTunnelsPerConnection: 32},
+		SSH:      SSHConfig{PublicPort: 2222, AllowADB: true, AllowReverse: true, MaxTunnelsPerConnection: 32, KeyRequests: true},
 		Uploads:  UploadsConfig{Enabled: true, Prefix: "uploads", MaxSize: 1 << 30, TemporaryTTL: 7 * 24 * time.Hour},
 		Sources: []source.Config{{
 			Name:       "local",

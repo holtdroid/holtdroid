@@ -10,6 +10,7 @@ export const SYNC_INTERVAL = 5 * 60_000
 const sshKeys = {
   info: ["ssh"] as const,
   keys: (user: string) => ["ssh", "keys", user] as const,
+  request: (code: string) => ["ssh", "request", code] as const,
   sync: (user: string, blobs: string[]) => ["ssh", "sync", user, blobs] as const,
 }
 
@@ -17,6 +18,14 @@ export function useSSHInfo() {
   return useQuery({
     queryKey: sshKeys.info,
     queryFn: () => unwrap(api.GET("/api/v1/ssh")),
+    staleTime: Infinity,
+  })
+}
+
+export function useSSHKeyRequest(code: string) {
+  return useQuery({
+    queryKey: sshKeys.request(code),
+    queryFn: () => unwrap(api.GET("/api/v1/ssh/key-requests/{code}", { params: { path: { code } } })),
     staleTime: Infinity,
   })
 }

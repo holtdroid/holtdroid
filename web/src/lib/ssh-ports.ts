@@ -48,21 +48,31 @@ export function expandRules(rules: PortRule[]): Forward[] {
   return out
 }
 
+export const SKIP_HOST_KEY_CHECK = "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+
+export function sshOptions({ port, skipHostKeyCheck }: { port: number; skipHostKeyCheck: boolean }) {
+  const parts: string[] = []
+  if (port !== 22) parts.push(`-p ${port}`)
+  if (skipHostKeyCheck) parts.push(SKIP_HOST_KEY_CHECK)
+  return parts
+}
+
 export function sshCommand({
   user,
   host,
   port,
+  skipHostKeyCheck,
   forwards,
   adb,
 }: {
   user: string
   host: string
   port: number
+  skipHostKeyCheck: boolean
   forwards: Forward[]
   adb: boolean
 }) {
-  const parts = ["ssh -N"]
-  if (port !== 22) parts.push(`-p ${port}`)
+  const parts = ["ssh -N", ...sshOptions({ port, skipHostKeyCheck })]
   if (adb) parts.push("-L 5555:adb:5555")
   for (const f of forwards) parts.push(`-R ${f.device}:localhost:${f.local}`)
   parts.push(`${user}@${host}`)

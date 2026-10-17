@@ -1,6 +1,7 @@
 import type { SSHInfo } from "@/api/client"
 import { CopyBlock } from "@/components/copy-button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { sshOptions } from "@/lib/ssh-ports"
 
 export function KeygenCard() {
   return (
@@ -19,7 +20,9 @@ export function KeygenCard() {
 
 export function UsageCard({ info }: { info: SSHInfo }) {
   const host = info.host || window.location.hostname
-  const port = info.port === 22 ? "" : ` -p ${info.port}`
+  const port = sshOptions(info)
+    .map((o) => ` ${o}`)
+    .join("")
   const target = `<session>@${host}`
 
   return (
@@ -49,6 +52,12 @@ export function UsageCard({ info }: { info: SSHInfo }) {
           The SSH button on a session page shows what is connected and builds one command for your whole list of ports.
           Shells are not available — the connection only carries these tunnels.
         </p>
+        {info.keyRequests && (
+          <p className="text-muted-foreground text-xs">
+            Connecting with a key that isn&apos;t listed here prints a link to add it, and the connection goes on once
+            you confirm.
+          </p>
+        )}
       </CardContent>
     </Card>
   )

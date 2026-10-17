@@ -266,6 +266,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/ssh/key-requests/{code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description An SSH connection waiting for its key to be added, from the link the gateway printed. */
+        get: operations["getSSHKeyRequest"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/ssh/keys": {
         parameters: {
             query?: never;
@@ -519,6 +536,8 @@ export interface components {
             enabled: boolean;
             /** @description Host users connect to; empty means the host the UI is served from */
             host?: string;
+            /** @description the gateway offers a link to add an unknown key */
+            keyRequests: boolean;
             /**
              * Format: int64
              * @description tunnels one SSH connection may open
@@ -526,11 +545,23 @@ export interface components {
             maxTunnels: number;
             /** Format: int64 */
             port: number;
+            /** @description commands turn off host key checking */
+            skipHostKeyCheck: boolean;
         };
         SSHKeyInput: {
             name: string;
             /** @description OpenSSH public key line */
             publicKey: string;
+        };
+        SSHKeyRequest: {
+            clientIP: string;
+            /** Format: date-time */
+            expiresAt: string;
+            fingerprint: string;
+            /** @description OpenSSH public key line */
+            publicKey: string;
+            /** @description SSH user name the connection asked for */
+            session: string;
         };
         SSHKeysSynced: {
             /**
@@ -1237,6 +1268,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SSHInfo"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getSSHKeyRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SSHKeyRequest"];
                 };
             };
             /** @description Error */

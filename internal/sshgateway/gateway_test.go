@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -238,7 +239,7 @@ func TestLogin(t *testing.T) {
 }
 
 func TestLoginExplainsOnlyFinalFailure(t *testing.T) {
-	h := newHarness(t, nil)
+	h := newHarness(t, func(c *Config) { c.KeyRequests = false })
 	otter := h.register("otter", false)
 	slug, _ := h.session("otter")
 	_, stranger, _ := ed25519.GenerateKey(rand.Reader)
@@ -276,6 +277,93 @@ func TestLoginExplainsOnlyFinalFailure(t *testing.T) {
 			}
 			if (err == nil) != tt.ok {
 				t.Fatalf("err = %v, want ok=%v", err, tt.ok)
+			}
+			if got := shown.String(); tt.message == "" && got != "" || !strings.Contains(got, tt.message) {
+				t.Fatalf("shown %q, want %q", got, tt.message)
+			}
+		})
+	}
+}
+
+func newSigner(t *testing.T) ssh.Signer {
+	t.Helper()
+	_, key, _ := ed25519.GenerateKey(rand.Reader)
+	signer, err := ssh.NewSignerFromKey(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return signer
+}
+
+func TestKeyRequests(t *testing.T) {
+	h := newHarness(t, func(c *Config) {
+		c.ClientIsolation = true
+		c.KeyRequestTimeout = time.Second
+		c.PortalURL = "https://android.example.com/"
+	})
+	otter := h.register("otter", false)
+	slug, _ := h.session("otter")
+	code := regexp.MustCompile(`https://android\.example\.com/ssh\?request=([a-z2-7]{16})\r\n`)
+
+	tests := []struct {
+		name    string
+		slug    string
+		known   ssh.Signer
+		addAs   string
+		ok      bool
+		message string
+	}{
+		{"registered key after an unknown one", slug, otter, "", true, ""},
+		{"registered key's reason wins", "fake-nope", otter, "", false, `No running session "fake-nope"`},
+		{"added in the portal", slug, nil, "otter", true, "check that the portal shows"},
+		{"added by someone who can't use the session", slug, nil, "badger", false, `No running session "` + slug + `"`},
+		{"not added in time", slug, nil, "", false, "not added in time"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			unknown := newSigner(t)
+			signers := []ssh.Signer{unknown}
+			if tt.known != nil {
+				signers = append(signers, tt.known)
+			}
+			var shown strings.Builder
+			var requested atomic.Bool
+			c, err := ssh.Dial("tcp", h.addr, &ssh.ClientConfig{
+				User: tt.slug,
+				Auth: []ssh.AuthMethod{
+					ssh.PublicKeys(signers...),
+					ssh.KeyboardInteractive(func(_, instruction string, _ []string, _ []bool) ([]string, error) {
+						shown.WriteString(instruction)
+						m := code.FindStringSubmatch(instruction)
+						if m == nil {
+							return nil, nil
+						}
+						requested.Store(true)
+						r, err := h.keys.KeyRequest(context.Background(), m[1])
+						fp := ssh.FingerprintSHA256(unknown.PublicKey())
+						if err != nil || r.Fingerprint != fp || r.Session != tt.slug || r.ClientIP != "127.0.0.1" || !strings.Contains(instruction, fp) {
+							t.Errorf("request = %+v, %v", r, err)
+						}
+						if tt.addAs != "" {
+							go func() {
+								time.Sleep(50 * time.Millisecond)
+								_ = h.keys.SetUserKeys(context.Background(), tt.addAs, contract.UserKeys{Keys: []string{r.PublicKey}})
+							}()
+						}
+						return nil, nil
+					}),
+				},
+				HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+				Timeout:         5 * time.Second,
+			})
+			if c != nil {
+				c.Close()
+			}
+			if (err == nil) != tt.ok {
+				t.Fatalf("err = %v, want ok=%v", err, tt.ok)
+			}
+			if requested.Load() != (tt.known == nil) {
+				t.Fatalf("link shown = %v with known key %v", requested.Load(), tt.known != nil)
 			}
 			if got := shown.String(); tt.message == "" && got != "" || !strings.Contains(got, tt.message) {
 				t.Fatalf("shown %q, want %q", got, tt.message)

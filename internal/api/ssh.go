@@ -22,13 +22,27 @@ import (
 )
 
 type SSHInfo struct {
-	Enabled         bool   `json:"enabled"`
-	Host            string `json:"host,omitempty" doc:"Host users connect to; empty means the host the UI is served from"`
-	Port            int    `json:"port"`
-	AllowADB        bool   `json:"allowADB"`
-	AllowReverse    bool   `json:"allowReverse"`
-	ClientIsolation bool   `json:"clientIsolation"`
-	MaxTunnels      int    `json:"maxTunnels" doc:"tunnels one SSH connection may open"`
+	Enabled          bool   `json:"enabled"`
+	Host             string `json:"host,omitempty" doc:"Host users connect to; empty means the host the UI is served from"`
+	Port             int    `json:"port"`
+	AllowADB         bool   `json:"allowADB"`
+	AllowReverse     bool   `json:"allowReverse"`
+	ClientIsolation  bool   `json:"clientIsolation"`
+	MaxTunnels       int    `json:"maxTunnels" doc:"tunnels one SSH connection may open"`
+	KeyRequests      bool   `json:"keyRequests" doc:"the gateway offers a link to add an unknown key"`
+	SkipHostKeyCheck bool   `json:"skipHostKeyCheck" doc:"commands turn off host key checking"`
+}
+
+type SSHKeyRequest struct {
+	PublicKey   string    `json:"publicKey" doc:"OpenSSH public key line"`
+	Fingerprint string    `json:"fingerprint"`
+	Session     string    `json:"session" doc:"SSH user name the connection asked for"`
+	ClientIP    string    `json:"clientIP"`
+	ExpiresAt   time.Time `json:"expiresAt"`
+}
+
+type keyRequestInput struct {
+	Code string `path:"code" pattern:"^[a-z2-7]{16}$"`
 }
 
 type SSHKeyInput struct {
@@ -86,6 +100,23 @@ func (s *Server) registerSSH(api huma.API) {
 		}
 		return &out[SSHKeysSynced]{SSHKeysSynced{Replicas: replicas}}, nil
 	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "getSSHKeyRequest", Method: http.MethodGet, Path: "/api/v1/ssh/key-requests/{code}", Tags: tags,
+		Description: "An SSH connection waiting for its key to be added, from the link the gateway printed.",
+	}, func(ctx context.Context, in *keyRequestInput) (*out[SSHKeyRequest], error) {
+		if !s.cfg.SSH.Enabled {
+			return nil, huma.Error404NotFound("SSH access is not enabled")
+		}
+		r, err := s.findKeyRequest(ctx, in.Code)
+		switch {
+		case errors.Is(err, contract.ErrNotFound):
+			return nil, huma.Error404NotFound("no connection is waiting with this link; run ssh again for a new one")
+		case err != nil:
+			return nil, huma.Error502BadGateway(err.Error())
+		}
+		return &out[SSHKeyRequest]{SSHKeyRequest(r)}, nil
+	})
 }
 
 func (s *Server) sshInfo() SSHInfo {
@@ -102,7 +133,7 @@ func (s *Server) sshInfo() SSHInfo {
 	return SSHInfo{
 		Enabled: true, Host: host, Port: c.PublicPort,
 		AllowADB: c.AllowADB, AllowReverse: c.AllowReverse, ClientIsolation: c.ClientIsolation,
-		MaxTunnels: c.MaxTunnelsPerConnection,
+		MaxTunnels: c.MaxTunnelsPerConnection, KeyRequests: c.KeyRequests, SkipHostKeyCheck: c.SkipHostKeyCheck,
 	}
 }
 
@@ -177,6 +208,40 @@ func (s *Server) pushSSHKeys(ctx context.Context, who auth.Identity, lines []str
 		return 0, fmt.Errorf("no ssh-gateway replica accepted the keys: %w", errors.Join(failed...))
 	}
 	return ok, nil
+}
+
+// findKeyRequest asks every replica, since only the one holding the
+// connection knows the code.
+func (s *Server) findKeyRequest(ctx context.Context, code string) (contract.KeyRequest, error) {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	urls, err := s.gatewayReplicas(ctx)
+	if err != nil {
+		return contract.KeyRequest{}, err
+	}
+	found := make([]contract.KeyRequest, len(urls))
+	errs := make([]error, len(urls))
+	var wg sync.WaitGroup
+	for i, u := range urls {
+		wg.Go(func() {
+			found[i], errs[i] = contract.NewSSHGatewayClient(u, s.sshHTTP).KeyRequest(ctx, code)
+		})
+	}
+	wg.Wait()
+	var failed []error
+	for i, err := range errs {
+		switch {
+		case err == nil:
+			return found[i], nil
+		case !errors.Is(err, contract.ErrNotFound):
+			s.log.Warn("ssh-gateway replica key request", "replica", urls[i], "err", err)
+			failed = append(failed, err)
+		}
+	}
+	if len(failed) == len(urls) {
+		return contract.KeyRequest{}, fmt.Errorf("no ssh-gateway replica answered: %w", errors.Join(failed...))
+	}
+	return contract.KeyRequest{}, contract.ErrNotFound
 }
 
 func (s *Server) gatewayReplicas(ctx context.Context) ([]string, error) {

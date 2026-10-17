@@ -58,7 +58,14 @@ const sessionRoute = createRoute({
   },
 })
 
-const sshKeysRoute = createRoute({ getParentRoute: () => rootRoute, path: "/ssh", component: SSHKeysPage })
+const sshKeysRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/ssh",
+  validateSearch: (search: Record<string, unknown>): { request?: string } => ({
+    request: typeof search.request === "string" ? search.request : undefined,
+  }),
+  component: SSHKeysPage,
+})
 
 const router = createRouter({ routeTree: rootRoute.addChildren([homeRoute, sessionRoute, sshKeysRoute]) })
 

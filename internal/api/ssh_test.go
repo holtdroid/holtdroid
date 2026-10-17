@@ -24,8 +24,22 @@ import (
 
 type sshHarness struct {
 	*harness
-	stores []*sshgateway.Keys
-	down   map[string]bool
+	stores   []*sshgateway.Keys
+	requests []map[string]contract.KeyRequest
+	down     map[string]bool
+}
+
+type gatewayStub struct {
+	*sshgateway.Keys
+	requests map[string]contract.KeyRequest
+}
+
+func (g gatewayStub) KeyRequest(_ context.Context, code string) (contract.KeyRequest, error) {
+	r, ok := g.requests[code]
+	if !ok {
+		return r, contract.ErrNotFound
+	}
+	return r, nil
 }
 
 func newSSHHarness(t *testing.T, enabled bool, replicas int) *sshHarness {
@@ -35,14 +49,16 @@ func newSSHHarness(t *testing.T, enabled bool, replicas int) *sshHarness {
 	var ips []string
 	for i := range replicas {
 		store := sshgateway.NewKeys(time.Hour, nil)
+		requests := map[string]contract.KeyRequest{}
 		mux := http.NewServeMux()
-		contract.RegisterSSHGateway(contract.NewAPI(mux, "gateway"), store)
+		contract.RegisterSSHGateway(contract.NewAPI(mux, "gateway"), gatewayStub{store, requests})
 		gw := httptest.NewServer(mux)
 		t.Cleanup(gw.Close)
 		ip := "10.0.0." + string(rune('1'+i))
 		ips = append(ips, ip)
 		backends[ip+":8080"] = gw.Listener.Addr().String()
 		h.stores = append(h.stores, store)
+		h.requests = append(h.requests, requests)
 	}
 
 	cfg := DefaultConfig()
@@ -118,7 +134,7 @@ func TestSSHKeysSync(t *testing.T) {
 	b, bFP := sshKey(t)
 
 	info := decode[SSHInfo](t, h.do(http.MethodGet, "/api/v1/ssh", "alice", "", nil))
-	want := SSHInfo{Enabled: true, Host: "android.example.com", Port: 2222, AllowADB: true, AllowReverse: true, MaxTunnels: 32}
+	want := SSHInfo{Enabled: true, Host: "android.example.com", Port: 2222, AllowADB: true, AllowReverse: true, MaxTunnels: 32, KeyRequests: true}
 	if info != want {
 		t.Fatalf("info = %+v", info)
 	}
@@ -173,6 +189,41 @@ func TestSSHKeysSync(t *testing.T) {
 	}
 	if !slices.Equal(got, wantAudit) {
 		t.Fatalf("audit %q, want %q", got, wantAudit)
+	}
+}
+
+func TestSSHKeyRequest(t *testing.T) {
+	h := newSSHHarness(t, true, 2)
+	key, fp := sshKey(t)
+	want := contract.KeyRequest{PublicKey: key, Fingerprint: fp, Session: "fake-1", ClientIP: "192.0.2.1", ExpiresAt: time.Date(2026, 1, 1, 0, 5, 0, 0, time.UTC)}
+	h.requests[1]["abcdefghijklmnop"] = want
+
+	rec := h.do(http.MethodGet, "/api/v1/ssh/key-requests/abcdefghijklmnop", "alice", "", nil)
+	if got := decode[SSHKeyRequest](t, rec); rec.Code != http.StatusOK || got != SSHKeyRequest(want) {
+		t.Fatalf("get = %d %s", rec.Code, rec.Body)
+	}
+	if rec := h.do(http.MethodGet, "/api/v1/ssh/key-requests/zzzzzzzzzzzzzzzz", "alice", "", nil); rec.Code != http.StatusNotFound {
+		t.Fatalf("unknown code = %d", rec.Code)
+	}
+	if rec := h.do(http.MethodGet, "/api/v1/ssh/key-requests/NOPE", "alice", "", nil); rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("malformed code = %d", rec.Code)
+	}
+
+	h.down["10.0.0.1:8080"] = true
+	if rec := h.do(http.MethodGet, "/api/v1/ssh/key-requests/abcdefghijklmnop", "alice", "", nil); rec.Code != http.StatusOK {
+		t.Fatalf("one replica down = %d", rec.Code)
+	}
+	if rec := h.do(http.MethodGet, "/api/v1/ssh/key-requests/zzzzzzzzzzzzzzzz", "alice", "", nil); rec.Code != http.StatusNotFound {
+		t.Fatalf("unknown code with one replica down = %d", rec.Code)
+	}
+	h.down["10.0.0.2:8080"] = true
+	if rec := h.do(http.MethodGet, "/api/v1/ssh/key-requests/abcdefghijklmnop", "alice", "", nil); rec.Code != http.StatusBadGateway {
+		t.Fatalf("all down = %d", rec.Code)
+	}
+
+	off := newSSHHarness(t, false, 1)
+	if rec := off.do(http.MethodGet, "/api/v1/ssh/key-requests/abcdefghijklmnop", "alice", "", nil); rec.Code != http.StatusNotFound {
+		t.Fatalf("ssh disabled = %d", rec.Code)
 	}
 }
 

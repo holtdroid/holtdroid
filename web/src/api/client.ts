@@ -17,6 +17,7 @@ export type SessionsEvent = Schemas["SessionsEvent"]
 export type SessionState = SessionView["state"]
 export type Location = Schemas["Location"]
 export type SSHInfo = Schemas["SSHInfo"]
+export type SSHKeyRequest = Schemas["SSHKeyRequest"]
 export type ErrorDetail = Schemas["ErrorDetail"]
 
 export type DevToolsTarget = AgentSchemas["DevToolsTarget"]

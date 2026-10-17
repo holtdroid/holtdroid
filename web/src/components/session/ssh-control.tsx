@@ -95,7 +95,14 @@ function SSHPanel({ info, slug, tunnels }: { info: SSHInfo; slug: string; tunnel
   const forwards = info.allowReverse ? expandRules(rules) : []
   const adb = info.allowADB && (includeADB || !info.allowReverse)
   const tunnelCount = forwards.length + (adb ? 1 : 0)
-  const command = sshCommand({ user: slug, host, port: info.port, forwards, adb })
+  const command = sshCommand({
+    user: slug,
+    host,
+    port: info.port,
+    skipHostKeyCheck: info.skipHostKeyCheck,
+    forwards,
+    adb,
+  })
   const published = new Set(tunnels.reverse.map((r) => r.port))
 
   return (
@@ -116,6 +123,7 @@ function SSHPanel({ info, slug, tunnels }: { info: SSHInfo; slug: string; tunnel
               SSH keys
             </Link>{" "}
             page first; the gateway only lets registered keys in.
+            {info.keyRequests && " Or just run the command: the gateway prints a link to add the key it was offered."}
           </span>
         </div>
       )}

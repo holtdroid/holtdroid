@@ -90,3 +90,39 @@ func TestKeysOverContract(t *testing.T) {
 		t.Fatal("empty set must drop the user's keys")
 	}
 }
+
+func TestKeyRequestsOverContract(t *testing.T) {
+	keys := NewKeys(time.Hour, nil)
+	mux := http.NewServeMux()
+	contract.RegisterSSHGateway(contract.NewAPI(mux, "test"), keys)
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	c := contract.NewSSHGatewayClient(srv.URL, nil)
+	ctx := context.Background()
+
+	a, aFP := newKey(t)
+	want := contract.KeyRequest{PublicKey: a, Fingerprint: aFP, Session: "fake-1", ClientIP: "192.0.2.1", ExpiresAt: time.Date(2026, 1, 1, 0, 5, 0, 0, time.UTC)}
+	code, err := keys.addRequest(want)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, err := c.KeyRequest(ctx, code); err != nil || got != want {
+		t.Fatalf("request = %+v, %v", got, err)
+	}
+	keys.dropRequest(code)
+	if _, err := c.KeyRequest(ctx, code); !errors.Is(err, contract.ErrNotFound) {
+		t.Fatalf("dropped request err = %v", err)
+	}
+	if _, err := c.KeyRequest(ctx, "NOT-A-CODE"); !errors.Is(err, contract.ErrInvalid) {
+		t.Fatalf("malformed code err = %v", err)
+	}
+
+	for range maxKeyRequests {
+		if _, err := keys.addRequest(want); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := keys.addRequest(want); !errors.Is(err, errTooManyRequests) {
+		t.Fatalf("over the limit err = %v", err)
+	}
+}

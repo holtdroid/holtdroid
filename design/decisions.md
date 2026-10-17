@@ -934,3 +934,43 @@ every other host. Chromium (WebView) and OkHttp ask this per-host overload.
 
 **Consequences.** Loopback cleartext can't be tested as forbidden in a
 session; every real host behaves as the app ships.
+
+## 46. Unknown SSH keys are added through a link the gateway prints
+
+**Context.** Someone running the ssh command for the first time has no key
+in the portal yet, gets "Permission denied" and has to find the SSH keys
+page, copy the `.pub` file and come back. The gateway sees the public keys a
+client offers, but a key offered without a signature proves nothing: public
+keys are public. A plain "someone is knocking with key X, add it?" prompt in
+the UI would let anyone get their key onto another user's account with one
+careless click.
+
+**Decision.** With `keyRequests` on (default) the gateway accepts the first
+unknown key a client offers so the client signs with it
+(`VerifiedPublicKeyCallback`), then returns partial success. OpenSSH can't
+offer keys again once it ran out of them, which is why the proof happens in
+the first round rather than after all keys failed; after partial success it
+starts the list over, so a registered key further down still logs in. If
+every key fails and no registered key was refused for another reason, the
+keyboard-interactive step prints `{portalURL}/ssh?request={code}` (a random
+code bound to that key) with the fingerprint and waits up to
+`keyRequestTimeout` for the key to reach the gateway. The portal page shows
+fingerprint, session and client IP, warns against links from someone else,
+and adds the key to the browser's list like a pasted one. Nothing new is
+stored on the server: codes live in the replica's memory while the
+connection waits, and the key travels through the ordinary
+`PUT /api/v1/ssh/keys`.
+
+`skipHostKeyCheck` (off by default) only changes the commands the UI shows:
+`-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null`. It removes
+the first-connect prompt and the changed-host-key error for gateways
+without a fixed `hostKey`, and also removes protection against a
+man-in-the-middle. The docs say so.
+
+**Consequences.** Like any device-code flow it can be phished: whoever
+convinces a user to confirm a link gets their key on that user's account.
+The confirmation shows the fingerprint and warns, and a code only works
+while its connection waits. Clients without keyboard-interactive
+(`BatchMode=yes`) or with it turned off see only "Permission denied", as
+before. Each waiting connection holds a goroutine for up to
+`keyRequestTimeout`, which is why there is the cap of 64 per replica.

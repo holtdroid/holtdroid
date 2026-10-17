@@ -26,6 +26,11 @@ sidebar:
   authorization prompt, and publish ports on its loopback. It never runs commands
   or forwards anywhere else. Turn on `clientIsolation` if users must only
   reach their own sessions; see [SSH access](/holtdroid/concepts/ssh/).
+  With `keyRequests` (default on) a user can add a key by confirming a link
+  that `ssh` prints; a user tricked into confirming someone else's link
+  gives that person their access, so turn it off if that worries you.
+  Leave `skipHostKeyCheck` off unless you accept man-in-the-middle risk on
+  the way to the gateway.
 - **Who can get in.** The default `anonymous` mode lets anyone who reaches the
   URL launch devices. Put it on a private network, or use `password`, `oidc`
   or `header` — see [Authentication](/holtdroid/configuration/authentication/).

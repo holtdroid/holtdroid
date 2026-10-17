@@ -151,6 +151,13 @@ sshGateway:
   reversePorts: "1-65535"
   keyTTL: 24h
   maxTunnelsPerConnection: 32
+  # A client whose keys are all unknown gets a link to add the key it has
+  # just signed with in the portal; the connection waits for it.
+  keyRequests: true
+  # Add -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null to the
+  # commands the UI shows. Insecure: it hides a man-in-the-middle. Only for
+  # trusted networks or a gateway whose host key changes on every restart.
+  skipHostKeyCheck: false
   # Expose port 2222 with a LoadBalancer/NodePort here, or keep ClusterIP and
   # route an ingress TCP entrypoint to it (Traefik IngressRouteTCP).
   service:

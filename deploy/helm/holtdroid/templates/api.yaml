@@ -25,7 +25,9 @@
   "allowADB" $g.allowADB
   "allowReverse" $g.allowReverse
   "clientIsolation" $g.clientIsolation
-  "maxTunnelsPerConnection" $g.maxTunnelsPerConnection) -}}
+  "maxTunnelsPerConnection" $g.maxTunnelsPerConnection
+  "keyRequests" $g.keyRequests
+  "skipHostKeyCheck" $g.skipHostKeyCheck) -}}
 {{- end -}}
 {{- $p := .Values.api.persistence -}}
 {{- if and $p.enabled (not $p.existingClaim) }}

@@ -2,8 +2,12 @@ package sshgateway
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base32"
+	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -24,20 +28,55 @@ type userKeys struct {
 }
 
 // Keys holds the public keys pushed by the api, only in memory. Each user's
-// set expires after ttl unless it is pushed again.
+// set expires after ttl unless it is pushed again. It also holds the key
+// requests of connections waiting for their key to be added.
 type Keys struct {
-	mu    sync.Mutex
-	ttl   time.Duration
-	now   func() time.Time
-	users map[string]*userKeys
-	owner map[string]string
+	mu       sync.Mutex
+	ttl      time.Duration
+	now      func() time.Time
+	users    map[string]*userKeys
+	owner    map[string]string
+	requests map[string]contract.KeyRequest
 }
+
+const maxKeyRequests = 64
+
+var errTooManyRequests = errors.New("too many connections are waiting for a key to be added")
 
 func NewKeys(ttl time.Duration, now func() time.Time) *Keys {
 	if now == nil {
 		now = time.Now
 	}
-	return &Keys{ttl: ttl, now: now, users: map[string]*userKeys{}, owner: map[string]string{}}
+	return &Keys{ttl: ttl, now: now, users: map[string]*userKeys{}, owner: map[string]string{}, requests: map[string]contract.KeyRequest{}}
+}
+
+func (k *Keys) KeyRequest(_ context.Context, code string) (contract.KeyRequest, error) {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	r, ok := k.requests[code]
+	if !ok {
+		return contract.KeyRequest{}, fmt.Errorf("%w: key request", contract.ErrNotFound)
+	}
+	return r, nil
+}
+
+func (k *Keys) addRequest(r contract.KeyRequest) (string, error) {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	if len(k.requests) >= maxKeyRequests {
+		return "", errTooManyRequests
+	}
+	b := make([]byte, 10)
+	_, _ = rand.Read(b)
+	code := strings.ToLower(base32.StdEncoding.EncodeToString(b))
+	k.requests[code] = r
+	return code, nil
+}
+
+func (k *Keys) dropRequest(code string) {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	delete(k.requests, code)
 }
 
 func (k *Keys) SetUserKeys(_ context.Context, user string, in contract.UserKeys) error {

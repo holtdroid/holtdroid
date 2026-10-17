@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -256,6 +257,10 @@ func devCmd() *cobra.Command {
 			defer srv.Close()
 			gcfg := sshgateway.DefaultConfig()
 			gcfg.APIURL = cfg.InternalURL
+			gcfg.PortalURL = "http://localhost" + listen
+			if !strings.HasPrefix(listen, ":") {
+				gcfg.PortalURL = "http://" + listen
+			}
 			log := slog.Default().With("component", "ssh-gateway")
 			hostKey, err := sshgateway.HostKey(cmd.Context(), nil, "", log)
 			if err != nil {

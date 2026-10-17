@@ -227,6 +227,7 @@ key store is `internal/sshgateway.Keys`.
 | Method | Path | Notes |
 |--------|------|-------|
 | `PUT` | `/v1/users/{user}/keys` | from the api: `{groups, admin, keys: [authorized_keys lines]}`; replaces that user's set and restarts its TTL; an empty list drops it. 409 with `errors[].location = body.keys[i]` when another user holds a key — nothing is changed then |
+| `GET` | `/v1/key-requests/{code}` | from the api: `{publicKey, fingerprint, session, clientIP, expiresAt}` of a connection waiting on this replica for its unknown key to be added (decision #46); 404 when no connection here holds the code. `code` is 16 characters `[a-z2-7]` |
 | `GET` | `/v1/health` | readiness |
 
 In the other direction the gateway calls the api's internal port through
@@ -250,7 +251,8 @@ keeping the provider in the path is what lets the api stay stateless.
 | `GET` | `/api/v1/auth/oidc/login?redirect=` | public; browser redirect to the IdP |
 | `GET` | `/api/v1/auth/oidc/callback` | public; sets the cookie and redirects back |
 | `GET` | `/api/v1/me` | `{user, name, email, groups, admin}` |
-| `GET` | `/api/v1/ssh` | `{enabled, host?, port, allowADB, allowReverse, clientIsolation, maxTunnels}` for the UI; empty `host` = the UI's own host |
+| `GET` | `/api/v1/ssh` | `{enabled, host?, port, allowADB, allowReverse, clientIsolation, maxTunnels, keyRequests, skipHostKeyCheck}` for the UI; empty `host` = the UI's own host; `skipHostKeyCheck` adds `-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null` to the commands it shows |
+| `GET` | `/api/v1/ssh/key-requests/{code}` | the waiting connection behind a link the gateway printed, asked from every replica → `{publicKey, fingerprint, session, clientIP, expiresAt}`; 404 when none holds it (or SSH is disabled), 502 when no replica answered. Adding the key is the ordinary `PUT /api/v1/ssh/keys` |
 | `PUT` | `/api/v1/ssh/keys` | `{keys: [{name, publicKey}]}` (≤ 32) — the caller's full key list, replaces the previous one on every gateway replica → `{replicas}`; 404 when SSH is disabled, 422 on invalid, duplicate or already-claimed keys (`errors[].location = body.keys[i].publicKey`), 502 when no replica accepted |
 | `GET` | `/api/v1/sources` | `[{name, readOnly}]` |
 | `GET` | `/api/v1/artifacts?source=&cursor=&limit=` | artifacts the caller may see (private ones only for owner/admins) from every source or one, newest first, offset cursor. Items: `{source, id, revision, fileName, size, uploadedAt, meta, app?, iconUrl?, canManage}` — `id` is base64url of the key, `meta` the sidecar, `app` the parsed APK once cached; per-source failures come back in `errors[]` |

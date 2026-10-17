@@ -24,6 +24,10 @@ deployment"):
   keys from the SSH keys page, and a session-page popover with live tunnel
   status, a port list kept in the browser and one ready command. Verified on
   a real emulator: ADB through the tunnel, `-R 80`/`-R 3000` from the device.
+  An unknown key gets a portal link from `ssh` itself and the connection
+  waits for it to be confirmed (decision #46, `keyRequests`, on by default);
+  `skipHostKeyCheck` (off by default, on in the maintainer's deployment)
+  puts host-key-check-off options into the UI's commands.
 - A metrics bar at the bottom of the session page (decision #40): device,
   app (fps, jank, CPU/PSS per process), network, storage, temperatures,
   the emulator container's CPU/memory/throttling and the stream.
@@ -125,8 +129,8 @@ Collected from the design conversation; each is reflected in the docs listed.
   avatars from the IdP or **DiceBear voxel-art**. (decisions #17, #20)
 - **SSH access**: `ssh <slug>@host` for ADB (`-L`) and publishing local ports
   on the device (`-R`), no shells, keys kept in the browser and re-synced,
-  flags `allowADB`=true, `allowReverse`=true, `clientIsolation`=false.
-  (decision #21)
+  flags `allowADB`=true, `allowReverse`=true, `clientIsolation`=false,
+  `keyRequests`=true, `skipHostKeyCheck`=false. (decisions #21, #46)
 - Lean containers and a small codebase built on existing libraries; Go
   backend, Bun + TypeScript 7 + oxc tooling, shadcn/ui. (decisions #3, #13)
 

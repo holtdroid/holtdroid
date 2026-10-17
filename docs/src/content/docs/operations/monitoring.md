@@ -54,6 +54,7 @@ them (any namespace by default).
 | `holtdroid_ssh_tunnels`                     | gauge     | ssh-gateway      | `kind` (`adb`, `reverse`)                       |
 | `holtdroid_ssh_tunnels_total`               | counter   | ssh-gateway      | `kind`, `result`                                |
 | `holtdroid_ssh_bytes_total`                 | counter   | ssh-gateway      |                                                 |
+| `holtdroid_ssh_key_requests_total`          | counter   | ssh-gateway      | `result` (`created`, `added`, `expired`)        |
 | `holtdroid_http_requests_total`             | counter   | every API        | `api`, `operation`, `code`                      |
 | `holtdroid_http_request_duration_seconds`   | histogram | every API        | `api`, `operation`                              |
 | `holtdroid_audit_events_total`              | counter   | api, ssh-gateway | `action`, `result`                              |

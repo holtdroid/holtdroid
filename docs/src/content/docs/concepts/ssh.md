@@ -46,6 +46,32 @@ memory. After a gateway restart, just open the site once and your keys are
 back. If none of the keys your client offers is registered (or they have
 expired), the login fails with a message telling you so.
 
+### Adding a key straight from the terminal
+
+You don't have to add the key first. When none of your keys is registered,
+the gateway has your SSH client prove that it holds one of them, prints a
+link and keeps the connection waiting:
+
+```text
+This key is not registered yet. To add it to your account, open
+
+    https://android.example.com/ssh?request=k3zq7c2mxu4hwa5e
+
+and check that the portal shows SHA256:Zru7u9KFnruNN8vZsTaJL9hayAphx7lrZ0uGzIib12k.
+Waiting 5m0s for it; the connection continues once the key is added.
+```
+
+Open the link while signed in, check the fingerprint and confirm. The key
+goes into your browser's list like a pasted one, and the waiting `ssh` goes
+on within a few seconds. A registered key always wins: if any key your client
+offers is already registered, it logs in as usual and no link is shown.
+
+Only confirm a link that your own `ssh` just printed. Whoever holds the key
+behind a link can use your sessions once you confirm it, so never confirm a
+link someone sent you. Clients that can't show keyboard-interactive prompts
+(`ssh -o BatchMode=yes`, some GUI tools) don't get the link; add the key on
+the page as usual.
+
 ## Running the gateway
 
 With the Helm chart, turn on `sshGateway.enabled` and point a TCP entry at
@@ -76,6 +102,8 @@ agents' tunnel port (8081).
 | `reversePorts`            | `1-65535` | Device ports that may be published, e.g. `80,443,1024-65535`       |
 | `keyTTL`                  | `24h`     | Keys not refreshed by the browser for this long are forgotten      |
 | `maxTunnelsPerConnection` | `32`      | ADB channels plus published ports one SSH connection may hold      |
+| `keyRequests`             | `true`    | Offer a link to add an unknown key from the terminal (see above)   |
+| `skipHostKeyCheck`        | `false`   | Turn off host key checking in the commands the UI shows (below)    |
 
 Published ports are bound on the device's loopback only, so privileged
 ports such as 80 and 443 are fine on emulators (their adbd runs as root).
@@ -83,3 +111,23 @@ Shells, `exec`, SFTP, agent forwarding and forwarding to anything other than
 the device's ADB are always refused. Traffic through a tunnel counts as
 activity, so a device you use only over SSH is not reaped as idle. When the
 session ends, its SSH connections are closed.
+
+The ssh-gateway's own config also has `keyRequestTimeout` (default `5m`), how
+long a connection waits for its key to be added, and `portalURL`, the
+portal's address for the link; the chart sets it from `publicURL`.
+
+### Skipping the host key check
+
+:::danger[Bad practice]
+`skipHostKeyCheck: true` makes the commands the UI shows include
+`-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null`. SSH then
+accepts **any** host key without asking and never remembers it, so it can
+no longer tell the gateway from a man-in-the-middle, who could see and
+change everything that goes through the tunnels, ADB included. Prefer a
+stable `hostKey`: users accept it once and are protected from then on. Turn
+this on only where nobody can get between the users and the gateway, or
+when you can't keep a stable host key and know what you are giving up.
+:::
+
+It only changes the commands the portal shows. Users who type their own
+commands keep the usual checks.
