@@ -405,10 +405,15 @@ export interface components {
             density?: number;
             /** Format: double */
             fontScale?: number;
-            locale?: string;
+            /** @description fakes the GPS position */
+            geo?: components["schemas"]["GeoPoint"];
+            /** @description the system languages in order: the first sets the UI language, the rest add their keyboard layouts */
+            locales?: string[];
             mobileData?: boolean;
             /** @enum {string} */
             networkProfile?: "full" | "lte" | "hsdpa" | "umts" | "edge" | "gprs" | "gsm";
+            /** @description puts the default GPS position back */
+            resetGeo?: boolean;
             /** Format: int64 */
             rotation?: number;
             /**
@@ -425,6 +430,7 @@ export interface components {
             /** Format: int64 */
             batteryLevel: number;
             batterySaver: boolean;
+            canFakeGeo: boolean;
             charging: boolean;
             darkMode: boolean;
             /** Format: int64 */
@@ -433,7 +439,11 @@ export interface components {
             density: number;
             /** Format: double */
             fontScale: number;
+            /** @description the faked GPS position; empty while the device reports its default one */
+            geo?: components["schemas"]["GeoPoint"];
             locale: string;
+            /** @description the system languages in order: the first is locale, the rest add their keyboard layouts */
+            locales: string[];
             mobileData: boolean;
             /**
              * @description empty when the device can't emulate network conditions
@@ -490,6 +500,12 @@ export interface components {
              * @example https://example.com/errors/example
              */
             type: string;
+        };
+        GeoPoint: {
+            /** Format: double */
+            latitude: number;
+            /** Format: double */
+            longitude: number;
         };
         Health: {
             ok: boolean;

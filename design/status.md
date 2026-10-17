@@ -15,8 +15,9 @@ deployment"):
   metadata/icons, launch dialog, sessions panel with slots and idle countdown,
   session page with screen/DevTools split, target switcher, clipboard, VPN
   location switcher, extend/stop, reaper, device controls (buttons rail,
-  screenshot, settings sheet with radios, battery, display, language, time
-  zone and clock; decision #31), screen over scrcpy with multi-touch
+  screenshot, device controls in the rail: network with the VPN location,
+  battery, display, language and region with keyboard layouts and a faked
+  GPS position, date and time; decisions #31, #58), screen over scrcpy with multi-touch
   (decision #34); clipboard through scrcpy, device audio, codec and quality
   settings and a virtual USB keyboard (decision #36).
 - SSH access (Phase 4.5, decisions #21, #38): `ssh -p 2222

@@ -1328,3 +1328,35 @@ collects it if nobody comes back.
 browser's request fails and the page shows the error). Two replicas don't
 share an order, only the provider's capacity. Proxies in front of the api
 must not cut long-running requests.
+
+## 58. Device settings live in the rail as one button per section
+
+**Context.** The settings sheet covered half the screen and hid the device
+behind it, every switch was equally far away, and nothing showed that a
+device was in airplane mode or had its clock moved.
+
+**Decision.** The sheet is gone. The rail under the screen buttons has one
+button per section: network, battery, display, language and region, date and
+time. A click does the most common thing (airplane mode, battery saver, the
+next display theme); hovering opens a popup with the rest of the section,
+which stays open once you click inside it. The VPN location moved there from
+the header. A section whose settings differ from the defaults gets an amber
+dot and a reset button. The defaults are airplane off, Wi-Fi and mobile data
+on, full speed, charging at 65% (set at boot), saver off, light theme, 100%
+font and display size, `en-US`, the emulator's GPS position and real time.
+The time zone counts as a choice, not a change.
+
+Keyboard layouts are extra entries in the system language list
+(`LocalePicker.updateLocales` with several tags), because the on-screen
+keyboards and Android's physical layout picker follow it. The list is a
+browser preference, applied to each session as it opens; without one the
+browser's Keyboard API guesses the current layout, and English is always
+there. The browsers don't list all of a user's layouts, only the active
+one. The display theme can follow the portal's theme, which is also a
+browser preference. The GPS position is faked with the emulator console's
+`geo fix`, remembered by the agent like the network profile.
+
+**Consequences.** Opening a session with layouts other than English changes
+the device's language list, which is what the user picked. Apps that read
+the location need location access as usual. Devices without an emulator
+console (phones) report `canFakeGeo: false` and the UI hides the GPS part.

@@ -3,6 +3,7 @@ import { useSyncExternalStore } from "react"
 export type VideoCodec = "h264" | "h265" | "av1"
 export type KeyboardMode = "text" | "uhid"
 export type LockMode = "lock" | "screen-off"
+export type DeviceTheme = "manual" | "sync"
 export type ClipboardSync = "both" | "to-device" | "from-device"
 
 export type ScreenPrefs = {
@@ -13,6 +14,8 @@ export type ScreenPrefs = {
   keyboard: KeyboardMode
   audio: boolean
   lockMode: LockMode
+  deviceTheme: DeviceTheme
+  keyboardLayouts: string[] | null
   clipboard: boolean
   clipboardSync: ClipboardSync
 }
@@ -25,6 +28,8 @@ export const defaultScreenPrefs: ScreenPrefs = {
   keyboard: "text",
   audio: true,
   lockMode: "lock",
+  deviceTheme: "manual",
+  keyboardLayouts: null,
   clipboard: true,
   clipboardSync: "both",
 }

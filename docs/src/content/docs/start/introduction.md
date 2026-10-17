@@ -38,12 +38,23 @@ hybrid apps, support engineers reproducing a customer bug.
    **Stream and keyboard** popover picks the video codec (H.264, H.265 or
    AV1), resolution, frame rate and bitrate, and switches the keyboard
    between text input and a virtual USB keyboard that types in any alphabet
-   with the layout set on the device. Its
-   **Device settings** panel switches airplane mode, Wi-Fi, mobile data,
-   battery saver, charging and battery level, dark theme, font and display
-   size, emulated network speed, the system language and time zone, and moves
-   the device clock: by a preset (±5 s to ±1 year from real time) or to an
-   exact moment entered in your own time zone.
+   with the layout set on the device. Below them come the device controls,
+   one button per section. Clicking a button does the common thing, hovering
+   it opens the rest:
+   - **Network**: click for airplane mode; Wi-Fi, mobile data, emulated
+     network speed and the VPN location.
+   - **Battery** (65% at start): click for battery saver; charging and the
+     charge level.
+   - **Display**: click to cycle light, dark and matching the portal's theme;
+     font and display size.
+   - **Language and region**: system language, time zone, extra keyboard
+     layouts (remembered in your browser, guessed from your keyboard where
+     the browser allows) and a faked GPS position.
+   - **Date and time**: real-time sync, shifting the clock back or forward by
+     any amount, or an exact moment entered in your own time zone.
+
+   An amber dot marks a section whose settings differ from the defaults, and
+   its popup has a reset button.
 
 5. Walk away. After the idle timeout (30 minutes by default) the device is
    deleted and the slot frees up. The home page shows every active session,

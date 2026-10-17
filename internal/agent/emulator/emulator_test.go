@@ -52,6 +52,7 @@ func TestPrepare(t *testing.T) {
 		"wait-boot",
 		"root",
 		allowHomeRotation,
+		"dumpsys battery set level 65",
 		"push /opt/holtdroid/frida-server /data/local/tmp/frida-server",
 		"chmod 755 /data/local/tmp/frida-server && /data/local/tmp/frida-server -D </dev/null >/dev/null 2>&1",
 		"pidof frida-server",

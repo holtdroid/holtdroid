@@ -110,7 +110,7 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
         </div>
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          {state === "ready" && caps && <SessionToolbar provider={provider} id={id} locations={caps.locations} />}
+          {state === "ready" && caps && <SessionToolbar provider={provider} id={id} />}
           <span className="text-muted-foreground inline-flex items-center gap-1 text-xs tabular-nums">
             <ClockIcon className="size-3.5" />
             {formatDuration(left)}
@@ -167,6 +167,7 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
                   name={session.package}
                   live={live}
                   clipboard={caps?.clipboard ?? false}
+                  locations={caps?.locations ?? []}
                 />
               </div>
             </ResizablePanel>

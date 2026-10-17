@@ -219,6 +219,9 @@ func (e *Emulator) prepare(ctx context.Context) error {
 	if _, err := e.adb.Shell(ctx, allowHomeRotation); err != nil {
 		e.log.Warn("could not allow home screen rotation", "err", err)
 	}
+	if _, err := e.adb.Shell(ctx, "dumpsys battery set level 65"); err != nil {
+		e.log.Warn("could not set the battery level", "err", err)
+	}
 	const remote = "/data/local/tmp/frida-server"
 	if err := e.adb.Push(ctx, e.cfg.FridaServer, remote); err != nil {
 		return err

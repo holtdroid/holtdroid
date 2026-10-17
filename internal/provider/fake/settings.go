@@ -7,6 +7,7 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"slices"
 
 	"github.com/kriakiku/holtdroid/internal/contract"
 )
@@ -15,7 +16,7 @@ func defaultSettings() contract.DeviceState {
 	return contract.DeviceState{
 		WiFi:           true,
 		MobileData:     true,
-		BatteryLevel:   100,
+		BatteryLevel:   65,
 		Charging:       true,
 		FontScale:      1,
 		Density:        320,
@@ -23,6 +24,8 @@ func defaultSettings() contract.DeviceState {
 		NetworkProfile: contract.NetworkFull,
 		TimeZone:       "UTC",
 		Locale:         "en-US",
+		Locales:        []string{"en-US"},
+		CanFakeGeo:     true,
 		AutoTime:       true,
 	}
 }
@@ -30,7 +33,9 @@ func defaultSettings() contract.DeviceState {
 func (d *device) Device(context.Context) (contract.DeviceState, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	return d.settings, nil
+	s := d.settings
+	s.Locales = slices.Clone(s.Locales)
+	return s, nil
 }
 
 func (d *device) UpdateDevice(_ context.Context, in contract.DeviceSettings) (contract.DeviceState, error) {
@@ -54,7 +59,16 @@ func (d *device) UpdateDevice(_ context.Context, in contract.DeviceSettings) (co
 		set(&s.Rotation, in.Rotation)
 		set(&s.NetworkProfile, in.NetworkProfile)
 		set(&s.TimeZone, in.TimeZone)
-		set(&s.Locale, in.Locale)
+		if len(in.Locales) > 0 {
+			s.Locales = slices.Clone(in.Locales)
+			s.Locale = s.Locales[0]
+		}
+		switch {
+		case in.Geo != nil:
+			s.Geo = &contract.GeoPoint{Latitude: in.Geo.Latitude, Longitude: in.Geo.Longitude}
+		case in.ResetGeo:
+			s.Geo = nil
+		}
 		set(&s.AutoTime, in.AutoTime)
 		switch {
 		case in.AutoTime != nil && *in.AutoTime:

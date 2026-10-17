@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"net/http"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -59,6 +60,7 @@ rotation=1
 tz=Europe/Warsaw
 locale=
 productLocale=en-US
+locales=en-US,ru-RU
 autotime=0
 `,
 		clock: "1760003600000000000",
@@ -72,9 +74,9 @@ autotime=0
 	want := contract.DeviceState{
 		WiFi: true, MobileData: true, BatterySaver: true, BatteryLevel: 42, DarkMode: true,
 		FontScale: 1.3, Density: 400, DefaultDensity: 320, Rotation: 1, NetworkProfile: contract.NetworkFull,
-		TimeZone: "Europe/Warsaw", Locale: "en-US", TimeOffset: 3_600_000,
+		TimeZone: "Europe/Warsaw", Locale: "en-US", Locales: []string{"en-US", "ru-RU"}, CanFakeGeo: true, TimeOffset: 3_600_000,
 	}
-	if got != want {
+	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("state\n got %+v\nwant %+v", got, want)
 	}
 }
@@ -116,6 +118,8 @@ func TestControlsUpdate(t *testing.T) {
 		{"auto time", contract.DeviceSettings{AutoTime: new(true)}, []string{"settings put global auto_time 1 && cmd alarm set-time 1760000000000"}, nil},
 		{"network", contract.DeviceSettings{NetworkProfile: new(contract.NetworkEDGE)}, nil, []string{"network speed edge", "network delay edge"}},
 		{"fast network", contract.DeviceSettings{NetworkProfile: new(contract.NetworkLTE)}, nil, []string{"network speed lte", "network delay none"}},
+		{"geo", contract.DeviceSettings{Geo: &contract.GeoPoint{Latitude: 52.2297, Longitude: 21.0122}}, nil, []string{"geo fix 21.0122 52.2297"}},
+		{"reset geo", contract.DeviceSettings{ResetGeo: true}, nil, []string{"geo fix -122.084 37.4219983"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dev := &scriptedDevice{clock: "1760000000"}
@@ -136,7 +140,7 @@ func TestControlsUpdate(t *testing.T) {
 
 func TestControlsLocaleUnsupported(t *testing.T) {
 	c := NewControls(&scriptedDevice{clock: "1760000000"}, nil)
-	if _, err := c.Update(context.Background(), contract.DeviceSettings{Locale: new("ru-RU")}); err == nil {
+	if _, err := c.Update(context.Background(), contract.DeviceSettings{Locales: []string{"ru-RU"}}); err == nil {
 		t.Fatal("want an error without a locale setter")
 	}
 }
@@ -174,7 +178,7 @@ func TestAgentDeviceAPI(t *testing.T) {
 	if code, body := h.do(http.MethodGet, "/v1/device", ""); code != http.StatusOK || !strings.Contains(body, `"locale":"en-US"`) {
 		t.Fatalf("get device %d %s", code, body)
 	}
-	if code, body := h.do(http.MethodPatch, "/v1/device", `{"locale":"ru-RU","timeOffset":3600000}`); code != http.StatusOK {
+	if code, body := h.do(http.MethodPatch, "/v1/device", `{"locales":["ru-RU","en-US","ru-RU"],"timeOffset":3600000}`); code != http.StatusOK {
 		t.Fatalf("patch device %d %s", code, body)
 	}
 	if code, _ := h.do(http.MethodPatch, "/v1/device", `{"timeZone":"Europe/Warsaw; reboot"}`); code != http.StatusUnprocessableEntity {
@@ -192,7 +196,7 @@ func TestAgentDeviceAPI(t *testing.T) {
 	h.dev.mu.Lock()
 	shells := strings.Join(h.dev.shells, ";")
 	h.dev.mu.Unlock()
-	if locales != "ru-RU" || !strings.Contains(shells, "cmd alarm set-time") || !strings.Contains(shells, "KEYCODE_HOME") {
+	if locales != "ru-RU,en-US" || !strings.Contains(shells, "cmd alarm set-time") || !strings.Contains(shells, "KEYCODE_HOME") {
 		t.Fatalf("locales %q, shells %s", locales, shells)
 	}
 

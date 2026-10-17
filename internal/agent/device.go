@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -27,6 +28,7 @@ type Controls struct {
 
 	mu      sync.Mutex
 	network contract.NetworkProfile
+	geo     *contract.GeoPoint
 }
 
 func NewControls(dev Device, locales func(ctx context.Context, tags string) error) *Controls {
@@ -47,9 +49,11 @@ echo "rotation=$(settings get system user_rotation)"
 echo "tz=$(getprop persist.sys.timezone)"
 echo "locale=$(getprop persist.sys.locale)"
 echo "productLocale=$(getprop ro.product.locale)"
+echo "locales=$(settings get system system_locales)"
 echo "autotime=$(settings get global auto_time)"`
 
 var (
+	localeTagRe       = regexp.MustCompile(`^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{1,8})*$`)
 	physicalDensityRe = regexp.MustCompile(`Physical density: (\d+)`)
 	overrideDensityRe = regexp.MustCompile(`Override density: (\d+)`)
 )
@@ -77,6 +81,14 @@ func (c *Controls) State(ctx context.Context) (contract.DeviceState, error) {
 		Locale:       cmp.Or(v["locale"], v["productLocale"], "en-US"),
 		AutoTime:     v["autotime"] != "0",
 	}
+	for tag := range strings.SplitSeq(v["locales"], ",") {
+		if tag = strings.TrimSpace(tag); localeTagRe.MatchString(tag) && tag != "null" {
+			s.Locales = append(s.Locales, tag)
+		}
+	}
+	if len(s.Locales) == 0 {
+		s.Locales = []string{s.Locale}
+	}
 	s.BatteryLevel, _ = strconv.Atoi(v["level"])
 	if f, err := strconv.ParseFloat(v["font"], 64); err == nil && f > 0 {
 		s.FontScale = f
@@ -94,6 +106,8 @@ func (c *Controls) State(ctx context.Context) (contract.DeviceState, error) {
 	if _, ok := c.dev.(console); ok {
 		c.mu.Lock()
 		s.NetworkProfile = c.network
+		s.Geo = c.geo
+		s.CanFakeGeo = true
 		c.mu.Unlock()
 	}
 	if s.TimeOffset, err = c.timeOffset(ctx); err != nil {
@@ -137,6 +151,11 @@ func parseDeviceClock(out string) (time.Time, error) {
 }
 
 func (c *Controls) Update(ctx context.Context, in contract.DeviceSettings) (contract.DeviceState, error) {
+	for _, tag := range in.Locales {
+		if !localeTagRe.MatchString(tag) || len(tag) > 35 {
+			return contract.DeviceState{}, fmt.Errorf("%w: bad language tag %q", contract.ErrInvalid, tag)
+		}
+	}
 	var cmds []string
 	add := func(cmd ...string) { cmds = append(cmds, cmd...) }
 
@@ -210,11 +229,22 @@ func (c *Controls) Update(ctx context.Context, in contract.DeviceSettings) (cont
 			return contract.DeviceState{}, err
 		}
 	}
-	if in.Locale != nil {
+	if in.Geo != nil || in.ResetGeo {
+		if err := c.setGeo(ctx, in.Geo); err != nil {
+			return contract.DeviceState{}, err
+		}
+	}
+	if len(in.Locales) > 0 {
 		if c.locales == nil {
 			return contract.DeviceState{}, errors.New("changing the system language is not supported here")
 		}
-		if err := c.locales(ctx, *in.Locale); err != nil {
+		var tags []string
+		for _, tag := range in.Locales {
+			if !slices.ContainsFunc(tags, func(t string) bool { return strings.EqualFold(t, tag) }) {
+				tags = append(tags, tag)
+			}
+		}
+		if err := c.locales(ctx, strings.Join(tags, ",")); err != nil {
 			return contract.DeviceState{}, fmt.Errorf("set system language: %w", err)
 		}
 	}
@@ -245,6 +275,24 @@ func (c *Controls) setNetwork(ctx context.Context, p contract.NetworkProfile) er
 	}
 	c.mu.Lock()
 	c.network = p
+	c.mu.Unlock()
+	return nil
+}
+
+// defaultGeo is where the emulator puts its GPS until told otherwise.
+var defaultGeo = contract.GeoPoint{Latitude: 37.4219983, Longitude: -122.084}
+
+func (c *Controls) setGeo(ctx context.Context, geo *contract.GeoPoint) error {
+	con, ok := c.dev.(console)
+	if !ok {
+		return fmt.Errorf("%w: this device can't fake its location", contract.ErrInvalid)
+	}
+	at := cmp.Or(geo, &defaultGeo)
+	if _, err := con.Emu(ctx, fmt.Sprintf("geo fix %s %s", strconv.FormatFloat(at.Longitude, 'f', -1, 64), strconv.FormatFloat(at.Latitude, 'f', -1, 64))); err != nil {
+		return err
+	}
+	c.mu.Lock()
+	c.geo = geo
 	c.mu.Unlock()
 	return nil
 }

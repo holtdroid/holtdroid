@@ -24,9 +24,9 @@ import {
 } from "lucide-react"
 import { type ReactNode, useEffect, useState } from "react"
 import { toast } from "sonner"
-import { type DeviceAction, sessionBase, type Vibration } from "@/api/client"
+import { type DeviceAction, type Location, sessionBase, type Vibration } from "@/api/client"
 import { ClipboardButton } from "@/components/session/clipboard-button"
-import { DeviceSettingsSheet } from "@/components/session/device-settings"
+import { DeviceControls } from "@/components/session/device-controls"
 import { displayURL, type LiveScreen, useScreenLive } from "@/components/session/live-screen"
 import { ScreenSettings } from "@/components/session/screen-settings"
 import { useDeviceAction } from "@/components/session/use-device"
@@ -82,12 +82,14 @@ export function DeviceRail({
   name,
   live,
   clipboard,
+  locations,
 }: {
   provider: string
   id: string
   name: string
   live: LiveScreen
   clipboard: boolean
+  locations: Location[]
 }) {
   const action = useDeviceAction(provider, id)
   const [shooting, setShooting] = useState(false)
@@ -140,7 +142,8 @@ export function DeviceRail({
       <AudioButton provider={provider} id={id} live={live} />
       {clipboard && <ClipboardButton provider={provider} id={id} />}
       <ScreenSettings live={live} />
-      <DeviceSettingsSheet provider={provider} id={id} />
+      <Separator className="my-1 w-6!" />
+      <DeviceControls provider={provider} id={id} locations={locations} />
     </div>
   )
 }

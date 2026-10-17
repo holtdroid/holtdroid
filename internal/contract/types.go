@@ -244,8 +244,16 @@ type DeviceState struct {
 	NetworkProfile NetworkProfile `json:"networkProfile,omitempty" enum:"full,lte,hsdpa,umts,edge,gprs,gsm" doc:"empty when the device can't emulate network conditions"`
 	TimeZone       string         `json:"timeZone"`
 	Locale         string         `json:"locale"`
+	Locales        []string       `json:"locales" doc:"the system languages in order: the first is locale, the rest add their keyboard layouts"`
+	Geo            *GeoPoint      `json:"geo,omitempty" doc:"the faked GPS position; empty while the device reports its default one"`
+	CanFakeGeo     bool           `json:"canFakeGeo"`
 	AutoTime       bool           `json:"autoTime"`
 	TimeOffset     int64          `json:"timeOffset" doc:"device clock minus real time, in milliseconds"`
+}
+
+type GeoPoint struct {
+	Latitude  float64 `json:"latitude" minimum:"-90" maximum:"90"`
+	Longitude float64 `json:"longitude" minimum:"-180" maximum:"180"`
 }
 
 // DeviceSettings changes the fields that are set and leaves the rest alone.
@@ -262,7 +270,9 @@ type DeviceSettings struct {
 	Rotation       *int            `json:"rotation,omitempty" minimum:"0" maximum:"3"`
 	NetworkProfile *NetworkProfile `json:"networkProfile,omitempty" enum:"full,lte,hsdpa,umts,edge,gprs,gsm"`
 	TimeZone       *string         `json:"timeZone,omitempty" pattern:"^[A-Za-z][A-Za-z0-9_+/-]*$" maxLength:"64"`
-	Locale         *string         `json:"locale,omitempty" pattern:"^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{1,8})*$" maxLength:"35"`
+	Locales        []string        `json:"locales,omitempty" minItems:"1" maxItems:"8" doc:"the system languages in order: the first sets the UI language, the rest add their keyboard layouts"`
+	Geo            *GeoPoint       `json:"geo,omitempty" doc:"fakes the GPS position"`
+	ResetGeo       bool            `json:"resetGeo,omitempty" doc:"puts the default GPS position back"`
 	AutoTime       *bool           `json:"autoTime,omitempty" doc:"true syncs the clock with real time and keeps it synced"`
 	TimeOffset     *int64          `json:"timeOffset,omitempty" minimum:"-3155760000000" maximum:"3155760000000" doc:"sets the device clock to real time plus this many milliseconds and turns autoTime off"`
 }
