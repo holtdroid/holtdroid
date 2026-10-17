@@ -1187,3 +1187,28 @@ checks every service. Each open session page holds one adbd connection, so
 adbd on emulators serves the agent, SSH users and every tab at once. The
 RSA key Tango needs lives in the browser's IndexedDB; emulators don't ask
 for it (`ro.adb.secure=0`).
+
+## 52. Published ports are probed through their own tunnel
+
+**Context.** The SSH popover listed published ports but not whether the
+developer's server behind each one was running, which is the usual reason a
+WebView shows an error.
+
+**Decision.** The agent decides, with no HTTP request and no access to the
+developer's machine: it opens a stream into the port's yamux session, as a
+device connection would. The gateway then opens a `forwarded-tcpip` channel
+to the client; if the client's `ssh` can't connect to its local port, the
+channel open fails and the gateway closes the stream at once. A stream that
+stays open for 2 s, or gets data, means a server is there. Data coming back
+on a real device connection marks the port up as well. Probes run only while
+someone watches `/v1/tunnels?probe=true` (the UI does while the SSH popover
+is open), every 5 s; a port that is down is retried after 5, 10, 20, 40 and
+then every 60 s.
+
+**Consequences.** OpenSSH prints `connect_to localhost port N: failed.` for
+every refused probe, so with the popover open the publisher's terminal gets
+a line per dead port at that backoff; the default port list publishes 13
+ports, most of them usually dead. A server that accepts and closes a
+connection without sending anything looks down. A probe costs the live
+server one idle connection for 2 s.
+

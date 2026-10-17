@@ -51,6 +51,12 @@ export function expandRules(rules: PortRule[]): Forward[] {
 
 export const SKIP_HOST_KEY_CHECK = "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
+export function localURL(port: number) {
+  if (port === 80) return "http://localhost"
+  if (port === 443) return "https://localhost"
+  return `http://localhost:${port}`
+}
+
 export function sshOptions({ port, skipHostKeyCheck }: { port: number; skipHostKeyCheck: boolean }) {
   const parts: string[] = []
   if (port !== 22) parts.push(`-p ${port}`)

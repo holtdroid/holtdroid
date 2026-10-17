@@ -28,7 +28,7 @@ type Agent interface {
 	UpdateDevice(ctx context.Context, settings DeviceSettings) (DeviceState, error)
 	DeviceAction(ctx context.Context, action DeviceAction) error
 	Screenshot(ctx context.Context) ([]byte, error)
-	WatchTunnels(ctx context.Context, send func(Tunnels) error) error
+	WatchTunnels(ctx context.Context, probe bool, send func(Tunnels) error) error
 	WatchMetrics(ctx context.Context, send func(Metrics) error) error
 }
 
@@ -142,8 +142,8 @@ func RegisterAgent(api huma.API, a Agent) {
 		OperationID: "watchTunnels", Method: http.MethodGet, Path: "/v1/tunnels", Tags: tags,
 		Description: "SSH tunnels into the device; the first event is the current set.",
 	}, map[string]any{"tunnels": Tunnels{}},
-		func(ctx context.Context, _ *struct{}, send sse.Sender) {
-			_ = a.WatchTunnels(ctx, func(t Tunnels) error { return send.Data(t) })
+		func(ctx context.Context, in *watchTunnelsInput, send sse.Sender) {
+			_ = a.WatchTunnels(ctx, in.Probe, func(t Tunnels) error { return send.Data(t) })
 		})
 
 	sse.Register(api, huma.Operation{
@@ -275,4 +275,8 @@ func (a *AgentClient) ExportAppData(ctx context.Context, req AppDataExport) (App
 	size, _ := strconv.ParseInt(resp.Header.Get(HeaderAppDataSize), 10, 64)
 	cache, _ := strconv.ParseBool(resp.Header.Get(HeaderAppDataCache))
 	return AppDataInfo{Size: size, Cache: cache}, resp.Body, nil
+}
+
+type watchTunnelsInput struct {
+	Probe bool `query:"probe" doc:"while this stream is open, check every few seconds whether a server answers behind each published port"`
 }

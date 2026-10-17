@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -35,18 +36,26 @@ type Tunnels struct {
 	ctx  context.Context
 	stop context.CancelFunc
 
-	mu      sync.Mutex
-	nextID  int
-	adb     map[int]contract.ADBTunnel
-	reverse map[int]*contract.ReverseTunnel
-	subs    map[chan struct{}]struct{}
+	mu       sync.Mutex
+	nextID   int
+	adb      map[int]contract.ADBTunnel
+	reverse  map[int]*contract.ReverseTunnel
+	sessions map[int]*yamux.Session
+	subs     map[chan struct{}]struct{}
+	probers  int
+	prober   bool
+	backoff  map[int]probeBackoff
+
+	probeEvery time.Duration
+	probeWait  time.Duration
 }
 
 func NewTunnels(dev TunnelDevice, log *slog.Logger) *Tunnels {
 	ctx, stop := context.WithCancel(context.Background())
 	return &Tunnels{
 		dev: dev, log: log, now: time.Now, ctx: ctx, stop: stop,
-		adb: map[int]contract.ADBTunnel{}, reverse: map[int]*contract.ReverseTunnel{}, subs: map[chan struct{}]struct{}{},
+		adb: map[int]contract.ADBTunnel{}, reverse: map[int]*contract.ReverseTunnel{}, sessions: map[int]*yamux.Session{},
+		subs: map[chan struct{}]struct{}{}, backoff: map[int]probeBackoff{}, probeEvery: 5 * time.Second, probeWait: 2 * time.Second,
 	}
 }
 
@@ -122,11 +131,13 @@ func (t *Tunnels) serveReverse(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("port %d is already published by %s", port, held.User), http.StatusConflict)
 		return
 	}
-	t.reverse[port] = &contract.ReverseTunnel{Port: port, User: user, Since: t.now().UTC()}
+	t.reverse[port] = &contract.ReverseTunnel{Port: port, User: user, Since: t.now().UTC(), State: contract.PortUnknown}
 	t.mu.Unlock()
 	defer func() {
 		t.mu.Lock()
 		delete(t.reverse, port)
+		delete(t.sessions, port)
+		delete(t.backoff, port)
 		t.mu.Unlock()
 		t.notify()
 	}()
@@ -152,6 +163,9 @@ func (t *Tunnels) serveReverse(w http.ResponseWriter, r *http.Request) {
 		<-sess.CloseChan()
 		ln.Close()
 	}()
+	t.mu.Lock()
+	t.sessions[port] = sess
+	t.mu.Unlock()
 	t.notify()
 	t.log.Info("port published", "port", port, "user", user)
 	defer t.log.Info("port unpublished", "port", port, "user", user)
@@ -173,7 +187,113 @@ func (t *Tunnels) forward(port int, sess *yamux.Session, conn net.Conn) {
 	}
 	t.connections(port, 1)
 	defer t.connections(port, -1)
-	contract.Splice(stream, conn, nil)
+	contract.Splice(&answered{Stream: stream, up: func() { t.up(port) }}, conn, nil)
+}
+
+// answered marks the port up once the publisher's side sends anything back.
+type answered struct {
+	*yamux.Stream
+	once sync.Once
+	up   func()
+}
+
+func (a *answered) CloseWrite() error { return a.Close() }
+
+func (a *answered) Read(p []byte) (int, error) {
+	n, err := a.Stream.Read(p)
+	if n > 0 {
+		a.once.Do(a.up)
+	}
+	return n, err
+}
+
+func (t *Tunnels) setState(port int, state contract.PortState) {
+	t.mu.Lock()
+	rt, ok := t.reverse[port]
+	changed := ok && rt.State != state
+	if changed {
+		rt.State = state
+	}
+	t.mu.Unlock()
+	if changed {
+		t.notify()
+	}
+}
+
+func (t *Tunnels) up(port int) {
+	t.mu.Lock()
+	delete(t.backoff, port)
+	t.mu.Unlock()
+	t.setState(port, contract.PortUp)
+}
+
+// probeBackoff spaces out probes of a port that is down: every refused probe
+// prints "connect_to … failed" in the publisher's terminal.
+type probeBackoff struct {
+	next  time.Time
+	delay time.Duration
+}
+
+const maxProbeBackoff = 12
+
+// probe opens a stream the way a device connection would. The gateway closes
+// it at once when the publisher's ssh can't reach its local port; a server
+// that is there keeps it open, waiting for a request, or answers.
+func (t *Tunnels) probe(port int, sess *yamux.Session) {
+	stream, err := sess.OpenStream()
+	if err != nil {
+		return
+	}
+	defer stream.Close()
+	_ = stream.SetReadDeadline(time.Now().Add(t.probeWait))
+	n, err := stream.Read(make([]byte, 1))
+	var ne net.Error
+	if n > 0 || errors.As(err, &ne) && ne.Timeout() {
+		t.up(port)
+		return
+	}
+	t.mu.Lock()
+	b := t.backoff[port]
+	b.delay = min(max(2*b.delay, t.probeEvery), maxProbeBackoff*t.probeEvery)
+	b.next = time.Now().Add(b.delay)
+	t.backoff[port] = b
+	t.mu.Unlock()
+	t.setState(port, contract.PortDown)
+}
+
+// probing checks every published port while someone watches with probe on.
+func (t *Tunnels) probing() {
+	tick := time.NewTicker(t.probeEvery)
+	defer tick.Stop()
+	for {
+		t.mu.Lock()
+		if t.probers == 0 {
+			t.prober = false
+			t.mu.Unlock()
+			return
+		}
+		now := time.Now()
+		sessions := make(map[int]*yamux.Session, len(t.sessions))
+		for port, sess := range t.sessions {
+			if now.After(t.backoff[port].next) {
+				sessions[port] = sess
+			}
+		}
+		t.mu.Unlock()
+		var wg sync.WaitGroup
+		for port, sess := range sessions {
+			wg.Go(func() { t.probe(port, sess) })
+		}
+		wg.Wait()
+		select {
+		case <-t.ctx.Done():
+			t.mu.Lock()
+			t.prober = false
+			t.mu.Unlock()
+			return
+		case <-tick.C:
+		}
+	}
 }
 
 func (t *Tunnels) connections(port, delta int) {
@@ -200,14 +320,24 @@ func (t *Tunnels) Snapshot() contract.Tunnels {
 	return out
 }
 
-func (t *Tunnels) Watch(ctx context.Context, send func(contract.Tunnels) error) error {
+func (t *Tunnels) Watch(ctx context.Context, probe bool, send func(contract.Tunnels) error) error {
 	ch := make(chan struct{}, 1)
 	t.mu.Lock()
 	t.subs[ch] = struct{}{}
+	if probe {
+		t.probers++
+		if !t.prober {
+			t.prober = true
+			go t.probing()
+		}
+	}
 	t.mu.Unlock()
 	defer func() {
 		t.mu.Lock()
 		delete(t.subs, ch)
+		if probe {
+			t.probers--
+		}
 		t.mu.Unlock()
 	}()
 	var last string

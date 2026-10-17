@@ -257,7 +257,16 @@ type ReverseTunnel struct {
 	User        string    `json:"user"`
 	Since       time.Time `json:"since"`
 	Connections int       `json:"connections" doc:"device-side connections open right now"`
+	State       PortState `json:"state" enum:"unknown,up,down" doc:"whether a server answers behind the port on the publisher's machine"`
 }
+
+type PortState string
+
+const (
+	PortUnknown PortState = "unknown"
+	PortUp      PortState = "up"
+	PortDown    PortState = "down"
+)
 
 // Metrics is one sample of a session's load. Rates are averaged since the
 // previous sample; what a device can't measure is left out.

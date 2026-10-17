@@ -36,8 +36,8 @@ func (p *Provider) DialDevice(ctx context.Context, id string, port int) (net.Con
 	return d.ports.dial(ctx, port)
 }
 
-func (d *device) WatchTunnels(ctx context.Context, send func(contract.Tunnels) error) error {
-	return d.tunnels.Watch(ctx, send)
+func (d *device) WatchTunnels(ctx context.Context, probe bool, send func(contract.Tunnels) error) error {
+	return d.tunnels.Watch(ctx, probe, send)
 }
 
 // fakePorts stands in for the device: adbd is the fake device's, published

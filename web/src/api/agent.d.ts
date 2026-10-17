@@ -542,6 +542,11 @@ export interface components {
             port: number;
             /** Format: date-time */
             since: string;
+            /**
+             * @description whether a server answers behind the port on the publisher's machine
+             * @enum {string}
+             */
+            state: "unknown" | "up" | "down";
             user: string;
         };
         SetLocation: {
@@ -1128,7 +1133,10 @@ export interface operations {
     };
     watchTunnels: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description while this stream is open, check every few seconds whether a server answers behind each published port */
+                probe?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;

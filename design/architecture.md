@@ -423,7 +423,17 @@ shows:
 
 - **Connection status**, live from the agent's `GET /v1/tunnels` SSE: open
   ADB connections with their user, and published ports with their user and
-  the number of device-side connections.
+  the number of device-side connections. Each port is green when a server
+  answers behind it on the publisher's machine, red when nothing does and
+  grey until known; clicking it copies `http://localhost:<port>`
+  (`http://localhost` for 80, `https://localhost` for 443). While the
+  popover is open it asks with `?probe=true`, and the agent opens a probe
+  stream into the port's yamux session every 5 s: the gateway closes it at
+  once when the publisher's `ssh` can't connect locally, a live server keeps
+  it open. Real traffic that comes back marks a port up without probing.
+  Ports that are down are probed less and less often (up to every 60 s),
+  because each refused probe prints `connect_to localhost port N: failed.`
+  in the publisher's terminal. Decision #52.
 - **A port list** kept in `localStorage` (`holtdroid:ssh:ports`, default
   `80`, `443`, `3000-3010`): single ports, ranges up to 256 ports, and
   `device:local` mappings. Each entry is coloured by whether it is

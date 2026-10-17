@@ -23,6 +23,13 @@ The **SSH** button on the session page builds this command for you:
 
 - It shows what is connected right now: ADB clients, and each published port
   with who published it and how many connections the device has open to it.
+  While the popover is open, each port is checked through its own tunnel:
+  green means your server answers, red means nothing listens on that port on
+  your machine. Clicking a port copies `http://localhost:<port>`
+  (`http://localhost` for 80, `https://localhost` for 443). Every check of a
+  port with nothing behind it makes your `ssh` print
+  `connect_to localhost port N: failed.`; dead ports are checked less and
+  less often, down to once a minute.
 - It keeps your list of ports in the browser. The defaults are `80`, `443` and
   `3000-3010`. You can add single ports, ranges (`5173-5175`) and
   device-to-local mappings (`8080:3000`, which serves your local port 3000 as

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -73,7 +74,7 @@ func TestTunnels(t *testing.T) {
 	wctx, stopWatch := context.WithCancel(ctx)
 	t.Cleanup(stopWatch)
 	go func() {
-		_ = tunnels.Watch(wctx, func(s contract.Tunnels) error {
+		_ = tunnels.Watch(wctx, false, func(s contract.Tunnels) error {
 			events <- s
 			return nil
 		})
@@ -121,8 +122,8 @@ func TestTunnels(t *testing.T) {
 		stream.Close()
 	}()
 	roundTrip(t, onDevice, "GET / HTTP/1.1\r\n\r\n")
-	if s := tunnels.Snapshot(); len(s.Reverse) != 1 || s.Reverse[0].Port != 3000 || s.Reverse[0].Connections != 1 {
-		t.Fatalf("snapshot with a published port %+v", s)
+	if s := tunnels.Snapshot(); len(s.Reverse) != 1 || s.Reverse[0].Port != 3000 || s.Reverse[0].Connections != 1 || s.Reverse[0].State != contract.PortUp {
+		t.Fatalf("snapshot with a published port that answered %+v", s)
 	}
 	onDevice.Close()
 	eventually(t, "the device connection to close", func() bool {
@@ -147,6 +148,66 @@ func TestTunnels(t *testing.T) {
 	case <-again.CloseChan():
 	case <-time.After(5 * time.Second):
 		t.Fatal("Close did not drop the open tunnel")
+	}
+}
+
+func TestTunnelProbes(t *testing.T) {
+	tunnels := NewTunnels(adbTunnels{adb: &fakeDevice{}, addr: echoServer(t)}, slog.New(slog.DiscardHandler))
+	tunnels.probeEvery, tunnels.probeWait = 20*time.Millisecond, 50*time.Millisecond
+	srv := httptest.NewServer(tunnels.Handler())
+	t.Cleanup(srv.Close)
+	t.Cleanup(tunnels.Close)
+	ctx := context.Background()
+	sess, err := contract.NewTunnelClient(srv.URL, nil).Reverse(ctx, 3000, "otter")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var refuse atomic.Bool
+	var probes atomic.Int32
+	refuse.Store(true)
+	go func() {
+		for {
+			s, err := sess.AcceptStream()
+			if err != nil {
+				return
+			}
+			probes.Add(1)
+			if refuse.Load() {
+				s.Close()
+				continue
+			}
+			go func() {
+				_, _ = io.Copy(io.Discard, s)
+				s.Close()
+			}()
+		}
+	}()
+	state := func() contract.PortState {
+		if s := tunnels.Snapshot(); len(s.Reverse) == 1 {
+			return s.Reverse[0].State
+		}
+		return ""
+	}
+
+	eventually(t, "the port to be published", func() bool { return state() == contract.PortUnknown })
+	time.Sleep(100 * time.Millisecond)
+	if probes.Load() != 0 {
+		t.Fatal("probed with nobody watching")
+	}
+
+	wctx, stop := context.WithCancel(ctx)
+	go func() { _ = tunnels.Watch(wctx, true, func(contract.Tunnels) error { return nil }) }()
+	eventually(t, "a refused probe to mark the port down", func() bool { return state() == contract.PortDown })
+	refuse.Store(false)
+	eventually(t, "a probe kept open to mark the port up", func() bool { return state() == contract.PortUp })
+
+	stop()
+	time.Sleep(100 * time.Millisecond)
+	before := probes.Load()
+	time.Sleep(100 * time.Millisecond)
+	if probes.Load() != before {
+		t.Fatal("probing went on after the watcher left")
 	}
 }
 
