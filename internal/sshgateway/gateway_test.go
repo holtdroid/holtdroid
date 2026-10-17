@@ -237,6 +237,53 @@ func TestLogin(t *testing.T) {
 	}
 }
 
+func TestLoginExplainsOnlyFinalFailure(t *testing.T) {
+	h := newHarness(t, nil)
+	otter := h.register("otter", false)
+	slug, _ := h.session("otter")
+	_, stranger, _ := ed25519.GenerateKey(rand.Reader)
+	unknown, _ := ssh.NewSignerFromKey(stranger)
+
+	tests := []struct {
+		name    string
+		slug    string
+		signers []ssh.Signer
+		ok      bool
+		message string
+	}{
+		{"unknown key before a registered one", slug, []ssh.Signer{unknown, otter}, true, ""},
+		{"only unknown keys", slug, []ssh.Signer{unknown}, false, "This key is not registered"},
+		{"registered key wins over unknown one", "fake-nope", []ssh.Signer{otter, unknown}, false, `No running session "fake-nope"`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var shown strings.Builder
+			c, err := ssh.Dial("tcp", h.addr, &ssh.ClientConfig{
+				User: tt.slug,
+				Auth: []ssh.AuthMethod{
+					ssh.PublicKeys(tt.signers...),
+					ssh.KeyboardInteractive(func(_, instruction string, _ []string, _ []bool) ([]string, error) {
+						shown.WriteString(instruction)
+						return nil, nil
+					}),
+				},
+				BannerCallback:  func(msg string) error { shown.WriteString(msg); return nil },
+				HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+				Timeout:         5 * time.Second,
+			})
+			if c != nil {
+				c.Close()
+			}
+			if (err == nil) != tt.ok {
+				t.Fatalf("err = %v, want ok=%v", err, tt.ok)
+			}
+			if got := shown.String(); tt.message == "" && got != "" || !strings.Contains(got, tt.message) {
+				t.Fatalf("shown %q, want %q", got, tt.message)
+			}
+		})
+	}
+}
+
 func TestNoIsolationByDefault(t *testing.T) {
 	h := newHarness(t, nil)
 	otter := h.register("otter", false)

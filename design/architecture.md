@@ -509,8 +509,8 @@ and checks:
 
 Unknown slug, session not `ready`, or a forbidden user all fail the same way
 ("no such session") so slugs can't be probed. The reason reaches the client
-as an SSH banner, once per connection (clients try every key they have), and
-an unregistered key gets a hint to open the portal.
+only after every key it offered failed (as a keyboard-interactive prompt with
+no questions), and an unregistered key gets a hint to open the portal.
 
 ### Activity and lifetime
 

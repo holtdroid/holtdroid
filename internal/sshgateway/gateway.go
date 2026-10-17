@@ -102,12 +102,13 @@ type Gateway struct {
 	log      *slog.Logger
 
 	mu       sync.Mutex
-	bannered map[string]rejection
+	rejected map[string]rejection
 }
 
 type rejection struct {
-	slug   string
-	reason string
+	slug    string
+	reason  string
+	message string
 }
 
 var (
@@ -115,16 +116,20 @@ var (
 	errNoSession  = errors.New("no such session")
 )
 
+const unknownKeyMessage = "This key is not registered. Add it on the portal's SSH keys page and keep the portal open\r\n" +
+	"for a moment: keys are sent to the gateway while it is open and expire after a while.\r\n"
+
 func New(cfg Config, hostKey ssh.Signer, keys *Keys, sessions contract.SSHSessions, aud *audit.Logger, log *slog.Logger) (*Gateway, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
 	ports, _ := parsePorts(cfg.ReversePorts)
-	g := &Gateway{cfg: cfg, keys: keys, sessions: sessions, ports: ports, audit: aud, log: log, bannered: map[string]rejection{}}
+	g := &Gateway{cfg: cfg, keys: keys, sessions: sessions, ports: ports, audit: aud, log: log, rejected: map[string]rejection{}}
 	g.server = &ssh.ServerConfig{
-		PublicKeyCallback: g.authenticate,
-		ServerVersion:     "SSH-2.0-holtdroid",
-		MaxAuthTries:      10,
+		PublicKeyCallback:           g.authenticate,
+		KeyboardInteractiveCallback: g.explain,
+		ServerVersion:               "SSH-2.0-holtdroid",
+		MaxAuthTries:                10,
 	}
 	g.server.AddHostKey(hostKey)
 	return g, nil
@@ -136,9 +141,7 @@ func New(cfg Config, hostKey ssh.Signer, keys *Keys, sessions contract.SSHSessio
 func (g *Gateway) authenticate(meta ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
 	id, ok := g.keys.Lookup(ssh.FingerprintSHA256(key))
 	if !ok {
-		return nil, g.banner(meta, errUnknownKey,
-			"This key is not registered. Add it on the portal's SSH keys page and keep the portal open\r\n"+
-				"for a moment: keys are sent to the gateway while it is open and expire after a while.\r\n")
+		return nil, g.reject(meta, errUnknownKey, unknownKeyMessage)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -148,31 +151,46 @@ func (g *Gateway) authenticate(meta ssh.ConnMetadata, key ssh.PublicKey) (*ssh.P
 		err = errNoSession
 	case err != nil:
 		g.log.Warn("resolve session", "slug", meta.User(), "err", err)
-		return nil, g.banner(meta, err, "The portal is not reachable right now, try again in a moment.\r\n")
+		return nil, g.reject(meta, err, "The portal is not reachable right now, try again in a moment.\r\n")
 	case sess.State != contract.StateReady || sess.TunnelURL == "":
 		err = errNoSession
 	case g.cfg.ClientIsolation && sess.Owner != id.User && !id.Admin:
 		err = errNoSession
 	}
 	if err != nil {
-		return nil, g.banner(meta, err, fmt.Sprintf("No running session %q that you can use.\r\n", meta.User()))
+		return nil, g.reject(meta, err, fmt.Sprintf("No running session %q that you can use.\r\n", meta.User()))
 	}
 	return &ssh.Permissions{Extensions: map[string]string{
 		"user": id.User, "tunnel": sess.TunnelURL, "provider": sess.Provider, "id": sess.ID,
 	}}, nil
 }
 
-// banner explains a failed login once per connection; clients try every key
-// they have, and each attempt would print it again.
-func (g *Gateway) banner(meta ssh.ConnMetadata, err error, msg string) error {
+// reject remembers why a key was refused. Clients try every key they have,
+// so the reason is only shown by explain, once all of them failed; a key the
+// gateway knows says more than an unknown one.
+func (g *Gateway) reject(meta ssh.ConnMetadata, err error, msg string) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	key := meta.RemoteAddr().String()
-	if _, ok := g.bannered[key]; ok {
+	if prev, ok := g.rejected[key]; ok && prev.reason != errUnknownKey.Error() {
 		return err
 	}
-	g.bannered[key] = rejection{slug: meta.User(), reason: err.Error()}
-	return &ssh.BannerError{Err: err, Message: msg}
+	g.rejected[key] = rejection{slug: meta.User(), reason: err.Error(), message: msg}
+	return err
+}
+
+// explain runs as keyboard-interactive, which clients try after every
+// public key failed, and prints the reason without asking anything.
+func (g *Gateway) explain(meta ssh.ConnMetadata, challenge ssh.KeyboardInteractiveChallenge) (*ssh.Permissions, error) {
+	g.mu.Lock()
+	r, ok := g.rejected[meta.RemoteAddr().String()]
+	g.mu.Unlock()
+	msg := r.message
+	if !ok {
+		msg = unknownKeyMessage
+	}
+	_, _ = challenge("", strings.TrimRight(msg, "\r\n"), nil, nil)
+	return nil, errors.New("public key required")
 }
 
 // Serve accepts SSH connections on ln until ctx ends.
@@ -196,8 +214,8 @@ func (g *Gateway) handle(ctx context.Context, nc net.Conn) {
 	_ = nc.SetDeadline(time.Now().Add(30 * time.Second))
 	sc, chans, reqs, err := ssh.NewServerConn(nc, g.server)
 	g.mu.Lock()
-	rejected, wasRejected := g.bannered[nc.RemoteAddr().String()]
-	delete(g.bannered, nc.RemoteAddr().String())
+	rejected, wasRejected := g.rejected[nc.RemoteAddr().String()]
+	delete(g.rejected, nc.RemoteAddr().String())
 	g.mu.Unlock()
 	remote := hostOf(nc.RemoteAddr())
 	if err != nil {

@@ -731,8 +731,9 @@ and a single command for all of them. The default set is 80, 443 and
   the client sees a failed forward.
 - An interactive login (`ssh` without `-N`) prints the help and holds the
   tunnels until Ctrl+C, instead of exiting at once. Commands still never
-  run. Login failures explain themselves with an SSH banner, once per
-  connection.
+  run. Login failures explain themselves once every offered key failed,
+  through a keyboard-interactive step that asks nothing: a banner would
+  print on the first refused key even when a later one logs in.
 - Spliced streams half-close where both ends can (TCP, SSH channels, yamux
   streams), and the other direction then gets 30 s before both are closed.
   That keeps `printf … | nc` style requests working without leaving
