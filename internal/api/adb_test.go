@@ -21,7 +21,7 @@ func (h *harness) dialADB(srv *httptest.Server, id, user, groups string) (*webso
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	ws, resp, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(srv.URL, "http")+"/s/fake/"+id+"/adb", &websocket.DialOptions{
-		HTTPHeader: http.Header{"Remote-User": {user}, "Remote-Groups": {groups}, "X-Holtdroid-User": {"spoofed"}},
+		HTTPHeader: http.Header{"Remote-User": {user}, "Remote-Groups": {groups}, "X-Holtdroid-User": {"spoofed"}, "Origin": {"https://android.example.com"}},
 	})
 	if err != nil {
 		if resp == nil {

@@ -70,7 +70,7 @@ func (t *Tunnels) Handler() http.Handler {
 func (t *Tunnels) Close() { t.stop() }
 
 func (t *Tunnels) accept(w http.ResponseWriter, r *http.Request) (net.Conn, func(), error) {
-	ws, err := websocket.Accept(w, r, nil)
+	ws, err := websocket.Accept(w, r, &websocket.AcceptOptions{InsecureSkipVerify: true})
 	if err != nil {
 		return nil, nil, err
 	}
