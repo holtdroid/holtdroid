@@ -54,7 +54,7 @@ internal/
   source/                 artifact sources: *.apk + .meta.json sidecars in a storage.Store (folder or S3), listed by the api
   provider/               provider implementations: provider/fake (simulated devices for dev/tests), provider/emulator
   agent/                  device agent: adb, frida, devtools proxy, clipboard, scrcpy screen bridge, ssh tunnels; agent/emulator
-  sshgateway/             SSH gateway (planned): ADB and published-port tunnels, no shells
+  sshgateway/             SSH gateway: ADB and published-port tunnels, no shells
   vpn/                    sing-box sidecar config: locations as sing-box outbounds, no vendor code
   secrets/                secret resolvers: env:, file:, openbao:
   storage/                object store for sources and the APK cache: filesystem, s3 (static keys, IAM, or a credentials endpoint)
@@ -94,7 +94,7 @@ Directories that do not exist yet are planned — create them exactly there.
   - `coder/websocket`;
   - `net/http/httputil.ReverseProxy`;
   - `golang.org/x/sync` (`errgroup`, `singleflight`);
-  - `golang.org/x/crypto/ssh` and `hashicorp/yamux` — SSH gateway and tunnels (planned);
+  - `golang.org/x/crypto/ssh` and `hashicorp/yamux` — SSH gateway and tunnels;
   - `database/sql` with `modernc.org/sqlite` (in-memory, later file +
     `benbjohnson/litestream` replication to S3) and `jackc/pgx/v5` (later),
     `pressly/goose` for migrations, `sqlc` for queries (decisions.md #22;
@@ -242,6 +242,14 @@ to `oci://ghcr.io/kriakiku/charts/holtdroid`.
   current conversation. Pushing to `main` deploys (see above).
 
 ## Updating these docs
+
+Every change to behaviour, configuration, the UI, a contract or the chart
+starts by reading the docs that describe it and ends by updating them in the
+same commit: the public site (`docs/`), `design/` (architecture, contracts,
+decisions, status, roadmap), `README.md` and this file. Before calling a task
+done, grep `docs/` and `design/` for the config keys, defaults, endpoints and
+UI elements you touched and fix every stale mention. Docs that disagree with
+the code are a bug.
 
 When you finish a roadmap item, tick it in `design/roadmap.md`. When you make
 a decision a future contributor would ask "why?" about, add it to

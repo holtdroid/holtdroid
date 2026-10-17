@@ -52,7 +52,7 @@ Kubernetes-native. One Go binary (`holtdroid`) runs as several small services
 frontend is embedded in `api`, and a Helm chart ties it together. See
 [`design/architecture.md`](design/architecture.md).
 
-## Requirements (planned)
+## Requirements
 
 - Kubernetes nodes with `/dev/kvm` (x86_64) for emulator sessions.
 - Privileged pods allowed in the Holtdroid namespace.

@@ -19,20 +19,22 @@ hybrid apps, support engineers reproducing a customer bug.
 2. Pick one, choose a VPN location if you need one, press **Launch**. A free
    slot is assigned and a fresh Android device boots (about a minute). The
    ⚡ button next to it skips the dialog and launches with the device and
-   location you used last time (or the defaults).
+   location you used last time (or the defaults). When every device is busy,
+   the launch waits in line and starts as soon as one frees up.
 3. The APK is installed as-is and started with WebView debugging enabled at
    runtime.
 4. The session page shows the device screen on the left and Chrome DevTools on
-   the right. A toolbar lets you:
-   - switch the inspected target (any WebView page, iframe or worker in any
-     process);
-   - paste your clipboard into the device and receive what the app copies;
-   - switch the device's egress country and see its current external IP;
-   - restart or reinstall the app, or stop the session.
+   the right, with a picker for the inspected target (any WebView page,
+   iframe or worker in any process). The header shows the app: click its
+   name and icon to switch to another build, and the icons next to it
+   restart or reinstall the app or save its data; **Extend** and **Stop**
+   sit on the right. The bar at the bottom shows the device's load and its
+   current external IP.
 
-   A rail next to the screen has the hardware buttons (lock, wake, volume,
-   rotate, back/home/recents, notifications, quick settings), a screenshot
-   button and a switch for the device's audio, which plays in your browser
+   A rail next to the screen has the hardware buttons (lock or screen off,
+   wake, volume, rotate, back/home/recents, notifications, quick settings),
+   a screenshot button, clipboard sync (both ways by default; hover to pick
+   one direction) and a switch for the device's audio, which plays in your browser
    by default. When the device vibrates, the page shows a notification and
    plays a buzz. The arrow at the top of the rail widens it into a menu with
    section titles and a label next to every icon, and back. Its

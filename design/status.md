@@ -11,7 +11,14 @@ _Last updated: 2026-10-17._
 **Works today** (deployed at https://android.homelab.example, see "Maintainer's
 deployment"):
 
-- The portal end to end against **simulated** devices: APK list with parsed
+- Real emulator sessions end to end on the maintainer's cluster
+  (`provider-emulator`, decisions #25, #26): ARM-only APKs under Frida,
+  DevTools on the app's WebView, location switching through the shared VPN
+  gateway, Slack, S3 and GitHub syncs filling sources. Sessions use
+  `holtdroid-session:main` (`pullPolicy: Always`) so a push doesn't leave
+  them waiting for the per-commit build; the session image build caches
+  layers in `ghcr.io/kriakiku/holtdroid-session:buildcache`.
+- The portal: APK list with parsed
   metadata/icons, launch dialog, sessions panel with slots and idle countdown,
   session page with screen/DevTools split, target switcher, clipboard, VPN
   location switcher, extend/stop, reaper, device controls (buttons rail,
@@ -19,12 +26,14 @@ deployment"):
   battery, display, language and region with keyboard layouts and a faked
   GPS position, date and time; decisions #31, #58), screen over scrcpy with multi-touch
   (decision #34); clipboard through scrcpy, device audio, codec and quality
-  settings and a virtual USB keyboard (decision #36).
+  settings and a virtual USB keyboard (decision #36); a launch queue when
+  every slot is busy (decision #57).
 - SSH access (Phase 4.5, decisions #21, #38): `ssh -p 2222
   {provider}-{id}@host` for ADB and published ports through the ssh-gateway,
   keys from the SSH keys page, and a session-page popover with live tunnel
   status, a port list kept in the browser and one ready command. Verified on
   a real emulator: ADB through the tunnel, `-R 80`/`-R 3000` from the device.
+  Sessions are their owner's (and admins') by default (decision #60).
   An unknown key gets a portal link from `ssh` itself and the connection
   waits for it to be confirmed (decision #46, `keyRequests`, on by default);
   `skipHostKeyCheck` (off by default, on in the maintainer's deployment)
@@ -73,41 +82,21 @@ deployment"):
 - Single Go binary + embedded UI, distroless image, Helm chart, CI, release
   (`ghcr.io/kriakiku/holtdroid:<sha>` per commit), docs site on GitHub Pages.
 
-**Session prototype works on the cluster** (Phase 2, decisions #25, #26):
-
-- `images/session.Dockerfile` (`make session-image`, CI pushes
-  `ghcr.io/kriakiku/holtdroid-session:<sha>`, Android 15 x86_64 with ARM
-  translation) and `holtdroid agent` (`internal/agent`,
-  `internal/agent/emulator`, Frida script in `frida`).
-  A hand-written Pod (agent + sing-box sidecar) booted, ran an ARM-only APK
-  under Frida, exposed its WebView DevTools socket, served the screen,
-  clipboard and location switching. The agent can't run under Rosetta on a
-  Mac (Frida needs `eventfd`).
-
 **Not built yet**:
 
-- Real sessions on android.homelab.example work end to end (2026-10-17): screen
-  over noVNC (scrcpy since decision #34), DevTools on the app's WebView, location switching through the
-  gateway. Sessions use `holtdroid-session:main` (`pullPolicy: Always`) so a
-  push doesn't leave them waiting for the per-commit build; the session image
-  build caches layers in `ghcr.io/kriakiku/holtdroid-session:buildcache` so a
-  commit only re-pulls the agent layer.
-- The Slack sync on android.homelab.example: deployed
-  ([kriakiku/holtdroid-sync](https://github.com/kriakiku/holtdroid-sync), job `slack`,
-  decision #30) but waiting for the maintainer's Slack app token and channel
-  IDs (see "Maintainer's deployment").
+- Traffic inspection proxy (Phase 4.7) and MCP server (Phase 4.8).
+- A persistent database: only in-memory SQLite exists (Phase 4.6).
 - Physical phones — Phase 7 (threat model and mitigations in
   architecture.md "Future: physical devices"); Docker-only provider — "Later".
 
 ## Next steps, in order
 
-1. **Phase 3** — the Slack sync job that writes into an S3 source (work on
-   it has started in parallel: `holtdroid-slack-sync` in the chart), the
-   conformance suite, and whatever more use of real sessions turns up.
+1. The conformance suite (`internal/contract/conformance`) for Provider and
+   Agent — the last open item of Phases 1 and 3.
 2. Planned, each starting with a decisions.md entry: Phase 4.7 traffic
    inspection proxy, Phase 4.8 MCP server. Both optional and off by
    default; each adds its own audit events and metrics (decision #44).
-3. Remaining Phase 1 chore: the conformance package.
+3. Whatever more use of real sessions turns up (Phase 6).
 
 ## Requirements from the maintainer
 
@@ -161,6 +150,9 @@ Collected from the design conversation; each is reflected in the docs listed.
 - Write almost no code comments; reasons go to `decisions.md`.
 
 ## Gotchas already paid for
+
+- **The agent can't run under Rosetta** on a Mac: Frida needs `eventfd`.
+  Use `holtdroid dev` with the fake provider locally.
 
 - **shadcn CLI** (v4.22) writes `import { cn } from "cn"` into new
   components and may overwrite `src/lib/utils.ts` with a self-referencing

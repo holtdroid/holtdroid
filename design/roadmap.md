@@ -199,7 +199,7 @@ of the same app from it (decision #49).
 ## Phase 6 — First deployment
 
 - [x] Deploy to the maintainer's cluster via Argo CD + the Helm chart (portal with fake devices; see status.md)
-- [ ] Switch that deployment to `provider-emulator` + a Slack sync into an S3 source once Phase 3 lands
+- [x] Switch that deployment to `provider-emulator` + a Slack sync into an S3 source (2026-10-17; S3 and GitHub syncs too)
 - [x] A shared VPN gateway for that deployment: the homelab `vpn-gateway` (namespace `downloads`) got SOCKS users `holtdroid-{bd,kz,lv,no,pl,ua}` (all its NordVPN endpoints; Bangladesh was added for Holtdroid) (see status.md)
 - [x] Wire those locations into the deployment's `provider-emulator` values (outbounds with the password from `secret/vpn` → `socks_holtdroid_password`, `vpn.resolver`, `vpn.direct` as the maintainer wants)
 - [ ] Fix whatever reality finds; feed it back into docs
@@ -227,6 +227,4 @@ feature, not a follow-up. Record the final choices in decisions.md.
 - [ ] More sync jobs (CI artifacts) writing the source layout
 - [ ] Listing cache for very large buckets (today every request lists the store)
 - [ ] `.apks` / `.xapk` split APK support
-- [ ] Logcat streaming panel
-- [ ] Session recording / screenshots
 - [ ] DevTools capture via `mxschmitt/playwright-go` (`ConnectOverCDP` to the agent's CDP proxy): page snapshots, screenshots, HAR and traces of WebViews, exposed in the UI and as MCP tools. Check first whether plain CDP from Go covers it — playwright-go downloads a Node driver, which the distroless image doesn't have
