@@ -1,8 +1,11 @@
 import { useQuery } from "@tanstack/react-query"
-import { BugIcon, RefreshCwIcon, Settings2Icon } from "lucide-react"
+import { BugIcon, RefreshCwIcon, RotateCwIcon, Settings2Icon } from "lucide-react"
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react"
+import { toast } from "sonner"
 import { agentClient, type DevToolsTarget, sessionBase, unwrap } from "@/api/client"
+import { CopyButton } from "@/components/copy-button"
 import { Button } from "@/components/ui/button"
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group"
 import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import {
@@ -15,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
+import { cdpCall, normalizeURL } from "@/lib/cdp"
 import { setDevToolsPrefs, useDevToolsPrefs } from "@/lib/devtools-prefs"
 import { prepareDevTools, styleDevTools } from "@/lib/devtools-style"
 
@@ -30,12 +34,18 @@ function pick(items: DevToolsTarget[], chosen: DevToolsTarget | null) {
   return items.find((t) => t.type === "page") ?? items[0] ?? null
 }
 
+const wsScheme = () => (window.location.protocol === "https:" ? "wss" : "ws")
+
+function cdpSocket(provider: string, id: string, t: DevToolsTarget) {
+  return `${window.location.host}${sessionBase(provider, id)}/devtools/${encodeURIComponent(t.socket)}/page/${encodeURIComponent(t.id)}`
+}
+
 export function devtoolsURL(provider: string, id: string, t: DevToolsTarget) {
   const base = sessionBase(provider, id)
-  const scheme = window.location.protocol === "https:" ? "wss" : "ws"
-  const socket = `${window.location.host}${base}/devtools/${encodeURIComponent(t.socket)}/page/${encodeURIComponent(t.id)}`
-  return `${base}/devtools-frontend/@${encodeURIComponent(t.frontendRev)}/inspector.html?${scheme}=${socket}`
+  return `${base}/devtools-frontend/@${encodeURIComponent(t.frontendRev)}/inspector.html?${wsScheme()}=${cdpSocket(provider, id, t)}`
 }
+
+const navigable = new Set(["page", "iframe"])
 
 export function DevToolsPanel({
   provider,
@@ -139,6 +149,14 @@ export function DevToolsPanel({
           </PopoverContent>
         </Popover>
       </div>
+      {selected && (
+        <UrlBar
+          key={key(selected)}
+          target={selected}
+          socketURL={`${wsScheme()}://${cdpSocket(provider, id, selected)}`}
+          onNavigated={() => void targets.refetch()}
+        />
+      )}
       {selected ? (
         <iframe
           key={key(selected)}
@@ -174,5 +192,72 @@ function PrefSwitch({
       <Label htmlFor={id}>{label}</Label>
       <Switch id={id} checked={checked} onCheckedChange={onChange} />
     </div>
+  )
+}
+
+function UrlBar({
+  target,
+  socketURL,
+  onNavigated,
+}: {
+  target: DevToolsTarget
+  socketURL: string
+  onNavigated: () => void
+}) {
+  const [draft, setDraft] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const canNavigate = navigable.has(target.type)
+
+  const run = (method: string, params?: object) => {
+    setBusy(true)
+    cdpCall(socketURL, method, params)
+      .then((result) => {
+        if (typeof result.errorText === "string") throw new Error(result.errorText)
+        setDraft(null)
+        onNavigated()
+      })
+      .catch((err: unknown) => toast.error(`${method}: ${err instanceof Error ? err.message : String(err)}`))
+      .finally(() => setBusy(false))
+  }
+
+  return (
+    <form
+      className="border-b p-2"
+      onSubmit={(e) => {
+        e.preventDefault()
+        if (draft?.trim()) run("Page.navigate", { url: normalizeURL(draft) })
+      }}
+    >
+      <InputGroup className="h-8">
+        {canNavigate && (
+          <InputGroupAddon>
+            <InputGroupButton
+              size="icon-xs"
+              aria-label="Reload the page"
+              disabled={busy}
+              onClick={() => run("Page.reload")}
+            >
+              <RotateCwIcon />
+            </InputGroupButton>
+          </InputGroupAddon>
+        )}
+        <InputGroupInput
+          aria-label="Page URL"
+          className="font-mono text-xs"
+          spellCheck={false}
+          readOnly={!canNavigate}
+          disabled={busy}
+          value={draft ?? target.url}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setDraft(null)
+          }}
+          onFocus={(e) => e.target.select()}
+        />
+        <InputGroupAddon align="inline-end">
+          <CopyButton text={draft ?? target.url} label="Copy URL" />
+        </InputGroupAddon>
+      </InputGroup>
+    </form>
   )
 }

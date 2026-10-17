@@ -43,6 +43,16 @@ auth cookie covers it and nothing has to be installed on your machine. When
 the app navigates or recreates its WebView, the panel reconnects to the new
 target automatically.
 
+Under the target selector, an address bar shows the selected target's
+current URL. Copy it with the button on the right, or type or paste
+another one and press Enter to load it in the WebView (a URL without a
+scheme gets `https://`, or `http://` for `localhost`, `127.x` and
+`10.0.2.2`); Escape restores the current one. The button on the left
+reloads the page. Both send `Page.navigate` / `Page.reload` over a second,
+short-lived DevTools connection to the same target, so they work with the
+screencast off. Service workers and other non-page targets only show their
+URL.
+
 The settings button next to the target selector holds two switches, saved
 in your browser:
 

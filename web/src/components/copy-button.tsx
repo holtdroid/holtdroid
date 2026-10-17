@@ -20,7 +20,13 @@ export function CopyButton({ text, label = "Copy", className }: { text: string; 
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button variant="ghost" size="icon-xs" className={cn("shrink-0", className)} onClick={() => void copy()}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          className={cn("shrink-0", className)}
+          onClick={() => void copy()}
+        >
           {copied ? <CheckIcon className="text-emerald-500" /> : <CopyIcon />}
           <span className="sr-only">{label}</span>
         </Button>
