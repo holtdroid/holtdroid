@@ -583,12 +583,89 @@ session's `tunnelUrl`.
 
 ## Future: physical devices
 
-A `provider-physical` service manages an inventory of rooted phones (Magisk,
-wireless ADB). Slots are phones instead of nodes, one long-lived agent per
-phone, `display: scrcpy` through the same bridge in its agent, VPN via the WireGuard Android app
-controlled by intents, and session end triggers a cleanup (uninstall, clear
-data) instead of a Pod delete. Nothing in api, web or the contracts needs to
-change for it; that is the bar every contract change must keep meeting.
+A `provider-physical` service manages an inventory of rooted phones (Magisk)
+plugged into a host over USB. Slots are phones instead of nodes, one
+long-lived agent per phone, `display: scrcpy` through the same bridge in its
+agent, VPN via the WireGuard Android app controlled by intents, and session
+end triggers a cleanup instead of a Pod delete. Nothing in api, web or the
+contracts needs to change for it; that is the bar every contract change must
+keep meeting.
+
+### Threat model
+
+An emulator is disposable: whatever a user does to it dies with the Pod. A
+phone is not, and anyone with `adb shell` runs as the `shell` uid, which can
+do a lot without root:
+
+| Threat | How, from ADB or the screen |
+|--------|-----------------------------|
+| Lock screen PIN/password | `locksettings set-pin`, or Settings on the screen |
+| Google account, then FRP after a reset | Settings → Accounts on the screen |
+| Factory reset | Settings, or `reboot:recovery` and the recovery menu |
+| Bootloader unlock / flashing | `reboot:bootloader`, `fastboot flashing unlock` if OEM unlocking is on |
+| Cut off our own access | `settings put global adb_enabled 0`, `svc usb setFunctions …`, Developer options off |
+| Persistence across sessions | Device admin or accessibility apps, input methods, extra users or a work profile, a second device owner |
+| Broken base system | `pm uninstall --user 0` / `pm disable-user` of system apps, `settings put` in global/secure/system, Wi-Fi/airplane/time |
+| Root for the user | `su` from the shell uid, or a client talking to frida-server (root) through a forwarded port |
+| Network ADB | `tcpip:5555` exposes adbd on the phone's network |
+
+### Mitigations, in layers
+
+1. **ADB goes through a filtering proxy, never raw.** On a phone the agent's
+   `/tunnel/adb` endpoint is not a byte splice to adbd: the agent speaks the
+   device side of the adb protocol itself (CNXN without auth, since the SSH
+   gateway already authenticated the user), reads every `OPEN` service string
+   and replays allowed ones through the host adb server
+   (`host:transport:<serial>`). Always refused: `reboot:bootloader`,
+   `reboot:recovery`, `reboot:sideload`, `root:`, `unroot:`, `remount:`,
+   `tcpip:`, `usb:`, `disable-verity:`, `enable-verity:`, forwards to the
+   frida-server socket. Shell commands can't be filtered reliably (`sh -c`,
+   `eval`, base64), so `shell:`/`exec:` are a per-provider policy:
+   `adb.shell: full | allowlist | off`, with the allowlist covering what IDEs
+   need (`adb install` via `abb_exec:package`/`exec:cmd package install`,
+   `logcat`, `am`, `pm list`, `getprop`, `sync:` push/pull, `jdwp`). The
+   default for phones is `allowlist`; the portal's own features (install,
+   screen, DevTools, clipboard, logcat) don't need user shell at all.
+2. **A device-owner app (our own minimal DPC)** provisioned once on a fresh
+   phone without accounts (`dpm set-device-owner`, never `testOnly`, so the
+   shell can't remove it). It sets `DISALLOW_MODIFY_ACCOUNTS`,
+   `DISALLOW_FACTORY_RESET`, `DISALLOW_SAFE_BOOT`, `DISALLOW_ADD_USER`,
+   `DISALLOW_ADD_MANAGED_PROFILE`, `DISALLOW_OEM_UNLOCK` where supported,
+   `setPermittedAccessibilityServices`/`setPermittedInputMethods` to the
+   system ones, and an enterprise FRP policy (`setFactoryResetProtectionPolicy`)
+   with the operator's account, so even a reset phone unlocks only for them.
+   Setting a PIN can't be forbidden, but the DPC registers a reset-password
+   token up front and clears a foreign PIN with `resetPasswordWithToken`. It
+   must not set `DISALLOW_DEBUGGING_FEATURES` — that kills our ADB too.
+3. **Root stays ours.** Root is needed for Frida (decision #1), but not for
+   the user: Magisk's superuser policy denies the shell uid, adbd is the
+   production (non-root) one, frida-server is started by a Magisk boot script
+   with token authentication and is reachable only through the agent. A small
+   root watchdog (Magisk service script) re-asserts `adb_enabled=1`, the USB
+   functions and Developer options, so the "cut off our own access" row
+   becomes a blip instead of a trip to the phone.
+4. **Cleanup and verification between sessions.** No snapshots on a phone, so
+   the agent and the DPC restore a baseline: uninstall every package not on
+   the device's allowlist, `cmd package install-existing` / `pm enable` for
+   system apps, clear a PIN through the token, wipe `/sdcard`, reset
+   `settings` (global/secure/system) to a recorded snapshot, Wi-Fi, time,
+   locale, then check: no accounts, no extra device admins or users, DPC is
+   still device owner, OEM unlocking off, root watchdog alive. A phone that
+   fails the check is marked `quarantined` (not offered for sessions, visible
+   to admins) instead of being handed to the next user. An ephemeral
+   secondary user per session (`pm create-user --ephemeral`) is a cleaner
+   alternative to evaluate, at the cost of binding scrcpy, DevTools and the
+   DPC to that user.
+5. **Physical and network.** Phones stay on USB to the host (no wireless ADB
+   in production; if used, on an isolated network). The host's USB hub
+   should support per-port power switching (`uhubctl`) so a hung phone can
+   be power-cycled remotely; the agent can `fastboot reboot` a phone left in
+   the bootloader.
+
+Residual risk, documented for operators: a user with `adb.shell: full` can
+still make a phone unusable for a while (reboot loops, airplane mode, broken
+settings until cleanup); recovery from a damaged base system may need hands
+on the phone. Untrusted users should get `allowlist` or `off`.
 
 ## Future: Docker-only deployment
 

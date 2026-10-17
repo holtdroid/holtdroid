@@ -171,10 +171,26 @@ leave the process, the api doesn't keep them.
 - [x] Wire those locations into the deployment's `provider-emulator` values (outbounds with the password from `secret/vpn` → `socks_holtdroid_password`, `vpn.resolver`, `vpn.direct` as the maintainer wants)
 - [ ] Fix whatever reality finds; feed it back into docs
 
+## Phase 7 — Physical phones
+
+Design: architecture.md "Future: physical devices" (threat model and
+mitigations). A phone outlives its sessions, so protecting it is part of the
+feature, not a follow-up. Record the final choices in decisions.md.
+
+- [ ] `provider-physical`: inventory of USB phones on one host (serial, model, labels), one long-lived agent per phone, slots = phones, session state on the provider's side, `quarantined` state for phones that failed verification
+- [ ] Phone agent: scrcpy bridge, Frida, DevTools, clipboard and tunnels as in the emulator agent, against `adb -s <serial>`; VPN through the WireGuard Android app via intents
+- [ ] Filtering ADB proxy on `/tunnel/adb`: device side of the adb protocol in the agent, every `OPEN` service checked and replayed through `host:transport:<serial>`; always refuse `reboot:bootloader|recovery|sideload`, `root:`, `unroot:`, `remount:`, `tcpip:`, `usb:`, `*-verity:`, forwards to frida-server; `adb.shell: full | allowlist | off` (phones default to `allowlist`); table-driven tests per service string, end-to-end with a real `adb` client against a fake device
+- [ ] Device-owner app (DPC): provisioning script, user restrictions (accounts, factory reset, safe boot, users/profiles, OEM unlock), allowed accessibility services and IMEs, enterprise FRP with the operator's account, reset-password token and `resetPasswordWithToken`; never `testOnly`, never `DISALLOW_DEBUGGING_FEATURES`
+- [ ] Root kept from users: Magisk denies su to the shell uid, frida-server started by a Magisk boot script with token auth and reachable only through the agent; root watchdog re-asserts `adb_enabled`, USB functions and Developer options
+- [ ] Cleanup between sessions: uninstall non-allowlisted packages, restore disabled/removed system apps, clear PIN, wipe `/sdcard`, restore `settings` from a recorded snapshot, Wi-Fi/time/locale
+- [ ] Verification after cleanup (no accounts, admins, users; device owner and watchdog alive; OEM unlock off; adb reachable); failure → `quarantined`, admin action to re-check or release
+- [ ] Evaluate an ephemeral secondary user per session instead of in-place cleanup
+- [ ] Host: USB hub with per-port power (`uhubctl`) for remote power-cycling, `fastboot reboot` for phones stuck in the bootloader; no wireless ADB in production
+- [ ] Docs: phone preparation (OEM unlock off, Magisk, DPC provisioning, FRP account), `adb.shell` policy and residual risks for operators
+
 ## Later
 
 - [ ] Docker-only deployment: `provider-docker` (Docker Engine API, session state in container labels, VPN sidecar via `network_mode: container:`), `compose.yaml` with api + sources + provider-docker, docs page. Session container spec shared with `provider-emulator` (see architecture.md "Future: Docker-only deployment")
-- [ ] `provider-physical` + phone agent (scrcpy bridge as in the emulator agent, wireless ADB, WireGuard app intents, cleanup between sessions)
 - [ ] More sync jobs (CI artifacts) writing the source layout
 - [ ] Listing cache for very large buckets (today every request lists the store)
 - [ ] `.apks` / `.xapk` split APK support

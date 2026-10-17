@@ -67,7 +67,8 @@ deployment"):
   through `kubectl port-forward`. The ingress VIP's firewall rule for 2222 is
   committed in `homelab.nixos` (`modules/k3s/default.nix`) but not applied:
   that takes a `colmena-apply.sh` run, which the maintainer approves.
-- Docker-only provider, physical phones — "Later".
+- Physical phones — Phase 7 (threat model and mitigations in
+  architecture.md "Future: physical devices"); Docker-only provider — "Later".
 
 ## Next steps, in order
 
