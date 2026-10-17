@@ -164,6 +164,10 @@ Directories that do not exist yet are planned — create them exactly there.
   for genuinely non-obvious behaviour (a workaround for a specific upstream
   bug, a protocol quirk). The *why* of a design belongs in
   `design/decisions.md`, not in comments.
+- Never put the maintainer's real domain, hostnames, IP addresses or
+  public ports in tracked files or commit messages: this repository is
+  public. Use placeholders (`android.homelab.example`, `android.example.com`)
+  and keep the real values in `AGENTS.local.md`.
 - Images: run as non-root wherever possible (the emulator container is the
   documented exception), pin base images by digest, build `linux/amd64`
   (and `linux/arm64` where it makes sense — not for the session image).

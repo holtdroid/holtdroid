@@ -74,7 +74,7 @@ deployment"):
 1. **Phase 3** — the Slack sync job that writes into an S3 source (work on
    it has started in parallel: `holtdroid-slack-sync` in the chart), the
    conformance suite, and whatever more use of real sessions turns up.
-2. **Phase 4.5 — SSH gateway**: live on android.homelab.example:<ssh port> (LAN and
+2. **Phase 4.5 — SSH gateway**: live on the maintainer's deployment, on a non-default port (LAN and
    WAN). Left: the first real use from a session page with a key from the
    SSH keys page, and deciding whether `clientIsolation` should be on now
    that the port is public (adb is a root shell on emulators).
@@ -174,7 +174,7 @@ in-repo work; ask the maintainer for anything cluster-side.
 
 | What | Where |
 |------|-------|
-| URL | https://android.homelab.example |
+| URL | `android.homelab.example` stands for the real hostname, which is only in AGENTS.local.md |
 | Argo CD Application | `homelab.k8s/argocd/holtdroid.yaml` — chart from this repo's `deploy` branch (moved to each `main` commit by the release workflow once its image is pushed), `image.tag=$ARGOCD_APP_REVISION`, values inline |
 | Current setup | `auth.mode: oidc` (Authelia client `holtdroid`, groups `admins`/`users`), sources `uploads` (writable, uploads go there) and `slack` (read-only) as prefixes of the bucket `holtdroid` on the homelab S3 gateway `https://s3.homelab.example` (versitygw, region `eu-north-1`, path style); `api.persistence` is off (the old PVC's one upload was copied to S3), `providers.emulator` on `core` (tolerating `dedicated=nas`) and `k3s-1..3`, locations `direct` + the six gateway ones (password via `VPN_GATEWAY_PASSWORD` from `secret/vpn` in the `ExternalSecret`; the `no` id must stay quoted in the values) |
 | Secrets (OpenBao KV, mount `secret/`) | `holtdroid` → `session_key`, `s3_access_key`/`s3_secret_key` (versitygw IAM user `holtdroid`, inline policy on bucket `holtdroid`, issued by hand on the gateway's IAM server); `oidc/holtdroid` → `client_secret` (+ digest for Authelia); both seeded by `nixos/scripts/openbao-bootstrap.sh`; delivered by an `ExternalSecret` in `extraObjects` |
@@ -186,7 +186,7 @@ in-repo work; ask the maintainer for anything cluster-side.
 | Storage classes | `longhorn`, `local-path`, `nas-hdd` |
 | Ingress / DNS | Traefik; Ingress annotation `external-dns.alpha.kubernetes.io/target: "10.10.4.25"` creates the DNS record |
 | Registries | `ghcr.io/kriakiku/*` (public, from CI); the cluster also has `registry.homelab.example` (zot, needs the `zot-pull-secret` pattern from `homelab.k8s/infrastructure/downloads/secrets.yaml`) |
-| SSH gateway | `sshGateway.enabled` in the Application, host key `secret/holtdroid` → `ssh_host_key` (seeded by `openbao-bootstrap.sh`, `SSH_HOST_KEY` in the `ExternalSecret`), `IngressRouteTCP holtdroid-ssh` on Traefik's `ssh` entrypoint (`:<ssh port>`, an unusual port on purpose; `homelab.k8s/infrastructure/traefik/values.yaml`; `sshGateway.publicPort: <ssh port>`, the Service stays on 2222); <ssh port> allowed on the ingress VIP by the node firewall (`homelab.nixos/modules/k3s/default.nix`), and the UniFi WAN port forward `homelab-holtdroid-ssh` (<ssh port>/tcp → 10.10.4.25:<ssh port>, created through the Network API with `secret/unifi` `api_key`, not declared in any repo) |
+| SSH gateway | `sshGateway.enabled` in the Application, host key `secret/holtdroid` → `ssh_host_key` (seeded by `openbao-bootstrap.sh`, `SSH_HOST_KEY` in the `ExternalSecret`), `IngressRouteTCP holtdroid-ssh` on Traefik's `ssh` entrypoint (a non-default port on purpose, see AGENTS.local.md; `sshGateway.publicPort`, the Service stays on 2222); that port allowed on the ingress VIP by the node firewall (`homelab.nixos/modules/k3s/default.nix`), and the UniFi WAN port forward `homelab-holtdroid-ssh` (the same port to 10.10.4.25, created through the Network API with `secret/unifi` `api_key`, not declared in any repo) |
 
 Verifying a deploy (needs the maintainer's kubeconfig):
 
