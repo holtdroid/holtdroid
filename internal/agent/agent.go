@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/kriakiku/holtdroid/internal/agent/emulator"
@@ -49,8 +50,11 @@ func DefaultConfig() Config {
 }
 
 // Instrumenter starts an app with WebView debugging and the clipboard hooks.
+// Watch instruments the app whenever the device starts it by itself (the
+// launcher icon, a broadcast) and hands it to launched.
 type Instrumenter interface {
 	Spawn(ctx context.Context, pkg string, onClip func(string)) (App, error)
+	Watch(ctx context.Context, pkg string, onClip func(string), launched func(App)) error
 	SetLocales(ctx context.Context, tags string) error
 }
 
@@ -78,7 +82,9 @@ type Agent struct {
 	screen   *Scrcpy
 	frontend *Frontend
 	controls *Controls
-	actions  chan contract.AppAction
+	actions  chan appRequest
+	launches chan App
+	busy     atomic.Bool
 
 	mu     sync.Mutex
 	status contract.StatusEvent
@@ -100,7 +106,8 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 		screen:   NewScrcpy(cfg.Scrcpy, dev, log),
 		frontend: NewFrontend(cfg.DevToolsFrontend, filepath.Join(cfg.CacheDir, "devtools-frontend")),
 		controls: NewControls(dev, inst.SetLocales),
-		actions:  make(chan contract.AppAction, 1),
+		actions:  make(chan appRequest, 1),
+		launches: make(chan App),
 		status:   contract.StatusEvent{State: contract.StateProvisioning},
 		subs:     map[chan struct{}]struct{}{},
 	}
@@ -150,13 +157,19 @@ func (a *Agent) Run(parent context.Context) {
 	a.stop(parent, ctx)
 }
 
+type appRequest struct {
+	action  contract.AppAction
+	install *contract.Install
+	done    chan error
+}
+
 func (a *Agent) run(ctx context.Context) error {
 	a.setStatus(contract.StateInstalling, "Downloading the APK")
-	apk, err := a.download(ctx)
+	apk, err := a.download(ctx, a.cfg.ArtifactURL)
 	if err != nil {
 		return err
 	}
-	defer os.Remove(apk)
+	defer func() { os.Remove(apk) }()
 	a.setStatus(contract.StateInstalling, "Installing the APK")
 	if err := a.dev.Install(ctx, apk); err != nil {
 		return err
@@ -166,48 +179,132 @@ func (a *Agent) run(ctx context.Context) error {
 			a.log.Warn("initial location", "location", a.cfg.Location, "err", err)
 		}
 	}
+	if err := a.inst.Watch(ctx, a.cfg.Package, a.onClip, a.launched); err != nil {
+		a.log.Warn("app launches from the device won't be instrumented", "err", err)
+	}
+	if err := a.spawn(ctx); err != nil {
+		return err
+	}
 
-	var crashes []time.Time
 	for {
-		a.setStatus(contract.StateInstrumenting, "Enabling WebView debugging")
-		app, err := a.inst.Spawn(ctx, a.cfg.Package, a.onClip)
-		if err != nil {
-			return fmt.Errorf("start %s: %w", a.cfg.Package, err)
+		var exited <-chan struct{}
+		if app := a.currentApp(); app != nil {
+			exited = app.Done()
 		}
-		a.setApp(app)
-		a.setStatus(contract.StateReady, "")
-
 		select {
 		case <-ctx.Done():
-			_ = app.Kill(context.WithoutCancel(ctx))
+			if app := a.currentApp(); app != nil {
+				_ = app.Kill(context.WithoutCancel(ctx))
+			}
 			return nil
-		case <-app.Done():
+		case <-exited:
 			a.setApp(nil)
-			now := time.Now()
-			crashes = append(crashes, now)
-			for len(crashes) > 0 && now.Sub(crashes[0]) > time.Minute {
-				crashes = crashes[1:]
+			a.log.Info("app closed", "package", a.cfg.Package)
+		case app := <-a.launches:
+			a.setApp(app)
+			a.log.Info("app started on the device", "package", a.cfg.Package)
+		case req := <-a.actions:
+			a.busy.Store(true)
+			err := a.handle(ctx, req, &apk)
+			if err != nil && req.done == nil {
+				return err
 			}
-			if len(crashes) >= 5 {
-				return fmt.Errorf("%s exited %d times within a minute", a.cfg.Package, len(crashes))
-			}
-			a.log.Info("app exited, starting it again", "package", a.cfg.Package)
-		case action := <-a.actions:
-			a.setApp(nil)
-			if err := app.Kill(ctx); err != nil {
-				a.log.Warn("kill app", "err", err)
-			}
-			if action == contract.AppReinstall {
-				a.setStatus(contract.StateInstalling, "Reinstalling the APK")
-				if _, err := a.dev.Shell(ctx, "pm uninstall "+a.cfg.Package); err != nil {
-					a.log.Warn("uninstall", "err", err)
+			if a.currentApp() == nil {
+				if serr := a.spawn(ctx); serr != nil {
+					if req.done != nil {
+						req.done <- serr
+					}
+					return serr
 				}
-				if err := a.dev.Install(ctx, apk); err != nil {
-					return err
-				}
+			}
+			a.busy.Store(false)
+			a.setStatus(contract.StateReady, "")
+			if req.done != nil {
+				req.done <- err
 			}
 		}
 	}
+}
+
+func (a *Agent) spawn(ctx context.Context) error {
+	a.setStatus(contract.StateInstrumenting, "Enabling WebView debugging")
+	app, err := a.inst.Spawn(ctx, a.cfg.Package, a.onClip)
+	if err != nil {
+		return fmt.Errorf("start %s: %w", a.cfg.Package, err)
+	}
+	a.setApp(app)
+	a.setStatus(contract.StateReady, "")
+	return nil
+}
+
+// launched takes an app started on the device itself, from the launcher or
+// by the system, unless the loop is busy restarting or installing it.
+func (a *Agent) launched(app App) {
+	for range 100 {
+		if a.busy.Load() {
+			return
+		}
+		select {
+		case a.launches <- app:
+			return
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+}
+
+func (a *Agent) kill(ctx context.Context) {
+	if app := a.currentApp(); app != nil {
+		a.setApp(nil)
+		if err := app.Kill(ctx); err != nil {
+			a.log.Warn("kill app", "err", err)
+		}
+	}
+}
+
+// handle runs an app action; the caller starts the app again afterwards.
+func (a *Agent) handle(ctx context.Context, req appRequest, apk *string) error {
+	if req.install != nil {
+		return a.install(ctx, *req.install, apk)
+	}
+	a.kill(ctx)
+	if req.action != contract.AppReinstall {
+		return nil
+	}
+	a.setStatus(contract.StateInstalling, "Reinstalling the APK")
+	if _, err := a.dev.Shell(ctx, "pm uninstall "+a.cfg.Package); err != nil {
+		a.log.Warn("uninstall", "err", err)
+	}
+	return a.dev.Install(ctx, *apk)
+}
+
+// install replaces the app with another build. When that fails the previous
+// build stays (or is put back) so the session keeps working.
+func (a *Agent) install(ctx context.Context, req contract.Install, apk *string) error {
+	a.setStatus(contract.StateInstalling, "Downloading the new build")
+	next, err := a.download(ctx, req.ArtifactURL)
+	if err != nil {
+		return err
+	}
+	a.kill(ctx)
+	if !req.KeepData {
+		if _, err := a.dev.Shell(ctx, "pm uninstall "+a.cfg.Package); err != nil {
+			a.log.Warn("uninstall", "err", err)
+		}
+	}
+	a.setStatus(contract.StateInstalling, "Installing the new build")
+	if err := a.dev.Install(ctx, next); err != nil {
+		os.Remove(next)
+		if !req.KeepData {
+			if rerr := a.dev.Install(ctx, *apk); rerr != nil {
+				a.log.Warn("put the previous build back", "err", rerr)
+			}
+		}
+		return fmt.Errorf("%w: %w", contract.ErrInvalid, err)
+	}
+	os.Remove(*apk)
+	*apk = next
+	a.log.Info("installed another build", "artifact", req.ArtifactRef, "keepData", req.KeepData)
+	return nil
 }
 
 func (a *Agent) stop(parent, ctx context.Context) {
@@ -228,8 +325,8 @@ func (a *Agent) fail(err error) {
 	a.notify()
 }
 
-func (a *Agent) download(ctx context.Context) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, a.cfg.ArtifactURL, nil)
+func (a *Agent) download(ctx context.Context, artifactURL string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, artifactURL, nil)
 	if err != nil {
 		return "", err
 	}
@@ -255,7 +352,7 @@ func (a *Agent) download(ctx context.Context) (string, error) {
 
 func (a *Agent) setStatus(state contract.SessionState, detail string) {
 	a.mu.Lock()
-	a.status = contract.StatusEvent{State: state, Detail: detail}
+	a.status = contract.StatusEvent{State: state, Detail: detail, AppRunning: a.app != nil}
 	a.mu.Unlock()
 	a.notify()
 }
@@ -263,7 +360,9 @@ func (a *Agent) setStatus(state contract.SessionState, detail string) {
 func (a *Agent) setApp(app App) {
 	a.mu.Lock()
 	a.app = app
+	a.status.AppRunning = app != nil
 	a.mu.Unlock()
+	a.notify()
 }
 
 func (a *Agent) currentApp() App {
@@ -388,14 +487,31 @@ func (a *Agent) SetLocation(ctx context.Context, location string) (contract.Netw
 }
 
 func (a *Agent) App(_ context.Context, action contract.AppAction) error {
-	if a.Status(context.Background()).State != contract.StateReady {
-		return errors.New("the app is not running")
+	return a.request(appRequest{action: action})
+}
+
+func (a *Agent) Install(ctx context.Context, req contract.Install) error {
+	done := make(chan error, 1)
+	if err := a.request(appRequest{install: &req, done: done}); err != nil {
+		return err
 	}
 	select {
-	case a.actions <- action:
+	case err := <-done:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (a *Agent) request(req appRequest) error {
+	if a.Status(context.Background()).State != contract.StateReady {
+		return fmt.Errorf("%w: the device is busy or not ready", contract.ErrInvalid)
+	}
+	select {
+	case a.actions <- req:
 		return nil
 	default:
-		return errors.New("another app action is in progress")
+		return fmt.Errorf("%w: another app action is in progress", contract.ErrInvalid)
 	}
 }
 

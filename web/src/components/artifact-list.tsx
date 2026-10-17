@@ -40,7 +40,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useLaunchTarget, useStartSession } from "@/hooks/use-launch-target"
 import { useNow } from "@/hooks/use-now"
-import { formatBytes, formatRelative } from "@/lib/format"
+import { formatBytes, formatRelative, safeLink } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 const ALL = "__all__"
@@ -180,6 +180,7 @@ function ArtifactRow({
   const title = artifactTitle(a)
   const isPrivate = a.meta.visibility === "private"
   const tags = Object.entries(a.meta.tags ?? {})
+  const link = safeLink(a.meta.link)
   return (
     <li className="bg-card hover:bg-accent/40 flex items-start gap-3 rounded-xl border p-3 transition-colors">
       <AppIcon src={a.iconUrl} className="size-12" />
@@ -231,12 +232,25 @@ function ArtifactRow({
         )}
       </div>
       <div className="flex shrink-0 items-center gap-1">
-        {a.meta.link && (
-          <Button variant="ghost" size="icon" asChild>
-            <a href={a.meta.link} target="_blank" rel="noreferrer" aria-label="Open the origin">
-              <ExternalLinkIcon />
-            </a>
-          </Button>
+        {link && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" asChild>
+                <a
+                  href={link.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Open where this build came from"
+                >
+                  <ExternalLinkIcon />
+                </a>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent className="text-center">
+              Open where this build came from{a.meta.origin ? ` (${a.meta.origin})` : ""}
+              <span className="block font-mono opacity-70">{link.host}</span>
+            </TooltipContent>
+          </Tooltip>
         )}
         {a.canManage && <ManageMenu artifact={a} title={title} />}
         <QuickLaunchButton artifact={a} />

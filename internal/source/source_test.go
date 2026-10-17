@@ -61,7 +61,7 @@ func TestList(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			put(t, store, "old.apk", "old")
 			put(t, store, "slack/new.apk", "new")
-			put(t, store, "slack/new.apk"+MetaSuffix, `{"title":"New build","changelog":"- fixed login","uploadedAt":"2030-01-01T00:00:00Z","tags":{"branch":"main"},"extra":1}`)
+			put(t, store, "slack/new.apk"+MetaSuffix, `{"title":"New build","changelog":"- fixed login","uploadedAt":"2030-01-01T00:00:00Z","tags":{"branch":"main"},"link":"javascript:alert(1)","extra":1}`)
 			put(t, store, "broken.apk", "x")
 			put(t, store, "broken.apk"+MetaSuffix, `{not json`)
 			put(t, store, "notes.txt", "ignored")
@@ -76,7 +76,7 @@ func TestList(t *testing.T) {
 				t.Fatalf("list %+v", list)
 			}
 			n := list[0]
-			if n.FileName != "new.apk" || n.Meta.Title != "New build" || n.Meta.Tags["branch"] != "main" || n.Revision == "" || n.MetaRevision == "" {
+			if n.FileName != "new.apk" || n.Meta.Title != "New build" || n.Meta.Tags["branch"] != "main" || n.Meta.Link != "" || n.Revision == "" || n.MetaRevision == "" {
 				t.Fatalf("new.apk %+v", n)
 			}
 			if !n.UploadedAt().Equal(time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC)) {
@@ -192,5 +192,26 @@ func TestSkipsHiddenAndUnreadable(t *testing.T) {
 	list, err := New(store, true).List(context.Background())
 	if err != nil || len(list) != 1 || list[0].ID != "app.apk" {
 		t.Fatalf("list %+v, %v", list, err)
+	}
+}
+
+func TestSafeLink(t *testing.T) {
+	for _, tt := range []struct{ in, want string }{
+		{"https://example.slack.com/archives/C0123/p1", "https://example.slack.com/archives/C0123/p1"},
+		{" http://ci.example.com/pipelines/7 ", "http://ci.example.com/pipelines/7"},
+		{"javascript:alert(1)", ""},
+		{"JavaScript:alert(document.cookie)", ""},
+		{"java\tscript:alert(1)", ""},
+		{"data:text/html,<script>alert(1)</script>", ""},
+		{"vbscript:msgbox(1)", ""},
+		{"//evil.example.com/x", ""},
+		{"/api/v1/me", ""},
+		{"https://user:pw@example.com/", ""},
+		{"https:///nohost", ""},
+		{"", ""},
+	} {
+		if got := SafeLink(tt.in); got != tt.want {
+			t.Errorf("SafeLink(%q) = %q, want %q", tt.in, got, tt.want)
+		}
 	}
 }

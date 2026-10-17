@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httputil"
+	"path"
 	"strings"
 
 	"github.com/kriakiku/holtdroid/internal/contract"
@@ -33,11 +34,16 @@ func (s *Server) proxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	prefix := "/s/" + providerName + "/" + id
+	if path.Clean(strings.TrimPrefix(r.URL.Path, prefix)) == "/v1/install" {
+		http.Error(w, "install builds through /api/v1/sessions/{provider}/{id}/install", http.StatusForbidden)
+		return
+	}
+
 	if r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions {
 		s.activity.Mark(key)
 	}
 
-	prefix := "/s/" + providerName + "/" + id
 	rp := &httputil.ReverseProxy{
 		Rewrite: func(pr *httputil.ProxyRequest) {
 			pr.SetURL(target)

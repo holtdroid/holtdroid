@@ -106,9 +106,18 @@ type Touch struct {
 }
 
 type StatusEvent struct {
-	State  SessionState `json:"state" enum:"provisioning,booting,installing,instrumenting,ready,stopping,failed"`
-	Reason string       `json:"reason,omitempty"`
-	Detail string       `json:"detail,omitempty"`
+	State      SessionState `json:"state" enum:"provisioning,booting,installing,instrumenting,ready,stopping,failed"`
+	Reason     string       `json:"reason,omitempty"`
+	Detail     string       `json:"detail,omitempty"`
+	AppRunning bool         `json:"appRunning" doc:"The app is running under instrumentation; once it is closed it stays closed until it is started again"`
+}
+
+// Install replaces the app in a running session with another build of the
+// same package.
+type Install struct {
+	ArtifactURL string `json:"artifactUrl" format:"uri"`
+	ArtifactRef string `json:"artifactRef" minLength:"1"`
+	KeepData    bool   `json:"keepData" doc:"Install over the current build, upgrade or downgrade, keeping the app's data; otherwise uninstall it first"`
 }
 
 type DevToolsTarget struct {

@@ -132,6 +132,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Downloads and installs another build of the app, then starts it. Returns once it runs. */
+        post: operations["installApp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/network": {
         parameters: {
             query?: never;
@@ -322,6 +339,13 @@ export interface components {
         Health: {
             ok: boolean;
         };
+        Install: {
+            artifactRef: string;
+            /** Format: uri */
+            artifactUrl: string;
+            /** @description Install over the current build, upgrade or downgrade, keeping the app's data; otherwise uninstall it first */
+            keepData: boolean;
+        };
         Network: {
             country?: string;
             externalIp?: string;
@@ -331,6 +355,8 @@ export interface components {
             location: string;
         };
         StatusEvent: {
+            /** @description The app is running under instrumentation; once it is closed it stays closed until it is started again */
+            appRunning: boolean;
             detail?: string;
             reason?: string;
             /** @enum {string} */
@@ -642,6 +668,37 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Health"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    installApp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Install"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

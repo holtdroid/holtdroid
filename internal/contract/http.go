@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -57,6 +56,14 @@ func newClient(baseURL string, hc *http.Client) client {
 	return client{base: strings.TrimRight(baseURL, "/"), hc: hc}
 }
 
+func (c client) withTimeout(d time.Duration) client {
+	hc := *c.hc
+	hc.Timeout = d
+	return client{base: c.base, hc: &hc}
+}
+
+const installTimeout = 10 * time.Minute
+
 type ErrorDetail struct {
 	Message  string `json:"message"`
 	Location string `json:"location"`
@@ -68,7 +75,7 @@ type StatusError struct {
 	Errors []ErrorDetail
 }
 
-func (e *StatusError) Error() string { return fmt.Sprintf("%d: %s", e.Status, e.Detail) }
+func (e *StatusError) Error() string { return e.Detail }
 
 func (e *StatusError) Unwrap() error {
 	switch e.Status {

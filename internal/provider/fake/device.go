@@ -21,6 +21,7 @@ type device struct {
 	s         contract.Session
 	clip      string
 	targetGen int
+	appClosed bool
 	settings  contract.DeviceState
 	subs      map[chan struct{}]struct{}
 	done      chan struct{}

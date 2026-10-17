@@ -20,6 +20,7 @@ type Agent interface {
 	Network(ctx context.Context) (Network, error)
 	SetLocation(ctx context.Context, location string) (Network, error)
 	App(ctx context.Context, action AppAction) error
+	Install(ctx context.Context, req Install) error
 	Device(ctx context.Context) (DeviceState, error)
 	UpdateDevice(ctx context.Context, settings DeviceSettings) (DeviceState, error)
 	DeviceAction(ctx context.Context, action DeviceAction) error
@@ -28,6 +29,7 @@ type Agent interface {
 
 type AppAction string
 
+// AppRestart starts the app, killing it first if it is running.
 const (
 	AppRestart   AppAction = "restart"
 	AppReinstall AppAction = "reinstall"
@@ -43,6 +45,10 @@ type locationInput struct {
 
 type appInput struct {
 	Action AppAction `path:"action" enum:"restart,reinstall"`
+}
+
+type installInput struct {
+	Body Install
 }
 
 type deviceSettingsInput struct {
@@ -138,6 +144,13 @@ func RegisterAgent(api huma.API, a Agent) {
 		return nil, toHuma(a.App(ctx, in.Action))
 	})
 
+	huma.Register(api, huma.Operation{
+		OperationID: "installApp", Method: http.MethodPost, Path: "/v1/install", Tags: tags, DefaultStatus: http.StatusNoContent,
+		Description: "Downloads and installs another build of the app, then starts it. Returns once it runs.",
+	}, func(ctx context.Context, in *installInput) (*struct{}, error) {
+		return nil, toHuma(a.Install(ctx, in.Body))
+	})
+
 	huma.Register(api, huma.Operation{OperationID: "getDevice", Method: http.MethodGet, Path: "/v1/device", Tags: tags},
 		func(ctx context.Context, _ *struct{}) (*body[DeviceState], error) {
 			s, err := a.Device(ctx)
@@ -188,4 +201,8 @@ func (a *AgentClient) Status(ctx context.Context) (StatusEvent, error) {
 	var s StatusEvent
 	err := a.c.do(ctx, http.MethodGet, "/v1/state", nil, &s)
 	return s, err
+}
+
+func (a *AgentClient) Install(ctx context.Context, req Install) error {
+	return a.c.withTimeout(installTimeout).do(ctx, http.MethodPost, "/v1/install", req, nil)
 }

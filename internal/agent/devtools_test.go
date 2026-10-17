@@ -62,6 +62,7 @@ type fakeDevice struct {
 	removed  []int
 	installs int
 	shells   []string
+	apks     []string
 }
 
 func (d *fakeDevice) Shell(_ context.Context, cmd string) (string, error) {
@@ -77,10 +78,18 @@ func (d *fakeDevice) Shell(_ context.Context, cmd string) (string, error) {
 	return "", nil
 }
 
-func (d *fakeDevice) Install(context.Context, string) error {
+func (d *fakeDevice) Install(_ context.Context, apk string) error {
+	raw, err := os.ReadFile(apk)
+	if err != nil {
+		return err
+	}
 	d.mu.Lock()
 	defer d.mu.Unlock()
+	if strings.Contains(string(raw), "broken") {
+		return errors.New("adb install: Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE]")
+	}
 	d.installs++
+	d.apks = append(d.apks, string(raw))
 	return nil
 }
 

@@ -67,3 +67,13 @@ export function formatClockOffset(ms: number) {
 export function browserTimeZone() {
   return new Intl.DateTimeFormat().resolvedOptions().timeZone
 }
+
+export function safeLink(raw: string | undefined) {
+  if (!raw) return undefined
+  try {
+    const url = new URL(raw)
+    return (url.protocol === "https:" || url.protocol === "http:") && url.host && !url.username ? url : undefined
+  } catch {
+    return undefined
+  }
+}

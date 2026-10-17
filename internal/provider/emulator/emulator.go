@@ -377,6 +377,28 @@ func (p *Provider) Touch(ctx context.Context, id string, at time.Time) error {
 	return err
 }
 
+// Install hands another build to the session's agent and, once it runs,
+// records it on the Pod as the session's artifact.
+func (p *Provider) Install(ctx context.Context, id string, req contract.Install) (contract.Session, error) {
+	pod, err := p.pod(ctx, id)
+	if err != nil {
+		return contract.Session{}, err
+	}
+	s := p.podSession(*pod)
+	if s.State != contract.StateReady || s.AgentURL == "" {
+		return contract.Session{}, fmt.Errorf("%w: session %s is not ready", contract.ErrInvalid, id)
+	}
+	if err := contract.NewAgentClient(s.AgentURL, p.agents).Install(ctx, req); err != nil {
+		return contract.Session{}, err
+	}
+	patch := fmt.Appendf(nil, `{"metadata":{"annotations":{%q:%q}}}`, annotationArtifactRef, req.ArtifactRef)
+	updated, err := p.kube.CoreV1().Pods(p.cfg.Namespace).Patch(context.WithoutCancel(ctx), podName(id), types.MergePatchType, patch, metav1.PatchOptions{})
+	if err != nil {
+		return contract.Session{}, fmt.Errorf("record the installed build: %w", err)
+	}
+	return p.podSession(*updated), nil
+}
+
 func randomID() string {
 	b := make([]byte, 5)
 	_, _ = rand.Read(b)

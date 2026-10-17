@@ -37,20 +37,21 @@ func (d *device) buildHandler() http.Handler {
 }
 
 func (d *device) Status(context.Context) contract.StatusEvent {
-	s := d.session()
-	return contract.StatusEvent{State: s.State, Detail: detail(s.State)}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return contract.StatusEvent{State: d.s.State, Detail: detail(d.s.State), AppRunning: d.s.State == contract.StateReady && !d.appClosed}
 }
 
 func (d *device) WatchStatus(ctx context.Context, send func(contract.StatusEvent) error) error {
 	updates, cancel := d.subscribe()
 	defer cancel()
-	last := contract.SessionState("")
+	var last contract.StatusEvent
 	for {
-		if s := d.session(); s.State != last {
-			if err := send(contract.StatusEvent{State: s.State, Detail: detail(s.State)}); err != nil {
+		if s := d.Status(ctx); s != last {
+			if err := send(s); err != nil {
 				return err
 			}
-			last = s.State
+			last = s
 		}
 		select {
 		case <-ctx.Done():
@@ -107,7 +108,22 @@ func (d *device) SetLocation(_ context.Context, location string) (contract.Netwo
 }
 
 func (d *device) App(context.Context, contract.AppAction) error {
-	d.update(func() { d.targetGen++ })
+	d.update(func() {
+		d.targetGen++
+		d.appClosed = false
+	})
+	return nil
+}
+
+func (d *device) Install(_ context.Context, req contract.Install) error {
+	if d.session().State != contract.StateReady {
+		return fmt.Errorf("%w: the device is busy or not ready", contract.ErrInvalid)
+	}
+	d.update(func() {
+		d.s.ArtifactRef = req.ArtifactRef
+		d.targetGen++
+		d.appClosed = false
+	})
 	return nil
 }
 

@@ -217,6 +217,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sessions/{provider}/{id}/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Replaces the app in a running session with another build of the same package and starts it. */
+        post: operations["installSessionArtifact"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sources": {
         parameters: {
             query?: never;
@@ -413,6 +430,12 @@ export interface components {
             /** @description Avatar URL from the identity provider; the UI generates one from user when empty */
             picture?: string;
             user: string;
+        };
+        InstallInputBody: {
+            artifactId: string;
+            /** @description Install over the current build, upgrade or downgrade, keeping the app's data; otherwise uninstall it first */
+            keepData: boolean;
+            source: string;
         };
         Location: {
             id: string;
@@ -1098,6 +1121,42 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    installSessionArtifact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InstallInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionView"];
+                };
             };
             /** @description Error */
             default: {

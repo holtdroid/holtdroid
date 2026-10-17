@@ -47,12 +47,28 @@ func (a *fakeApp) Kill(context.Context) error {
 }
 
 type fakeInstrumenter struct {
-	mu      sync.Mutex
-	spawns  int
-	clip    string
-	onClip  func(string)
-	app     *fakeApp
-	locales string
+	mu       sync.Mutex
+	spawns   int
+	clip     string
+	onClip   func(string)
+	app      *fakeApp
+	locales  string
+	launched func(App)
+}
+
+func (f *fakeInstrumenter) Watch(_ context.Context, _ string, onClip func(string), launched func(App)) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.onClip, f.launched = onClip, launched
+	return nil
+}
+
+func (f *fakeInstrumenter) launchOnDevice() {
+	f.mu.Lock()
+	f.app = &fakeApp{done: make(chan struct{}), inst: f}
+	app, launched := f.app, f.launched
+	f.mu.Unlock()
+	launched(app)
 }
 
 func (f *fakeInstrumenter) Spawn(_ context.Context, _ string, onClip func(string)) (App, error) {
@@ -78,19 +94,20 @@ func (f *fakeInstrumenter) current() (*fakeApp, int) {
 }
 
 type harness struct {
-	t      *testing.T
-	agent  *Agent
-	dev    *fakeDevice
-	inst   *fakeInstrumenter
-	url    string
-	cancel context.CancelFunc
-	done   chan struct{}
+	t         *testing.T
+	agent     *Agent
+	dev       *fakeDevice
+	inst      *fakeInstrumenter
+	url       string
+	artifacts string
+	cancel    context.CancelFunc
+	done      chan struct{}
 }
 
 func newHarness(t *testing.T, boot BootFunc) *harness {
 	t.Helper()
-	artifact := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = io.WriteString(w, "PK fake apk")
+	artifact := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, "PK "+r.URL.Path)
 	}))
 	t.Cleanup(artifact.Close)
 
@@ -99,7 +116,7 @@ func newHarness(t *testing.T, boot BootFunc) *harness {
 	cfg.Package = "com.example.shop"
 	cfg.IPInfoURL = ""
 	cfg.CacheDir = t.TempDir()
-	h := &harness{t: t, dev: &fakeDevice{}, inst: &fakeInstrumenter{}, done: make(chan struct{})}
+	h := &harness{t: t, dev: &fakeDevice{}, inst: &fakeInstrumenter{}, artifacts: artifact.URL, done: make(chan struct{})}
 	if boot == nil {
 		boot = func(ctx context.Context, booted func()) error {
 			booted()
@@ -223,8 +240,36 @@ func TestAgentLifecycle(t *testing.T) {
 
 	app, _ = h.inst.current()
 	app.exit()
-	waitFor(t, func() bool { _, n := h.inst.current(); return n == 4 })
-	h.waitState(contract.StateReady)
+	waitFor(t, func() bool { s, _ := h.agent.snapshot(); return !s.AppRunning })
+	if s, _ := h.agent.snapshot(); s.State != contract.StateReady {
+		t.Fatalf("closing the app must keep the device ready: %+v", s)
+	}
+	time.Sleep(20 * time.Millisecond)
+	if _, n := h.inst.current(); n != 3 {
+		t.Fatalf("the app was started again by itself: %d spawns", n)
+	}
+	if code, _ := h.do(http.MethodPost, "/v1/clipboard", `{"text":"x"}`); code == http.StatusNoContent {
+		t.Fatal("clipboard without a running app")
+	}
+
+	h.inst.launchOnDevice()
+	if s, _ := h.agent.snapshot(); !s.AppRunning {
+		waitFor(t, func() bool { s, _ := h.agent.snapshot(); return s.AppRunning })
+	}
+	if _, n := h.inst.current(); n != 3 {
+		t.Fatalf("a launch from the device must not spawn: %d", n)
+	}
+	if code, body := h.do(http.MethodPost, "/v1/clipboard", `{"text":"from the launcher"}`); code != http.StatusNoContent {
+		t.Fatalf("clipboard after a launch from the device %d %s", code, body)
+	}
+
+	app, _ = h.inst.current()
+	app.exit()
+	waitFor(t, func() bool { s, _ := h.agent.snapshot(); return !s.AppRunning })
+	if code, _ := h.do(http.MethodPost, "/v1/app/restart", ""); code != http.StatusAccepted {
+		t.Fatalf("start %d", code)
+	}
+	waitFor(t, func() bool { s, _ := h.agent.snapshot(); _, n := h.inst.current(); return s.AppRunning && n == 4 })
 
 	if code, body := h.do(http.MethodGet, "/v1/network", ""); code != http.StatusOK || !strings.Contains(body, `"location":"direct"`) {
 		t.Fatalf("network %d %s", code, body)
@@ -249,21 +294,54 @@ func TestAgentBootFailure(t *testing.T) {
 	if code, _ := h.do(http.MethodGet, "/v1/health", ""); code != http.StatusServiceUnavailable {
 		t.Fatalf("health %d", code)
 	}
-	if code, _ := h.do(http.MethodPost, "/v1/app/restart", ""); code != http.StatusInternalServerError {
+	if code, _ := h.do(http.MethodPost, "/v1/app/restart", ""); code != http.StatusBadRequest {
 		t.Fatalf("restart while failed: %d", code)
 	}
 }
 
-func TestAgentCrashLoop(t *testing.T) {
+func TestAgentInstall(t *testing.T) {
 	h := newHarness(t, nil)
-	for i := 1; i <= 5; i++ {
-		waitFor(t, func() bool { _, n := h.inst.current(); return n == i })
-		app, _ := h.inst.current()
-		app.exit()
+	h.waitState(contract.StateReady)
+	install := func(path string, keep bool) (int, string) {
+		raw, _ := json.Marshal(contract.Install{ArtifactURL: h.artifacts + path, ArtifactRef: "local" + path + "@1", KeepData: keep})
+		return h.do(http.MethodPost, "/v1/install", string(raw))
 	}
-	s := h.waitState(contract.StateFailed)
-	if !strings.Contains(s.Reason, "exited 5 times") {
-		t.Fatalf("reason %q", s.Reason)
+	state := func() ([]string, string, int) {
+		h.dev.mu.Lock()
+		defer h.dev.mu.Unlock()
+		_, n := h.inst.current()
+		return append([]string(nil), h.dev.apks...), strings.Join(h.dev.shells, ";"), n
+	}
+
+	if code, body := install("/v2.apk", true); code != http.StatusNoContent {
+		t.Fatalf("install %d %s", code, body)
+	}
+	apks, shells, spawns := state()
+	if apks[len(apks)-1] != "PK /v2.apk" || strings.Contains(shells, "pm uninstall") || spawns != 2 {
+		t.Fatalf("keep data: apks %v, shells %s, spawns %d", apks, shells, spawns)
+	}
+	if s := h.waitState(contract.StateReady); !s.AppRunning {
+		t.Fatalf("app not running after install: %+v", s)
+	}
+
+	code, body := install("/broken.apk", false)
+	if code != http.StatusBadRequest || !strings.Contains(body, "INSTALL_FAILED") {
+		t.Fatalf("broken install %d %s", code, body)
+	}
+	apks, shells, spawns = state()
+	if apks[len(apks)-1] != "PK /v2.apk" || !strings.Contains(shells, "pm uninstall com.example.shop") || spawns != 3 {
+		t.Fatalf("after a failed clean install: apks %v, shells %s, spawns %d", apks, shells, spawns)
+	}
+	if s := h.waitState(contract.StateReady); !s.AppRunning {
+		t.Fatalf("previous build not running after a failed install: %+v", s)
+	}
+
+	if code, _ := h.do(http.MethodPost, "/v1/app/reinstall", ""); code != http.StatusAccepted {
+		t.Fatalf("reinstall %d", code)
+	}
+	waitFor(t, func() bool { _, _, n := state(); return n == 4 })
+	if apks, _, _ := state(); apks[len(apks)-1] != "PK /v2.apk" {
+		t.Fatalf("reinstall must use the current build: %v", apks)
 	}
 }
 

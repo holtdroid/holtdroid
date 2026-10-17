@@ -30,6 +30,23 @@ stateDiagram-v2
 `failed` sessions keep their slot until they are stopped or reaped, so the
 reason stays visible on the home page.
 
+## The app inside a session
+
+When the app is closed or crashes it stays closed: the device stays `ready`
+and the toolbar shows **Start app**. Starting it from the device's app
+drawer works as well; DevTools and clipboard sync attach either way.
+
+**Switch version** (the version button in the session header) lists every
+build with the same application ID and installs the chosen one into the
+running device:
+
+- with **Keep app data** on (default) it is installed over the current
+  build, upgrade or downgrade, so you can test how the app's storage
+  migrates. Builds signed with another key can't be installed this way;
+- with it off, the current build and its data are removed first.
+
+If the install fails, the previous build keeps running.
+
 ## Activity and reaping
 
 A session counts as active when someone actually uses it:

@@ -74,6 +74,16 @@ type createSessionInput struct {
 	}
 }
 
+type installInput struct {
+	Provider string `path:"provider"`
+	ID       string `path:"id"`
+	Body     struct {
+		Source     string `json:"source" minLength:"1"`
+		ArtifactID string `json:"artifactId" minLength:"1"`
+		KeepData   bool   `json:"keepData" doc:"Install over the current build, upgrade or downgrade, keeping the app's data; otherwise uninstall it first"`
+	}
+}
+
 type heartbeatInput struct {
 	Provider string `path:"provider"`
 	ID       string `path:"id"`
@@ -151,6 +161,17 @@ func (s *Server) register(api huma.API) {
 		}
 		s.activity.Mark(sessionKey{in.Provider, in.ID})
 		return &out[SessionView]{s.view(ctx, in.Provider, sess)}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "installSessionArtifact", Method: http.MethodPost, Path: "/api/v1/sessions/{provider}/{id}/install", Tags: tags,
+		Description: "Replaces the app in a running session with another build of the same package and starts it.",
+	}, func(ctx context.Context, in *installInput) (*out[SessionView], error) {
+		v, err := s.installArtifact(ctx, in.Provider, in.ID, in.Body.Source, in.Body.ArtifactID, in.Body.KeepData)
+		if err != nil {
+			return nil, httpError(err)
+		}
+		return &out[SessionView]{v}, nil
 	})
 
 	huma.Register(api, huma.Operation{
@@ -379,6 +400,46 @@ func (s *Server) createSession(ctx context.Context, who auth.Identity, srcName, 
 	s.recordEvent(ctx, providerName, sess.ID, "created", who.User, ref, "")
 	s.log.Info("session created", "provider", providerName, "session", sess.ID, "owner", who.User, "package", entry.Meta.Package)
 	return s.view(ctx, providerName, sess), nil
+}
+
+func (s *Server) installArtifact(ctx context.Context, providerName, id, srcName, artifactID string, keepData bool) (SessionView, error) {
+	p, sess, err := s.ownedSession(ctx, providerName, id)
+	if err != nil {
+		return SessionView{}, err
+	}
+	src, err := s.source(srcName)
+	if err != nil {
+		return SessionView{}, err
+	}
+	key, err := decodeID(artifactID)
+	if err != nil {
+		return SessionView{}, err
+	}
+	artifact, err := src.Get(ctx, key)
+	if err != nil {
+		return SessionView{}, err
+	}
+	who, _ := auth.FromContext(ctx)
+	if !artifact.VisibleTo(who.User, who.Admin) {
+		return SessionView{}, fmt.Errorf("%w: %s", contract.ErrNotFound, artifactID)
+	}
+	entry, err := s.cache.Ensure(ctx, srcName, artifact)
+	if err != nil {
+		return SessionView{}, err
+	}
+	if entry.Meta.Package != sess.Package {
+		return SessionView{}, fmt.Errorf("%w: %s is %s, the session runs %s", contract.ErrInvalid, artifact.FileName, entry.Meta.Package, sess.Package)
+	}
+	ref := artifactRef(srcName, artifact.ID, artifact.Revision)
+	s.activity.Mark(sessionKey{providerName, id})
+	updated, err := p.Install(ctx, id, contract.Install{ArtifactURL: s.artifactURL(entry.Key), ArtifactRef: ref, KeepData: keepData})
+	if err != nil {
+		return SessionView{}, err
+	}
+	s.activity.Mark(sessionKey{providerName, id})
+	s.recordEvent(ctx, providerName, id, "installed", who.User, ref, "")
+	s.log.Info("session build replaced", "provider", providerName, "session", id, "by", who.User, "artifact", ref, "keepData", keepData)
+	return s.view(ctx, providerName, updated), nil
 }
 
 func artifactRef(source, id, rev string) string { return source + "/" + id + "@" + rev }

@@ -10,6 +10,7 @@ import { DeviceScreen } from "@/components/session/device-screen"
 import { DevToolsPanel } from "@/components/session/devtools-panel"
 import { SessionToolbar } from "@/components/session/session-toolbar"
 import { StartProgress } from "@/components/session/start-progress"
+import { VersionSwitcher } from "@/components/session/version-switcher"
 import { SessionStateBadge } from "@/components/session-state-badge"
 import { Button } from "@/components/ui/button"
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"
@@ -79,8 +80,15 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
           {state === "ready" && caps && (
-            <SessionToolbar provider={provider} id={id} locations={caps.locations} clipboard={caps.clipboard} />
+            <SessionToolbar
+              provider={provider}
+              id={id}
+              locations={caps.locations}
+              clipboard={caps.clipboard}
+              appRunning={status?.appRunning ?? true}
+            />
           )}
+          <VersionSwitcher session={session} disabled={state !== "ready" || !manage} />
           <span className="text-muted-foreground inline-flex items-center gap-1 text-xs tabular-nums">
             <ClockIcon className="size-3.5" />
             {formatDuration(left)}

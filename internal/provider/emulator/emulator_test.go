@@ -3,6 +3,7 @@ package emulator
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"net/http"
@@ -447,5 +448,56 @@ func TestGracePeriod(t *testing.T) {
 		if force := got != nil && *got == 0; force != tc.force {
 			t.Errorf("%s: grace period %v", tc.name, got)
 		}
+	}
+}
+
+func TestInstall(t *testing.T) {
+	var got atomic.Value
+	agent := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/v1/install" {
+			http.NotFound(w, r)
+			return
+		}
+		var in contract.Install
+		_ = json.NewDecoder(r.Body).Decode(&in)
+		got.Store(in)
+		if strings.Contains(in.ArtifactRef, "broken") {
+			w.Header().Set("Content-Type", "application/problem+json")
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"detail":"invalid request: Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE]"}`))
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(agent.Close)
+	port, _ := strconv.Atoi(agent.URL[strings.LastIndex(agent.URL, ":")+1:])
+
+	kube := cluster()
+	p := newProvider(t, kube, func(c *Config) { c.AgentPort = port })
+	p.agents = agent.Client()
+	s, err := p.Create(t.Context(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	next := contract.Install{ArtifactURL: "http://api/internal/artifacts/v2", ArtifactRef: "local/app-v2.apk@2", KeepData: true}
+	if _, err := p.Install(t.Context(), s.ID, next); !errors.Is(err, contract.ErrInvalid) {
+		t.Fatalf("install before ready: %v", err)
+	}
+
+	setStatus(t, kube, s.ID, corev1.PodStatus{Phase: corev1.PodRunning, PodIP: "127.0.0.1", ContainerStatuses: []corev1.ContainerStatus{
+		{Name: "emulator", Ready: true, State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}}},
+		{Name: "vpn", Ready: true, State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}}},
+	}})
+	updated, err := p.Install(t.Context(), s.ID, next)
+	if err != nil || updated.ArtifactRef != next.ArtifactRef || got.Load().(contract.Install) != next {
+		t.Fatalf("install %+v, %v, agent got %+v", updated, err, got.Load())
+	}
+
+	_, err = p.Install(t.Context(), s.ID, contract.Install{ArtifactURL: "http://api/x", ArtifactRef: "local/broken.apk@1"})
+	if !errors.Is(err, contract.ErrInvalid) || !strings.Contains(err.Error(), "INSTALL_FAILED_UPDATE_INCOMPATIBLE") {
+		t.Fatalf("broken install: %v", err)
+	}
+	if again, _ := p.Get(t.Context(), s.ID); again.ArtifactRef != next.ArtifactRef {
+		t.Fatalf("a failed install must keep the recorded build: %s", again.ArtifactRef)
 	}
 }

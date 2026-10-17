@@ -197,6 +197,17 @@ func (p *Provider) Touch(_ context.Context, id string, at time.Time) error {
 	return nil
 }
 
+func (p *Provider) Install(ctx context.Context, id string, req contract.Install) (contract.Session, error) {
+	d, err := p.device(id)
+	if err != nil {
+		return contract.Session{}, err
+	}
+	if err := d.Install(ctx, req); err != nil {
+		return contract.Session{}, err
+	}
+	return d.session(), nil
+}
+
 func randomID() string {
 	b := make([]byte, 5)
 	_, _ = rand.Read(b)

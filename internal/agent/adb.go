@@ -60,7 +60,7 @@ func (a ADB) Emu(ctx context.Context, cmd string) (string, error) {
 }
 
 func (a ADB) Install(ctx context.Context, apk string) error {
-	_, err := a.run(ctx, "install", "-r", "-g", apk)
+	_, err := a.run(ctx, "install", "-r", "-d", "-g", apk)
 	return err
 }
 

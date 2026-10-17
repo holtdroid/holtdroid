@@ -6,6 +6,7 @@ import {
   EllipsisVerticalIcon,
   GlobeIcon,
   PackageIcon,
+  PlayIcon,
   RotateCcwIcon,
   SendIcon,
 } from "lucide-react"
@@ -18,6 +19,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useEventSource } from "@/hooks/use-event-source"
 import { countryFlag } from "@/lib/format"
 import { rememberLocation } from "@/lib/launch-prefs"
@@ -27,17 +29,19 @@ export function SessionToolbar({
   id,
   locations,
   clipboard,
+  appRunning,
 }: {
   provider: string
   id: string
   locations: Location[]
   clipboard: boolean
+  appRunning: boolean
 }) {
   return (
     <div className="flex items-center gap-2">
       {locations.length > 0 && <LocationControl provider={provider} id={id} locations={locations} />}
       {clipboard && <ClipboardControl provider={provider} id={id} />}
-      <AppActions provider={provider} id={id} />
+      <AppActions provider={provider} id={id} appRunning={appRunning} />
     </div>
   )
 }
@@ -156,32 +160,49 @@ function ClipboardControl({ provider, id }: { provider: string; id: string }) {
   )
 }
 
-function AppActions({ provider, id }: { provider: string; id: string }) {
+function AppActions({ provider, id, appRunning }: { provider: string; id: string; appRunning: boolean }) {
   const client = useMemo(() => agentClient(provider, id), [provider, id])
   const action = useMutation({
     mutationFn: (a: "restart" | "reinstall") =>
       unwrap(client.POST("/v1/app/{action}", { params: { path: { action: a } } })),
-    onSuccess: (_, a) => toast(a === "restart" ? "Restarting the app" : "Reinstalling the app"),
+    onSuccess: (_, a) =>
+      toast(a === "reinstall" ? "Reinstalling the app" : appRunning ? "Restarting the app" : "Starting the app"),
     onError: (e) => toast.error("Action failed", { description: e.message }),
   })
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button size="icon-sm" variant="ghost" aria-label="App actions">
-          <EllipsisVerticalIcon />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onSelect={() => action.mutate("restart")}>
-          <RotateCcwIcon />
-          Restart app
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => action.mutate("reinstall")}>
-          <PackageIcon />
-          Reinstall app
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      {!appRunning && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button size="sm" disabled={action.isPending} onClick={() => action.mutate("restart")}>
+              <PlayIcon />
+              Start app
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-64">
+            The app was closed. Start it here or from the device’s app drawer, DevTools and the clipboard work either
+            way.
+          </TooltipContent>
+        </Tooltip>
+      )}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button size="icon-sm" variant="ghost" aria-label="App actions">
+            <EllipsisVerticalIcon />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onSelect={() => action.mutate("restart")}>
+            {appRunning ? <RotateCcwIcon /> : <PlayIcon />}
+            {appRunning ? "Restart app" : "Start app"}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => action.mutate("reinstall")}>
+            <PackageIcon />
+            Reinstall app (clears data)
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </>
   )
 }

@@ -595,3 +595,36 @@ Safari). Every viewer of a session runs its own encoder on the device. Text
 typed through IME composition isn't forwarded yet. The UI and the agents it
 streams from must speak the same protocol, so the `deploy` branch (#33) now
 also waits for the session image: a commit rolls out once both images exist.
+
+## 35. The app stays closed until the user starts it; builds can be swapped in place
+
+**Context.** The agent re-spawned the app whenever it exited, so closing it
+to test a cold start or a restore path was impossible, and a crash loop
+ended the session. Testing a
+storage migration meant a new session per version.
+
+**Decision.** The agent no longer restarts the app: `appRunning` in the
+status turns false and the device stays `ready`. The user starts it again
+with "Start app" (`POST /v1/app/restart`) or from the launcher. The icon
+is not put on the home screen: adb installs don't trigger the launcher's
+"add icon on install" (`--install-reason 4` was tried), and writing into the
+launcher's database was too fragile to keep. To keep DevTools and
+the clipboard working for launcher starts, the agent turns on Frida spawn
+gating: the app's main process is instrumented before it resumes, all other
+processes resume immediately; a start that races an explicit restart or
+install is left to the explicit one, which force-stops it. Another build of
+the same package is installed in place through the provider
+(`POST /v1/sessions/{id}/install`, which then records the new artifact ref on
+the Pod) and the agent (`POST /v1/install`, synchronous so errors reach the
+user), either over the current build with `-r -d` (data kept, downgrades
+allowed on the debuggable emulator image) or after `pm uninstall`. A failed
+install keeps or restores the previous build. The api checks ownership,
+visibility and that the package matches; the proxy refuses `/v1/install` so
+browsers can't make an agent download arbitrary URLs.
+
+**Consequences.** A crash shows as a closed app instead of a failed session.
+Every process start on the device waits for one round trip to the agent.
+If the agent's container restarts, it installs the build the session was
+created with again (its env), while the Pod's annotation names the last one
+installed.
+

@@ -17,6 +17,7 @@ type Provider interface {
 	Get(ctx context.Context, id string) (Session, error)
 	Delete(ctx context.Context, id string) error
 	Touch(ctx context.Context, id string, at time.Time) error
+	Install(ctx context.Context, id string, req Install) (Session, error)
 }
 
 type createSessionInput struct {
@@ -26,6 +27,11 @@ type createSessionInput struct {
 type touchInput struct {
 	ID   string `path:"id" minLength:"1"`
 	Body Touch
+}
+
+type installSessionInput struct {
+	ID   string `path:"id" minLength:"1"`
+	Body Install
 }
 
 func RegisterProvider(api huma.API, p Provider) {
@@ -101,6 +107,17 @@ func RegisterProvider(api huma.API, p Provider) {
 		return nil, toHuma(p.Touch(ctx, in.ID, in.Body.LastActivity))
 	})
 
+	huma.Register(api, huma.Operation{
+		OperationID: "installSession", Method: http.MethodPost, Path: "/v1/sessions/{id}/install", Tags: tags,
+		Description: "Installs another build of the session's package through its agent and records it as the session's artifact.",
+	}, func(ctx context.Context, in *installSessionInput) (*body[Session], error) {
+		s, err := p.Install(ctx, in.ID, in.Body)
+		if err != nil {
+			return nil, toHuma(err)
+		}
+		return &body[Session]{s}, nil
+	})
+
 	registerHealth(api, "provider")
 }
 
@@ -146,4 +163,10 @@ func (p *ProviderClient) Delete(ctx context.Context, id string) error {
 
 func (p *ProviderClient) Touch(ctx context.Context, id string, at time.Time) error {
 	return p.c.do(ctx, http.MethodPost, "/v1/sessions/"+url.PathEscape(id)+"/touch", Touch{LastActivity: at}, nil)
+}
+
+func (p *ProviderClient) Install(ctx context.Context, id string, req Install) (Session, error) {
+	var s Session
+	err := p.c.withTimeout(installTimeout).do(ctx, http.MethodPost, "/v1/sessions/"+url.PathEscape(id)+"/install", req, &s)
+	return s, err
 }

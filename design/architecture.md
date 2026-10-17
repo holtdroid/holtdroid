@@ -194,11 +194,12 @@ Inside `emulator`, the agent starts and supervises:
 1. `emulator`, headless (`-no-window -gpu swiftshader_indirect -no-snapshot
    -no-audio -no-boot-anim`, x86_64 `google_apis` API 35 image, the
    `holtdroid` AVD baked into the image; `internal/agent/emulator`).
-   Its exit fails the session; a later failure (install, crash
-   loop) leaves the device running for inspection.
+   Its exit fails the session; a later failure (the first install,
+   instrumentation) leaves the device running for inspection.
 2. Waits for `sys.boot_completed`, runs `adb root`, pushes and starts
    `frida-server` (same pinned version as the agent's devkit, decision #23).
-3. Downloads the APK from the api, `adb install -r -g`.
+3. Downloads the APK from the api, `adb install -r -d -g` (`-d` lets later
+   builds downgrade).
 4. Bundles `internal/agent/script/agent.js` with Frida's compiler and spawns
    the package under it:
    - forces `WebView.setWebContentsDebuggingEnabled(true)`: the setter is
@@ -209,9 +210,15 @@ Inside `emulator`, the agent starts and supervises:
      `OnPrimaryClipChangedListener` that sends changes to the agent.
    The app is in the foreground, so it is allowed to access the clipboard.
    Only the app's main process is instrumented.
-5. Re-spawns on app crash/exit (five exits within a minute fail the
-   session); `POST /app/restart|reinstall` drive this explicitly, reinstall
-   uninstalls first so app data is cleared.
+5. Turns on Frida spawn gating: when the device starts the app by itself
+   (the launcher, a broadcast) the main process is instrumented the
+   same way before it resumes; every other process resumes straight away.
+6. Does not restart the app when it exits or crashes (decision #35): the
+   device stays `ready` with `appRunning: false` until the user starts it
+   from the UI (`POST /app/restart`) or the launcher. `POST /app/reinstall`
+   uninstalls first so app data is cleared. `POST /install` replaces the
+   build with another one of the same package, over the current one
+   (upgrade or downgrade, data kept) or after uninstalling it.
 
 The provider configures the agent through environment variables
 (`HOLTDROID_ARTIFACTURL`, `HOLTDROID_PACKAGE`, `HOLTDROID_LOCATION`,

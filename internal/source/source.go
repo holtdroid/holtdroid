@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/url"
 	"slices"
 	"strings"
 	"sync"
@@ -51,6 +52,16 @@ type Meta struct {
 	Tags       map[string]string `json:"tags,omitempty" doc:"Free-form labels such as branch, commit, flavor"`
 	Owner      string            `json:"owner,omitempty" doc:"Portal user ID that owns the build and may delete it"`
 	Visibility Visibility        `json:"visibility,omitempty" enum:"public,private" doc:"private: only the owner and admins see it; default public"`
+}
+
+// SafeLink keeps only absolute http(s) URLs, so a sidecar can't smuggle a
+// javascript: or data: link into the portal.
+func SafeLink(raw string) string {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil {
+		return ""
+	}
+	return u.String()
 }
 
 func (m Meta) Private() bool { return m.Visibility != "" && m.Visibility != Public }
@@ -209,6 +220,7 @@ func (s *Source) meta(ctx context.Context, key, rev string) Meta {
 		s.log.Warn("ignoring invalid sidecar", "key", key, "err", err)
 		m = Meta{}
 	}
+	m.Link = SafeLink(m.Link)
 	s.mu.Lock()
 	s.metas[key] = cachedMeta{rev: rev, meta: m}
 	s.mu.Unlock()

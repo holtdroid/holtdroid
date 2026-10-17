@@ -448,3 +448,44 @@ func TestProxyCachesAgentURL(t *testing.T) {
 		t.Fatalf("proxy after stop: %d", rec.Code)
 	}
 }
+
+func TestInstallArtifact(t *testing.T) {
+	h := newHarness(t, 1, func(c *fake.Config) { c.StepDelay = time.Millisecond })
+	copyFile(t, "../apk/testdata/helloworld.apk", filepath.Join(h.apks, "hello-v2.apk"))
+	v := h.create("otter")
+	path := "/api/v1/sessions/fake/" + v.ID + "/install"
+	body := map[string]any{"source": "local", "artifactId": encodeID("hello-v2.apk"), "keepData": true}
+
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		if s, _ := h.provider.Get(context.Background(), v.ID); s.State == contract.StateReady {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("fake session never got ready")
+		}
+		time.Sleep(time.Millisecond)
+	}
+
+	if rec := h.do(http.MethodPost, path, "beaver", "", body); rec.Code != http.StatusForbidden {
+		t.Fatalf("someone else's session: %d", rec.Code)
+	}
+	if rec := h.do(http.MethodPost, path, "otter", "", map[string]any{"source": "local", "artifactId": encodeID("broken.apk")}); rec.Code < 400 {
+		t.Fatalf("broken build: %d", rec.Code)
+	}
+	if rec := h.do(http.MethodPost, "/s/fake/"+v.ID+"/v1/install/", "otter", "", contract.Install{ArtifactURL: "http://evil/x.apk", ArtifactRef: "x"}); rec.Code != http.StatusForbidden {
+		t.Fatalf("install through the agent proxy: %d", rec.Code)
+	}
+
+	rec := h.do(http.MethodPost, path, "otter", "", body)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("install: %d %s", rec.Code, rec.Body.String())
+	}
+	got := decode[SessionView](t, rec)
+	if got.ArtifactID != encodeID("hello-v2.apk") || got.Label != "HelloWorld" || !strings.HasPrefix(h.ref(got), "local/hello-v2.apk@") {
+		t.Fatalf("after install %+v, ref %s", got, h.ref(got))
+	}
+	if evs := h.events(v.ID); !slices.ContainsFunc(evs, func(e string) bool { return strings.HasPrefix(e, "installed|otter|local/hello-v2.apk@") }) {
+		t.Fatalf("events %v", evs)
+	}
+}

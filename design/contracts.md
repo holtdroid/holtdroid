@@ -99,6 +99,7 @@ Implemented by `provider-*` services. Consumed only by the api.
 | `GET` | `/v1/sessions/{id}` | `Session` |
 | `DELETE` | `/v1/sessions/{id}` | 204 |
 | `POST` | `/v1/sessions/{id}/touch` | `{lastActivity}` → 204 |
+| `POST` | `/v1/sessions/{id}/install` | `Install` `{artifactUrl, artifactRef, keepData}` → `Session`; only for a `ready` session (400 otherwise); hands the build to the agent's `/v1/install` and, once it runs, records `artifactRef` as the session's artifact. A failed install (400 with the adb message) keeps the recorded one |
 | `GET` | `/v1/health` | `{ok: true}` |
 
 ```go
@@ -158,15 +159,16 @@ static assets and WebSockets.
 | Method | Path | Notes | In `contract.Agent` |
 |--------|------|-------|----|
 | `GET` | `/v1/health` | 200 once `ready`, 503 before | `Status` |
-| `GET` | `/v1/state` | the current `{state, reason?, detail?}`; providers read it with `contract.AgentClient` | `Status` |
-| `GET` | `/v1/status` | SSE, `event: state` with `{state, reason?, detail?}`; first event is the current state | `WatchStatus` |
+| `GET` | `/v1/state` | the current `{state, reason?, detail?, appRunning}`; providers read it with `contract.AgentClient` | `Status` |
+| `GET` | `/v1/status` | SSE, `event: state` with `{state, reason?, detail?, appRunning}`; first event is the current state. `appRunning` is false once the app is closed; the device stays `ready` | `WatchStatus` |
 | `GET` | `/v1/devtools/targets` | `{items: [{socket, pid, process, id, type, title, url, frontendRev}]}` | `Targets` |
 | `GET` | `/v1/clipboard` | `{text}` | `Clipboard` |
 | `POST` | `/v1/clipboard` | `{text}` → 204 | `SetClipboard` |
 | `GET` | `/v1/clipboard/events` | SSE, `event: clip` with `{text}` on every device-side change | `WatchClipboard` |
 | `GET` | `/v1/network` | `{location, externalIp, country}` | `Network` |
 | `PUT` | `/v1/network/location` | `{location}` → `network` | `SetLocation` |
-| `POST` | `/v1/app/{restart\|reinstall}` | 202 | `App` |
+| `POST` | `/v1/app/{restart\|reinstall}` | 202; `restart` also starts a closed app, `reinstall` uninstalls first (clears data) and installs the current build | `App` |
+| `POST` | `/v1/install` | `Install` → 204 once the new build runs; 400 with the adb message when it can't be installed (the previous build is kept or put back). Called by providers; the api proxy refuses it from browsers | `Install` |
 | `GET` | `/v1/device` | `DeviceState`: `{airplaneMode, wifi, mobileData, batterySaver, batteryLevel, charging, darkMode, fontScale, density, defaultDensity, rotation, networkProfile?, timeZone, locale, autoTime, timeOffset}`; `rotation` is `Surface.ROTATION_*`, `timeOffset` is device clock minus real time in ms, `networkProfile` is absent when the device can't emulate network conditions | `Device` |
 | `PATCH` | `/v1/device` | `DeviceSettings` (any subset of the writable fields above; `density: 0` restores the default; `timeOffset` sets the clock to real time + offset and turns `autoTime` off; `autoTime: true` syncs the clock) → `DeviceState` | `UpdateDevice` |
 | `POST` | `/v1/device/actions/{volume-up\|volume-down\|mute\|lock\|unlock\|back\|home\|recents\|notifications\|rotate-left\|rotate-right}` | 204 | `DeviceAction` |

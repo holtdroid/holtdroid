@@ -29,13 +29,14 @@ principles a sync job should follow.
 
 ## Device provider
 
-| Method         | Path                      | Returns                                                                           |
-| -------------- | ------------------------- | --------------------------------------------------------------------------------- |
-| `GET`          | `/v1/capabilities`        | display kind, DevTools/clipboard support, VPN locations and the default one, ABIs |
-| `GET`          | `/v1/capacity`            | slots with `free`/`busy`/`offline`                                                |
-| `GET`/`POST`   | `/v1/sessions`            | list / create                                                                     |
-| `GET`/`DELETE` | `/v1/sessions/{id}`       | get / stop                                                                        |
-| `POST`         | `/v1/sessions/{id}/touch` | record activity                                                                   |
+| Method         | Path                        | Returns                                                                           |
+| -------------- | --------------------------- | --------------------------------------------------------------------------------- |
+| `GET`          | `/v1/capabilities`          | display kind, DevTools/clipboard support, VPN locations and the default one, ABIs |
+| `GET`          | `/v1/capacity`              | slots with `free`/`busy`/`offline`                                                |
+| `GET`/`POST`   | `/v1/sessions`              | list / create                                                                     |
+| `GET`/`DELETE` | `/v1/sessions/{id}`         | get / stop                                                                        |
+| `POST`         | `/v1/sessions/{id}/touch`   | record activity                                                                   |
+| `POST`         | `/v1/sessions/{id}/install` | install another build of the session's package through the agent and record it    |
 
 The provider is the **source of truth** for its sessions; the api keeps no
 state of its own.
@@ -47,6 +48,8 @@ The agent is what the browser talks to, through the api's proxy at
 status as server-sent events, the screen as a scrcpy stream on
 `/display/scrcpy`, DevTools targets
 and WebSocket proxying, clipboard and network endpoints, and device controls
-(`/v1/device`: settings, hardware buttons, screenshots). A provider for a new
+(`/v1/device`: settings, hardware buttons, screenshots), app actions
+(`/v1/app/restart`, `/v1/app/reinstall`) and `/v1/install` for the provider
+to swap the build. A provider for a new
 kind of device ships its own agent that implements the same API; the UI
 adapts to what `capabilities` advertises (`display: scrcpy` today).

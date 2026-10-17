@@ -59,6 +59,10 @@ func TestProviderRoundTrip(t *testing.T) {
 		t.Fatalf("after touch %+v, %v", got, err)
 	}
 
+	if _, err := c.Install(ctx, s.ID, contract.Install{ArtifactURL: "http://api/y", ArtifactRef: "src/y", KeepData: true}); !errors.Is(err, contract.ErrInvalid) {
+		t.Fatalf("install before ready: %v", err)
+	}
+
 	list, err := c.List(ctx)
 	if err != nil || len(list) != 1 {
 		t.Fatalf("list %+v, %v", list, err)

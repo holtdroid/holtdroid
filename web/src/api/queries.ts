@@ -199,3 +199,19 @@ export function useExtendSession() {
 export function canManage(me: { user: string; admin: boolean } | undefined, s: SessionView) {
   return !!me && (me.admin || me.user === s.owner)
 }
+
+export type InstallInput = { session: Pick<SessionView, "provider" | "id">; artifact: ArtifactView; keepData: boolean }
+
+export function useInstallBuild() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ session, artifact, keepData }: InstallInput) =>
+      unwrap(
+        api.POST("/api/v1/sessions/{provider}/{id}/install", {
+          params: { path: { provider: session.provider, id: session.id } },
+          body: { source: artifact.source, artifactId: artifact.id, keepData },
+        }),
+      ),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.sessions }),
+  })
+}

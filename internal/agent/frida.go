@@ -87,11 +87,51 @@ func (f *Frida) Spawn(_ context.Context, pkg string, onClip func(string)) (App, 
 	if err := f.prepare(); err != nil {
 		return nil, err
 	}
-	dev, bundle := f.dev, f.bundle
-	pid, err := dev.Spawn(pkg, nil)
+	pid, err := f.dev.Spawn(pkg, nil)
 	if err != nil {
 		return nil, fmt.Errorf("spawn: %w", err)
 	}
+	return f.instrument(pid, onClip)
+}
+
+// Watch gates every process the device starts, instruments the app's main
+// process and resumes all others straight away.
+func (f *Frida) Watch(ctx context.Context, pkg string, onClip func(string), launched func(App)) error {
+	if err := f.prepare(); err != nil {
+		return err
+	}
+	dev := f.dev
+	dev.On("spawn_added", func(spawn *frida.Spawn) {
+		pid, id := spawn.PID(), spawn.Identifier()
+		go func() {
+			if id != pkg {
+				if err := dev.Resume(pid); err != nil {
+					f.log.Warn("resume gated process", "process", id, "pid", pid, "err", err)
+				}
+				return
+			}
+			app, err := f.instrument(pid, onClip)
+			if err != nil {
+				f.log.Warn("instrument app started on the device", "pid", pid, "err", err)
+				_ = dev.Resume(pid)
+				return
+			}
+			launched(app)
+		}()
+	})
+	if err := dev.EnableSpawnGating(); err != nil {
+		return fmt.Errorf("enable spawn gating: %w", err)
+	}
+	go func() {
+		<-ctx.Done()
+		_ = dev.DisableSpawnGating()
+	}()
+	return nil
+}
+
+// instrument loads the script into a suspended process and resumes it.
+func (f *Frida) instrument(pid int, onClip func(string)) (App, error) {
+	dev, bundle := f.dev, f.bundle
 	app := &fridaApp{dev: dev, pid: pid, done: make(chan struct{})}
 	sess, err := dev.Attach(pid, nil)
 	if err != nil {
