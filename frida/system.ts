@@ -76,7 +76,7 @@ function render(w: Wallpaper) {
   for (let x = 0, i = 0; x < width; x += 8 * dp, i++) canvas.drawLine(x, 0, x, height, i % 6 ? minor : major)
   for (let y = 0, i = 0; y < height; y += 8 * dp, i++) canvas.drawLine(0, y, width, y, i % 6 ? minor : major)
 
-  const cy = height * 0.4
+  const cy = 72 * dp + 48 * dp
   drawLogo(canvas, width / 2, cy, 96 * dp)
 
   const title = paint(0xffe6edf3, 28)
