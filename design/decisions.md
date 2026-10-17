@@ -1445,3 +1445,25 @@ without Holtdroid. Its user documentation lives on this site
 (`docs/tools/webview.md`) so there is one place to read; the app links to it.
 The GeckoView build is about 100 MB per ABI, so it is a separate APK.
 
+## 63. Vector launcher icons are rendered through SVG
+
+**Context.** Apps with `minSdk` 26 often ship only an adaptive icon whose
+foreground is a VectorDrawable (Android Studio's template does), and the icon
+extractor only composed bitmap layers, so such APKs, Holtdroid WebView among
+them, showed a placeholder.
+
+**Decision.** `internal/apk` translates a VectorDrawable (paths, groups with
+transforms, fill and stroke colours, alpha, fill type, caps and joins) into
+SVG and rasterises it with `srwiley/oksvg` and `rasterx`, small pure-Go
+packages that handle SVG path data with arcs and strokes. They see few
+commits, but their scope is finished; `tdewolff/canvas`, the maintained
+alternative, pulls GUI toolkits and font stacks into the module. Gradients,
+clip paths and theme attributes are skipped. Cached entries record
+`apk.ParserVersion`; an entry from an older parser is a cache miss and is
+parsed again under the same key, so better extraction reaches APKs that are
+already cached.
+
+**Consequences.** Upgrading the parser re-downloads each cached APK once, on
+its next use. Bump `apk.ParserVersion` whenever extraction gets better.
+holtdroid-sync carries the same `internal/apk` copy and gets the same change.
+

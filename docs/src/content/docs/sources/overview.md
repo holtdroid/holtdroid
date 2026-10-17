@@ -109,10 +109,11 @@ ignored (and logged); the APK is still listed.
 
 ## The icon sidecar
 
-The api takes the launcher icon from the APK. It uses the densest bitmap or
-composes an adaptive icon from bitmap layers; vector-only icons can't be
-rendered. A publisher that knows better can put `app.apk.icon.png` next to
-the APK, before the APK itself.
+The api takes the launcher icon from the APK. It uses the densest bitmap,
+renders a vector drawable, or composes an adaptive icon from bitmap and
+vector layers. Gradients, clip paths and theme colours inside vectors are
+skipped, so such icons may come out incomplete. A publisher that knows better
+can put `app.apk.icon.png` next to the APK, before the APK itself.
 
 The sidecar may contain PNG, JPEG or WebP data, up to 4 MiB and 4096 px per
 side. Icons are untrusted input wherever they come from. The api checks the
@@ -122,7 +123,8 @@ sidecar that fails any of this is ignored and logged, and the extracted icon
 is used instead. An icon is optional: without one the UI shows a
 placeholder.
 
-The icon is read when the APK is first cached. Replace the APK, not just the
+The icon is read when the APK is first cached, and again after an upgrade
+that improves icon extraction. Replace the APK, not just the
 icon, to change it.
 
 ## Change tracking

@@ -48,8 +48,8 @@ its owner, visibility and changelog. If the job dies between the two writes,
 it is left with a stray sidecar that the next pass overwrites.
 
 **Add an icon if the APK's own can't be rendered.** For example, when the
-launcher icon is a vector drawable. Put it in `app.apk.icon.png`, written
-before the APK.
+launcher icon is a vector with gradients or an animated drawable. Put it in
+`app.apk.icon.png`, written before the APK.
 
 **Replace in place to publish a new build under the same name.** The api
 notices the new ETag or modification time, parses the file again and treats

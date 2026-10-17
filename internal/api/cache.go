@@ -33,6 +33,7 @@ type CacheEntry struct {
 	Meta     apk.Metadata `json:"meta"`
 	HasIcon  bool         `json:"hasIcon"`
 	Size     int64        `json:"size"`
+	Parser   int          `json:"parser"`
 }
 
 const (
@@ -90,7 +91,7 @@ func (c *Cache) LookupKey(ctx context.Context, key string) (CacheEntry, bool) {
 		return CacheEntry{}, false
 	}
 	defer rc.Close()
-	if err := json.NewDecoder(rc).Decode(&e); err != nil || e.Key != key {
+	if err := json.NewDecoder(rc).Decode(&e); err != nil || e.Key != key || e.Parser != apk.ParserVersion {
 		return CacheEntry{}, false
 	}
 	c.mu.Lock()
@@ -196,7 +197,7 @@ func (c *Cache) put(ctx context.Context, source string, a src.Artifact, file str
 		return CacheEntry{}, err
 	}
 	key := cacheKey(source, a.ID, a.Revision)
-	entry := CacheEntry{Key: key, Source: source, ID: a.ID, Revision: a.Revision, Meta: meta, HasIcon: icon != nil, Size: info.Size()}
+	entry := CacheEntry{Key: key, Source: source, ID: a.ID, Revision: a.Revision, Meta: meta, HasIcon: icon != nil, Size: info.Size(), Parser: apk.ParserVersion}
 
 	if err := c.store.Put(ctx, path.Join(key, apkObject), f, info.Size()); err != nil {
 		return CacheEntry{}, fmt.Errorf("store apk: %w", err)

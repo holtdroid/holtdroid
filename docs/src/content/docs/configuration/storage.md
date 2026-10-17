@@ -79,6 +79,6 @@ revision — a replaced file gets a fresh entry:
 
 ```
 <hash>/app.apk
-<hash>/icon.png     # when the launcher icon is a bitmap
+<hash>/icon.png     # when the launcher icon could be rendered
 <hash>/meta.json    # written last; marks the entry complete
 ```

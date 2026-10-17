@@ -90,7 +90,8 @@ Directories that do not exist yet are planned — create them exactly there.
   - `k8s.io/client-go`;
   - `golang-jwt/jwt/v5`, `coreos/go-oidc/v3`, `golang.org/x/oauth2` — sign-in;
   - `minio/minio-go/v7` — S3 (tests use `johannesboyne/gofakes3`);
-  - `shogo82148/androidbinary` — APK parsing;
+  - `shogo82148/androidbinary` — APK parsing; `srwiley/oksvg` + `rasterx`
+    — rendering vector-drawable launcher icons;
   - the `adb` CLI from platform-tools (decisions.md #24);
   - `frida/frida-go` (cgo, agent only, behind the `frida` build tag;
     Frida pinned to the version frida-go is tested against — decisions.md #23);

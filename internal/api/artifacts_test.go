@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"image"
 	"image/color"
 	"image/png"
@@ -10,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -332,5 +334,38 @@ func TestIconSidecar(t *testing.T) {
 				t.Fatalf("centre pixel %d,%d,%d, want red=%v", r>>8, g>>8, b>>8, tt.wantRed)
 			}
 		})
+	}
+}
+
+func TestCacheReparsesOldParserEntries(t *testing.T) {
+	ctx := context.Background()
+	h := newHarness(t, 1)
+	cache := h.srv.cache
+	a, err := h.srv.sources["local"].Get(ctx, "hello.apk")
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, err := cache.Ensure(ctx, "local", a)
+	if err != nil || entry.Parser != apk.ParserVersion {
+		t.Fatalf("entry %+v, %v", entry, err)
+	}
+
+	stale := entry
+	stale.Parser = apk.ParserVersion - 1
+	stale.HasIcon = false
+	raw, err := json.Marshal(stale)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := cache.store.Put(ctx, path.Join(entry.Key, metaObject), bytes.NewReader(raw), int64(len(raw))); err != nil {
+		t.Fatal(err)
+	}
+	restarted := NewCache(cache.store, cache.maxSize, cache.open, cache.openIcon)
+	if _, ok := restarted.LookupKey(ctx, entry.Key); ok {
+		t.Fatal("an entry from an older parser is still a hit")
+	}
+	again, err := restarted.Ensure(ctx, "local", a)
+	if err != nil || again.Key != entry.Key || !again.HasIcon || again.Parser != apk.ParserVersion {
+		t.Fatalf("reparsed %+v, %v", again, err)
 	}
 }
