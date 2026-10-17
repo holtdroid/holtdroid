@@ -19,6 +19,11 @@ deployment"):
   zone and clock; decision #31), screen over scrcpy with multi-touch
   (decision #34); clipboard through scrcpy, device audio, codec and quality
   settings and a virtual USB keyboard (decision #36).
+- SSH access (Phase 4.5, decisions #21, #38): `ssh -p 2222
+  {provider}-{id}@host` for ADB and published ports through the ssh-gateway,
+  keys from the SSH keys page, and a session-page popover with live tunnel
+  status, a port list kept in the browser and one ready command. Verified on
+  a real emulator: ADB through the tunnel, `-R 80`/`-R 3000` from the device.
 - A metrics bar at the bottom of the session page (decision #40): device,
   app (fps, jank, CPU/PSS per process), network, storage, temperatures,
   the emulator container's CPU/memory/throttling and the stream.
@@ -61,12 +66,6 @@ deployment"):
   ([kriakiku/holtdroid-slack-sync](https://github.com/kriakiku/holtdroid-slack-sync),
   decision #30) but waiting for the maintainer's Slack app token and channel
   IDs (see "Maintainer's deployment").
-- SSH on android.homelab.example from outside the cluster: the gateway runs there
-  (Phase 4.5, decision #38) with its host key from OpenBao and a Traefik `ssh`
-  entrypoint, and ADB plus `-R 80`/`-R 3000` were verified on a real emulator
-  through `kubectl port-forward`. The ingress VIP's firewall rule for 2222 is
-  committed in `homelab.nixos` (`modules/k3s/default.nix`) but not applied:
-  that takes a `colmena-apply.sh` run, which the maintainer approves.
 - Physical phones — Phase 7 (threat model and mitigations in
   architecture.md "Future: physical devices"); Docker-only provider — "Later".
 
@@ -75,9 +74,10 @@ deployment"):
 1. **Phase 3** — the Slack sync job that writes into an S3 source (work on
    it has started in parallel: `holtdroid-slack-sync` in the chart), the
    conformance suite, and whatever more use of real sessions turns up.
-2. **Phase 4.5 — SSH gateway**: apply the 2222 firewall rule on every node
-   that runs Traefik (`colmena-apply.sh` in `homelab.nixos`), then try
-   `ssh -p 2222 …@android.homelab.example` from the session page.
+2. **Phase 4.5 — SSH gateway**: live on android.homelab.example:2222 (LAN and
+   WAN). Left: the first real use from a session page with a key from the
+   SSH keys page, and deciding whether `clientIsolation` should be on now
+   that the port is public (adb is a root shell on emulators).
 3. Planned, each starting with a decisions.md entry: Phase 4.7 traffic
    inspection proxy, Phase 4.8 MCP server, Phase 4.9 audit and telemetry.
    All optional and off by default.
@@ -186,7 +186,7 @@ in-repo work; ask the maintainer for anything cluster-side.
 | Storage classes | `longhorn`, `local-path`, `nas-hdd` |
 | Ingress / DNS | Traefik; Ingress annotation `external-dns.alpha.kubernetes.io/target: "10.10.4.25"` creates the DNS record |
 | Registries | `ghcr.io/kriakiku/*` (public, from CI); the cluster also has `registry.homelab.example` (zot, needs the `zot-pull-secret` pattern from `homelab.k8s/infrastructure/downloads/secrets.yaml`) |
-| SSH gateway | `sshGateway.enabled` in the Application, host key `secret/holtdroid` → `ssh_host_key` (seeded by `openbao-bootstrap.sh`, `SSH_HOST_KEY` in the `ExternalSecret`), `IngressRouteTCP holtdroid-ssh` on Traefik's `ssh` entrypoint (`:2222`, `homelab.k8s/infrastructure/traefik/values.yaml`); the VIP firewall must allow 2222 (`homelab.nixos/modules/k3s/default.nix`) |
+| SSH gateway | `sshGateway.enabled` in the Application, host key `secret/holtdroid` → `ssh_host_key` (seeded by `openbao-bootstrap.sh`, `SSH_HOST_KEY` in the `ExternalSecret`), `IngressRouteTCP holtdroid-ssh` on Traefik's `ssh` entrypoint (`:2222`, `homelab.k8s/infrastructure/traefik/values.yaml`); 2222 allowed on the ingress VIP by the node firewall (`homelab.nixos/modules/k3s/default.nix`), and the UniFi WAN port forward `homelab-holtdroid-ssh` (2222/tcp → 10.10.4.25:2222, created through the Network API with `secret/unifi` `api_key`, not declared in any repo) |
 
 Verifying a deploy (needs the maintainer's kubeconfig):
 

@@ -94,7 +94,7 @@ the real agent exists.
 - [x] Tests: gateway refuses exec/shell/sftp/agent forwarding, refuses any `-L` target except adb, isolation on/off, key expiry and fan-out, end-to-end `-L`/`-R` against the fake agent with `x/crypto/ssh` as the client
 - [x] Verify on the real emulator (2026-10-17, through `kubectl port-forward` to the gateway): `adb connect` through the tunnel gives `device` straight away (`ro.adb.secure=0`, root shell), `-R 3000` and `-R 80` answer on the device's `127.0.0.1`, `GET /v1/tunnels` shows both and the ADB client
 - [x] Docs page "SSH access"
-- [ ] homelab: gateway, host key (`secret/holtdroid` `ssh_host_key`), Traefik `ssh` entrypoint and `IngressRouteTCP` are live; the node firewall rule for 2222 on the ingress VIP is committed in `homelab.nixos` but waits for a `colmena-apply.sh` run
+- [x] homelab (2026-10-17): gateway with its host key (`secret/holtdroid` `ssh_host_key`), Traefik `ssh` entrypoint and `IngressRouteTCP`, the 2222 rule on the ingress VIP's node firewall, and the UniFi WAN port forward `homelab-holtdroid-ssh` (2222 → 10.10.4.25:2222); `ssh -p 2222 …@android.homelab.example` reaches the gateway from the WAN address
 
 ## Phase 4.6 — Database
 
