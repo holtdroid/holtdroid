@@ -8,11 +8,14 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"path"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kriakiku/holtdroid/internal/audit"
+	"github.com/kriakiku/holtdroid/internal/auth"
 	"github.com/kriakiku/holtdroid/internal/contract"
 )
 
@@ -50,6 +53,21 @@ func (s *Server) proxy(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "app data is saved through /api/v1/sessions/{provider}/{id}/app-data", http.StatusForbidden)
 		return
 	}
+	who, _ := auth.FromContext(r.Context())
+	adb := rel == contract.AgentADBPath
+	if adb {
+		if err := s.allowBrowserADB(r, p, id, who); err != nil {
+			s.emitResult(r.Context(), audit.Event{Action: audit.ADBConnect, Provider: providerName, Session: id}, err)
+			status := http.StatusBadGateway
+			if errors.Is(err, contract.ErrNotFound) {
+				status = http.StatusNotFound
+			} else if he, ok := errors.AsType[huma.StatusError](err); ok {
+				status = he.GetStatus()
+			}
+			http.Error(w, err.Error(), status)
+			return
+		}
+	}
 
 	if r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions {
 		s.activity.Mark(key)
@@ -61,17 +79,25 @@ func (s *Server) proxy(w http.ResponseWriter, r *http.Request) {
 		ev.Provider, ev.Session = providerName, id
 	}
 
+	var opened time.Time
 	rp := &httputil.ReverseProxy{
 		Rewrite: func(pr *httputil.ProxyRequest) {
 			pr.SetURL(target)
 			pr.Out.URL.Path = singleJoin(target.Path, strings.TrimPrefix(pr.In.URL.Path, prefix))
 			pr.Out.URL.RawPath = ""
 			pr.Out.Header.Set("X-Forwarded-Prefix", prefix)
+			pr.Out.Header.Del(contract.TunnelUserHeader)
+			if adb {
+				pr.Out.Header.Set(contract.TunnelUserHeader, who.User)
+			}
 			pr.SetXForwarded()
 		},
 		FlushInterval: -1,
 		Transport:     s.agentTransport,
 		ModifyResponse: func(resp *http.Response) error {
+			if adb && resp.StatusCode == http.StatusSwitchingProtocols {
+				opened = s.now()
+			}
 			if ev != nil {
 				s.emitResult(r.Context(), *ev, statusError(resp))
 			}
@@ -87,6 +113,11 @@ func (s *Server) proxy(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 	rp.ServeHTTP(w, r)
+	if !opened.IsZero() {
+		s.emit(r.Context(), audit.Event{Action: audit.ADBDisconnect, Provider: providerName, Session: id, Details: map[string]string{
+			"seconds": strconv.Itoa(int(s.now().Sub(opened).Seconds())),
+		}})
+	}
 }
 
 // proxyAudit returns the audit event for agent calls worth recording, or nil.
@@ -101,6 +132,8 @@ func (s *Server) proxyAudit(r *http.Request, rel string) *audit.Event {
 		return &audit.Event{Action: audit.SessionLocation, Details: map[string]string{"location": in.Location}}
 	case r.Method == http.MethodPost && rel == "/v1/clipboard":
 		return &audit.Event{Action: audit.SessionClipboard}
+	case rel == contract.AgentADBPath:
+		return &audit.Event{Action: audit.ADBConnect}
 	}
 	return nil
 }

@@ -36,7 +36,10 @@ is allowed even when the app's network security config forbids cleartext
 traffic; every other host still follows the app's policy. On emulators `adb connect` needs no
 authorization prompt and `adb shell` is root (the session image runs adbd
 insecure and the agent restarts it as root); a physical phone would ask on its
-screen, which you can accept in the portal. Without `-N`,
+screen, which you can accept in the portal. `adb reboot`, `adb unroot`,
+`adb remount`, `adb tcpip` and `adb usb` are refused: they would cut the
+session off from its device. For logcat, files and a shell without any of
+this, use the [ADB tools](/holtdroid/concepts/adb/) on the session page. Without `-N`,
 `ssh` prints a short help and holds the tunnels open until you press Ctrl+C.
 
 ## All your devices at once

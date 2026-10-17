@@ -66,6 +66,13 @@ type AppDataConfig struct {
 	Timeout      time.Duration
 }
 
+// ADBConfig controls the browser's ADB connection to sessions (the portal's
+// logcat, files, terminal and app tools).
+type ADBConfig struct {
+	Browser   bool
+	OwnerOnly bool
+}
+
 type Config struct {
 	Listen         string
 	InternalListen string
@@ -77,6 +84,7 @@ type Config struct {
 	Database       db.Config
 	Cache          CacheConfig
 	SSH            SSHConfig
+	ADB            ADBConfig
 	Uploads        UploadsConfig
 	AppData        AppDataConfig
 	Sources        []source.Config
@@ -99,6 +107,7 @@ func DefaultConfig() Config {
 		Database: db.DefaultConfig(),
 		Cache:    CacheConfig{MaxSize: 20 << 30, Warm: 10},
 		SSH:      SSHConfig{PublicPort: 2222, AllowADB: true, AllowReverse: true, MaxTunnelsPerConnection: 32, KeyRequests: true},
+		ADB:      ADBConfig{Browser: true},
 		Uploads:  UploadsConfig{Enabled: true, Prefix: "uploads", MaxSize: 1 << 30, TemporaryTTL: 7 * 24 * time.Hour},
 		AppData: AppDataConfig{
 			Keep: 6, MaxAge: 7 * 24 * time.Hour, MaxCacheSize: 256 << 20, MaxSize: 1 << 30, Export: true, Timeout: 5 * time.Minute,

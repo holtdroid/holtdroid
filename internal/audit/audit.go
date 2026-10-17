@@ -43,6 +43,8 @@ const (
 	SSHConnect       Action = "ssh.connect"
 	SSHDisconnect    Action = "ssh.disconnect"
 	SSHTunnel        Action = "ssh.tunnel"
+	ADBConnect       Action = "adb.connect"
+	ADBDisconnect    Action = "adb.disconnect"
 	AuditExport      Action = "audit.export"
 	AppDataSave      Action = "appdata.save"
 	AppDataDownload  Action = "appdata.download"
@@ -52,7 +54,7 @@ const (
 var Actions = []Action{
 	SignIn, SignOut, SessionLaunch, SessionStop, SessionReap, SessionExtend, SessionInstall, SessionLocation,
 	SessionClipboard, ArtifactUpload, ArtifactUpdate, ArtifactDelete, SSHKeys, SSHConnect, SSHDisconnect, SSHTunnel,
-	AuditExport,
+	ADBConnect, ADBDisconnect, AuditExport,
 }
 
 type Result string

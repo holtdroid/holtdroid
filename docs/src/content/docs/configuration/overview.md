@@ -79,6 +79,9 @@ uploads:
   temporaryTTL: 168h
 appData:
   enabled: false
+adb:
+  browser: true
+  ownerOnly: false
 providers:
   - name: emulator
     url: http://holtdroid-provider-emulator:8080
@@ -102,4 +105,6 @@ providers:
 | `sources[]`             | `local`     | Folders or S3 buckets with APKs, see [Artifact sources](/holtdroid/sources/overview/) |
 | `uploads.*`             | enabled     | Uploads from the UI, see [Artifact sources](/holtdroid/sources/overview/#uploads)     |
 | `appData.*`             | off         | Save app data between sessions, see [App data](/holtdroid/concepts/app-data/)         |
+| `adb.browser`           | `true`      | ADB tools on the session page, see [ADB tools](/holtdroid/concepts/adb/)              |
+| `adb.ownerOnly`         | `false`     | Only a session's owner and admins may use its ADB tools                               |
 | `providers[]`           | `[]`        | Device providers: unique `name` and base `url`                                        |

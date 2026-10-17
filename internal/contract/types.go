@@ -240,15 +240,16 @@ type DeviceSettings struct {
 	TimeOffset     *int64          `json:"timeOffset,omitempty" minimum:"-3155760000000" maximum:"3155760000000" doc:"sets the device clock to real time plus this many milliseconds and turns autoTime off"`
 }
 
-// Tunnels is what the ssh-gateway has open into a session right now.
+// Tunnels is what the ssh-gateway and browsers have open into a session right now.
 type Tunnels struct {
 	ADB     []ADBTunnel     `json:"adb"`
 	Reverse []ReverseTunnel `json:"reverse"`
 }
 
 type ADBTunnel struct {
-	User  string    `json:"user"`
-	Since time.Time `json:"since"`
+	User   string    `json:"user"`
+	Client string    `json:"client" enum:"ssh,browser" doc:"ssh: through the ssh-gateway, browser: the portal's own ADB connection"`
+	Since  time.Time `json:"since"`
 }
 
 type ReverseTunnel struct {

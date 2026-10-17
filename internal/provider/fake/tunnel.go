@@ -3,7 +3,6 @@ package fake
 import (
 	"context"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"sync"
@@ -41,19 +40,17 @@ func (d *device) WatchTunnels(ctx context.Context, send func(contract.Tunnels) e
 	return d.tunnels.Watch(ctx, send)
 }
 
-// fakePorts stands in for the device: adbd echoes, published ports are
-// loopback listeners on this host.
+// fakePorts stands in for the device: adbd is the fake device's, published
+// ports are loopback listeners on this host.
 type fakePorts struct {
+	adbd  func(net.Conn)
 	mu    sync.Mutex
 	ports map[int]net.Listener
 }
 
 func (f *fakePorts) DialADB(context.Context) (net.Conn, error) {
 	client, server := net.Pipe()
-	go func() {
-		_, _ = io.Copy(server, server)
-		server.Close()
-	}()
+	go f.adbd(server)
 	return client, nil
 }
 

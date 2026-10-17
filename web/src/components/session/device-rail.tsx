@@ -5,6 +5,7 @@ import {
   CameraIcon,
   ChevronLeftIcon,
   CircleIcon,
+  CircleStopIcon,
   HeadphoneOffIcon,
   HeadphonesIcon,
   LockIcon,
@@ -15,19 +16,24 @@ import {
   ToggleRightIcon,
   Volume1Icon,
   Volume2Icon,
+  VideoIcon,
   VolumeXIcon,
 } from "lucide-react"
 import { type ReactNode, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import { type DeviceAction, sessionBase } from "@/api/client"
 import { DeviceSettingsSheet } from "@/components/session/device-settings"
-import { displayURL, type LiveScreen } from "@/components/session/live-screen"
+import { displayURL, type LiveScreen, useScreenLive } from "@/components/session/live-screen"
 import { ScreenSettings } from "@/components/session/screen-settings"
 import { useDeviceAction } from "@/components/session/use-device"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { useNow } from "@/hooks/use-now"
+import { download, stamp } from "@/lib/adb"
 import { type AudioConnection, audioSupported, openAudio } from "@/lib/audio"
+import { formatDuration } from "@/lib/format"
+import { type Recording, recordingSupported, startRecording } from "@/lib/recorder"
 import type { ScreenControl } from "@/lib/scrcpy"
 
 const groups: { action: DeviceAction; label: string; icon: ReactNode }[][] = [
@@ -64,15 +70,6 @@ const viaScreen: Partial<Record<DeviceAction, (c: ScreenControl) => void>> = {
   "quick-settings": (c) => c.quickSettings(),
 }
 
-function download(blob: Blob, name: string) {
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement("a")
-  a.href = url
-  a.download = name
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
 export function DeviceRail({
   provider,
   id,
@@ -103,7 +100,7 @@ export function DeviceRail({
         if (!resp.ok) throw new Error(resp.statusText || `HTTP ${resp.status}`)
         blob = await resp.blob()
       }
-      download(blob, `${name}-${new Date().toISOString().replace(/[:.]/g, "-")}.png`)
+      download(blob, `${name}-${stamp()}.png`)
     } catch (e) {
       toast.error("Could not take a screenshot", { description: e instanceof Error ? e.message : String(e) })
     } finally {
@@ -127,10 +124,49 @@ export function DeviceRail({
       <RailButton label="Screenshot" disabled={shooting} onClick={() => void screenshot()}>
         <CameraIcon />
       </RailButton>
+      <RecordButton name={name} live={live} />
       <AudioButton provider={provider} id={id} />
       <ScreenSettings live={live} />
       <DeviceSettingsSheet provider={provider} id={id} />
     </div>
+  )
+}
+
+function RecordButton({ name, live }: { name: string; live: LiveScreen }) {
+  const screenLive = useScreenLive(live)
+  const [recording, setRecording] = useState<{ rec: Recording; started: number } | null>(null)
+  const now = useNow()
+
+  const toggle = async () => {
+    if (recording) {
+      setRecording(null)
+      download(await recording.rec.stop(), `${name}-${stamp()}.${recording.rec.extension}`)
+      return
+    }
+    const canvas = live.connection?.canvas
+    if (!canvas) return
+    try {
+      setRecording({ rec: startRecording(canvas), started: Date.now() })
+    } catch (e) {
+      toast.error("Could not record the screen", { description: e instanceof Error ? e.message : String(e) })
+    }
+  }
+
+  return (
+    <RailButton
+      label={
+        !recordingSupported()
+          ? "This browser can't record the screen"
+          : recording
+            ? `Stop recording (${formatDuration(now - recording.started)})`
+            : "Record the screen"
+      }
+      disabled={!recordingSupported() || (!recording && !screenLive)}
+      onClick={() => void toggle()}
+      className={recording ? "text-red-600 dark:text-red-400" : undefined}
+    >
+      {recording ? <CircleStopIcon className="animate-pulse" /> : <VideoIcon />}
+    </RailButton>
   )
 }
 

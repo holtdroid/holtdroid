@@ -618,6 +618,27 @@ only the gateway reach the agents' tunnel port. The emulator provider
 publishes that port as `tunnelPort` (default 8081) and reports it as the
 session's `tunnelUrl`.
 
+## ADB in the browser
+
+The session page also speaks adb itself (decision #51): Tango's
+`@yume-chan/adb` runs the protocol in the browser over one WebSocket,
+`/s/{provider}/{id}/adb`, which the api proxies to the agent's `WS /adb`
+with the signed-in user in `X-Holtdroid-User`. The agent relays packets to
+adbd like it does for the SSH gateway's `/tunnel/adb`, refusing the services
+that would restart adbd or the device.
+
+```
+browser (Tango) ──WS /s/…/adb──▶ api proxy ──WS /adb──▶ agent ──TCP──▶ adbd
+                 adb.browser / adb.ownerOnly      packet filter
+```
+
+On that connection the page runs its tools: Logcat (binary `logcat -B`,
+filtered to the app's uid, a toast on crashes), Files (sync protocol),
+Terminal (shell v2 pty), App (deep links, permissions, force stop, clear
+data, doze, standby bucket) and Device (props, WebView provider, demo mode,
+bug reports). The connection opens when the device is first ready and lives
+as long as the page, so logcat survives app restarts.
+
 ## Security model
 
 - Sign-in is `auth.mode`: `anonymous` (random names), `password`, `oidc`,

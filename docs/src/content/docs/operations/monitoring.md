@@ -149,6 +149,8 @@ while their regular logs go to stderr. Every audit line has
 | `appdata.save`      | `owner`, `package`, `trigger`, `id`, `cache`, `size` | `trigger`: `stop`, `reap` or `manual`; nothing is recorded when the app had no data                                       |
 | `appdata.download`  | `package`, `id`                                      |                                                                                                                           |
 | `appdata.delete`    | `package`, `id`                                      | Deleted by the user; retention deletions are only logged                                                                  |
+| `adb.connect`       |                                                      | The session page's ADB connection; denied per `adb.browser` / `adb.ownerOnly`                                             |
+| `adb.disconnect`    | `seconds`                                            |                                                                                                                           |
 | `audit.export`      | `events`, `q`                                        | An admin downloaded events from the audit page                                                                            |
 
 Session actions are also kept in the api's database for the session's

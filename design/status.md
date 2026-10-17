@@ -28,6 +28,14 @@ deployment"):
   waits for it to be confirmed (decision #46, `keyRequests`, on by default);
   `skipHostKeyCheck` (off by default, on in the maintainer's deployment)
   puts host-key-check-off options into the UI's commands.
+- ADB in the browser (decision #51): one Tango connection per session page
+  through the session proxy (`WS /adb`, `adb.browser`, `adb.ownerOnly`),
+  with tabs next to DevTools for Logcat (app-only by uid, crash toast),
+  Files, Terminal, App (deep links, permissions, force stop, clear data,
+  doze, standby bucket) and Device (props, WebView provider, demo mode,
+  bug report zip and bugreportz), plus screen recording in the rail. The
+  agent's adb relays refuse `reboot:`/`unroot:`/`remount:`/`tcpip:`/`usb:`.
+  The fake provider has a small adbd. Not yet tried on a real emulator.
 - A metrics bar at the bottom of the session page (decision #40): device,
   app (fps, jank, CPU/PSS per process), network, storage, temperatures,
   the emulator container's CPU/memory/throttling and the stream.

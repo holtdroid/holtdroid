@@ -99,6 +99,17 @@ the real agent exists.
 - [x] Unknown keys from the terminal (decision #46): the gateway has the client prove the key, prints a portal link with a one-time code and waits; the `/ssh` page confirms and adds the key (`sshGateway.keyRequests`, on by default). `sshGateway.skipHostKeyCheck` (off by default) puts `-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null` into the UI's commands
 - [x] homelab (2026-10-17): gateway with its host key (`secret/holtdroid` `ssh_host_key`), Traefik `ssh` entrypoint and `IngressRouteTCP`, the rule for the entrypoint's port on the ingress VIP's node firewall, and the UniFi WAN port forward `homelab-holtdroid-ssh`; the gateway is reachable from the WAN address on a non-default port (`sshGateway.publicPort`; the Service stays on 2222) so scanners of the usual SSH ports don't find it
 
+## Phase 4.55 — ADB in the browser
+
+Design: decision #51, architecture.md "ADB in the browser".
+
+- [x] Agent `WS /adb` on the main port (fake agent too); api proxy rule with `adb.browser` / `adb.ownerOnly`, `X-Holtdroid-User` from the identity, `GET /api/v1/adb`, audit `adb.connect` / `adb.disconnect`
+- [x] adb packet relay in the agent for `/adb` and `/tunnel/adb` that refuses `reboot:`, `unroot:`, `remount:`, `tcpip:`, `usb:`, `sideload:`, `*-verity:`; `/v1/tunnels` tells browser and SSH clients apart
+- [x] Fake adbd in the fake provider: shell v1/v2 with a pty, exec, sync v1, binary logcat with a generator and `am crash`, `pm`/`am`/`dumpsys`/`settings`/`cmd`/`bugreportz`, a small file system
+- [x] UI: one Tango connection per session page; tabs next to DevTools: Logcat, Files, Terminal, App, Device; crash toast; screen recording from the rail
+- [x] Tests: `internal/adbproto`, the relay's filter, the fake adbd, the proxy end to end with audit; `bun test` for the dumpsys parsers
+- [ ] Verify on the real emulator: several adbd connections at once (agent, SSH, tabs), logcat under load, pushes over 1 MiB, bugreportz streaming, the WebView provider switch
+
 ## Phase 4.6 — Database
 
 Design: decisions.md #22. No backward compatibility before the first release.
@@ -196,7 +207,7 @@ feature, not a follow-up. Record the final choices in decisions.md.
 
 - [ ] `provider-physical`: inventory of USB phones on one host (serial, model, labels), one long-lived agent per phone, slots = phones, session state on the provider's side, `quarantined` state for phones that failed verification
 - [ ] Phone agent: scrcpy bridge, Frida, DevTools, clipboard and tunnels as in the emulator agent, against `adb -s <serial>`; VPN through the WireGuard Android app via intents
-- [ ] Filtering ADB proxy on `/tunnel/adb`: device side of the adb protocol in the agent, every `OPEN` service checked and replayed through `host:transport:<serial>`; always refuse `reboot:bootloader|recovery|sideload`, `root:`, `unroot:`, `remount:`, `tcpip:`, `usb:`, `*-verity:`, forwards to frida-server; `adb.shell: full | allowlist | off` (phones default to `allowlist`); table-driven tests per service string, end-to-end with a real `adb` client against a fake device
+- [ ] Filtering ADB proxy on `/tunnel/adb` and `/adb` (packet relay and a fixed refusal list exist, decision #51): device side of the adb protocol in the agent, every `OPEN` service checked and replayed through `host:transport:<serial>`; always refuse `reboot:bootloader|recovery|sideload`, `root:`, `unroot:`, `remount:`, `tcpip:`, `usb:`, `*-verity:`, forwards to frida-server; `adb.shell: full | allowlist | off` (phones default to `allowlist`); table-driven tests per service string, end-to-end with a real `adb` client against a fake device
 - [ ] Device-owner app (DPC): provisioning script, user restrictions (accounts, factory reset, safe boot, users/profiles, OEM unlock), allowed accessibility services and IMEs, enterprise FRP with the operator's account, reset-password token and `resetPasswordWithToken`; never `testOnly`, never `DISALLOW_DEBUGGING_FEATURES`
 - [ ] Root kept from users: Magisk denies su to the shell uid, frida-server started by a Magisk boot script with token auth and reachable only through the agent; root watchdog re-asserts `adb_enabled`, USB functions and Developer options
 - [ ] Cleanup between sessions: uninstall non-allowlisted packages, restore disabled/removed system apps, clear PIN, wipe `/sdcard`, restore `settings` from a recorded snapshot, Wi-Fi/time/locale

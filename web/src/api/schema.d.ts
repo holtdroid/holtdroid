@@ -4,6 +4,22 @@
  */
 
 export interface paths {
+    "/api/v1/adb": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getADB"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/audit": {
         parameters: {
             query?: never;
@@ -439,6 +455,12 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        ADBInfo: {
+            /** @description the portal may open ADB connections to sessions from the browser */
+            browser: boolean;
+            /** @description only a session's owner and admins may */
+            ownerOnly: boolean;
+        };
         AppDataChoice: {
             /** @description also restore its cache, if it has one */
             cache: boolean;
@@ -862,6 +884,35 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getADB: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ADBInfo"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     getAuditInfo: {
         parameters: {
             query?: never;

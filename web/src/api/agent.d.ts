@@ -269,6 +269,11 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         ADBTunnel: {
+            /**
+             * @description ssh: through the ssh-gateway, browser: the portal's own ADB connection
+             * @enum {string}
+             */
+            client: "ssh" | "browser";
             /** Format: date-time */
             since: string;
             user: string;

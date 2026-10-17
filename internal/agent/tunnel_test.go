@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kriakiku/holtdroid/internal/adbproto"
 	"github.com/kriakiku/holtdroid/internal/contract"
 )
 
@@ -85,8 +86,10 @@ func TestTunnels(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	roundTrip(t, adb, "CNXN")
-	if s := tunnels.Snapshot(); len(s.ADB) != 1 || s.ADB[0].User != "otter" {
+	if _, err := adbproto.Connect(adb); err != nil {
+		t.Fatal(err)
+	}
+	if s := tunnels.Snapshot(); len(s.ADB) != 1 || s.ADB[0].User != "otter" || s.ADB[0].Client != contract.ADBClientSSH {
 		t.Fatalf("snapshot with adb %+v", s)
 	}
 	adb.Close()

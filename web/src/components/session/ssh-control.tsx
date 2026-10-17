@@ -45,7 +45,7 @@ export function SSHControl({ provider, id }: { provider: string; id: string }) {
   const info = useSSHInfo()
   const [tunnels, setTunnels] = useState<Tunnels>(noTunnels)
   useEventSource<{ tunnels: Tunnels }>(info.data?.enabled ? `${sessionBase(provider, id)}/v1/tunnels` : null, {
-    tunnels: setTunnels,
+    tunnels: (t) => setTunnels({ ...t, adb: t.adb.filter((a) => a.client === "ssh") }),
   })
 
   if (!info.data?.enabled || (!info.data.allowADB && !info.data.allowReverse)) return null

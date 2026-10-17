@@ -31,6 +31,7 @@ export class UnsupportedCodecError extends Error {}
 export type StreamStats = { frames: number; skipped: number; bytes: number }
 
 export type ScreenConnection = {
+  canvas: HTMLCanvasElement
   control: ScreenControl
   done: Promise<void>
   snapshot: () => Promise<Blob | undefined>
@@ -134,6 +135,7 @@ export async function openScreen(
     .catch(() => undefined)
     .finally(() => decoder.dispose())
   return {
+    canvas,
     control,
     done,
     snapshot: () => decoder.snapshot(),

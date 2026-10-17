@@ -43,6 +43,11 @@ config:
     enabled: false
   database:
     type: memory
+  # ADB tools on the session page (logcat, files, terminal). On emulators
+  # that is a root shell for everyone who may open the session.
+  adb:
+    browser: true
+    ownerOnly: false
 
 api:
   replicas: 1

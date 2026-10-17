@@ -135,6 +135,7 @@ func (a *Agent) Handler() http.Handler {
 	mux := http.NewServeMux()
 	contract.RegisterAgent(contract.NewAPI(mux, "Holtdroid device agent"), a)
 	a.screen.Register(mux)
+	mux.HandleFunc("GET "+contract.AgentADBPath, a.tunnels.ServeADB(contract.ADBClientBrowser))
 	mux.HandleFunc("GET /devtools/{socket}/page/{id}", a.devtools.ServeCDP)
 	mux.Handle("GET /devtools-frontend/{rev}/{file...}", a.frontend)
 	return mux

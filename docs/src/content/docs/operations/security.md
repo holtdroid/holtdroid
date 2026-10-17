@@ -31,6 +31,10 @@ sidebar:
   gives that person their access, so turn it off if that worries you.
   Leave `skipHostKeyCheck` off unless you accept man-in-the-middle risk on
   the way to the gateway.
+- **ADB tools in the browser** (on by default) give everyone who may open a
+  session a root shell on its emulator. Set `adb.ownerOnly` to limit them to
+  the session's owner and admins, or `adb.browser: false` to turn them off;
+  see [ADB tools](/holtdroid/concepts/adb/).
 - **Who can get in.** The default `anonymous` mode lets anyone who reaches the
   URL launch devices. Put it on a private network, or use `password`, `oidc`
   or `header` — see [Authentication](/holtdroid/configuration/authentication/).

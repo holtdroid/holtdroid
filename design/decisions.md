@@ -1136,3 +1136,54 @@ for later. A port already published on a device by another connection is
 skipped there and retried every 30 s. The handle changes if
 `auth.sessionKey` changes.
 
+## 51. ADB in the browser through the session proxy
+
+**Context.** ADB reaches users only through the SSH gateway (decision #21),
+which needs a key, an `ssh` client and a local `adb`. Tango
+(`@yume-chan/adb`, already the source of the screen code, decision #34)
+speaks the adb protocol in the browser, and `@yume-chan/android-bin` adds
+logcat, demo mode, bugreports and settings on top. With a byte stream to
+adbd the portal gets logcat, a file manager, a terminal and app tools with
+almost no Go code, one feature at a time.
+
+**Decision.**
+
+- The agent serves `WS /adb` on its main port: the same relay as
+  `/tunnel/adb`, but reached through the api's session proxy, which sets
+  `X-Holtdroid-User` from the signed-in identity (and strips a client's own).
+  `/v1/tunnels` lists both kinds with `client: ssh | browser`.
+- The whole adb protocol runs in the browser. The page opens one connection
+  once the device is first ready and keeps it, and the logcat collected in
+  it, while the app restarts or another build is installed. Tools are tabs
+  next to DevTools: Logcat (follows main, system and crash, filtered to the
+  app by its uid, crash toast), Files (sync protocol), Terminal (shell v2
+  pty in xterm.js), App (deep links, runtime permissions, force stop, clear
+  data, doze, standby bucket) and Device (props, WebView provider switch,
+  demo mode, a client-side bug report zip and Android's own bugreport).
+  Screen recording records the decoded canvas with `MediaRecorder`; it needs
+  no adb.
+- Both relays parse adb packets and answer OPENs of services that restart
+  adbd or the device or move adb elsewhere (`reboot:`, `unroot:`,
+  `remount:`, `tcpip:`, `usb:`, `sideload:`, `*-verity:`) with CLSE: any of
+  them would cut the agent off its own device. This is the first piece of
+  the filtering proxy Phase 7 needs for phones.
+- Config `adb.browser` (default on) and `adb.ownerOnly` (default off, like
+  `clientIsolation`); `GET /api/v1/adb` tells the UI. The api audits
+  `adb.connect` (with denials) and `adb.disconnect` with the duration.
+- The fake provider implements a small adbd (shell v1/v2 with a pty, exec,
+  sync v1, binary logcat, `pm`/`am`/`dumpsys`/`settings`/`bugreportz`), so
+  `holtdroid dev` exercises all of it.
+
+Rejected: an agent endpoint per feature (logcat SSE, a files API). It is
+easier to filter, but every tool would need its own contract, Go code and
+fake, and the browser would still lack a terminal.
+
+**Consequences.** Whoever may open a session in the portal gets a root
+shell on an emulator from the browser, as they already could over SSH;
+`adb.ownerOnly` narrows that, `adb.browser: false` turns it off. A
+"terminal off" switch is not offered: `exec:` and `shell:` run arbitrary
+commands either way, so it would only hide a tab until the Phase 7 filter
+checks every service. Each open session page holds one adbd connection, so
+adbd on emulators serves the agent, SSH users and every tab at once. The
+RSA key Tango needs lives in the browser's IndexedDB; emulators don't ask
+for it (`ro.adb.secure=0`).

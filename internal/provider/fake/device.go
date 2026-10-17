@@ -34,14 +34,18 @@ type device struct {
 	appData   *contract.AppDataRestore
 	files     map[string][]byte
 	restored  int
+	fs        *fakeFS
+	log       fakeLog
+	adb       adbState
 }
 
 func newDevice(s contract.Session, step time.Duration, offers func(string) bool, appData *contract.AppDataRestore) *device {
 	d := &device{s: s, settings: defaultSettings(), subs: map[chan struct{}]struct{}{}, done: make(chan struct{}), offers: offers, appData: appData}
-	d.handler = d.buildHandler()
-	d.ports = &fakePorts{}
+	d.ports = &fakePorts{adbd: d.serveADB}
 	d.tunnels = agent.NewTunnels(d.ports, slog.Default().With("component", "fake-agent", "session", s.ID))
+	d.handler = d.buildHandler()
 	go d.run(step)
+	go d.generateLogs()
 	return d
 }
 

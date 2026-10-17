@@ -24,6 +24,15 @@ func TunnelReversePath(port int) string { return "/tunnel/reverse/" + strconv.It
 
 const TunnelADBPath = "/tunnel/adb"
 
+// AgentADBPath is the browser's ADB connection on the agent's main port,
+// reached through the api proxy, which sets TunnelUserHeader.
+const AgentADBPath = "/adb"
+
+const (
+	ADBClientSSH     = "ssh"
+	ADBClientBrowser = "browser"
+)
+
 func YamuxConfig() *yamux.Config {
 	cfg := yamux.DefaultConfig()
 	cfg.LogOutput = io.Discard

@@ -1,10 +1,11 @@
 import { Link, useNavigate } from "@tanstack/react-router"
 import { ArrowLeftIcon, ClockIcon, Loader2Icon, SquareIcon, TimerResetIcon } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import { sessionBase, type StatusEvent } from "@/api/client"
 import { canManage, useAppData, useExtendSession, useMe, useProviders, useSession, useStopSession } from "@/api/queries"
 import { AppIcon } from "@/components/app-icon"
+import { useADBInfo, useAdbSession } from "@/components/session/adb-session"
 import { DeviceRail } from "@/components/session/device-rail"
 import { DeviceScreen } from "@/components/session/device-screen"
 import { useLiveScreen } from "@/components/session/live-screen"
@@ -12,6 +13,7 @@ import { DevToolsPanel } from "@/components/session/devtools-panel"
 import { MetricsBar } from "@/components/session/metrics-bar"
 import { SessionToolbar } from "@/components/session/session-toolbar"
 import { StartProgress } from "@/components/session/start-progress"
+import { ToolTabs } from "@/components/session/tool-tabs"
 import { VersionSwitcher } from "@/components/session/version-switcher"
 import { SessionStateBadge } from "@/components/session-state-badge"
 import { Button } from "@/components/ui/button"
@@ -33,12 +35,32 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
   const now = useNow()
   const registerFrame = useActivityHeartbeat(provider, id)
   const [status, setStatus] = useState<StatusEvent | null>(null)
+  const [wasReady, setWasReady] = useState(false)
+  const [tab, setTab] = useState("devtools")
   const live = useLiveScreen()
+  const adbInfo = useADBInfo()
 
   const agentUp = session !== undefined && session.state !== "provisioning"
   useEventSource<{ state: StatusEvent }>(agentUp ? `${sessionBase(provider, id)}/v1/status` : null, {
     state: setStatus,
   })
+
+  const state = session?.state === "failed" ? "failed" : (status?.state ?? session?.state)
+  if (state === "ready" && !wasReady) setWasReady(true)
+  const manage = session ? canManage(me.data, session) : false
+  const adbAllowed = adbInfo.data?.browser === true && (!adbInfo.data.ownerOnly || manage)
+  const adb = useAdbSession(provider, id, session?.package ?? "", adbAllowed && wasReady && state !== "failed")
+  useEffect(
+    () =>
+      adb.logcat.onCrash((crash) =>
+        toast.error("The app crashed", {
+          description: <pre className="text-xs whitespace-pre-wrap">{crash.lines.slice(0, 5).join("\n")}</pre>,
+          duration: 15_000,
+          action: { label: "Logcat", onClick: () => setTab("logcat") },
+        }),
+      ),
+    [adb],
+  )
 
   if (isPending) {
     return <Skeleton className="m-6 h-[60vh] rounded-2xl" />
@@ -58,9 +80,7 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
   }
 
   const caps = providers.data?.find((p) => p.name === provider)?.capabilities
-  const state = session.state === "failed" ? "failed" : (status?.state ?? session.state)
   const left = Math.min(new Date(session.idleDeadline).getTime(), new Date(session.ttlDeadline).getTime()) - now
-  const manage = canManage(me.data, session)
 
   return (
     <div className="flex h-full flex-col">
@@ -74,7 +94,7 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="truncate font-medium">{session.label || session.package}</span>
-            <SessionStateBadge state={state} />
+            <SessionStateBadge state={state ?? session.state} />
           </div>
           <div className="text-muted-foreground truncate font-mono text-xs">
             {session.package}
@@ -131,7 +151,7 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
       <div className="min-h-0 flex-1">
         {state !== "ready" ? (
           <StartProgress
-            state={state}
+            state={state ?? session.state}
             detail={status?.detail || session.detail}
             reason={session.reason || status?.reason}
           />
@@ -147,13 +167,15 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
             </ResizablePanel>
             <ResizableHandle withHandle />
             <ResizablePanel defaultSize="58" minSize="20">
-              {caps?.devtools ? (
-                <DevToolsPanel provider={provider} id={id} frameRef={registerFrame} />
-              ) : (
-                <div className="text-muted-foreground grid h-full place-items-center text-sm">
-                  This device does not support DevTools.
-                </div>
-              )}
+              <ToolTabs tab={tab} onTab={setTab} adb={adbAllowed ? adb : null} session={session}>
+                {caps?.devtools ? (
+                  <DevToolsPanel provider={provider} id={id} frameRef={registerFrame} />
+                ) : (
+                  <div className="text-muted-foreground grid h-full place-items-center text-sm">
+                    This device does not support DevTools.
+                  </div>
+                )}
+              </ToolTabs>
             </ResizablePanel>
           </ResizablePanelGroup>
         )}

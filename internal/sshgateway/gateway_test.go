@@ -21,6 +21,7 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
+	"github.com/kriakiku/holtdroid/internal/adbproto"
 	"github.com/kriakiku/holtdroid/internal/audit"
 	"github.com/kriakiku/holtdroid/internal/contract"
 	"github.com/kriakiku/holtdroid/internal/provider/fake"
@@ -649,7 +650,9 @@ func TestADBTunnel(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: %v", target, err)
 		}
-		roundTrip(t, conn, "CNXN\x00\x00\x00\x01")
+		if banner, err := adbproto.Connect(conn); err != nil || !strings.HasPrefix(banner, "device::") {
+			t.Fatalf("%s: banner %q, %v", target, banner, err)
+		}
 		conn.Close()
 	}
 	for _, target := range []string{"adb:22", "10.0.0.1:5555", "kubernetes.default:443", "holtdroid-api-internal:8081"} {
@@ -679,7 +682,9 @@ func TestAuditTrail(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	roundTrip(t, conn, "CNXN")
+	if _, err := adbproto.Connect(conn); err != nil {
+		t.Fatal(err)
+	}
 	conn.Close()
 	if conn, err := c.Dial("tcp", "adb:22"); err == nil {
 		conn.Close()

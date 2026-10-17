@@ -29,8 +29,9 @@ openapi:
 sqlc:
 	cd internal/db && sqlc generate
 
-test:
+test: node_modules
 	$(GO) test -race ./...
+	cd web && $(BUN) test
 
 lint: node_modules
 	golangci-lint run ./...

@@ -52,7 +52,7 @@ func NewTunnels(dev TunnelDevice, log *slog.Logger) *Tunnels {
 
 func (t *Tunnels) Handler() http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET "+contract.TunnelADBPath, t.serveADB)
+	mux.HandleFunc("GET "+contract.TunnelADBPath, t.ServeADB(contract.ADBClientSSH))
 	mux.HandleFunc("GET /tunnel/reverse/{port}", t.serveReverse)
 	return mux
 }
@@ -70,7 +70,13 @@ func (t *Tunnels) accept(w http.ResponseWriter, r *http.Request) (net.Conn, func
 	return websocket.NetConn(r.Context(), ws, websocket.MessageBinary), func() { stop() }, nil
 }
 
-func (t *Tunnels) serveADB(w http.ResponseWriter, r *http.Request) {
+// ServeADB relays one adb connection from client, refusing services that
+// would cut the device off (filterADB).
+func (t *Tunnels) ServeADB(client string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) { t.serveADB(w, r, client) }
+}
+
+func (t *Tunnels) serveADB(w http.ResponseWriter, r *http.Request, client string) {
 	dev, err := t.dev.DialADB(r.Context())
 	if err != nil {
 		http.Error(w, "adb: "+err.Error(), http.StatusBadGateway)
@@ -87,19 +93,19 @@ func (t *Tunnels) serveADB(w http.ResponseWriter, r *http.Request) {
 	t.mu.Lock()
 	id := t.nextID
 	t.nextID++
-	t.adb[id] = contract.ADBTunnel{User: user, Since: t.now().UTC()}
+	t.adb[id] = contract.ADBTunnel{User: user, Client: client, Since: t.now().UTC()}
 	t.mu.Unlock()
 	t.notify()
-	t.log.Info("adb tunnel opened", "user", user)
+	t.log.Info("adb tunnel opened", "user", user, "client", client)
 	defer func() {
 		t.mu.Lock()
 		delete(t.adb, id)
 		t.mu.Unlock()
 		t.notify()
-		t.log.Info("adb tunnel closed", "user", user)
+		t.log.Info("adb tunnel closed", "user", user, "client", client)
 	}()
 
-	contract.Splice(conn, dev, nil)
+	filterADB(conn, dev)
 }
 
 func (t *Tunnels) serveReverse(w http.ResponseWriter, r *http.Request) {
