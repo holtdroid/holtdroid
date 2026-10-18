@@ -145,12 +145,6 @@ func (p *portal) session(owner string) string {
 	return s.ID
 }
 
-func echoServer(t *testing.T) int {
-	t.Helper()
-	port, _ := echoOn(t, 0)
-	return port
-}
-
 // echoOn serves an echo server on port (any when 0), like a dev server
 // that can be stopped and started again on the same port.
 func echoOn(t *testing.T, port int) (int, func()) {
