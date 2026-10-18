@@ -211,7 +211,7 @@ or see anything:
   capture running from start to end and shares it with every viewer; while
   scrcpy captures the output, Android doesn't play it on the phone, so the
   phone stays silent even when nobody has the session's sound on. Between
-  sessions every volume is at zero.
+  sessions every volume is at zero (alarms at their lowest).
 - **Microphone**: the phone's _Microphone access_ privacy toggle is turned
   off, so apps record silence. Without the device owner a user can turn it
   back on from the system prompt; the agent turns it off again on every poll.

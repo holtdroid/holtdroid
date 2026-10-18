@@ -86,6 +86,7 @@ func TestClean(t *testing.T) {
 		"cmd power set-mode 1",
 		"cmd sensor_privacy enable 0 microphone",
 		"cmd media_session volume --stream $s --set 0",
+		"cmd media_session volume --stream 4 --set 1",
 		"input keyevent KEYCODE_SLEEP",
 		"remove-all",
 	} {

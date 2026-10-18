@@ -182,9 +182,10 @@ cmd bluetooth_manager disable >/dev/null 2>&1; svc nfc disable >/dev/null 2>&1; 
 input keyevent KEYCODE_HOME; true`
 
 // park leaves a phone between sessions: battery saver, lowest brightness,
-// every stream muted, screen off.
+// every stream muted (alarms can't go below 1), screen off.
 const park = `cmd power set-mode 1; settings put system screen_brightness_mode 0; settings put system screen_brightness 1
-for s in 1 2 3 4 5; do cmd media_session volume --stream $s --set 0 >/dev/null 2>&1; done
+for s in 1 2 3 5; do cmd media_session volume --stream $s --set 0 >/dev/null 2>&1; done
+cmd media_session volume --stream 4 --set 1 >/dev/null 2>&1
 svc power stayon false; input keyevent KEYCODE_SLEEP; true`
 
 // privacy blocks the microphone, and the camera where the phone has that

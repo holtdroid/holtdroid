@@ -110,8 +110,10 @@ deployment"):
   app's own traffic follows), reset after the session. The ADB proxy
   (browser and SSH) is not tried on a phone yet. Phones are cleaned against
   a recorded baseline before and after every session and parked between
-  them (decision #71); the device-owner lockdown in Holtdroid Tunnel is in
-  progress.
+  them (decision #71); sound stays in the browser (routed to the session's
+  capture, verified on the A05) and the microphone is blocked (decision
+  #72); the device-owner lockdown and wallpaper in Holtdroid Tunnel wait for
+  the maintainer's go-ahead in that session.
 - `provider-fake` (fake devices whose agent streams a recorded screen and serves placeholder
   DevTools pages).
 - Single Go binary + embedded UI, distroless image, Helm chart, CI, release
