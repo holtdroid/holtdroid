@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"io"
 	"net/http"
 	"os"
@@ -13,6 +14,8 @@ import (
 	"sync"
 	"text/template"
 	"time"
+
+	"github.com/kriakiku/holtdroid/internal/contract/control"
 )
 
 var clientName = regexp.MustCompile(`^holtdroid-(darwin|linux)-(amd64|arm64)$`)
@@ -145,6 +148,16 @@ func (s *Server) serveTunnelScript(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) serveConnectClient(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("file")
+	if s.ca != nil && name == "manifest.json" {
+		m := control.Manifest{Clients: []control.Build{}}
+		for _, c := range s.clients.list(s.cfg.SSH.ClientDir) {
+			m.Clients = append(m.Clients, control.Build{Platform: c.Platform, SHA256: c.SHA256})
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-store")
+		_ = json.NewEncoder(w).Encode(m)
+		return
+	}
 	if s.ca == nil || !clientName.MatchString(name) {
 		http.NotFound(w, r)
 		return

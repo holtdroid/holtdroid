@@ -110,6 +110,8 @@ func model(t *testing.T) (Model, *actions) {
 	m.plan = connect.Install{Path: "/home/otter/.local/bin/holtdroid", Target: "/home/otter/.cache/holtdroid/holtdroid", InPath: true}
 	m.planErr = nil
 	m.openURL = func(string) error { return nil }
+	m.prefs = connect.Prefs{}
+	m.savePrefs = func(connect.Prefs) error { return nil }
 	m.install = func() (connect.Install, error) {
 		p := m.plan
 		p.Installed = true
@@ -180,6 +182,13 @@ func TestScreens(t *testing.T) {
 	golden(t, "ports-published", next.(Model).View())
 	golden(t, "settings", press(m, "5", "right").View())
 	golden(t, "settings-installed", press(m, "5", "right", "enter").View())
+
+	old := m
+	old.outdated = true
+	old.update = func() (string, error) { return "/home/otter/.cache/holtdroid/holtdroid-new", nil }
+	golden(t, "overview-outdated", old.View())
+	golden(t, "settings-outdated", press(old, "5", "right", "down", "enter").View())
+	golden(t, "update-prompt", prompt{portal: "https://android.example.com"}.View())
 
 	connecting := m
 	s := snapshot()
@@ -307,5 +316,68 @@ func TestSession(t *testing.T) {
 	next, _ = m.Update(snapMsg(s))
 	if m = next.(Model); m.sess != nil || !strings.Contains(m.flash, "stopped") {
 		t.Fatalf("a stopped session stays open: %q", m.flash)
+	}
+}
+
+func TestSettingsUpdates(t *testing.T) {
+	m, _ := model(t)
+	var saved []connect.Prefs
+	m.savePrefs = func(p connect.Prefs) error {
+		saved = append(saved, p)
+		return nil
+	}
+	m = press(m, "5", "right", "down", "enter")
+	if !m.prefs.AutoUpdate || len(saved) != 1 || !saved[0].AutoUpdate {
+		t.Fatalf("auto update %v, saved %v", m.prefs.AutoUpdate, saved)
+	}
+	if len(m.settingsItems()) != 2 {
+		t.Fatal("update now offered while up to date")
+	}
+
+	m.outdated = true
+	m.update = func() (string, error) { return "/new/holtdroid", nil }
+	next, cmd := press(m, "down").Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if next.(Model).Restart() != "/new/holtdroid" || cmd == nil {
+		t.Fatalf("update now: restart %q", next.(Model).Restart())
+	}
+}
+
+func TestUpdatePrompt(t *testing.T) {
+	keys := func(ks ...string) (prompt, tea.Cmd) {
+		p := prompt{portal: "https://android.example.com"}
+		var cmd tea.Cmd
+		for _, k := range ks {
+			msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(k)}
+			switch k {
+			case "enter":
+				msg = tea.KeyMsg{Type: tea.KeyEnter}
+			case "down":
+				msg = tea.KeyMsg{Type: tea.KeyDown}
+			case " ":
+				msg = tea.KeyMsg{Type: tea.KeySpace, Runes: []rune{' '}}
+			}
+			var next tea.Model
+			next, cmd = p.Update(msg)
+			p = next.(prompt)
+		}
+		return p, cmd
+	}
+	tests := []struct {
+		keys []string
+		want UpdateChoice
+		quit bool
+	}{
+		{[]string{"enter"}, UpdateChoice{Update: true}, false},
+		{[]string{" ", "enter"}, UpdateChoice{Update: true, Auto: true}, false},
+		{[]string{"down", "enter"}, UpdateChoice{}, false},
+		{[]string{"s"}, UpdateChoice{}, false},
+		{[]string{"u"}, UpdateChoice{Update: true}, false},
+		{[]string{"q"}, UpdateChoice{Update: true}, true},
+	}
+	for _, tt := range tests {
+		p, cmd := keys(tt.keys...)
+		if cmd == nil || p.quit != tt.quit || !tt.quit && p.choice() != tt.want {
+			t.Errorf("%v: choice %+v quit %v", tt.keys, p.choice(), p.quit)
+		}
 	}
 }

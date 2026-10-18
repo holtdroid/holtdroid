@@ -103,7 +103,7 @@ func (m Model) help() string {
 	case m.content && m.section == ports:
 		keys = "↑↓ move · space publish · n another port · a show all · ← back · q quit"
 	case m.content && m.section == settings:
-		keys = "enter install the holtdroid command · ← back · q quit"
+		keys = "↑↓ move · enter choose · ← back · q quit"
 	case m.sess != nil && m.sess.tab == logcatTab:
 		keys = "←→ tabs · f app only · c clear · r restart · o browser · esc back · q quit"
 	case m.sess != nil && m.sess.tab == shellTab:
@@ -175,7 +175,12 @@ func (m Model) overview(width int) string {
 	if !s.CertificateExpiresAt.IsZero() {
 		b.WriteString(label.Render("Certificate") + "valid for " + until(s.CertificateExpiresAt, m.now()) + muted.Render(", renewed in the background") + "\n")
 	}
-	b.WriteString("\n" + muted.Render("Pick the ports your devices reach as localhost in Ports."))
+	if m.outdated {
+		b.WriteString("\n" + warn.Render("This client is older than the portal's and may not work correctly.") + "\n" +
+			muted.Render("Update it in Settings."))
+	} else {
+		b.WriteString("\n" + muted.Render("Pick the ports your devices reach as localhost in Ports."))
+	}
 	return b.String()
 }
 
@@ -339,30 +344,47 @@ func (m Model) settingsView(width int) string {
 	if !s.RefreshExpiresAt.IsZero() {
 		row("Enrolled", "until "+s.RefreshExpiresAt.Local().Format("2 Jan 2006")+muted.Render(", extended on every renewal"))
 	}
+	items := m.settingsItems()
+	item := func(id, text string) {
+		if m.content && m.cursor < len(items) && items[m.cursor] == id {
+			b.WriteString(pointer + chosen.Render(text) + "\n")
+		} else {
+			b.WriteString("  " + text + "\n")
+		}
+	}
+
 	b.WriteString("\n" + title.Render("The holtdroid command") + "\n")
 	p := m.plan
 	switch {
 	case m.planErr != nil && p.Path == "":
 		b.WriteString(bad.Render(m.planErr.Error()) + "\n")
 	case p.Installed:
-		b.WriteString(ok.Render("✓ installed") + " " + tilde(p.Path) + muted.Render(" → "+tilde(p.Target)) + "\n")
+		item(itemInstall, ok.Render("✓ installed")+" "+tilde(p.Path)+muted.Render(" → "+tilde(p.Target)))
 		if !p.InPath {
 			b.WriteString(warn.Render("  "+filepath.Dir(tilde(p.Path))+" is not on your PATH yet; add it in your shell profile:") + "\n")
 			b.WriteString("  export PATH=\"" + strings.Replace(filepath.Dir(p.Path), home(), "$HOME", 1) + ":$PATH\"\n")
-		} else {
-			b.WriteString(muted.Render("  Run holtdroid in any terminal to reconnect.") + "\n")
 		}
 	default:
-		action := "Install " + tilde(p.Path)
-		if m.content {
-			b.WriteString(pointer + chosen.Render(action) + "\n")
-		} else {
-			b.WriteString("  " + action + "\n")
-		}
-		b.WriteString(muted.Render("  so that holtdroid starts this client from any terminal") + "\n")
+		item(itemInstall, "Install "+tilde(p.Path))
 		if m.planErr != nil {
 			b.WriteString(bad.Render("  "+m.planErr.Error()) + "\n")
 		}
+	}
+
+	b.WriteString("\n" + title.Render("Updates") + "\n")
+	box := "[ ]"
+	if m.prefs.AutoUpdate {
+		box = ok.Render("[x]")
+	}
+	item(itemAuto, box+" Update automatically when the portal has a newer client")
+	if m.outdated {
+		if m.update != nil {
+			item(itemUpdate, warn.Render("Update now")+muted.Render("  the portal has a newer client; starts again"))
+		} else {
+			b.WriteString(warn.Render("  The portal has a newer client.") + "\n")
+		}
+	} else {
+		b.WriteString(muted.Render("  This is the portal's current client.") + "\n")
 	}
 	return strings.TrimRight(b.String(), "\n")
 }

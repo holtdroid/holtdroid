@@ -1494,7 +1494,11 @@ fragile and would leave out Windows.
   Settings can link `holtdroid` onto the user's `PATH`; without a terminal
   or with `--plain` it prints status lines. Ports of programs that look like
   dev servers come first in the UI and on the Computers page; the rest
-  (system services, desktop apps) is one step away. The types it shares with the api and the gateway
+  (system services, desktop apps) is one step away. The client updates
+  itself from the portal it connects to, so it never drifts from the
+  gateway: builds are compared by SHA-256 rather than version (a local
+  build is `dev`), and the user picks update, skip (with a warning) or
+  automatic updates. The types it shares with the api and the gateway
   live in `internal/contract/control`, which has no dependencies, so the
   client doesn't pull in huma or OpenTelemetry (about 8 MB per build).
 - **Enrollment.** The portal shows `curl -fsSL {portal}/tunnel.sh | sh -s --

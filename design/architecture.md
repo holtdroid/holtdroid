@@ -436,7 +436,11 @@ package` and `pidof`. They speak adb themselves over `direct-tcpip` to
 the agent's relay filter applies as for any adb client. The gateway's
 session list (`/internal/users/{handle}/sessions`, `sessions` messages)
 carries each session's package, app name and version for this. Without a terminal it prints status lines
-(`connect.Printer`).
+(`connect.Printer`). On start it compares its own SHA-256 with the portal's
+`/connect/manifest.json` and, when they differ, updates (asking first unless
+`autoUpdate` is set in `holtdroid/client.json`): it downloads into
+`~/.cache/holtdroid/holtdroid-{sha256}`, moves the `holtdroid` link there and
+`exec`s the new build with the same arguments.
 
 ```sh
 curl -fsSL https://android.example.com/tunnel.sh | sh -s -- <one-time code>

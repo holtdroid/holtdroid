@@ -1,0 +1,24 @@
+╭──────────────────────╮╭────────────────────────────────────────────────────────────────────╮
+│ holtdroid            ││  _   _       _ _      _           _     _                          │
+│ ● connected          ││ | | | | ___ | | |_ __| |_ __ ___ (_) __| |                         │
+│                      ││ | |_| |/ _ \| | __/ _` | '__/ _ \| |/ _` |                         │
+│ ▸ Overview           ││ |  _  | (_) | | || (_| | | | (_) | | (_| |                         │
+│   Devices     1      ││ |_| |_|\___/|_|\__\__,_|_|  \___/|_|\__,_|                         │
+│   Ports       2      ││                                                                    │
+│   Log                ││ ● Connected to android.example.com                                 │
+│   Settings           ││   as otter on otters-mac                                           │
+│                      ││                                                                    │
+│                      ││ Devices     1 running                                              │
+│                      ││ Published   3006, 8080                                             │
+│                      ││ Listening   6 ports, 3 look like dev servers                       │
+│                      ││ Certificate valid for 14m, renewed in the background               │
+│                      ││                                                                    │
+│                      ││ This client is older than the portal's and may not work correctly. │
+│                      ││ Update it in Settings.                                             │
+│                      ││                                                                    │
+│                      ││                                                                    │
+│                      ││                                                                    │
+│                      ││                                                                    │
+│                      ││                                                                    │
+╰──────────────────────╯╰────────────────────────────────────────────────────────────────────╯
+ ↑↓ move · → open · 1-5 sections · q quit

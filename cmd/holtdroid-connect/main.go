@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -33,6 +34,7 @@ func root() *cobra.Command {
 		noADB   bool
 		verbose bool
 		plain   bool
+		noCheck bool
 	)
 	cmd := &cobra.Command{
 		Use:   "holtdroid [code]",
@@ -75,20 +77,43 @@ func root() *cobra.Command {
 			}
 			ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 			defer stop()
+			outdated := false
+			if !noCheck {
+				var err error
+				outdated, err = checkUpdate(ctx, opts.Portal, interactive, log)
+				if errors.Is(err, tui.ErrQuit) {
+					return nil
+				}
+				if err != nil {
+					return err
+				}
+			}
 			if !interactive {
 				opts.OnChange = connect.Printer(os.Stdout)
 				return connect.Run(ctx, opts)
 			}
-			return tui.Run(ctx, &logs, func(onChange func(connect.Snapshot)) (tui.Client, error) {
+			cfg := tui.Config{Outdated: outdated, Update: func() (string, error) {
+				u, err := connect.CheckUpdate(ctx, opts.Portal)
+				if err != nil {
+					return "", err
+				}
+				return connect.ApplyUpdate(ctx, opts.Portal, u)
+			}}
+			next, err := tui.Run(ctx, &logs, cfg, func(onChange func(connect.Snapshot)) (tui.Client, error) {
 				opts.OnChange = onChange
 				return connect.New(opts)
 			})
+			if err != nil || next == "" {
+				return err
+			}
+			return connect.Restart(next)
 		},
 	}
 	cmd.Flags().StringVar(&portal, "portal", "", "portal URL (default: the only portal this computer is enrolled with)")
 	cmd.Flags().StringVar(&publish, "publish", "", "comma-separated ports to publish on your devices, replacing the saved list")
 	cmd.Flags().BoolVar(&noADB, "no-adb-connect", false, "don't run adb connect for each device")
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "debug logging")
+	cmd.Flags().BoolVar(&noCheck, "no-update-check", false, "don't ask the portal for a newer client")
 	cmd.Flags().BoolVar(&plain, "plain", false, "print status lines instead of the full-screen UI (the default without a terminal)")
 	return cmd
 }
@@ -129,3 +154,46 @@ func parsePorts(spec string) ([]int, error) {
 }
 
 var version = "dev"
+
+// checkUpdate updates to the portal's client when it is newer and the user
+// wants it, and starts the new one in place of this process. It reports
+// whether this client stays outdated.
+func checkUpdate(ctx context.Context, portal string, interactive bool, log *slog.Logger) (bool, error) {
+	u, err := connect.CheckUpdate(ctx, portal)
+	if err != nil {
+		log.Debug("update check", "err", err)
+		return false, nil
+	}
+	if !u.Available {
+		return false, nil
+	}
+	prefs := connect.LoadPrefs()
+	update := prefs.AutoUpdate
+	switch {
+	case update:
+	case interactive:
+		choice, err := tui.AskUpdate(portal)
+		if err != nil {
+			return false, err
+		}
+		if choice.Auto != prefs.AutoUpdate {
+			prefs.AutoUpdate = choice.Auto
+			if err := connect.SavePrefs(prefs); err != nil {
+				log.Warn("could not save the update setting", "err", err)
+			}
+		}
+		update = choice.Update
+	default:
+		fmt.Fprintln(os.Stderr, "holtdroid: the portal has a newer client; this one may not work correctly. Run holtdroid in a terminal to update.")
+	}
+	if !update {
+		return true, nil
+	}
+	fmt.Fprintln(os.Stderr, "holtdroid: updating to the portal's client…")
+	path, err := connect.ApplyUpdate(ctx, portal, u)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "holtdroid: the update failed, continuing with this client:", err)
+		return true, nil
+	}
+	return false, connect.Restart(path)
+}

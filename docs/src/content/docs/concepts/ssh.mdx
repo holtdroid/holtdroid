@@ -85,6 +85,32 @@ goes into it, `←` or Esc comes back, `q` quits.
   the newest client whenever you run it again; an existing `holtdroid` that
   isn't this client is never replaced.
 
+## Updates
+
+On every start the client asks the portal which builds it serves and
+compares their SHA-256 with its own. When the portal has a different one,
+the client offers to update:
+
+```text
+  holtdroid  A newer client is available from android.example.com.
+
+  ▸ Update now  and start again
+    Skip  keep this one; it may not work correctly with the portal
+
+    [ ] Update automatically from now on
+```
+
+**Update now** downloads the portal's build into `~/.cache/holtdroid`,
+checks its SHA-256, points `~/.cache/holtdroid/holtdroid` (and so the
+`holtdroid` command) at it and starts it with the same arguments. With the
+box ticked it updates without asking from then on; the setting is in
+**Settings** under **Updates**, next to **Update now** while this client is
+outdated, and is kept in `holtdroid/client.json` in your user config
+directory. **Skip** keeps the running client; the Overview then warns that
+it may not work correctly. Without a terminal an outdated client only
+prints a warning, unless automatic updates are on. `--no-update-check`
+skips the check.
+
 Without a terminal (in a script, a service or with `--plain`) the client
 prints the banner and a short status block instead, whenever the
 connection, the devices or the published ports change.

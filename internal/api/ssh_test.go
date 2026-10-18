@@ -326,6 +326,11 @@ func TestTunnelScript(t *testing.T) {
 		t.Fatalf("sh -n: %v %s", err, out)
 	}
 
+	manifest := decode[control.Manifest](t, h.do(http.MethodGet, "/connect/manifest.json", "", "", nil))
+	if len(manifest.Clients) != 2 || manifest.Clients[0].SHA256 != hex.EncodeToString(sum[:]) {
+		t.Fatalf("manifest %+v", manifest)
+	}
+
 	rec = h.do(http.MethodGet, "/connect/holtdroid-linux-amd64", "", "", nil)
 	if rec.Code != http.StatusOK || !bytes.Equal(rec.Body.Bytes(), build) {
 		t.Fatalf("client = %d", rec.Code)

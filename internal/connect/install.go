@@ -29,7 +29,7 @@ func InstallPlan() (Install, error) {
 	if err != nil {
 		return Install{}, err
 	}
-	target, err := clientTarget(home)
+	target, err := clientTarget()
 	if err != nil {
 		return Install{}, err
 	}
@@ -70,12 +70,12 @@ func InstallCommand() (Install, error) {
 	return plan, nil
 }
 
-func clientTarget(home string) (string, error) {
-	cache := os.Getenv("XDG_CACHE_HOME")
-	if cache == "" {
-		cache = filepath.Join(home, ".cache")
+func clientTarget() (string, error) {
+	cache, err := cacheDir()
+	if err != nil {
+		return "", err
 	}
-	stable := filepath.Join(cache, "holtdroid", "holtdroid")
+	stable := filepath.Join(cache, "holtdroid")
 	if _, err := os.Stat(stable); err == nil {
 		return stable, nil
 	}

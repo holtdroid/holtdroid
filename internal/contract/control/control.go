@@ -108,3 +108,14 @@ type ADBPort struct {
 	Session string `json:"session" doc:"{provider}-{id}"`
 	Port    int    `json:"port"`
 }
+
+// Manifest lists the client builds a portal serves at
+// /connect/holtdroid-{platform}, so a client can tell it is outdated.
+type Manifest struct {
+	Clients []Build `json:"clients"`
+}
+
+type Build struct {
+	Platform string `json:"platform" doc:"{os}-{arch}"`
+	SHA256   string `json:"sha256"`
+}

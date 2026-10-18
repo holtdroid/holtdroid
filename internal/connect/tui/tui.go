@@ -53,6 +53,12 @@ type Model struct {
 	openURL func(string) error
 	sess    *session
 
+	outdated  bool
+	prefs     connect.Prefs
+	savePrefs func(connect.Prefs) error
+	update    func() (string, error)
+	restart   string
+
 	section section
 	content bool
 	cursor  int
@@ -71,7 +77,7 @@ func New(act Actions, log *Log, snap connect.Snapshot) Model {
 	plan, err := connect.InstallPlan()
 	exe, _ := os.Executable()
 	return Model{
-		exe: exe, wake: func() {}, openURL: connect.OpenURL,
+		exe: exe, wake: func() {}, openURL: connect.OpenURL, prefs: connect.LoadPrefs(), savePrefs: connect.SavePrefs,
 		snap: snap, act: act, log: log, now: time.Now, install: connect.InstallCommand,
 		plan: plan, planErr: err, width: 100, height: 30,
 	}
@@ -191,7 +197,7 @@ func (m Model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.publish(rows[m.cursor].port)
 			}
 		case m.section == settings:
-			m.plan, m.planErr = m.install()
+			return m.settingsAction()
 		}
 	case "o":
 		if m.section == devices && m.content && m.cursor < len(m.snap.Sessions) {
@@ -214,6 +220,49 @@ func (m Model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+const (
+	itemInstall = "install"
+	itemAuto    = "auto"
+	itemUpdate  = "update"
+)
+
+func (m Model) settingsItems() []string {
+	items := []string{itemInstall, itemAuto}
+	if m.outdated && m.update != nil {
+		items = append(items, itemUpdate)
+	}
+	return items
+}
+
+func (m Model) settingsAction() (tea.Model, tea.Cmd) {
+	items := m.settingsItems()
+	if m.cursor >= len(items) {
+		return m, nil
+	}
+	switch items[m.cursor] {
+	case itemInstall:
+		m.plan, m.planErr = m.install()
+	case itemAuto:
+		m.prefs.AutoUpdate = !m.prefs.AutoUpdate
+		if err := m.savePrefs(m.prefs); err != nil {
+			m.flash = err.Error()
+		}
+	case itemUpdate:
+		path, err := m.update()
+		if err != nil {
+			m.flash = "update: " + err.Error()
+			return m, nil
+		}
+		m.restart = path
+		m.closeSession()
+		return m, tea.Quit
+	}
+	return m, nil
+}
+
+// Restart is the new build to start after the UI quit for an update.
+func (m Model) Restart() string { return m.restart }
+
 func (m *Model) publish(port int) {
 	if err := m.act.TogglePublished(port); err != nil {
 		m.flash = err.Error()
@@ -231,7 +280,7 @@ func (m Model) items() int {
 	case ports:
 		return len(m.portRows())
 	case settings:
-		return 1
+		return len(m.settingsItems())
 	}
 	return 0
 }
@@ -286,7 +335,16 @@ type Client interface {
 // Run shows the UI while the client runs, until the user quits or the
 // client stops by itself. start makes the client with onChange as its
 // Options.OnChange.
-func Run(ctx context.Context, log *Log, start func(onChange func(connect.Snapshot)) (Client, error)) error {
+// Config is what the UI knows about updates when it starts.
+type Config struct {
+	Outdated bool
+	// Update downloads the portal's build and returns its path.
+	Update func() (string, error)
+}
+
+// Run returns the path of a new build when the user updated from Settings;
+// the caller starts it.
+func Run(ctx context.Context, log *Log, cfg Config, start func(onChange func(connect.Snapshot)) (Client, error)) (string, error) {
 	var latest atomic.Pointer[connect.Snapshot]
 	wake := make(chan struct{}, 1)
 	nudge := func() {
@@ -300,7 +358,7 @@ func Run(ctx context.Context, log *Log, start func(onChange func(connect.Snapsho
 		nudge()
 	})
 	if err != nil {
-		return err
+		return "", err
 	}
 	log.mu.Lock()
 	log.notify = nudge
@@ -310,6 +368,7 @@ func Run(ctx context.Context, log *Log, start func(onChange func(connect.Snapsho
 	defer cancel()
 	m := New(cl, log, cl.Snapshot())
 	m.wake = nudge
+	m.outdated, m.update = cfg.Outdated, cfg.Update
 	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithContext(ctx))
 	go func() {
 		for {
@@ -336,10 +395,15 @@ func Run(ctx context.Context, log *Log, start func(onChange func(connect.Snapsho
 	cancel()
 	runErr := <-done
 	if err != nil && !errors.Is(err, tea.ErrProgramKilled) && !errors.Is(err, context.Canceled) {
-		return err
+		return "", err
 	}
-	if fm, ok := final.(Model); ok && fm.Err() != nil {
-		return fm.Err()
+	if fm, ok := final.(Model); ok {
+		if fm.Restart() != "" {
+			return fm.Restart(), nil
+		}
+		if fm.Err() != nil {
+			return "", fm.Err()
+		}
 	}
-	return runErr
+	return "", runErr
 }

@@ -12,13 +12,13 @@
 │                      ││                                                                    │
 │                      ││ The holtdroid command                                              │
 │                      ││ ▸ Install ~/.local/bin/holtdroid                                   │
-│                      ││   so that holtdroid starts this client from any terminal           │
 │                      ││                                                                    │
-│                      ││                                                                    │
-│                      ││                                                                    │
+│                      ││ Updates                                                            │
+│                      ││   [ ] Update automatically when the portal has a newer client      │
+│                      ││   This is the portal's current client.                             │
 │                      ││                                                                    │
 │                      ││                                                                    │
 │                      ││                                                                    │
 │                      ││                                                                    │
 ╰──────────────────────╯╰────────────────────────────────────────────────────────────────────╯
- enter install the holtdroid command · ← back · q quit
+ ↑↓ move · enter choose · ← back · q quit
