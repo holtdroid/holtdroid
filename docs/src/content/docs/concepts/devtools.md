@@ -58,7 +58,8 @@ in your browser:
 
 - **Portal font and colors** (on by default): DevTools uses the portal's
   font, gray accents instead of Chrome's blue, and follows the portal's
-  light or dark theme.
+  light or dark theme; in the dark theme its panels are near-black like the
+  portal. Syntax highlighting keeps DevTools' colors.
 - **Screencast on open** (off by default): DevTools' own preview of the page
   is off, since the session already shows the screen. The phone icon at the
   left of the DevTools toolbar still turns it on for the current target.

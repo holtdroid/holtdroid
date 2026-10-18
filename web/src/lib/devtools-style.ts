@@ -8,9 +8,14 @@ const tones = [
   0, 4, 6, 10, 12, 15, 17, 20, 22, 24, 25, 30, 35, 40, 50, 55, 60, 70, 80, 87, 90, 92, 94, 95, 96, 98, 99, 100,
 ]
 
-const palette = grayFamilies.flatMap((f) => tones.map((t) => `--ref-palette-${f}${t}: lab(${t} 0 0) !important;`))
+const gray = (lightness: (t: number) => number) =>
+  grayFamilies.flatMap((f) => tones.map((t) => `--ref-palette-${f}${t}: lab(${lightness(t)} 0 0) !important;`))
 
-const darkSurfaces = [5, 8, 11, 12, 14].map(
+const palette = gray((t) => t)
+
+const darkPalette = gray((t) => (t < 40 ? (t * t) / 40 : t))
+
+const darkSurfaces = [4, 6, 8, 9, 11].map(
   (p, i) => `--sys-color-surface${i + 1}: color-mix(in srgb, white ${p}%, var(--ref-palette-neutral10)) !important;`,
 )
 
@@ -22,6 +27,7 @@ const css = `${geistFaces}
   --source-code-font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace !important;
 }
 :root.theme-with-dark-background {
+  ${darkPalette.join("\n  ")}
   ${darkSurfaces.join("\n  ")}
 }
 `
