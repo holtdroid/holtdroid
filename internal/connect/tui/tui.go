@@ -174,6 +174,7 @@ func (m Model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		c := m.confirm
 		m.confirm = nil
 		if k.String() == "y" || k.Type == tea.KeyEnter {
+			m.flash = c.doing
 			return m, c.run
 		}
 		m.flash = "cancelled"
@@ -231,7 +232,8 @@ func (m Model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m.settingsAction()
 		}
 	case "o":
-		if m.section == devices && m.content && m.cursor < len(m.snap.Sessions) {
+		if m.section == devices && m.cursor < len(m.snap.Sessions) {
+			m.content = true
 			m.openBrowser(m.snap.Sessions[m.cursor])
 		}
 	case "N":
@@ -240,7 +242,8 @@ func (m Model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, m.openPicker()
 		}
 	case "R", "I", "X":
-		if m.section == devices && m.content && m.cursor < len(m.snap.Sessions) {
+		if m.section == devices && m.cursor < len(m.snap.Sessions) {
+			m.content = true
 			next, cmd, _ := m.deviceAction(k.String(), m.snap.Sessions[m.cursor])
 			return next, cmd
 		}

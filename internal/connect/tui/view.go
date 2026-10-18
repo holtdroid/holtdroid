@@ -121,7 +121,7 @@ func (m Model) help() string {
 	case m.content && m.section == devices:
 		keys = "↑↓ move · enter open · N new device · R restart app · I reinstall · X stop · o browser · ← back"
 	case m.section == devices:
-		keys = "→ open · N new device · 1-5 sections · q quit"
+		keys = "→ open · N new device · X stop · 1-5 sections · q quit"
 	}
 	line := muted.Render(" " + keys)
 	if m.flash != "" {

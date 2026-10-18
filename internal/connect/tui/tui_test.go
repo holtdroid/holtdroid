@@ -433,7 +433,7 @@ func TestLaunchAndActions(t *testing.T) {
 		t.Fatalf("after launch: %q", m.flash)
 	}
 
-	m = press(m, "right", "X")
+	m = press(m, "X")
 	if m.confirm == nil {
 		t.Fatal("X didn't ask")
 	}
@@ -443,7 +443,10 @@ func TestLaunchAndActions(t *testing.T) {
 		t.Fatalf("n didn't cancel: %q", m.flash)
 	}
 	next, cmd = press(m, "X").Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("y")})
-	m = run(next.(Model), cmd)
+	if m = next.(Model); m.flash != "stopping emulator-d0281282be…" {
+		t.Fatalf("flash %q", m.flash)
+	}
+	m = run(m, cmd)
 	if m.flash != "stopped emulator-d0281282be" {
 		t.Fatalf("flash %q", m.flash)
 	}

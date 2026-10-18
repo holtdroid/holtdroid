@@ -22,8 +22,9 @@ type picker struct {
 
 // confirm asks y/n before an action that loses something.
 type confirm struct {
-	text string
-	run  tea.Cmd
+	text  string
+	doing string
+	run   tea.Cmd
 }
 
 type (
@@ -120,7 +121,8 @@ func (m Model) deviceAction(key string, s control.Session) (Model, tea.Cmd, bool
 		}), true
 	case "I":
 		m.confirm = &confirm{
-			text: "Reinstall " + name + "? Its data is lost.",
+			text:  "Reinstall " + name + "? Its data is lost.",
+			doing: "reinstalling " + name + "…",
 			run: m.do("reinstall "+name, func(ctx context.Context) (string, error) {
 				return "reinstalled " + name, m.act.AppAction(ctx, s, "reinstall")
 			}),
@@ -128,7 +130,8 @@ func (m Model) deviceAction(key string, s control.Session) (Model, tea.Cmd, bool
 		return m, nil, true
 	case "X":
 		m.confirm = &confirm{
-			text: "Stop " + name + " on " + s.Slug + "?",
+			text:  "Stop " + name + " on " + s.Slug + "?",
+			doing: "stopping " + s.Slug + "…",
 			run: m.do("stop "+name, func(ctx context.Context) (string, error) {
 				return "stopped " + s.Slug, m.act.Stop(ctx, s)
 			}),
