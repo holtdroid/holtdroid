@@ -17,6 +17,7 @@ export type ScreenPrefs = {
   vibrationSound: boolean
   lockMode: LockMode
   recordMode: RecordMode
+  recordAuto: boolean
   deviceTheme: DeviceTheme
   railLabels: boolean
   keyboardLayouts: string[] | null
@@ -34,6 +35,7 @@ export const defaultScreenPrefs: ScreenPrefs = {
   vibrationSound: true,
   lockMode: "lock",
   recordMode: "screen",
+  recordAuto: false,
   deviceTheme: "manual",
   railLabels: true,
   keyboardLayouts: null,

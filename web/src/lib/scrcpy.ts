@@ -121,7 +121,7 @@ export async function openScreen(
   }
   const { stream, metadata } = parsed
   const renderer = WebGLVideoFrameRenderer.isSupported
-    ? new WebGLVideoFrameRenderer(canvas)
+    ? new WebGLVideoFrameRenderer(canvas, true)
     : new BitmapVideoFrameRenderer(canvas)
   const decoder = new WebCodecsVideoDecoder({ codec: metadata.codec, renderer })
   let bytes = 0

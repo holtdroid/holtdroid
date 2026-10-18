@@ -1,14 +1,12 @@
 import { useQuery } from "@tanstack/react-query"
 import { AndroidKeyCode } from "@yume-chan/scrcpy"
 import {
-  AppWindowIcon,
   BellIcon,
   CameraIcon,
   ChevronLeftIcon,
   ChevronsLeftIcon,
   ChevronsRightIcon,
   CircleIcon,
-  CircleStopIcon,
   HeadphoneOffIcon,
   HeadphonesIcon,
   LockIcon,
@@ -21,28 +19,26 @@ import {
   Volume1Icon,
   Volume2Icon,
   VibrateIcon,
-  VideoIcon,
   VolumeXIcon,
   CheckIcon,
 } from "lucide-react"
 import { type ReactNode, useEffect, useState } from "react"
 import { toast } from "sonner"
-import { type DeviceAction, type Location, sessionBase, type Vibration } from "@/api/client"
+import { type DeviceAction, type Location, type SessionView, sessionBase, type Vibration } from "@/api/client"
+import type { AdbSession } from "@/components/session/adb-session"
 import { ClipboardButton } from "@/components/session/clipboard-button"
 import { DeviceControls } from "@/components/session/device-controls"
 import { displayURL, type LiveScreen, useScreenLive } from "@/components/session/live-screen"
+import { RecordButton, type RecordPanel } from "@/components/session/record-button"
 import { ScreenSettings } from "@/components/session/screen-settings"
 import { useDeviceAction } from "@/components/session/use-device"
 import { Button } from "@/components/ui/button"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { RailButton, RailItem, RailSection } from "@/components/session/rail-item"
 import { useEventSource } from "@/hooks/use-event-source"
-import { useNow } from "@/hooks/use-now"
 import { useUserActivation } from "@/hooks/use-user-activation"
 import { download, stamp } from "@/lib/adb"
 import { type AudioConnection, AudioUnavailableError, audioSupported, openAudio } from "@/lib/audio"
-import { formatDuration } from "@/lib/format"
-import { type RecordMode, recordCanvas, type Recording, recordingSupported, recordPage } from "@/lib/recorder"
 import type { ScreenControl } from "@/lib/scrcpy"
 import { getScreenPrefs, type LockMode, setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
 import { cn } from "@/lib/utils"
@@ -91,15 +87,19 @@ const viaScreen: Partial<Record<DeviceAction, (c: ScreenControl) => void>> = {
 export function DeviceRail({
   provider,
   id,
-  name,
+  session,
   live,
+  adb,
+  panel,
   clipboard,
   locations,
 }: {
   provider: string
   id: string
-  name: string
+  session: SessionView
   live: LiveScreen
+  adb: AdbSession | null
+  panel: RecordPanel
   clipboard: boolean
   locations: Location[]
 }) {
@@ -125,7 +125,7 @@ export function DeviceRail({
         if (!resp.ok) throw new Error(resp.statusText || `HTTP ${resp.status}`)
         blob = await resp.blob()
       }
-      download(blob, `${name}-${stamp()}.png`)
+      download(blob, `${session.package}-${stamp()}.png`)
     } catch (e) {
       toast.error("Could not take a screenshot", { description: e instanceof Error ? e.message : String(e) })
     } finally {
@@ -162,7 +162,7 @@ export function DeviceRail({
       <RailButton label="Screenshot" disabled={shooting} onClick={() => void screenshot()}>
         <CameraIcon />
       </RailButton>
-      <RecordButton name={name} live={live} />
+      <RecordButton provider={provider} id={id} session={session} live={live} adb={adb} panel={panel} />
       <RailSection title="Stream" separator={false} />
       <AudioButton provider={provider} id={id} live={live} />
       {clipboard && <ClipboardButton provider={provider} id={id} />}
@@ -205,92 +205,6 @@ function LockButton({ run }: { run: (a: DeviceAction) => void }) {
               <span className="text-muted-foreground text-xs font-normal">{m.hint}</span>
             </span>
             {mode === lockMode && <CheckIcon className="text-muted-foreground" />}
-          </Button>
-        ))}
-      </HoverCardContent>
-    </HoverCard>
-  )
-}
-
-const recordModes: Record<RecordMode, { label: string; hint: string; icon: ReactNode }> = {
-  screen: { label: "Device screen", hint: "Only the device display", icon: <VideoIcon /> },
-  page: { label: "Whole page", hint: "This tab with DevTools and the console", icon: <AppWindowIcon /> },
-}
-
-function RecordButton({ name, live }: { name: string; live: LiveScreen }) {
-  const screenLive = useScreenLive(live)
-  const { recordMode } = useScreenPrefs()
-  const mode = recordModes[recordMode] ? recordMode : "screen"
-  const [recording, setRecording] = useState<{ rec: Recording; started: number } | null>(null)
-  const now = useNow()
-
-  const start = async (m: RecordMode) => {
-    try {
-      let rec: Recording
-      if (m === "page") {
-        rec = await recordPage()
-      } else {
-        const canvas = live.connection?.canvas
-        if (!canvas) return
-        rec = recordCanvas(canvas)
-      }
-      setRecording({ rec, started: Date.now() })
-      const blob = await rec.done
-      setRecording(null)
-      download(blob, `${name}-${m === "page" ? "page-" : ""}${stamp()}.${rec.extension}`)
-    } catch (e) {
-      if (e instanceof DOMException && e.name === "NotAllowedError") return
-      toast.error("Could not start recording", { description: e instanceof Error ? e.message : String(e) })
-    }
-  }
-
-  const available = (m: RecordMode) => recordingSupported(m) && (m === "page" || screenLive)
-
-  if (recording) {
-    return (
-      <RailButton
-        text="Stop recording"
-        label={`Stop recording (${formatDuration(now - recording.started)})`}
-        onClick={() => recording.rec.stop()}
-        className="text-red-600 dark:text-red-400"
-      >
-        <CircleStopIcon className="animate-pulse" />
-      </RailButton>
-    )
-  }
-
-  return (
-    <HoverCard openDelay={150} closeDelay={150}>
-      <HoverCardTrigger asChild>
-        <RailItem
-          label={`Record: ${recordModes[mode].label.toLowerCase()}`}
-          text="Record"
-          disabled={!available("screen") && !available("page")}
-          onClick={() => void start(mode)}
-        >
-          {recordModes[mode].icon}
-        </RailItem>
-      </HoverCardTrigger>
-      <HoverCardContent side="left" align="start" className="flex w-64 flex-col gap-0.5 p-1">
-        {(Object.entries(recordModes) as [RecordMode, (typeof recordModes)[RecordMode]][]).map(([m, info]) => (
-          <Button
-            key={m}
-            variant="ghost"
-            className="h-auto justify-start gap-2 px-2 py-1.5 text-left"
-            disabled={!available(m)}
-            onClick={() => {
-              setScreenPrefs({ recordMode: m })
-              void start(m)
-            }}
-          >
-            {info.icon}
-            <span className="flex flex-1 flex-col">
-              <span>{info.label}</span>
-              <span className="text-muted-foreground text-xs font-normal">
-                {recordingSupported(m) ? info.hint : "Not supported in this browser"}
-              </span>
-            </span>
-            {m === mode && <CheckIcon className="text-muted-foreground" />}
           </Button>
         ))}
       </HoverCardContent>

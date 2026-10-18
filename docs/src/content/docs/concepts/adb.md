@@ -37,15 +37,34 @@ DevTools:
   the tab, device and app details, ready to attach to a bug; **Full Android bug
   report** runs Android's own `bugreportz`.
 
-The rail next to the screen also records to a video file (WebM, or MP4
-where the browser can't write WebM). Hover **Record** to pick what it
-records; the choice is remembered in the browser:
+The rail next to the screen also records to an MP4 file. The video is
+encoded in the browser and written to disk as it goes (the browser's
+private storage), so a long recording doesn't fill the memory; the file is
+downloaded when you stop. Hover **Record** to pick what it records; the
+choices are remembered in the browser:
 
-- **Device screen** (default): only the device display.
-- **Whole page**: the portal tab itself, with DevTools, the console and the
-  rest of the page, plus the tab's sound. The browser asks for permission
-  to share the tab each time. Stop with the button or the browser's own
-  "Stop sharing"; either way the file is saved.
+- **Device screen** (default): the screen in a phone frame. The first
+  second and a half shows the Holtdroid logo with the app and the device
+  details, then the screen fades in.
+- **Screen and details**: a 1920×1080 scene with the logo, the app (icon,
+  name, package, version), the device (model, Android, slot, density,
+  locale, time zone, VPN location, theme), the elapsed time, the framed
+  screen, and the tool panel next to the screen as it is on the page:
+  DevTools, Logcat or whichever tab is open. The browser asks to share
+  this tab once per recording and records only that panel of it (element
+  capture, Chromium); with **Also share tab audio** the tab's sound goes
+  into the file. Where the browser can't capture a part of the page the
+  scene has no panel.
+- **Record automatically** starts recording in the chosen mode as soon as
+  the screen connects and saves the file when you stop it or leave the
+  session page. With **Screen and details** it starts without the panel
+  and a toast offers to include it, because the browser only asks after a
+  click.
+
+The frame follows the device when it rotates and keeps its proportions when
+the browser window is resized. If the tab closes mid-recording, the next
+session page offers to download what was written: it plays up to where it
+stopped.
 
 ## Configuration
 

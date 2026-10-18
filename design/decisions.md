@@ -1590,3 +1590,33 @@ way out. A refused port is logged once, not on every port scan.
 at the cost of exposing it to every device of the user without a prompt.
 The SYN-driven mode of #64 stays planned for ports that aren't listening
 yet.
+
+## 66. Screen recordings are a canvas scene encoded to an OPFS file
+
+**Context.** The rail recorded either the screen canvas or the whole tab
+with `MediaRecorder`, kept every chunk in memory until the end and patched
+the WebM duration afterwards. Long recordings filled the memory, the screen
+mode had no context about the device or the app, and the page mode showed
+the whole portal.
+
+**Decision.** Every recording draws a scene on its own canvas
+(`web/src/lib/composer.ts`): a phone frame around the scrcpy canvas that
+follows rotation, and in the *Screen and details* mode the logo, app and
+device blocks and the tool panel. The panel comes from `getDisplayMedia`
+of the current tab narrowed to the tool tabs' container with
+`RestrictionTarget` (or `CropTarget`), so DevTools and Logcat are shown as
+they are, without rebuilding them on the canvas. Frames are drawn on a
+worker timer so a background tab keeps recording. The canvas is encoded
+with WebCodecs through `mediabunny` into fragmented MP4 and streamed to a
+file in the origin private file system; the file is downloaded on stop and
+removed a little later. A Web Lock marks a file as being recorded, so
+another tab doesn't treat it as left over. The WebGL screen renderer keeps
+its drawing buffer (`enableCapture`) so the canvas can be copied.
+
+**Consequences.** Memory stays flat whatever the length, and a recording
+cut off by a closed tab is still playable and offered for download on the
+next session page. Fixed scene sizes (1920×1080 or 1080×1920) make window
+resizes and rotation a layout question instead of an encoder one. The panel
+needs Chromium's element or region capture and a share prompt per
+recording; elsewhere the scene has no panel. Device audio is recorded only
+as tab audio in the details mode.

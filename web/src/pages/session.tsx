@@ -13,7 +13,7 @@ import { DevToolsPanel } from "@/components/session/devtools-panel"
 import { MetricsBar } from "@/components/session/metrics-bar"
 import { AppActions, SessionToolbar } from "@/components/session/session-toolbar"
 import { StartProgress } from "@/components/session/start-progress"
-import { ToolTabs } from "@/components/session/tool-tabs"
+import { ToolTabs, toolTabLabel } from "@/components/session/tool-tabs"
 import { VersionSwitcher } from "@/components/session/version-switcher"
 import { SessionStateBadge } from "@/components/session-state-badge"
 import { Button } from "@/components/ui/button"
@@ -37,6 +37,7 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
   const [status, setStatus] = useState<StatusEvent | null>(null)
   const [wasReady, setWasReady] = useState(false)
   const [tab, setTab] = useState("devtools")
+  const [toolPanel, setToolPanel] = useState<HTMLDivElement | null>(null)
   const live = useLiveScreen()
   const adbInfo = useADBInfo()
 
@@ -164,8 +165,10 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
                 <DeviceRail
                   provider={provider}
                   id={id}
-                  name={session.package}
+                  session={session}
                   live={live}
+                  adb={adbAllowed ? adb : null}
+                  panel={{ element: toolPanel, title: toolTabLabel(adbAllowed ? tab : "devtools") }}
                   clipboard={caps?.clipboard ?? false}
                   locations={caps?.locations ?? []}
                 />
@@ -173,7 +176,13 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
             </ResizablePanel>
             <ResizableHandle withHandle />
             <ResizablePanel defaultSize="58" minSize="20">
-              <ToolTabs tab={tab} onTab={setTab} adb={adbAllowed ? adb : null} session={session}>
+              <ToolTabs
+                tab={tab}
+                onTab={setTab}
+                adb={adbAllowed ? adb : null}
+                session={session}
+                contentRef={setToolPanel}
+              >
                 {caps?.devtools ? (
                   <DevToolsPanel provider={provider} id={id} frameRef={registerFrame} />
                 ) : (

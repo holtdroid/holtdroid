@@ -53,7 +53,8 @@ deployment"):
   with tabs next to DevTools for Logcat (app-only by uid, crash toast),
   Files, Terminal, App (deep links, permissions, force stop, clear data,
   doze, standby bucket) and Device (props, WebView provider, demo mode,
-  bug report zip and bugreportz), plus screen recording in the rail. The
+  bug report zip and bugreportz), plus screen recording in the rail
+  (canvas scene, MP4 streamed to OPFS, decision #66). The
   agent's adb relays refuse `reboot:`/`unroot:`/`remount:`/`tcpip:`/`usb:`.
   The fake provider has a small adbd. Works on the real emulator.
 - Holtdroid WebView (decision #62), a separate app in

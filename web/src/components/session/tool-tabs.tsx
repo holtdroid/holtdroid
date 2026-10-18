@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from "react"
+import { type ReactNode, type Ref, useState } from "react"
 import type { SessionView } from "@/api/client"
 import { AdbGate } from "@/components/session/adb-gate"
 import type { AdbSession } from "@/components/session/adb-session"
@@ -17,6 +17,10 @@ const adbTabs = [
   { value: "device", label: "Device" },
 ]
 
+export function toolTabLabel(tab: string) {
+  return adbTabs.find((t) => t.value === tab)?.label ?? "DevTools"
+}
+
 // ToolTabs keeps every opened tab mounted, so DevTools keeps its state and
 // the terminal its shell while another tab is shown.
 export function ToolTabs({
@@ -24,12 +28,14 @@ export function ToolTabs({
   onTab,
   adb,
   session,
+  contentRef,
   children,
 }: {
   tab: string
   onTab: (tab: string) => void
   adb: AdbSession | null
   session: SessionView
+  contentRef?: Ref<HTMLDivElement>
   children: ReactNode
 }) {
   const [opened, setOpened] = useState(() => new Set([tab]))
@@ -69,17 +75,19 @@ export function ToolTabs({
           ))}
         </TabsList>
       )}
-      <TabsContent value="devtools" forceMount className="min-h-0 data-[state=inactive]:hidden">
-        {children}
-      </TabsContent>
-      {adb &&
-        adbTabs.map((t) =>
-          opened.has(t.value) ? (
-            <TabsContent key={t.value} value={t.value} forceMount className="min-h-0 data-[state=inactive]:hidden">
-              {panel(t.value, adb)}
-            </TabsContent>
-          ) : null,
-        )}
+      <div ref={contentRef} className="isolate flex min-h-0 flex-1 flex-col">
+        <TabsContent value="devtools" forceMount className="min-h-0 data-[state=inactive]:hidden">
+          {children}
+        </TabsContent>
+        {adb &&
+          adbTabs.map((t) =>
+            opened.has(t.value) ? (
+              <TabsContent key={t.value} value={t.value} forceMount className="min-h-0 data-[state=inactive]:hidden">
+                {panel(t.value, adb)}
+              </TabsContent>
+            ) : null,
+          )}
+      </div>
     </Tabs>
   )
 }

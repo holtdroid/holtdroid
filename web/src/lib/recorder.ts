@@ -1,68 +1,220 @@
-import fixWebmDuration from "fix-webm-duration"
+import {
+  type AudioCodec,
+  BufferTarget,
+  getFirstEncodableAudioCodec,
+  getFirstEncodableVideoCodec,
+  MediaStreamAudioTrackSource,
+  MediaStreamVideoTrackSource,
+  Mp4OutputFormat,
+  Output,
+  QUALITY_HIGH,
+  StreamTarget,
+  type Target,
+} from "mediabunny"
 
-const types = ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm", "video/mp4"]
+export type RecordMode = "screen" | "full"
 
-export type RecordMode = "screen" | "page"
+export const recordFps = 30
 
-export function recordingSupported(mode: RecordMode) {
-  if (typeof MediaRecorder === "undefined") return false
-  return mode === "page"
-    ? typeof navigator.mediaDevices?.getDisplayMedia === "function"
-    : "captureStream" in HTMLCanvasElement.prototype
+export function recordingSupported() {
+  return typeof VideoEncoder !== "undefined" && "captureStream" in HTMLCanvasElement.prototype
 }
 
-export type Recording = { stop: () => void; done: Promise<Blob>; extension: string }
-
-function record(stream: MediaStream): Recording {
-  const mimeType = types.find((t) => MediaRecorder.isTypeSupported(t)) ?? ""
-  const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 8_000_000 })
-  const chunks: Blob[] = []
-  let started = 0
-  recorder.addEventListener("start", () => (started = performance.now()), { once: true })
-  recorder.addEventListener("dataavailable", (e) => chunks.push(e.data))
-  const done = new Promise<Blob>((resolve) => {
-    recorder.addEventListener(
-      "stop",
-      () => {
-        for (const t of stream.getTracks()) t.stop()
-        const blob = new Blob(chunks, { type: recorder.mimeType })
-        resolve(
-          recorder.mimeType.startsWith("video/webm")
-            ? fixWebmDuration(blob, performance.now() - started, { logger: false })
-            : blob,
-        )
-      },
-      { once: true },
-    )
-  })
-  for (const t of stream.getVideoTracks()) {
-    t.addEventListener("ended", () => recorder.state !== "inactive" && recorder.stop(), { once: true })
-  }
-  recorder.start(1000)
-  return {
-    extension: mimeType.startsWith("video/mp4") ? "mp4" : "webm",
-    done,
-    stop: () => {
-      if (recorder.state !== "inactive") recorder.stop()
-    },
-  }
+type ElementTarget = { fromElement: (element: Element) => Promise<unknown> }
+type RegionTrack = MediaStreamTrack & {
+  restrictTo?: (target: unknown) => Promise<void>
+  cropTo?: (target: unknown) => Promise<void>
 }
 
-export function recordCanvas(canvas: HTMLCanvasElement) {
-  return record(canvas.captureStream(30))
+function elementTargets() {
+  const g = globalThis as { RestrictionTarget?: ElementTarget; CropTarget?: ElementTarget }
+  return { restrict: g.RestrictionTarget, crop: g.CropTarget }
 }
 
-export async function recordPage() {
+export function panelCaptureSupported() {
+  const { restrict, crop } = elementTargets()
+  return typeof navigator.mediaDevices?.getDisplayMedia === "function" && (restrict ?? crop) !== undefined
+}
+
+export async function capturePanel(element: HTMLElement) {
   const options: DisplayMediaStreamOptions & {
     preferCurrentTab: boolean
     selfBrowserSurface: "include" | "exclude"
     surfaceSwitching: "include" | "exclude"
   } = {
-    video: { displaySurface: "browser", frameRate: 30 },
+    video: { displaySurface: "browser", frameRate: recordFps },
     audio: true,
     preferCurrentTab: true,
     selfBrowserSurface: "include",
     surfaceSwitching: "exclude",
   }
-  return record(await navigator.mediaDevices.getDisplayMedia(options))
+  const stream = await navigator.mediaDevices.getDisplayMedia(options)
+  try {
+    const track = stream.getVideoTracks()[0] as RegionTrack | undefined
+    const { restrict, crop } = elementTargets()
+    if (track && restrict && track.restrictTo) await track.restrictTo(await restrict.fromElement(element))
+    else if (track && crop && track.cropTo) await track.cropTo(await crop.fromElement(element))
+    else throw new Error("This browser can't capture a part of the page")
+  } catch (e) {
+    for (const t of stream.getTracks()) t.stop()
+    throw e
+  }
+  return stream
+}
+
+const folder = "recordings"
+const lockPrefix = "holtdroid-recording:"
+
+async function recordingsDir() {
+  const root = await navigator.storage.getDirectory()
+  return root.getDirectoryHandle(folder, { create: true })
+}
+
+async function unusedRecordings(dir: FileSystemDirectoryHandle) {
+  const held = new Set(((await navigator.locks?.query())?.held ?? []).map((l) => l.name))
+  const names: string[] = []
+  for await (const name of dir.keys()) if (!held.has(lockPrefix + name)) names.push(name)
+  return names
+}
+
+function holdLock(name: string) {
+  const lock = new AbortController()
+  void navigator.locks
+    ?.request(lockPrefix + name, () => new Promise((resolve) => lock.signal.addEventListener("abort", resolve)))
+    .catch(() => undefined)
+  return () => lock.abort()
+}
+
+async function openFileTarget(name: string) {
+  try {
+    const dir = await recordingsDir()
+    const release = holdLock(name)
+    const handle = await dir.getFileHandle(name, { create: true })
+    const target = new StreamTarget(await handle.createWritable(), { chunked: true, chunkSize: 1 << 20 })
+    const file = async (): Promise<Blob> => {
+      const blob = await handle.getFile()
+      setTimeout(() => void dir.removeEntry(name).catch(() => undefined), 120_000)
+      return blob
+    }
+    return { target, release, file }
+  } catch {
+    return null
+  }
+}
+
+export async function leftoverRecordings() {
+  try {
+    const dir = await recordingsDir()
+    const names = await unusedRecordings(dir)
+    const files = await Promise.all(names.map(async (name) => (await dir.getFileHandle(name)).getFile()))
+    return files.filter((f) => f.size > 0)
+  } catch {
+    return []
+  }
+}
+
+export async function discardRecordings(names: string[]) {
+  try {
+    const dir = await recordingsDir()
+    await Promise.all(names.map((name) => dir.removeEntry(name).catch(() => undefined)))
+  } catch {
+    return
+  }
+}
+
+export type Recording = { stop: () => void; done: Promise<Blob>; extension: string }
+
+async function continuousAudio(track: MediaStreamTrack) {
+  try {
+    const ctx = new AudioContext()
+    const resumed = ctx.resume().then(() => true)
+    const timeout = new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 500))
+    if (!(await Promise.race([resumed, timeout])) || ctx.state !== "running") {
+      void ctx.close()
+      return null
+    }
+    const dest = ctx.createMediaStreamDestination()
+    ctx.createMediaStreamSource(new MediaStream([track])).connect(dest)
+    const out = dest.stream.getAudioTracks()[0]
+    if (!out) {
+      void ctx.close()
+      return null
+    }
+    return { track: out, close: () => void ctx.close() }
+  } catch {
+    return null
+  }
+}
+
+export async function startRecording(canvas: HTMLCanvasElement, name: string, tabAudio?: MediaStreamTrack) {
+  const videoCodec = await getFirstEncodableVideoCodec(["avc", "vp9", "av1", "hevc"], {
+    width: canvas.width,
+    height: canvas.height,
+    frameRate: recordFps,
+  })
+  if (!videoCodec) throw new Error("This browser can't encode video")
+  const audioCodec: AudioCodec | null = tabAudio ? await getFirstEncodableAudioCodec(["aac", "opus"]) : null
+  const audio = tabAudio && audioCodec ? await continuousAudio(tabAudio) : null
+
+  const opened = await openFileTarget(`${name}.mp4`)
+  const memory = new BufferTarget()
+  const target: Target = opened?.target ?? memory
+  const output = new Output({ format: new Mp4OutputFormat({ fastStart: "fragmented" }), target })
+
+  const stream = canvas.captureStream(recordFps)
+  const videoTrack = stream.getVideoTracks()[0]
+  const cleanup = () => {
+    videoTrack?.stop()
+    tabAudio?.stop()
+    audio?.close()
+    opened?.release()
+  }
+  if (!videoTrack) {
+    cleanup()
+    throw new Error("The canvas has no video track")
+  }
+  const video = new MediaStreamVideoTrackSource(
+    videoTrack,
+    { codec: videoCodec, quality: QUALITY_HIGH, sizeChangeBehavior: "contain" },
+    { frameRate: recordFps },
+  )
+  output.addVideoTrack(video, { frameRate: recordFps })
+  if (audio && audioCodec) {
+    output.addAudioTrack(
+      new MediaStreamAudioTrackSource(audio.track, {
+        codec: audioCodec,
+        quality: QUALITY_HIGH,
+      }),
+    )
+  }
+  try {
+    await output.start()
+  } catch (e) {
+    cleanup()
+    throw e
+  }
+
+  let stopping = false
+  let stop: (() => void) | undefined
+  const done = new Promise<Blob>((resolve, reject) => {
+    stop = () => {
+      if (stopping) return
+      stopping = true
+      void (async () => {
+        try {
+          await output.finalize()
+        } finally {
+          cleanup()
+        }
+        return opened ? opened.file() : new Blob([memory.buffer ?? new ArrayBuffer(0)], { type: "video/mp4" })
+      })().then(resolve, reject)
+    }
+    void video.errorPromise.catch((e: unknown) => {
+      stopping = true
+      reject(e)
+      cleanup()
+      void output.cancel()
+    })
+  })
+  return { stop: () => stop?.(), done, extension: "mp4" } satisfies Recording
 }
