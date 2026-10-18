@@ -3,12 +3,15 @@ package physical
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"maps"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -17,7 +20,9 @@ import (
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
 
 	"github.com/kriakiku/holtdroid/internal/agent"
+	"github.com/kriakiku/holtdroid/internal/agent/phone"
 	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/kriakiku/holtdroid/internal/vpn"
 )
 
 type fakeHost struct {
@@ -38,10 +43,10 @@ func (h *fakeHost) Props(_ context.Context, serial string) (contract.SlotCapabil
 	return contract.SlotCapabilities{Model: "Phone " + serial, Android: "15", ABIs: []string{"arm64-v8a"}, DevTools: contract.DevToolsDebuggable}, nil
 }
 
-func (h *fakeHost) Agent(cfg agent.Config, _ *slog.Logger) Agent {
+func (h *fakeHost) Agent(cfg agent.Config, tunnel *phone.Tunnel, _ *slog.Logger) Agent {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	a := &fakeAgent{cfg: cfg, state: contract.StateReady}
+	a := &fakeAgent{cfg: cfg, tunnel: tunnel, state: contract.StateReady}
 	h.agents = append(h.agents, a)
 	return a
 }
@@ -64,6 +69,7 @@ func (h *fakeHost) agent(i int) *fakeAgent {
 
 type fakeAgent struct {
 	cfg     agent.Config
+	tunnel  *phone.Tunnel
 	mu      sync.Mutex
 	state   contract.SessionState
 	stopped bool
@@ -95,13 +101,18 @@ func (a *fakeAgent) TunnelHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte("tunnel " + r.URL.Path)) })
 }
 
-func newProvider(t *testing.T, host *fakeHost, state string) (*Provider, *contract.ProviderClient) {
+func newProvider(t *testing.T, host *fakeHost, state string, configure ...func(*Config)) (*Provider, *contract.ProviderClient) {
 	t.Helper()
 	cfg := DefaultConfig()
+	for _, f := range configure {
+		f(&cfg)
+	}
 	cfg.PublicURL = "http://phones"
 	cfg.TunnelURL = "http://phones:8081"
 	cfg.StateFile = state
-	cfg.Phones = []Phone{{Serial: "A1"}, {Serial: "B2", Label: "Desk phone"}}
+	if cfg.Phones == nil {
+		cfg.Phones = []Phone{{Serial: "A1"}, {Serial: "B2", Label: "Desk phone"}}
+	}
 	p, err := New(cfg, host, WithLogger(slog.New(slog.DiscardHandler)))
 	if err != nil {
 		t.Fatal(err)
@@ -242,6 +253,64 @@ func TestRestartResumesSessions(t *testing.T) {
 		host2.mu.Lock()
 		defer host2.mu.Unlock()
 		return slices.Equal(host2.resets, []string{"B2 com.z"})
+	})
+}
+
+func TestVPN(t *testing.T) {
+	dir := t.TempDir()
+	singBox := filepath.Join(dir, "sing-box")
+	if err := os.WriteFile(singBox, []byte("#!/bin/sh\necho \"$@\" > \"$(dirname \"$0\")/args\"\nexec sleep 600\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	host := &fakeHost{devices: map[string]string{"A1": "device"}}
+	_, c := newProvider(t, host, filepath.Join(dir, "state.json"), func(cfg *Config) {
+		cfg.SingBox = singBox
+		cfg.Tunnel.APK = "/opt/holtdroid/holtdroid-tunnel.apk"
+		cfg.VPN.Locations = []vpn.Location{{ID: "de", Label: "Germany", Outbound: map[string]any{"type": "socks", "server": "gateway.example", "server_port": 1080}}}
+		cfg.VPN.Default = "de"
+	})
+	ctx := context.Background()
+
+	caps, err := c.Capabilities(ctx)
+	if err != nil || len(caps.Locations) != 2 || caps.DefaultLocation != "de" {
+		t.Fatalf("capabilities %+v, %v", caps, err)
+	}
+	if _, err := c.Create(ctx, contract.CreateSession{ArtifactURL: "http://api/x", ArtifactRef: "src/x", Package: "com.x", Owner: "otter", Location: "pl"}); !errors.Is(err, contract.ErrInvalid) {
+		t.Fatalf("unknown location: %v", err)
+	}
+	s, err := c.Create(ctx, contract.CreateSession{ArtifactURL: "http://api/x", ArtifactRef: "src/x", Package: "com.x", Owner: "otter"})
+	if err != nil || s.Location != "de" {
+		t.Fatalf("create %+v, %v", s, err)
+	}
+	a := host.agent(0)
+	tun := a.tunnel
+	if tun == nil || tun.Port != 29180 || tun.HostPort == 0 || tun.APK != "/opt/holtdroid/holtdroid-tunnel.apk" || !tun.IPv6 {
+		t.Fatalf("tunnel %+v", tun)
+	}
+	if a.cfg.Location != "de" || a.cfg.ClashAPI == "" || a.cfg.IPInfoProxy != fmt.Sprintf("http://127.0.0.1:%d", tun.HostPort) {
+		t.Fatalf("agent config: location %q, clash %q, ipinfo proxy %q", a.cfg.Location, a.cfg.ClashAPI, a.cfg.IPInfoProxy)
+	}
+	var args string
+	waitFor(t, func() bool {
+		b, err := os.ReadFile(filepath.Join(dir, "args"))
+		args = strings.TrimSpace(string(b))
+		return err == nil
+	})
+	file := strings.TrimPrefix(args, "run -c ")
+	info, err := os.Stat(file)
+	if err != nil || info.Mode().Perm() != 0o600 {
+		t.Fatalf("sing-box config %s: %v, %v", file, info, err)
+	}
+	raw, _ := os.ReadFile(file)
+	if !strings.Contains(string(raw), fmt.Sprintf(`"listen_port": %d`, tun.HostPort)) || !strings.Contains(string(raw), `"default": "de"`) {
+		t.Fatalf("sing-box config:\n%s", raw)
+	}
+	if err := c.Delete(ctx, s.ID); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, func() bool {
+		_, err := os.Stat(file)
+		return errors.Is(err, os.ErrNotExist)
 	})
 }
 

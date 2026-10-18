@@ -26,7 +26,7 @@ trust with the phone.
 | Device settings (dark mode, font, …) | Mostly. The system language, system time, network emulation and fake GPS need root or the emulator |
 | Logcat, browser ADB, ADB tunnels     | Yes, through a filtering proxy: see [ADB on phones](#adb-on-phones)                                |
 | App data save and restore            | No: reading another app's private files needs root                                                 |
-| VPN locations                        | Not yet                                                                                            |
+| VPN locations                        | Yes, over the USB cable through the Holtdroid Tunnel app: see [VPN on phones](#vpn-on-phones)      |
 
 The session page knows which phone it runs on (`capabilities` on the
 session) and hides what isn't there.
@@ -44,7 +44,8 @@ session) and hides what isn't there.
 
 The host needs `adb` (platform-tools) and the scrcpy server the agent pushes
 to the phone (`scrcpy-server` of the version in the session image,
-currently 3.3.3).
+currently 3.3.3). For VPN locations it also needs `sing-box` and the
+Holtdroid Tunnel APK, see [VPN on phones](#vpn-on-phones).
 
 ```sh
 holtdroid provider-physical --config physical.yaml
@@ -89,6 +90,12 @@ providers:
 | `phone.bootTimeout` | `2m`                      | How long a session waits for its phone to show up                                            |
 | `phone.poll`        | `5s`                      | How often a session checks that its phone is still connected                                 |
 | `phone.misses`      | `3`                       | Missed checks in a row after which the session fails with "phone disconnected"               |
+| `vpn.*`             | no locations              | Locations, exactly as for the [emulator provider](/holtdroid/configuration/emulator/#vpn)    |
+| `singBox`           | `sing-box`                | The sing-box binary the provider runs per session when `vpn.locations` is set                |
+| `tunnel.apk`        |                           | Holtdroid Tunnel APK, installed on a phone when it is missing or not `tunnel.version`        |
+| `tunnel.version`    |                           | The version `tunnel.apk` is; empty installs only when the app is missing                     |
+| `tunnel.port`       | `29180`                   | The phone-side port of the tunnel's `adb reverse`; don't publish it from a computer          |
+| `tunnel.ipv6`       | `true`                    | Give the phone IPv6 through the tunnel                                                       |
 
 A phone is `offline` in the launch dialog while adb doesn't list it as
 `device` (unplugged, `unauthorized`, booting).
@@ -127,10 +134,58 @@ fail. Android Studio's own deploy uses an installer of its own and needs
 `full`. Give `full` only to people you trust with the phone: they can still
 make it unusable until someone resets it by hand.
 
+## VPN on phones
+
+With `vpn.locations` set, a phone reaches the internet only through the
+provider's host, over the same USB cable as ADB, and leaves where the
+session's location says, as an emulator does:
+
+```
+app ─▶ Holtdroid Tunnel (VpnService) ─▶ 127.0.0.1:29180 on the phone
+        ─ adb reverse ─▶ sing-box of the session on the host ─▶ location
+```
+
+For every session the provider starts its own `sing-box` with a `mixed`
+inbound and the clash API on random loopback ports and the locations from
+`vpn` (secret references are resolved into a config file that only the
+provider can read and that is deleted with the session). When the phone is
+up, the agent installs [Holtdroid Tunnel](https://github.com/kriakiku/holtdroid-tunnel)
+if needed, grants it the VPN consent with `appops`, turns Wi-Fi and mobile
+data off, maps the port with `adb reverse` and starts the tunnel. It checks
+the tunnel on every poll and starts it again when it is down. The location
+switcher, the egress IP and country work as on the emulator; DNS and UDP
+(QUIC) travel through the tunnel too.
+
+```yaml
+singBox: /usr/local/bin/sing-box
+tunnel:
+  apk: /opt/holtdroid/holtdroid-tunnel-0.1.0.apk
+  version: 0.1.0
+vpn:
+  default: pl
+  locations:
+    - id: pl
+      label: Poland
+      outbound: { type: socks, server: vpn-gateway.example, server_port: 1080 }
+```
+
+Download the APK from the
+[tunnel's releases](https://github.com/kriakiku/holtdroid-tunnel/releases).
+Without `vpn.locations` nothing changes: the phone uses its own Wi-Fi or
+mobile data and the session has no location switcher.
+
+Unlike the emulator, where the VPN lives outside the device, the app under
+test can see that a VPN is active (`TRANSPORT_VPN`, a `tun0` interface).
+Traffic to the `vpn.bypassCIDRs` leaves directly from the host, so the phone
+reaches the host's private networks as an emulator reaches its cluster's.
+After a restart a session's sing-box starts again at the session's first
+location. Someone with `adb.shell: full` can turn the radios back on and
+stop the tunnel; the agent starts the tunnel again within a poll.
+
 ## After a session
 
 When a session ends, the phone stays busy until the provider has put it
-back: the app is uninstalled, the device settings the portal offers are
+back: the tunnel is stopped (it stays installed), the app is uninstalled, the device settings the portal offers are
 reset (airplane mode, Wi-Fi, mobile data, battery simulation, battery
 saver, font scale, density, size, rotation, automatic time), the agent's
 files in `/data/local/tmp` are removed and every adb forward is dropped.

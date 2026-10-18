@@ -3,6 +3,7 @@ package phone
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strings"
 	"sync"
@@ -36,6 +37,20 @@ func (f *fakeADB) Shell(_ context.Context, cmd string) (string, error) {
 	return "", nil
 }
 
+func (f *fakeADB) Install(_ context.Context, apk string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls = append(f.calls, "install "+apk)
+	return nil
+}
+
+func (f *fakeADB) Reverse(_ context.Context, port, local int) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls = append(f.calls, fmt.Sprintf("reverse %d %d", port, local))
+	return nil
+}
+
 func (f *fakeADB) RemoveAll(context.Context) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -45,7 +60,7 @@ func (f *fakeADB) RemoveAll(context.Context) error {
 
 func TestRunEndsWhenThePhoneIsGone(t *testing.T) {
 	adb := &fakeADB{states: []string{"device", "offline", "device"}}
-	p := New(Config{BootTimeout: time.Second, Poll: time.Millisecond, Misses: 2}, adb, slog.New(slog.DiscardHandler))
+	p := New(Config{BootTimeout: time.Second, Poll: time.Millisecond, Misses: 2}, adb, nil, slog.New(slog.DiscardHandler))
 	booted := false
 	err := p.Run(context.Background(), func() { booted = true })
 	if !booted || err == nil || err.Error() != "phone disconnected" {

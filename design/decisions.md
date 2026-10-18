@@ -1690,3 +1690,36 @@ portal's Terminal and most App/Device tools need `full`. The allowlist is
 fixed in code, not configurable, until someone needs more. `adb reverse`
 is refused on phones. The session page doesn't know the shell policy yet,
 so it still shows tools that the policy will refuse.
+
+## 69. Phone VPN goes over the USB cable through Holtdroid Tunnel
+
+**Context.** The plan for phones was the WireGuard Android app driven by
+intents, with the VPN credentials on the phone and the phone's own Wi-Fi
+as the way out. The maintainer wants phones to switch locations exactly as
+emulators do and to get both ADB and the internet through the USB cable.
+Stock Android can't take a network from a host over USB without root.
+
+**Decision.** A separate app,
+[Holtdroid Tunnel](https://github.com/kriakiku/holtdroid-tunnel), is a
+VpnService that sends every app's traffic to a SOCKS5 proxy on the phone's
+loopback, with UDP as sing's UDP-over-TCP; `adb reverse` maps that port to
+the host. `provider-physical` runs one sing-box per session with a `mixed`
+inbound and the clash API on random loopback ports, rendered by
+`vpn.Config.RenderProxy` from the same `vpn` config as the emulator sidecar
+(bypass CIDRs become a direct route instead of a tun exclusion). The agent
+gets that clash API, so location switching is unchanged, and asks ipinfo
+through the mixed inbound so the egress IP is the phone's, not the host's.
+`agent/phone` installs the app when it is missing or another version,
+grants the consent with `appops set … ACTIVATE_VPN allow`, turns Wi-Fi and
+mobile data off, maps the port, starts the tunnel and re-checks it on every
+poll. Rendered configs hold resolved secrets, so they live in a private
+temporary directory for the life of the process, never in the state file.
+
+**Consequences.** No VPN credentials on the phone, one network path, and
+the same locations for every kind of device. The app under test can see a
+VPN (`TRANSPORT_VPN`); a transparent path needs root and comes with root
+mode. The tunnel stays installed between sessions and is stopped by the
+reset. A resumed session starts again at its first location. Its control
+receiver needs `DUMP`, which only the shell has, so the app under test
+can't stop it; a user with `adb.shell: full` can, and the agent restarts
+it. A device-owner app can later pin it as always-on VPN with lockdown.

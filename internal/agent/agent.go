@@ -37,6 +37,7 @@ type Config struct {
 	Scrcpy           ScrcpyConfig
 	ClashAPI         string
 	IPInfoURL        string
+	IPInfoProxy      string
 	DevToolsFrontend string
 	CacheDir         string
 	Emulator         emulator.Config
@@ -132,7 +133,7 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 		log:      log,
 		hc:       &http.Client{Timeout: 10 * time.Minute},
 		devtools: NewDevTools(dev, log),
-		network:  NewNetwork(cfg.ClashAPI, cfg.IPInfoURL),
+		network:  NewNetwork(cfg.ClashAPI, cfg.IPInfoURL, cfg.IPInfoProxy),
 		screen:   screen,
 		clip:     NewClipboard(screen, log),
 		frontend: NewFrontend(cfg.DevToolsFrontend, filepath.Join(cfg.CacheDir, "devtools-frontend")),

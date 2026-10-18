@@ -13,8 +13,12 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
+	"net"
 	"net/http"
+	"net/netip"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -25,6 +29,7 @@ import (
 	"github.com/kriakiku/holtdroid/internal/agent"
 	"github.com/kriakiku/holtdroid/internal/agent/phone"
 	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/kriakiku/holtdroid/internal/vpn"
 )
 
 type Config struct {
@@ -39,6 +44,18 @@ type Config struct {
 	Phones       []Phone
 	Phone        phone.Config
 	Agent        AgentConfig
+	VPN          vpn.Config
+	SingBox      string
+	Tunnel       TunnelConfig
+}
+
+// TunnelConfig is the Holtdroid Tunnel app that carries a phone's traffic
+// to the session's sing-box when VPN locations are configured.
+type TunnelConfig struct {
+	APK     string
+	Version string
+	Port    int
+	IPv6    bool
 }
 
 // Phone is one phone in the inventory, by its adb serial.
@@ -73,6 +90,9 @@ func DefaultConfig() Config {
 		ResetTimeout: 2 * time.Minute,
 		Phone:        phone.DefaultConfig(),
 		Agent:        AgentConfig{Scrcpy: a.Scrcpy, DevToolsFrontend: a.DevToolsFrontend, CacheDir: a.CacheDir},
+		VPN:          vpn.DefaultConfig(),
+		SingBox:      "sing-box",
+		Tunnel:       TunnelConfig{Port: 29180, IPv6: true},
 	}
 }
 
@@ -97,6 +117,12 @@ func (c Config) Validate() error {
 	if c.StateFile == "" {
 		errs = append(errs, errors.New("stateFile is required"))
 	}
+	if err := c.VPN.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if c.VPN.Enabled() && (c.Tunnel.Port < 1 || c.Tunnel.Port > 65535) {
+		errs = append(errs, fmt.Errorf("tunnel.port %d is not a port", c.Tunnel.Port))
+	}
 	return errors.Join(errs...)
 }
 
@@ -108,10 +134,12 @@ type Provider struct {
 	now  func() time.Time
 	log  *slog.Logger
 	ver  string
+	sec  vpn.Secrets
 	base context.Context
 	stop context.CancelFunc
 
 	mu        sync.Mutex
+	vpnDir    string
 	inventory map[string]phoneInfo
 	sessions  map[string]*session
 	resets    map[string]string
@@ -151,6 +179,8 @@ func WithLogger(log *slog.Logger) Option { return func(p *Provider) { p.log = lo
 
 func WithVersion(v string) Option { return func(p *Provider) { p.ver = v } }
 
+func WithSecrets(sec vpn.Secrets) Option { return func(p *Provider) { p.sec = sec } }
+
 // New loads the state file and starts the agents of the sessions in it again,
 // without reinstalling their apps.
 func New(cfg Config, host Host, opts ...Option) (*Provider, error) {
@@ -170,16 +200,28 @@ func New(cfg Config, host Host, opts ...Option) (*Provider, error) {
 		stop()
 		return nil, err
 	}
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	resets := maps.Clone(st.Resets)
+	if resets == nil {
+		resets = map[string]string{}
+	}
 	for _, s := range st.Sessions {
 		if !p.listed(s.Session.Slot) {
 			p.log.Warn("dropping a session on a phone that is no longer listed", "session", s.Session.ID, "slot", s.Session.Slot)
 			continue
 		}
-		p.start(s.Session, s.ArtifactURL, true)
+		v, err := p.prepareVPN(base, s.Session.ID, s.Session.Location)
+		if err != nil {
+			p.log.Warn("dropping a session whose VPN can't be set up again", "session", s.Session.ID, "err", err)
+			resets[s.Session.Slot] = s.Session.Package
+			continue
+		}
+		p.mu.Lock()
+		p.start(s.Session, s.ArtifactURL, true, v)
+		p.mu.Unlock()
 	}
-	for serial, pkg := range st.Resets {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for serial, pkg := range resets {
 		if p.listed(serial) {
 			p.resets[serial] = pkg
 			go p.reset(serial, pkg, nil)
@@ -213,6 +255,12 @@ func (p *Provider) Close() {
 	p.mu.Unlock()
 	for _, s := range running {
 		<-s.done
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.vpnDir != "" {
+		os.RemoveAll(p.vpnDir)
+		p.vpnDir = ""
 	}
 }
 
@@ -260,7 +308,15 @@ func (p *Provider) Capabilities(context.Context) (contract.Capabilities, error) 
 		}
 	}
 	slices.Sort(abis)
-	return contract.Capabilities{Kind: "physical", Display: contract.DisplayScrcpy, DevTools: true, Clipboard: true, ABIs: abis}, nil
+	return contract.Capabilities{
+		Kind:            "physical",
+		Display:         contract.DisplayScrcpy,
+		DevTools:        true,
+		Clipboard:       true,
+		Locations:       p.cfg.VPN.Offered(),
+		DefaultLocation: p.cfg.VPN.DefaultLocation(),
+		ABIs:            abis,
+	}, nil
 }
 
 func (p *Provider) Capacity(context.Context) (contract.Capacity, error) {
@@ -323,23 +379,32 @@ func (p *Provider) view(ctx context.Context, s *session) contract.Session {
 	return out
 }
 
-func (p *Provider) Create(_ context.Context, req contract.CreateSession) (contract.Session, error) {
+func (p *Provider) Create(ctx context.Context, req contract.CreateSession) (contract.Session, error) {
+	location := ""
+	if p.cfg.VPN.Enabled() {
+		location = cmp.Or(req.Location, p.cfg.VPN.DefaultLocation())
+	}
 	switch {
 	case !packageName.MatchString(req.Package):
 		return contract.Session{}, fmt.Errorf("%w: bad package name %q", contract.ErrInvalid, req.Package)
-	case req.Location != "":
-		return contract.Session{}, fmt.Errorf("%w: phones offer no locations", contract.ErrInvalid)
+	case req.Location != "" && !slices.ContainsFunc(p.cfg.VPN.Offered(), func(l contract.Location) bool { return l.ID == req.Location }):
+		return contract.Session{}, fmt.Errorf("%w: unknown location %q", contract.ErrInvalid, req.Location)
 	case req.AppData != nil:
 		return contract.Session{}, fmt.Errorf("%w: phones without root can't restore app data", contract.ErrInvalid)
+	}
+	id := randomID()
+	v, err := p.prepareVPN(ctx, id, location)
+	if err != nil {
+		return contract.Session{}, err
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	slots := p.slots()
 	i := slices.IndexFunc(slots, func(s contract.Slot) bool { return s.State == contract.SlotFree })
 	if i < 0 {
+		v.remove()
 		return contract.Session{}, contract.ErrNoCapacity
 	}
-	id := randomID()
 	now := p.now().UTC()
 	s := contract.Session{
 		ID:           id,
@@ -347,6 +412,7 @@ func (p *Provider) Create(_ context.Context, req contract.CreateSession) (contra
 		Owner:        req.Owner,
 		Package:      req.Package,
 		ArtifactRef:  req.ArtifactRef,
+		Location:     location,
 		State:        contract.StateProvisioning,
 		Capabilities: slots[i].Capabilities,
 		AgentURL:     strings.TrimRight(p.cfg.PublicURL, "/") + "/agents/" + id,
@@ -356,7 +422,7 @@ func (p *Provider) Create(_ context.Context, req contract.CreateSession) (contra
 	if p.cfg.TunnelURL != "" {
 		s.TunnelURL = strings.TrimRight(p.cfg.TunnelURL, "/") + "/agents/" + id
 	}
-	sess := p.start(s, req.ArtifactURL, false)
+	sess := p.start(s, req.ArtifactURL, false, v)
 	if err := p.saveLocked(); err != nil {
 		sess.cancel()
 		delete(p.sessions, id)
@@ -365,8 +431,9 @@ func (p *Provider) Create(_ context.Context, req contract.CreateSession) (contra
 	return s, nil
 }
 
-// start runs the session's agent; p.mu must be held.
-func (p *Provider) start(s contract.Session, artifactURL string, resume bool) *session {
+// start runs the session's agent, and its sing-box when v is set; p.mu must
+// be held.
+func (p *Provider) start(s contract.Session, artifactURL string, resume bool, v *vpnRun) *session {
 	cfg := agent.DefaultConfig()
 	cfg.ArtifactURL = artifactURL
 	cfg.Package = s.Package
@@ -389,16 +456,106 @@ func (p *Provider) start(s contract.Session, artifactURL string, resume bool) *s
 			s.Capabilities = info.caps
 		}
 	}
+	var tunnel *phone.Tunnel
+	if v != nil {
+		cfg.Location = s.Location
+		cfg.ClashAPI = "http://" + v.clash
+		cfg.IPInfoProxy = "http://" + v.mixed.String()
+		tunnel = &phone.Tunnel{APK: p.cfg.Tunnel.APK, Version: p.cfg.Tunnel.Version, Port: p.cfg.Tunnel.Port, HostPort: int(v.mixed.Port()), IPv6: p.cfg.Tunnel.IPv6}
+	}
+	log := p.log.With("session", s.ID, "serial", s.Slot)
 	ctx, cancel := context.WithCancel(p.base)
 	sess := &session{s: s, artifactURL: artifactURL, cancel: cancel, done: make(chan struct{})}
-	sess.agent = p.host.Agent(cfg, p.log.With("session", s.ID, "serial", s.Slot))
+	sess.agent = p.host.Agent(cfg, tunnel, log)
 	sess.handler, sess.tunnel = sess.agent.Handler(), sess.agent.TunnelHandler()
 	p.sessions[s.ID] = sess
 	go func() {
 		defer close(sess.done)
+		var wg sync.WaitGroup
+		if v != nil {
+			wg.Go(func() { p.runSingBox(ctx, v, log) })
+		}
 		sess.agent.Run(ctx)
+		wg.Wait()
+		v.remove()
 	}()
 	return sess
+}
+
+type vpnRun struct {
+	file  string
+	mixed netip.AddrPort
+	clash string
+}
+
+func (v *vpnRun) remove() {
+	if v != nil {
+		os.Remove(v.file)
+	}
+}
+
+// prepareVPN writes the session's sing-box config, with resolved secrets, to
+// a private directory that lives as long as this process; nil without VPN.
+func (p *Provider) prepareVPN(ctx context.Context, id, location string) (*vpnRun, error) {
+	if !p.cfg.VPN.Enabled() {
+		return nil, nil
+	}
+	ports, err := freePorts(2)
+	if err != nil {
+		return nil, err
+	}
+	v := &vpnRun{mixed: netip.AddrPortFrom(netip.AddrFrom4([4]byte{127, 0, 0, 1}), uint16(ports[0])), clash: fmt.Sprintf("127.0.0.1:%d", ports[1])}
+	raw, err := p.cfg.VPN.RenderProxy(ctx, p.sec, location, v.mixed, v.clash)
+	if err != nil {
+		return nil, err
+	}
+	p.mu.Lock()
+	if p.vpnDir == "" {
+		p.vpnDir, err = os.MkdirTemp("", "holtdroid-vpn-")
+	}
+	dir := p.vpnDir
+	p.mu.Unlock()
+	if err != nil {
+		return nil, fmt.Errorf("vpn config: %w", err)
+	}
+	v.file = filepath.Join(dir, id+".json")
+	if err := os.WriteFile(v.file, raw, 0o600); err != nil {
+		return nil, fmt.Errorf("vpn config: %w", err)
+	}
+	return v, nil
+}
+
+func freePorts(n int) ([]int, error) {
+	var lc net.ListenConfig
+	var ports []int
+	for range n {
+		ln, err := lc.Listen(context.Background(), "tcp", "127.0.0.1:0")
+		if err != nil {
+			return nil, err
+		}
+		defer ln.Close()
+		ports = append(ports, ln.Addr().(*net.TCPAddr).Port)
+	}
+	return ports, nil
+}
+
+// runSingBox keeps the session's sing-box running until ctx ends.
+func (p *Provider) runSingBox(ctx context.Context, v *vpnRun, log *slog.Logger) {
+	for {
+		cmd := exec.CommandContext(ctx, p.cfg.SingBox, "run", "-c", v.file)
+		cmd.Stdout, cmd.Stderr = os.Stderr, os.Stderr
+		cmd.WaitDelay = 5 * time.Second
+		err := cmd.Run()
+		if ctx.Err() != nil {
+			return
+		}
+		log.Warn("sing-box exited, starting it again", "err", err)
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(2 * time.Second):
+		}
+	}
 }
 
 func (p *Provider) session(id string) (*session, error) {

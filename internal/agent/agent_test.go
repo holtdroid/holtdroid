@@ -408,7 +408,7 @@ func TestNetworkClash(t *testing.T) {
 	}))
 	defer ipinfo.Close()
 
-	n := NewNetwork(clash.URL, ipinfo.URL)
+	n := NewNetwork(clash.URL, ipinfo.URL, "")
 	ctx := context.Background()
 	got, err := n.Get(ctx)
 	if err != nil || got != (contract.Network{Location: "direct", ExternalIP: "203.0.113.10", Country: "LT"}) {

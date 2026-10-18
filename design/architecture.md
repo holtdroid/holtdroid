@@ -701,14 +701,16 @@ NetworkPolicy. Metric names and the audit schema are listed on the public
 The first stage exists (decision #67): `provider-physical` runs phones
 without root, with the session agents inside its own process, a launcher
 instead of Frida, `SlotCapabilities` per phone and a state file. Mitigation
-1, the filtering ADB proxy, exists too (decision #68). The rest of this
+1, the filtering ADB proxy, exists too (decision #68), and so does VPN over
+the USB cable: Holtdroid Tunnel on the phone, `adb reverse`, a per-session
+sing-box on the host (decision #69). The rest of this
 section is the plan for rooted phones and for the protections every phone
 needs.
 
 A `provider-physical` service manages an inventory of rooted phones (Magisk)
 plugged into a host over USB. Slots are phones instead of nodes, one
 long-lived agent per phone, `display: scrcpy` through the same bridge in its
-agent, VPN via the WireGuard Android app controlled by intents, and session
+agent, VPN through Holtdroid Tunnel over USB (decision #69), and session
 end triggers a cleanup instead of a Pod delete. Nothing in api, web or the
 contracts needs to change for it; that is the bar every contract change must
 keep meeting.

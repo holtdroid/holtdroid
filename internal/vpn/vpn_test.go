@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"slices"
@@ -78,6 +79,28 @@ func TestRender(t *testing.T) {
 				t.Errorf("render differs from %s (run with -update):\n%s", golden, got)
 			}
 		})
+	}
+}
+
+func TestRenderProxy(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Locations = []Location{{ID: "de", Label: "Germany", Outbound: gateway("de")}}
+	got, err := cfg.RenderProxy(t.Context(), fakeSecrets{}, "de", netip.MustParseAddrPort("127.0.0.1:41234"), "127.0.0.1:41235")
+	if err != nil {
+		t.Fatal(err)
+	}
+	golden := filepath.Join("testdata", "phone.json")
+	if *update {
+		if err := os.WriteFile(golden, append(got, '\n'), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	want, err := os.ReadFile(golden)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(append(got, '\n'), want) {
+		t.Errorf("render differs from %s (run with -update):\n%s", golden, got)
 	}
 }
 

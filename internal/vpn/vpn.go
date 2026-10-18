@@ -148,6 +148,43 @@ func (c Config) initial(location string) (string, error) {
 // Render returns the sidecar's sing-box config with the selector starting at
 // location ("" picks the default).
 func (c Config) Render(ctx context.Context, sec Secrets, location string) ([]byte, error) {
+	inbound := obj{
+		"type":                  "tun",
+		"tag":                   "tun",
+		"address":               []string{"198.18.0.1/30", "fdfe:dcba:9876::1/126"},
+		"auto_route":            true,
+		"route_exclude_address": c.BypassCIDRs,
+	}
+	rules := []obj{
+		{"action": "sniff"},
+		{"protocol": "dns", "action": "hijack-dns"},
+	}
+	return c.render(ctx, sec, location, inbound, rules, nil, ClashAPI)
+}
+
+const bypass = "bypass"
+
+// RenderProxy returns the config of a session's sing-box on a phone's host:
+// a mixed inbound on listen, which the phone's tunnel app reaches through adb
+// reverse, and the clash API on clash. The bypass CIDRs go out directly, as
+// they skip the tun on an emulator.
+func (c Config) RenderProxy(ctx context.Context, sec Secrets, location string, listen netip.AddrPort, clash string) ([]byte, error) {
+	inbound := obj{
+		"type":        "mixed",
+		"tag":         "phone",
+		"listen":      listen.Addr().String(),
+		"listen_port": listen.Port(),
+	}
+	rules := []obj{
+		{"action": "sniff"},
+		{"protocol": "dns", "action": "hijack-dns"},
+		{"port": 53, "action": "hijack-dns"},
+		{"ip_cidr": c.BypassCIDRs, "outbound": bypass},
+	}
+	return c.render(ctx, sec, location, inbound, rules, []obj{{"type": "direct", "tag": bypass}}, clash)
+}
+
+func (c Config) render(ctx context.Context, sec Secrets, location string, inbound obj, rules, extra []obj, clash string) ([]byte, error) {
 	if !c.Enabled() {
 		return nil, errors.New("vpn: no locations configured")
 	}
@@ -186,6 +223,7 @@ func (c Config) Render(ctx context.Context, sec Secrets, location string) ([]byt
 		"default":                     initial,
 		"interrupt_exist_connections": true,
 	})
+	outbounds = append(outbounds, extra...)
 
 	return json.MarshalIndent(sidecar{
 		Log: obj{"level": "warn", "timestamp": true},
@@ -197,25 +235,16 @@ func (c Config) Render(ctx context.Context, sec Secrets, location string) ([]byt
 			"final":    "tunnel",
 			"strategy": "ipv4_only",
 		},
-		Inbounds: []obj{{
-			"type":                  "tun",
-			"tag":                   "tun",
-			"address":               []string{"198.18.0.1/30", "fdfe:dcba:9876::1/126"},
-			"auto_route":            true,
-			"route_exclude_address": c.BypassCIDRs,
-		}},
+		Inbounds:  []obj{inbound},
 		Outbounds: outbounds,
 		Endpoints: endpoints,
 		Route: obj{
-			"rules": []obj{
-				{"action": "sniff"},
-				{"protocol": "dns", "action": "hijack-dns"},
-			},
+			"rules":                   rules,
 			"final":                   Selector,
 			"auto_detect_interface":   true,
 			"default_domain_resolver": "local",
 		},
-		Experimental: obj{"clash_api": obj{"external_controller": ClashAPI}},
+		Experimental: obj{"clash_api": obj{"external_controller": clash}},
 	}, "", "  ")
 }
 

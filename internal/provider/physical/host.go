@@ -20,7 +20,7 @@ import (
 type Host interface {
 	Devices(ctx context.Context) (map[string]string, error)
 	Props(ctx context.Context, serial string) (contract.SlotCapabilities, error)
-	Agent(cfg agent.Config, log *slog.Logger) Agent
+	Agent(cfg agent.Config, tunnel *phone.Tunnel, log *slog.Logger) Agent
 	Reset(ctx context.Context, serial, pkg string) error
 }
 
@@ -96,9 +96,9 @@ func parseProps(out string) contract.SlotCapabilities {
 	}
 }
 
-func (h ADBHost) Agent(cfg agent.Config, log *slog.Logger) Agent {
+func (h ADBHost) Agent(cfg agent.Config, tunnel *phone.Tunnel, log *slog.Logger) Agent {
 	adb := agent.ADB{Bin: h.Bin, Serial: cfg.Serial}
-	return agent.New(cfg, adb, agent.NewLauncher(adb), phone.New(h.Phone, adb, log).Run, log)
+	return agent.New(cfg, adb, agent.NewLauncher(adb), phone.New(h.Phone, adb, tunnel, log).Run, log)
 }
 
 func (h ADBHost) Reset(ctx context.Context, serial, pkg string) error {

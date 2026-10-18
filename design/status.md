@@ -99,7 +99,8 @@ deployment"):
   debuggable builds), slots and sessions with `SlotCapabilities`, state file
   with resume after a restart, reset after each session. ADB (browser,
   logcat, tunnels) through the filtering proxy with `adb.shell` (decision
-  #68). Not yet: root mode, VPN, the rest of the Phase 7
+  #68). VPN locations over the USB cable through Holtdroid Tunnel and a
+  per-session sing-box on the host (decision #69). Not yet: root mode, the rest of the Phase 7
   protections; not yet tried on a real phone, and not in the chart.
 - `provider-fake` (fake devices whose agent streams a recorded screen and serves placeholder
   DevTools pages).
@@ -116,8 +117,8 @@ deployment"):
 
 ## Next steps, in order
 
-1. Phones: try `provider-physical` and its ADB proxy on a real phone, then
-   root mode.
+1. Phones: try `provider-physical`, its ADB proxy and the USB VPN on a real
+   phone, then root mode.
 2. The conformance suite (`internal/contract/conformance`) for Provider and
    Agent — the last open item of Phases 1 and 3.
 3. Planned, each starting with a decisions.md entry: Phase 4.7 traffic

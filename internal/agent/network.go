@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -20,14 +21,22 @@ type Network struct {
 	clash  string
 	ipInfo string
 	hc     *http.Client
+	ipHC   *http.Client
 
 	mu      sync.Mutex
 	cached  contract.Network
 	checked time.Time
 }
 
-func NewNetwork(clashAPI, ipInfoURL string) *Network {
-	return &Network{clash: strings.TrimRight(clashAPI, "/"), ipInfo: ipInfoURL, hc: &http.Client{Timeout: 10 * time.Second}}
+// NewNetwork asks ipInfoURL for the egress IP through proxy when it is set,
+// so a device whose traffic leaves through another host reports that one.
+func NewNetwork(clashAPI, ipInfoURL, proxy string) *Network {
+	n := &Network{clash: strings.TrimRight(clashAPI, "/"), ipInfo: ipInfoURL, hc: &http.Client{Timeout: 10 * time.Second}}
+	n.ipHC = n.hc
+	if u, err := url.Parse(proxy); proxy != "" && err == nil {
+		n.ipHC = &http.Client{Timeout: 10 * time.Second, Transport: &http.Transport{Proxy: http.ProxyURL(u)}}
+	}
+	return n
 }
 
 func (n *Network) Get(ctx context.Context) (contract.Network, error) {
@@ -79,6 +88,7 @@ func (n *Network) SetLocation(ctx context.Context, location string) (contract.Ne
 	n.checked = time.Time{}
 	n.mu.Unlock()
 	n.hc.CloseIdleConnections()
+	n.ipHC.CloseIdleConnections()
 	return n.Get(ctx)
 }
 
@@ -116,7 +126,7 @@ func (n *Network) getJSON(ctx context.Context, url string, out any) error {
 		return err
 	}
 	req.Header.Set("Accept", "application/json")
-	resp, err := n.hc.Do(req)
+	resp, err := n.ipHC.Do(req)
 	if err != nil {
 		return err
 	}
