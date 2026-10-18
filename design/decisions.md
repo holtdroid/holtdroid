@@ -1467,3 +1467,69 @@ already cached.
 its next use. Bump `apk.ParserVersion` whenever extraction gets better.
 holtdroid-sync carries the same `internal/apk` copy and gets the same change.
 
+
+## 64. Tunnels through a connect client with SSH certificates
+
+**Context.** SSH access (decisions #21, #38, #46, #50, #61) needs a key on
+the SSH keys page, a hand-picked port list kept in one browser and a shell
+loop around `ssh`. The gateway forgets keys on restart until a browser
+re-pushes them, ADB reaches only one device per connection, and the port
+list can't follow what the developer actually runs. Doing more in a bash
+script (dynamic ports, a TUI, two-way control, token rotation) would be
+fragile and would leave out Windows.
+
+**Decision.**
+
+- **Client.** `cmd/holtdroid-connect`, a small Go binary in this module (no
+  client-go, no frida). The api serves it from its own image together with
+  `GET /tunnel.sh`, a POSIX bootstrap that detects OS and architecture,
+  downloads the matching binary (its sha256 is rendered into the script),
+  pins the gateway's host key and runs it. Client and server ship from the
+  same commit, so there is no separate repository and no version skew. It
+  uses `x/crypto/ssh` instead of the system `ssh`, a bubbletea TUI with the
+  banner when it has a terminal, and plain log lines otherwise.
+- **Enrollment.** The portal shows `curl -fsSL {portal}/tunnel.sh | sh -s --
+  {code}`. The code is single-use and lives 10 minutes, because the command
+  ends up in shell history and `ps`. The client generates its own ed25519 key
+  under the user's config directory (it never reads `~/.ssh`) and trades the
+  code, its public key, hostname and OS for a refresh token.
+- **SSH certificates.** The api is an SSH user CA: for a valid refresh token
+  it issues a 15-minute OpenSSH certificate whose principal is the user's
+  `user-{pseudonym}` handle and whose key id names the computer. The gateway
+  trusts only the CA public key, so it keeps no keys and a restart loses
+  nothing. Each refresh also rotates the refresh token.
+- **Revocation.** Without a persistent database the tokens are stateless and
+  signed; a single computer can't be revoked, only all of them by rotating
+  the CA key, and a stolen refresh token works until it expires. With a
+  persistent database (Phase 4.6) a `computers` table keeps the rotation
+  generation: a replayed old token revokes the computer, and a revoke makes
+  the gateways drop that key id's connections while the certificate runs out.
+- **Control channel.** The client opens one `holtdroid-control` subsystem
+  channel with JSON lines both ways: the client sends its hostname, version
+  and the TCP ports listening on its loopback; the gateway sends the user's
+  sessions and the computer's settings changes made in the portal. Settings
+  (mode, chosen ports) live on the client; the portal changes them through
+  the api and the gateway replica that holds the connection, and can't
+  change them while the computer is offline.
+- **Port modes.** *Manual*: the ports picked in the TUI or the portal, out of
+  the ones the client sees listening, are published on every ready device.
+  *Automatic*: the agent logs SYNs to loopback ports nothing listens on in the
+  device (iptables `LOG`, read from the kernel log) and asks for the port;
+  the client publishes it only if something listens on it locally and the
+  port isn't on its deny list (22, 2375, 2376 and others by default). The
+  first connection is refused, later ones go through. The portal warns that
+  any page in a WebView can then reach the developer's local services.
+- **ADB per device.** The client knows all of the user's sessions, so ADB is
+  addressed per session: each device gets a local port that stays the same
+  for the session (from 15555 up), and the client runs `adb connect` /
+  `adb disconnect` when `adb` is on `PATH`.
+- Browser-held keys, the SSH keys page, key requests, `skipHostKeyCheck` and
+  the reconnect loop go away; the client reconnects on its own. Supersedes
+  #21 (keys), #46, #61 and the port list of #38.
+
+**Consequences.** Users run one command per computer instead of managing
+keys, and see every device, its ADB port and published ports in one place.
+The api image carries the client binaries for darwin/linux on amd64/arm64.
+A plain `ssh` client no longer works without a certificate from the
+client. Automatic mode is a deliberate trade of safety for convenience and
+stays off by default per computer.

@@ -4,7 +4,7 @@ Snapshot for whoever continues the work — human or agent. Update the
 "Where things stand" and "Next steps" sections whenever a phase moves; the
 rest changes rarely.
 
-_Last updated: 2026-10-17._
+_Last updated: 2026-10-18._
 
 ## Where things stand
 
@@ -103,7 +103,10 @@ deployment"):
 2. Planned, each starting with a decisions.md entry: Phase 4.7 traffic
    inspection proxy, Phase 4.8 MCP server. Both optional and off by
    default; each adds its own audit events and metrics (decision #44).
-3. Whatever more use of real sessions turns up (Phase 6).
+3. Phase 4.11 connect client (decision #64): one `curl … | sh` per
+   computer, SSH certificates from the api, per-device ADB, ports from the
+   client's own listeners, a TUI. Replaces browser-held SSH keys.
+4. Whatever more use of real sessions turns up (Phase 6).
 
 ## Requirements from the maintainer
 
