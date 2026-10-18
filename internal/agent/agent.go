@@ -24,6 +24,8 @@ type Config struct {
 	Listen           string
 	TunnelListen     string
 	ADBAddr          string
+	ADBServer        string
+	ADBShell         ShellPolicy
 	ArtifactURL      string
 	AppData          contract.AppDataRestore
 	Package          string
@@ -50,6 +52,7 @@ func DefaultConfig() Config {
 		Listen:           ":8080",
 		TunnelListen:     ":8081",
 		ADBAddr:          "127.0.0.1:5555",
+		ADBShell:         ShellFull,
 		ADB:              "adb",
 		Serial:           "emulator-5554",
 		Script:           "/opt/holtdroid/script",
@@ -134,7 +137,7 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 		clip:     NewClipboard(screen, log),
 		frontend: NewFrontend(cfg.DevToolsFrontend, filepath.Join(cfg.CacheDir, "devtools-frontend")),
 		controls: NewControls(dev, cfg.LocalesDex),
-		tunnels:  NewTunnels(adbTunnels{adb: dev, addr: cfg.ADBAddr}, log),
+		tunnels:  NewTunnels(newADBTunnels(cfg, dev, log), log),
 		metrics:  NewMetrics(dev, cfg.Package, host, log),
 		vibes:    NewVibrations(dev, log),
 		actions:  make(chan appRequest, 1),

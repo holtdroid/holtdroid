@@ -1648,11 +1648,45 @@ the app, resets what the portal's device settings change and drops adb
 forwards; the phone stays busy until that is done.
 
 **Consequences.** Root mode comes later as another `Instrumenter` and boot
-for the same provider, chosen per phone. Until the filtering ADB proxy of
-Phase 7 exists, phones have no browser ADB (so no logcat or crash toasts on
-the session page) and no ADB tunnels: the agent's raw relay to adbd is
-emulator-only. App data, VPN locations, the system language and clock,
+for the same provider, chosen per phone. Phones got browser ADB and ADB
+tunnels through the filtering proxy of decision #68. App data, VPN locations, the system language and clock,
 network emulation and fake GPS are off on phones without root. The
 provider is stateful on its host, like Pod annotations are for the emulator
 provider; a phone left mid-reset by a crash is reset again on the next
 start.
+
+## 68. ADB on phones goes through a device-side proxy with a shell policy
+
+**Context.** The agent's ADB relay (decision #51) splices adb packets to
+adbd over TCP and only refuses a few services. A phone has no adbd on TCP,
+only USB through the host adb server, and it outlives its sessions, so a
+user's `adb shell` must not be able to damage it (architecture.md
+"Physical devices").
+
+**Decision.** With `ADBServer` set and no `ADBAddr`, the agent's
+`/tunnel/adb` and `/adb` reach `agent.ADBProxy` instead of adbd. It speaks
+the device side of the protocol: CNXN without AUTH (the api or the SSH
+gateway authenticated the user), a banner built from the host adb server's
+`host-serial:<serial>:features` (without `delayed_ack`, since the proxy
+speaks the classic one-WRTE-per-OKAY flow control) and `getprop`. Every
+OPEN is checked, and an allowed service becomes its own smart-socket
+connection to the host adb server (`host:transport:<serial>`, then the
+service); WRTEs go into it and are acknowledged once written, and its output
+comes back one WRTE at a time. On top of the relay's refusal list it refuses
+`root:`, `reverse:` (the reverse forward would end on the provider's host,
+not the user's computer; publishing ports covers that) and forwards to
+frida-server's ports. Shell services (`shell:`, `shell,v2,…:`, `exec:`,
+`abb:`, `abb_exec:`) follow `adb.shell`: `full`, `allowlist` (one command
+from a fixed list, split the way `sh` would and refused on any operator,
+substitution or redirect) or `off`. Services that carry no command (`sync:`,
+`jdwp:`, forwards, `framebuffer:`) pass with every setting; anything else
+needs `full`. Phones default to `allowlist` and report `adb: true` in their
+`SlotCapabilities`. The emulator keeps the raw relay: its device is
+disposable.
+
+**Consequences.** IDE installs, logcat, push/pull, debuggers and Chrome's
+remote inspection work on phones by default; an interactive shell, the
+portal's Terminal and most App/Device tools need `full`. The allowlist is
+fixed in code, not configurable, until someone needs more. `adb reverse`
+is refused on phones. The session page doesn't know the shell policy yet,
+so it still shows tools that the policy will refuse.

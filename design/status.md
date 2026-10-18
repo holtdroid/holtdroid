@@ -97,8 +97,9 @@ deployment"):
   USB host with an inventory from its config, one in-process agent per
   session (scrcpy screen, audio, clipboard, installs, DevTools for
   debuggable builds), slots and sessions with `SlotCapabilities`, state file
-  with resume after a restart, reset after each session. Not yet: ADB
-  (browser, logcat, tunnels) on phones, root mode, VPN, the Phase 7
+  with resume after a restart, reset after each session. ADB (browser,
+  logcat, tunnels) through the filtering proxy with `adb.shell` (decision
+  #68). Not yet: root mode, VPN, the rest of the Phase 7
   protections; not yet tried on a real phone, and not in the chart.
 - `provider-fake` (fake devices whose agent streams a recorded screen and serves placeholder
   DevTools pages).
@@ -109,14 +110,14 @@ deployment"):
 
 - Traffic inspection proxy (Phase 4.7) and MCP server (Phase 4.8).
 - A persistent database: only in-memory SQLite exists (Phase 4.6).
-- The rest of Phase 7 for phones: the filtering ADB proxy, root mode, the
+- The rest of Phase 7 for phones: root mode, the
   device-owner app, cleanup verification and quarantine (threat model in
   architecture.md "Physical devices"); Docker-only provider — "Later".
 
 ## Next steps, in order
 
-1. Phones: try `provider-physical` on a real phone, then the filtering ADB
-   proxy (browser ADB, logcat and tunnels on phones), then root mode.
+1. Phones: try `provider-physical` and its ADB proxy on a real phone, then
+   root mode.
 2. The conformance suite (`internal/contract/conformance`) for Provider and
    Agent — the last open item of Phases 1 and 3.
 3. Planned, each starting with a decisions.md entry: Phase 4.7 traffic

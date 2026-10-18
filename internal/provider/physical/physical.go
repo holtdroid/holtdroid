@@ -32,7 +32,7 @@ type Config struct {
 	TunnelListen string
 	PublicURL    string
 	TunnelURL    string
-	ADB          string
+	ADB          ADBConfig
 	StateFile    string
 	Refresh      time.Duration
 	ResetTimeout time.Duration
@@ -45,6 +45,13 @@ type Config struct {
 type Phone struct {
 	Serial string
 	Label  string
+}
+
+// ADBConfig is the host's adb and what users may do through it.
+type ADBConfig struct {
+	Bin    string
+	Server string
+	Shell  agent.ShellPolicy
 }
 
 // AgentConfig is what session agents get from the provider's config.
@@ -60,7 +67,7 @@ func DefaultConfig() Config {
 		Listen:       ":8080",
 		TunnelListen: ":8081",
 		PublicURL:    "http://localhost:8080",
-		ADB:          "adb",
+		ADB:          ADBConfig{Bin: "adb", Server: "127.0.0.1:5037", Shell: agent.ShellAllowlist},
 		StateFile:    "holtdroid-physical.json",
 		Refresh:      5 * time.Second,
 		ResetTimeout: 2 * time.Minute,
@@ -80,6 +87,12 @@ func (c Config) Validate() error {
 			errs = append(errs, fmt.Errorf("phones: %s is listed twice", p.Serial))
 		}
 		seen[p.Serial] = true
+	}
+	if c.ADB.Server == "" {
+		errs = append(errs, errors.New("adb.server is required"))
+	}
+	if err := c.ADB.Shell.Validate(); err != nil {
+		errs = append(errs, err)
 	}
 	if c.StateFile == "" {
 		errs = append(errs, errors.New("stateFile is required"))
@@ -357,9 +370,11 @@ func (p *Provider) start(s contract.Session, artifactURL string, resume bool) *s
 	cfg := agent.DefaultConfig()
 	cfg.ArtifactURL = artifactURL
 	cfg.Package = s.Package
-	cfg.ADB = p.cfg.ADB
+	cfg.ADB = p.cfg.ADB.Bin
 	cfg.Serial = s.Slot
 	cfg.ADBAddr = ""
+	cfg.ADBServer = p.cfg.ADB.Server
+	cfg.ADBShell = p.cfg.ADB.Shell
 	cfg.Scrcpy = p.cfg.Agent.Scrcpy
 	cfg.LocalesDex = ""
 	cfg.DevToolsFrontend = p.cfg.Agent.DevToolsFrontend

@@ -640,7 +640,9 @@ The session page also speaks adb itself (decision #51): Tango's
 `/s/{provider}/{id}/adb`, which the api proxies to the agent's `WS /adb`
 with the signed-in user in `X-Holtdroid-User`. The agent relays packets to
 adbd like it does for the SSH gateway's `/tunnel/adb`, refusing the services
-that would restart adbd or the device.
+that would restart adbd or the device. On a phone the agent is the device
+end itself and replays allowed services through the host adb server
+(decision #68, "Physical devices" below).
 
 ```
 browser (Tango) ──WS /s/…/adb──▶ api proxy ──WS /adb──▶ agent ──TCP──▶ adbd
@@ -698,9 +700,10 @@ NetworkPolicy. Metric names and the audit schema are listed on the public
 
 The first stage exists (decision #67): `provider-physical` runs phones
 without root, with the session agents inside its own process, a launcher
-instead of Frida, `SlotCapabilities` per phone and a state file. The rest of
-this section is the plan for rooted phones and for the protections every
-phone needs.
+instead of Frida, `SlotCapabilities` per phone and a state file. Mitigation
+1, the filtering ADB proxy, exists too (decision #68). The rest of this
+section is the plan for rooted phones and for the protections every phone
+needs.
 
 A `provider-physical` service manages an inventory of rooted phones (Magisk)
 plugged into a host over USB. Slots are phones instead of nodes, one
@@ -735,14 +738,16 @@ do a lot without root:
    device side of the adb protocol itself (CNXN without auth, since the SSH
    gateway already authenticated the user), reads every `OPEN` service string
    and replays allowed ones through the host adb server
-   (`host:transport:<serial>`). Always refused: `reboot:bootloader`,
-   `reboot:recovery`, `reboot:sideload`, `root:`, `unroot:`, `remount:`,
-   `tcpip:`, `usb:`, `disable-verity:`, `enable-verity:`, forwards to the
-   frida-server socket. Shell commands can't be filtered reliably (`sh -c`,
+   (`host:transport:<serial>`). Always refused: `reboot:` in any mode,
+   `root:`, `unroot:`, `remount:`, `tcpip:`, `usb:`, `sideload:`,
+   `disable-verity:`, `enable-verity:`, `reverse:` (the device would reach
+   the provider's host) and forwards to frida-server's ports. Shell commands can't be filtered reliably (`sh -c`,
    `eval`, base64), so `shell:`/`exec:` are a per-provider policy:
    `adb.shell: full | allowlist | off`, with the allowlist covering what IDEs
    need (`adb install` via `abb_exec:package`/`exec:cmd package install`,
-   `logcat`, `am`, `pm list`, `getprop`, `sync:` push/pull, `jdwp`). The
+   `logcat`, `am`, `pm list`, `getprop`, one command each, no shell
+   operators); `sync:` push/pull, `jdwp`, forwards and `framebuffer:` carry
+   no commands and pass with every setting. The
    default for phones is `allowlist`; the portal's own features (install,
    screen, DevTools, clipboard, logcat) don't need user shell at all.
 2. **A device-owner app (our own minimal DPC)** provisioned once on a fresh

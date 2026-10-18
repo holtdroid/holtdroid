@@ -85,6 +85,9 @@ audited as `adb.connect` and `adb.disconnect`; see
 Requests that would restart adbd or the device or move ADB somewhere else
 (`reboot`, `unroot`, `remount`, `tcpip`, `usb`, `sideload`, `disable-verity`)
 are refused here and over [SSH](/holtdroid/concepts/ssh/), because they would
-cut the session off from its own device.
+cut the session off from its own device. On phones the
+[phone provider](/holtdroid/configuration/phones/#adb-on-phones) also refuses
+`root`, reverse forwards and the frida-server ports, and limits shell
+commands with `adb.shell`.
 
 The browser keeps an ADB key in its storage; emulators don't ask for it.

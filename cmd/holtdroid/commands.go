@@ -111,7 +111,7 @@ func providerPhysicalCmd(c *common) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			p, err := physical.New(cfg, physical.ADBHost{Bin: cfg.ADB, Phone: cfg.Phone}, physical.WithVersion(version))
+			p, err := physical.New(cfg, physical.ADBHost{Bin: cfg.ADB.Bin, Phone: cfg.Phone}, physical.WithVersion(version))
 			if err != nil {
 				return err
 			}

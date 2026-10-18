@@ -92,6 +92,7 @@ func parseProps(out string) contract.SlotCapabilities {
 		Android:  props["ro.build.version.release"],
 		ABIs:     abis,
 		DevTools: contract.DevToolsDebuggable,
+		ADB:      true,
 	}
 }
 

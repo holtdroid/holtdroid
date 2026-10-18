@@ -154,7 +154,8 @@ func TestProviderRoundTrip(t *testing.T) {
 		t.Fatalf("create %+v, %v", s, err)
 	}
 	cfg := host.agent(0).cfg
-	if cfg.Serial != "A1" || cfg.Package != "com.x" || cfg.ArtifactURL != "http://api/x" || cfg.Root || cfg.HostMetrics || cfg.Resume || cfg.ADBAddr != "" {
+	if cfg.Serial != "A1" || cfg.Package != "com.x" || cfg.ArtifactURL != "http://api/x" || cfg.Root || cfg.HostMetrics || cfg.Resume || cfg.ADBAddr != "" ||
+		cfg.ADBServer != "127.0.0.1:5037" || cfg.ADBShell != agent.ShellAllowlist {
 		t.Fatalf("agent config %+v", cfg)
 	}
 	if _, err := c.Create(ctx, contract.CreateSession{ArtifactURL: "http://api/x", ArtifactRef: "src/x", Package: "com.x", Owner: "otter"}); !errors.Is(err, contract.ErrNoCapacity) {
@@ -274,9 +275,19 @@ func TestParseProps(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := parseProps(tt.out)
-			if got.Model != tt.model || !slices.Equal(got.ABIs, tt.abis) || got.Root || got.DevTools != contract.DevToolsDebuggable {
+			if got.Model != tt.model || !slices.Equal(got.ABIs, tt.abis) || got.Root || !got.ADB || got.DevTools != contract.DevToolsDebuggable {
 				t.Fatalf("%+v", got)
 			}
 		})
+	}
+}
+
+func TestValidateADB(t *testing.T) {
+	for shell, ok := range map[agent.ShellPolicy]bool{agent.ShellFull: true, agent.ShellAllowlist: true, agent.ShellOff: true, "": false, "some": false} {
+		cfg := DefaultConfig()
+		cfg.ADB.Shell = shell
+		if err := cfg.Validate(); (err == nil) != ok {
+			t.Errorf("shell %q: %v", shell, err)
+		}
 	}
 }

@@ -368,13 +368,26 @@ func (t *Tunnels) notify() {
 	}
 }
 
-// adbTunnels reaches adbd over TCP and publishes ports with adb reverse.
+// adbTunnels reaches adbd over TCP, or the device through the host's adb
+// server and ADBProxy, and publishes ports with adb reverse.
 type adbTunnels struct {
-	adb  Device
-	addr string
+	adb   Device
+	addr  string
+	proxy *ADBProxy
+}
+
+func newADBTunnels(cfg Config, dev Device, log *slog.Logger) adbTunnels {
+	t := adbTunnels{adb: dev, addr: cfg.ADBAddr}
+	if cfg.ADBAddr == "" && cfg.ADBServer != "" {
+		t.proxy = NewADBProxy(cfg.ADBServer, cfg.Serial, cfg.ADBShell, log)
+	}
+	return t
 }
 
 func (d adbTunnels) DialADB(ctx context.Context) (net.Conn, error) {
+	if d.proxy != nil {
+		return d.proxy.Dial(ctx)
+	}
 	if d.addr == "" {
 		return nil, errors.New("this device has no ADB tunnels")
 	}
