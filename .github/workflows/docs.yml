@@ -23,7 +23,7 @@ jobs:
       - uses: jdx/mise-action@v3
       - run: bun install --frozen-lockfile
       - run: bun run --cwd docs build
-      - uses: actions/upload-pages-artifact@v4
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: docs/dist
 
