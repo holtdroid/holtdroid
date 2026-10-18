@@ -32,9 +32,12 @@ type Snapshot struct {
 	Sessions             []control.Session
 	ADB                  []ADBDevice
 	Listening            []control.LocalPort
-	// Published is what the computer wants published, Active what the
-	// gateway accepted on the current connection, Refused why it didn't.
+	// Published is what the computer wants published: the Pinned ports plus
+	// what the Mode adds. Active is what the gateway accepted on the
+	// current connection, Refused why it didn't.
 	Published []int
+	Pinned    []int
+	Mode      control.PublishMode
 	Active    []int
 	Refused   map[int]string
 	// ADBOff and PublishOff say the portal turned these off; both are false
@@ -59,7 +62,7 @@ func (cl *Client) Snapshot() Snapshot {
 		CertificateExpiresAt: cl.creds.CertificateExpiresAt, RefreshExpiresAt: cl.st.ExpiresAt,
 		Fingerprint: fingerprint(cl.signer.PublicKey()), Dir: cl.store.dir,
 		Sessions: slices.Clone(cl.sessions), ADB: adb, Listening: slices.Clone(cl.listening),
-		Published: slices.Clone(cl.st.Published), Active: slices.Clone(cl.active), Refused: maps.Clone(cl.refused),
+		Published: cl.wanted(), Pinned: slices.Clone(cl.st.Published), Mode: cl.st.Mode, Active: slices.Clone(cl.active), Refused: maps.Clone(cl.refused),
 		ADBOff: cl.gateway != nil && !cl.gateway.ADB, PublishOff: cl.gateway != nil && !cl.gateway.Publish,
 	}
 }
@@ -132,10 +135,28 @@ func statusBlock(s Snapshot) string {
 	if s.PublishOff {
 		b.WriteString("  Published  turned off on this portal\n")
 	} else {
-		fmt.Fprintf(&b, "  Published  %s\n", joinPorts(s.Active))
+		fmt.Fprintf(&b, "  Published  %s%s\n", joinPorts(s.Active), modeSuffix(s.Mode))
 	}
 	fmt.Fprintf(&b, "  Listening  %d ports on this computer\n", len(s.Listening))
 	return b.String()
+}
+
+// ModeText says what a publish mode adds to the pinned ports.
+func ModeText(mode control.PublishMode) string {
+	switch mode {
+	case control.PublishDev:
+		return "dev servers automatically"
+	case control.PublishAll:
+		return "every port automatically"
+	}
+	return "only the ports you pick"
+}
+
+func modeSuffix(mode control.PublishMode) string {
+	if mode == control.PublishDev || mode == control.PublishAll {
+		return " · " + ModeText(mode)
+	}
+	return ""
 }
 
 func joinPorts(ports []int) string {

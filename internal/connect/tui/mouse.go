@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/kriakiku/holtdroid/internal/contract/control"
 )
 
 func row(i int) string { return "row:" + strconv.Itoa(i) }
@@ -64,6 +66,8 @@ func (m Model) mouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		}
 	case "row":
 		return m.clickRow(n)
+	case "mode":
+		return m.askMode(control.PublishMode(arg))
 	}
 	return m, nil
 }

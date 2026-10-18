@@ -34,9 +34,11 @@ type Options struct {
 	Portal string
 	// Insecure skips TLS verification towards the portal, for portals with
 	// a self-signed certificate. It is saved and stays on for the portal.
-	Insecure   bool
-	Code       string
-	Publish    []int
+	Insecure bool
+	Code     string
+	Publish  []int
+	// Mode replaces the saved publish mode when set.
+	Mode       control.PublishMode
 	ADBConnect bool
 	Version    string
 	Log        *slog.Logger
@@ -102,6 +104,12 @@ func New(opts Options) (*Client, error) {
 	st.Portal = opts.Portal
 	if opts.Publish != nil {
 		st.Published = opts.Publish
+	}
+	if opts.Mode != "" {
+		st.Mode = opts.Mode
+	}
+	if st.Mode == "" {
+		st.Mode = control.PublishManual
 	}
 	st.Insecure = st.Insecure || opts.Insecure
 	if opts.Log == nil {
@@ -252,11 +260,32 @@ func (cl *Client) SetPublished(ports []int) error {
 	return cl.store.save(st)
 }
 
+// SetMode switches how the client picks the ports it publishes and saves it.
+func (cl *Client) SetMode(mode control.PublishMode) error {
+	switch mode {
+	case control.PublishManual, control.PublishDev, control.PublishAll:
+	default:
+		return fmt.Errorf("unknown publish mode %q", mode)
+	}
+	cl.mu.Lock()
+	cl.st.Mode = mode
+	st := cl.st
+	cl.mu.Unlock()
+	cl.log.Info("publish mode", "mode", mode)
+	cl.poke()
+	cl.changed()
+	return cl.store.save(st)
+}
+
 // TogglePublished publishes port, or stops publishing it.
 func (cl *Client) TogglePublished(port int) error {
 	cl.mu.Lock()
 	ports := slices.Clone(cl.st.Published)
+	auto := slices.Contains(autoPublished(cl.st.Mode, cl.listening), port)
 	cl.mu.Unlock()
+	if auto {
+		return fmt.Errorf("%d is published automatically; switch to manual to pick ports one by one", port)
+	}
 	if i := slices.Index(ports, port); i >= 0 {
 		ports = slices.Delete(ports, i, i+1)
 	} else {
@@ -531,10 +560,11 @@ func (l *link) send(m control.Message) error {
 func (l *link) publish() {
 	cl := l.cl
 	cl.mu.Lock()
-	want := slices.Clone(cl.st.Published)
+	want := cl.wanted()
 	if cl.gateway == nil || !cl.gateway.Publish {
 		want = nil
 	}
+	before := cl.refused
 	cl.mu.Unlock()
 	refused := map[int]string{}
 	for port, ln := range l.published {
@@ -551,7 +581,9 @@ func (l *link) publish() {
 		ln, err := l.c.Listen("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)))
 		if err != nil {
 			refused[port] = err.Error()
-			cl.log.Warn("the gateway refused a port", "port", port, "err", err)
+			if before[port] != err.Error() {
+				cl.log.Warn("the gateway refused a port", "port", port, "err", err)
+			}
 			continue
 		}
 		l.published[port] = ln
@@ -632,7 +664,10 @@ func splice(a, b net.Conn) {
 func (l *link) report() {
 	cl := l.cl
 	cl.mu.Lock()
-	st := control.State{Listening: nonNil(cl.listening), Published: nonNil(slices.Clone(cl.active))}
+	st := control.State{
+		Listening: nonNil(cl.listening), Published: nonNil(slices.Clone(cl.active)),
+		Mode: cl.st.Mode, Pinned: nonNil(slices.Clone(cl.st.Published)),
+	}
 	cl.mu.Unlock()
 	for _, a := range cl.adbDevices() {
 		st.ADB = append(st.ADB, control.ADBPort{Session: a.Session, Port: a.Port})

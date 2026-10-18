@@ -715,7 +715,14 @@ export interface components {
             id: string;
             /** @description TCP ports listening on the computer's loopback */
             listening: components["schemas"]["LocalPort"][];
+            /**
+             * @description manual publishes only pinned ports; dev also every dev server, all every listener
+             * @enum {string}
+             */
+            mode: "manual" | "dev" | "all";
             os: string;
+            /** @description ports the user picked; publishing a set of ports replaces these */
+            pinned: number[];
             /** @description ports published on every ready session of the user */
             published: number[];
             /** Format: date-time */

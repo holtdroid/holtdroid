@@ -133,7 +133,8 @@ Design: decision #64. Replaces the key-based parts of Phase 4.5.
 - [x] The `holtdroid` client (`cmd/holtdroid-connect`): key generation, enrollment, certificate refresh, reconnect, `holtdroid-control` subsystem (hello, local listening ports, sessions, settings)
 - [x] Manual port mode in the client and the portal; settings changed from the portal through the gateway replica holding the connection
 - [x] ADB per device on stable local ports, `adb connect`/`disconnect` when `adb` is on `PATH`
-- [x] TUI (bubbletea): sections on the left (Overview, Devices, Ports, Log, Settings), published ports with toggles, version and paths, installing the `holtdroid` command, mouse clicks and wheel; status lines without a terminal (`--plain`). Later: the mode switch, with the automatic mode
+- [x] TUI (bubbletea): sections on the left (Overview, Devices, Ports, Log, Settings), published ports with toggles, version and paths, installing the `holtdroid` command, mouse clicks and wheel; status lines without a terminal (`--plain`)
+- [x] Publish modes on the client (decision #65): manual, dev servers, everything; `--publish-mode`, the TUI's Mode line with a warning, shown on the Computers page; adb server, emulators and other clients never published automatically
 - [x] `GET /tunnel.sh` and the client binaries in the api image (darwin/linux, amd64/arm64), sha256 and host key rendered into the script
 - [ ] Automatic port mode: agent iptables `LOG` for SYNs to unused loopback ports, port requests to the client, deny list, portal warning
 - [x] Portal: "Computers" page (hostname, OS, ports, ADB) for connected computers; remove the SSH keys page, key requests, `skipHostKeyCheck`, `clientIsolation`, the reconnect loop

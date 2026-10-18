@@ -53,6 +53,40 @@ func processName(ctx context.Context, pid int32, names map[int32]string) string 
 	return name
 }
 
+// wanted is what to publish: the pinned ports plus what the mode adds.
+// Callers hold cl.mu.
+func (cl *Client) wanted() []int {
+	ports := append(slices.Clone(cl.st.Published), autoPublished(cl.st.Mode, cl.listening)...)
+	slices.Sort(ports)
+	return slices.Compact(ports)
+}
+
+// adbServerPort is the host's adb server.
+const adbServerPort = 5037
+
+// neverAuto are listeners the automatic modes skip: the adb server and
+// emulators would give the devices control over other devices, and another
+// holtdroid client's ports are its devices' ADB. This client's own ADB
+// ports never show up in listening at all.
+var neverAuto = []string{"adb", "qemu-system", "emulator", "holtdroid"}
+
+func autoPublished(mode control.PublishMode, list []control.LocalPort) []int {
+	if mode != control.PublishDev && mode != control.PublishAll {
+		return nil
+	}
+	var out []int
+	for _, p := range list {
+		name := strings.ToLower(p.Process)
+		if p.Port == adbServerPort || slices.ContainsFunc(neverAuto, func(n string) bool { return strings.HasPrefix(name, n) }) {
+			continue
+		}
+		if mode == control.PublishAll || IsDevServer(p.Process) {
+			out = append(out, p.Port)
+		}
+	}
+	return out
+}
+
 var devProcesses = []string{
 	"node", "bun", "deno", "python", "ruby", "php", "java", "dotnet", "go", "nginx", "caddy", "httpd", "beam.smp",
 	"uvicorn", "gunicorn", "puma", "next-server", "vite", "esbuild", "mitmproxy", "mitmweb", "charles",

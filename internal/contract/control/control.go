@@ -45,7 +45,19 @@ type State struct {
 	Listening []LocalPort `json:"listening"`
 	Published []int       `json:"published"`
 	ADB       []ADBPort   `json:"adb"`
+	Mode      PublishMode `json:"mode,omitempty"`
+	Pinned    []int       `json:"pinned"`
 }
+
+// PublishMode is how a client picks the ports it publishes: only the ones
+// the user picked, also every dev server, or every listener.
+type PublishMode string
+
+const (
+	PublishManual PublishMode = "manual"
+	PublishDev    PublishMode = "dev"
+	PublishAll    PublishMode = "all"
+)
 
 type Session struct {
 	Slug        string `json:"slug" doc:"{provider}-{id}, also the host name a client dials for the session's ADB"`
@@ -106,6 +118,8 @@ type Computer struct {
 	Listening []LocalPort `json:"listening" doc:"TCP ports listening on the computer's loopback"`
 	Published []int       `json:"published" doc:"ports published on every ready session of the user"`
 	ADB       []ADBPort   `json:"adb" doc:"local ports the computer forwards to each session's ADB"`
+	Mode      PublishMode `json:"mode" enum:"manual,dev,all" doc:"manual publishes only pinned ports; dev also every dev server, all every listener"`
+	Pinned    []int       `json:"pinned" doc:"ports the user picked; publishing a set of ports replaces these"`
 }
 
 type LocalPort struct {

@@ -19,6 +19,7 @@ import (
 
 	"github.com/kriakiku/holtdroid/internal/connect"
 	"github.com/kriakiku/holtdroid/internal/connect/tui"
+	"github.com/kriakiku/holtdroid/internal/contract/control"
 )
 
 func main() {
@@ -32,6 +33,7 @@ func root() *cobra.Command {
 	var (
 		portal   string
 		publish  string
+		mode     string
 		noADB    bool
 		verbose  bool
 		plain    bool
@@ -80,6 +82,12 @@ func root() *cobra.Command {
 				}
 				opts.Publish = ports
 			}
+			switch m := control.PublishMode(mode); m {
+			case "", control.PublishManual, control.PublishDev, control.PublishAll:
+				opts.Mode = m
+			default:
+				return fmt.Errorf("--publish-mode: %q is not manual, dev or all", mode)
+			}
 			ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 			defer stop()
 			outdated := false
@@ -116,6 +124,7 @@ func root() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&portal, "portal", "", "portal URL (default: the only portal this computer is enrolled with)")
 	cmd.Flags().StringVar(&publish, "publish", "", "comma-separated ports to publish on your devices, replacing the saved list")
+	cmd.Flags().StringVar(&mode, "publish-mode", "", "manual publishes only the ports you pick, dev also every dev server, all every listening port; remembered for the portal")
 	cmd.Flags().BoolVar(&noADB, "no-adb-connect", false, "don't run adb connect for each device")
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "debug logging")
 	cmd.Flags().BoolVar(&insecure, "insecure", false, "accept the portal's TLS certificate without checking it (self-signed portals); remembered for the portal")

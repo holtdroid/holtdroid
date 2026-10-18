@@ -1,0 +1,24 @@
+╭──────────────────────╮╭────────────────────────────────────────────────────────────────────╮
+│ holtdroid            ││ Ports  published ports reach every device as localhost             │
+│ ● connected          ││                                                                    │
+│                      ││ Mode        ○ Manual  ● Dev servers  ○ Everything  m switches      │
+│   Overview           ││                                                                    │
+│   Devices     1      ││   ● 3006   node                                                    │
+│ ▸ Ports       2      ││   ◐ 5173   node  auto                                              │
+│   Log                ││   ◐ 8000   python3.13  auto                                        │
+│   Settings           ││   ● 8080   not listening                                           │
+│                      ││                                                                    │
+│                      ││ 3 other ports (system services, apps) · a to show                  │
+│                      ││                                                                    │
+│                      ││                                                                    │
+│                      ││                                                                    │
+│                      ││                                                                    │
+│                      ││                                                                    │
+│                      ││                                                                    │
+│                      ││                                                                    │
+│                      ││                                                                    │
+│                      ││                                                                    │
+│                      ││                                                                    │
+│                      ││                                                                    │
+╰──────────────────────╯╰────────────────────────────────────────────────────────────────────╯
+ publishing dev servers automatically  ·  ↑↓ move · → open · 1-5 sections · q quit

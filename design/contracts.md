@@ -270,9 +270,9 @@ client binary stays small (decision #64).
 |--------|------|--------|
 | `hello` | client, once | `hello: {version, os, arch}` |
 | `gateway` | gateway, first | `gateway: {adb, publish}`: whether this gateway carries ADB and published ports; the client opens no ADB ports and asks for no ports when they are off |
-| `state` | client, on change | `state: {listening: [{port, process?}], published: [port], adb: [{session, port}]}` |
+| `state` | client, on change | `state: {listening: [{port, process?}], published: [port], adb: [{session, port}], mode, pinned: [port]}`: `published` is what the gateway accepted, `pinned` what the user picked, `mode` `manual`, `dev` or `all` (decision #65) |
 | `sessions` | gateway, on change and when the channel opens | `sessions: [{slug, provider, id, package?, label?, versionName?}]`, the user's ready sessions; absent = none |
-| `publish` | gateway | `publish: [port]`, the exact set the client should publish (from the portal); absent = none |
+| `publish` | gateway | `publish: [port]`, the exact set of pinned ports (from the portal); absent = none. The mode adds its ports on top |
 
 The fake provider (`internal/provider/fake`) implements all of it with
 placeholder HTML for the screen and DevTools pages.

@@ -16,6 +16,12 @@ import { cn } from "@/lib/utils"
 
 const osName: Record<string, string> = { darwin: "macOS", linux: "Linux", windows: "Windows" }
 
+const modeText: Record<Computer["mode"], string> = {
+  manual: "",
+  dev: "every dev server",
+  all: "every listening port",
+}
+
 export function parsePort(text: string): number | null {
   const n = Number(text.trim())
   return Number.isInteger(n) && n >= 1 && n <= 65535 ? n : null
@@ -30,6 +36,8 @@ export function ComputerCard({ computer: c }: { computer: Computer }) {
   const adbOff = info?.allowADB === false
   const [draft, setDraft] = useState("")
   const published = new Set(c.published)
+  const pinned = new Set(c.pinned)
+  const auto = modeText[c.mode]
   const processes = new Map(c.listening.map((p) => [p.port, p.process]))
   const groups = groupPorts(c.listening, c.published)
   const [showAll, setShowAll] = useState(false)
@@ -38,7 +46,7 @@ export function ComputerCard({ computer: c }: { computer: Computer }) {
 
   const publish = (next: Set<number>) => setPublished.mutate({ id: c.id, ports: [...next].toSorted((a, b) => a - b) })
   const toggle = (port: number) => {
-    const next = new Set(published)
+    const next = new Set(pinned)
     if (next.has(port)) next.delete(port)
     else next.add(port)
     publish(next)
@@ -66,6 +74,11 @@ export function ComputerCard({ computer: c }: { computer: Computer }) {
           {publishOff && (
             <span className="text-muted-foreground text-xs">Publishing ports is turned off on this portal.</span>
           )}
+          {!publishOff && auto && (
+            <span className="text-muted-foreground text-xs">
+              The client publishes {auto} automatically; switch the mode in the client's Ports section.
+            </span>
+          )}
           <div className="flex flex-wrap gap-1.5">
             {ports.length === 0 && (
               <span className="text-muted-foreground text-xs">
@@ -76,6 +89,7 @@ export function ComputerCard({ computer: c }: { computer: Computer }) {
             )}
             {ports.map((port) => {
               const on = published.has(port)
+              const automatic = on && !pinned.has(port) && auto !== ""
               const process = processes.get(port)
               return (
                 <Badge
@@ -90,8 +104,14 @@ export function ComputerCard({ computer: c }: { computer: Computer }) {
                   <button
                     type="button"
                     aria-pressed={on}
-                    title={on ? "Published — click to stop" : "Click to publish on your devices"}
-                    disabled={publishOff}
+                    title={
+                      automatic
+                        ? "Published automatically by the client's mode"
+                        : on
+                          ? "Published — click to stop"
+                          : "Click to publish on your devices"
+                    }
+                    disabled={publishOff || automatic}
                     onClick={() => toggle(port)}
                   >
                     <span className={cn("size-1.5 rounded-full", on ? "bg-emerald-500" : "bg-muted-foreground/40")} />
@@ -113,7 +133,7 @@ export function ComputerCard({ computer: c }: { computer: Computer }) {
             onSubmit={(e) => {
               e.preventDefault()
               if (draftPort === null) return
-              publish(new Set([...published, draftPort]))
+              publish(new Set([...pinned, draftPort]))
               setDraft("")
             }}
           >

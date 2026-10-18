@@ -2,6 +2,7 @@ package sshgateway
 
 import (
 	"bufio"
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -100,10 +101,15 @@ func (c *conn) sendSessions(list []control.Session) {
 func (c *conn) info() control.Computer {
 	c.client.mu.Lock()
 	defer c.client.mu.Unlock()
+	pinned := c.client.state.Pinned
+	if pinned == nil {
+		pinned = c.client.state.Published
+	}
 	return control.Computer{
 		ID: c.computer, Hostname: c.hostname, OS: c.client.hello.OS, Arch: c.client.hello.Arch, Version: c.client.hello.Version,
 		ClientIP: c.remote, Since: c.since,
 		Listening: nonNil(c.client.state.Listening), Published: nonNil(c.client.state.Published), ADB: nonNil(c.client.state.ADB),
+		Mode: cmp.Or(c.client.state.Mode, control.PublishManual), Pinned: nonNil(pinned),
 	}
 }
 

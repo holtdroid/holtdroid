@@ -1560,3 +1560,29 @@ The api image carries the client binaries for darwin/linux on amd64/arm64.
 A plain `ssh` client no longer works without a certificate from the
 client. Automatic mode is a deliberate trade of safety for convenience and
 stays off by default per computer.
+
+## 65. Publish modes from the computer's own listeners
+
+**Context.** Picking every dev server port by hand is tedious, and the
+SYN-driven automatic mode of #64 needs agent work (iptables `LOG`, port
+requests). The client already sees which ports listen on the computer and
+which process owns each.
+
+**Decision.** The client has three publish modes, saved per portal on the
+computer and switched in the TUI or with `--publish-mode`: *manual* (only
+pinned ports), *dev* (also every listener whose process looks like a dev
+server, the same list as the Ports grouping) and *all* (also every other
+loopback listener). Pinned ports stay published in every mode. The
+automatic modes skip the adb server (5037) and processes named `adb*`,
+`qemu-system*`, `emulator*` and `holtdroid*`: publishing them would hand a
+device the host's adb or another client's device ADB. The client's own
+listeners are never in its port list. The TUI confirms before switching to
+an automatic mode. The portal shows the mode and the pinned ports
+(`Computer.mode`, `Computer.pinned`) but doesn't switch it, and a port the
+mode publishes can't be unpublished on its own; switching to manual is the
+way out. A refused port is logged once, not on every port scan.
+
+**Consequences.** One switch publishes whatever dev server starts next,
+at the cost of exposing it to every device of the user without a prompt.
+The SYN-driven mode of #64 stays planned for ports that aren't listening
+yet.

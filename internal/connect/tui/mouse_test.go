@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/kriakiku/holtdroid/internal/contract/control"
 )
 
 func find(t *testing.T, m Model, id string) (int, int) {
@@ -110,5 +112,33 @@ func TestMouse(t *testing.T) {
 	m = click(t, m, "row:1")
 	if !m.prefs.AutoUpdate {
 		t.Fatal("clicking automatic updates didn't tick it")
+	}
+}
+
+func TestPublishMode(t *testing.T) {
+	m, a := model(t)
+	m = press(m, "3", "m")
+	if m.confirm == nil || !strings.Contains(m.confirm.text, "every dev server") {
+		t.Fatalf("m didn't ask: %+v", m.confirm)
+	}
+	m = click(t, m, "key:y")
+	m.snap.Mode = control.PublishDev
+	m.snap.Published = []int{3006, 5173, 8000, 8080}
+	m.snap.Pinned = []int{3006, 8080}
+	golden(t, "ports-auto", m.View())
+
+	m = click(t, m, "mode:all")
+	if m.confirm == nil || !strings.Contains(m.confirm.text, "system services") {
+		t.Fatalf("everything didn't warn: %+v", m.confirm)
+	}
+	m = click(t, m, "key:n")
+	m = click(t, m, "mode:manual")
+	if m.confirm != nil {
+		t.Fatal("manual asked")
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if want := []string{"mode dev", "mode manual"}; !slices.Equal(a.did, want) {
+		t.Fatalf("did %q, want %q", a.did, want)
 	}
 }

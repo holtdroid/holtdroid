@@ -35,6 +35,7 @@ var sections = []string{"Overview", "Devices", "Ports", "Log", "Settings"}
 // Actions are what the UI can ask the client to do.
 type Actions interface {
 	TogglePublished(port int) error
+	SetMode(mode control.PublishMode) error
 	DeviceInfo(ctx context.Context, slug string) ([]connect.Field, error)
 	AppInfo(ctx context.Context, s control.Session) ([]connect.Field, error)
 	Logcat(ctx context.Context, s control.Session, app bool, line func(string)) error
@@ -249,6 +250,10 @@ func (m Model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			next, cmd, _ := m.deviceAction(k.String(), m.snap.Sessions[m.cursor])
 			return next, cmd
 		}
+	case "m":
+		if m.section == ports {
+			return m.askMode(nextMode(m.mode()))
+		}
 	case "a":
 		if m.section == ports {
 			m.showAll = !m.showAll
@@ -321,6 +326,61 @@ func (m *Model) publish(port int) {
 	if err := m.act.TogglePublished(port); err != nil {
 		m.flash = err.Error()
 	}
+}
+
+var modes = []struct {
+	mode control.PublishMode
+	name string
+}{
+	{control.PublishManual, "Manual"},
+	{control.PublishDev, "Dev servers"},
+	{control.PublishAll, "Everything"},
+}
+
+func (m Model) mode() control.PublishMode {
+	if m.snap.Mode == "" {
+		return control.PublishManual
+	}
+	return m.snap.Mode
+}
+
+func nextMode(mode control.PublishMode) control.PublishMode {
+	for i, o := range modes {
+		if o.mode == mode {
+			return modes[(i+1)%len(modes)].mode
+		}
+	}
+	return control.PublishManual
+}
+
+// askMode switches the publish mode; the automatic ones ask first, since
+// they open ports nobody picked.
+func (m Model) askMode(mode control.PublishMode) (Model, tea.Cmd) {
+	if m.snap.PublishOff {
+		m.flash = "publishing ports is turned off on this portal"
+		return m, nil
+	}
+	if mode == m.mode() {
+		return m, nil
+	}
+	run := m.do("publish mode", func(context.Context) (string, error) {
+		return "publishing " + connect.ModeText(mode), m.act.SetMode(mode)
+	})
+	switch mode {
+	case control.PublishDev:
+		m.confirm = &confirm{
+			text:  "Publish every dev server automatically? Apps on your devices reach each one as localhost.",
+			doing: "publishing dev servers…", run: run,
+		}
+		return m, nil
+	case control.PublishAll:
+		m.confirm = &confirm{
+			text:  "Publish every listening port, system services and apps too? Anything on your devices reaches them.",
+			doing: "publishing every port…", run: run,
+		}
+		return m, nil
+	}
+	return m, run
 }
 
 func (m Model) focusable() bool {

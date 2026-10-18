@@ -58,6 +58,13 @@ func (a *actions) AppAction(_ context.Context, s control.Session, action string)
 	return nil
 }
 
+func (a *actions) SetMode(mode control.PublishMode) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.did = append(a.did, "mode "+string(mode))
+	return nil
+}
+
 func (a *actions) TogglePublished(port int) error {
 	a.toggled = append(a.toggled, port)
 	return nil

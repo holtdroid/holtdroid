@@ -90,7 +90,8 @@ back. While the client has the mouse, hold Option (macOS) or Shift
   publishes or unpublishes the one under the cursor, `n` publishes a port
   by number (also one nothing listens on yet), `a` shows every other
   listener too: system services and desktop apps. A port the gateway
-  refused shows why.
+  refused shows why. The **Mode** line on top (`m` or a click switches it)
+  picks how ports get published, see [Publish modes](#publish-modes).
 - **Log**: what the client did, newest at the bottom.
 - **Settings**: the client's version, the portal, user, computer and key,
   where the enrollment and the binary are, and **Install**: it links
@@ -133,6 +134,7 @@ connection, the devices or the published ports change.
 
 Options: `--portal <url>` when the computer is enrolled with several portals,
 `--publish 3000,5173` to replace the list of published ports,
+`--publish-mode manual|dev|all` to switch the [publish mode](#publish-modes),
 `--no-adb-connect` to leave `adb` alone, `--plain` for status lines instead
 of the full-screen UI, `--insecure` to accept a self-signed certificate of
 the portal (remembered for that portal), `-v` for debug logs. The key and the
@@ -150,6 +152,25 @@ click a port to publish it on your devices, click again to stop. You can
 also publish a port nothing listens on yet, for a dev server you are about
 to start. The choice is saved on the computer, so it survives restarts of
 the client.
+
+### Publish modes
+
+- **Manual** (the default): only the ports you pick.
+- **Dev servers**: also every port of a program that looks like a dev
+  server (`node`, `bun`, `python`, `java`, `vite` and the like), as soon as
+  it starts listening, and until it stops.
+- **Everything**: also every other listener on the loopback, system
+  services and desktop apps included.
+
+The ports you picked stay published in every mode. The client's TUI asks
+before it switches to an automatic mode: anything on your devices,
+including any page in a WebView, then reaches those services as
+`localhost`. The automatic modes never publish the `adb` server (5037),
+local emulators or another `holtdroid` client, which would let a device
+control other devices; the client's own ADB ports aren't listeners it
+reports in the first place. The mode is saved per portal on the computer.
+The **Computers** page shows it and greys out the ports it published; to
+stop one of those, switch back to **Manual** in the client.
 
 A published port goes to every device you run, including ones you start
 later, and only to yours. Apps and WebViews reach it as

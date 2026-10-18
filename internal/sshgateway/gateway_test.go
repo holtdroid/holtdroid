@@ -672,6 +672,7 @@ func TestControl(t *testing.T) {
 	cc.send(control.Message{Type: control.TypeHello, Hello: &control.Hello{Version: "abc", OS: "darwin", Arch: "arm64"}})
 	cc.send(control.Message{Type: control.TypeState, State: &control.State{
 		Listening: []control.LocalPort{{Port: 3000, Process: "node"}}, Published: []int{3000}, ADB: []control.ADBPort{{Session: first, Port: 15555}},
+		Mode: control.PublishDev, Pinned: []int{},
 	}})
 	ctx := context.Background()
 	var list []control.Computer
@@ -682,6 +683,7 @@ func TestControl(t *testing.T) {
 	want := control.Computer{
 		ID: "c-otter", Hostname: "otter-laptop", OS: "darwin", Arch: "arm64", Version: "abc", ClientIP: "127.0.0.1", Since: list[0].Since,
 		Listening: []control.LocalPort{{Port: 3000, Process: "node"}}, Published: []int{3000}, ADB: []control.ADBPort{{Session: first, Port: 15555}},
+		Mode: control.PublishDev, Pinned: []int{},
 	}
 	if b1, b2 := mustJSON(t, list[0]), mustJSON(t, want); b1 != b2 {
 		t.Fatalf("computer %s, want %s", b1, b2)

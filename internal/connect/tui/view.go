@@ -14,6 +14,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/kriakiku/holtdroid/internal/connect"
+	"github.com/kriakiku/holtdroid/internal/contract/control"
 )
 
 var (
@@ -102,7 +103,8 @@ func (m Model) help() string {
 	keys := "↑↓ move · → open · 1-5 sections · q quit"
 	switch {
 	case m.confirm != nil:
-		return ansi.Truncate(warn.Render(" "+m.confirm.text)+"  "+buttons("y yes · any other key no"), m.width, "…")
+		answers := "  " + buttons("y yes · any other key no")
+		return ansi.Truncate(warn.Render(" "+m.confirm.text), max(m.width-ansi.StringWidth(answers), 10), "…") + answers
 	case m.picker != nil:
 		keys = "type to filter · ↑↓ move · enter launch · esc cancel"
 	case m.adding:
@@ -110,7 +112,7 @@ func (m Model) help() string {
 	case m.content && m.section == ports && m.snap.PublishOff:
 		keys = "↑↓ move · a show all · ← back · q quit"
 	case m.content && m.section == ports:
-		keys = "↑↓ move · space publish · n another port · a show all · ← back · q quit"
+		keys = "↑↓ move · space publish · n another port · a show all · m mode · ← back · q quit"
 	case m.content && m.section == settings:
 		keys = "↑↓ move · enter choose · ← back · q quit"
 	case m.sess != nil && m.snap.ADBOff:
@@ -216,7 +218,11 @@ func (m Model) overview(width int) string {
 	if s.PublishOff {
 		b.WriteString(label.Render("Published") + muted.Render("turned off on this portal") + "\n")
 	} else {
-		b.WriteString(label.Render("Published") + ports2text(s.Active) + "\n")
+		auto := ""
+		if m.mode() != control.PublishManual {
+			auto = muted.Render(" · " + connect.ModeText(m.mode()))
+		}
+		b.WriteString(label.Render("Published") + ports2text(s.Active) + auto + "\n")
 	}
 	dev := 0
 	for _, p := range s.Listening {
@@ -326,6 +332,8 @@ func (m Model) portsView(height int) string {
 	b.WriteString(title.Render("Ports") + muted.Render("  published ports reach every device as localhost") + "\n\n")
 	if s.PublishOff {
 		b.WriteString(warn.Render("Publishing ports is turned off on this portal.") + "\n\n")
+	} else {
+		b.WriteString(m.modeLine() + "\n\n")
 	}
 	if m.adding {
 		b.WriteString(chosen.Render("Port to publish: ") + m.input + "█\n\n")
@@ -333,7 +341,7 @@ func (m Model) portsView(height int) string {
 	if len(rows) == 0 {
 		b.WriteString(muted.Render("No dev server is listening. Press n to publish a port anyway.") + "\n")
 	}
-	visible := max(height-6, 3)
+	visible := max(height-8, 3)
 	start := 0
 	if m.cursor >= visible {
 		start = m.cursor - visible + 1
@@ -354,6 +362,9 @@ func (m Model) portsView(height int) string {
 			what = muted.Render("not listening")
 		}
 		line := fmt.Sprintf("%s %-6d %s", mark, r.port, what)
+		if slices.Contains(s.Published, r.port) && !slices.Contains(s.Pinned, r.port) && m.mode() != control.PublishManual {
+			line += "  " + muted.Render("auto")
+		}
 		if reason, refused := s.Refused[r.port]; refused {
 			line += "  " + bad.Render(reason)
 		}
@@ -369,6 +380,18 @@ func (m Model) portsView(height int) string {
 		fmt.Fprintf(&b, "\n%s", zone("key:a", muted.Render(fmt.Sprintf("%d other ports (system services, apps) · a to show", other))))
 	}
 	return strings.TrimRight(b.String(), "\n")
+}
+
+func (m Model) modeLine() string {
+	opts := make([]string, len(modes))
+	for i, o := range modes {
+		if o.mode == m.mode() {
+			opts[i] = zone("mode:"+string(o.mode), chosen.Render("● "+o.name))
+		} else {
+			opts[i] = zone("mode:"+string(o.mode), muted.Render("○ ")+o.name)
+		}
+	}
+	return label.Render("Mode") + strings.Join(opts, "  ") + "  " + zone("key:m", muted.Render("m switches"))
 }
 
 func countDev(s connect.Snapshot) int {

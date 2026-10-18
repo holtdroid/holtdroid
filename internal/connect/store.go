@@ -18,15 +18,18 @@ import (
 	"time"
 
 	"golang.org/x/crypto/ssh"
+
+	"github.com/kriakiku/holtdroid/internal/contract/control"
 )
 
 // state is what a computer keeps per portal between runs.
 type state struct {
-	Portal       string    `json:"portal"`
-	Insecure     bool      `json:"insecure,omitempty"`
-	RefreshToken string    `json:"refreshToken,omitempty"`
-	ExpiresAt    time.Time `json:"expiresAt,omitzero"`
-	Published    []int     `json:"published"`
+	Portal       string              `json:"portal"`
+	Insecure     bool                `json:"insecure,omitempty"`
+	RefreshToken string              `json:"refreshToken,omitempty"`
+	ExpiresAt    time.Time           `json:"expiresAt,omitzero"`
+	Published    []int               `json:"published"`
+	Mode         control.PublishMode `json:"mode,omitempty"`
 }
 
 type store struct {

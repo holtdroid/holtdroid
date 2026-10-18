@@ -1,12 +1,14 @@
 ╭──────────────────────╮╭────────────────────────────────────────────────────────────────────╮
 │ holtdroid            ││ Ports  published ports reach every device as localhost             │
 │ ● connected          ││                                                                    │
-│                      ││ ▸ ● 3006   node                                                    │
-│   Overview           ││   ○ 5000   ControlCenter                                           │
-│   Devices     1      ││   ○ 5173   node                                                    │
-│ › Ports       2      ││   ○ 7000   ControlCenter                                           │
-│   Log                ││   ○ 8000   python3.13                                              │
-│   Settings           ││   ● 8080   not listening                                           │
+│                      ││ Mode        ● Manual  ○ Dev servers  ○ Everything  m switches      │
+│   Overview           ││                                                                    │
+│   Devices     1      ││ ▸ ● 3006   node                                                    │
+│ › Ports       2      ││   ○ 5000   ControlCenter                                           │
+│   Log                ││   ○ 5173   node                                                    │
+│   Settings           ││   ○ 7000   ControlCenter                                           │
+│                      ││   ○ 8000   python3.13                                              │
+│                      ││   ● 8080   not listening                                           │
 │                      ││   ○ 52391  rapportd                                                │
 │                      ││                                                                    │
 │                      ││                                                                    │
@@ -18,7 +20,5 @@
 │                      ││                                                                    │
 │                      ││                                                                    │
 │                      ││                                                                    │
-│                      ││                                                                    │
-│                      ││                                                                    │
 ╰──────────────────────╯╰────────────────────────────────────────────────────────────────────╯
- ↑↓ move · space publish · n another port · a show all · ← back · q quit
+ ↑↓ move · space publish · n another port · a show all · m mode · ← back · q quit
