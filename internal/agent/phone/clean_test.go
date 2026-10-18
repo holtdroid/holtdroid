@@ -77,6 +77,8 @@ func TestClean(t *testing.T) {
 		"pm clear --user 0 com.sec.android.app.sbrowser",
 		"am force-stop com.android.vending",
 		"settings delete global http_proxy",
+		"settings delete global new_key",
+		"mkdir -p Alarms Audiobooks DCIM",
 		"settings put system font_scale '1.0'",
 		`settings put system ringtone 'it'\''s'`,
 		"cmd wifi forget-network 0; cmd wifi forget-network 4",
@@ -94,7 +96,6 @@ func TestClean(t *testing.T) {
 		"pm clear --user 0 com.android.settings",
 		"pm clear --user 0 com.sec.android.app.launcher",
 		"boot_count",
-		"new_key",
 		"settings put system screen_brightness '128'",
 	} {
 		if strings.Contains(calls, unwanted) {

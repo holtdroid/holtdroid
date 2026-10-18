@@ -1765,7 +1765,8 @@ every launcher app except Settings, the home app and the tunnel,
 force-stop apps in recents, wipe `/sdcard` except `Android/`, undo the
 portal's device settings, put back every changed baseline setting except
 volatile ones (counters, timestamps, Phenotype flags, `android_id`) and
-the ones the cleanup sets itself, Bluetooth/NFC/location off, and with VPN
+the ones the cleanup sets itself, delete settings added since the baseline
+(a proxy left by a user would otherwise survive), Bluetooth/NFC/location off, and with VPN
 locations forget every Wi-Fi network and turn Wi-Fi and data off. After a
 session it parks the phone (battery saver, brightness 1, `stayon` off,
 screen off); before one it wakes it at its baseline brightness. Battery

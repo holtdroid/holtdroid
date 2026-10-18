@@ -215,11 +215,12 @@ after it, the phone is cleaned against that baseline:
 - the data of every app on the launcher is cleared (browsers, gallery,
   files, …), except Settings, the launcher and Holtdroid Tunnel, and the apps
   in recents are closed;
-- shared storage (`/sdcard`: photos, downloads, documents) is wiped, except
-  `Android/`;
-- the portal's device settings are undone and every setting that differs
-  from the baseline is put back (settings the system keeps changing, such as
-  counters and timestamps, are left alone);
+- shared storage (`/sdcard`: photos, downloads, documents) is wiped; the
+  standard directories stay, empty, and `Android/` is left alone;
+- the portal's device settings are undone, every setting that differs from
+  the baseline is put back and every setting added since is deleted (an
+  `http_proxy`, say); settings the system keeps changing, such as counters
+  and timestamps, are left alone;
 - Bluetooth, NFC and location are turned off. With VPN locations, Wi-Fi and
   mobile data are turned off and every saved Wi-Fi network is forgotten, so
   the phone's only network is the tunnel; without them, Wi-Fi and mobile

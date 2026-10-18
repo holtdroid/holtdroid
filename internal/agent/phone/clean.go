@@ -158,7 +158,18 @@ func Clean(ctx context.Context, adb ADB, c Cleanup) error {
 	return errors.Join(append(errs, adb.RemoveAll(ctx))...)
 }
 
-const wipeStorage = `cd /sdcard && for f in * .[!.]*; do [ "$f" = Android ] || [ ! -e "$f" ] || rm -rf "$f"; done
+const sharedDirs = "Alarms Audiobooks DCIM Documents Download Movies Music Notifications Pictures Podcasts Recordings Ringtones"
+
+// wipeStorage empties shared storage but keeps Android/ and the standard
+// directories, which Android doesn't create again by itself.
+const wipeStorage = `cd /sdcard && for f in * .[!.]*; do
+  [ -e "$f" ] && [ "$f" != Android ] || continue
+  case " ` + sharedDirs + ` " in
+    *" $f "*) rm -rf "$f"/* "$f"/.[!.]* ;;
+    *) rm -rf "$f" ;;
+  esac
+done
+mkdir -p ` + sharedDirs + `
 rm -rf /data/local/tmp/holtdroid-*; true`
 
 // resetDevice undoes the portal's device settings; the baseline restore then
@@ -209,8 +220,8 @@ func wifiNetworks(out string) []string {
 	return ids
 }
 
-// restoreScript puts back every baseline setting whose value changed.
-// Settings added since the baseline stay.
+// restoreScript puts back every baseline setting whose value changed and
+// deletes the ones added since (an http_proxy, say).
 func restoreScript(ctx context.Context, adb ADB, b *Baseline) string {
 	var cmds []string
 	for _, ns := range namespaces {
@@ -233,6 +244,16 @@ func restoreScript(ctx context.Context, adb ADB, b *Baseline) string {
 			} else {
 				cmds = append(cmds, "settings put "+ns+" "+k+" "+quote(v))
 			}
+		}
+		added := make([]string, 0)
+		for k, v := range cur {
+			if _, ok := b.Settings[ns][k]; !ok && v != "null" && !volatileSetting.MatchString(k) {
+				added = append(added, k)
+			}
+		}
+		slices.Sort(added)
+		for _, k := range added {
+			cmds = append(cmds, "settings delete "+ns+" "+k+" >/dev/null")
 		}
 	}
 	if len(cmds) == 0 {
