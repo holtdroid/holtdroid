@@ -1,6 +1,6 @@
 [tools]
 go = "1.27.2"
 bun = "1.4.3"
-golangci-lint = "2.14.0"
+golangci-lint = "2.15.0"
 helm = "4.3.1"
 sqlc = "1.31.1"
