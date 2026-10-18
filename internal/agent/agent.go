@@ -45,6 +45,7 @@ type Config struct {
 	Version          string
 	Resume           bool
 	Root             bool
+	EmulatorConsole  bool
 	HostMetrics      bool
 }
 
@@ -64,6 +65,7 @@ func DefaultConfig() Config {
 		CacheDir:         filepath.Join(os.TempDir(), "holtdroid"),
 		Emulator:         emulator.DefaultConfig(),
 		Root:             true,
+		EmulatorConsole:  true,
 		HostMetrics:      true,
 	}
 }
@@ -137,7 +139,7 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 		screen:   screen,
 		clip:     NewClipboard(screen, log),
 		frontend: NewFrontend(cfg.DevToolsFrontend, filepath.Join(cfg.CacheDir, "devtools-frontend")),
-		controls: NewControls(dev, cfg.LocalesDex),
+		controls: NewControls(dev, cfg.LocalesDex, cfg.EmulatorConsole),
 		tunnels:  NewTunnels(newADBTunnels(cfg, dev, log), log),
 		metrics:  NewMetrics(dev, cfg.Package, host, log),
 		vibes:    NewVibrations(dev, log),

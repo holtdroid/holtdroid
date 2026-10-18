@@ -24,6 +24,7 @@ type console interface {
 type Controls struct {
 	dev        Device
 	localesDex string
+	noConsole  bool
 	now        func() time.Time
 
 	mu      sync.Mutex
@@ -33,8 +34,16 @@ type Controls struct {
 
 // NewControls changes the system language by running localesDex, a dex
 // file on the agent's disk, with app_process; empty disables it.
-func NewControls(dev Device, localesDex string) *Controls {
-	return &Controls{dev: dev, localesDex: localesDex, now: time.Now, network: contract.NetworkFull}
+// NewControls uses the emulator console for network conditions, the GPS and
+// the battery when emulator is set and the device has one.
+func NewControls(dev Device, localesDex string, emulator bool) *Controls {
+	return &Controls{dev: dev, localesDex: localesDex, noConsole: !emulator, now: time.Now, network: contract.NetworkFull}
+}
+
+// console is the emulator console, unless the device is a phone.
+func (c *Controls) console() (console, bool) {
+	con, ok := c.dev.(console)
+	return con, ok && !c.noConsole
 }
 
 const stateScript = `echo "airplane=$(settings get global airplane_mode_on)"
@@ -105,11 +114,12 @@ func (c *Controls) State(ctx context.Context) (contract.DeviceState, error) {
 	if r, err := strconv.Atoi(v["rotation"]); err == nil && r >= 0 && r <= 3 {
 		s.Rotation = r
 	}
-	if _, ok := c.dev.(console); ok {
+	if _, ok := c.console(); ok {
 		c.mu.Lock()
 		s.NetworkProfile = c.network
 		s.Geo = c.geo
 		s.CanFakeGeo = true
+		s.CanSimulateBattery = true
 		c.mu.Unlock()
 	}
 	if s.TimeOffset, err = c.timeOffset(ctx); err != nil {
@@ -169,6 +179,9 @@ func (c *Controls) Update(ctx context.Context, in contract.DeviceSettings) (cont
 	}
 	if in.MobileData != nil {
 		add("svc data " + pick(*in.MobileData, "enable", "disable"))
+	}
+	if _, ok := c.console(); !ok && (in.Charging != nil || in.BatteryLevel != nil) {
+		return contract.DeviceState{}, fmt.Errorf("%w: only an emulator's battery can be simulated", contract.ErrInvalid)
 	}
 	charging := in.Charging
 	if in.BatterySaver != nil && *in.BatterySaver && charging == nil {
@@ -270,7 +283,7 @@ func (c *Controls) setTime(ctx context.Context, offset int64, auto bool) error {
 }
 
 func (c *Controls) setNetwork(ctx context.Context, p contract.NetworkProfile) error {
-	con, ok := c.dev.(console)
+	con, ok := c.console()
 	if !ok {
 		return fmt.Errorf("%w: this device can't emulate network conditions", contract.ErrInvalid)
 	}
@@ -295,7 +308,7 @@ func (c *Controls) setNetwork(ctx context.Context, p contract.NetworkProfile) er
 var defaultGeo = contract.GeoPoint{Latitude: 37.4219983, Longitude: -122.084}
 
 func (c *Controls) setGeo(ctx context.Context, geo *contract.GeoPoint) error {
-	con, ok := c.dev.(console)
+	con, ok := c.console()
 	if !ok {
 		return fmt.Errorf("%w: this device can't fake its location", contract.ErrInvalid)
 	}

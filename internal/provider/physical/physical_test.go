@@ -27,11 +27,13 @@ import (
 )
 
 type fakeHost struct {
-	mu      sync.Mutex
-	devices map[string]string
-	agents  []*fakeAgent
-	resets  []string
-	release chan struct{}
+	mu       sync.Mutex
+	devices  map[string]string
+	agents   []*fakeAgent
+	resets   []string
+	captures []string
+	cleanups []phone.Cleanup
+	release  chan struct{}
 }
 
 func (h *fakeHost) Devices(context.Context) (map[string]string, error) {
@@ -44,15 +46,26 @@ func (h *fakeHost) Props(_ context.Context, serial string) (contract.SlotCapabil
 	return contract.SlotCapabilities{Model: "Phone " + serial, Android: "15", ABIs: []string{"arm64-v8a"}, DevTools: contract.DevToolsDebuggable}, nil
 }
 
-func (h *fakeHost) Agent(cfg agent.Config, tunnel *phone.Tunnel, _ *slog.Logger) Agent {
+func (h *fakeHost) Agent(cfg agent.Config, s phone.Session, _ *slog.Logger) Agent {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	a := &fakeAgent{cfg: cfg, tunnel: tunnel, state: contract.StateReady}
+	a := &fakeAgent{cfg: cfg, tunnel: s.Tunnel, session: s, state: contract.StateReady}
 	h.agents = append(h.agents, a)
 	return a
 }
 
-func (h *fakeHost) Reset(_ context.Context, serial, pkg string) error {
+func (h *fakeHost) Capture(_ context.Context, serial string) (*phone.Baseline, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.captures = append(h.captures, serial)
+	return &phone.Baseline{Packages: []string{"com.android.settings"}}, nil
+}
+
+func (h *fakeHost) Clean(_ context.Context, serial string, c phone.Cleanup) error {
+	pkg := c.Package
+	h.mu.Lock()
+	h.cleanups = append(h.cleanups, c)
+	h.mu.Unlock()
 	if h.release != nil {
 		<-h.release
 	}
@@ -71,6 +84,7 @@ func (h *fakeHost) agent(i int) *fakeAgent {
 type fakeAgent struct {
 	cfg     agent.Config
 	tunnel  *phone.Tunnel
+	session phone.Session
 	mu      sync.Mutex
 	state   contract.SessionState
 	stopped bool
@@ -220,6 +234,15 @@ func TestProviderRoundTrip(t *testing.T) {
 	if !slices.Equal(host.resets, []string{"A1 com.x"}) || !host.agent(0).stopped {
 		t.Fatalf("resets %v, stopped %v", host.resets, host.agent(0).stopped)
 	}
+	if !slices.Equal(host.captures, []string{"A1"}) {
+		t.Fatalf("captures %v, want only the free online phone", host.captures)
+	}
+	if ps := host.agent(0).session; ps.Baseline == nil || ps.Resume || ps.Package != "com.x" {
+		t.Fatalf("phone session %+v", ps)
+	}
+	if c := host.cleanups[0]; !c.End || c.Baseline == nil || c.Offline {
+		t.Fatalf("cleanup %+v", c)
+	}
 }
 
 func TestRestartResumesSessions(t *testing.T) {
@@ -251,7 +274,7 @@ func TestRestartResumesSessions(t *testing.T) {
 	if err != nil || got.ArtifactRef != "src/x@2" || got.Owner != "otter" || got.Slot != "A1" {
 		t.Fatalf("resumed session %+v, %v", got, err)
 	}
-	if cfg := host2.agent(0).cfg; !cfg.Resume || cfg.ArtifactURL != "http://api/y" {
+	if cfg := host2.agent(0).cfg; !cfg.Resume || !host2.agent(0).session.Resume || cfg.ArtifactURL != "http://api/y" {
 		t.Fatalf("resumed agent config %+v", cfg)
 	}
 	waitFor(t, func() bool {

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -60,7 +59,7 @@ func (f *fakeADB) RemoveAll(context.Context) error {
 
 func TestRunEndsWhenThePhoneIsGone(t *testing.T) {
 	adb := &fakeADB{states: []string{"device", "offline", "device"}}
-	p := New(Config{BootTimeout: time.Second, Poll: time.Millisecond, Misses: 2}, adb, nil, slog.New(slog.DiscardHandler))
+	p := New(Config{BootTimeout: time.Second, Poll: time.Millisecond, Misses: 2}, adb, Session{Resume: true}, slog.New(slog.DiscardHandler))
 	booted := false
 	err := p.Run(context.Background(), func() { booted = true })
 	if !booted || err == nil || err.Error() != "phone disconnected" {
@@ -68,18 +67,5 @@ func TestRunEndsWhenThePhoneIsGone(t *testing.T) {
 	}
 	if adb.calls[0] != wake {
 		t.Fatalf("calls %q", adb.calls)
-	}
-}
-
-func TestReset(t *testing.T) {
-	adb := &fakeADB{}
-	if err := Reset(context.Background(), adb, "com.x"); err != nil {
-		t.Fatal(err)
-	}
-	if len(adb.calls) != 2 || !strings.Contains(adb.calls[0], "pm uninstall com.x") || adb.calls[1] != "remove-all" {
-		t.Fatalf("calls %q", adb.calls)
-	}
-	if err := Reset(context.Background(), adb, "com.x; reboot"); err == nil {
-		t.Fatal("bad package name accepted")
 	}
 }

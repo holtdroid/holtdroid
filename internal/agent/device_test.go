@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"reflect"
 	"strings"
@@ -65,7 +66,7 @@ autotime=0
 `,
 		clock: "1760003600000000000",
 	}
-	c := NewControls(dev, "")
+	c := NewControls(dev, "", true)
 	c.now = func() time.Time { return now }
 	got, err := c.State(context.Background())
 	if err != nil {
@@ -74,7 +75,7 @@ autotime=0
 	want := contract.DeviceState{
 		WiFi: true, MobileData: true, BatterySaver: true, BatteryLevel: 42, DarkMode: true,
 		FontScale: 1.3, Density: 400, DefaultDensity: 320, Rotation: 1, NetworkProfile: contract.NetworkFull,
-		TimeZone: "Europe/Warsaw", Locale: "en-US", Locales: []string{"en-US", "ru-RU"}, CanFakeGeo: true, TimeOffset: 3_600_000,
+		TimeZone: "Europe/Warsaw", Locale: "en-US", Locales: []string{"en-US", "ru-RU"}, CanFakeGeo: true, CanSimulateBattery: true, TimeOffset: 3_600_000,
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("state\n got %+v\nwant %+v", got, want)
@@ -123,7 +124,7 @@ func TestControlsUpdate(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dev := &scriptedDevice{clock: "1760000000"}
-			c := NewControls(dev, "")
+			c := NewControls(dev, "", true)
 			c.now = func() time.Time { return now }
 			if _, err := c.Update(context.Background(), tc.in); err != nil {
 				t.Fatal(err)
@@ -139,7 +140,7 @@ func TestControlsUpdate(t *testing.T) {
 }
 
 func TestControlsLocaleUnsupported(t *testing.T) {
-	c := NewControls(&scriptedDevice{clock: "1760000000"}, "")
+	c := NewControls(&scriptedDevice{clock: "1760000000"}, "", true)
 	if _, err := c.Update(context.Background(), contract.DeviceSettings{Locales: []string{"ru-RU"}}); err == nil {
 		t.Fatal("want an error without a locale setter")
 	}
@@ -159,14 +160,14 @@ func TestControlsActions(t *testing.T) {
 		{contract.DeviceRotateRight, "settings put system accelerometer_rotation 0 && settings put system user_rotation 2"},
 	} {
 		dev := &scriptedDevice{}
-		if err := NewControls(dev, "").Action(context.Background(), tc.action); err != nil {
+		if err := NewControls(dev, "", true).Action(context.Background(), tc.action); err != nil {
 			t.Fatal(err)
 		}
 		if len(dev.cmds) != 1 || dev.cmds[0] != tc.cmd {
 			t.Errorf("%s: %q", tc.action, dev.cmds)
 		}
 	}
-	if err := NewControls(&scriptedDevice{}, "").Action(context.Background(), "explode"); err == nil {
+	if err := NewControls(&scriptedDevice{}, "", true).Action(context.Background(), "explode"); err == nil {
 		t.Fatal("unknown action accepted")
 	}
 }
@@ -205,5 +206,20 @@ func TestAgentDeviceAPI(t *testing.T) {
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusOK || resp.Header.Get("Content-Type") != "image/png" {
 		t.Fatalf("screenshot %d %s", resp.StatusCode, resp.Header.Get("Content-Type"))
+	}
+}
+
+func TestControlsOnAPhone(t *testing.T) {
+	dev := &scriptedDevice{clock: "1760000000"}
+	c := NewControls(dev, "", false)
+	s, err := c.State(context.Background())
+	if err != nil || s.CanFakeGeo || s.CanSimulateBattery || s.NetworkProfile != "" {
+		t.Fatalf("state %+v, %v", s, err)
+	}
+	if _, err := c.Update(context.Background(), contract.DeviceSettings{BatteryLevel: new(10)}); !errors.Is(err, contract.ErrInvalid) {
+		t.Fatalf("battery level on a phone: %v", err)
+	}
+	if _, err := c.Update(context.Background(), contract.DeviceSettings{Geo: &contract.GeoPoint{Latitude: 1}}); !errors.Is(err, contract.ErrInvalid) {
+		t.Fatalf("geo on a phone: %v", err)
 	}
 }

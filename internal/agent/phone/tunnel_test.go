@@ -69,7 +69,7 @@ func TestTunnel(t *testing.T) {
 	adb := &tunnelADB{}
 	adb.states = []string{"device", "device"}
 	tun := &Tunnel{APK: "/opt/tunnel.apk", Port: 29180, HostPort: 41234, IPv6: true}
-	p := New(Config{BootTimeout: time.Second, Poll: time.Millisecond, Misses: 1}, adb, tun, slog.New(slog.DiscardHandler))
+	p := New(Config{BootTimeout: time.Second, Poll: time.Millisecond, Misses: 1}, adb, Session{Tunnel: tun, Resume: true}, slog.New(slog.DiscardHandler))
 	booted := false
 	_ = p.Run(context.Background(), func() { booted = true })
 	if !booted {

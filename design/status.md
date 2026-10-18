@@ -108,7 +108,10 @@ deployment"):
   namespace on 2026-10-19: install, screen, DevTools of a debuggable app,
   VPN over USB with location switching on the fly (PL, UA, direct; the
   app's own traffic follows), reset after the session. The ADB proxy
-  (browser and SSH) is not tried on a phone yet.
+  (browser and SSH) is not tried on a phone yet. Phones are cleaned against
+  a recorded baseline before and after every session and parked between
+  them (decision #71); the device-owner lockdown in Holtdroid Tunnel is in
+  progress.
 - `provider-fake` (fake devices whose agent streams a recorded screen and serves placeholder
   DevTools pages).
 - Single Go binary + embedded UI, distroless image, Helm chart, CI, release

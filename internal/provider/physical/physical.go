@@ -88,7 +88,7 @@ func DefaultConfig() Config {
 		ADB:          ADBConfig{Bin: "adb", Server: "127.0.0.1:5037", Shell: agent.ShellAllowlist},
 		StateFile:    "holtdroid-physical.json",
 		Refresh:      5 * time.Second,
-		ResetTimeout: 2 * time.Minute,
+		ResetTimeout: 5 * time.Minute,
 		Phone:        phone.DefaultConfig(),
 		Agent:        AgentConfig{Scrcpy: a.Scrcpy, DevToolsFrontend: a.DevToolsFrontend, CacheDir: a.CacheDir},
 		VPN:          vpn.DefaultConfig(),
@@ -146,6 +146,7 @@ type Provider struct {
 	mu        sync.Mutex
 	vpnDir    string
 	inventory map[string]phoneInfo
+	baselines map[string]*phone.Baseline
 	sessions  map[string]*session
 	resets    map[string]string
 }
@@ -172,8 +173,9 @@ type stored struct {
 }
 
 type state struct {
-	Sessions []stored          `json:"sessions"`
-	Resets   map[string]string `json:"resets,omitempty"`
+	Sessions  []stored                   `json:"sessions"`
+	Resets    map[string]string          `json:"resets,omitempty"`
+	Baselines map[string]*phone.Baseline `json:"baselines,omitempty"`
 }
 
 type Option func(*Provider)
@@ -195,7 +197,7 @@ func New(cfg Config, host Host, opts ...Option) (*Provider, error) {
 	base, stop := context.WithCancel(context.Background())
 	p := &Provider{
 		cfg: cfg, host: host, now: time.Now, log: slog.Default(), apk: apk.Parse, base: base, stop: stop,
-		inventory: map[string]phoneInfo{}, sessions: map[string]*session{}, resets: map[string]string{},
+		inventory: map[string]phoneInfo{}, sessions: map[string]*session{}, resets: map[string]string{}, baselines: map[string]*phone.Baseline{},
 	}
 	for _, opt := range opts {
 		opt(p)
@@ -210,6 +212,11 @@ func New(cfg Config, host Host, opts ...Option) (*Provider, error) {
 	if err != nil {
 		stop()
 		return nil, err
+	}
+	for serial, b := range st.Baselines {
+		if p.listed(serial) && b != nil {
+			p.baselines[serial] = b
+		}
 	}
 	resets := maps.Clone(st.Resets)
 	if resets == nil {
@@ -297,7 +304,31 @@ func (p *Provider) refresh(ctx context.Context) {
 		p.mu.Lock()
 		p.inventory[ph.Serial] = info
 		p.mu.Unlock()
+		p.capture(ctx, ph.Serial)
 	}
+}
+
+// capture records a free phone's baseline the first time it is seen.
+func (p *Provider) capture(ctx context.Context, serial string) {
+	p.mu.Lock()
+	free := slices.ContainsFunc(p.slots(), func(s contract.Slot) bool { return s.ID == serial && s.State == contract.SlotFree })
+	_, known := p.baselines[serial]
+	p.mu.Unlock()
+	if !free || known {
+		return
+	}
+	b, err := p.host.Capture(ctx, serial)
+	if err != nil {
+		p.log.Warn("record the phone's baseline", "serial", serial, "err", err)
+		return
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.baselines[serial] = b
+	if err := p.saveLocked(); err != nil {
+		p.log.Warn("save state", "err", err)
+	}
+	p.log.Info("recorded the phone's baseline", "serial", serial, "packages", len(b.Packages))
 }
 
 func (p *Provider) listed(serial string) bool {
@@ -459,6 +490,7 @@ func (p *Provider) start(s contract.Session, artifactURL string, resume bool, v 
 	cfg.CacheDir = p.cfg.Agent.CacheDir
 	cfg.Root = false
 	cfg.HostMetrics = false
+	cfg.EmulatorConsole = false
 	cfg.Resume = resume
 	cfg.Version = p.ver
 	cfg.Session = agent.Session{ID: s.ID, Owner: s.Owner, ArtifactRef: s.ArtifactRef, Slot: s.Slot, CreatedAt: s.CreatedAt.Format(time.RFC3339)}
@@ -477,7 +509,7 @@ func (p *Provider) start(s contract.Session, artifactURL string, resume bool, v 
 	log := p.log.With("session", s.ID, "serial", s.Slot)
 	ctx, cancel := context.WithCancel(p.base)
 	sess := &session{s: s, artifactURL: artifactURL, cancel: cancel, done: make(chan struct{})}
-	sess.agent = p.host.Agent(cfg, tunnel, log)
+	sess.agent = p.host.Agent(cfg, phone.Session{Package: s.Package, Tunnel: tunnel, Baseline: p.baselines[s.Slot], Resume: resume}, log)
 	sess.handler, sess.tunnel = sess.agent.Handler(), sess.agent.TunnelHandler()
 	p.sessions[s.ID] = sess
 	go func() {
@@ -627,7 +659,10 @@ func (p *Provider) reset(serial, pkg string, done <-chan struct{}) {
 	}
 	ctx, cancel := context.WithTimeout(p.base, p.cfg.ResetTimeout)
 	defer cancel()
-	if err := p.host.Reset(ctx, serial, pkg); err != nil {
+	p.mu.Lock()
+	baseline := p.baselines[serial]
+	p.mu.Unlock()
+	if err := p.host.Clean(ctx, serial, phone.Cleanup{Package: pkg, Baseline: baseline, Offline: p.cfg.VPN.Enabled(), End: true}); err != nil {
 		p.log.Warn("reset phone", "serial", serial, "err", err)
 	} else {
 		p.log.Info("phone reset", "serial", serial, "package", pkg)
@@ -716,7 +751,7 @@ func (p *Provider) load() (state, error) {
 }
 
 func (p *Provider) saveLocked() error {
-	st := state{Sessions: []stored{}, Resets: p.resets}
+	st := state{Sessions: []stored{}, Resets: p.resets, Baselines: p.baselines}
 	for _, s := range p.sessions {
 		st.Sessions = append(st.Sessions, stored{Session: s.s, ArtifactURL: s.artifactURL})
 	}

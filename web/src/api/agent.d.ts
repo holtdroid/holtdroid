@@ -431,6 +431,8 @@ export interface components {
             batteryLevel: number;
             batterySaver: boolean;
             canFakeGeo: boolean;
+            /** @description the battery level and charging can be set; battery saver works everywhere */
+            canSimulateBattery: boolean;
             charging: boolean;
             darkMode: boolean;
             /** Format: int64 */

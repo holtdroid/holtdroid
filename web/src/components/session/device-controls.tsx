@@ -251,13 +251,19 @@ function BatteryControl({ s, set, busy }: Props) {
       label="Battery"
       icon={icon}
       active={s.batterySaver}
-      changed={s.batterySaver || s.charging || level !== defaultBattery}
+      changed={s.batterySaver || (s.canSimulateBattery && (s.charging || level !== defaultBattery))}
       summary={[`${level}%`, s.charging ? "charging" : "on battery", s.batterySaver && "saver on"]
         .filter(Boolean)
         .join(" · ")}
       hint={`Click the icon to turn battery saver ${s.batterySaver ? "off" : "on"}`}
       onClick={() => set({ batterySaver: !s.batterySaver })}
-      onReset={() => set({ batterySaver: false, charging: false, batteryLevel: defaultBattery })}
+      onReset={() =>
+        set(
+          s.canSimulateBattery
+            ? { batterySaver: false, charging: false, batteryLevel: defaultBattery }
+            : { batterySaver: false },
+        )
+      }
     >
       <ControlGroup>
         <Toggle
@@ -267,9 +273,13 @@ function BatteryControl({ s, set, busy }: Props) {
           disabled={busy}
           onChange={(v) => set({ batterySaver: v })}
         />
-        <Toggle label="Charging" checked={s.charging} disabled={busy} onChange={(v) => set({ charging: v })} />
+        {s.canSimulateBattery && (
+          <Toggle label="Charging" checked={s.charging} disabled={busy} onChange={(v) => set({ charging: v })} />
+        )}
       </ControlGroup>
-      <BatteryLevel key={level} level={level} disabled={busy} onCommit={(v) => set({ batteryLevel: v })} />
+      {s.canSimulateBattery && (
+        <BatteryLevel key={level} level={level} disabled={busy} onCommit={(v) => set({ batteryLevel: v })} />
+      )}
     </RailControl>
   )
 }

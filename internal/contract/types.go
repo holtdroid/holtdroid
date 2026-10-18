@@ -250,25 +250,26 @@ const (
 )
 
 type DeviceState struct {
-	AirplaneMode   bool           `json:"airplaneMode"`
-	WiFi           bool           `json:"wifi"`
-	MobileData     bool           `json:"mobileData"`
-	BatterySaver   bool           `json:"batterySaver"`
-	BatteryLevel   int            `json:"batteryLevel"`
-	Charging       bool           `json:"charging"`
-	DarkMode       bool           `json:"darkMode"`
-	FontScale      float64        `json:"fontScale"`
-	Density        int            `json:"density"`
-	DefaultDensity int            `json:"defaultDensity"`
-	Rotation       int            `json:"rotation" minimum:"0" maximum:"3"`
-	NetworkProfile NetworkProfile `json:"networkProfile,omitempty" enum:"full,lte,hsdpa,umts,edge,gprs,gsm" doc:"empty when the device can't emulate network conditions"`
-	TimeZone       string         `json:"timeZone"`
-	Locale         string         `json:"locale"`
-	Locales        []string       `json:"locales" doc:"the system languages in order: the first is locale, the rest add their keyboard layouts"`
-	Geo            *GeoPoint      `json:"geo,omitempty" doc:"the faked GPS position; empty while the device reports its default one"`
-	CanFakeGeo     bool           `json:"canFakeGeo"`
-	AutoTime       bool           `json:"autoTime"`
-	TimeOffset     int64          `json:"timeOffset" doc:"device clock minus real time, in milliseconds"`
+	AirplaneMode       bool           `json:"airplaneMode"`
+	WiFi               bool           `json:"wifi"`
+	MobileData         bool           `json:"mobileData"`
+	BatterySaver       bool           `json:"batterySaver"`
+	BatteryLevel       int            `json:"batteryLevel"`
+	Charging           bool           `json:"charging"`
+	DarkMode           bool           `json:"darkMode"`
+	FontScale          float64        `json:"fontScale"`
+	Density            int            `json:"density"`
+	DefaultDensity     int            `json:"defaultDensity"`
+	Rotation           int            `json:"rotation" minimum:"0" maximum:"3"`
+	NetworkProfile     NetworkProfile `json:"networkProfile,omitempty" enum:"full,lte,hsdpa,umts,edge,gprs,gsm" doc:"empty when the device can't emulate network conditions"`
+	TimeZone           string         `json:"timeZone"`
+	Locale             string         `json:"locale"`
+	Locales            []string       `json:"locales" doc:"the system languages in order: the first is locale, the rest add their keyboard layouts"`
+	Geo                *GeoPoint      `json:"geo,omitempty" doc:"the faked GPS position; empty while the device reports its default one"`
+	CanFakeGeo         bool           `json:"canFakeGeo"`
+	CanSimulateBattery bool           `json:"canSimulateBattery" doc:"the battery level and charging can be set; battery saver works everywhere"`
+	AutoTime           bool           `json:"autoTime"`
+	TimeOffset         int64          `json:"timeOffset" doc:"device clock minus real time, in milliseconds"`
 }
 
 type GeoPoint struct {

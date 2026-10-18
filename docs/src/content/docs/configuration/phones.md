@@ -106,7 +106,7 @@ providers:
 | `phones[]`          | `[]`                      | The inventory: `serial` from `adb devices` and an optional `label`. Other phones are ignored |
 | `stateFile`         | `holtdroid-physical.json` | Sessions and pending resets; a restart picks them up again without reinstalling the app      |
 | `refresh`           | `5s`                      | How often the provider checks which phones are connected                                     |
-| `resetTimeout`      | `2m`                      | How long putting a phone back after a session may take                                       |
+| `resetTimeout`      | `5m`                      | How long cleaning a phone after a session may take                                           |
 | `phone.bootTimeout` | `2m`                      | How long a session waits for its phone to show up                                            |
 | `phone.poll`        | `5s`                      | How often a session checks that its phone is still connected                                 |
 | `phone.misses`      | `3`                       | Missed checks in a row after which the session fails with "phone disconnected"               |
@@ -202,15 +202,47 @@ After a restart a session's sing-box starts again at the session's first
 location. Someone with `adb.shell: full` can turn the radios back on and
 stop the tunnel; the agent starts the tunnel again within a poll.
 
-## After a session
+## Cleaning a phone
 
-When a session ends, the phone stays busy until the provider has put it
-back: the tunnel is stopped (it stays installed), the app is uninstalled, the device settings the portal offers are
-reset (airplane mode, Wi-Fi, mobile data, battery simulation, battery
-saver, font scale, density, size, rotation, automatic time), the agent's
-files in `/data/local/tmp` are removed and every adb forward is dropped.
-Anything else a user changes on the screen stays. A reset cut off by a
+The first time the provider sees a phone free, it records a **baseline**:
+the packages installed for the phone's user and every global, secure and
+system setting. It keeps it in the state file. Before every session and
+after it, the phone is cleaned against that baseline:
+
+- the tunnel is stopped and background apps are killed;
+- every package that wasn't in the baseline is uninstalled, and baseline
+  packages someone removed are installed again (`install-existing`);
+- the data of every app on the launcher is cleared (browsers, gallery,
+  files, …), except Settings, the launcher and Holtdroid Tunnel, and the apps
+  in recents are closed;
+- shared storage (`/sdcard`: photos, downloads, documents) is wiped, except
+  `Android/`;
+- the portal's device settings are undone and every setting that differs
+  from the baseline is put back (settings the system keeps changing, such as
+  counters and timestamps, are left alone);
+- Bluetooth, NFC and location are turned off. With VPN locations, Wi-Fi and
+  mobile data are turned off and every saved Wi-Fi network is forgotten, so
+  the phone's only network is the tunnel; without them, Wi-Fi and mobile
+  data are turned on;
+- every adb forward and reverse is dropped.
+
+After a session the phone is then parked: battery saver on, lowest
+brightness, screen off and locked, no longer kept awake on USB. Before a
+session it is woken with its baseline brightness and battery saver off.
+The phone stays busy until the cleanup is done; a cleanup cut off by a
 restart runs again on the next start.
+
+The baseline is the phone as it was then, so plug in a phone the way it
+should look for every session. To record it again, stop the provider and
+remove the phone from `baselines` in the state file.
+
+Battery level and charging are an emulator's simulation; phones offer only
+battery saver. Fake GPS and network emulation are emulator-only too.
+
+What the cleanup can't do without the device-owner part of Holtdroid
+Tunnel (in progress): clear a lock screen PIN, remove accounts, stop calls,
+keep Settings, Developer options, system updates and the power menu away
+from users.
 
 ## What is still missing
 

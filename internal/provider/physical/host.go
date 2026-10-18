@@ -20,8 +20,9 @@ import (
 type Host interface {
 	Devices(ctx context.Context) (map[string]string, error)
 	Props(ctx context.Context, serial string) (contract.SlotCapabilities, error)
-	Agent(cfg agent.Config, tunnel *phone.Tunnel, log *slog.Logger) Agent
-	Reset(ctx context.Context, serial, pkg string) error
+	Agent(cfg agent.Config, s phone.Session, log *slog.Logger) Agent
+	Capture(ctx context.Context, serial string) (*phone.Baseline, error)
+	Clean(ctx context.Context, serial string, c phone.Cleanup) error
 }
 
 // Agent is one session's device agent, running in this process.
@@ -96,11 +97,15 @@ func parseProps(out string) contract.SlotCapabilities {
 	}
 }
 
-func (h ADBHost) Agent(cfg agent.Config, tunnel *phone.Tunnel, log *slog.Logger) Agent {
+func (h ADBHost) Agent(cfg agent.Config, s phone.Session, log *slog.Logger) Agent {
 	adb := agent.ADB{Bin: h.Bin, Serial: cfg.Serial}
-	return agent.New(cfg, adb, agent.NewLauncher(adb), phone.New(h.Phone, adb, tunnel, log).Run, log)
+	return agent.New(cfg, adb, agent.NewLauncher(adb), phone.New(h.Phone, adb, s, log).Run, log)
 }
 
-func (h ADBHost) Reset(ctx context.Context, serial, pkg string) error {
-	return phone.Reset(ctx, agent.ADB{Bin: h.Bin, Serial: serial}, pkg)
+func (h ADBHost) Capture(ctx context.Context, serial string) (*phone.Baseline, error) {
+	return phone.Capture(ctx, agent.ADB{Bin: h.Bin, Serial: serial})
+}
+
+func (h ADBHost) Clean(ctx context.Context, serial string, c phone.Cleanup) error {
+	return phone.Clean(ctx, agent.ADB{Bin: h.Bin, Serial: serial}, c)
 }

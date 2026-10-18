@@ -14,18 +14,19 @@ import (
 
 func defaultSettings() contract.DeviceState {
 	return contract.DeviceState{
-		WiFi:           true,
-		MobileData:     true,
-		BatteryLevel:   65,
-		FontScale:      1,
-		Density:        320,
-		DefaultDensity: 320,
-		NetworkProfile: contract.NetworkFull,
-		TimeZone:       "UTC",
-		Locale:         "en-US",
-		Locales:        []string{"en-US"},
-		CanFakeGeo:     true,
-		AutoTime:       true,
+		WiFi:               true,
+		MobileData:         true,
+		BatteryLevel:       65,
+		FontScale:          1,
+		Density:            320,
+		DefaultDensity:     320,
+		NetworkProfile:     contract.NetworkFull,
+		TimeZone:           "UTC",
+		Locale:             "en-US",
+		Locales:            []string{"en-US"},
+		CanFakeGeo:         true,
+		CanSimulateBattery: true,
+		AutoTime:           true,
 	}
 }
 

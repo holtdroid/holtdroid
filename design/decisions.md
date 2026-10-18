@@ -1748,3 +1748,35 @@ supplementary group; root in the container is the documented fallback.
 Losing the volume makes the host a new adb key, and every phone asks again
 to allow debugging. A host with its own adb server running must stop it,
 since only one server can own a phone.
+
+## 71. Phones are cleaned against a baseline before and after every session
+
+**Context.** A phone keeps whatever a user leaves on it: apps, files, Wi-Fi
+networks, settings, browser history. The maintainer wants every session to
+start from the same phone and phones to rest in a low-power state between
+sessions, without root.
+
+**Decision.** The provider records a baseline the first time it sees a
+phone free (packages of user 0 and `settings list` of every namespace) and
+keeps it in its state file. `phone.Clean` runs at the start of every new
+session (not a resumed one) and after every session: kill apps, uninstall
+packages not in the baseline, `install-existing` missing ones, `pm clear`
+every launcher app except Settings, the home app and the tunnel,
+force-stop apps in recents, wipe `/sdcard` except `Android/`, undo the
+portal's device settings, put back every changed baseline setting except
+volatile ones (counters, timestamps, Phenotype flags, `android_id`) and
+the ones the cleanup sets itself, Bluetooth/NFC/location off, and with VPN
+locations forget every Wi-Fi network and turn Wi-Fi and data off. After a
+session it parks the phone (battery saver, brightness 1, `stayon` off,
+screen off); before one it wakes it at its baseline brightness. Battery
+level and charging are emulator-only (`DeviceState.canSimulateBattery`);
+the agent decides emulator-only controls from `EmulatorConsole`, since the
+adb wrapper has an `emu` method on phones too.
+
+**Consequences.** Every session starts from the baseline, so the phone has
+to be prepared before it is first seen; re-recording means editing the
+state file. A cleanup takes tens of seconds and the phone stays busy
+meanwhile. Shell can't remove tasks from recents or clear the clipboard,
+so stopped apps may still show there. Clearing every launcher app's data
+resets their first-run screens. PINs, accounts, calls and Settings need
+the device owner (Holtdroid Tunnel, next).
