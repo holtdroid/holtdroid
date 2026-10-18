@@ -165,3 +165,16 @@ func (a ADB) Root(ctx context.Context) error {
 		}
 	}
 }
+
+// State is the device's adb state: device, offline, unauthorized, …
+func (a ADB) State(ctx context.Context) (string, error) {
+	out, err := a.run(ctx, "get-state")
+	return strings.TrimSpace(out), err
+}
+
+// RemoveAll drops every forward and reverse of this device.
+func (a ADB) RemoveAll(ctx context.Context) error {
+	_, ferr := a.run(ctx, "forward", "--remove-all")
+	_, rerr := a.run(ctx, "reverse", "--remove-all")
+	return errors.Join(ferr, rerr)
+}

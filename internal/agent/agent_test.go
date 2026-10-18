@@ -295,6 +295,20 @@ func TestAgentLifecycle(t *testing.T) {
 	h.waitState(contract.StateStopping)
 }
 
+func TestAgentResume(t *testing.T) {
+	h := newHarnessWith(t, nil, func(c *Config) { c.Resume = true })
+	h.waitState(contract.StateReady)
+	h.dev.mu.Lock()
+	installs := h.dev.installs
+	h.dev.mu.Unlock()
+	h.inst.mu.Lock()
+	spawns, walls := h.inst.spawns, len(h.inst.walls)
+	h.inst.mu.Unlock()
+	if installs != 0 || spawns != 1 || walls != 0 {
+		t.Fatalf("installs %d, spawns %d, wallpapers %d", installs, spawns, walls)
+	}
+}
+
 func TestAgentBootFailure(t *testing.T) {
 	h := newHarness(t, func(context.Context, func()) error {
 		return errors.New("emulator exited: exit status 1")

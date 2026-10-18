@@ -992,6 +992,8 @@ export interface components {
              */
             appData?: "data" | "cache";
             artifactId: string;
+            /** @description what the session's device can do, when its provider reports it per slot */
+            capabilities?: components["schemas"]["SlotCapabilities"];
             /** Format: date-time */
             createdAt: string;
             detail?: string;
@@ -1020,10 +1022,29 @@ export interface components {
             items: components["schemas"]["SessionView"][];
         };
         Slot: {
+            /** @description what this slot's device can do, when it differs from device to device; empty means the provider's capabilities */
+            capabilities?: components["schemas"]["SlotCapabilities"];
             id: string;
             label: string;
             /** @enum {string} */
             state: "free" | "busy" | "offline";
+        };
+        SlotCapabilities: {
+            abis: string[];
+            /** @description ADB tunnels (browser and holtdroid client) are available */
+            adb: boolean;
+            /** @description Android version, e.g. 15 */
+            android?: string;
+            /** @description app data can be saved and restored */
+            appData: boolean;
+            /**
+             * @description all WebViews, or only those of debuggable builds
+             * @enum {string}
+             */
+            devtools: "all" | "debuggable";
+            model?: string;
+            /** @description the agent has root on the device */
+            root: boolean;
         };
         SourceError: {
             message: string;

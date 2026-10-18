@@ -33,25 +33,26 @@ type ProviderView struct {
 }
 
 type SessionView struct {
-	Provider     string                `json:"provider"`
-	ID           string                `json:"id"`
-	Slot         string                `json:"slot"`
-	Owner        string                `json:"owner"`
-	Package      string                `json:"package"`
-	Source       string                `json:"source"`
-	ArtifactID   string                `json:"artifactId"`
-	Label        string                `json:"label,omitempty"`
-	VersionName  string                `json:"versionName,omitempty"`
-	IconURL      string                `json:"iconUrl,omitempty"`
-	Location     string                `json:"location,omitempty"`
-	AppData      contract.AppDataKind  `json:"appData,omitempty" enum:"data,cache" doc:"the app data restored at launch: data, or data with its cache; empty for a fresh install"`
-	State        contract.SessionState `json:"state" enum:"provisioning,booting,installing,restoring,instrumenting,ready,stopping,failed"`
-	Reason       string                `json:"reason,omitempty"`
-	Detail       string                `json:"detail,omitempty"`
-	CreatedAt    time.Time             `json:"createdAt"`
-	LastActivity time.Time             `json:"lastActivity"`
-	IdleDeadline time.Time             `json:"idleDeadline"`
-	TTLDeadline  time.Time             `json:"ttlDeadline"`
+	Provider     string                     `json:"provider"`
+	ID           string                     `json:"id"`
+	Slot         string                     `json:"slot"`
+	Owner        string                     `json:"owner"`
+	Package      string                     `json:"package"`
+	Source       string                     `json:"source"`
+	ArtifactID   string                     `json:"artifactId"`
+	Label        string                     `json:"label,omitempty"`
+	VersionName  string                     `json:"versionName,omitempty"`
+	IconURL      string                     `json:"iconUrl,omitempty"`
+	Location     string                     `json:"location,omitempty"`
+	AppData      contract.AppDataKind       `json:"appData,omitempty" enum:"data,cache" doc:"the app data restored at launch: data, or data with its cache; empty for a fresh install"`
+	State        contract.SessionState      `json:"state" enum:"provisioning,booting,installing,restoring,instrumenting,ready,stopping,failed"`
+	Reason       string                     `json:"reason,omitempty"`
+	Detail       string                     `json:"detail,omitempty"`
+	CreatedAt    time.Time                  `json:"createdAt"`
+	LastActivity time.Time                  `json:"lastActivity"`
+	IdleDeadline time.Time                  `json:"idleDeadline"`
+	TTLDeadline  time.Time                  `json:"ttlDeadline"`
+	Capabilities *contract.SlotCapabilities `json:"capabilities,omitempty" doc:"what the session's device can do, when its provider reports it per slot"`
 }
 
 type SessionsEvent struct {
@@ -366,6 +367,7 @@ func (s *Server) view(ctx context.Context, provider string, sess contract.Sessio
 		LastActivity: last,
 		IdleDeadline: last.Add(s.cfg.Sessions.IdleTimeout),
 		TTLDeadline:  sess.CreatedAt.Add(s.cfg.Sessions.MaxTTL),
+		Capabilities: sess.Capabilities,
 	}
 	if e, ok := s.cache.Lookup(ctx, srcName, key, rev); ok {
 		v.Label = e.Meta.Label

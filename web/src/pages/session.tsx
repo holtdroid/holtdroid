@@ -49,7 +49,8 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
   const state = session?.state === "failed" ? "failed" : (status?.state ?? session?.state)
   if (state === "ready" && !wasReady) setWasReady(true)
   const manage = session ? canManage(me.data, session) : false
-  const adbAllowed = adbInfo.data?.browser === true && (!adbInfo.data.ownerOnly || manage)
+  const adbAllowed =
+    adbInfo.data?.browser === true && (!adbInfo.data.ownerOnly || manage) && session?.capabilities?.adb !== false
   const adb = useAdbSession(provider, id, session?.package ?? "", adbAllowed && wasReady && state !== "failed")
   useEffect(
     () =>
@@ -142,7 +143,9 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
             }
           >
             {stop.isPending ? <Loader2Icon className="animate-spin" /> : <SquareIcon />}
-            {stop.isPending && appData.data?.enabled && state === "ready" ? "Saving app data…" : "Stop"}
+            {stop.isPending && appData.data?.enabled && session.capabilities?.appData !== false && state === "ready"
+              ? "Saving app data…"
+              : "Stop"}
           </Button>
         </div>
       </div>
@@ -184,7 +187,12 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
                 contentRef={setToolPanel}
               >
                 {caps?.devtools ? (
-                  <DevToolsPanel provider={provider} id={id} frameRef={registerFrame} />
+                  <DevToolsPanel
+                    provider={provider}
+                    id={id}
+                    frameRef={registerFrame}
+                    debuggableOnly={session.capabilities?.devtools === "debuggable"}
+                  />
                 ) : (
                   <div className="text-muted-foreground grid h-full place-items-center text-sm">
                     This device does not support DevTools.

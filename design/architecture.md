@@ -13,7 +13,7 @@
    of inactivity or a hard TTL.
 4. The APK is never modified.
 5. Extensible without touching the core: new origins of builds (any job
-   that writes files into a source), new device kinds (physical rooted phones next), new VPN vendors, new secret backends.
+   that writes files into a source), new device kinds (phones without root exist, rooted phones next), new VPN vendors, new secret backends.
 
 ### Non-goals (for now)
 
@@ -694,7 +694,13 @@ components and session pods, and lets the scraper past the sessions
 NetworkPolicy. Metric names and the audit schema are listed on the public
 "Monitoring and audit" page.
 
-## Future: physical devices
+## Physical devices
+
+The first stage exists (decision #67): `provider-physical` runs phones
+without root, with the session agents inside its own process, a launcher
+instead of Frida, `SlotCapabilities` per phone and a state file. The rest of
+this section is the plan for rooted phones and for the protections every
+phone needs.
 
 A `provider-physical` service manages an inventory of rooted phones (Magisk)
 plugged into a host over USB. Slots are phones instead of nodes, one

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"os"
@@ -39,6 +40,9 @@ type Config struct {
 	Emulator         emulator.Config
 	Session          Session
 	Version          string
+	Resume           bool
+	Root             bool
+	HostMetrics      bool
 }
 
 func DefaultConfig() Config {
@@ -55,6 +59,8 @@ func DefaultConfig() Config {
 		DevToolsFrontend: "https://chrome-devtools-frontend.appspot.com/serve_rev/",
 		CacheDir:         filepath.Join(os.TempDir(), "holtdroid"),
 		Emulator:         emulator.DefaultConfig(),
+		Root:             true,
+		HostMetrics:      true,
 	}
 }
 
@@ -111,6 +117,10 @@ type Agent struct {
 
 func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Logger) *Agent {
 	screen := NewScrcpy(cfg.Scrcpy, dev, log)
+	var host fs.FS = noFS{}
+	if cfg.HostMetrics {
+		host = os.DirFS("/")
+	}
 	return &Agent{
 		cfg:      cfg,
 		dev:      dev,
@@ -125,7 +135,7 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 		frontend: NewFrontend(cfg.DevToolsFrontend, filepath.Join(cfg.CacheDir, "devtools-frontend")),
 		controls: NewControls(dev, cfg.LocalesDex),
 		tunnels:  NewTunnels(adbTunnels{adb: dev, addr: cfg.ADBAddr}, log),
-		metrics:  NewMetrics(dev, cfg.Package, os.DirFS("/"), log),
+		metrics:  NewMetrics(dev, cfg.Package, host, log),
 		vibes:    NewVibrations(dev, log),
 		actions:  make(chan appRequest, 1),
 		launches: make(chan App),
@@ -133,6 +143,10 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 		subs:     map[chan struct{}]struct{}{},
 	}
 }
+
+type noFS struct{}
+
+func (noFS) Open(string) (fs.File, error) { return nil, fs.ErrNotExist }
 
 func (a *Agent) Handler() http.Handler {
 	mux := http.NewServeMux()
@@ -210,16 +224,18 @@ func (a *Agent) run(ctx context.Context) error {
 		return err
 	}
 	defer func() { os.Remove(apk) }()
-	a.setStatus(contract.StateInstalling, "Installing the APK")
-	if err := a.dev.Install(ctx, apk); err != nil {
-		return err
-	}
-	if a.cfg.AppData.URL != "" {
-		if err := a.restore(ctx, a.cfg.AppData); err != nil {
-			return fmt.Errorf("restore app data: %w", err)
+	if !a.cfg.Resume {
+		a.setStatus(contract.StateInstalling, "Installing the APK")
+		if err := a.dev.Install(ctx, apk); err != nil {
+			return err
 		}
+		if a.cfg.AppData.URL != "" {
+			if err := a.restore(ctx, a.cfg.AppData); err != nil {
+				return fmt.Errorf("restore app data: %w", err)
+			}
+		}
+		a.setWallpaper(ctx, a.cfg.Session.ArtifactRef, apk)
 	}
-	a.setWallpaper(ctx, a.cfg.Session.ArtifactRef, apk)
 	if a.cfg.Location != "" && a.cfg.ClashAPI != "" {
 		if _, err := a.network.SetLocation(ctx, a.cfg.Location); err != nil {
 			a.log.Warn("initial location", "location", a.cfg.Location, "err", err)
@@ -432,7 +448,7 @@ func (a *Agent) exportTo(e *exportRequest) error {
 		return err
 	}
 	dev, ok := a.dev.(appDataDevice)
-	if !ok || !packageName.MatchString(a.cfg.Package) {
+	if !ok || !a.cfg.Root || !packageName.MatchString(a.cfg.Package) {
 		return fail(fmt.Errorf("%w: this device can't export app data", contract.ErrInvalid))
 	}
 	a.kill(e.ctx)

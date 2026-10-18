@@ -1,0 +1,551 @@
+// Package physical is the device provider for phones plugged into this host
+// over USB. Slots are phones; every session runs its agent in this process
+// against one phone, without root. Session state is kept in a file so a
+// restart picks the sessions up again.
+package physical
+
+import (
+	"cmp"
+	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"os"
+	"path/filepath"
+	"regexp"
+	"slices"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/kriakiku/holtdroid/internal/agent"
+	"github.com/kriakiku/holtdroid/internal/agent/phone"
+	"github.com/kriakiku/holtdroid/internal/contract"
+)
+
+type Config struct {
+	Listen       string
+	TunnelListen string
+	PublicURL    string
+	TunnelURL    string
+	ADB          string
+	StateFile    string
+	Refresh      time.Duration
+	ResetTimeout time.Duration
+	Phones       []Phone
+	Phone        phone.Config
+	Agent        AgentConfig
+}
+
+// Phone is one phone in the inventory, by its adb serial.
+type Phone struct {
+	Serial string
+	Label  string
+}
+
+// AgentConfig is what session agents get from the provider's config.
+type AgentConfig struct {
+	Scrcpy           agent.ScrcpyConfig
+	DevToolsFrontend string
+	CacheDir         string
+}
+
+func DefaultConfig() Config {
+	a := agent.DefaultConfig()
+	return Config{
+		Listen:       ":8080",
+		TunnelListen: ":8081",
+		PublicURL:    "http://localhost:8080",
+		ADB:          "adb",
+		StateFile:    "holtdroid-physical.json",
+		Refresh:      5 * time.Second,
+		ResetTimeout: 2 * time.Minute,
+		Phone:        phone.DefaultConfig(),
+		Agent:        AgentConfig{Scrcpy: a.Scrcpy, DevToolsFrontend: a.DevToolsFrontend, CacheDir: a.CacheDir},
+	}
+}
+
+func (c Config) Validate() error {
+	var errs []error
+	seen := map[string]bool{}
+	for _, p := range c.Phones {
+		switch {
+		case p.Serial == "":
+			errs = append(errs, errors.New("phones: every phone needs a serial"))
+		case seen[p.Serial]:
+			errs = append(errs, fmt.Errorf("phones: %s is listed twice", p.Serial))
+		}
+		seen[p.Serial] = true
+	}
+	if c.StateFile == "" {
+		errs = append(errs, errors.New("stateFile is required"))
+	}
+	return errors.Join(errs...)
+}
+
+var packageName = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+$`)
+
+type Provider struct {
+	cfg  Config
+	host Host
+	now  func() time.Time
+	log  *slog.Logger
+	ver  string
+	base context.Context
+	stop context.CancelFunc
+
+	mu        sync.Mutex
+	inventory map[string]phoneInfo
+	sessions  map[string]*session
+	resets    map[string]string
+}
+
+type phoneInfo struct {
+	state string
+	caps  *contract.SlotCapabilities
+}
+
+type session struct {
+	s           contract.Session
+	artifactURL string
+	agent       Agent
+	handler     http.Handler
+	tunnel      http.Handler
+	cancel      context.CancelFunc
+	done        chan struct{}
+}
+
+// stored is what the state file keeps of a session.
+type stored struct {
+	Session     contract.Session `json:"session"`
+	ArtifactURL string           `json:"artifactUrl"`
+}
+
+type state struct {
+	Sessions []stored          `json:"sessions"`
+	Resets   map[string]string `json:"resets,omitempty"`
+}
+
+type Option func(*Provider)
+
+func WithClock(now func() time.Time) Option { return func(p *Provider) { p.now = now } }
+
+func WithLogger(log *slog.Logger) Option { return func(p *Provider) { p.log = log } }
+
+func WithVersion(v string) Option { return func(p *Provider) { p.ver = v } }
+
+// New loads the state file and starts the agents of the sessions in it again,
+// without reinstalling their apps.
+func New(cfg Config, host Host, opts ...Option) (*Provider, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	base, stop := context.WithCancel(context.Background())
+	p := &Provider{
+		cfg: cfg, host: host, now: time.Now, log: slog.Default(), base: base, stop: stop,
+		inventory: map[string]phoneInfo{}, sessions: map[string]*session{}, resets: map[string]string{},
+	}
+	for _, opt := range opts {
+		opt(p)
+	}
+	st, err := p.load()
+	if err != nil {
+		stop()
+		return nil, err
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for _, s := range st.Sessions {
+		if !p.listed(s.Session.Slot) {
+			p.log.Warn("dropping a session on a phone that is no longer listed", "session", s.Session.ID, "slot", s.Session.Slot)
+			continue
+		}
+		p.start(s.Session, s.ArtifactURL, true)
+	}
+	for serial, pkg := range st.Resets {
+		if p.listed(serial) {
+			p.resets[serial] = pkg
+			go p.reset(serial, pkg, nil)
+		}
+	}
+	return p, nil
+}
+
+// Run keeps the inventory fresh until ctx ends, then stops every agent and
+// leaves the sessions in the state file for the next start.
+func (p *Provider) Run(ctx context.Context) {
+	for {
+		p.refresh(ctx)
+		select {
+		case <-ctx.Done():
+			p.Close()
+			return
+		case <-time.After(p.cfg.Refresh):
+		}
+	}
+}
+
+// Close stops every agent without ending its session.
+func (p *Provider) Close() {
+	p.stop()
+	p.mu.Lock()
+	running := make([]*session, 0, len(p.sessions))
+	for _, s := range p.sessions {
+		running = append(running, s)
+	}
+	p.mu.Unlock()
+	for _, s := range running {
+		<-s.done
+	}
+}
+
+func (p *Provider) refresh(ctx context.Context) {
+	devices, err := p.host.Devices(ctx)
+	if err != nil {
+		p.log.Warn("list phones", "err", err)
+	}
+	for _, ph := range p.cfg.Phones {
+		st := devices[ph.Serial]
+		p.mu.Lock()
+		info := p.inventory[ph.Serial]
+		p.mu.Unlock()
+		info.state = st
+		if st == "device" && info.caps == nil {
+			caps, err := p.host.Props(ctx, ph.Serial)
+			if err != nil {
+				p.log.Warn("describe phone", "serial", ph.Serial, "err", err)
+			} else {
+				info.caps = &caps
+			}
+		}
+		p.mu.Lock()
+		p.inventory[ph.Serial] = info
+		p.mu.Unlock()
+	}
+}
+
+func (p *Provider) listed(serial string) bool {
+	return slices.ContainsFunc(p.cfg.Phones, func(ph Phone) bool { return ph.Serial == serial })
+}
+
+func (p *Provider) Capabilities(context.Context) (contract.Capabilities, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	abis := []string{}
+	for _, info := range p.inventory {
+		if info.caps == nil {
+			continue
+		}
+		for _, abi := range info.caps.ABIs {
+			if !slices.Contains(abis, abi) {
+				abis = append(abis, abi)
+			}
+		}
+	}
+	slices.Sort(abis)
+	return contract.Capabilities{Kind: "physical", Display: contract.DisplayScrcpy, DevTools: true, Clipboard: true, ABIs: abis}, nil
+}
+
+func (p *Provider) Capacity(context.Context) (contract.Capacity, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return contract.Capacity{Slots: p.slots()}, nil
+}
+
+func (p *Provider) slots() []contract.Slot {
+	busy := map[string]bool{}
+	for _, s := range p.sessions {
+		busy[s.s.Slot] = true
+	}
+	for serial := range p.resets {
+		busy[serial] = true
+	}
+	slots := []contract.Slot{}
+	for _, ph := range p.cfg.Phones {
+		info := p.inventory[ph.Serial]
+		state := contract.SlotFree
+		switch {
+		case busy[ph.Serial]:
+			state = contract.SlotBusy
+		case info.state != "device" || info.caps == nil:
+			state = contract.SlotOffline
+		}
+		label := ph.Label
+		if label == "" && info.caps != nil {
+			label = info.caps.Model
+		}
+		slots = append(slots, contract.Slot{ID: ph.Serial, Label: cmp.Or(label, ph.Serial), State: state, Capabilities: info.caps})
+	}
+	return slots
+}
+
+func (p *Provider) List(ctx context.Context) ([]contract.Session, error) {
+	p.mu.Lock()
+	all := make([]*session, 0, len(p.sessions))
+	for _, s := range p.sessions {
+		all = append(all, s)
+	}
+	p.mu.Unlock()
+	out := make([]contract.Session, len(all))
+	for i, s := range all {
+		out[i] = p.view(ctx, s)
+	}
+	slices.SortFunc(out, func(a, b contract.Session) int { return a.CreatedAt.Compare(b.CreatedAt) })
+	return out, nil
+}
+
+func (p *Provider) view(ctx context.Context, s *session) contract.Session {
+	p.mu.Lock()
+	out := s.s
+	p.mu.Unlock()
+	ev := s.agent.Status(ctx)
+	out.State, out.Detail = ev.State, ev.Detail
+	if ev.State == contract.StateFailed {
+		out.Reason = cmp.Or(ev.Reason, ev.Detail)
+	}
+	return out
+}
+
+func (p *Provider) Create(_ context.Context, req contract.CreateSession) (contract.Session, error) {
+	switch {
+	case !packageName.MatchString(req.Package):
+		return contract.Session{}, fmt.Errorf("%w: bad package name %q", contract.ErrInvalid, req.Package)
+	case req.Location != "":
+		return contract.Session{}, fmt.Errorf("%w: phones offer no locations", contract.ErrInvalid)
+	case req.AppData != nil:
+		return contract.Session{}, fmt.Errorf("%w: phones without root can't restore app data", contract.ErrInvalid)
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	slots := p.slots()
+	i := slices.IndexFunc(slots, func(s contract.Slot) bool { return s.State == contract.SlotFree })
+	if i < 0 {
+		return contract.Session{}, contract.ErrNoCapacity
+	}
+	id := randomID()
+	now := p.now().UTC()
+	s := contract.Session{
+		ID:           id,
+		Slot:         slots[i].ID,
+		Owner:        req.Owner,
+		Package:      req.Package,
+		ArtifactRef:  req.ArtifactRef,
+		State:        contract.StateProvisioning,
+		Capabilities: slots[i].Capabilities,
+		AgentURL:     strings.TrimRight(p.cfg.PublicURL, "/") + "/agents/" + id,
+		CreatedAt:    now,
+		LastActivity: now,
+	}
+	if p.cfg.TunnelURL != "" {
+		s.TunnelURL = strings.TrimRight(p.cfg.TunnelURL, "/") + "/agents/" + id
+	}
+	sess := p.start(s, req.ArtifactURL, false)
+	if err := p.saveLocked(); err != nil {
+		sess.cancel()
+		delete(p.sessions, id)
+		return contract.Session{}, err
+	}
+	return s, nil
+}
+
+// start runs the session's agent; p.mu must be held.
+func (p *Provider) start(s contract.Session, artifactURL string, resume bool) *session {
+	cfg := agent.DefaultConfig()
+	cfg.ArtifactURL = artifactURL
+	cfg.Package = s.Package
+	cfg.ADB = p.cfg.ADB
+	cfg.Serial = s.Slot
+	cfg.ADBAddr = ""
+	cfg.Scrcpy = p.cfg.Agent.Scrcpy
+	cfg.LocalesDex = ""
+	cfg.DevToolsFrontend = p.cfg.Agent.DevToolsFrontend
+	cfg.CacheDir = p.cfg.Agent.CacheDir
+	cfg.Root = false
+	cfg.HostMetrics = false
+	cfg.Resume = resume
+	cfg.Version = p.ver
+	cfg.Session = agent.Session{ID: s.ID, Owner: s.Owner, ArtifactRef: s.ArtifactRef, Slot: s.Slot, CreatedAt: s.CreatedAt.Format(time.RFC3339)}
+	if s.Capabilities == nil {
+		if info := p.inventory[s.Slot]; info.caps != nil {
+			s.Capabilities = info.caps
+		}
+	}
+	ctx, cancel := context.WithCancel(p.base)
+	sess := &session{s: s, artifactURL: artifactURL, cancel: cancel, done: make(chan struct{})}
+	sess.agent = p.host.Agent(cfg, p.log.With("session", s.ID, "serial", s.Slot))
+	sess.handler, sess.tunnel = sess.agent.Handler(), sess.agent.TunnelHandler()
+	p.sessions[s.ID] = sess
+	go func() {
+		defer close(sess.done)
+		sess.agent.Run(ctx)
+	}()
+	return sess
+}
+
+func (p *Provider) session(id string) (*session, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	s, ok := p.sessions[id]
+	if !ok {
+		return nil, fmt.Errorf("%w: session %s", contract.ErrNotFound, id)
+	}
+	return s, nil
+}
+
+func (p *Provider) Get(ctx context.Context, id string) (contract.Session, error) {
+	s, err := p.session(id)
+	if err != nil {
+		return contract.Session{}, err
+	}
+	return p.view(ctx, s), nil
+}
+
+// Delete stops the agent and puts the phone back in the background; the
+// phone stays busy until that is done.
+func (p *Provider) Delete(_ context.Context, id string) error {
+	p.mu.Lock()
+	s, ok := p.sessions[id]
+	if !ok {
+		p.mu.Unlock()
+		return fmt.Errorf("%w: session %s", contract.ErrNotFound, id)
+	}
+	delete(p.sessions, id)
+	p.resets[s.s.Slot] = s.s.Package
+	err := p.saveLocked()
+	p.mu.Unlock()
+	s.cancel()
+	go p.reset(s.s.Slot, s.s.Package, s.done)
+	return err
+}
+
+func (p *Provider) reset(serial, pkg string, done <-chan struct{}) {
+	if done != nil {
+		<-done
+	}
+	ctx, cancel := context.WithTimeout(p.base, p.cfg.ResetTimeout)
+	defer cancel()
+	if err := p.host.Reset(ctx, serial, pkg); err != nil {
+		p.log.Warn("reset phone", "serial", serial, "err", err)
+	} else {
+		p.log.Info("phone reset", "serial", serial, "package", pkg)
+	}
+	if p.base.Err() != nil {
+		return
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	delete(p.resets, serial)
+	if err := p.saveLocked(); err != nil {
+		p.log.Warn("save state", "err", err)
+	}
+}
+
+func (p *Provider) Touch(_ context.Context, id string, at time.Time) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	s, ok := p.sessions[id]
+	if !ok {
+		return fmt.Errorf("%w: session %s", contract.ErrNotFound, id)
+	}
+	s.s.LastActivity = at.UTC()
+	return p.saveLocked()
+}
+
+func (p *Provider) Install(ctx context.Context, id string, req contract.Install) (contract.Session, error) {
+	s, err := p.session(id)
+	if err != nil {
+		return contract.Session{}, err
+	}
+	if s.agent.Status(ctx).State != contract.StateReady {
+		return contract.Session{}, fmt.Errorf("%w: session %s is not ready", contract.ErrInvalid, id)
+	}
+	if err := s.agent.Install(ctx, req); err != nil {
+		return contract.Session{}, err
+	}
+	p.mu.Lock()
+	s.s.ArtifactRef = req.ArtifactRef
+	s.artifactURL = req.ArtifactURL
+	if err := p.saveLocked(); err != nil {
+		p.log.Warn("save state", "err", err)
+	}
+	p.mu.Unlock()
+	return p.view(ctx, s), nil
+}
+
+// AgentHandler serves every session's agent under /agents/{id}/.
+func (p *Provider) AgentHandler() http.Handler {
+	return p.agents(func(s *session) http.Handler { return s.handler })
+}
+
+// TunnelHandler serves every session's tunnel endpoints under /agents/{id}/,
+// for the ssh-gateway only.
+func (p *Provider) TunnelHandler() http.Handler {
+	return p.agents(func(s *session) http.Handler { return s.tunnel })
+}
+
+func (p *Provider) agents(handler func(*session) http.Handler) http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/agents/{id}/", func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		s, err := p.session(id)
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		http.StripPrefix("/agents/"+id, handler(s)).ServeHTTP(w, r)
+	})
+	return mux
+}
+
+func (p *Provider) load() (state, error) {
+	var st state
+	b, err := os.ReadFile(p.cfg.StateFile)
+	if errors.Is(err, os.ErrNotExist) {
+		return st, nil
+	}
+	if err != nil {
+		return st, fmt.Errorf("read state: %w", err)
+	}
+	if err := json.Unmarshal(b, &st); err != nil {
+		return st, fmt.Errorf("read state %s: %w", p.cfg.StateFile, err)
+	}
+	return st, nil
+}
+
+func (p *Provider) saveLocked() error {
+	st := state{Sessions: []stored{}, Resets: p.resets}
+	for _, s := range p.sessions {
+		st.Sessions = append(st.Sessions, stored{Session: s.s, ArtifactURL: s.artifactURL})
+	}
+	slices.SortFunc(st.Sessions, func(a, b stored) int { return strings.Compare(a.Session.ID, b.Session.ID) })
+	b, err := json.MarshalIndent(st, "", "  ")
+	if err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(filepath.Dir(p.cfg.StateFile), ".holtdroid-physical-*")
+	if err != nil {
+		return fmt.Errorf("save state: %w", err)
+	}
+	defer os.Remove(tmp.Name())
+	if _, err := tmp.Write(b); err != nil {
+		tmp.Close()
+		return fmt.Errorf("save state: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("save state: %w", err)
+	}
+	if err := os.Rename(tmp.Name(), p.cfg.StateFile); err != nil {
+		return fmt.Errorf("save state: %w", err)
+	}
+	return nil
+}
+
+func randomID() string {
+	b := make([]byte, 5)
+	_, _ = rand.Read(b)
+	return hex.EncodeToString(b)
+}

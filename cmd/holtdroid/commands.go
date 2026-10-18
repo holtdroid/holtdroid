@@ -22,6 +22,7 @@ import (
 	"github.com/kriakiku/holtdroid/internal/contract"
 	emulatorprovider "github.com/kriakiku/holtdroid/internal/provider/emulator"
 	"github.com/kriakiku/holtdroid/internal/provider/fake"
+	"github.com/kriakiku/holtdroid/internal/provider/physical"
 	"github.com/kriakiku/holtdroid/internal/source"
 	"github.com/kriakiku/holtdroid/internal/sshgateway"
 	"github.com/kriakiku/holtdroid/internal/storage"
@@ -96,6 +97,28 @@ func providerEmulatorCmd(c *common) *cobra.Command {
 			mux := http.NewServeMux()
 			contract.RegisterProvider(contract.NewAPI(mux, "Holtdroid emulator provider"), p)
 			return rt.serve(cmd.Context(), "provider", []listener{{cfg.Listen, mux}}, p.RefreshPrepull)
+		},
+	}
+}
+
+func providerPhysicalCmd(c *common) *cobra.Command {
+	return &cobra.Command{
+		Use:   "provider-physical",
+		Short: "Run the device provider for phones plugged into this host over USB (no root needed)",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			cfg := physical.DefaultConfig()
+			rt, err := loadConfig(c.configPath, &cfg)
+			if err != nil {
+				return err
+			}
+			p, err := physical.New(cfg, physical.ADBHost{Bin: cfg.ADB, Phone: cfg.Phone}, physical.WithVersion(version))
+			if err != nil {
+				return err
+			}
+			mux := http.NewServeMux()
+			contract.RegisterProvider(contract.NewAPI(mux, "Holtdroid physical provider"), p)
+			mux.Handle("/agents/", p.AgentHandler())
+			return rt.serve(cmd.Context(), "provider", []listener{{cfg.Listen, mux}, {cfg.TunnelListen, p.TunnelHandler()}}, p.Run)
 		},
 	}
 }

@@ -53,10 +53,12 @@ export function DevToolsPanel({
   provider,
   id,
   frameRef,
+  debuggableOnly = false,
 }: {
   provider: string
   id: string
   frameRef: (frame: HTMLIFrameElement | null) => void
+  debuggableOnly?: boolean
 }) {
   const client = useMemo(() => agentClient(provider, id), [provider, id])
   const targets = useQuery({
@@ -187,7 +189,9 @@ export function DevToolsPanel({
         <div className="text-muted-foreground grid flex-1 place-items-center p-6 text-center text-sm">
           {targets.isError
             ? `Could not list DevTools targets: ${targets.error.message}`
-            : "No debuggable WebView yet. Targets appear as soon as the app opens one."}
+            : debuggableOnly
+              ? "No WebView to inspect yet. This device has no root, so only debuggable builds show their WebViews here."
+              : "No debuggable WebView yet. Targets appear as soon as the app opens one."}
         </div>
       )}
     </div>

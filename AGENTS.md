@@ -50,7 +50,7 @@ or cluster layout. The maintainer's homelab is just the first deployment.
 ## Repository layout
 
 ```
-cmd/holtdroid/            main + cobra subcommands (api, provider-fake, provider-emulator, agent, ssh-gateway, dev)
+cmd/holtdroid/            main + cobra subcommands (api, provider-fake, provider-emulator, provider-physical, agent, ssh-gateway, dev)
 cmd/holtdroid-connect/    `holtdroid`, the client users run on their computers (served by the api via /tunnel.sh)
 internal/
   contract/               shared request/response types + huma operations for Provider/Agent/SSH-gateway APIs
@@ -59,8 +59,8 @@ internal/
   connect/tui/            the client's full-screen UI (bubbletea); golden frames double as the docs demo
   api/                    BFF: UI REST API, registries, APK cache, session proxy, activity, reaper
   source/                 artifact sources: *.apk + .meta.json sidecars in a storage.Store (folder or S3), listed by the api
-  provider/               provider implementations: provider/fake (simulated devices for dev/tests), provider/emulator
-  agent/                  device agent: adb, frida, devtools proxy, clipboard, scrcpy screen bridge, ssh tunnels; agent/emulator
+  provider/               provider implementations: provider/fake (simulated devices for dev/tests), provider/emulator, provider/physical (USB phones)
+  agent/                  device agent: adb, frida or a launcher, devtools proxy, clipboard, scrcpy screen bridge, ssh tunnels; agent/emulator, agent/phone
   sshgateway/             SSH gateway for connect clients: certificates from the api's CA, ADB and published ports, no shells
   vpn/                    sing-box sidecar config: locations as sing-box outbounds, no vendor code
   secrets/                secret resolvers: env:, file:, openbao:

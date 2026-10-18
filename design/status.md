@@ -93,6 +93,13 @@ deployment"):
   public/private and delete for the owner and admins.
 - In-memory SQLite database in the api (goose + sqlc, `internal/db`); it only
   records session events so far and is empty after a restart (decision #22).
+- Phones without root (Phase 7, decision #67): `provider-physical` on the
+  USB host with an inventory from its config, one in-process agent per
+  session (scrcpy screen, audio, clipboard, installs, DevTools for
+  debuggable builds), slots and sessions with `SlotCapabilities`, state file
+  with resume after a restart, reset after each session. Not yet: ADB
+  (browser, logcat, tunnels) on phones, root mode, VPN, the Phase 7
+  protections; not yet tried on a real phone, and not in the chart.
 - `provider-fake` (fake devices whose agent streams a recorded screen and serves placeholder
   DevTools pages).
 - Single Go binary + embedded UI, distroless image, Helm chart, CI, release
@@ -102,19 +109,22 @@ deployment"):
 
 - Traffic inspection proxy (Phase 4.7) and MCP server (Phase 4.8).
 - A persistent database: only in-memory SQLite exists (Phase 4.6).
-- Physical phones — Phase 7 (threat model and mitigations in
-  architecture.md "Future: physical devices"); Docker-only provider — "Later".
+- The rest of Phase 7 for phones: the filtering ADB proxy, root mode, the
+  device-owner app, cleanup verification and quarantine (threat model in
+  architecture.md "Physical devices"); Docker-only provider — "Later".
 
 ## Next steps, in order
 
-1. The conformance suite (`internal/contract/conformance`) for Provider and
+1. Phones: try `provider-physical` on a real phone, then the filtering ADB
+   proxy (browser ADB, logcat and tunnels on phones), then root mode.
+2. The conformance suite (`internal/contract/conformance`) for Provider and
    Agent — the last open item of Phases 1 and 3.
-2. Planned, each starting with a decisions.md entry: Phase 4.7 traffic
+3. Planned, each starting with a decisions.md entry: Phase 4.7 traffic
    inspection proxy, Phase 4.8 MCP server. Both optional and off by
    default; each adds its own audit events and metrics (decision #44).
-3. The rest of Phase 4.11 (decision #64): the SYN-driven automatic port mode,
+4. The rest of Phase 4.11 (decision #64): the SYN-driven automatic port mode,
    Windows, and revocation once the database persists.
-4. Whatever more use of real sessions turns up (Phase 6).
+5. Whatever more use of real sessions turns up (Phase 6).
 
 ## Requirements from the maintainer
 

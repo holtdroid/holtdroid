@@ -20,8 +20,10 @@ it: it is synced through scrcpy, like the screen.
 
 :::note
 Apps with root, emulator or instrumentation detection may refuse to run.
-That is the main limitation of the emulator provider; the planned
-physical-device provider addresses some of those cases.
+That is the main limitation of the emulator provider. A
+[phone without root](/holtdroid/configuration/phones/) runs such apps, but
+shows DevTools only for debuggable builds: the app turns WebView debugging on
+by itself there, without Frida.
 :::
 
 ## Getting DevTools into the browser

@@ -1620,3 +1620,39 @@ resizes and rotation a layout question instead of an encoder one. The panel
 needs Chromium's element or region capture and a share prompt per
 recording; elsewhere the scene has no panel. Device audio is recorded only
 as tab audio in the details mode.
+
+## 67. Phones start without root, with the agents inside provider-physical
+
+**Context.** Phase 7 planned only rooted phones (Magisk, frida-server).
+Many test phones can't or shouldn't be rooted, and some apps refuse rooted
+devices, so a phone has to work without root too. A phone also outlives
+its sessions, unlike an emulator Pod.
+
+**Decision.** `provider-physical` runs on the host the phones are plugged
+into and keeps an inventory from its config (`phones[]` by serial; other
+phones on the host are ignored). Every session runs the ordinary device
+agent (`agent.New`) inside the provider's process against one phone, served
+under `/agents/{id}/` like the fake provider's agents, so nothing above the
+Provider contract changes. Without root the agent gets a `Launcher` instead
+of Frida (the launcher intent through `monkey`, processes followed with
+`pidof`) and `agent/phone` instead of the emulator boot (wait, wake, follow
+`adb get-state`). Debuggable builds turn WebView debugging on by
+themselves and their DevTools sockets are reachable from the shell user, so
+DevTools work for them; release builds need Frida, which needs root. Since
+phones differ, slots and sessions carry `SlotCapabilities` (model, Android,
+ABIs, root, DevTools scope, ADB, app data) and the UI reads them from the
+session. Sessions and pending resets are written to a state file; on start
+the provider runs their agents again with `Resume` (download, no install,
+no restore), so a restart doesn't end sessions. Ending a session uninstalls
+the app, resets what the portal's device settings change and drops adb
+forwards; the phone stays busy until that is done.
+
+**Consequences.** Root mode comes later as another `Instrumenter` and boot
+for the same provider, chosen per phone. Until the filtering ADB proxy of
+Phase 7 exists, phones have no browser ADB (so no logcat or crash toasts on
+the session page) and no ADB tunnels: the agent's raw relay to adbd is
+emulator-only. App data, VPN locations, the system language and clock,
+network emulation and fake GPS are off on phones without root. The
+provider is stateful on its host, like Pod annotations are for the emulator
+provider; a phone left mid-reset by a crash is reset again on the next
+start.

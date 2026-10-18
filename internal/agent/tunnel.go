@@ -375,6 +375,9 @@ type adbTunnels struct {
 }
 
 func (d adbTunnels) DialADB(ctx context.Context) (net.Conn, error) {
+	if d.addr == "" {
+		return nil, errors.New("this device has no ADB tunnels")
+	}
 	var dialer net.Dialer
 	return dialer.DialContext(ctx, "tcp", d.addr)
 }

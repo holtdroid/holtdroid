@@ -6,8 +6,8 @@ sidebar:
 ---
 
 A **session** is one device running one APK for one user. A **slot** is a
-place a session can run: for the emulator provider, a Kubernetes node; for a
-future physical-device provider, a phone.
+place a session can run: for the emulator provider, a Kubernetes node; for the
+[phone provider](/holtdroid/configuration/phones/), a phone.
 
 ## States
 

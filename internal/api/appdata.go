@@ -224,7 +224,7 @@ func (s *Server) appDataLoop(ctx context.Context) {
 // saveAppData snapshots the app of a ready session into its owner's app
 // data. A nil error with ok=false means there was nothing to save.
 func (s *Server) saveAppData(ctx context.Context, provider string, sess contract.Session, trigger string, restart bool) (appDataMeta, bool, error) {
-	if s.appData == nil || sess.State != contract.StateReady || !appDataPackage.MatchString(sess.Package) {
+	if s.appData == nil || sess.State != contract.StateReady || !appDataPackage.MatchString(sess.Package) || sess.Capabilities != nil && !sess.Capabilities.AppData {
 		return appDataMeta{}, false, nil
 	}
 	octx := ctx

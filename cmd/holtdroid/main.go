@@ -46,7 +46,7 @@ func main() {
 	root.PersistentFlags().StringVar(&c.logLevel, "log-level", envOr("HOLTDROID_LOG_LEVEL", "info"), "debug, info, warn or error")
 	root.PersistentFlags().StringVar(&c.logFormat, "log-format", envOr("HOLTDROID_LOG_FORMAT", "json"), "json or text")
 
-	root.AddCommand(apiCmd(&c), providerFakeCmd(&c), providerEmulatorCmd(&c), agentCmd(&c), sshGatewayCmd(&c), devCmd(), openapiCmd())
+	root.AddCommand(apiCmd(&c), providerFakeCmd(&c), providerEmulatorCmd(&c), providerPhysicalCmd(&c), agentCmd(&c), sshGatewayCmd(&c), devCmd(), openapiCmd())
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	err := root.ExecuteContext(ctx)

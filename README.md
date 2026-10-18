@@ -44,8 +44,9 @@ make build && ./bin/holtdroid dev --apks ~/Downloads
   optional `.meta.json` per APK (changelog, origin, tags); replaced files are
   picked up, and users can upload their own builds as public or private.
 - **Pluggable.** Device providers, VPN providers, secret
-  backends and auth are interfaces. Physical rooted phones are the next
-  provider on the roadmap.
+  backends and auth are interfaces. Real phones on USB work without root
+  as a first stage; rooted phones and the protections a shared phone needs
+  are next.
 
 ## Architecture at a glance
 

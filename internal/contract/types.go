@@ -45,9 +45,28 @@ const (
 )
 
 type Slot struct {
-	ID    string    `json:"id"`
-	Label string    `json:"label"`
-	State SlotState `json:"state" enum:"free,busy,offline"`
+	ID           string            `json:"id"`
+	Label        string            `json:"label"`
+	State        SlotState         `json:"state" enum:"free,busy,offline"`
+	Capabilities *SlotCapabilities `json:"capabilities,omitempty" doc:"what this slot's device can do, when it differs from device to device; empty means the provider's capabilities"`
+}
+
+type DevToolsScope string
+
+const (
+	DevToolsAll        DevToolsScope = "all"
+	DevToolsDebuggable DevToolsScope = "debuggable"
+)
+
+// SlotCapabilities describe one physical device.
+type SlotCapabilities struct {
+	Model    string        `json:"model,omitempty"`
+	Android  string        `json:"android,omitempty" doc:"Android version, e.g. 15"`
+	ABIs     []string      `json:"abis"`
+	Root     bool          `json:"root" doc:"the agent has root on the device"`
+	DevTools DevToolsScope `json:"devtools" enum:"all,debuggable" doc:"all WebViews, or only those of debuggable builds"`
+	ADB      bool          `json:"adb" doc:"ADB tunnels (browser and holtdroid client) are available"`
+	AppData  bool          `json:"appData" doc:"app data can be saved and restored"`
 }
 
 type Capacity struct {
@@ -124,20 +143,21 @@ type AppDataInfo struct {
 }
 
 type Session struct {
-	ID           string       `json:"id"`
-	Slot         string       `json:"slot"`
-	Owner        string       `json:"owner"`
-	Package      string       `json:"package"`
-	ArtifactRef  string       `json:"artifactRef"`
-	Location     string       `json:"location,omitempty"`
-	AppData      AppDataKind  `json:"appData,omitempty" enum:"data,cache" doc:"the app data restored at launch: data, or data with its cache; empty for a fresh install"`
-	State        SessionState `json:"state" enum:"provisioning,booting,installing,restoring,instrumenting,ready,stopping,failed"`
-	Reason       string       `json:"reason,omitempty"`
-	Detail       string       `json:"detail,omitempty"`
-	AgentURL     string       `json:"agentUrl"`
-	TunnelURL    string       `json:"tunnelUrl,omitempty" doc:"in-cluster base URL of the agent's tunnel endpoints, for the ssh-gateway only"`
-	CreatedAt    time.Time    `json:"createdAt"`
-	LastActivity time.Time    `json:"lastActivity"`
+	ID           string            `json:"id"`
+	Slot         string            `json:"slot"`
+	Owner        string            `json:"owner"`
+	Package      string            `json:"package"`
+	ArtifactRef  string            `json:"artifactRef"`
+	Location     string            `json:"location,omitempty"`
+	AppData      AppDataKind       `json:"appData,omitempty" enum:"data,cache" doc:"the app data restored at launch: data, or data with its cache; empty for a fresh install"`
+	State        SessionState      `json:"state" enum:"provisioning,booting,installing,restoring,instrumenting,ready,stopping,failed"`
+	Reason       string            `json:"reason,omitempty"`
+	Detail       string            `json:"detail,omitempty"`
+	Capabilities *SlotCapabilities `json:"capabilities,omitempty" doc:"the capabilities of the slot the session runs on, when the provider reports them per slot"`
+	AgentURL     string            `json:"agentUrl"`
+	TunnelURL    string            `json:"tunnelUrl,omitempty" doc:"in-cluster base URL of the agent's tunnel endpoints, for the ssh-gateway only"`
+	CreatedAt    time.Time         `json:"createdAt"`
+	LastActivity time.Time         `json:"lastActivity"`
 }
 
 type SessionList struct {

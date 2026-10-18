@@ -144,9 +144,21 @@ type Location struct {
 }
 
 type Slot struct {
-	ID    string // node name for emulators, device serial for phones
-	Label string
-	State string // "free" | "busy" | "offline"
+	ID           string // node name for emulators, device serial for phones
+	Label        string
+	State        string // "free" | "busy" | "offline"
+	Capabilities *SlotCapabilities // optional: set by providers whose devices differ (phones)
+}
+
+// What one device can do, where the provider-wide Capabilities can't say it.
+type SlotCapabilities struct {
+	Model    string   // "Google Pixel 7"
+	Android  string   // "15"
+	ABIs     []string
+	Root     bool     // the agent has root on the device
+	DevTools string   // "all" | "debuggable": every WebView, or only debuggable builds'
+	ADB      bool     // browser ADB and ADB tunnels
+	AppData  bool     // app data can be saved and restored; the api skips saves when false
 }
 
 type CreateSession struct {
@@ -179,6 +191,7 @@ type Session struct {
 	Detail       string // optional progress note while starting, e.g. "waiting for the session image"
 	AgentURL     string // in-cluster base URL of the agent, never exposed to browsers
 	TunnelURL    string // optional: base URL of the agent's tunnel endpoints, for the ssh-gateway only
+	Capabilities *SlotCapabilities // optional: the slot's, copied at create; the api passes it to the UI
 	CreatedAt    time.Time
 	LastActivity time.Time
 }

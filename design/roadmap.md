@@ -227,12 +227,15 @@ of the same app from it (decision #49).
 
 ## Phase 7 — Physical phones
 
-Design: architecture.md "Future: physical devices" (threat model and
+Design: architecture.md "Physical devices" (threat model and
 mitigations). A phone outlives its sessions, so protecting it is part of the
 feature, not a follow-up. Record the final choices in decisions.md.
 
-- [ ] `provider-physical`: inventory of USB phones on one host (serial, model, labels), one long-lived agent per phone, slots = phones, session state on the provider's side, `quarantined` state for phones that failed verification
-- [ ] Phone agent: scrcpy bridge, Frida, DevTools, clipboard and tunnels as in the emulator agent, against `adb -s <serial>`; VPN through the WireGuard Android app via intents
+- [x] `provider-physical` without root (decision #67): inventory of USB phones from the config (serial, label, model from `getprop`), slots = phones with `SlotCapabilities`, one in-process agent per session, sessions and pending resets in a state file and resumed after a restart, reset after a session (uninstall, device settings, adb forwards)
+- [x] Phone agent without root: scrcpy screen, audio and clipboard, install and other builds, DevTools for debuggable builds, launcher instead of Frida, phone boot that follows `adb get-state`; the session page reads `session.capabilities` (DevTools hint, no ADB, no app data save)
+- [ ] `quarantined` state for phones that failed verification
+- [ ] Root mode per phone: Frida (DevTools for release builds), system language and clock, app data, chosen by a `root` flag or detected
+- [ ] VPN on phones through the WireGuard Android app via intents
 - [ ] Filtering ADB proxy on `/tunnel/adb` and `/adb` (packet relay and a fixed refusal list exist, decision #51): device side of the adb protocol in the agent, every `OPEN` service checked and replayed through `host:transport:<serial>`; always refuse `reboot:bootloader|recovery|sideload`, `root:`, `unroot:`, `remount:`, `tcpip:`, `usb:`, `*-verity:`, forwards to frida-server; `adb.shell: full | allowlist | off` (phones default to `allowlist`); table-driven tests per service string, end-to-end with a real `adb` client against a fake device
 - [ ] Device-owner app (DPC): provisioning script, user restrictions (accounts, factory reset, safe boot, users/profiles, OEM unlock), allowed accessibility services and IMEs, enterprise FRP with the operator's account, reset-password token and `resetPasswordWithToken`; never `testOnly`, never `DISALLOW_DEBUGGING_FEATURES`
 - [ ] Root kept from users: Magisk denies su to the shell uid, frida-server started by a Magisk boot script with token auth and reachable only through the agent; root watchdog re-asserts `adb_enabled`, USB functions and Developer options
