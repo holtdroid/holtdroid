@@ -98,6 +98,10 @@ func (m Model) state() string {
 func (m Model) help() string {
 	keys := "↑↓ move · → open · 1-5 sections · q quit"
 	switch {
+	case m.confirm != nil:
+		return ansi.Truncate(warn.Render(" "+m.confirm.text)+muted.Render("  y yes · any other key no"), m.width, "…")
+	case m.picker != nil:
+		keys = "type to filter · ↑↓ move · enter launch · esc cancel"
 	case m.adding:
 		keys = "type a port · enter publish · esc cancel"
 	case m.content && m.section == ports:
@@ -105,13 +109,15 @@ func (m Model) help() string {
 	case m.content && m.section == settings:
 		keys = "↑↓ move · enter choose · ← back · q quit"
 	case m.sess != nil && m.sess.tab == logcatTab:
-		keys = "←→ tabs · f app only · c clear · r restart · o browser · esc back · q quit"
+		keys = "←→ tabs · f app only · c clear · r restart log · R restart app · I reinstall · X stop · o browser · esc back"
 	case m.sess != nil && m.sess.tab == shellTab:
-		keys = "enter open the shell · ←→ tabs · o browser · esc back · q quit"
+		keys = "enter open the shell · ←→ tabs · R restart app · I reinstall · X stop · o browser · esc back"
 	case m.sess != nil:
-		keys = "←→ tabs · r refresh · o browser · esc back · q quit"
+		keys = "←→ tabs · r refresh · R restart app · I reinstall · X stop · o browser · esc back"
 	case m.content && m.section == devices:
-		keys = "↑↓ move · enter open · o open in the browser · ← back · q quit"
+		keys = "↑↓ move · enter open · N new device · R restart app · I reinstall · X stop · o browser · ← back"
+	case m.section == devices:
+		keys = "→ open · N new device · 1-5 sections · q quit"
 	}
 	line := muted.Render(" " + keys)
 	if m.flash != "" {
@@ -123,6 +129,9 @@ func (m Model) help() string {
 func (m Model) body(width, height int) string {
 	switch m.section {
 	case devices:
+		if m.picker != nil {
+			return m.pickerView(height)
+		}
 		if m.sess != nil {
 			return m.sessionView(width, height)
 		}
@@ -187,9 +196,9 @@ func (m Model) overview(width int) string {
 func (m Model) devicesView() string {
 	s := m.snap
 	var b strings.Builder
-	b.WriteString(title.Render("Devices") + muted.Render("  enter opens logcat, a shell and device details") + "\n\n")
+	b.WriteString(title.Render("Devices") + muted.Render("  enter opens logcat, a shell and details · N launches a new one") + "\n\n")
 	if len(s.Sessions) == 0 {
-		b.WriteString(muted.Render("No device is running. Launch one in the portal and it shows up here."))
+		b.WriteString(muted.Render("No device is running. Press N to launch one, or launch it in the portal."))
 		return b.String()
 	}
 	adb := map[string]connect.ADBDevice{}

@@ -26,6 +26,36 @@ type actions struct {
 	toggled []int
 	mu      sync.Mutex
 	logcat  []bool
+	did     []string
+}
+
+func (a *actions) Artifacts(context.Context) ([]connect.Artifact, error) {
+	return []connect.Artifact{
+		{Source: "slack", ID: "a1", Name: "Shop", Version: "4.2.2", Package: "com.example.shop", UploadedAt: now.Add(-2 * time.Hour)},
+		{Source: "slack", ID: "a2", Name: "Shop", Version: "4.2.1", Package: "com.example.shop", UploadedAt: now.Add(-26 * time.Hour)},
+		{Source: "github", ID: "a3", Name: "Holtdroid WebView", Version: "1.4.0", Package: "dev.holtdroid.webview", UploadedAt: now.Add(-72 * time.Hour)},
+	}, nil
+}
+
+func (a *actions) Launch(_ context.Context, art connect.Artifact) (string, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.did = append(a.did, "launch "+art.ID)
+	return "emulator-0a1b2c3d4e", nil
+}
+
+func (a *actions) Stop(_ context.Context, s control.Session) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.did = append(a.did, "stop "+s.Slug)
+	return nil
+}
+
+func (a *actions) AppAction(_ context.Context, s control.Session, action string) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.did = append(a.did, action+" "+s.Slug)
+	return nil
 }
 
 func (a *actions) TogglePublished(port int) error {
@@ -101,6 +131,7 @@ func snapshot() connect.Snapshot {
 func model(t *testing.T) (Model, *actions) {
 	t.Helper()
 	lipgloss.SetColorProfile(termenv.Ascii)
+	time.Local = time.UTC
 	t.Setenv("HOME", "/home/otter")
 	a := &actions{}
 	m := New(a, &Log{}, snapshot())
@@ -379,5 +410,55 @@ func TestUpdatePrompt(t *testing.T) {
 		if cmd == nil || p.quit != tt.quit || !tt.quit && p.choice() != tt.want {
 			t.Errorf("%v: choice %+v quit %v", tt.keys, p.choice(), p.quit)
 		}
+	}
+}
+
+func TestLaunchAndActions(t *testing.T) {
+	m, a := model(t)
+	m = press(m, "2")
+	next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("N")})
+	m = run(next.(Model), cmd)
+	if m.picker == nil || len(m.picker.items) != 3 {
+		t.Fatalf("picker %+v", m.picker)
+	}
+	golden(t, "launch", m.View())
+
+	m = press(m, "w", "e", "b")
+	if items := m.picker.visible(); len(items) != 1 || items[0].ID != "a3" {
+		t.Fatalf("filtered %+v", items)
+	}
+	next, cmd = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = run(next.(Model), cmd)
+	if m.picker != nil || !strings.Contains(m.flash, "launched Holtdroid WebView as emulator-0a1b2c3d4e") {
+		t.Fatalf("after launch: %q", m.flash)
+	}
+
+	m = press(m, "right", "X")
+	if m.confirm == nil {
+		t.Fatal("X didn't ask")
+	}
+	golden(t, "confirm-stop", m.View())
+	m = press(m, "n")
+	if m.confirm != nil || m.flash != "cancelled" {
+		t.Fatalf("n didn't cancel: %q", m.flash)
+	}
+	next, cmd = press(m, "X").Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("y")})
+	m = run(next.(Model), cmd)
+	if m.flash != "stopped emulator-d0281282be" {
+		t.Fatalf("flash %q", m.flash)
+	}
+
+	next, cmd = press(m, "enter").Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("R")})
+	m = run(next.(Model), cmd)
+	next, cmd = press(m, "I").Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("y")})
+	m = run(next.(Model), cmd)
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	want := []string{"launch a3", "stop emulator-d0281282be", "restart emulator-d0281282be", "reinstall emulator-d0281282be"}
+	if !slices.Equal(a.did, want) {
+		t.Fatalf("did %q, want %q", a.did, want)
+	}
+	if m.flash != "reinstalled Shop" {
+		t.Fatalf("flash %q", m.flash)
 	}
 }

@@ -278,6 +278,11 @@ placeholder HTML for the screen and DevTools pages.
 
 ## UI API (served by api)
 
+Every protected endpoint, and the session proxy, also accepts
+`Authorization: Bearer {accessToken}` from a connect client's `Credentials`
+(audience `connect-access`, as long as the certificate) as the computer's
+user with the groups it was enrolled with.
+
 Generated into `web/src/api/schema.d.ts`. Sessions are addressed by
 `{provider}/{id}` — session IDs are only unique within a provider, and
 keeping the provider in the path is what lets the api stay stateless.
@@ -291,9 +296,9 @@ keeping the provider in the path is what lets the api stay stateless.
 | `GET` | `/api/v1/auth/oidc/callback` | public; sets the cookie and redirects back |
 | `GET` | `/api/v1/me` | `{user, name, email, groups, admin}` |
 | `GET` | `/api/v1/adb` | `{browser, ownerOnly}`: whether session pages may open ADB at `/s/{provider}/{id}/adb`, and whether only owners and admins may |
-| `GET` | `/api/v1/ssh` | `{enabled, host?, port, allowADB, allowReverse, maxTunnels, handle?}` for the UI; empty `host` = the UI's own host; `handle` is the caller's `user-{pseudonym}` SSH name |
+| `GET` | `/api/v1/ssh` | `{enabled, host?, port, allowADB, allowReverse, maxTunnels, insecureTLS, handle?}` for the UI (`insecureTLS` adds `-k` to the connect command); empty `host` = the UI's own host; `handle` is the caller's `user-{pseudonym}` SSH name |
 | `POST` | `/api/v1/connect/codes` | `{code, expiresAt}`: a one-time enrollment code for the caller, valid `ssh.codeTTL`; the UI shows `curl -fsSL {origin}/tunnel.sh \| sh -s -- {code}`. 404 when SSH is disabled |
-| `POST` | `/api/v1/connect/enroll` | public; from the client: `{code, publicKey, hostname, os, arch}` → `Credentials` `{user, computer, handle, host, port, hostKeys, certificate, certificateExpiresAt, refreshToken, refreshExpiresAt}`; 401 for an invalid, expired or already used code, 422 for an invalid key, 502 when no gateway names its host key. Emits `ssh.enroll` |
+| `POST` | `/api/v1/connect/enroll` | public; from the client: `{code, publicKey, hostname, os, arch}` → `Credentials` `{user, computer, handle, host, port, hostKeys, certificate, certificateExpiresAt, refreshToken, refreshExpiresAt, accessToken}`; 401 for an invalid, expired or already used code, 422 for an invalid key, 502 when no gateway names its host key. Emits `ssh.enroll` |
 | `POST` | `/api/v1/connect/refresh` | public; from the client: `{refreshToken, publicKey}` → new `Credentials` with a new refresh token; 401 when the token is invalid or expired or the key isn't the one it was issued for |
 | `GET` | `/api/v1/ssh/computers` | the caller's connected computers from every gateway replica → `{computers: [Computer]}`; empty when SSH is disabled, 502 when no replica answered. The UI polls it every 3 s |
 | `PUT` | `/api/v1/ssh/computers/{id}/published` | `{ports}` (≤ 256, each 1–65535) → 204 once the replica holding that computer passed it on; 404 when it isn't connected |

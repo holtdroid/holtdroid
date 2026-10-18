@@ -27,6 +27,7 @@
   "allowReverse" $g.allowReverse
   "maxTunnelsPerConnection" $g.maxTunnelsPerConnection
   "caKey" $g.caKey
+  "insecureTLS" $g.insecureTLS
   "codeTTL" $g.codeTTL
   "certificateTTL" $g.certificateTTL
   "refreshTTL" $g.refreshTTL) -}}

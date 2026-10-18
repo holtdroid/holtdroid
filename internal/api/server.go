@@ -141,6 +141,7 @@ func New(ctx context.Context, cfg Config, opts ...Option) (*Server, error) {
 		if s.ca, err = newConnectCA(ctx, s); err != nil {
 			return nil, err
 		}
+		s.auth.Bearer = s.bearerIdentity
 	}
 	s.auth.OnSignIn = s.signedIn
 	s.activity = newActivity(s.now)

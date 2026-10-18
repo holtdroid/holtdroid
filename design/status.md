@@ -39,7 +39,9 @@ deployment"):
   computers with their loopback listeners as toggles; the session popover
   shows live tunnels and the device's ADB port. The client is a full-screen
   TUI (Overview, Devices with Logcat/Shell/Device/App tabs per device and
-  opening the session in the browser, Ports, Log, Settings with installing
+  opening the session in the browser, launching new devices, restarting,
+  reinstalling and stopping them through the API with a bearer token,
+  Ports, Log, Settings with installing
   the `holtdroid` command and automatic updates); the client offers to
   update itself when the portal serves a different build; dev-server ports come first, other listeners are
   folded. Not yet: the automatic port mode, revoking single computers (needs the database),

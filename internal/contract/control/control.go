@@ -75,6 +75,7 @@ type Credentials struct {
 	CertificateExpiresAt time.Time `json:"certificateExpiresAt"`
 	RefreshToken         string    `json:"refreshToken" doc:"replaces the previous one"`
 	RefreshExpiresAt     time.Time `json:"refreshExpiresAt"`
+	AccessToken          string    `json:"accessToken" doc:"Authorization: Bearer token for the portal's API and session proxy, valid as long as the certificate"`
 }
 
 // Extensions the api writes into a connect client's certificate for the

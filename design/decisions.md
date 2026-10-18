@@ -1498,7 +1498,12 @@ fragile and would leave out Windows.
   itself from the portal it connects to, so it never drifts from the
   gateway: builds are compared by SHA-256 rather than version (a local
   build is `dev`), and the user picks update, skip (with a warning) or
-  automatic updates. The types it shares with the api and the gateway
+  automatic updates. For launching, stopping and restarting devices the
+  client uses the portal's existing API rather than new gateway messages:
+  each refresh also issues a short access token (the certificate's
+  lifetime) that the authenticator accepts as `Authorization: Bearer`, so
+  every permission check stays where it is. `ssh.insecureTLS` (off by
+  default) lets development portals with self-signed certificates work. The types it shares with the api and the gateway
   live in `internal/contract/control`, which has no dependencies, so the
   client doesn't pull in huma or OpenTelemetry (about 8 MB per build).
 - **Enrollment.** The portal shows `curl -fsSL {portal}/tunnel.sh | sh -s --

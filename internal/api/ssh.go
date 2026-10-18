@@ -25,6 +25,7 @@ type SSHInfo struct {
 	AllowADB     bool   `json:"allowADB"`
 	AllowReverse bool   `json:"allowReverse"`
 	MaxTunnels   int    `json:"maxTunnels" doc:"tunnels one connection may open"`
+	InsecureTLS  bool   `json:"insecureTLS" doc:"the connect command and client skip TLS verification, for a portal with a self-signed certificate"`
 	Handle       string `json:"handle,omitempty" doc:"the caller's SSH user name"`
 }
 
@@ -69,7 +70,7 @@ func (s *Server) sshInfo() SSHInfo {
 	}
 	return SSHInfo{
 		Enabled: true, Host: host, Port: c.PublicPort,
-		AllowADB: c.AllowADB, AllowReverse: c.AllowReverse, MaxTunnels: c.MaxTunnelsPerConnection,
+		AllowADB: c.AllowADB, AllowReverse: c.AllowReverse, MaxTunnels: c.MaxTunnelsPerConnection, InsecureTLS: c.InsecureTLS,
 	}
 }
 

@@ -55,6 +55,7 @@ type SSHConfig struct {
 	CertificateTTL          time.Duration
 	RefreshTTL              time.Duration
 	ClientDir               string
+	InsecureTLS             bool
 }
 
 type AppDataConfig struct {

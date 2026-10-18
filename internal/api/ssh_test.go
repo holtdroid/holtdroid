@@ -239,6 +239,24 @@ func TestConnectEnrollAndRefresh(t *testing.T) {
 	if next.RefreshToken == creds.RefreshToken || next.Computer != creds.Computer || !next.CertificateExpiresAt.After(creds.CertificateExpiresAt) {
 		t.Fatalf("refreshed = %+v", next)
 	}
+	bearer := func(token string) int {
+		r := httptest.NewRequest(http.MethodGet, "/api/v1/me", nil)
+		r.Header.Set("Authorization", "Bearer "+token)
+		rec := httptest.NewRecorder()
+		h.handler.ServeHTTP(rec, r)
+		if rec.Code == http.StatusOK && decode[auth.Identity](t, rec).User != "alice" {
+			t.Fatalf("bearer identity %s", rec.Body)
+		}
+		return rec.Code
+	}
+	if code := bearer(next.AccessToken); code != http.StatusOK {
+		t.Fatalf("access token = %d", code)
+	}
+	for _, token := range []string{next.RefreshToken, code, "garbage"} {
+		if code := bearer(token); code != http.StatusUnauthorized {
+			t.Fatalf("%.20s… as a bearer token = %d", token, code)
+		}
+	}
 	if rec := refresh(next.RefreshToken, other); rec.Code != http.StatusUnauthorized {
 		t.Fatalf("refresh with another key = %d", rec.Code)
 	}
@@ -325,6 +343,18 @@ func TestTunnelScript(t *testing.T) {
 	if out, err := exec.Command("sh", "-n", "-c", script).CombinedOutput(); err != nil {
 		t.Fatalf("sh -n: %v %s", err, out)
 	}
+	if strings.Contains(script, "--insecure") {
+		t.Fatal("insecure TLS without insecureTLS")
+	}
+	h.srv.cfg.SSH.InsecureTLS = true
+	insecure := h.do(http.MethodGet, "/tunnel.sh", "", "", nil).Body.String()
+	if !strings.Contains(insecure, "curl -k") || !strings.Contains(insecure, "set -- --insecure") {
+		t.Fatalf("insecure script:\n%s", insecure)
+	}
+	if out, err := exec.Command("sh", "-n", "-c", insecure).CombinedOutput(); err != nil {
+		t.Fatalf("sh -n: %v %s", err, out)
+	}
+	h.srv.cfg.SSH.InsecureTLS = false
 
 	manifest := decode[control.Manifest](t, h.do(http.MethodGet, "/connect/manifest.json", "", "", nil))
 	if len(manifest.Clients) != 2 || manifest.Clients[0].SHA256 != hex.EncodeToString(sum[:]) {

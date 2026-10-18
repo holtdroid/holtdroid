@@ -12,6 +12,7 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
@@ -30,7 +31,10 @@ import (
 )
 
 type Options struct {
-	Portal     string
+	Portal string
+	// Insecure skips TLS verification towards the portal, for portals with
+	// a self-signed certificate. It is saved and stays on for the portal.
+	Insecure   bool
 	Code       string
 	Publish    []int
 	ADBConnect bool
@@ -50,6 +54,7 @@ type Client struct {
 	adb    string
 	log    *slog.Logger
 	kick   chan struct{}
+	http   *http.Client
 
 	mu        sync.Mutex
 	st        state
@@ -97,11 +102,12 @@ func New(opts Options) (*Client, error) {
 	if opts.Publish != nil {
 		st.Published = opts.Publish
 	}
+	st.Insecure = st.Insecure || opts.Insecure
 	if opts.Log == nil {
 		opts.Log = slog.New(slog.DiscardHandler)
 	}
 	cl := &Client{
-		opts: opts, store: s, signer: signer, log: opts.Log, st: st, kick: make(chan struct{}, 1),
+		opts: opts, store: s, signer: signer, log: opts.Log, st: st, kick: make(chan struct{}, 1), http: HTTPClient(st.Insecure),
 		status: "starting", refused: map[int]string{}, adbFwd: map[string]*adbForward{},
 	}
 	if opts.ADBConnect {
@@ -175,7 +181,7 @@ func (cl *Client) enroll(ctx context.Context) error {
 	host, _ := os.Hostname()
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	creds, err := post[control.Credentials](ctx, cl.opts.Portal, "/api/v1/connect/enroll", control.Enroll{
+	creds, err := post[control.Credentials](ctx, cl.http, cl.opts.Portal, "/api/v1/connect/enroll", control.Enroll{
 		Code: cl.opts.Code, PublicKey: sshkey.Authorized(cl.signer.PublicKey()), Hostname: host, OS: runtime.GOOS, Arch: runtime.GOARCH,
 	})
 	if err != nil {
@@ -191,7 +197,7 @@ func (cl *Client) refresh(ctx context.Context) error {
 	cl.mu.Unlock()
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	creds, err := post[control.Credentials](ctx, cl.opts.Portal, "/api/v1/connect/refresh", control.Refresh{
+	creds, err := post[control.Credentials](ctx, cl.http, cl.opts.Portal, "/api/v1/connect/refresh", control.Refresh{
 		RefreshToken: token, PublicKey: sshkey.Authorized(cl.signer.PublicKey()),
 	})
 	if err != nil {

@@ -28,6 +28,7 @@ import (
 const (
 	audienceCode    = "connect-code"
 	audienceRefresh = "connect-refresh"
+	audienceAccess  = "connect-access"
 )
 
 // connectCA signs connect clients' keys into short-lived SSH certificates
@@ -272,6 +273,14 @@ func (s *Server) issueCredentials(ctx context.Context, claims connectClaims, key
 		return control.Credentials{}, err
 	}
 
+	access, err := s.ca.sign(connectClaims{
+		Issuer: "holtdroid", Subject: claims.Subject, Audience: jwt.ClaimStrings{audienceAccess}, ID: randomID(),
+		IssuedAt: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(certExpires),
+		Groups: claims.Groups, Admin: claims.Admin, Computer: claims.Computer,
+	})
+	if err != nil {
+		return control.Credentials{}, err
+	}
 	refreshExpires := now.Add(s.cfg.SSH.RefreshTTL)
 	claims.RegisteredClaims = jwt.RegisteredClaims{
 		Issuer: "holtdroid", Subject: claims.Subject, Audience: jwt.ClaimStrings{audienceRefresh}, ID: randomID(),
@@ -285,8 +294,18 @@ func (s *Server) issueCredentials(ctx context.Context, claims connectClaims, key
 	return control.Credentials{
 		User: claims.Subject, Computer: claims.Computer, Handle: handle, Host: info.Host, Port: info.Port, HostKeys: hostKeys,
 		Certificate: string(ssh.MarshalAuthorizedKey(cert)), CertificateExpiresAt: certExpires.UTC(),
-		RefreshToken: refresh, RefreshExpiresAt: refreshExpires.UTC(),
+		RefreshToken: refresh, RefreshExpiresAt: refreshExpires.UTC(), AccessToken: access,
 	}, nil
+}
+
+// bearerIdentity lets a connect client use the API as its user with the
+// access token from its last refresh.
+func (s *Server) bearerIdentity(token string) (auth.Identity, error) {
+	claims, err := s.ca.parse(token, audienceAccess, s.now())
+	if err != nil {
+		return auth.Identity{}, err
+	}
+	return auth.Identity{User: claims.Subject, Groups: claims.Groups, Admin: claims.Admin}, nil
 }
 
 func cleanHostname(name string) string {

@@ -762,6 +762,8 @@ export interface components {
             source: string;
         };
         Credentials: {
+            /** @description Authorization: Bearer token for the portal's API and session proxy, valid as long as the certificate */
+            accessToken: string;
             /** @description OpenSSH user certificate for the computer's key */
             certificate: string;
             /** Format: date-time */
@@ -956,6 +958,8 @@ export interface components {
             handle?: string;
             /** @description Host users connect to; empty means the host the UI is served from */
             host?: string;
+            /** @description the connect command and client skip TLS verification, for a portal with a self-signed certificate */
+            insecureTLS: boolean;
             /**
              * Format: int64
              * @description tunnels one connection may open

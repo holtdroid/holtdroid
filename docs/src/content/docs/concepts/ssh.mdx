@@ -69,6 +69,14 @@ goes into it, `←` or Esc comes back, `q` quits.
   Esc goes back to the list. These go through the device's ADB like the
   local port does; no `adb` has to be installed.
 
+  `N` launches a new device: pick one of the newest builds you can see
+  (typing filters them) and the client starts it on the first provider
+  with a free slot; it shows up once it has booted. On a device in the list
+  or opened, `R` restarts the app, `I` reinstalls it (its data is lost) and
+  `X` stops the device; the last two ask for `y` first. The client does
+  these as you through the portal's API, with the same rights as the
+  browser.
+
 - **Ports**: the published ports and the ports of programs that look like
   dev servers (`node`, `bun`, `python`, `java` and the like). Space
   publishes or unpublishes the one under the cursor, `n` publishes a port
@@ -118,7 +126,8 @@ connection, the devices or the published ports change.
 Options: `--portal <url>` when the computer is enrolled with several portals,
 `--publish 3000,5173` to replace the list of published ports,
 `--no-adb-connect` to leave `adb` alone, `--plain` for status lines instead
-of the full-screen UI, `-v` for debug logs. The key and the
+of the full-screen UI, `--insecure` to accept a self-signed certificate of
+the portal (remembered for that portal), `-v` for debug logs. The key and the
 enrollment are in your user config directory (`~/Library/Application
 Support/holtdroid/connect` on macOS, `~/.config/holtdroid/connect` on Linux);
 delete the portal's folder there to forget it.
@@ -185,6 +194,10 @@ the header shows how many of your computers are connected.
   command.
 - The portal tells the client the gateway's host key, so the client refuses a
   gateway that presents a different one.
+- For the portal's API (launching and stopping devices, restarting apps)
+  every renewal also brings an access token, valid as long as the
+  certificate, that the portal accepts as `Authorization: Bearer` with the
+  rights the user has in the browser.
 - The gateway runs no commands: shells, `exec`, SFTP, agent forwarding and
   forwarding to anything but your devices' ADB are refused. It announces
   itself as OpenSSH and greets only enrolled computers.
@@ -222,15 +235,28 @@ The api image carries the client builds and serves them with `/tunnel.sh`.
 
 ## Operator settings
 
-| Setting                   | Default   | Meaning                                                         |
-| ------------------------- | --------- | --------------------------------------------------------------- |
-| `allowADB`                | `true`    | Forward each device's ADB to the client                         |
-| `allowReverse`            | `true`    | Publish client ports on the devices' `localhost`                |
-| `reversePorts`            | `1-65535` | Device ports that may be published, e.g. `80,443,1024-65535`    |
-| `maxTunnelsPerConnection` | `32`      | ADB channels plus published ports one computer may hold         |
-| `codeTTL`                 | `10m`     | How long the code in the portal's command works                 |
-| `certificateTTL`          | `15m`     | Lifetime of a computer's certificate, renewed in the background |
-| `refreshTTL`              | `720h`    | How long an unused computer stays enrolled                      |
+| Setting                   | Default   | Meaning                                                              |
+| ------------------------- | --------- | -------------------------------------------------------------------- |
+| `allowADB`                | `true`    | Forward each device's ADB to the client                              |
+| `allowReverse`            | `true`    | Publish client ports on the devices' `localhost`                     |
+| `reversePorts`            | `1-65535` | Device ports that may be published, e.g. `80,443,1024-65535`         |
+| `maxTunnelsPerConnection` | `32`      | ADB channels plus published ports one computer may hold              |
+| `codeTTL`                 | `10m`     | How long the code in the portal's command works                      |
+| `certificateTTL`          | `15m`     | Lifetime of a computer's certificate, renewed in the background      |
+| `refreshTTL`              | `720h`    | How long an unused computer stays enrolled                           |
+| `insecureTLS`             | `false`   | The command and the client accept the portal's certificate unchecked |
+
+`insecureTLS` is for a portal with a self-signed certificate, such as a
+development setup: the command becomes `curl -fsSLk …` and the client
+starts with `--insecure`. Anyone between the computer and the portal could
+then read and change its traffic, the enrollment code included, so leave it
+off wherever the portal has a real certificate. The SSH connection itself
+stays protected by the gateway's host key either way.
+
+Behind a forward-auth proxy (`auth.mode: header`), let `/tunnel.sh`,
+`/connect/` and `/api/v1/connect/enroll` and `/refresh` through without a
+login, and requests that carry `Authorization: Bearer`: the portal checks
+those itself.
 
 The gateway drops a client that stops answering its keepalives after about
 30 s (`keepaliveInterval`, 15 s), which frees its ports for the next

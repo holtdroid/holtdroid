@@ -102,6 +102,23 @@ type Authenticator struct {
 	log      *slog.Logger
 
 	OnSignIn func(ctx context.Context, method string, id Identity, err error)
+	// Bearer resolves an Authorization: Bearer token, for clients that
+	// don't hold a session cookie (the holtdroid client). Nil turns
+	// bearer tokens off.
+	Bearer func(token string) (Identity, error)
+}
+
+func (a *Authenticator) bearer(r *http.Request) (Identity, bool, error) {
+	token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+	if !ok || a.Bearer == nil {
+		return Identity{}, false, nil
+	}
+	id, err := a.Bearer(strings.TrimSpace(token))
+	if err != nil {
+		return Identity{}, true, ErrUnauthenticated
+	}
+	id, err = a.authorize(id)
+	return id, true, err
 }
 
 func New(ctx context.Context, cfg Config, reg *secrets.Registry, publicURL string) (*Authenticator, error) {
@@ -197,6 +214,9 @@ const issuer = "holtdroid"
 
 // Identify returns the caller's identity without side effects.
 func (a *Authenticator) Identify(r *http.Request) (Identity, error) {
+	if id, ok, err := a.bearer(r); ok {
+		return id, err
+	}
 	switch a.cfg.Mode {
 	case ModeNone:
 		return Identity{User: "local", Name: "Local user", Groups: []string{}, Admin: true}, nil
@@ -344,13 +364,16 @@ func (a *Authenticator) Middleware(next http.Handler) http.Handler {
 			issued time.Time
 			err    error
 		)
-		if a.cookieBased() {
+		id, viaBearer, err := a.bearer(r)
+		switch {
+		case viaBearer:
+		case a.cookieBased():
 			id, issued, err = a.fromCookie(r)
-		} else {
+		default:
 			id, err = a.Identify(r)
 		}
 
-		if errors.Is(err, ErrUnauthenticated) {
+		if errors.Is(err, ErrUnauthenticated) && !viaBearer {
 			if anon, ok := a.Anonymous(); ok {
 				id, err, issued = anon, nil, time.Time{}
 			}
@@ -364,7 +387,7 @@ func (a *Authenticator) Middleware(next http.Handler) http.Handler {
 			return
 		}
 
-		if a.cookieBased() && a.now().Sub(issued) > a.cfg.SessionTTL/2 {
+		if !viaBearer && a.cookieBased() && a.now().Sub(issued) > a.cfg.SessionTTL/2 {
 			if c, err := a.SessionCookie(id); err == nil {
 				http.SetCookie(w, c)
 			}

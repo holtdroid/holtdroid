@@ -74,6 +74,10 @@ var tunnelScript = template.Must(template.New("tunnel.sh").Parse(`#!/bin/sh
 # Holtdroid connect: downloads the client for this computer and runs it.
 set -eu
 portal='{{.Portal}}'
+{{- if .Insecure}}
+curl() { command curl -k "$@"; }
+set -- --insecure "$@"
+{{- end}}
 case "$(uname -s)" in
   Darwin) os=darwin ;;
   Linux) os=linux ;;
@@ -134,9 +138,10 @@ func (s *Server) serveTunnelScript(w http.ResponseWriter, r *http.Request) {
 	}
 	var b bytes.Buffer
 	err := tunnelScript.Execute(&b, struct {
-		Portal  string
-		Clients []connectClient
-	}{portal, s.clients.list(s.cfg.SSH.ClientDir)})
+		Portal   string
+		Insecure bool
+		Clients  []connectClient
+	}{portal, s.cfg.SSH.InsecureTLS, s.clients.list(s.cfg.SSH.ClientDir)})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

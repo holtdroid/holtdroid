@@ -433,7 +433,14 @@ on the docs page. A device opened in the Devices section gets Logcat
 and Device/App tabs from `getprop`, `wm`, `dumpsys battery`, `dumpsys
 package` and `pidof`. They speak adb themselves over `direct-tcpip` to
 `{session}:5555` with `adbproto.Client`, a small host-side multiplexer;
-the agent's relay filter applies as for any adb client. The gateway's
+the agent's relay filter applies as for any adb client. Launching (`N`,
+`GET /api/v1/artifacts` + `providers`, `POST /api/v1/sessions`), stopping
+(`DELETE`) and restarting or reinstalling the app (`POST
+/s/{provider}/{id}/v1/app/{restart|reinstall}`) use the portal's own API
+with the access token from the last refresh as `Authorization: Bearer`.
+With `ssh.insecureTLS` the connect command and the client skip TLS
+verification towards the portal (remembered per portal as `insecure` in
+the client's state). The gateway's
 session list (`/internal/users/{handle}/sessions`, `sessions` messages)
 carries each session's package, app name and version for this. Without a terminal it prints status lines
 (`connect.Printer`). On start it compares its own SHA-256 with the portal's

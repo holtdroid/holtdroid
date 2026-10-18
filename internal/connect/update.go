@@ -32,7 +32,7 @@ type Update struct {
 func Platform() string { return runtime.GOOS + "-" + runtime.GOARCH }
 
 // CheckUpdate asks the portal for its client builds.
-func CheckUpdate(ctx context.Context, portal string) (Update, error) {
+func CheckUpdate(ctx context.Context, hc *http.Client, portal string) (Update, error) {
 	u := Update{Platform: Platform()}
 	self, err := selfPath()
 	if err != nil {
@@ -42,7 +42,7 @@ func CheckUpdate(ctx context.Context, portal string) (Update, error) {
 		return u, err
 	}
 	var m control.Manifest
-	if err := getJSON(ctx, strings.TrimRight(portal, "/")+"/connect/manifest.json", &m); err != nil {
+	if err := getJSON(ctx, hc, strings.TrimRight(portal, "/")+"/connect/manifest.json", &m); err != nil {
 		return u, err
 	}
 	for _, b := range m.Clients {
@@ -57,7 +57,7 @@ func CheckUpdate(ctx context.Context, portal string) (Update, error) {
 // ApplyUpdate downloads the portal's build into the cache next to the ones
 // tunnel.sh fetched, checks it and points ~/.cache/holtdroid/holtdroid at
 // it, which the holtdroid command links to. It returns the new binary.
-func ApplyUpdate(ctx context.Context, portal string, u Update) (string, error) {
+func ApplyUpdate(ctx context.Context, hc *http.Client, portal string, u Update) (string, error) {
 	dir, err := cacheDir()
 	if err != nil {
 		return "", err
@@ -67,7 +67,7 @@ func ApplyUpdate(ctx context.Context, portal string, u Update) (string, error) {
 	}
 	path := filepath.Join(dir, "holtdroid-"+u.Latest)
 	if sum, err := fileSHA256(path); err != nil || sum != u.Latest {
-		if err := download(ctx, strings.TrimRight(portal, "/")+"/connect/holtdroid-"+u.Platform, path, u.Latest); err != nil {
+		if err := download(ctx, hc, strings.TrimRight(portal, "/")+"/connect/holtdroid-"+u.Platform, path, u.Latest); err != nil {
 			return "", err
 		}
 	}
@@ -88,14 +88,14 @@ func Restart(path string) error {
 	return syscall.Exec(path, os.Args, os.Environ())
 }
 
-func download(ctx context.Context, url, path, want string) error {
+func download(ctx context.Context, hc *http.Client, url, path, want string) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return err
 	}
-	res, err := http.DefaultClient.Do(req)
+	res, err := hc.Do(req)
 	if err != nil {
 		return err
 	}
@@ -123,14 +123,14 @@ func download(ctx context.Context, url, path, want string) error {
 	return os.Rename(tmp, path)
 }
 
-func getJSON(ctx context.Context, url string, v any) error {
+func getJSON(ctx context.Context, hc *http.Client, url string, v any) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return err
 	}
-	res, err := http.DefaultClient.Do(req)
+	res, err := hc.Do(req)
 	if err != nil {
 		return err
 	}

@@ -35,11 +35,12 @@ func TestUpdate(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", cache)
 	ctx := context.Background()
 
-	u, err := CheckUpdate(ctx, srv.URL)
+	hc := srv.Client()
+	u, err := CheckUpdate(ctx, hc, srv.URL)
 	if err != nil || !u.Available || u.Latest != latest || u.Current == "" || u.Current == latest {
 		t.Fatalf("check %+v, %v", u, err)
 	}
-	path, err := ApplyUpdate(ctx, srv.URL, u)
+	path, err := ApplyUpdate(ctx, hc, srv.URL, u)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +58,7 @@ func TestUpdate(t *testing.T) {
 	if err := os.Remove(path); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ApplyUpdate(ctx, srv.URL, u); err == nil {
+	if _, err := ApplyUpdate(ctx, hc, srv.URL, u); err == nil {
 		t.Fatal("a build with the wrong checksum was installed")
 	}
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
@@ -65,11 +66,11 @@ func TestUpdate(t *testing.T) {
 	}
 
 	manifest.Clients = []control.Build{{Platform: Platform(), SHA256: u.Current}}
-	if u, err := CheckUpdate(ctx, srv.URL); err != nil || u.Available {
+	if u, err := CheckUpdate(ctx, hc, srv.URL); err != nil || u.Available {
 		t.Fatalf("up to date reported as %+v, %v", u, err)
 	}
 	manifest.Clients = nil
-	if u, err := CheckUpdate(ctx, srv.URL); err != nil || u.Available {
+	if u, err := CheckUpdate(ctx, hc, srv.URL); err != nil || u.Available {
 		t.Fatalf("a portal without builds reported %+v, %v", u, err)
 	}
 }

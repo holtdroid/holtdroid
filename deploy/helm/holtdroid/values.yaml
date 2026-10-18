@@ -162,6 +162,10 @@ sshGateway:
   # Lifetime of the one-time code in the portal's command, of a computer's
   # certificate (renewed in the background) and of its refresh token (renewed
   # with every certificate, so it only runs out for unused computers).
+  # The connect command and client accept the portal's TLS certificate
+  # without checking it. Only for a portal with a self-signed certificate,
+  # e.g. in development: it hides a man-in-the-middle on the portal's HTTPS.
+  insecureTLS: false
   codeTTL: 10m
   certificateTTL: 15m
   refreshTTL: 720h

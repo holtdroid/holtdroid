@@ -23,6 +23,7 @@ import (
 // state is what a computer keeps per portal between runs.
 type state struct {
 	Portal       string    `json:"portal"`
+	Insecure     bool      `json:"insecure,omitempty"`
 	RefreshToken string    `json:"refreshToken,omitempty"`
 	ExpiresAt    time.Time `json:"expiresAt,omitzero"`
 	Published    []int     `json:"published"`
@@ -131,7 +132,7 @@ func (s *store) key() (ssh.Signer, error) {
 // new command from the portal helps.
 var errEnrollment = errors.New("enrollment rejected")
 
-func post[T any](ctx context.Context, portal, path string, in any) (T, error) {
+func post[T any](ctx context.Context, hc *http.Client, portal, path string, in any) (T, error) {
 	var out T
 	body, err := json.Marshal(in)
 	if err != nil {
@@ -142,7 +143,7 @@ func post[T any](ctx context.Context, portal, path string, in any) (T, error) {
 		return out, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	res, err := http.DefaultClient.Do(req)
+	res, err := hc.Do(req)
 	if err != nil {
 		return out, err
 	}

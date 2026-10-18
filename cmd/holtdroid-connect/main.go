@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
@@ -29,12 +30,13 @@ func main() {
 
 func root() *cobra.Command {
 	var (
-		portal  string
-		publish string
-		noADB   bool
-		verbose bool
-		plain   bool
-		noCheck bool
+		portal   string
+		publish  string
+		noADB    bool
+		verbose  bool
+		plain    bool
+		noCheck  bool
+		insecure bool
 	)
 	cmd := &cobra.Command{
 		Use:   "holtdroid [code]",
@@ -62,8 +64,11 @@ func root() *cobra.Command {
 					return err
 				}
 			}
+			portal = strings.TrimRight(portal, "/")
+			insecure = insecure || connect.SavedInsecure(portal)
+			hc := connect.HTTPClient(insecure)
 			opts := connect.Options{
-				Portal: strings.TrimRight(portal, "/"), ADBConnect: !noADB, Version: version, Log: log,
+				Portal: portal, ADBConnect: !noADB, Version: version, Log: log, Insecure: insecure,
 			}
 			if len(args) == 1 {
 				opts.Code = args[0]
@@ -80,7 +85,7 @@ func root() *cobra.Command {
 			outdated := false
 			if !noCheck {
 				var err error
-				outdated, err = checkUpdate(ctx, opts.Portal, interactive, log)
+				outdated, err = checkUpdate(ctx, hc, opts.Portal, interactive, log)
 				if errors.Is(err, tui.ErrQuit) {
 					return nil
 				}
@@ -93,11 +98,11 @@ func root() *cobra.Command {
 				return connect.Run(ctx, opts)
 			}
 			cfg := tui.Config{Outdated: outdated, Update: func() (string, error) {
-				u, err := connect.CheckUpdate(ctx, opts.Portal)
+				u, err := connect.CheckUpdate(ctx, hc, opts.Portal)
 				if err != nil {
 					return "", err
 				}
-				return connect.ApplyUpdate(ctx, opts.Portal, u)
+				return connect.ApplyUpdate(ctx, hc, opts.Portal, u)
 			}}
 			next, err := tui.Run(ctx, &logs, cfg, func(onChange func(connect.Snapshot)) (tui.Client, error) {
 				opts.OnChange = onChange
@@ -113,6 +118,7 @@ func root() *cobra.Command {
 	cmd.Flags().StringVar(&publish, "publish", "", "comma-separated ports to publish on your devices, replacing the saved list")
 	cmd.Flags().BoolVar(&noADB, "no-adb-connect", false, "don't run adb connect for each device")
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "debug logging")
+	cmd.Flags().BoolVar(&insecure, "insecure", false, "accept the portal's TLS certificate without checking it (self-signed portals); remembered for the portal")
 	cmd.Flags().BoolVar(&noCheck, "no-update-check", false, "don't ask the portal for a newer client")
 	cmd.Flags().BoolVar(&plain, "plain", false, "print status lines instead of the full-screen UI (the default without a terminal)")
 	return cmd
@@ -158,8 +164,8 @@ var version = "dev"
 // checkUpdate updates to the portal's client when it is newer and the user
 // wants it, and starts the new one in place of this process. It reports
 // whether this client stays outdated.
-func checkUpdate(ctx context.Context, portal string, interactive bool, log *slog.Logger) (bool, error) {
-	u, err := connect.CheckUpdate(ctx, portal)
+func checkUpdate(ctx context.Context, hc *http.Client, portal string, interactive bool, log *slog.Logger) (bool, error) {
+	u, err := connect.CheckUpdate(ctx, hc, portal)
 	if err != nil {
 		log.Debug("update check", "err", err)
 		return false, nil
@@ -190,7 +196,7 @@ func checkUpdate(ctx context.Context, portal string, interactive bool, log *slog
 		return true, nil
 	}
 	fmt.Fprintln(os.Stderr, "holtdroid: updating to the portal's client…")
-	path, err := connect.ApplyUpdate(ctx, portal, u)
+	path, err := connect.ApplyUpdate(ctx, hc, portal, u)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "holtdroid: the update failed, continuing with this client:", err)
 		return true, nil

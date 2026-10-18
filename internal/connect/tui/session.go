@@ -131,6 +131,9 @@ func (m *Model) sessionMsg(msg tea.Msg) {
 
 func (m Model) sessionKey(k tea.KeyMsg) (Model, tea.Cmd) {
 	ss := m.sess
+	if next, cmd, ok := m.deviceAction(k.String(), ss.s); ok {
+		return next, cmd
+	}
 	switch k.String() {
 	case "esc", "backspace":
 		m.closeSession()

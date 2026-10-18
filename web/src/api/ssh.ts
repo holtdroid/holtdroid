@@ -40,8 +40,8 @@ export function useConnectCode() {
   return useMutation({ mutationFn: () => unwrap(api.POST("/api/v1/connect/codes")) })
 }
 
-export function connectCommand(code: string) {
-  return `curl -fsSL ${window.location.origin}/tunnel.sh | sh -s -- ${code}`
+export function connectCommand(code: string, insecureTLS = false) {
+  return `curl -fsSL${insecureTLS ? "k" : ""} ${window.location.origin}/tunnel.sh | sh -s -- ${code}`
 }
 
 export function useSetPublished() {

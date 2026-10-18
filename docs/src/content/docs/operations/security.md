@@ -29,7 +29,10 @@ sidebar:
   user's connect command within its 10 minutes enrolls a computer as that
   user, so the command is as sensitive as a password while it is fresh.
   Single computers can't be revoked yet; changing `caKey` revokes all of
-  them. See [Connecting your computer](/holtdroid/concepts/ssh/).
+  them. Each computer also gets 15-minute bearer tokens for the portal's
+  API with its user's rights. Leave `sshGateway.insecureTLS` off unless the
+  portal has a self-signed certificate. See
+  [Connecting your computer](/holtdroid/concepts/ssh/).
 - **ADB tools in the browser** (on by default) give a session's owner and
   admins a root shell on its emulator. `adb.ownerOnly: false` extends them to
   everyone who may open the session, `adb.browser: false` turns them off;

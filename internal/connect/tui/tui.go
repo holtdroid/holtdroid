@@ -40,6 +40,10 @@ type Actions interface {
 	Logcat(ctx context.Context, s control.Session, app bool, line func(string)) error
 	Shell(slug string) (io.ReadWriteCloser, error)
 	SessionURL(s control.Session) string
+	Artifacts(ctx context.Context) ([]connect.Artifact, error)
+	Launch(ctx context.Context, a connect.Artifact) (string, error)
+	Stop(ctx context.Context, s control.Session) error
+	AppAction(ctx context.Context, s control.Session, action string) error
 }
 
 type Model struct {
@@ -52,6 +56,8 @@ type Model struct {
 	wake    func()
 	openURL func(string) error
 	sess    *session
+	picker  *picker
+	confirm *confirm
 
 	outdated  bool
 	prefs     connect.Prefs
@@ -112,6 +118,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case fieldsMsg, logcatEndMsg, shellDoneMsg:
 		m.sessionMsg(msg)
+	case artifactsMsg:
+		if m.picker != nil {
+			m.picker.loading, m.picker.items = false, msg.items
+			if msg.err != nil {
+				m.picker.err = msg.err.Error()
+			}
+		}
+	case actionMsg:
+		if msg.err != nil {
+			m.flash = msg.text + ": " + msg.err.Error()
+		} else {
+			m.flash = msg.text
+		}
 	case logMsg:
 	case tickMsg:
 		return m, tick()
@@ -151,6 +170,18 @@ func (m Model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	if m.confirm != nil {
+		c := m.confirm
+		m.confirm = nil
+		if k.String() == "y" || k.Type == tea.KeyEnter {
+			return m, c.run
+		}
+		m.flash = "cancelled"
+		return m, nil
+	}
+	if m.picker != nil && k.String() != "ctrl+c" {
+		return m.pickerKey(k)
+	}
 	m.flash = ""
 	switch k.String() {
 	case "ctrl+c", "q":
@@ -203,12 +234,26 @@ func (m Model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.section == devices && m.content && m.cursor < len(m.snap.Sessions) {
 			m.openBrowser(m.snap.Sessions[m.cursor])
 		}
+	case "N":
+		if m.section == devices {
+			m.content = true
+			return m, m.openPicker()
+		}
+	case "R", "I", "X":
+		if m.section == devices && m.content && m.cursor < len(m.snap.Sessions) {
+			next, cmd, _ := m.deviceAction(k.String(), m.snap.Sessions[m.cursor])
+			return next, cmd
+		}
 	case "a":
 		if m.section == ports {
 			m.showAll = !m.showAll
 			m.cursor = min(m.cursor, max(len(m.portRows())-1, 0))
 		}
 	case "n":
+		if m.section == devices {
+			m.content = true
+			return m, m.openPicker()
+		}
 		if m.section == ports {
 			m.adding, m.content = true, true
 		}

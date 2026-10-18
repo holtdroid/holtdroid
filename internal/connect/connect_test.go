@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -22,6 +24,7 @@ import (
 	"github.com/kriakiku/holtdroid/internal/audit"
 	"github.com/kriakiku/holtdroid/internal/auth"
 	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/kriakiku/holtdroid/internal/contract/control"
 	"github.com/kriakiku/holtdroid/internal/provider/fake"
 	"github.com/kriakiku/holtdroid/internal/sshgateway"
 )
@@ -41,8 +44,11 @@ func newPortal(t *testing.T) *portal {
 
 	tunnels := httptest.NewServer(nil)
 	t.Cleanup(tunnels.Close)
-	p := fake.New(fake.Config{Slots: 4, StepDelay: time.Millisecond, PublicURL: "http://agents.invalid", TunnelURL: tunnels.URL})
+	agents := httptest.NewServer(nil)
+	t.Cleanup(agents.Close)
+	p := fake.New(fake.Config{Slots: 4, StepDelay: time.Millisecond, PublicURL: agents.URL, TunnelURL: tunnels.URL})
 	tunnels.Config.Handler = p.TunnelHandler()
+	agents.Config.Handler = p.AgentHandler()
 
 	var lc net.ListenConfig
 	sshLn, err := lc.Listen(ctx, "tcp", "127.0.0.1:0")
@@ -60,6 +66,13 @@ func newPortal(t *testing.T) *portal {
 	cfg.PublicURL = ui.URL
 	cfg.Storage.Filesystem.Dir = t.TempDir()
 	cfg.Sources[0].Filesystem.Dir = t.TempDir()
+	apkData, err := os.ReadFile("../apk/testdata/helloworld.apk")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(cfg.Sources[0].Filesystem.Dir, "helloworld.apk"), apkData, 0o644); err != nil {
+		t.Fatal(err)
+	}
 	cfg.Auth.Mode = auth.ModeHeader
 	cfg.SSH.Enabled = true
 	cfg.SSH.GatewayURL = gatewayAPI.URL
@@ -279,6 +292,7 @@ func TestConnect(t *testing.T) {
 		return s.Connected && len(s.Active) == 1 && s.Active[0] == local && s.Hostname != "" && len(s.ADB) == 1
 	})
 	testDevice(t, cl)
+	testLaunch(t, cl, p)
 	if err := cl.TogglePublished(local); err != nil {
 		t.Fatal(err)
 	}
@@ -368,5 +382,44 @@ func testDevice(t *testing.T, cl *Client) {
 	}
 	if u := cl.SessionURL(sess); !strings.HasSuffix(u, "/session/"+sess.Provider+"/"+sess.ID) {
 		t.Fatalf("session url %s", u)
+	}
+}
+
+func testLaunch(t *testing.T, cl *Client, p *portal) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	arts, err := cl.Artifacts(ctx)
+	if err != nil || len(arts) != 1 || arts[0].FileName != "helloworld.apk" {
+		t.Fatalf("artifacts %+v, %v", arts, err)
+	}
+	slug, err := cl.Launch(ctx, arts[0])
+	if err != nil || !strings.HasPrefix(slug, "fake-") {
+		t.Fatalf("launch %q, %v", slug, err)
+	}
+	var launched control.Session
+	eventually(t, "the launched device to join", func() bool {
+		for _, s := range cl.Snapshot().Sessions {
+			if s.Slug == slug {
+				launched = s
+				return true
+			}
+		}
+		return false
+	})
+	if launched.Package != "com.example.helloworld" {
+		t.Fatalf("launched %+v", launched)
+	}
+	if err := cl.AppAction(ctx, launched, "restart"); err != nil {
+		t.Fatalf("restart: %v", err)
+	}
+	if err := cl.Stop(ctx, launched); err != nil {
+		t.Fatalf("stop: %v", err)
+	}
+	if _, err := p.provider.Get(ctx, launched.ID); err == nil {
+		eventually(t, "the device to stop", func() bool {
+			s, err := p.provider.Get(ctx, launched.ID)
+			return err != nil || s.State == contract.StateStopping
+		})
 	}
 }
