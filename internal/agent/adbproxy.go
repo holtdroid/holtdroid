@@ -89,12 +89,36 @@ func allowedCommand(cmd string) bool {
 		return allowedPM(argv[1:])
 	case "cmd":
 		return allowedPackageCommand(argv[1:])
+	case "settings":
+		return len(argv) > 1 && argv[1] == "get"
+	case "dumpsys":
+		return allowedDumpsys(argv[1:])
 	}
 	return false
 }
 
 func allowedPackageCommand(args []string) bool {
-	return len(args) > 1 && args[0] == "package" && allowedPM(args[1:])
+	switch {
+	case len(args) > 1 && args[0] == "package":
+		return allowedPM(args[1:])
+	case len(args) > 1 && args[0] == "settings":
+		return args[1] == "get"
+	}
+	return false
+}
+
+// allowedDumpsys lets the session page's read-only views through; dumpsys
+// with other arguments can change the device (battery set, force-idle).
+func allowedDumpsys(args []string) bool {
+	switch {
+	case len(args) == 1:
+		return slices.Contains([]string{"battery", "webviewupdate", "package"}, args[0])
+	case len(args) == 2 && args[0] == "package":
+		return true
+	case len(args) == 3 && args[0] == "deviceidle" && args[1] == "get":
+		return true
+	}
+	return false
 }
 
 func allowedPM(args []string) bool {

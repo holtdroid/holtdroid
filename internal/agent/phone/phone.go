@@ -15,10 +15,25 @@ type Config struct {
 	BootTimeout time.Duration
 	Poll        time.Duration
 	Misses      int
+	Suspend     []string
+}
+
+// DefaultSuspend are the apps a session must not open: settings (a PIN,
+// Developer options, resets), calls, messages and SOS, stores, accounts,
+// updaters and the camera. Missing packages are skipped; Android refuses
+// to suspend the default dialer, launcher and installer.
+var DefaultSuspend = []string{
+	"com.android.settings",
+	"com.android.contacts", "com.samsung.android.app.contacts", "com.google.android.contacts",
+	"com.android.messaging", "com.samsung.android.messaging", "com.google.android.apps.messaging",
+	"com.android.emergency", "com.sec.android.emergencylauncher", "com.samsung.android.emergency",
+	"com.sec.android.app.samsungapps", "com.osp.app.signin",
+	"com.samsung.android.app.updatecenter", "com.wssyncmldm", "com.sec.android.soagent", "com.sec.android.easyMover",
+	"com.sec.android.app.camera", "com.android.camera2", "com.google.android.GoogleCamera",
 }
 
 func DefaultConfig() Config {
-	return Config{BootTimeout: 2 * time.Minute, Poll: 5 * time.Second, Misses: 3}
+	return Config{BootTimeout: 2 * time.Minute, Poll: 5 * time.Second, Misses: 3, Suspend: DefaultSuspend}
 }
 
 // ADB is what a phone session needs from adb.
@@ -68,7 +83,7 @@ func (p *Phone) Run(ctx context.Context, booted func()) error {
 		return fmt.Errorf("phone did not come up: %w", err)
 	}
 	if !p.s.Resume {
-		if err := Clean(ctx, p.adb, Cleanup{Package: p.s.Package, Baseline: p.s.Baseline, Offline: p.s.Tunnel != nil}); err != nil {
+		if err := Clean(ctx, p.adb, Cleanup{Package: p.s.Package, Baseline: p.s.Baseline, Offline: p.s.Tunnel != nil, Suspend: p.cfg.Suspend}); err != nil {
 			p.log.Warn("clean the phone before the session", "err", err)
 		}
 	}

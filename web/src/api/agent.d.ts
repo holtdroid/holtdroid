@@ -443,6 +443,11 @@ export interface components {
             fontScale: number;
             /** @description the faked GPS position; empty while the device reports its default one */
             geo?: components["schemas"]["GeoPoint"];
+            /**
+             * @description system: locales are the system languages; app: only the app under test's language can be set (phones without root)
+             * @enum {string}
+             */
+            languageScope: "system" | "app";
             locale: string;
             /** @description the system languages in order: the first is locale, the rest add their keyboard layouts */
             locales: string[];

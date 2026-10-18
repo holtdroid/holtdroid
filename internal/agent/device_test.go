@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -32,6 +33,8 @@ func (d *scriptedDevice) Shell(_ context.Context, cmd string) (string, error) {
 		return d.clock, nil
 	case "settings get system user_rotation":
 		return "3\n", nil
+	case "cmd locale get-app-locales com.example.shop --user 0":
+		return "Locales for com.example.shop for user 0 are [lt-LT]\n", nil
 	}
 	d.cmds = append(d.cmds, cmd)
 	return "", nil
@@ -75,7 +78,7 @@ autotime=0
 	want := contract.DeviceState{
 		WiFi: true, MobileData: true, BatterySaver: true, BatteryLevel: 42, DarkMode: true,
 		FontScale: 1.3, Density: 400, DefaultDensity: 320, Rotation: 1, NetworkProfile: contract.NetworkFull,
-		TimeZone: "Europe/Warsaw", Locale: "en-US", Locales: []string{"en-US", "ru-RU"}, CanFakeGeo: true, CanSimulateBattery: true, TimeOffset: 3_600_000,
+		TimeZone: "Europe/Warsaw", Locale: "en-US", Locales: []string{"en-US", "ru-RU"}, CanFakeGeo: true, CanSimulateBattery: true, LanguageScope: contract.LanguageSystem, TimeOffset: 3_600_000,
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("state\n got %+v\nwant %+v", got, want)
@@ -221,5 +224,21 @@ func TestControlsOnAPhone(t *testing.T) {
 	}
 	if _, err := c.Update(context.Background(), contract.DeviceSettings{Geo: &contract.GeoPoint{Latitude: 1}}); !errors.Is(err, contract.ErrInvalid) {
 		t.Fatalf("geo on a phone: %v", err)
+	}
+}
+
+func TestControlsAppLanguage(t *testing.T) {
+	dev := &scriptedDevice{clock: "1760000000"}
+	c := NewControls(dev, "", false)
+	c.appLocales = "com.example.shop"
+	s, err := c.State(context.Background())
+	if err != nil || s.LanguageScope != contract.LanguageApp || s.Locale != "lt-LT" || len(s.Locales) != 1 {
+		t.Fatalf("state %+v, %v", s, err)
+	}
+	if _, err := c.Update(context.Background(), contract.DeviceSettings{Locales: []string{"de-DE", "en-US"}}); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(dev.cmds, "cmd locale set-app-locales com.example.shop --user 0 --locales de-DE") {
+		t.Fatalf("cmds %q", dev.cmds)
 	}
 }

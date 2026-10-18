@@ -486,7 +486,9 @@ function LanguageControl({ s, set, busy, provider, id, vpn }: Props & { provider
   const network = useNetwork(provider, id, vpn)
   const applied = useRef(false)
 
+  const appOnly = s.languageScope === "app"
   const applyLayouts = useEffectEvent((l: string[]) => {
+    if (appOnly) return
     const want = desiredLocales(s.locale, l)
     if (!sameLocales(want, s.locales)) set({ locales: want })
   })
@@ -519,13 +521,13 @@ function LanguageControl({ s, set, busy, provider, id, vpn }: Props & { provider
         .join(" · ")}
       onReset={() =>
         set({
-          ...(relabeled && { locales: desiredLocales(baseLayout, current) }),
+          ...(relabeled && { locales: appOnly ? [baseLayout] : desiredLocales(baseLayout, current) }),
           ...(s.geo && { resetGeo: true }),
         })
       }
     >
       <ControlGroup>
-        <Row label="Language">
+        <Row label={appOnly ? "App language" : "Language"}>
           <Combobox
             className="w-44"
             icon={LanguagesIcon}
@@ -533,7 +535,7 @@ function LanguageControl({ s, set, busy, provider, id, vpn }: Props & { provider
             options={languages}
             value={s.locale}
             disabled={busy}
-            onChange={(tag) => set({ locales: desiredLocales(tag, current) })}
+            onChange={(tag) => set({ locales: appOnly ? [tag] : desiredLocales(tag, current) })}
           />
         </Row>
         <Row label="Time zone">
@@ -559,12 +561,19 @@ function LanguageControl({ s, set, busy, provider, id, vpn }: Props & { provider
           </Button>
         )}
       </ControlGroup>
-      <KeyboardLayouts
-        layouts={current}
-        guessed={keyboardLayouts === null}
-        disabled={busy || layouts === null}
-        onChange={setLayouts}
-      />
+      {appOnly ? (
+        <p className="text-muted-foreground text-xs">
+          This phone can&apos;t change its system language without root, so this sets the app&apos;s own language.
+          Keyboard languages are set in the phone&apos;s keyboard.
+        </p>
+      ) : (
+        <KeyboardLayouts
+          layouts={current}
+          guessed={keyboardLayouts === null}
+          disabled={busy || layouts === null}
+          onChange={setLayouts}
+        />
+      )}
       {s.canFakeGeo && <GeoControl s={s} set={set} busy={busy} vpnCountry={network.data?.country} />}
     </RailControl>
   )

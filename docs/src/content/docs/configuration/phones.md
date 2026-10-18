@@ -18,15 +18,15 @@ trust with the phone.
 
 ## What works without root
 
-| Feature                              | On a phone without root                                                                            |
-| ------------------------------------ | -------------------------------------------------------------------------------------------------- |
-| Screen, audio, keyboard, clipboard   | Yes, through scrcpy as on the emulator                                                             |
-| Install, reinstall, other builds     | Yes                                                                                                |
-| DevTools                             | Only for **debuggable** builds: release builds need Frida, which needs root                        |
-| Device settings (dark mode, font, …) | Mostly. The system language, system time, network emulation and fake GPS need root or the emulator |
-| Logcat, browser ADB, ADB tunnels     | Yes, through a filtering proxy: see [ADB on phones](#adb-on-phones)                                |
-| App data save and restore            | No: reading another app's private files needs root                                                 |
-| VPN locations                        | Yes, over the USB cable through the Holtdroid Tunnel app: see [VPN on phones](#vpn-on-phones)      |
+| Feature                              | On a phone without root                                                                                                  |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| Screen, audio, keyboard, clipboard   | Yes, through scrcpy as on the emulator                                                                                   |
+| Install, reinstall, other builds     | Yes                                                                                                                      |
+| DevTools                             | Only for **debuggable** builds: release builds need Frida, which needs root                                              |
+| Device settings (dark mode, font, …) | Mostly. The language is the app's own, not the system's; battery level, network emulation and fake GPS are emulator-only |
+| Logcat, browser ADB, ADB tunnels     | Yes, through a filtering proxy: see [ADB on phones](#adb-on-phones)                                                      |
+| App data save and restore            | No: reading another app's private files needs root                                                                       |
+| VPN locations                        | Yes, over the USB cable through the Holtdroid Tunnel app: see [VPN on phones](#vpn-on-phones)                            |
 
 The session page knows which phone it runs on (`capabilities` on the
 session) and hides what isn't there.
@@ -110,6 +110,7 @@ providers:
 | `phone.bootTimeout` | `2m`                      | How long a session waits for its phone to show up                                            |
 | `phone.poll`        | `5s`                      | How often a session checks that its phone is still connected                                 |
 | `phone.misses`      | `3`                       | Missed checks in a row after which the session fails with "phone disconnected"               |
+| `phone.suspend`     | Settings, Contacts, …     | Packages kept suspended so sessions can't open them (see below)                              |
 | `vpn.*`             | no locations              | Locations, exactly as for the [emulator provider](/holtdroid/configuration/emulator/#vpn)    |
 | `singBox`           | `sing-box`                | The sing-box binary the provider runs per session when `vpn.locations` is set                |
 | `tunnel.apk`        |                           | Holtdroid Tunnel APK, installed on a phone when it is missing or not `tunnel.version`        |
@@ -138,11 +139,11 @@ frida-server ports 27042 and 27043.
 A shell command can't be filtered reliably (`sh -c`, `eval`, base64), so
 `adb.shell` decides how much shell users get:
 
-| `adb.shell` | Shell commands                                                                                                                                                                                                               |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `full`      | Anything the `shell` user may run, including an interactive shell                                                                                                                                                            |
-| `allowlist` | Single commands from a short list: `getprop`, `logcat`, `am`, `pm list …`, `pm install…` and `cmd package install…`/`list` (what `adb install` and IDEs use). No interactive shell, no `;`, `&&`, pipes, redirects or `$(…)` |
-| `off`       | None                                                                                                                                                                                                                         |
+| `adb.shell` | Shell commands                                                                                                                                                                                                                                                                                                                                            |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `full`      | Anything the `shell` user may run, including an interactive shell                                                                                                                                                                                                                                                                                         |
+| `allowlist` | Single commands from a short list: `getprop`, `logcat`, `am`, `pm list …`, `pm install…` and `cmd package install…`/`list` (what `adb install` and IDEs use), `settings get …` and the session page's read-only `dumpsys` calls (`package`, `battery`, `webviewupdate`, `deviceidle get`). No interactive shell, no `;`, `&&`, pipes, redirects or `$(…)` |
+| `off`       | None                                                                                                                                                                                                                                                                                                                                                      |
 
 File transfer (`adb push`/`pull`, the Files tab), debuggers (`jdwp`), port
 forwards (`adb forward`, Chrome's remote inspection) and screenshots work with
@@ -258,10 +259,26 @@ remove the phone from `baselines` in the state file.
 Battery level and charging are an emulator's simulation; phones offer only
 battery saver. Fake GPS and network emulation are emulator-only too.
 
+Apps a session must not open are kept **suspended** (`pm suspend`, no root
+needed): Settings (so no PIN, Developer options, USB debugging or resets),
+Contacts, Messages, SOS, Galaxy Store, Samsung account, Samsung's
+updaters, Smart Switch and the Camera app. Opening one shows Android's "app
+paused" dialog. Android won't suspend the default dialer, launcher or
+installer, and emergency calls always work. The list is `phone.suspend`;
+the app under test is never suspended. To use Settings on the phone
+yourself, run `adb shell pm unsuspend com.android.settings`; the next
+cleanup suspends it again.
+
+Without root the system language can't be changed, so on phones the
+language control sets the app's own language (Android 13+,
+`cmd locale set-app-locales`), and keyboard languages are chosen in the
+phone's keyboard. A global proxy left by a user is cleared with
+`settings put global http_proxy :0`; deleting the setting alone leaves it
+applied.
+
 What the cleanup can't do without the device-owner part of Holtdroid
-Tunnel (in progress): clear a lock screen PIN, remove accounts, stop calls,
-keep Settings, Developer options, system updates and the power menu away
-from users.
+Tunnel: clear a lock screen PIN set before Settings was suspended, block
+the power menu, disable the camera hardware for every app.
 
 ## What is still missing
 

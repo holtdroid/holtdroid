@@ -265,12 +265,20 @@ type DeviceState struct {
 	TimeZone           string         `json:"timeZone"`
 	Locale             string         `json:"locale"`
 	Locales            []string       `json:"locales" doc:"the system languages in order: the first is locale, the rest add their keyboard layouts"`
+	LanguageScope      LanguageScope  `json:"languageScope" enum:"system,app" doc:"system: locales are the system languages; app: only the app under test's language can be set (phones without root)"`
 	Geo                *GeoPoint      `json:"geo,omitempty" doc:"the faked GPS position; empty while the device reports its default one"`
 	CanFakeGeo         bool           `json:"canFakeGeo"`
 	CanSimulateBattery bool           `json:"canSimulateBattery" doc:"the battery level and charging can be set; battery saver works everywhere"`
 	AutoTime           bool           `json:"autoTime"`
 	TimeOffset         int64          `json:"timeOffset" doc:"device clock minus real time, in milliseconds"`
 }
+
+type LanguageScope string
+
+const (
+	LanguageSystem LanguageScope = "system"
+	LanguageApp    LanguageScope = "app"
+)
 
 type GeoPoint struct {
 	Latitude  float64 `json:"latitude" minimum:"-90" maximum:"90"`

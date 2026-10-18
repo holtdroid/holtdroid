@@ -46,6 +46,7 @@ type Config struct {
 	Resume           bool
 	Root             bool
 	EmulatorConsole  bool
+	AppLanguage      bool
 	HostMetrics      bool
 }
 
@@ -139,7 +140,7 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 		screen:   screen,
 		clip:     NewClipboard(screen, log),
 		frontend: NewFrontend(cfg.DevToolsFrontend, filepath.Join(cfg.CacheDir, "devtools-frontend")),
-		controls: NewControls(dev, cfg.LocalesDex, cfg.EmulatorConsole),
+		controls: newControls(cfg, dev),
 		tunnels:  NewTunnels(newADBTunnels(cfg, dev, log), log),
 		metrics:  NewMetrics(dev, cfg.Package, host, log),
 		vibes:    NewVibrations(dev, log),
@@ -148,6 +149,14 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 		status:   contract.StatusEvent{State: contract.StateProvisioning},
 		subs:     map[chan struct{}]struct{}{},
 	}
+}
+
+func newControls(cfg Config, dev Device) *Controls {
+	c := NewControls(dev, cfg.LocalesDex, cfg.EmulatorConsole)
+	if cfg.AppLanguage && packageName.MatchString(cfg.Package) {
+		c.appLocales = cfg.Package
+	}
+	return c
 }
 
 type noFS struct{}

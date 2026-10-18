@@ -492,6 +492,7 @@ func (p *Provider) start(s contract.Session, artifactURL string, resume bool, v 
 	cfg.Root = false
 	cfg.HostMetrics = false
 	cfg.EmulatorConsole = false
+	cfg.AppLanguage = true
 	cfg.Resume = resume
 	cfg.Version = p.ver
 	cfg.Session = agent.Session{ID: s.ID, Owner: s.Owner, ArtifactRef: s.ArtifactRef, Slot: s.Slot, CreatedAt: s.CreatedAt.Format(time.RFC3339)}
@@ -663,7 +664,7 @@ func (p *Provider) reset(serial, pkg string, done <-chan struct{}) {
 	p.mu.Lock()
 	baseline := p.baselines[serial]
 	p.mu.Unlock()
-	if err := p.host.Clean(ctx, serial, phone.Cleanup{Package: pkg, Baseline: baseline, Offline: p.cfg.VPN.Enabled(), End: true}); err != nil {
+	if err := p.host.Clean(ctx, serial, phone.Cleanup{Package: pkg, Baseline: baseline, Offline: p.cfg.VPN.Enabled(), End: true, Suspend: p.cfg.Phone.Suspend}); err != nil {
 		p.log.Warn("reset phone", "serial", serial, "err", err)
 	} else {
 		p.log.Info("phone reset", "serial", serial, "package", pkg)

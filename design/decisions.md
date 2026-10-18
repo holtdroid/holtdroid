@@ -1371,6 +1371,8 @@ console (phones) report `canFakeGeo: false` and the UI hides the GPS part.
 
 ## 59. The system language goes through app_process, not Frida in system_server
 
+_On phones without root see #73._
+
 **Context.** Changing keyboard layouts attached Frida to `system_server`
 (#31). On the emulator that once crashed `system_server` with a SIGSEGV in
 ART while another thread delivered an exception; Android restarted the whole
@@ -1804,3 +1806,31 @@ lift the microphone block from the system prompt for up to one poll; the
 device owner's `DISALLOW_MICROPHONE_TOGGLE` and `DISALLOW_CAMERA_TOGGLE`
 close that. Phones without a camera toggle keep a working camera until the
 device owner disables it or the lens is covered; a fake picture needs root.
+
+## 73. Phones suspend risky apps and set the app's language instead of the system's
+
+**Context.** Trying phones without root showed that a user could open
+Settings and set a PIN, that the language control failed (decision #59's
+`WRITE_SETTINGS` check holds on a phone even with the app-op granted) while
+the browser's keyboard layouts kept being applied as system languages,
+that the battery simulation still showed, and that the ADB tools' read-only
+calls were refused under `allowlist`. A PIN on the phone was considered and
+rejected: it guards only some settings, puts an emergency call button on
+the lock screen and would have to be typed by the agent.
+
+**Decision.** The cleanup keeps `phone.suspend` packages suspended with
+`pm suspend` (Settings, contacts, messages, SOS, stores and accounts,
+updaters, camera); shell may do that and suspended apps can't be opened.
+Android refuses the default dialer, launcher and installer, and we leave
+core services (GMS, telephony) alone because suspending them breaks
+WebView and calls in apps. On phones the agent sets the language with
+`cmd locale set-app-locales` for the app under test and reports
+`languageScope: app`; the UI calls it "App language" and drops keyboard
+layouts there. `allowlist` also lets `settings get` and the session page's
+read-only `dumpsys` calls through; `dumpsys` with other arguments stays
+refused, since `battery set` or `deviceidle force-idle` change the device.
+
+**Consequences.** Settings is out of reach for users and for anyone at the
+phone until it is unsuspended by adb. The device owner is still needed to
+block the power menu and the camera hardware, and to undo a PIN set before
+the phone was first cleaned.

@@ -84,6 +84,7 @@ type Cleanup struct {
 	Baseline *Baseline
 	Offline  bool
 	End      bool
+	Suspend  []string
 }
 
 // keep are never uninstalled or cleared.
@@ -138,6 +139,9 @@ func Clean(ctx context.Context, adb ADB, c Cleanup) error {
 	if len(cmds) > 0 {
 		run("apps", strings.Join(cmds, "\n")+"\ntrue")
 	}
+	if s := suspendScript(c); s != "" {
+		run("suspend", s)
+	}
 	run("storage", wipeStorage)
 	run("device", resetDevice)
 	run("privacy", privacy)
@@ -175,7 +179,10 @@ rm -rf /data/local/tmp/holtdroid-*; true`
 
 // resetDevice undoes the portal's device settings; the baseline restore then
 // puts back what the phone had.
+// http_proxy :0 clears a global proxy; deleting the setting alone leaves it
+// applied.
 const resetDevice = `dumpsys battery reset; wm density reset; wm size reset; cmd connectivity airplane-mode disable
+settings put global http_proxy :0
 settings put system font_scale 1.0; settings put system accelerometer_rotation 1
 settings put global auto_time 1; settings put global auto_time_zone 1
 cmd bluetooth_manager disable >/dev/null 2>&1; svc nfc disable >/dev/null 2>&1; cmd location set-location-enabled false >/dev/null 2>&1
@@ -263,6 +270,20 @@ func restoreScript(ctx context.Context, adb ADB, b *Baseline) string {
 		slices.Sort(added)
 		for _, k := range added {
 			cmds = append(cmds, "settings delete "+ns+" "+k+" >/dev/null")
+		}
+	}
+	if len(cmds) == 0 {
+		return ""
+	}
+	return strings.Join(cmds, "\n") + "\ntrue"
+}
+
+// suspendScript keeps the risky apps suspended, except the one under test.
+func suspendScript(c Cleanup) string {
+	var cmds []string
+	for _, p := range c.Suspend {
+		if p != c.Package && packageName.MatchString(p) {
+			cmds = append(cmds, "pm suspend --user 0 "+p+" >/dev/null 2>&1")
 		}
 	}
 	if len(cmds) == 0 {

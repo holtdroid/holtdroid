@@ -67,7 +67,7 @@ func TestClean(t *testing.T) {
 			"system": "font_scale=1.3\nscreen_brightness=1\nscreen_brightness_mode=0\nringtone=x\n",
 		},
 	}
-	if err := Clean(context.Background(), adb, Cleanup{Package: "com.example.shop", Baseline: base, Offline: true, End: true}); err != nil {
+	if err := Clean(context.Background(), adb, Cleanup{Package: "com.example.shop", Baseline: base, Offline: true, End: true, Suspend: []string{"com.android.settings", "com.example.shop"}}); err != nil {
 		t.Fatal(err)
 	}
 	calls := strings.Join(adb.calls, "\n")
@@ -84,6 +84,7 @@ func TestClean(t *testing.T) {
 		"cmd wifi forget-network 0; cmd wifi forget-network 4",
 		"cmd wifi set-wifi-enabled disabled",
 		"cmd power set-mode 1",
+		"pm suspend --user 0 com.android.settings",
 		"cmd sensor_privacy enable 0 microphone",
 		"cmd media_session volume --stream $s --set 0",
 		"cmd media_session volume --stream 4 --set 1",
@@ -97,6 +98,7 @@ func TestClean(t *testing.T) {
 	for _, unwanted := range []string{
 		"pm uninstall " + TunnelPackage,
 		"pm clear --user 0 com.android.settings",
+		"pm suspend --user 0 com.example.shop",
 		"pm clear --user 0 com.sec.android.app.launcher",
 		"boot_count",
 		"settings put system screen_brightness '128'",

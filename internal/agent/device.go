@@ -24,6 +24,7 @@ type console interface {
 type Controls struct {
 	dev        Device
 	localesDex string
+	appLocales string
 	noConsole  bool
 	now        func() time.Time
 
@@ -95,6 +96,13 @@ func (c *Controls) State(ctx context.Context) (contract.DeviceState, error) {
 	for tag := range strings.SplitSeq(v["locales"], ",") {
 		if tag = strings.TrimSpace(tag); localeTagRe.MatchString(tag) && tag != "null" {
 			s.Locales = append(s.Locales, tag)
+		}
+	}
+	s.LanguageScope = contract.LanguageSystem
+	if c.appLocales != "" {
+		s.LanguageScope = contract.LanguageApp
+		if tags := c.appLanguages(ctx); len(tags) > 0 {
+			s.Locale, s.Locales = tags[0], tags
 		}
 	}
 	if len(s.Locales) == 0 {
@@ -249,7 +257,11 @@ func (c *Controls) Update(ctx context.Context, in contract.DeviceSettings) (cont
 			return contract.DeviceState{}, err
 		}
 	}
-	if len(in.Locales) > 0 {
+	if len(in.Locales) > 0 && c.appLocales != "" {
+		if _, err := c.dev.Shell(ctx, "cmd locale set-app-locales "+c.appLocales+" --user 0 --locales "+in.Locales[0]); err != nil {
+			return contract.DeviceState{}, fmt.Errorf("set the app's language: %w", err)
+		}
+	} else if len(in.Locales) > 0 {
 		if c.localesDex == "" {
 			return contract.DeviceState{}, errors.New("changing the system language is not supported here")
 		}
@@ -264,6 +276,25 @@ func (c *Controls) Update(ctx context.Context, in contract.DeviceSettings) (cont
 		}
 	}
 	return c.State(ctx)
+}
+
+var appLocalesRe = regexp.MustCompile(`are \[(.*)\]`)
+
+// appLanguages are the app's own languages, empty when it follows the
+// system.
+func (c *Controls) appLanguages(ctx context.Context) []string {
+	out, err := c.dev.Shell(ctx, "cmd locale get-app-locales "+c.appLocales+" --user 0")
+	m := appLocalesRe.FindStringSubmatch(out)
+	if err != nil || m == nil {
+		return nil
+	}
+	var tags []string
+	for tag := range strings.SplitSeq(m[1], ",") {
+		if tag = strings.TrimSpace(tag); localeTagRe.MatchString(tag) {
+			tags = append(tags, tag)
+		}
+	}
+	return tags
 }
 
 const localesRemote = "/data/local/tmp/holtdroid-locales.dex"
