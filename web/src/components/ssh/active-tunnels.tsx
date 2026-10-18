@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router"
 import { CableIcon } from "lucide-react"
 import { useSessions } from "@/api/queries"
-import { useSSHTunnels } from "@/api/ssh-keys"
+import { useSSHTunnels } from "@/api/ssh"
 import { AppIcon } from "@/components/app-icon"
 import { PortChip } from "@/components/ssh/port-chip"
 import { Badge } from "@/components/ui/badge"

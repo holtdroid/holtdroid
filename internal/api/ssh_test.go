@@ -1,17 +1,24 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -19,47 +26,60 @@ import (
 
 	"github.com/kriakiku/holtdroid/internal/auth"
 	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/kriakiku/holtdroid/internal/contract/control"
 	"github.com/kriakiku/holtdroid/internal/provider/fake"
-	"github.com/kriakiku/holtdroid/internal/sshgateway"
 )
 
 type sshHarness struct {
 	*harness
-	stores   []*sshgateway.Keys
-	requests []map[string]contract.KeyRequest
+	gateways []*gatewayStub
 	down     map[string]bool
+	clock    *clock
 }
 
 type gatewayStub struct {
-	*sshgateway.Keys
-	requests map[string]contract.KeyRequest
+	mu        sync.Mutex
+	computers map[string][]control.Computer
+	published map[string][]int
 }
 
-func (g gatewayStub) KeyRequest(_ context.Context, code string) (contract.KeyRequest, error) {
-	r, ok := g.requests[code]
-	if !ok {
-		return r, contract.ErrNotFound
+func (g *gatewayStub) HostKeys(context.Context) ([]string, error) {
+	return []string{"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHcJ6Zh5W7Ua0Ihd2W9mKt0yqTq0fXGkS9zG4Yb7pZ2w"}, nil
+}
+
+func (g *gatewayStub) Computers(_ context.Context, user string) ([]control.Computer, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.computers[user], nil
+}
+
+func (g *gatewayStub) SetPublished(_ context.Context, user, computer string, ports []int) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	for _, c := range g.computers[user] {
+		if c.ID == computer {
+			g.published[computer] = ports
+			return nil
+		}
 	}
-	return r, nil
+	return contract.ErrNotFound
 }
 
 func newSSHHarness(t *testing.T, enabled bool, replicas int) *sshHarness {
 	t.Helper()
-	h := &sshHarness{down: map[string]bool{}}
+	h := &sshHarness{down: map[string]bool{}, clock: &clock{t: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)}}
 	backends := map[string]string{}
 	var ips []string
 	for i := range replicas {
-		store := sshgateway.NewKeys(time.Hour, nil)
-		requests := map[string]contract.KeyRequest{}
+		stub := &gatewayStub{computers: map[string][]control.Computer{}, published: map[string][]int{}}
 		mux := http.NewServeMux()
-		contract.RegisterSSHGateway(contract.NewAPI(mux, "gateway"), gatewayStub{store, requests})
+		contract.RegisterSSHGateway(contract.NewAPI(mux, "gateway"), stub)
 		gw := httptest.NewServer(mux)
 		t.Cleanup(gw.Close)
 		ip := "10.0.0." + string(rune('1'+i))
 		ips = append(ips, ip)
 		backends[ip+":8080"] = gw.Listener.Addr().String()
-		h.stores = append(h.stores, store)
-		h.requests = append(h.requests, requests)
+		h.gateways = append(h.gateways, stub)
 	}
 
 	cfg := DefaultConfig()
@@ -67,10 +87,12 @@ func newSSHHarness(t *testing.T, enabled bool, replicas int) *sshHarness {
 	cfg.Storage.Filesystem.Dir = t.TempDir()
 	cfg.Sources[0].Filesystem.Dir = t.TempDir()
 	cfg.Auth.Mode = auth.ModeHeader
+	cfg.Auth.AdminGroups = []string{"admins"}
 	cfg.SSH.Enabled = enabled
 	cfg.SSH.GatewayURL = "http://gateway-headless:8080"
-	aud, buf := testAudit(t, time.Now)
-	srv, err := New(context.Background(), cfg, WithAudit(aud), WithResolver(func(_ context.Context, host string) ([]string, error) {
+	cfg.SSH.ClientDir = t.TempDir()
+	aud, buf := testAudit(t, h.clock.Now)
+	srv, err := New(context.Background(), cfg, WithAudit(aud), WithClock(h.clock.Now), WithResolver(func(_ context.Context, host string) ([]string, error) {
 		if host != "gateway-headless" {
 			t.Errorf("resolved %q", host)
 		}
@@ -89,7 +111,7 @@ func newSSHHarness(t *testing.T, enabled bool, replicas int) *sshHarness {
 			return (&net.Dialer{}).DialContext(ctx, network, backends[addr])
 		},
 	}}
-	h.harness = &harness{t: t, srv: srv, handler: srv.Handler(), audit: buf}
+	h.harness = &harness{t: t, srv: srv, handler: srv.Handler(), internal: srv.InternalHandler(), audit: buf, cfg: cfg}
 	return h
 }
 
@@ -106,12 +128,9 @@ func sshKey(t *testing.T) (string, string) {
 	return strings.TrimSpace(string(ssh.MarshalAuthorizedKey(pub))) + " me@laptop", ssh.FingerprintSHA256(pub)
 }
 
-type keyList struct {
-	Keys []SSHKeyInput `json:"keys"`
-}
-
 type problem struct {
-	Status int `json:"status"`
+	Status int    `json:"status"`
+	Detail string `json:"detail"`
 	Errors []struct {
 		Message  string `json:"message"`
 		Location string `json:"location"`
@@ -123,54 +142,112 @@ func TestSSHDisabled(t *testing.T) {
 	if info := decode[SSHInfo](t, h.do(http.MethodGet, "/api/v1/ssh", "alice", "", nil)); info.Enabled {
 		t.Fatalf("info = %+v", info)
 	}
-	rec := h.do(http.MethodPut, "/api/v1/ssh/keys", "alice", "", keyList{Keys: []SSHKeyInput{}})
-	if rec.Code != http.StatusNotFound {
-		t.Fatalf("put = %d", rec.Code)
+	for _, path := range []string{"/api/v1/connect/codes", "/api/v1/connect/enroll"} {
+		if rec := h.do(http.MethodPost, path, "alice", "", control.Enroll{Code: "x", PublicKey: "x"}); rec.Code != http.StatusNotFound {
+			t.Fatalf("%s = %d", path, rec.Code)
+		}
+	}
+	if rec := h.do(http.MethodGet, "/tunnel.sh", "", "", nil); rec.Code != http.StatusNotFound {
+		t.Fatalf("tunnel.sh = %d", rec.Code)
+	}
+	if list := decode[ComputerList](t, h.do(http.MethodGet, "/api/v1/ssh/computers", "alice", "", nil)); len(list.Computers) != 0 {
+		t.Fatalf("computers = %+v", list)
 	}
 }
 
-func TestSSHKeysSync(t *testing.T) {
+func (h *sshHarness) code(user, groups string) string {
+	h.t.Helper()
+	rec := h.do(http.MethodPost, "/api/v1/connect/codes", user, groups, nil)
+	if rec.Code != http.StatusOK {
+		h.t.Fatalf("code = %d %s", rec.Code, rec.Body)
+	}
+	return decode[ConnectCode](h.t, rec).Code
+}
+
+func TestConnectEnrollAndRefresh(t *testing.T) {
 	h := newSSHHarness(t, true, 2)
-	a, aFP := sshKey(t)
-	b, bFP := sshKey(t)
+	key, fp := sshKey(t)
+	other, _ := sshKey(t)
 
 	info := decode[SSHInfo](t, h.do(http.MethodGet, "/api/v1/ssh", "alice", "", nil))
-	want := SSHInfo{Enabled: true, Host: "android.example.com", Port: 2222, AllowADB: true, AllowReverse: true, ClientIsolation: true, MaxTunnels: 32, KeyRequests: true, Handle: h.srv.sshHandle("alice")}
-	if info != want || !regexp.MustCompile(`^user-[a-z2-7]{16}$`).MatchString(info.Handle) || info.Handle == h.srv.sshHandle("bob") {
+	want := SSHInfo{Enabled: true, Host: "android.example.com", Port: 2222, AllowADB: true, AllowReverse: true, MaxTunnels: 32, Handle: h.srv.sshHandle("alice")}
+	if info != want || !regexp.MustCompile(`^user-[a-z2-7]{16}$`).MatchString(info.Handle) {
 		t.Fatalf("info = %+v", info)
 	}
 
-	rec := h.do(http.MethodPut, "/api/v1/ssh/keys", "alice", "dev", keyList{Keys: []SSHKeyInput{{Name: "laptop", PublicKey: a}, {Name: "ci", PublicKey: b}}})
-	if rec.Code != http.StatusOK || decode[SSHKeysSynced](t, rec).Replicas != 2 {
-		t.Fatalf("put = %d %s", rec.Code, rec.Body)
+	if rec := h.do(http.MethodPost, "/api/v1/connect/codes", "", "", nil); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("code without sign-in = %d", rec.Code)
 	}
-	for i, store := range h.stores {
-		for _, fp := range []string{aFP, bFP} {
-			if id, ok := store.Lookup(fp); !ok || id.User != "alice" || id.Handle != info.Handle || len(id.Groups) != 1 {
-				t.Fatalf("replica %d lookup %s = %+v, %v", i, fp, id, ok)
-			}
-		}
+	code := h.code("alice", "admins")
+	enroll := control.Enroll{Code: code, PublicKey: key, Hostname: "alice's\tmac\n" + strings.Repeat("x", 80), OS: "darwin", Arch: "arm64"}
+	rec := h.do(http.MethodPost, "/api/v1/connect/enroll", "", "", enroll)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("enroll = %d %s", rec.Code, rec.Body)
 	}
-
-	rec = h.do(http.MethodPut, "/api/v1/ssh/keys", "bob", "", keyList{Keys: []SSHKeyInput{{PublicKey: b}}})
-	if p := decode[problem](t, rec); rec.Code != http.StatusUnprocessableEntity || len(p.Errors) != 1 ||
-		p.Errors[0].Location != "body.keys[0].publicKey" || !strings.Contains(p.Errors[0].Message, "another user") {
-		t.Fatalf("claimed = %d %s", rec.Code, rec.Body)
+	creds := decode[control.Credentials](t, rec)
+	if creds.User != "alice" || creds.Handle != info.Handle || creds.Host != "android.example.com" || creds.Port != 2222 ||
+		len(creds.HostKeys) != 1 || creds.Computer == "" || !creds.CertificateExpiresAt.Equal(h.clock.Now().Add(15*time.Minute)) {
+		t.Fatalf("credentials = %+v", creds)
 	}
 
-	h.down["10.0.0.2:8080"] = true
-	rec = h.do(http.MethodPut, "/api/v1/ssh/keys", "alice", "", keyList{Keys: []SSHKeyInput{{PublicKey: a}}})
-	if rec.Code != http.StatusOK || decode[SSHKeysSynced](t, rec).Replicas != 1 {
-		t.Fatalf("partial = %d %s", rec.Code, rec.Body)
+	authority, err := h.srv.SSHAuthority(context.Background())
+	if err != nil {
+		t.Fatal(err)
 	}
-	if _, ok := h.stores[0].Lookup(bFP); ok {
-		t.Fatal("removed key still on the replica")
+	ca, _, _, _, _ := ssh.ParseAuthorizedKey([]byte(authority))
+	pub, _, _, _, err := ssh.ParseAuthorizedKey([]byte(creds.Certificate))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cert := pub.(*ssh.Certificate)
+	checker := ssh.CertChecker{IsUserAuthority: func(k ssh.PublicKey) bool { return bytes.Equal(k.Marshal(), ca.Marshal()) }, Clock: h.clock.Now}
+	if err := checker.CheckCert(info.Handle, cert); err != nil {
+		t.Fatalf("certificate: %v", err)
+	}
+	if ssh.FingerprintSHA256(cert.Key) != fp || cert.KeyId != creds.Computer || cert.Extensions[control.CertUser] != "alice" ||
+		cert.Extensions[control.CertAdmin] != "true" || cert.Extensions[control.CertHostname] != "alice'smac"+strings.Repeat("x", 54) {
+		t.Fatalf("certificate %+v", cert)
+	}
+	if err := checker.CheckCert(h.srv.sshHandle("bob"), cert); err == nil {
+		t.Fatal("certificate valid for another user's handle")
 	}
 
-	h.down["10.0.0.1:8080"] = true
-	rec = h.do(http.MethodPut, "/api/v1/ssh/keys", "alice", "", keyList{Keys: []SSHKeyInput{}})
-	if rec.Code != http.StatusBadGateway {
-		t.Fatalf("all down = %d %s", rec.Code, rec.Body)
+	if rec := h.do(http.MethodPost, "/api/v1/connect/enroll", "", "", enroll); rec.Code != http.StatusUnauthorized ||
+		!strings.Contains(decode[problem](t, rec).Detail, "already used") {
+		t.Fatalf("second use = %d %s", rec.Code, rec.Body)
+	}
+	if rec := h.do(http.MethodPost, "/api/v1/connect/enroll", "", "", control.Enroll{Code: creds.RefreshToken, PublicKey: key}); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("refresh token as a code = %d", rec.Code)
+	}
+	if rec := h.do(http.MethodPost, "/api/v1/connect/enroll", "", "", control.Enroll{Code: h.code("alice", ""), PublicKey: "ssh-ed25519 nope"}); rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("bad key = %d", rec.Code)
+	}
+	late := h.code("alice", "")
+	h.clock.Advance(11 * time.Minute)
+	if rec := h.do(http.MethodPost, "/api/v1/connect/enroll", "", "", control.Enroll{Code: late, PublicKey: key}); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expired code = %d", rec.Code)
+	}
+
+	refresh := func(token, key string) *httptest.ResponseRecorder {
+		return h.do(http.MethodPost, "/api/v1/connect/refresh", "", "", control.Refresh{RefreshToken: token, PublicKey: key})
+	}
+	rec = refresh(creds.RefreshToken, key)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("refresh = %d %s", rec.Code, rec.Body)
+	}
+	next := decode[control.Credentials](t, rec)
+	if next.RefreshToken == creds.RefreshToken || next.Computer != creds.Computer || !next.CertificateExpiresAt.After(creds.CertificateExpiresAt) {
+		t.Fatalf("refreshed = %+v", next)
+	}
+	if rec := refresh(next.RefreshToken, other); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("refresh with another key = %d", rec.Code)
+	}
+	if rec := refresh(code, key); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("code as a refresh token = %d", rec.Code)
+	}
+	h.clock.Advance(31 * 24 * time.Hour)
+	if rec := refresh(next.RefreshToken, key); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expired refresh token = %d", rec.Code)
 	}
 
 	var got []string
@@ -180,78 +257,83 @@ func TestSSHKeysSync(t *testing.T) {
 			Details               map[string]string
 		}
 		_ = json.Unmarshal([]byte(line), &ev)
-		got = append(got, strings.Join([]string{ev.Action, ev.Result, ev.Actor, ev.Details["keys"], ev.Details["fingerprints"], ev.Details["replicas"]}, "|"))
+		if ev.Action == "ssh.enroll" {
+			got = append(got, strings.Join([]string{ev.Result, ev.Actor, ev.Details["fingerprint"]}, "|"))
+		}
 	}
-	wantAudit := []string{
-		"ssh.keys|ok|alice|2|" + aFP + "," + bFP + "|2",
-		"ssh.keys|failed|bob|1|" + bFP + "|0",
-		"ssh.keys|ok|alice|1|" + aFP + "|1",
-		"ssh.keys|failed|alice|0||0",
-	}
+	wantAudit := []string{"ok|alice|" + fp, "denied|alice|", "denied||", "denied||"}
 	if !slices.Equal(got, wantAudit) {
 		t.Fatalf("audit %q, want %q", got, wantAudit)
 	}
 }
 
-func TestSSHKeyRequest(t *testing.T) {
+func TestComputers(t *testing.T) {
 	h := newSSHHarness(t, true, 2)
-	key, fp := sshKey(t)
-	want := contract.KeyRequest{PublicKey: key, Fingerprint: fp, Session: "fake-1", ClientIP: "192.0.2.1", ExpiresAt: time.Date(2026, 1, 1, 0, 5, 0, 0, time.UTC)}
-	h.requests[1]["abcdefghijklmnop"] = want
+	h.gateways[0].computers["alice"] = []control.Computer{{ID: "a1", Hostname: "mac"}}
+	h.gateways[1].computers["alice"] = []control.Computer{{ID: "a2", Hostname: "linux"}}
+	h.gateways[1].computers["bob"] = []control.Computer{{ID: "b1", Hostname: "pc"}}
 
-	rec := h.do(http.MethodGet, "/api/v1/ssh/key-requests/abcdefghijklmnop", "alice", "", nil)
-	if got := decode[SSHKeyRequest](t, rec); rec.Code != http.StatusOK || got != SSHKeyRequest(want) {
-		t.Fatalf("get = %d %s", rec.Code, rec.Body)
-	}
-	if rec := h.do(http.MethodGet, "/api/v1/ssh/key-requests/zzzzzzzzzzzzzzzz", "alice", "", nil); rec.Code != http.StatusNotFound {
-		t.Fatalf("unknown code = %d", rec.Code)
-	}
-	if rec := h.do(http.MethodGet, "/api/v1/ssh/key-requests/NOPE", "alice", "", nil); rec.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("malformed code = %d", rec.Code)
+	list := decode[ComputerList](t, h.do(http.MethodGet, "/api/v1/ssh/computers", "alice", "", nil))
+	if len(list.Computers) != 2 || list.Computers[0].ID != "a1" || list.Computers[1].ID != "a2" {
+		t.Fatalf("alice's computers %+v", list)
 	}
 
-	h.down["10.0.0.1:8080"] = true
-	if rec := h.do(http.MethodGet, "/api/v1/ssh/key-requests/abcdefghijklmnop", "alice", "", nil); rec.Code != http.StatusOK {
-		t.Fatalf("one replica down = %d", rec.Code)
+	put := func(user, id string, ports []int) *httptest.ResponseRecorder {
+		return h.do(http.MethodPut, "/api/v1/ssh/computers/"+id+"/published", user, "", map[string][]int{"ports": ports})
 	}
-	if rec := h.do(http.MethodGet, "/api/v1/ssh/key-requests/zzzzzzzzzzzzzzzz", "alice", "", nil); rec.Code != http.StatusNotFound {
-		t.Fatalf("unknown code with one replica down = %d", rec.Code)
+	if rec := put("alice", "a2", []int{3000, 8080}); rec.Code != http.StatusNoContent || !slices.Equal(h.gateways[1].published["a2"], []int{3000, 8080}) {
+		t.Fatalf("publish = %d %s", rec.Code, rec.Body)
 	}
+	if rec := put("alice", "b1", []int{3000}); rec.Code != http.StatusNotFound {
+		t.Fatalf("someone else's computer = %d", rec.Code)
+	}
+	if rec := put("alice", "a1", []int{0}); rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("bad port = %d", rec.Code)
+	}
+
 	h.down["10.0.0.2:8080"] = true
-	if rec := h.do(http.MethodGet, "/api/v1/ssh/key-requests/abcdefghijklmnop", "alice", "", nil); rec.Code != http.StatusBadGateway {
-		t.Fatalf("all down = %d", rec.Code)
+	list = decode[ComputerList](t, h.do(http.MethodGet, "/api/v1/ssh/computers", "alice", "", nil))
+	if len(list.Computers) != 1 || list.Computers[0].ID != "a1" {
+		t.Fatalf("one replica down %+v", list)
 	}
-
-	off := newSSHHarness(t, false, 1)
-	if rec := off.do(http.MethodGet, "/api/v1/ssh/key-requests/abcdefghijklmnop", "alice", "", nil); rec.Code != http.StatusNotFound {
-		t.Fatalf("ssh disabled = %d", rec.Code)
+	if rec := put("alice", "a2", []int{3000}); rec.Code != http.StatusBadGateway {
+		t.Fatalf("publish on a replica that is down = %d", rec.Code)
+	}
+	h.down["10.0.0.1:8080"] = true
+	if rec := h.do(http.MethodGet, "/api/v1/ssh/computers", "alice", "", nil); rec.Code != http.StatusBadGateway {
+		t.Fatalf("all down = %d", rec.Code)
 	}
 }
 
-func TestSSHKeysValidation(t *testing.T) {
+func TestTunnelScript(t *testing.T) {
 	h := newSSHHarness(t, true, 1)
-	a, _ := sshKey(t)
-	rec := h.do(http.MethodPut, "/api/v1/ssh/keys", "alice", "", keyList{Keys: []SSHKeyInput{
-		{PublicKey: a},
-		{PublicKey: "ssh-ed25519 not-base64"},
-		{PublicKey: a},
-		{PublicKey: "-----BEGIN OPENSSH PRIVATE KEY-----"},
-	}})
-	p := decode[problem](t, rec)
-	if rec.Code != http.StatusUnprocessableEntity || len(p.Errors) != 3 {
-		t.Fatalf("validation = %d %s", rec.Code, rec.Body)
-	}
-	for i, want := range []struct{ loc, msg string }{
-		{"body.keys[1].publicKey", "not an OpenSSH public key"},
-		{"body.keys[2].publicKey", "same key as keys[0]"},
-		{"body.keys[3].publicKey", "private key"},
-	} {
-		if p.Errors[i].Location != want.loc || !strings.Contains(p.Errors[i].Message, want.msg) {
-			t.Fatalf("error %d = %+v", i, p.Errors[i])
+	build := []byte("#!/bin/sh\necho client\n")
+	for _, name := range []string{"holtdroid-connect-linux-amd64", "holtdroid-connect-darwin-arm64", "holtdroid-connect-plan9-386", "notes.txt"} {
+		if err := os.WriteFile(filepath.Join(h.cfg.SSH.ClientDir, name), build, 0o755); err != nil {
+			t.Fatal(err)
 		}
 	}
-	if strings.Contains(rec.Body.String(), "BEGIN OPENSSH") {
-		t.Fatal("response echoes the submitted key")
+	sum := sha256.Sum256(build)
+
+	rec := h.do(http.MethodGet, "/tunnel.sh", "", "", nil)
+	script := rec.Body.String()
+	if rec.Code != http.StatusOK || !strings.Contains(script, "portal='https://android.example.com'") ||
+		!strings.Contains(script, "linux-amd64) sum="+hex.EncodeToString(sum[:])) || !strings.Contains(script, "darwin-arm64) sum=") ||
+		strings.Contains(script, "plan9") {
+		t.Fatalf("tunnel.sh = %d\n%s", rec.Code, script)
+	}
+	if out, err := exec.Command("sh", "-n", "-c", script).CombinedOutput(); err != nil {
+		t.Fatalf("sh -n: %v %s", err, out)
+	}
+
+	rec = h.do(http.MethodGet, "/connect/holtdroid-connect-linux-amd64", "", "", nil)
+	if rec.Code != http.StatusOK || !bytes.Equal(rec.Body.Bytes(), build) {
+		t.Fatalf("client = %d", rec.Code)
+	}
+	for _, name := range []string{"notes.txt", "holtdroid-connect-plan9-386", "..%2fsecret"} {
+		if rec := h.do(http.MethodGet, "/connect/"+name, "", "", nil); rec.Code != http.StatusNotFound {
+			t.Fatalf("%s = %d", name, rec.Code)
+		}
 	}
 }
 
@@ -263,15 +345,8 @@ func TestInternalSSHSessions(t *testing.T) {
 	t.Cleanup(srv.Close)
 	c := contract.NewSSHSessionsClient(srv.URL, nil)
 
-	got, err := c.SSHSession(ctx, "fake-"+v.ID)
-	want := contract.SSHSession{Provider: "fake", ID: v.ID, Owner: "otter", State: contract.StateProvisioning, TunnelURL: "http://tunnels/agents/" + v.ID}
-	if err != nil || got != want {
-		t.Fatalf("session %+v, %v; want %+v", got, err, want)
-	}
-	for _, slug := range []string{"fake-nope", "other-" + v.ID, "fake-", v.ID} {
-		if _, err := c.SSHSession(ctx, slug); !errors.Is(err, contract.ErrNotFound) {
-			t.Errorf("%s: %v", slug, err)
-		}
+	if _, err := c.SSHAuthority(ctx); !errors.Is(err, contract.ErrNotFound) {
+		t.Fatalf("authority with ssh off: %v", err)
 	}
 
 	h.clock.Advance(20 * time.Minute)
@@ -289,7 +364,8 @@ func TestInternalSSHSessions(t *testing.T) {
 
 	h.create("badger")
 	mine, err := c.SSHUserSessions(ctx, h.srv.sshHandle("otter"))
-	if err != nil || len(mine) != 1 || mine[0].ID != v.ID || mine[0].Owner != "otter" {
+	want := contract.SSHSession{Provider: "fake", ID: v.ID, Owner: "otter", State: contract.StateProvisioning, TunnelURL: "http://tunnels/agents/" + v.ID}
+	if err != nil || len(mine) != 1 || mine[0] != want {
 		t.Fatalf("otter's sessions %+v, %v", mine, err)
 	}
 	if none, err := c.SSHUserSessions(ctx, "user-nobody"); err != nil || len(none) != 0 {

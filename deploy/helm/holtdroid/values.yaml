@@ -137,36 +137,34 @@ providers:
       requests: { cpu: 5m, memory: 32Mi }
       limits: { memory: 128Mi }
 
-# SSH access to sessions: `ssh -N -L 5555:adb:5555 -R 3000:localhost:3000
-# {provider}-{id}@host`. Only tunnels, never a shell. Users register public
-# keys in the portal; the gateway keeps them in memory.
+# SSH access for holtdroid-connect: users run the command from the portal's
+# Computers page once per computer; the client publishes their local ports on
+# all of their devices and forwards each device's ADB. Only tunnels, never a
+# shell. The api signs each computer's key into a short-lived certificate.
 sshGateway:
   enabled: false
   replicas: 1
-  # PEM private key, as a secret reference such as env:SSH_HOST_KEY (from
-  # existingSecret) or file:/run/secrets/... Without one every restart
-  # presents a new host key.
+  # PEM private keys, as secret references such as env:SSH_HOST_KEY (from
+  # existingSecret) or file:/run/secrets/... Without a hostKey every gateway
+  # restart, and without a caKey every api restart, makes enrolled computers
+  # enroll again.
   hostKey: ""
-  # Shown in the UI's commands; defaults to publicURL's host and the
-  # service port.
+  caKey: ""
+  # Where clients connect; defaults to publicURL's host and the service port.
   publicHost: ""
   publicPort: 0
   allowADB: true
   allowReverse: true
-  # Only session owners and admins may connect to a session.
-  clientIsolation: true
   # Device ports that may be published. The port is bound on the device's
   # loopback only, so privileged ports are fine on emulators.
   reversePorts: "1-65535"
-  keyTTL: 24h
   maxTunnelsPerConnection: 32
-  # A client whose keys are all unknown gets a link to add the key it has
-  # just signed with in the portal; the connection waits for it.
-  keyRequests: true
-  # Add -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null to the
-  # commands the UI shows. Insecure: it hides a man-in-the-middle. Only for
-  # trusted networks or a gateway whose host key changes on every restart.
-  skipHostKeyCheck: false
+  # Lifetime of the one-time code in the portal's command, of a computer's
+  # certificate (renewed in the background) and of its refresh token (renewed
+  # with every certificate, so it only runs out for unused computers).
+  codeTTL: 10m
+  certificateTTL: 15m
+  refreshTTL: 720h
   # Expose port 2222 with a LoadBalancer/NodePort here, or keep ClusterIP and
   # route an ingress TCP entrypoint to it (Traefik IngressRouteTCP).
   service:

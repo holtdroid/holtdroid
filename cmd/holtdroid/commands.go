@@ -11,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -163,8 +162,7 @@ func sshGatewayCmd(c *common) *cobra.Command {
 				return err
 			}
 			defer closeAudit(aud)
-			keys := sshgateway.NewKeys(cfg.KeyTTL, nil)
-			g, err := sshgateway.New(cfg, hostKey, keys, sessions, aud, log)
+			g, err := sshgateway.New(cfg, hostKey, sessions, aud, log)
 			if err != nil {
 				return err
 			}
@@ -174,7 +172,7 @@ func sshGatewayCmd(c *common) *cobra.Command {
 				return err
 			}
 			mux := http.NewServeMux()
-			contract.RegisterSSHGateway(contract.NewAPI(mux, "Holtdroid ssh-gateway"), keys)
+			contract.RegisterSSHGateway(contract.NewAPI(mux, "Holtdroid ssh-gateway"), g)
 			return rt.serve(cmd.Context(), "ssh-gateway", []listener{{cfg.HTTPListen, mux}}, func(ctx context.Context) { g.Serve(ctx, ln) })
 		},
 	}
@@ -184,7 +182,8 @@ func devCmd() *cobra.Command {
 	var (
 		listen    string
 		agents    string
-		sshKeys   string
+		sshAPI    string
+		clientDir string
 		sshListen string
 		tunnels   string
 		apks      string
@@ -219,9 +218,6 @@ func devCmd() *cobra.Command {
 			}
 
 			provider := fake.New(fake.Config{Slots: slots, PublicURL: "http://localhost" + agents, TunnelURL: "http://localhost" + tunnels, StepDelay: stepDelay, NoDirect: noDirect, DefaultLocation: location})
-			keys := sshgateway.NewKeys(24*time.Hour, nil)
-			gateway := http.NewServeMux()
-			contract.RegisterSSHGateway(contract.NewAPI(gateway, "Holtdroid ssh-gateway keys"), keys)
 			var lc net.ListenConfig
 			sshLn, err := lc.Listen(cmd.Context(), "tcp", sshListen)
 			if err != nil {
@@ -240,7 +236,8 @@ func devCmd() *cobra.Command {
 			cfg.Sessions.IdleTimeout = idle
 			cfg.InternalURL = "http://localhost" + cfg.InternalListen
 			cfg.SSH.Enabled = true
-			cfg.SSH.GatewayURL = "http://127.0.0.1" + sshKeys
+			cfg.SSH.GatewayURL = "http://127.0.0.1" + sshAPI
+			cfg.SSH.ClientDir = clientDir
 			if cfg.SSH.PublicPort, err = strconv.Atoi(sshPort); err != nil {
 				return fmt.Errorf("ssh port: %w", err)
 			}
@@ -265,31 +262,30 @@ func devCmd() *cobra.Command {
 			defer srv.Close()
 			gcfg := sshgateway.DefaultConfig()
 			gcfg.APIURL = cfg.InternalURL
-			gcfg.PortalURL = "http://localhost" + listen
-			if !strings.HasPrefix(listen, ":") {
-				gcfg.PortalURL = "http://" + listen
-			}
 			log := slog.Default().With("component", "ssh-gateway")
 			hostKey, err := sshgateway.HostKey(cmd.Context(), nil, "", log)
 			if err != nil {
 				return err
 			}
-			g, err := sshgateway.New(gcfg, hostKey, keys, srv, aud, log)
+			g, err := sshgateway.New(gcfg, hostKey, srv, aud, log)
 			if err != nil {
 				return err
 			}
+			gateway := http.NewServeMux()
+			contract.RegisterSSHGateway(contract.NewAPI(gateway, "Holtdroid ssh-gateway"), g)
 			return rt.serve(cmd.Context(), "dev", []listener{
 				{cfg.Listen, srv.Handler()},
 				{cfg.InternalListen, srv.InternalHandler()},
 				{agents, provider.AgentHandler()},
 				{tunnels, provider.TunnelHandler()},
-				{sshKeys, gateway},
+				{sshAPI, gateway},
 			}, srv.Run, func(ctx context.Context) { g.Serve(ctx, sshLn) })
 		},
 	}
 	cmd.Flags().StringVar(&listen, "listen", ":8080", "portal address")
 	cmd.Flags().StringVar(&agents, "agents", ":8090", "address for the fake device agents")
-	cmd.Flags().StringVar(&sshKeys, "ssh-keys", ":8092", "address for the in-process ssh-gateway key API")
+	cmd.Flags().StringVar(&sshAPI, "ssh-api", ":8092", "address for the in-process ssh-gateway's internal API")
+	cmd.Flags().StringVar(&clientDir, "connect-clients", "bin/connect", "directory with holtdroid-connect builds served to tunnel.sh")
 	cmd.Flags().StringVar(&sshListen, "ssh", ":2222", "address for the in-process ssh-gateway")
 	cmd.Flags().StringVar(&tunnels, "tunnels", ":8091", "address for the fake device agents' tunnel endpoints")
 	cmd.Flags().StringVar(&apks, "apks", "internal/apk/testdata", "read-only directory with APKs to list")

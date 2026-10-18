@@ -46,6 +46,8 @@ type Server struct {
 	ui             fs.FS
 	lookupHost     func(ctx context.Context, host string) ([]string, error)
 	sshHTTP        *http.Client
+	ca             *connectCA
+	clients        connectClients
 	audit          *audit.Logger
 	launches       *launches
 	queue          *launchQueue
@@ -133,6 +135,11 @@ func New(ctx context.Context, cfg Config, opts ...Option) (*Server, error) {
 				return nil, fmt.Errorf("appData.storage: %w", err)
 			}
 			s.appData = &appDataStore{store: store}
+		}
+	}
+	if cfg.SSH.Enabled {
+		if s.ca, err = newConnectCA(ctx, s); err != nil {
+			return nil, err
 		}
 	}
 	s.auth.OnSignIn = s.signedIn
@@ -243,6 +250,8 @@ func (s *Server) Handler() http.Handler {
 	s.register(api)
 	mux.Handle("/s/{provider}/{id}/", http.HandlerFunc(s.proxy))
 	mux.Handle("/api/v1/auth/oidc/", s.auth.OIDCHandler())
+	mux.HandleFunc("GET /tunnel.sh", s.serveTunnelScript)
+	mux.HandleFunc("GET /connect/{file}", s.serveConnectClient)
 	mux.Handle("/", s.uiHandler())
 
 	protected := s.auth.Middleware(mux)
@@ -253,6 +262,7 @@ func (s *Server) Handler() http.Handler {
 		case p == "/healthz":
 			w.WriteHeader(http.StatusOK)
 		case strings.HasPrefix(p, "/api/v1/auth"), strings.HasPrefix(p, "/api/openapi"),
+			p == "/api/v1/connect/enroll", p == "/api/v1/connect/refresh",
 			strings.HasPrefix(p, "/api/docs"), strings.HasPrefix(p, "/api/schemas"):
 			optional.ServeHTTP(w, r)
 		case p == uploadPath && r.Method == http.MethodPost:

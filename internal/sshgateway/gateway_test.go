@@ -5,14 +5,13 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
 	"net"
 	"net/http/httptest"
-	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -24,6 +23,7 @@ import (
 	"github.com/kriakiku/holtdroid/internal/adbproto"
 	"github.com/kriakiku/holtdroid/internal/audit"
 	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/kriakiku/holtdroid/internal/contract/control"
 	"github.com/kriakiku/holtdroid/internal/provider/fake"
 )
 
@@ -31,22 +31,23 @@ type stubSessions struct {
 	p        *fake.Provider
 	activity atomic.Int32
 	active   sync.Map
+
+	mu sync.Mutex
+	ca ssh.Signer
 }
 
-func (s *stubSessions) SSHSession(ctx context.Context, slug string) (contract.SSHSession, error) {
-	id, ok := strings.CutPrefix(slug, "fake-")
-	if !ok {
-		return contract.SSHSession{}, contract.ErrNotFound
-	}
-	sess, err := s.p.Get(ctx, id)
-	if err != nil {
-		return contract.SSHSession{}, err
-	}
-	return contract.SSHSession{Provider: "fake", ID: sess.ID, Owner: sess.Owner, State: sess.State, TunnelURL: sess.TunnelURL}, nil
+func (s *stubSessions) SSHAuthority(context.Context) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return strings.TrimSpace(string(ssh.MarshalAuthorizedKey(s.ca.PublicKey()))), nil
 }
 
 func (s *stubSessions) SSHActivity(ctx context.Context, slug string) error {
-	if _, err := s.SSHSession(ctx, slug); err != nil {
+	id, ok := strings.CutPrefix(slug, "fake-")
+	if !ok {
+		return contract.ErrNotFound
+	}
+	if _, err := s.p.Get(ctx, id); err != nil {
 		return err
 	}
 	s.activity.Add(1)
@@ -81,18 +82,13 @@ func (c *clock) now() time.Time {
 	return c.t
 }
 
-func (c *clock) advance(d time.Duration) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.t = c.t.Add(d)
-}
-
 type harness struct {
 	t        *testing.T
 	addr     string
 	provider *fake.Provider
 	sessions *stubSessions
-	keys     *Keys
+	gateway  *Gateway
+	ca       ssh.Signer
 	clock    *clock
 	audit    *lockedBuffer
 }
@@ -122,7 +118,6 @@ func newHarness(t *testing.T, mod func(*Config)) *harness {
 	tunnels.Config.Handler = p.TunnelHandler()
 
 	clk := &clock{t: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)}
-	keys := NewKeys(time.Hour, clk.now)
 	cfg := DefaultConfig()
 	cfg.ActivityInterval = 50 * time.Millisecond
 	if mod != nil {
@@ -133,16 +128,18 @@ func newHarness(t *testing.T, mod func(*Config)) *harness {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sessions := &stubSessions{p: p}
+	ca := newSigner(t)
+	sessions := &stubSessions{p: p, ca: ca}
 	buf := &lockedBuffer{}
 	aud, err := audit.New(context.Background(), audit.Config{}, "ssh-gateway", "test", nil, audit.WithStdout(buf))
 	if err != nil {
 		t.Fatal(err)
 	}
-	g, err := New(cfg, signer, keys, sessions, aud, slog.New(slog.DiscardHandler))
+	g, err := New(cfg, signer, sessions, aud, slog.New(slog.DiscardHandler))
 	if err != nil {
 		t.Fatal(err)
 	}
+	g.now = clk.now
 	var lc net.ListenConfig
 	ln, err := lc.Listen(context.Background(), "tcp", "127.0.0.1:0")
 	if err != nil {
@@ -151,7 +148,7 @@ func newHarness(t *testing.T, mod func(*Config)) *harness {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	go g.Serve(ctx, ln)
-	return &harness{t: t, addr: ln.Addr().String(), provider: p, sessions: sessions, keys: keys, clock: clk, audit: buf}
+	return &harness{t: t, addr: ln.Addr().String(), provider: p, sessions: sessions, gateway: g, ca: ca, clock: clk, audit: buf}
 }
 
 func (h *harness) session(owner string) (slug, id string) {
@@ -167,15 +164,39 @@ func (h *harness) session(owner string) (slug, id string) {
 	return "fake-" + s.ID, s.ID
 }
 
-func (h *harness) register(user string, admin bool) ssh.Signer {
+type certOpts struct {
+	user, handle, computer, hostname string
+	admin                            bool
+	ca                               ssh.Signer
+	ttl                              time.Duration
+}
+
+// cert is what the api would issue to a connect client of user.
+func (h *harness) cert(user string, mod func(*certOpts)) ssh.Signer {
 	h.t.Helper()
-	_, key, _ := ed25519.GenerateKey(rand.Reader)
-	signer, err := ssh.NewSignerFromKey(key)
-	if err != nil {
+	o := certOpts{user: user, handle: contract.HandlePrefix + user, computer: "c-" + user, hostname: user + "-laptop", ca: h.ca, ttl: 15 * time.Minute}
+	if mod != nil {
+		mod(&o)
+	}
+	key := newSigner(h.t)
+	ext := map[string]string{"permit-port-forwarding": "", control.CertHostname: o.hostname}
+	if o.user != "" {
+		ext[control.CertUser] = o.user
+	}
+	if o.admin {
+		ext[control.CertAdmin] = "true"
+	}
+	now := h.clock.now()
+	cert := &ssh.Certificate{
+		Key: key.PublicKey(), CertType: ssh.UserCert, KeyId: o.computer, ValidPrincipals: []string{o.handle},
+		ValidAfter: uint64(now.Add(-time.Minute).Unix()), ValidBefore: uint64(now.Add(o.ttl).Unix()),
+		Extensions: ext,
+	}
+	if err := cert.SignCert(rand.Reader, o.ca); err != nil {
 		h.t.Fatal(err)
 	}
-	line := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(signer.PublicKey())))
-	if err := h.keys.SetUserKeys(context.Background(), user, contract.UserKeys{Handle: contract.HandlePrefix + user, Admin: admin, Keys: []string{line}}); err != nil {
+	signer, err := ssh.NewCertSigner(cert, key)
+	if err != nil {
 		h.t.Fatal(err)
 	}
 	return signer
@@ -211,102 +232,6 @@ func eventually(t *testing.T, what string, ok func() bool) {
 	}
 }
 
-func roundTrip(t *testing.T, c io.ReadWriter, msg string) {
-	t.Helper()
-	if _, err := c.Write([]byte(msg)); err != nil {
-		t.Fatal(err)
-	}
-	buf := make([]byte, len(msg))
-	if _, err := io.ReadFull(c, buf); err != nil || string(buf) != msg {
-		t.Fatalf("read %q, %v; want %q", buf, err, msg)
-	}
-}
-
-func TestLogin(t *testing.T) {
-	h := newHarness(t, nil)
-	otter := h.register("otter", false)
-	admin := h.register("root", true)
-	slug, _ := h.session("otter")
-	badgerSlug, _ := h.session("badger")
-	_, stranger, _ := ed25519.GenerateKey(rand.Reader)
-	unknown, _ := ssh.NewSignerFromKey(stranger)
-
-	tests := []struct {
-		name   string
-		slug   string
-		signer ssh.Signer
-		ok     bool
-	}{
-		{"owner", slug, otter, true},
-		{"admin on someone else's session", badgerSlug, admin, true},
-		{"isolated from someone else's session", badgerSlug, otter, false},
-		{"unknown key", slug, unknown, false},
-		{"unknown session", "fake-nope", otter, false},
-		{"no provider prefix", "nope", otter, false},
-		{"own handle", "user-otter", otter, true},
-		{"someone else's handle", "user-badger", otter, false},
-		{"unknown key on a handle", "user-otter", unknown, false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			c, err := h.dial(tt.slug, tt.signer)
-			if c != nil {
-				c.Close()
-			}
-			if (err == nil) != tt.ok {
-				t.Fatalf("err = %v, want ok=%v", err, tt.ok)
-			}
-		})
-	}
-}
-
-func TestLoginExplainsOnlyFinalFailure(t *testing.T) {
-	h := newHarness(t, func(c *Config) { c.KeyRequests = false })
-	otter := h.register("otter", false)
-	slug, _ := h.session("otter")
-	_, stranger, _ := ed25519.GenerateKey(rand.Reader)
-	unknown, _ := ssh.NewSignerFromKey(stranger)
-
-	tests := []struct {
-		name    string
-		slug    string
-		signers []ssh.Signer
-		ok      bool
-		message string
-	}{
-		{"unknown key before a registered one", slug, []ssh.Signer{unknown, otter}, true, ""},
-		{"only unknown keys", slug, []ssh.Signer{unknown}, false, "This key is not registered"},
-		{"missing session", "fake-nope", []ssh.Signer{otter, unknown}, false, "Not found."},
-		{"missing session with only unknown keys", "fake-nope", []ssh.Signer{unknown}, false, "Not found."},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var shown strings.Builder
-			c, err := ssh.Dial("tcp", h.addr, &ssh.ClientConfig{
-				User: tt.slug,
-				Auth: []ssh.AuthMethod{
-					ssh.PublicKeys(tt.signers...),
-					ssh.KeyboardInteractive(func(_, instruction string, _ []string, _ []bool) ([]string, error) {
-						shown.WriteString(instruction)
-						return nil, nil
-					}),
-				},
-				HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-				Timeout:         5 * time.Second,
-			})
-			if c != nil {
-				c.Close()
-			}
-			if (err == nil) != tt.ok {
-				t.Fatalf("err = %v, want ok=%v", err, tt.ok)
-			}
-			if got := shown.String(); tt.message == "" && got != "" || !strings.Contains(got, tt.message) {
-				t.Fatalf("shown %q, want %q", got, tt.message)
-			}
-		})
-	}
-}
-
 func newSigner(t *testing.T) ssh.Signer {
 	t.Helper()
 	_, key, _ := ed25519.GenerateKey(rand.Reader)
@@ -317,138 +242,13 @@ func newSigner(t *testing.T) ssh.Signer {
 	return signer
 }
 
-func TestKeyRequests(t *testing.T) {
-	h := newHarness(t, func(c *Config) {
-		c.KeyRequestTimeout = time.Second
-		c.PortalURL = "https://android.example.com/"
-	})
-	otter := h.register("otter", false)
-	slug, _ := h.session("otter")
-	code := regexp.MustCompile(`https://android\.example\.com/ssh\?request=([a-z2-7]{16})\r\n`)
-
-	tests := []struct {
-		name    string
-		slug    string
-		known   ssh.Signer
-		addAs   string
-		link    bool
-		ok      bool
-		message string
-	}{
-		{"registered key after an unknown one", slug, otter, "", false, true, ""},
-		{"missing session", "fake-nope", otter, "", false, false, "Not found."},
-		{"no link for a missing session", "fake-nope", nil, "", false, false, "Not found."},
-		{"added in the portal", slug, nil, "otter", true, true, "check that the portal shows"},
-		{"added by someone who can't use the session", slug, nil, "badger", true, false, "Not found."},
-		{"not added in time", slug, nil, "", true, false, "not added in time"},
-		{"added for the handle", "user-otter", nil, "otter", true, true, "check that the portal shows"},
-		{"no link for an unknown handle", "user-nobody", nil, "", false, false, "Not found."},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			unknown := newSigner(t)
-			signers := []ssh.Signer{unknown}
-			if tt.known != nil {
-				signers = append(signers, tt.known)
-			}
-			var shown strings.Builder
-			var requested atomic.Bool
-			c, err := ssh.Dial("tcp", h.addr, &ssh.ClientConfig{
-				User: tt.slug,
-				Auth: []ssh.AuthMethod{
-					ssh.PublicKeys(signers...),
-					ssh.KeyboardInteractive(func(_, instruction string, _ []string, _ []bool) ([]string, error) {
-						shown.WriteString(instruction)
-						m := code.FindStringSubmatch(instruction)
-						if m == nil {
-							return nil, nil
-						}
-						requested.Store(true)
-						r, err := h.keys.KeyRequest(context.Background(), m[1])
-						fp := ssh.FingerprintSHA256(unknown.PublicKey())
-						if err != nil || r.Fingerprint != fp || r.Session != tt.slug || r.ClientIP != "127.0.0.1" || !strings.Contains(instruction, fp) {
-							t.Errorf("request = %+v, %v", r, err)
-						}
-						if tt.addAs != "" {
-							go func() {
-								time.Sleep(50 * time.Millisecond)
-								_ = h.keys.SetUserKeys(context.Background(), tt.addAs, contract.UserKeys{Handle: contract.HandlePrefix + tt.addAs, Keys: []string{r.PublicKey}})
-							}()
-						}
-						return nil, nil
-					}),
-				},
-				HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-				Timeout:         5 * time.Second,
-			})
-			if c != nil {
-				c.Close()
-			}
-			if (err == nil) != tt.ok {
-				t.Fatalf("err = %v, want ok=%v", err, tt.ok)
-			}
-			if requested.Load() != tt.link {
-				t.Fatalf("link shown = %v, want %v", requested.Load(), tt.link)
-			}
-			if got := shown.String(); tt.message == "" && got != "" || !strings.Contains(got, tt.message) {
-				t.Fatalf("shown %q, want %q", got, tt.message)
-			}
-		})
-	}
-}
-
-func TestBanner(t *testing.T) {
-	h := newHarness(t, func(c *Config) { c.KeyRequests = false })
-	otter := h.register("otter", false)
-	slug, _ := h.session("otter")
-	stranger := newSigner(t)
-
-	tests := []struct {
-		name   string
-		slug   string
-		signer ssh.Signer
-		banner string
-	}{
-		{"signed in", slug, otter, "Session  " + slug + ", signed in as otter"},
-		{"unknown key", slug, stranger, ""},
-		{"missing session", "fake-nope", otter, ""},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var banner, version string
-			c, err := ssh.Dial("tcp", h.addr, &ssh.ClientConfig{
-				User: tt.slug,
-				Auth: []ssh.AuthMethod{ssh.PublicKeys(tt.signer)},
-				HostKeyCallback: func(_ string, _ net.Addr, _ ssh.PublicKey) error {
-					return nil
-				},
-				BannerCallback: func(msg string) error { banner += msg; return nil },
-				Timeout:        5 * time.Second,
-			})
-			if c != nil {
-				version = string(c.ServerVersion())
-				c.Close()
-			}
-			if (err == nil) != (tt.banner != "") {
-				t.Fatalf("err = %v", err)
-			}
-			if tt.banner == "" && banner != "" || !strings.Contains(banner, tt.banner) {
-				t.Fatalf("banner %q, want %q", banner, tt.banner)
-			}
-			if tt.banner != "" && (!strings.Contains(banner, "|_| |_|\\___/") || version != "SSH-2.0-OpenSSH_9.9") {
-				t.Fatalf("banner %q, version %q", banner, version)
-			}
-		})
-	}
-}
-
 func TestFanout(t *testing.T) {
 	h := newHarness(t, func(c *Config) {
 		c.ReversePorts = "1024-65535"
 		c.RefreshInterval = 20 * time.Millisecond
 		c.ActivityInterval = 20 * time.Millisecond
 	})
-	otter := h.register("otter", false)
+	otter := h.cert("otter", nil)
 	_, first := h.session("otter")
 	_, other := h.session("badger")
 
@@ -461,7 +261,8 @@ func TestFanout(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { c.Close() })
-	if !strings.Contains(banner, "all of yours") {
+	if !strings.Contains(banner, "Signed in as otter on otter-laptop") || !strings.Contains(banner, "|_| |_|\\___/") ||
+		string(c.ServerVersion()) != "SSH-2.0-OpenSSH_9.9" {
 		t.Fatalf("banner %q", banner)
 	}
 
@@ -519,8 +320,8 @@ func TestFanout(t *testing.T) {
 	if !reaches(second) {
 		t.Fatal("a session ending dropped the others")
 	}
-	if _, err := c.Dial("tcp", "adb:5555"); err == nil {
-		t.Fatal("ADB opened on all sessions at once")
+	if _, err := c.Dial("tcp", "fake-"+first+":5555"); err == nil {
+		t.Fatal("ADB reached a session that ended")
 	}
 
 	ln.Close()
@@ -533,319 +334,9 @@ func TestFanout(t *testing.T) {
 	})
 }
 
-func TestNoIsolation(t *testing.T) {
-	h := newHarness(t, func(c *Config) { c.ClientIsolation = false })
-	otter := h.register("otter", false)
-	slug, _ := h.session("badger")
-	h.connect(slug, otter)
-}
-
-func TestKeyExpiry(t *testing.T) {
-	h := newHarness(t, nil)
-	otter := h.register("otter", false)
-	slug, _ := h.session("otter")
-	h.connect(slug, otter)
-	h.clock.advance(time.Hour)
-	if c, err := h.dial(slug, otter); err == nil {
-		c.Close()
-		t.Fatal("an expired key still logs in")
-	}
-}
-
-func TestNoShell(t *testing.T) {
-	h := newHarness(t, nil)
-	otter := h.register("otter", false)
-	slug, _ := h.session("otter")
-	c := h.connect(slug, otter)
-
-	t.Run("exec", func(t *testing.T) {
-		s, err := c.NewSession()
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer s.Close()
-		out, err := s.CombinedOutput("id")
-		if !isExit(err, 1) {
-			t.Fatalf("exec: %v", err)
-		}
-		if !strings.Contains(string(out), "no shell here") || strings.Contains(string(out), "uid=") {
-			t.Fatalf("exec output %q", out)
-		}
-	})
-
-	t.Run("sftp", func(t *testing.T) {
-		ch, reqs, err := c.OpenChannel("session", nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer ch.Close()
-		if _, err := ch.SendRequest("subsystem", true, ssh.Marshal(struct{ Name string }{"sftp"})); err != nil {
-			t.Fatal(err)
-		}
-		status := -1
-		for req := range reqs {
-			if req.Type == "exit-status" && len(req.Payload) == 4 {
-				status = int(binary.BigEndian.Uint32(req.Payload))
-			}
-		}
-		if status != 1 {
-			t.Fatalf("sftp subsystem exit status %d", status)
-		}
-	})
-
-	t.Run("interactive shell waits for ctrl+c", func(t *testing.T) {
-		s, err := c.NewSession()
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer s.Close()
-		stdin, _ := s.StdinPipe()
-		stdout, _ := s.StdoutPipe()
-		if err := s.Shell(); err != nil {
-			t.Fatal(err)
-		}
-		buf := make([]byte, 4096)
-		n, _ := stdout.Read(buf)
-		if !strings.Contains(string(buf[:n]), "Session "+slug) {
-			t.Fatalf("shell greeting %q", buf[:n])
-		}
-		_, _ = stdin.Write([]byte{3})
-		if err := s.Wait(); err != nil {
-			t.Fatalf("shell after ctrl+c: %v", err)
-		}
-	})
-
-	t.Run("agent forwarding", func(t *testing.T) {
-		s, err := c.NewSession()
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer s.Close()
-		if ok, err := s.SendRequest("auth-agent-req@openssh.com", true, nil); ok || err != nil {
-			t.Fatalf("agent forwarding accepted: %v %v", ok, err)
-		}
-	})
-
-	t.Run("other channel types", func(t *testing.T) {
-		if _, _, err := c.OpenChannel("direct-streamlocal@openssh.com", nil); err == nil {
-			t.Fatal("streamlocal channel accepted")
-		}
-	})
-}
-
 func isExit(err error, status int) bool {
 	exit, ok := errors.AsType[*ssh.ExitError](err)
 	return ok && exit.ExitStatus() == status
-}
-
-func TestADBTunnel(t *testing.T) {
-	h := newHarness(t, nil)
-	otter := h.register("otter", false)
-	slug, _ := h.session("otter")
-	c := h.connect(slug, otter)
-
-	for _, target := range []string{"adb:5555", "localhost:5555"} {
-		conn, err := c.Dial("tcp", target)
-		if err != nil {
-			t.Fatalf("%s: %v", target, err)
-		}
-		if banner, err := adbproto.Connect(conn); err != nil || !strings.HasPrefix(banner, "device::") {
-			t.Fatalf("%s: banner %q, %v", target, banner, err)
-		}
-		conn.Close()
-	}
-	for _, target := range []string{"adb:22", "10.0.0.1:5555", "kubernetes.default:443", "holtdroid-api-internal:8081"} {
-		if conn, err := c.Dial("tcp", target); err == nil {
-			conn.Close()
-			t.Fatalf("%s was reachable", target)
-		}
-	}
-}
-
-func TestAuditTrail(t *testing.T) {
-	h := newHarness(t, func(c *Config) { c.ReversePorts = "1024-65535" })
-	otter := h.register("otter", false)
-	slug, id := h.session("otter")
-	_, stranger, _ := ed25519.GenerateKey(rand.Reader)
-	unknown, _ := ssh.NewSignerFromKey(stranger)
-	if c, err := h.dial(slug, unknown); err == nil {
-		c.Close()
-		t.Fatal("unknown key logged in")
-	}
-
-	c, err := h.dial(slug, otter)
-	if err != nil {
-		t.Fatal(err)
-	}
-	conn, err := c.Dial("tcp", "adb:5555")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := adbproto.Connect(conn); err != nil {
-		t.Fatal(err)
-	}
-	conn.Close()
-	if conn, err := c.Dial("tcp", "adb:22"); err == nil {
-		conn.Close()
-	}
-	ln, err := c.Listen("tcp", "127.0.0.1:3000")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := c.Listen("tcp", "127.0.0.1:80"); err == nil {
-		t.Fatal("port outside reversePorts was published")
-	}
-	ln.Close()
-	c.Close()
-	eventually(t, "the disconnect event", func() bool { return strings.Contains(h.audit.String(), "ssh.disconnect") })
-
-	var got []string
-	for line := range strings.Lines(h.audit.String()) {
-		var ev struct {
-			Action, Result, Actor, Provider, Session, ClientIP string
-			Details                                            map[string]string
-		}
-		if err := json.Unmarshal([]byte(line), &ev); err != nil {
-			t.Fatal(err)
-		}
-		got = append(got, strings.Join([]string{ev.Action, ev.Result, ev.Actor, ev.Provider + "/" + ev.Session, ev.ClientIP, ev.Details["kind"], ev.Details["port"], ev.Details["slug"]}, "|"))
-	}
-	want := []string{
-		"ssh.connect|denied||/|127.0.0.1|||" + slug,
-		"ssh.connect|ok|otter|fake/" + id + "|127.0.0.1|||",
-		"ssh.tunnel|ok|otter|fake/" + id + "|127.0.0.1|adb|5555|",
-		"ssh.tunnel|denied|otter|fake/" + id + "|127.0.0.1|adb|22|",
-		"ssh.tunnel|ok|otter|fake/" + id + "|127.0.0.1|reverse|3000|",
-		"ssh.tunnel|denied|otter|fake/" + id + "|127.0.0.1|reverse|80|",
-		"ssh.disconnect|ok|otter|fake/" + id + "|127.0.0.1|||",
-	}
-	if strings.Join(got, "\n") != strings.Join(want, "\n") {
-		t.Fatalf("audit:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
-	}
-}
-
-func TestADBDisabled(t *testing.T) {
-	h := newHarness(t, func(c *Config) { c.AllowADB = false })
-	otter := h.register("otter", false)
-	slug, _ := h.session("otter")
-	if conn, err := h.connect(slug, otter).Dial("tcp", "adb:5555"); err == nil {
-		conn.Close()
-		t.Fatal("adb reachable with allowADB off")
-	}
-}
-
-func TestReverseTunnel(t *testing.T) {
-	h := newHarness(t, func(c *Config) { c.ReversePorts = "1024-65535" })
-	otter := h.register("otter", false)
-	slug, id := h.session("otter")
-	c := h.connect(slug, otter)
-
-	ln, err := c.Listen("tcp", "127.0.0.1:3000")
-	if err != nil {
-		t.Fatal(err)
-	}
-	go func() {
-		for {
-			conn, err := ln.Accept()
-			if err != nil {
-				return
-			}
-			go func() {
-				_, _ = io.Copy(conn, conn)
-				conn.Close()
-			}()
-		}
-	}()
-
-	ctx := context.Background()
-	onDevice, err := h.provider.DialDevice(ctx, id, 3000)
-	if err != nil {
-		t.Fatal(err)
-	}
-	roundTrip(t, onDevice, "GET / HTTP/1.1\r\nHost: localhost:3000\r\n\r\n")
-	onDevice.Close()
-	eventually(t, "tunnel traffic to count as activity", func() bool { return h.sessions.activity.Load() > 0 })
-
-	if _, err := c.Listen("tcp", "127.0.0.1:80"); err == nil {
-		t.Fatal("port outside reversePorts was published")
-	}
-	if _, err := c.Listen("tcp", "127.0.0.1:3000"); err == nil {
-		t.Fatal("the same port was published twice")
-	}
-
-	ln.Close()
-	eventually(t, "the port to be unpublished", func() bool {
-		conn, err := h.provider.DialDevice(ctx, id, 3000)
-		if err == nil {
-			conn.Close()
-		}
-		return err != nil
-	})
-}
-
-func TestReverseDisabled(t *testing.T) {
-	h := newHarness(t, func(c *Config) { c.AllowReverse = false })
-	otter := h.register("otter", false)
-	slug, _ := h.session("otter")
-	if _, err := h.connect(slug, otter).Listen("tcp", "127.0.0.1:3000"); err == nil {
-		t.Fatal("published a port with allowReverse off")
-	}
-}
-
-func TestTunnelLimit(t *testing.T) {
-	h := newHarness(t, func(c *Config) { c.MaxTunnelsPerConnection = 2 })
-	otter := h.register("otter", false)
-	slug, _ := h.session("otter")
-	c := h.connect(slug, otter)
-	for _, port := range []string{"3000", "3001"} {
-		if _, err := c.Listen("tcp", "127.0.0.1:"+port); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if _, err := c.Listen("tcp", "127.0.0.1:3002"); err == nil {
-		t.Fatal("third tunnel accepted")
-	}
-	if conn, err := c.Dial("tcp", "adb:5555"); err == nil {
-		conn.Close()
-		t.Fatal("adb tunnel past the limit accepted")
-	}
-}
-
-func TestSessionEndDropsConnection(t *testing.T) {
-	h := newHarness(t, nil)
-	otter := h.register("otter", false)
-	slug, id := h.session("otter")
-	c := h.connect(slug, otter)
-	if _, err := c.Listen("tcp", "127.0.0.1:3000"); err != nil {
-		t.Fatal(err)
-	}
-	done := make(chan error, 1)
-	go func() { done <- c.Wait() }()
-	if err := h.provider.Delete(context.Background(), id); err != nil {
-		t.Fatal(err)
-	}
-	select {
-	case <-done:
-	case <-time.After(5 * time.Second):
-		t.Fatal("the connection outlived its session")
-	}
-}
-
-func TestADBOnlyConnectionEndsWithSession(t *testing.T) {
-	h := newHarness(t, nil)
-	otter := h.register("otter", false)
-	slug, id := h.session("otter")
-	c := h.connect(slug, otter)
-	done := make(chan error, 1)
-	go func() { done <- c.Wait() }()
-	if err := h.provider.Delete(context.Background(), id); err != nil {
-		t.Fatal(err)
-	}
-	select {
-	case <-done:
-	case <-time.After(5 * time.Second):
-		t.Fatal("an idle connection outlived its session")
-	}
 }
 
 func TestParsePorts(t *testing.T) {
@@ -899,10 +390,10 @@ func (c *stallConn) Read(p []byte) (int, error) {
 
 func TestKeepalive(t *testing.T) {
 	h := newHarness(t, func(c *Config) { c.KeepaliveInterval = 20 * time.Millisecond })
-	otter := h.register("otter", false)
-	slug, _ := h.session("otter")
+	otter := h.cert("otter", nil)
+	h.session("otter")
 
-	healthy := h.connect(slug, otter)
+	healthy := h.connect("user-otter", otter)
 	nc, err := net.Dial("tcp", h.addr)
 	if err != nil {
 		t.Fatal(err)
@@ -910,7 +401,7 @@ func TestKeepalive(t *testing.T) {
 	conn := &stallConn{Conn: nc, done: make(chan struct{})}
 	t.Cleanup(func() { close(conn.done); nc.Close() })
 	sc, chans, reqs, err := ssh.NewClientConn(conn, h.addr, &ssh.ClientConfig{
-		User:            slug,
+		User:            "user-otter",
 		Auth:            []ssh.AuthMethod{ssh.PublicKeys(otter)},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	})
@@ -926,5 +417,363 @@ func TestKeepalive(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	if _, _, err := healthy.SendRequest("ping", true, nil); err != nil {
 		t.Fatalf("healthy connection closed: %v", err)
+	}
+}
+
+func TestLogin(t *testing.T) {
+	h := newHarness(t, nil)
+	h.session("otter")
+	slug, _ := h.session("badger")
+	other := newSigner(t)
+
+	tests := []struct {
+		name   string
+		user   string
+		signer ssh.Signer
+		ok     bool
+	}{
+		{"own handle", "user-otter", h.cert("otter", nil), true},
+		{"admin", "user-otter", h.cert("otter", func(o *certOpts) { o.admin = true }), true},
+		{"someone else's handle", "user-badger", h.cert("otter", nil), false},
+		{"a session slug", slug, h.cert("badger", func(o *certOpts) { o.handle = slug }), false},
+		{"plain key", "user-otter", newSigner(t), false},
+		{"another CA", "user-otter", h.cert("otter", func(o *certOpts) { o.ca = other }), false},
+		{"expired", "user-otter", h.cert("otter", func(o *certOpts) { o.ttl = -time.Second }), false},
+		{"no user", "user-otter", h.cert("", func(o *certOpts) { o.handle = "user-otter" }), false},
+		{"no computer", "user-otter", h.cert("otter", func(o *certOpts) { o.computer = "" }), false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c, err := h.dial(tt.user, tt.signer)
+			if c != nil {
+				c.Close()
+			}
+			if (err == nil) != tt.ok {
+				t.Fatalf("err = %v, want ok=%v", err, tt.ok)
+			}
+		})
+	}
+}
+
+func TestAuthorityChange(t *testing.T) {
+	h := newHarness(t, nil)
+	h.connect("user-otter", h.cert("otter", nil)).Close()
+	next := newSigner(t)
+	h.sessions.mu.Lock()
+	h.sessions.ca = next
+	h.sessions.mu.Unlock()
+	h.gateway.authority.mu.Lock()
+	h.gateway.authority.fetched = time.Time{}
+	h.gateway.authority.mu.Unlock()
+	h.connect("user-otter", h.cert("otter", func(o *certOpts) { o.ca = next }))
+	if c, err := h.dial("user-otter", h.cert("otter", nil)); err == nil {
+		c.Close()
+		t.Fatal("a certificate from the old CA still logs in")
+	}
+}
+
+func TestNoShell(t *testing.T) {
+	h := newHarness(t, nil)
+	c := h.connect("user-otter", h.cert("otter", nil))
+
+	t.Run("exec", func(t *testing.T) {
+		s, err := c.NewSession()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer s.Close()
+		out, err := s.CombinedOutput("id")
+		if !isExit(err, 1) || !strings.Contains(string(out), "no shell here") {
+			t.Fatalf("exec: %v %q", err, out)
+		}
+	})
+
+	t.Run("shell", func(t *testing.T) {
+		s, err := c.NewSession()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer s.Close()
+		if err := s.Shell(); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.Wait(); !isExit(err, 1) {
+			t.Fatalf("shell: %v", err)
+		}
+	})
+
+	t.Run("sftp", func(t *testing.T) {
+		s, err := c.NewSession()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer s.Close()
+		if err := s.RequestSubsystem("sftp"); err == nil {
+			t.Fatal("sftp subsystem accepted")
+		}
+	})
+
+	t.Run("agent forwarding", func(t *testing.T) {
+		s, err := c.NewSession()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer s.Close()
+		if ok, err := s.SendRequest("auth-agent-req@openssh.com", true, nil); ok || err != nil {
+			t.Fatalf("agent forwarding accepted: %v %v", ok, err)
+		}
+	})
+
+	t.Run("other channel types", func(t *testing.T) {
+		if _, _, err := c.OpenChannel("direct-streamlocal@openssh.com", nil); err == nil {
+			t.Fatal("streamlocal channel accepted")
+		}
+	})
+}
+
+func TestADBTunnel(t *testing.T) {
+	h := newHarness(t, func(c *Config) { c.RefreshInterval = 20 * time.Millisecond })
+	slug, _ := h.session("otter")
+	theirs, _ := h.session("badger")
+	c := h.connect("user-otter", h.cert("otter", nil))
+
+	var conn net.Conn
+	eventually(t, "the session to be known", func() bool {
+		var err error
+		conn, err = c.Dial("tcp", slug+":5555")
+		return err == nil
+	})
+	if banner, err := adbproto.Connect(conn); err != nil || !strings.HasPrefix(banner, "device::") {
+		t.Fatalf("banner %q, %v", banner, err)
+	}
+	conn.Close()
+	for _, target := range []string{theirs + ":5555", slug + ":22", "adb:5555", "localhost:5555", "10.0.0.1:5555", "kubernetes.default:443"} {
+		if conn, err := c.Dial("tcp", target); err == nil {
+			conn.Close()
+			t.Fatalf("%s was reachable", target)
+		}
+	}
+}
+
+func TestADBDisabled(t *testing.T) {
+	h := newHarness(t, func(c *Config) { c.AllowADB = false })
+	slug, _ := h.session("otter")
+	c := h.connect("user-otter", h.cert("otter", nil))
+	time.Sleep(50 * time.Millisecond)
+	if conn, err := c.Dial("tcp", slug+":5555"); err == nil {
+		conn.Close()
+		t.Fatal("adb reachable with allowADB off")
+	}
+}
+
+func TestReverseLimits(t *testing.T) {
+	h := newHarness(t, func(c *Config) {
+		c.ReversePorts = "1024-65535"
+		c.MaxTunnelsPerConnection = 2
+	})
+	c := h.connect("user-otter", h.cert("otter", nil))
+	if _, err := c.Listen("tcp", "127.0.0.1:80"); err == nil {
+		t.Fatal("port outside reversePorts was published")
+	}
+	if _, err := c.Listen("tcp", "127.0.0.1:3000"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Listen("tcp", "127.0.0.1:3000"); err == nil {
+		t.Fatal("the same port was published twice")
+	}
+	if _, err := c.Listen("tcp", "127.0.0.1:3001"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Listen("tcp", "127.0.0.1:3002"); err == nil {
+		t.Fatal("third tunnel accepted")
+	}
+
+	off := newHarness(t, func(c *Config) { c.AllowReverse = false })
+	if _, err := off.connect("user-otter", off.cert("otter", nil)).Listen("tcp", "127.0.0.1:3000"); err == nil {
+		t.Fatal("published a port with allowReverse off")
+	}
+}
+
+type controlClient struct {
+	t   *testing.T
+	w   io.Writer
+	dec *json.Decoder
+}
+
+func openControl(t *testing.T, c *ssh.Client) *controlClient {
+	t.Helper()
+	s, err := c.NewSession()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { s.Close() })
+	w, _ := s.StdinPipe()
+	r, _ := s.StdoutPipe()
+	if err := s.RequestSubsystem(control.Subsystem); err != nil {
+		t.Fatal(err)
+	}
+	return &controlClient{t: t, w: w, dec: json.NewDecoder(r)}
+}
+
+func (cc *controlClient) send(m control.Message) {
+	cc.t.Helper()
+	b, _ := json.Marshal(m)
+	if _, err := cc.w.Write(append(b, '\n')); err != nil {
+		cc.t.Fatal(err)
+	}
+}
+
+func (cc *controlClient) next(typ string) control.Message {
+	cc.t.Helper()
+	for {
+		var m control.Message
+		if err := cc.dec.Decode(&m); err != nil {
+			cc.t.Fatal(err)
+		}
+		if m.Type == typ {
+			return m
+		}
+	}
+}
+
+func slugs(list []control.Session) []string {
+	out := []string{}
+	for _, s := range list {
+		out = append(out, s.Slug)
+	}
+	return out
+}
+
+func TestControl(t *testing.T) {
+	h := newHarness(t, func(c *Config) { c.RefreshInterval = 20 * time.Millisecond })
+	first, _ := h.session("otter")
+	h.session("badger")
+	c := h.connect("user-otter", h.cert("otter", nil))
+	cc := openControl(t, c)
+
+	var got []string
+	eventually(t, "the first session", func() bool {
+		got = slugs(cc.next(control.TypeSessions).Sessions)
+		return len(got) == 1
+	})
+	if got[0] != first {
+		t.Fatalf("sessions %q", got)
+	}
+	second, _ := h.session("otter")
+	eventually(t, "the second session", func() bool { return len(cc.next(control.TypeSessions).Sessions) == 2 })
+	_ = second
+
+	cc.send(control.Message{Type: control.TypeHello, Hello: &control.Hello{Version: "abc", OS: "darwin", Arch: "arm64"}})
+	cc.send(control.Message{Type: control.TypeState, State: &control.State{
+		Listening: []control.LocalPort{{Port: 3000, Process: "node"}}, Published: []int{3000}, ADB: []control.ADBPort{{Session: first, Port: 15555}},
+	}})
+	ctx := context.Background()
+	var list []control.Computer
+	eventually(t, "the computer's state", func() bool {
+		list, _ = h.gateway.Computers(ctx, "otter")
+		return len(list) == 1 && len(list[0].Published) == 1
+	})
+	want := control.Computer{
+		ID: "c-otter", Hostname: "otter-laptop", OS: "darwin", Arch: "arm64", Version: "abc", ClientIP: "127.0.0.1", Since: list[0].Since,
+		Listening: []control.LocalPort{{Port: 3000, Process: "node"}}, Published: []int{3000}, ADB: []control.ADBPort{{Session: first, Port: 15555}},
+	}
+	if b1, b2 := mustJSON(t, list[0]), mustJSON(t, want); b1 != b2 {
+		t.Fatalf("computer %s, want %s", b1, b2)
+	}
+	if theirs, _ := h.gateway.Computers(ctx, "badger"); len(theirs) != 0 {
+		t.Fatalf("badger's computers %+v", theirs)
+	}
+
+	if err := h.gateway.SetPublished(ctx, "otter", "c-otter", []int{8080}); err != nil {
+		t.Fatal(err)
+	}
+	if m := cc.next(control.TypePublish); !slices.Equal(m.Publish, []int{8080}) {
+		t.Fatalf("publish %+v", m)
+	}
+	if err := h.gateway.SetPublished(ctx, "otter", "c-otter", nil); err != nil {
+		t.Fatal(err)
+	}
+	if m := cc.next(control.TypePublish); len(m.Publish) != 0 {
+		t.Fatalf("publish nothing %+v", m)
+	}
+	for _, tt := range []struct{ user, computer string }{{"badger", "c-otter"}, {"otter", "nope"}} {
+		if err := h.gateway.SetPublished(ctx, tt.user, tt.computer, []int{1}); !errors.Is(err, contract.ErrNotFound) {
+			t.Fatalf("%s/%s: %v", tt.user, tt.computer, err)
+		}
+	}
+
+	c.Close()
+	eventually(t, "the computer to go away", func() bool {
+		list, _ := h.gateway.Computers(ctx, "otter")
+		return len(list) == 0
+	})
+}
+
+func mustJSON(t *testing.T, v any) string {
+	t.Helper()
+	b, err := json.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
+}
+
+func TestAuditTrail(t *testing.T) {
+	h := newHarness(t, func(c *Config) {
+		c.ReversePorts = "1024-65535"
+		c.RefreshInterval = 20 * time.Millisecond
+	})
+	slug, id := h.session("otter")
+	if c, err := h.dial("user-otter", h.cert("otter", func(o *certOpts) { o.ttl = -time.Second })); err == nil {
+		c.Close()
+		t.Fatal("expired certificate logged in")
+	}
+	if c, err := h.dial("user-otter", newSigner(t)); err == nil {
+		c.Close()
+		t.Fatal("plain key logged in")
+	}
+
+	c, err := h.dial("user-otter", h.cert("otter", nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var conn net.Conn
+	eventually(t, "the session to be known", func() bool {
+		conn, err = c.Dial("tcp", slug+":5555")
+		return err == nil
+	})
+	if _, err := adbproto.Connect(conn); err != nil {
+		t.Fatal(err)
+	}
+	conn.Close()
+	ln, err := c.Listen("tcp", "127.0.0.1:3000")
+	if err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "the port on the device", func() bool { return strings.Contains(h.audit.String(), `"reverse"`) })
+	ln.Close()
+	c.Close()
+	eventually(t, "the disconnect event", func() bool { return strings.Contains(h.audit.String(), "ssh.disconnect") })
+
+	var got []string
+	for line := range strings.Lines(h.audit.String()) {
+		var ev struct {
+			Action, Result, Actor, Provider, Session, ClientIP string
+			Details                                            map[string]string
+		}
+		if err := json.Unmarshal([]byte(line), &ev); err != nil {
+			t.Fatal(err)
+		}
+		got = append(got, strings.Join([]string{ev.Action, ev.Result, ev.Actor, ev.Provider + "/" + ev.Session, ev.ClientIP, ev.Details["kind"], ev.Details["port"], ev.Details["computer"]}, "|"))
+	}
+	want := []string{
+		"ssh.connect|denied||/|127.0.0.1|||",
+		"ssh.connect|ok|otter|/|127.0.0.1|||c-otter",
+		"ssh.tunnel|ok|otter|fake/" + id + "|127.0.0.1|adb|5555|c-otter",
+		"ssh.tunnel|ok|otter|fake/" + id + "|127.0.0.1|reverse|3000|c-otter",
+		"ssh.disconnect|ok|otter|/|127.0.0.1|||c-otter",
+	}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("audit:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
 }

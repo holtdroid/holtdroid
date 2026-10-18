@@ -418,64 +418,108 @@ flowchart LR
   gw -- "WireGuard nl" --> vnl[(VPN server NL)]
 ```
 
-## SSH access
+## Computers: holtdroid-connect over SSH
 
-Developers reach a device from their own machine over SSH, without VPNs or
-kubectl:
+Developers bring a device's ADB to their machine and their machine's dev
+servers to the device with `holtdroid-connect` (`cmd/holtdroid-connect`,
+`internal/connect`), a small Go client that speaks SSH to the
+`ssh-gateway`. Decision #64; it replaced browser-held keys and hand-written
+`ssh` commands (#21, #38, #46, #61).
 
 ```sh
-# ADB from the laptop (Android Studio, scrcpy, adb install, chrome://inspect …)
-ssh -N -p 2222 -L 5555:adb:5555 emulator-7f3a9c@android.example.com
-adb connect localhost:5555
-
-# make the laptop's dev servers reachable as localhost:3000 / :5000 on the device
-ssh -N -p 2222 -R 3000:localhost:3000 -R 5000:localhost:5000 emulator-7f3a9c@android.example.com
+curl -fsSL https://android.example.com/tunnel.sh | sh -s -- <one-time code>
 ```
 
-The SSH username is the session **slug** (`{provider}-{id}`). The api
-resolves it by trying the providers whose name plus `-` prefixes the slug,
-longest first.
+### Enrollment and certificates
 
-### On the session page
+```mermaid
+sequenceDiagram
+  participant U as Browser
+  participant A as api (SSH CA)
+  participant C as holtdroid-connect
+  participant G as ssh-gateway
+  U->>A: POST /api/v1/connect/codes
+  A-->>U: code (signed, 10 min)
+  Note over U,C: the user runs curl …/tunnel.sh | sh -s -- code
+  C->>A: POST /api/v1/connect/enroll {code, public key, hostname}
+  A->>G: GET /v1/host-keys
+  A-->>C: certificate (15 min), refresh token, host, port, host keys
+  C->>G: SSH as user-{pseudonym} with the certificate
+  G->>A: GET /internal/ssh/authority (cached)
+  C->>A: POST /api/v1/connect/refresh (before the certificate runs out)
+```
 
-The toolbar's **SSH** popover (`web/src/components/session/ssh-control.tsx`)
-shows:
+- `GET /tunnel.sh` is rendered by the api: the portal URL and the SHA-256
+  of every client build in `ssh.clientDir` (the api image carries
+  darwin/linux × amd64/arm64 under `/usr/share/holtdroid/connect`). It
+  downloads the matching build into `~/.cache/holtdroid`, checks it, links
+  `~/.cache/holtdroid/holtdroid-connect` and runs it with `/dev/tty` as
+  stdin.
+- The client keeps an ed25519 key and its enrollment per portal under the
+  user config directory (`holtdroid/connect/{host}/`); it never reads
+  `~/.ssh`.
+- The api is an SSH user CA (`ssh.caKey`, a PEM secret ref; temporary when
+  unset). A certificate's principal is the user's handle, its key id the
+  computer id, and its extensions carry the login, admin flag and hostname
+  (`control.CertUser`, `CertAdmin`, `CertHostname`). The gateway accepts
+  nothing else and keeps no keys; it fetches the CA public key from the api
+  and fetches it again (at most every 10 s) when a certificate names another
+  one.
+- Codes and refresh tokens are HS256 JWTs keyed from the CA key, with
+  audiences `connect-code` and `connect-refresh`. A code is spent in the
+  memory of the api replica that took it, so with several replicas it could
+  be taken once per replica within its 10 minutes. A refresh token is bound
+  to the key fingerprint and replaced on every refresh (`gen` + 1); nothing
+  is stored, so revocation waits for the persistent database (roadmap 4.11).
 
-- **Connection status**, live from the agent's `GET /v1/tunnels` SSE: open
-  ADB connections with their user, and published ports with their user and
-  the number of device-side connections. Each port is green when a server
-  answers behind it on the publisher's machine, red when nothing does and
-  grey until known; clicking it copies `http://localhost:<port>`
-  (`http://localhost` for 80, `https://localhost` for 443). While the
-  popover is open it asks with `?probe=true`, and the agent opens a probe
-  stream into the port's yamux session every 5 s: the gateway closes it at
-  once when the publisher's `ssh` can't connect locally, a live server keeps
-  it open. Real traffic that comes back marks a port up without probing.
-  Ports that are down are probed less and less often (up to every 60 s),
-  because each refused probe prints `connect_to localhost port N: failed.`
-  in the publisher's terminal. Decision #52.
-- **A port list** kept in `localStorage` (`holtdroid:ssh:ports`, default
-  `80`, `443`, `3000-3010`): single ports, ranges up to 256 ports, and
-  `device:local` mappings. Each entry is coloured by whether it is
-  published right now.
-- **One command** with a `-R` per port and optionally `-L 5555:adb:5555`
-  (`holtdroid:ssh:adb`). It warns when the count exceeds the gateway's
-  `maxTunnelsPerConnection`, which the api mirrors as `ssh.maxTunnels`.
+### One connection per computer
 
-### One gateway, routed by username
+The client logs in as `user-{pseudonym}`: 16 base32 characters of an HMAC
+of the login with `auth.sessionKey`, so the name doesn't reveal the login.
+The connection serves all of the user's sessions:
 
-There is a single `ssh-gateway` service with one TCP port, not an sshd per
-device: one address and host key for everyone, nothing to expose per session,
-and the "SSH server of a device" is the gateway acting on behalf of the
-session named in the username. It is written on `golang.org/x/crypto/ssh` and
-is **not a shell server**:
+- **Published ports** are ordinary `tcpip-forward` requests. The gateway's
+  fanout asks `GET /internal/users/{handle}/sessions` every
+  `refreshInterval` (5 s) and opens a `Reverse` tunnel per port and ready
+  session, so devices started later get the ports too. `tcpip-forward` is
+  answered at once; a device that refuses a port (already published there)
+  is retried after 30 s. Traffic counts as activity only for the session it
+  went to (`POST /internal/sessions/{slug}/activity`, at most every
+  `activityInterval`).
+- **ADB** is `direct-tcpip` to `{provider}-{id}:5555`, accepted only for a
+  ready session of the user. The client listens on `127.0.0.1:15555` and up,
+  one port per session that stays the same while it runs, survives
+  reconnects and runs `adb connect`/`disconnect` when `adb` is on `PATH`.
+- **The control channel** is the `holtdroid-control@holtdroid` subsystem,
+  JSON lines both ways (`internal/contract/control`): the client sends
+  `hello` (version, OS, arch) and `state` (loopback listeners with their
+  process, published ports, ADB ports) whenever they change; the gateway
+  sends `sessions` whenever the user's ready sessions change and `publish`
+  when the portal changes the computer's ports. The client keeps the chosen
+  ports on disk.
+
+The api's `GET /api/v1/ssh/computers` asks every replica
+(`GET /v1/users/{user}/computers`) and `PUT /api/v1/ssh/computers/{id}/published`
+goes to the replica that holds the computer, which forwards it as a
+`publish` message. The UI's **Computers** page shows each connected computer
+with its listening ports as toggles and its ADB ports, plus the connect
+command; the header's laptop button counts connected computers.
+
+### The gateway is not a shell server
 
 | SSH request | Behaviour |
 |-------------|-----------|
-| `session` channel (shell, exec, subsystem/sftp, pty) | Accepted only to print a short help text. `exec` and subsystems (sftp) then exit with status 1; an interactive `shell` stays open, holding the connection's tunnels, until the client sends Ctrl+C or Ctrl+D. Nothing is ever executed. |
-| `direct-tcpip` (`-L`) | Allowed when `allowADB` is on and the destination is the alias `adb:5555` (also `localhost:5555`). Every other destination is refused — the gateway must never become a proxy into the cluster. |
-| `tcpip-forward` / `cancel-tcpip-forward` (`-R`) | Allowed when `allowReverse` is on and the port is inside `reversePorts` (default `1-65535`; decision #38). Port 0 (dynamic) is refused. The requested bind address is ignored; the port is published on the **device's** loopback. A port another connection already published fails. |
-| agent forwarding, X11, `streamlocal`, env, keepalive@openssh | Agent/X11/streamlocal refused, env ignored, keepalives answered. |
+| login | Only certificates from the api's CA whose principal is the requested `user-…` name; a plain key, another CA, an expired certificate or a session slug as the user name fail. |
+| `session` channel | Only the control subsystem. `shell` and `exec` print a one-line hint and exit with status 1; other subsystems (sftp) are refused. Nothing is ever executed. |
+| `direct-tcpip` | Only `{session}:5555` of the user's own ready sessions with `allowADB`. Every other destination is refused — the gateway must never become a proxy into the cluster. |
+| `tcpip-forward` / `cancel-tcpip-forward` | Allowed when `allowReverse` is on and the port is inside `reversePorts` (default `1-65535`). The bind address is ignored; the port is published on the devices' loopback. |
+| agent forwarding, X11, `streamlocal` | Refused. |
+
+The version string is OpenSSH's; only an accepted certificate gets the banner
+with the logo, login and hostname (decision #47). The gateway sends
+`keepalive@openssh.com` every `keepaliveInterval` and closes a connection
+whose client misses two, so a dropped laptop releases its ports; the client
+does the same in the other direction and reconnects with backoff.
 
 ### Tunnels to the device
 
@@ -483,148 +527,52 @@ The gateway never talks to ADB or the device directly; the session's agent
 does, through a tunnel endpoint on a **separate agent port**
 (`tunnelListen`, default `:8081`) that the api's browser proxy cannot reach:
 
-- **ADB (`-L`)** — per SSH channel the gateway opens
-  `WS /tunnel/adb` on the agent and splices bytes. The agent connects it to
-  the emulator's adbd (`adbAddr`, default `127.0.0.1:5555` inside the pod),
-next to the agent's own adb server connection.
-- **Published ports (`-R`)** — per forward the gateway opens
-  `WS /tunnel/reverse/{port}` and only then answers the `tcpip-forward`
-  request, so a port the device can't publish fails on the client. The agent runs `adb reverse tcp:{port}
+- **ADB** — per SSH channel the gateway opens `WS /tunnel/adb` on the agent
+  and splices bytes. The agent connects it to the emulator's adbd
+  (`adbAddr`, default `127.0.0.1:5555` inside the pod), next to the agent's
+  own adb server connection.
+- **Published ports** — per port and device the gateway opens
+  `WS /tunnel/reverse/{port}`. The agent runs `adb reverse tcp:{port}
   tcp:{local}` so the device's `localhost:{port}` lands on an agent listener,
   and multiplexes each incoming connection as a `hashicorp/yamux` stream over
   that WebSocket; the gateway turns each stream into a `forwarded-tcpip`
-  channel to the SSH client. Closing the forward or the SSH connection runs
+  channel to the client. Closing the forward or the connection runs
   `adb reverse --remove`.
 
 Using `adb reverse` instead of the emulator's `10.0.2.2` alias keeps this
 provider-agnostic: physical phones get the same feature for free.
 
-Both endpoints carry the SSH user in `X-Holtdroid-User`; the agent keeps the
+Both endpoints carry the login in `X-Holtdroid-User`; the agent keeps the
 open tunnels (`internal/agent.Tunnels`) and streams them to the UI. A tunnel
 endpoint that fails before the upgrade answers with a plain HTTP status
 (409 for a port already published, 502 when adb fails). When one direction
 of a spliced stream ends, it is half-closed where the other end can do that
 (TCP, SSH channels, yamux streams) and the rest gets 30 s to finish; the ADB
 WebSocket can't half-close, so its end closes both directions (adb never
-half-closes). The fake
-provider serves the same handler with an echo server as adbd and loopback
-listeners as device ports (`Provider.DialDevice` is "an app on the device"
-in tests).
+half-closes). The fake provider serves the same handler with its small adbd
+and loopback listeners as device ports (`Provider.DialDevice` is "an app on
+the device" in tests).
 
-### Keys: the browser is the source of truth
-
-- The **SSH keys** page also lists the caller's open tunnels by device
-  (`GET /api/v1/ssh/tunnels`, polled every 5 s; the api collects them from
-  the agents), with the same port chips as the session popover, and the
-  header's key button carries a green count of those devices.
-- Users manage public keys on an **SSH keys** page. The list lives in the
-  browser (IndexedDB) — add, rename, remove — and is never stored on the
-  server.
-  Records are scoped to the signed-in user (an anonymous user who picks a
-  new name starts with an empty list) and open tabs refresh each other
-  through a `BroadcastChannel`. The UI validates keys as they are pasted
-  (type, RSA size, private-key paste guard) and shows SHA256 fingerprints;
-  the api repeats the validation authoritatively.
-- The UI pushes the full list with `PUT /api/v1/ssh/keys` on app start, on
-  every change and every 5 minutes while the app is open. The api validates
-  the keys (parsed with `x/crypto/ssh`, RSA ≥ 2048, ed25519/ecdsa) and fans
-  the list out to every gateway replica (A records of its headless Service)
-  together with the user's identity.
-- Gateways keep `{fingerprint → user, groups, admin}` **only in memory**, each
-  user's set expiring after `keyTTL` (default 24h) unless refreshed. A gateway
-  restart forgets everything; the next time the user opens the site, the keys
-  are back. This matches the stateless rule — nothing to back up, nothing to
-  migrate.
-- The same public key registered by two users is rejected for the second one.
-
-### Who may connect where
-
-On login the gateway resolves the slug through the api's internal endpoint
-(`GET /internal/sessions/{slug}` → provider, id, owner, state, tunnel URL)
-and checks:
-
-- `clientIsolation: true` (default) — only the session owner and
-  `auth.adminGroups`;
-- `clientIsolation: false` — any user with a registered key may use any
-  running session.
-
-Unknown slug, session not `ready`, or a forbidden user all fail the same way,
-with a bare "Not found." that doesn't name the software, so neither slugs
-nor the gateway can be probed. The slug is checked before the key (once per
-connection), so a stranger with a wrong slug never learns about the portal.
-The reason reaches the client only after every key it offered failed (as a
-keyboard-interactive prompt with no questions), and an unregistered key on
-an existing session gets a hint to open the portal. The version string is
-OpenSSH's. Only a verified login sees the project's name: a banner with the
-logo, the session and the user, sent as the key is accepted, so it shows
-with `-N` too. Decision #47.
-
-### Adding an unknown key from the terminal
-
-With `keyRequests: true` (default) the gateway lets the first unknown key a
-client offers through to the signature, so the client proves it holds the
-private key, and answers with partial success. The client starts over with
-all its keys: a registered one still logs in as usual. Only when every key
-failed and none was a registered key refused for another reason does the
-keyboard-interactive step print a link,
-`{portalURL}/ssh?request={code}`, with the key's fingerprint, and hold the
-connection for `keyRequestTimeout` (default 5 min).
-
-The code lives only in the memory of the replica holding the connection
-(`sshgateway.Keys`, at most 64 at a time). The portal's `/ssh` page reads it
-through `GET /api/v1/ssh/key-requests/{code}` (the api asks every replica),
-shows the fingerprint, session and client IP with a warning, and on confirm
-adds the key to the browser's list like a pasted one. The usual push brings
-it to the gateway, which notices it and finishes the login, checking the
-session as for any key. Decision #46.
-
-### All of a user's sessions at once
-
-`ssh -N -R 3000:localhost:3000 user-{pseudonym}@host` publishes the ports on
-every ready session the user owns, and on sessions they start later. The
-handle is `user-` plus 16 base32 characters of an HMAC of the login with
-`auth.sessionKey`, so it doesn't reveal the login; the api computes it, shows
-it in `GET /api/v1/ssh` and sends it with the user's keys, and the gateway
-lets a key in as a handle only if its owner has that handle. A handle with
-no keys and no sessions is "Not found." like a missing slug.
-
-Such a connection asks `GET /internal/users/{handle}/sessions` every
-`refreshInterval` (5 s) and opens or closes each port's tunnel per session
-with the same `Reverse` call as a single-session `-R`. `-R` is answered at
-once, even with no session running; a device that refuses a port (already
-published there) is retried after 30 s. Traffic counts as activity only for
-the session it went to. The connection stays up when the last session ends,
-and `-L` (ADB) is refused: it needs one device. Decision #50.
-
-### Activity and lifetime
-
-Traffic through a tunnel counts as activity: the gateway reports
-`POST /internal/sessions/{slug}/activity` at most every 30 s
-(`activityInterval`) while bytes flow (this is real use of the device even
-when no browser tab is open — decision #14 still holds for idle *viewers*).
-In quiet intervals it looks the session up instead. Once the session is gone
-or no longer `ready`, or the agent drops a published port, the gateway
-closes the SSH connection.
-It also sends `keepalive@openssh.com` every `keepaliveInterval` and closes a
-connection whose client doesn't answer within two intervals, so a silently
-dropped client releases its ports for the reconnect loop the UI builds
-(decision #61).
+The session page's **SSH** popover shows the device's tunnels live from the
+agent's `GET /v1/tunnels` SSE; while it is open it asks with `?probe=true`,
+and each published port is probed through its own tunnel and coloured
+(decision #52). It also shows this device's ADB port on each connected
+computer, or the connect command when none is connected.
 
 ### Configuration
 
 ```yaml
 # ssh-gateway
 listen: ":2222"
-httpListen: ":8080"                            # key API for the api, /v1/health
+httpListen: ":8080"                            # internal API for the api, /v1/health
 hostKey: file:/run/secrets/ssh/host_ed25519   # PEM; stable across restarts and replicas; empty = temporary
 apiURL: http://holtdroid-api-internal:8081
 allowADB: true
 allowReverse: true
-clientIsolation: true
 reversePorts: "1-65535"                        # ports and ranges, comma-separated
-keyTTL: 24h
 maxTunnelsPerConnection: 32
 activityInterval: 30s
+refreshInterval: 5s
 keepaliveInterval: 15s                         # a client that misses two in a row is disconnected
 ```
 
@@ -632,31 +580,31 @@ keepaliveInterval: 15s                         # a client that misses two in a r
 # api
 ssh:
   enabled: true
-  gatewayURL: http://holtdroid-ssh-gateway-headless:8080  # every A record gets the key updates
-  publicHost: android.example.com                          # shown in the UI commands; default: publicURL's host
+  gatewayURL: http://holtdroid-ssh-gateway-headless:8080  # every A record is asked
+  publicHost: android.example.com                          # where clients connect; default: publicURL's host
   publicPort: 2222
-  allowADB: true            # mirror the gateway flags; the UI only uses them to pick
-  allowReverse: true        # which commands to show
-  clientIsolation: true
+  allowADB: true
+  allowReverse: true
   maxTunnelsPerConnection: 32
+  caKey: env:SSH_CA_KEY                                    # PEM; empty = temporary
+  codeTTL: 10m
+  certificateTTL: 15m
+  refreshTTL: 720h
+  clientDir: /usr/share/holtdroid/connect                  # holtdroid-connect-{os}-{arch} served to tunnel.sh
 ```
 
-`PUT /api/v1/ssh/keys` validates the list (≤ 32 keys, no duplicates, no
-`authorized_keys` options), resolves `gatewayURL`'s host and pushes the
-normalized lines to every address. It succeeds when at least one replica
-accepted them; a key another user holds fails the whole update with 422 and
-the per-key `errors[].location` (`body.keys[i].publicKey`) the UI uses to
-mark that row. `holtdroid dev` runs the whole gateway in-process (`--ssh :2222`, key API
-on `--ssh-keys :8092`, temporary host key) against the fake devices' tunnel
-endpoints (`--tunnels :8091`).
+`holtdroid dev` runs the whole gateway in-process (`--ssh :2222`, internal
+API on `--ssh-api :8092`, temporary host and CA keys) against the fake
+devices' tunnel endpoints (`--tunnels :8091`) and serves client builds from
+`bin/connect` (`make connect`).
 
 Exposure is a plain TCP Service (LoadBalancer/NodePort) or an ingress TCP
 route (Traefik `IngressRouteTCP` on a dedicated entrypoint). The chart
-(`sshGateway.*`) renders the Deployment, a headless Service for key pushes,
-the SSH Service, the api's `ssh` section, and a NetworkPolicy rule that lets
-only the gateway reach the agents' tunnel port. The emulator provider
-publishes that port as `tunnelPort` (default 8081) and reports it as the
-session's `tunnelUrl`.
+(`sshGateway.*`) renders the Deployment, a headless Service the api uses to
+reach every replica, the SSH Service, the api's `ssh` section, and a
+NetworkPolicy rule that lets only the gateway reach the agents' tunnel port.
+The emulator provider publishes that port as `tunnelPort` (default 8081)
+and reports it as the session's `tunnelUrl`.
 
 ## ADB in the browser
 
@@ -699,7 +647,7 @@ as long as the page, so logcat survives app restarts.
   [contracts.md](contracts.md#configuration-and-secrets).
 - Every action that changes something (sign-in/out, session launch, stop,
   reap, extend, install, location switch, clipboard writes through the agent
-  API, artifact upload/update/delete, SSH key sync, SSH connections and
+  API, artifact upload/update/delete, computer enrollment, SSH connections and
   tunnels) is an audit event: a JSON line with `"log":"audit"` and a schema
   version on stdout of the api or the ssh-gateway, optionally also OTLP logs
   and a batched webhook (`internal/audit`, decision #44). Session actions

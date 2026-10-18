@@ -1483,21 +1483,32 @@ fragile and would leave out Windows.
 - **Client.** `cmd/holtdroid-connect`, a small Go binary in this module (no
   client-go, no frida). The api serves it from its own image together with
   `GET /tunnel.sh`, a POSIX bootstrap that detects OS and architecture,
-  downloads the matching binary (its sha256 is rendered into the script),
-  pins the gateway's host key and runs it. Client and server ship from the
-  same commit, so there is no separate repository and no version skew. It
-  uses `x/crypto/ssh` instead of the system `ssh`, a bubbletea TUI with the
-  banner when it has a terminal, and plain log lines otherwise.
+  downloads the matching binary (its sha256 is rendered into the script)
+  and runs it. Client and server ship from the same commit, so there is no
+  separate repository and no version skew. It uses `x/crypto/ssh` instead
+  of the system `ssh` and prints the banner and a status block; a TUI
+  (bubbletea) is planned. The types it shares with the api and the gateway
+  live in `internal/contract/control`, which has no dependencies, so the
+  client doesn't pull in huma or OpenTelemetry (about 8 MB per build).
 - **Enrollment.** The portal shows `curl -fsSL {portal}/tunnel.sh | sh -s --
   {code}`. The code is single-use and lives 10 minutes, because the command
   ends up in shell history and `ps`. The client generates its own ed25519 key
   under the user's config directory (it never reads `~/.ssh`) and trades the
-  code, its public key, hostname and OS for a refresh token.
+  code, its public key, hostname and OS for a refresh token, a certificate
+  and the gateway's host keys, which it then requires (no trust on first
+  use). Codes and tokens are JWTs signed with a key derived from the CA key;
+  a code is spent in the memory of the api replica that took it, so with
+  several replicas it is single-use per replica within its 10 minutes.
 - **SSH certificates.** The api is an SSH user CA: for a valid refresh token
   it issues a 15-minute OpenSSH certificate whose principal is the user's
   `user-{pseudonym}` handle and whose key id names the computer. The gateway
-  trusts only the CA public key, so it keeps no keys and a restart loses
-  nothing. Each refresh also rotates the refresh token.
+  trusts only the CA public key, which it fetches from the api, so it keeps
+  no keys: a gateway restart only drops connections, which clients re-open.
+  Each refresh also rotates the refresh token, which is bound to the
+  computer's key fingerprint. The login is only ever the user's
+  `user-{pseudonym}` handle (decision #50): per-session slugs are gone, and
+  so is `clientIsolation`, since a computer reaches only its owner's
+  sessions.
 - **Revocation.** Without a persistent database the tokens are stateless and
   signed; a single computer can't be revoked, only all of them by rotating
   the CA key, and a stolen refresh token works until it expires. With a

@@ -129,17 +129,19 @@ Design: decisions.md #22. No backward compatibility before the first release.
 
 Design: decision #64. Replaces the key-based parts of Phase 4.5.
 
-- [ ] api as SSH user CA (`sshGateway.caKey`, a secret ref): enrollment codes, refresh tokens with rotation, `POST /api/v1/connect/enroll`, `POST /api/v1/connect/refresh` → certificate; gateway trusts the CA public key instead of the key store
-- [ ] `holtdroid-connect`: key generation, enrollment, certificate refresh, reconnect, `holtdroid-control` subsystem (hello, local listening ports, sessions, settings)
-- [ ] Manual port mode in the client and the portal; settings changed from the portal through the gateway replica holding the connection
-- [ ] ADB per device on stable local ports, `adb connect`/`disconnect` when `adb` is on `PATH`
+- [x] api as SSH user CA (`sshGateway.caKey`, a secret ref): enrollment codes, refresh tokens with rotation, `POST /api/v1/connect/enroll`, `POST /api/v1/connect/refresh` → certificate; gateway trusts the CA public key instead of the key store
+- [x] `holtdroid-connect`: key generation, enrollment, certificate refresh, reconnect, `holtdroid-control` subsystem (hello, local listening ports, sessions, settings)
+- [x] Manual port mode in the client and the portal; settings changed from the portal through the gateway replica holding the connection
+- [x] ADB per device on stable local ports, `adb connect`/`disconnect` when `adb` is on `PATH`
 - [ ] TUI (bubbletea): banner, devices, ADB ports, published ports with toggles, mode switch; log output without a terminal
-- [ ] `GET /tunnel.sh` and the client binaries in the api image (darwin/linux, amd64/arm64), sha256 and host key rendered into the script
+- [x] `GET /tunnel.sh` and the client binaries in the api image (darwin/linux, amd64/arm64), sha256 and host key rendered into the script
 - [ ] Automatic port mode: agent iptables `LOG` for SYNs to unused loopback ports, port requests to the client, deny list, portal warning
-- [ ] Portal: "Computers" page (hostname, OS, last seen, online, mode, ports); remove the SSH keys page, key requests, `skipHostKeyCheck`, the reconnect loop
+- [x] Portal: "Computers" page (hostname, OS, ports, ADB) for connected computers; remove the SSH keys page, key requests, `skipHostKeyCheck`, `clientIsolation`, the reconnect loop
+- [ ] Offline computers with last seen and the mode switch, once there is a database and an automatic mode
+- [ ] Verify on the real emulator through the live gateway
 - [ ] With a persistent database (Phase 4.6): `computers` table, rotation generation, reuse detection, revoke that drops the computer's connections
 - [ ] Later: `connect.ps1` and a Windows build
-- [ ] Docs: rewrite "SSH access" around the client
+- [x] Docs: rewrite "SSH access" around the client
 
 ## Phase 4.7 — Traffic inspection proxy (optional)
 

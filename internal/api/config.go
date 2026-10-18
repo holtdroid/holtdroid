@@ -12,6 +12,7 @@ import (
 	"github.com/kriakiku/holtdroid/internal/contract"
 	"github.com/kriakiku/holtdroid/internal/db"
 	"github.com/kriakiku/holtdroid/internal/rules"
+	"github.com/kriakiku/holtdroid/internal/secrets"
 	"github.com/kriakiku/holtdroid/internal/source"
 	"github.com/kriakiku/holtdroid/internal/storage"
 )
@@ -48,10 +49,12 @@ type SSHConfig struct {
 	PublicPort              int
 	AllowADB                bool
 	AllowReverse            bool
-	ClientIsolation         bool
 	MaxTunnelsPerConnection int
-	KeyRequests             bool
-	SkipHostKeyCheck        bool
+	CAKey                   secrets.Ref
+	CodeTTL                 time.Duration
+	CertificateTTL          time.Duration
+	RefreshTTL              time.Duration
+	ClientDir               string
 }
 
 type AppDataConfig struct {
@@ -106,9 +109,13 @@ func DefaultConfig() Config {
 		Storage:  storage.DefaultConfig(),
 		Database: db.DefaultConfig(),
 		Cache:    CacheConfig{MaxSize: 20 << 30, Warm: 10},
-		SSH:      SSHConfig{PublicPort: 2222, AllowADB: true, AllowReverse: true, ClientIsolation: true, MaxTunnelsPerConnection: 32, KeyRequests: true},
-		ADB:      ADBConfig{Browser: true, OwnerOnly: true},
-		Uploads:  UploadsConfig{Enabled: true, Prefix: "uploads", MaxSize: 1 << 30, TemporaryTTL: 7 * 24 * time.Hour},
+		SSH: SSHConfig{
+			PublicPort: 2222, AllowADB: true, AllowReverse: true, MaxTunnelsPerConnection: 32,
+			CodeTTL: 10 * time.Minute, CertificateTTL: 15 * time.Minute, RefreshTTL: 30 * 24 * time.Hour,
+			ClientDir: "/usr/share/holtdroid/connect",
+		},
+		ADB:     ADBConfig{Browser: true, OwnerOnly: true},
+		Uploads: UploadsConfig{Enabled: true, Prefix: "uploads", MaxSize: 1 << 30, TemporaryTTL: 7 * 24 * time.Hour},
 		AppData: AppDataConfig{
 			Keep: 6, MaxAge: 7 * 24 * time.Hour, MaxCacheSize: 256 << 20, MaxSize: 1 << 30, Export: true, Timeout: 5 * time.Minute,
 		},
@@ -150,6 +157,9 @@ func (c Config) Validate() error {
 		}
 		if c.SSH.PublicPort < 1 || c.SSH.PublicPort > 65535 {
 			errs = append(errs, errors.New("ssh.publicPort must be a TCP port"))
+		}
+		if c.SSH.CodeTTL <= 0 || c.SSH.CertificateTTL <= 0 || c.SSH.RefreshTTL <= 0 {
+			errs = append(errs, errors.New("ssh.codeTTL, ssh.certificateTTL and ssh.refreshTTL must be positive"))
 		}
 	}
 	sources := map[string]source.Config{}

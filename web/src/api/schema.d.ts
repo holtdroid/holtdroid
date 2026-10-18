@@ -205,6 +205,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/connect/codes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description A one-time code that enrolls a computer's connect client for the caller. */
+        post: operations["createConnectCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/connect/enroll": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Called by the connect client: trades a one-time code and the computer's public key for credentials. */
+        post: operations["enrollComputer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/connect/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Called by the connect client: a new certificate and refresh token for the key a refresh token was issued for. */
+        post: operations["refreshComputer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/events": {
         parameters: {
             query?: never;
@@ -400,15 +451,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/ssh/key-requests/{code}": {
+    "/api/v1/ssh/computers": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** @description An SSH connection waiting for its key to be added, from the link the gateway printed. */
-        get: operations["getSSHKeyRequest"];
+        /** @description The caller's computers whose connect client is attached right now. */
+        get: operations["listComputers"];
         put?: never;
         post?: never;
         delete?: never;
@@ -417,7 +468,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/ssh/keys": {
+    "/api/v1/ssh/computers/{id}/published": {
         parameters: {
             query?: never;
             header?: never;
@@ -425,8 +476,8 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** @description Replace the caller's SSH public keys on every ssh-gateway replica. */
-        put: operations["putSSHKeys"];
+        /** @description Replace the ports one of the caller's computers publishes on their sessions. */
+        put: operations["setComputerPublished"];
         post?: never;
         delete?: never;
         options?: never;
@@ -477,6 +528,12 @@ export interface components {
             browser: boolean;
             /** @description only a session's owner and admins may */
             ownerOnly: boolean;
+        };
+        ADBPort: {
+            /** Format: int64 */
+            port: number;
+            /** @description {provider}-{id} */
+            session: string;
         };
         ADBTunnel: {
             /**
@@ -648,6 +705,33 @@ export interface components {
         Capacity: {
             slots: components["schemas"]["Slot"][];
         };
+        Computer: {
+            /** @description local ports the computer forwards to each session's ADB */
+            adb: components["schemas"]["ADBPort"][];
+            arch: string;
+            clientIP: string;
+            hostname: string;
+            /** @description stays the same across reconnects of one enrolled computer */
+            id: string;
+            /** @description TCP ports listening on the computer's loopback */
+            listening: components["schemas"]["LocalPort"][];
+            os: string;
+            /** @description ports published on every ready session of the user */
+            published: number[];
+            /** Format: date-time */
+            since: string;
+            version: string;
+        };
+        ComputerList: {
+            /** @description the caller's computers connected to any gateway replica right now */
+            computers: components["schemas"]["Computer"][];
+        };
+        ConnectCode: {
+            /** @description one-time enrollment code for the connect client */
+            code: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
         Cookie: {
             Domain: string;
             /** Format: date-time */
@@ -676,6 +760,33 @@ export interface components {
             /** @description when every slot is busy, wait in line for one instead of failing; cancelling the request gives up the place */
             queue?: boolean;
             source: string;
+        };
+        Credentials: {
+            /** @description OpenSSH user certificate for the computer's key */
+            certificate: string;
+            /** Format: date-time */
+            certificateExpiresAt: string;
+            computer: string;
+            /** @description SSH user name */
+            handle: string;
+            host: string;
+            /** @description authorized_keys lines the gateway may present */
+            hostKeys: string[];
+            /** Format: int64 */
+            port: number;
+            /** Format: date-time */
+            refreshExpiresAt: string;
+            /** @description replaces the previous one */
+            refreshToken: string;
+            user: string;
+        };
+        Enroll: {
+            arch: string;
+            code: string;
+            hostname: string;
+            os: string;
+            /** @description the computer's OpenSSH public key */
+            publicKey: string;
         };
         ErrorDetail: {
             /** @description Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id' */
@@ -736,6 +847,11 @@ export interface components {
             /** @description Install over the current build, upgrade or downgrade, keeping the app's data; otherwise uninstall it first */
             keepData: boolean;
             source: string;
+        };
+        LocalPort: {
+            /** Format: int64 */
+            port: number;
+            process?: string;
         };
         Location: {
             id: string;
@@ -804,8 +920,13 @@ export interface components {
             error?: string;
             name: string;
         };
-        PutSSHKeysInputBody: {
-            keys: components["schemas"]["SSHKeyInput"][];
+        PublishedInputBody: {
+            ports: number[];
+        };
+        Refresh: {
+            /** @description the key the refresh token was issued for */
+            publicKey: string;
+            refreshToken: string;
         };
         ReverseTunnel: {
             /**
@@ -830,45 +951,18 @@ export interface components {
         SSHInfo: {
             allowADB: boolean;
             allowReverse: boolean;
-            clientIsolation: boolean;
             enabled: boolean;
-            /** @description the caller's SSH user name for publishing ports on all of their sessions at once */
+            /** @description the caller's SSH user name */
             handle?: string;
             /** @description Host users connect to; empty means the host the UI is served from */
             host?: string;
-            /** @description the gateway offers a link to add an unknown key */
-            keyRequests: boolean;
             /**
              * Format: int64
-             * @description tunnels one SSH connection may open
+             * @description tunnels one connection may open
              */
             maxTunnels: number;
             /** Format: int64 */
             port: number;
-            /** @description commands turn off host key checking */
-            skipHostKeyCheck: boolean;
-        };
-        SSHKeyInput: {
-            name: string;
-            /** @description OpenSSH public key line */
-            publicKey: string;
-        };
-        SSHKeyRequest: {
-            clientIP: string;
-            /** Format: date-time */
-            expiresAt: string;
-            fingerprint: string;
-            /** @description OpenSSH public key line */
-            publicKey: string;
-            /** @description SSH user name the connection asked for */
-            session: string;
-        };
-        SSHKeysSynced: {
-            /**
-             * Format: int64
-             * @description ssh-gateway replicas that accepted the keys
-             */
-            replicas: number;
         };
         SSHTunnelList: {
             /** @description only sessions where the caller has a tunnel open */
@@ -1411,6 +1505,101 @@ export interface operations {
             };
         };
     };
+    createConnectCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectCode"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    enrollComputer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Enroll"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Credentials"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    refreshComputer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Refresh"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Credentials"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     streamEvents: {
         parameters: {
             query?: never;
@@ -1867,13 +2056,11 @@ export interface operations {
             };
         };
     };
-    getSSHKeyRequest: {
+    listComputers: {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                code: string;
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
@@ -1884,7 +2071,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SSHKeyRequest"];
+                    "application/json": components["schemas"]["ComputerList"];
                 };
             };
             /** @description Error */
@@ -1898,27 +2085,27 @@ export interface operations {
             };
         };
     };
-    putSSHKeys: {
+    setComputerPublished: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                id: string;
+            };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["PutSSHKeysInputBody"];
+                "application/json": components["schemas"]["PublishedInputBody"];
             };
         };
         responses: {
-            /** @description OK */
-            200: {
+            /** @description No Content */
+            204: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": components["schemas"]["SSHKeysSynced"];
-                };
+                content?: never;
             };
             /** @description Error */
             default: {

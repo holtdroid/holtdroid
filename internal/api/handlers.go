@@ -210,6 +210,7 @@ func (s *Server) register(api huma.API) {
 	s.registerEvents(api)
 	s.registerAuth(api)
 	s.registerSSH(api)
+	s.registerConnect(api)
 	s.registerADB(api)
 	s.registerAudit(api)
 	s.registerAppData(api)

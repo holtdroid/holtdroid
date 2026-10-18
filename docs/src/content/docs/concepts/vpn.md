@@ -32,7 +32,7 @@ back to the configured default (`vpn.default`). With `vpn.direct: false`
 there is no VPN-less option at all.
 
 Android itself is not configured at all; to apps it looks like a normal
-network. Port forwarding (`adb reverse`, [SSH access](/holtdroid/concepts/ssh/))
+network. Port forwarding (`adb reverse`, [your connected computer](/holtdroid/concepts/ssh/))
 runs over loopback and is unaffected by the VPN.
 
 ## Locations are sing-box outbounds

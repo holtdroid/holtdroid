@@ -60,9 +60,9 @@ The built-in presets:
 | Fresh start  | Wipes cookies, storage, cache and history on every launch, no HTTP cache                                                    |
 | Proxy        | All traffic through `127.0.0.1:8080` with TLS errors ignored                                                                |
 
-The Proxy preset fits Holtdroid's [SSH tunnels](/holtdroid/concepts/ssh/):
-publish mitmproxy or Charles from your computer to the device's port 8080
-with `-R 8080:localhost:8080` and watch the traffic. User-installed CA
+The Proxy preset fits Holtdroid's [connected computers](/holtdroid/concepts/ssh/):
+run mitmproxy or Charles on port 8080 of your computer, publish that port on
+the Computers page and watch the traffic. User-installed CA
 certificates are trusted too, so a strict preset also works once the proxy's
 CA is installed on the device.
 

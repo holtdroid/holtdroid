@@ -96,5 +96,6 @@ replica's memory, so a restart drops it.
 
 The user who launched a session is its owner. Every signed-in user can see
 all sessions; only the owner and members of `auth.adminGroups` can stop or
-extend them, use their ADB tools (`adb.ownerOnly`) or reach them over SSH
-(`sshGateway.clientIsolation`).
+extend them or use their ADB tools (`adb.ownerOnly`). Your
+[connected computer](/holtdroid/concepts/ssh/) reaches only your own
+sessions.

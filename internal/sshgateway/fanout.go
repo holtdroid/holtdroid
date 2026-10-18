@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -12,6 +13,7 @@ import (
 	"github.com/hashicorp/yamux"
 
 	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/kriakiku/holtdroid/internal/contract/control"
 )
 
 func isHandle(name string) bool { return strings.HasPrefix(name, contract.HandlePrefix) }
@@ -206,9 +208,27 @@ func (f *fanout) refresh(ctx context.Context) {
 	for _, s := range closing {
 		s.Close()
 	}
+	f.c.sendSessions(f.sessions())
 	for _, a := range todo {
 		f.attach(ctx, a.d, a.fr)
 	}
+}
+
+func (f *fanout) device(slug string) *device {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.devices[slug]
+}
+
+func (f *fanout) sessions() []control.Session {
+	f.mu.Lock()
+	list := make([]control.Session, 0, len(f.devices))
+	for _, d := range f.devices {
+		list = append(list, control.Session{Slug: d.slug, Provider: d.provider, ID: d.id})
+	}
+	f.mu.Unlock()
+	slices.SortFunc(list, func(a, b control.Session) int { return strings.Compare(a.Slug, b.Slug) })
+	return list
 }
 
 func (f *fanout) attach(ctx context.Context, d *device, fr forwardRequest) {

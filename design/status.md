@@ -28,18 +28,19 @@ deployment"):
   (decision #34); clipboard through scrcpy, device audio, codec and quality
   settings and a virtual USB keyboard (decision #36); a launch queue when
   every slot is busy (decision #57).
-- SSH access (Phase 4.5, decisions #21, #38): `ssh -p 2222
-  {provider}-{id}@host` for ADB and published ports through the ssh-gateway,
-  keys from the SSH keys page, and a session-page popover with live tunnel
-  status, a port list kept in the browser and one ready command. Verified on
-  a real emulator: ADB through the tunnel, `-R 80`/`-R 3000` from the device.
-  Sessions are their owner's (and admins') by default (decision #60).
-  An unknown key gets a portal link from `ssh` itself and the connection
-  waits for it to be confirmed (decision #46, `keyRequests`, on by default);
-  `skipHostKeyCheck` (off by default, on in the maintainer's deployment)
-  puts host-key-check-off options into the UI's commands. The command
-  reconnects a second after a drop and the gateway frees ports of clients
-  that stop answering keepalives (decision #61).
+- Computers over SSH (Phase 4.11, decision #64; replaced the key-based
+  Phase 4.5 flow): `curl {portal}/tunnel.sh | sh -s -- {code}` downloads
+  `holtdroid-connect`, which enrolls the computer with a one-time code,
+  logs in to the ssh-gateway with a 15-minute certificate from the api's CA
+  (renewed in the background, refresh token rotated each time), publishes
+  the ports picked on the Computers page (or with `--publish`) on every
+  device of the user and gives each device's ADB a local port (15555 up,
+  `adb connect` when adb is installed). The Computers page lists connected
+  computers with their loopback listeners as toggles; the session popover
+  shows live tunnels and the device's ADB port. Not yet: the TUI, the
+  automatic port mode, revoking single computers (needs the database),
+  Windows. Covered by an end-to-end test (api + gateway + fake device +
+  client); not yet tried against a real emulator.
 - ADB in the browser (decision #51): one Tango connection per session page
   through the session proxy (`WS /adb`, `adb.browser`, `adb.ownerOnly`),
   with tabs next to DevTools for Logcat (app-only by uid, crash toast),
@@ -103,9 +104,8 @@ deployment"):
 2. Planned, each starting with a decisions.md entry: Phase 4.7 traffic
    inspection proxy, Phase 4.8 MCP server. Both optional and off by
    default; each adds its own audit events and metrics (decision #44).
-3. Phase 4.11 connect client (decision #64): one `curl … | sh` per
-   computer, SSH certificates from the api, per-device ADB, ports from the
-   client's own listeners, a TUI. Replaces browser-held SSH keys.
+3. The rest of Phase 4.11 (decision #64): the client's TUI, the automatic
+   port mode, Windows, and revocation once the database persists.
 4. Whatever more use of real sessions turns up (Phase 6).
 
 ## Requirements from the maintainer
@@ -140,10 +140,12 @@ Collected from the design conversation; each is reflected in the docs listed.
   (decision #22)
 - Sign-in: **anonymous random animal names**, **shared password**, **OIDC**;
   avatars from the IdP or **DiceBear voxel-art**. (decisions #17, #20)
-- **SSH access**: `ssh <slug>@host` for ADB (`-L`) and publishing local ports
-  on the device (`-R`), no shells, keys kept in the browser and re-synced,
-  flags `allowADB`=true, `allowReverse`=true, `clientIsolation`=true,
-  `keyRequests`=true, `skipHostKeyCheck`=false. (decisions #21, #46)
+- **Computers**: one `curl … | sh` command per computer with a JWT-style
+  code that links it to the account; the client generates its own key and
+  sends its hostname; ports picked in the portal (later: in a TUI, or
+  every port Android asks for, with a warning); ADB per device on its own
+  port; tokens rotate in the background and, with a persistent database,
+  can be revoked. No shells. (decision #64)
 - Lean containers and a small codebase built on existing libraries; Go
   backend, Bun + TypeScript 7 + oxc tooling, shadcn/ui. (decisions #3, #13)
 

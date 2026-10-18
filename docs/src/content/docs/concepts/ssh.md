@@ -1,122 +1,119 @@
 ---
-title: SSH access
-description: Connect ADB and publish your localhost ports to a device over SSH.
+title: Connecting your computer
+description: Publish your computer's ports on your devices and reach their ADB with holtdroid-connect.
 sidebar:
   order: 5
 ---
 
-Every running device can be reached over SSH through one gateway, with
-`{provider}-{session id}` as the user name. The gateway never runs commands,
-it only forwards ADB and ports. Once you are in, it greets you with a banner
-naming the session and what you can forward.
+`holtdroid-connect` is a small client you run on your own computer. While it
+runs, every device you have running in the portal reaches the ports you pick
+as `http://localhost:<port>`, and each device's ADB gets a port on your
+computer. It works over SSH through the portal's gateway, but you don't need
+SSH keys or an `ssh` command.
+
+## Connecting a computer
+
+Open **Computers** (the laptop button in the header), click **Get the
+command** and run what it shows in a terminal on your computer:
 
 ```sh
-# ADB on your machine
-ssh -N -p 2222 -L 5555:adb:5555 emulator-7f3a9c@android.example.com
-adb connect localhost:5555
-
-# your dev servers as localhost:3000 / :5000 on the device
-ssh -N -p 2222 -R 3000:localhost:3000 -R 5000:localhost:5000 emulator-7f3a9c@android.example.com
+curl -fsSL https://android.example.com/tunnel.sh | sh -s -- eyJhbGciOiJIUzI1NiIs…
 ```
 
-The **SSH** button on the session page builds this command for you:
+The script finds the client build for your system (macOS or Linux, Intel or
+Arm), downloads it from the portal, checks its SHA-256 and runs it with the
+code from the command. The client then:
 
-- It shows what is connected right now: ADB clients, and each published port
-  with who published it and how many connections the device has open to it.
-  While the popover is open, each port is checked through its own tunnel:
-  green means your server answers, red means nothing listens on that port on
-  your machine. Clicking a port copies `http://localhost:<port>`
-  (`http://localhost` for 80, `https://localhost` for 443). Every check of a
-  port with nothing behind it makes your `ssh` print
-  `connect_to localhost port N: failed.`; dead ports are checked less and
-  less often, down to once a minute.
-- It keeps your list of ports in the browser. The defaults are `80`, `443` and
-  `3000-3010`. You can add single ports, ranges (`5173-5175`) and
-  device-to-local mappings (`8080:3000`, which serves your local port 3000 as
-  the device's port 8080).
-- It turns the list into one command with a `-R` per port, plus `-L` for ADB
-  if you want it.
-- With **Reconnect** on (the default), the command is wrapped in a shell loop
-  that starts `ssh` again a second after the connection drops:
-  `while true; do ssh … ; sleep 1 || break; done`. It works in bash and zsh;
-  press Ctrl+C twice to stop it. The added `ServerAliveInterval` notices a
-  dead network within about 30 s, and `ExitOnForwardFailure` makes `ssh`
-  retry until a port the old connection still held is free again. The gateway
-  likewise drops a client that stops answering its keepalives after about
-  30 s (`keepaliveInterval`, 15 s), which releases its ports.
+- makes its own key for this portal (it never touches `~/.ssh`) and trades
+  the code for this computer's enrollment, named after its hostname;
+- connects to the gateway and shows the banner, your devices and their ports;
+- keeps running until you press Ctrl+C, and reconnects by itself when the
+  network drops or the laptop wakes up.
 
-Apps and WebViews on the device reach your servers as
+The code works once and only for 10 minutes, so a command in your shell
+history is useless afterwards. Next time, run the client without a code:
+
+```sh
+~/.cache/holtdroid/holtdroid-connect
+```
+
+Options: `--portal <url>` when the computer is enrolled with several portals,
+`--publish 3000,5173` to replace the list of published ports,
+`--no-adb-connect` to leave `adb` alone, `-v` for debug logs. The key and the
+enrollment are in your user config directory (`~/Library/Application
+Support/holtdroid/connect` on macOS, `~/.config/holtdroid/connect` on Linux);
+delete the portal's folder there to forget it.
+
+## Publishing ports
+
+The client watches which TCP ports listen on your computer's loopback and
+reports them to the portal. On the **Computers** page each connected computer
+lists them with the program behind each one; click a port to publish it on
+your devices, click again to stop. You can also publish a port nothing
+listens on yet, for a dev server you are about to start. The choice is saved
+on the computer, so it survives restarts of the client.
+
+A published port goes to every device you run, including ones you start
+later, and only to yours. Apps and WebViews reach it as
 `http://localhost:<port>`. Plain HTTP to `localhost`, `127.0.0.1` and `::1`
 is allowed even when the app's network security config forbids cleartext
-traffic; every other host still follows the app's policy. On emulators `adb connect` needs no
-authorization prompt and `adb shell` is root (the session image runs adbd
-insecure and the agent restarts it as root); a physical phone would ask on its
-screen, which you can accept in the portal. `adb reboot`, `adb unroot`,
-`adb remount`, `adb tcpip` and `adb usb` are refused: they would cut the
-session off from its device. For logcat, files and a shell without any of
-this, use the [ADB tools](/holtdroid/concepts/adb/) on the session page. Without `-N`,
-`ssh` prints a short help and holds the tunnels open until you press Ctrl+C.
+traffic; every other host still follows the app's policy. Ports are bound on
+the device's loopback only, so 80 and 443 are fine on emulators. If another
+connection already published a port on a device, it is skipped there and
+tried again later.
 
-## All your devices at once
+## ADB
 
-Instead of a session id, connect as your own `user-…` name to publish your
-ports on every device you run:
+Every running device gets its own port on your computer, from 15555 up, kept
+for as long as the client runs. If `adb` is on your `PATH`, the client runs
+`adb connect` for each device and `adb disconnect` when it stops, so they
+just show up in `adb devices`:
 
 ```sh
-ssh -N -p 2222 -R 3000:localhost:3000 -R 5173:localhost:5173 user-k3zq7c2mxu4hwa5e@android.example.com
+adb -s 127.0.0.1:15555 shell
 ```
 
-The SSH keys page and the **All my devices** switch in the SSH button show
-your name. Devices you start later get the ports within a few seconds, and
-stopped ones drop out; the connection stays open even when none is running.
-Only `-R` works this way. ADB needs one device, so use the session id for
-`-L`. If a device already has a port published by another connection, it is
-skipped there and tried again later. The name is derived from your login but
-doesn't reveal it.
+The **Computers** page and the session page's **SSH** button show which port
+belongs to which device. On emulators `adb connect` needs no authorization
+prompt and `adb shell` is root (the session image runs adbd insecure and the
+agent restarts it as root). `adb reboot`, `adb unroot`, `adb remount`,
+`adb tcpip` and `adb usb` are refused: they would cut the session off from
+its device. For logcat, files and a shell without any of this, use the
+[ADB tools](/holtdroid/concepts/adb/) on the session page.
 
-The **SSH keys** page lists every tunnel you have open right now, grouped by
-device, and the key button in the header shows a green count of those
-devices. The colours there are from the last check, which runs while a
-session's SSH popover is open.
+## What is open right now
 
-## Keys stay with you
+The **SSH** button on a session page shows the ADB clients and published
+ports of that device. While its popover is open, each port is checked through
+its own tunnel: green means your server answers, red means nothing listens on
+that port on your computer. Clicking a port copies `http://localhost:<port>`
+(`http://localhost` for 80, `https://localhost` for 443). The **Computers**
+page also lists every device you have tunnels to, and the laptop button in
+the header shows how many of your computers are connected.
 
-Add your public keys on the **SSH keys** page. They are kept in your browser
-and sent to the gateway while you use the site; the gateway only holds them in
-memory. After a gateway restart, just open the site once and your keys are
-back. If none of the keys your client offers is registered (or they have
-expired), the login fails with a message telling you so.
+## How it is secured
 
-A session that doesn't exist, isn't running yet or isn't yours (unless
-`clientIsolation` is off) gets just `Not found.`, whatever key you use. The gateway
-says nothing about what it is to anyone who isn't signed in to a session; it
-even announces itself as OpenSSH.
+- The api is an SSH certificate authority. For the code (and later for the
+  computer's refresh token) it signs the computer's public key into a
+  certificate valid for 15 minutes, for your SSH user name only. The gateway
+  trusts nothing but certificates from that authority, so it keeps no keys.
+- The client renews the certificate in the background, and each renewal also
+  replaces the refresh token. A refresh token is tied to the computer's key:
+  someone who copies the token without the key gets nothing. A computer that
+  isn't used for 30 days (`refreshTTL`) has to be connected again with a new
+  command.
+- The portal tells the client the gateway's host key, so the client refuses a
+  gateway that presents a different one.
+- The gateway runs no commands: shells, `exec`, SFTP, agent forwarding and
+  forwarding to anything but your devices' ADB are refused. It announces
+  itself as OpenSSH and greets only enrolled computers.
+- Tokens are not stored on the server yet, so a single computer can't be
+  revoked. Until the persistent database lands, an administrator revokes
+  every computer at once by changing `sshGateway.caKey`; a stolen key and
+  refresh token work until the refresh token expires.
 
-### Adding a key straight from the terminal
-
-You don't have to add the key first. When none of your keys is registered,
-the gateway has your SSH client prove that it holds one of them, prints a
-link and keeps the connection waiting:
-
-```text
-This key is not registered yet. To add it to your account, open
-
-    https://android.example.com/ssh?request=k3zq7c2mxu4hwa5e
-
-and check that the portal shows SHA256:Zru7u9KFnruNN8vZsTaJL9hayAphx7lrZ0uGzIib12k.
-Waiting 5m0s for it; the connection continues once the key is added.
-```
-
-Open the link while signed in, check the fingerprint and confirm. The key
-goes into your browser's list like a pasted one, and the waiting `ssh` goes
-on within a few seconds. A registered key always wins: if any key your client
-offers is already registered, it logs in as usual and no link is shown.
-
-Only confirm a link that your own `ssh` just printed. Whoever holds the key
-behind a link can use your sessions once you confirm it, so never confirm a
-link someone sent you. Clients that can't show keyboard-interactive prompts
-(`ssh -o BatchMode=yes`, some GUI tools) don't get the link; add the key on
-the page as usual.
+Traffic through a tunnel counts as activity of the device it went to, so a
+device you use only from your computer is not reaped as idle.
 
 ## Running the gateway
 
@@ -124,56 +121,36 @@ With the Helm chart, turn on `sshGateway.enabled` and point a TCP entry at
 the `…-ssh-gateway` Service on port 2222. You can use a LoadBalancer or
 NodePort (`sshGateway.service.type`), or an ingress TCP route such as a
 Traefik `IngressRouteTCP` on a dedicated entrypoint. Give it a stable host
-key, a PEM private key referenced as a secret:
+key and certificate authority key, PEM private keys referenced as secrets:
 
 ```yaml
-existingSecret: holtdroid # contains SSH_HOST_KEY (ssh-keygen -t ed25519 -N '' -f host)
+existingSecret: holtdroid # SSH_HOST_KEY and SSH_CA_KEY, each from ssh-keygen -t ed25519 -N '' -f key
 sshGateway:
   enabled: true
   hostKey: env:SSH_HOST_KEY
+  caKey: env:SSH_CA_KEY
 ```
 
-The chart wires the rest: the api pushes keys to every gateway replica
-through a headless Service, the gateway resolves sessions through the api's
-internal port, and the session NetworkPolicy lets only the gateway reach the
-agents' tunnel port (8081).
+Without `hostKey` the gateway makes a new one on every restart, and without
+`caKey` the api makes a new authority on every restart; either way every
+computer has to be connected again. The chart wires the rest: the api finds
+every gateway replica through a headless Service, the gateway fetches the
+authority and your sessions from the api's internal port, and the session
+NetworkPolicy lets only the gateway reach the agents' tunnel port (8081).
+The api image carries the client builds and serves them with `/tunnel.sh`.
 
-## Operator flags
+## Operator settings
 
-| Flag                      | Default   | Meaning                                                          |
-| ------------------------- | --------- | ---------------------------------------------------------------- |
-| `allowADB`                | `true`    | Allow `-L …:adb:5555` to the device's ADB                        |
-| `allowReverse`            | `true`    | Allow `-R` to publish client ports on the device's `localhost`   |
-| `clientIsolation`         | `true`    | Only a session's owner (and admins) can connect to it            |
-| `reversePorts`            | `1-65535` | Device ports that may be published, e.g. `80,443,1024-65535`     |
-| `keyTTL`                  | `24h`     | Keys not refreshed by the browser for this long are forgotten    |
-| `maxTunnelsPerConnection` | `32`      | ADB channels plus published ports one SSH connection may hold    |
-| `keyRequests`             | `true`    | Offer a link to add an unknown key from the terminal (see above) |
-| `skipHostKeyCheck`        | `false`   | Turn off host key checking in the commands the UI shows (below)  |
+| Setting                   | Default   | Meaning                                                         |
+| ------------------------- | --------- | --------------------------------------------------------------- |
+| `allowADB`                | `true`    | Forward each device's ADB to the client                         |
+| `allowReverse`            | `true`    | Publish client ports on the devices' `localhost`                |
+| `reversePorts`            | `1-65535` | Device ports that may be published, e.g. `80,443,1024-65535`    |
+| `maxTunnelsPerConnection` | `32`      | ADB channels plus published ports one computer may hold         |
+| `codeTTL`                 | `10m`     | How long the code in the portal's command works                 |
+| `certificateTTL`          | `15m`     | Lifetime of a computer's certificate, renewed in the background |
+| `refreshTTL`              | `720h`    | How long an unused computer stays enrolled                      |
 
-Published ports are bound on the device's loopback only, so privileged
-ports such as 80 and 443 are fine on emulators (their adbd runs as root).
-Shells, `exec`, SFTP, agent forwarding and forwarding to anything other than
-the device's ADB are always refused. Traffic through a tunnel counts as
-activity, so a device you use only over SSH is not reaped as idle. When the
-session ends, its SSH connections are closed.
-
-The ssh-gateway's own config also has `keyRequestTimeout` (default `5m`), how
-long a connection waits for its key to be added, and `portalURL`, the
-portal's address for the link; the chart sets it from `publicURL`.
-
-### Skipping the host key check
-
-:::danger[Bad practice]
-`skipHostKeyCheck: true` makes the commands the UI shows include
-`-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null`. SSH then
-accepts **any** host key without asking and never remembers it, so it can
-no longer tell the gateway from a man-in-the-middle, who could see and
-change everything that goes through the tunnels, ADB included. Prefer a
-stable `hostKey`: users accept it once and are protected from then on. Turn
-this on only where nobody can get between the users and the gateway, or
-when you can't keep a stable host key and know what you are giving up.
-:::
-
-It only changes the commands the portal shows. Users who type their own
-commands keep the usual checks.
+The gateway drops a client that stops answering its keepalives after about
+30 s (`keepaliveInterval`, 15 s), which frees its ports for the next
+connection.

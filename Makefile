@@ -3,12 +3,20 @@ BUN     ?= bun
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -s -w -X main.version=$(VERSION)
 
-.PHONY: all build web docs openapi sqlc check test lint fmt dev web-dev image session-image clean
+CONNECT_PLATFORMS := darwin/amd64 darwin/arm64 linux/amd64 linux/arm64
+
+.PHONY: all build connect web docs openapi sqlc check test lint fmt dev web-dev image session-image clean
 
 all: build
 
-build: web
+build: web connect
 	CGO_ENABLED=0 $(GO) build -trimpath -ldflags '$(LDFLAGS)' -o bin/holtdroid ./cmd/holtdroid
+
+connect:
+	@for p in $(CONNECT_PLATFORMS); do \
+		CGO_ENABLED=0 GOOS=$${p%/*} GOARCH=$${p#*/} $(GO) build -trimpath -ldflags '$(LDFLAGS)' \
+			-o bin/connect/holtdroid-connect-$${p%/*}-$${p#*/} ./cmd/holtdroid-connect || exit 1; \
+	done
 
 web: node_modules
 	$(BUN) run --cwd web build
@@ -54,7 +62,7 @@ image:
 session-image:
 	docker buildx build --platform linux/amd64 -f images/session.Dockerfile --build-arg VERSION=$(VERSION) -t holtdroid-session:$(VERSION) --load .
 
-dev:
+dev: connect
 	$(GO) run ./cmd/holtdroid dev --log-format text
 
 web-dev: node_modules

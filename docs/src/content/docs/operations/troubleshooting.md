@@ -37,7 +37,7 @@ includes `arm64-v8a` (or `x86_64`).
 
 - ARM-only native libraries run through Android's ARM translation layer;
   a few libraries (heavy NEON assembly, JIT engines, some DRM) don't work
-  under it. `adb logcat` through an [SSH tunnel](/holtdroid/concepts/ssh/)
+  under it. `adb logcat` from your [connected computer](/holtdroid/concepts/ssh/)
   shows `libndk_translation` in the crash's backtrace.
 - The app may detect root, an emulator or Frida and exit. The agent log shows
   the Frida spawn and the app's exit. Holtdroid never repackages an APK, so

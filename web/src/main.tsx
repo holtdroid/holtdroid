@@ -11,10 +11,10 @@ import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { AppDataPage } from "@/pages/app-data"
 import { AuditPage, validateAuditSearch } from "@/pages/audit"
+import { ComputersPage } from "@/pages/computers"
 import { HomePage } from "@/pages/home"
 import { LaunchPage, validateLaunchSearch } from "@/pages/launch"
 import { SessionPage } from "@/pages/session"
-import { SSHKeysPage } from "@/pages/ssh-keys"
 
 const onUnauthorized = (error: Error) => {
   if (error instanceof ApiError && error.status === 401) void queryClient.invalidateQueries({ queryKey: ["auth"] })
@@ -71,14 +71,7 @@ const launchRoute = createRoute({
   },
 })
 
-const sshKeysRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/ssh",
-  validateSearch: (search: Record<string, unknown>): { request?: string } => ({
-    request: typeof search.request === "string" ? search.request : undefined,
-  }),
-  component: SSHKeysPage,
-})
+const computersRoute = createRoute({ getParentRoute: () => rootRoute, path: "/computers", component: ComputersPage })
 
 const auditRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -90,7 +83,7 @@ const auditRoute = createRoute({
 const appDataRoute = createRoute({ getParentRoute: () => rootRoute, path: "/app-data", component: AppDataPage })
 
 const router = createRouter({
-  routeTree: rootRoute.addChildren([homeRoute, launchRoute, sessionRoute, sshKeysRoute, auditRoute, appDataRoute]),
+  routeTree: rootRoute.addChildren([homeRoute, launchRoute, sessionRoute, computersRoute, auditRoute, appDataRoute]),
 })
 
 declare module "@tanstack/react-router" {

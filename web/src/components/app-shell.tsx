@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router"
 import {
   BookOpenIcon,
   DatabaseIcon,
-  KeyRoundIcon,
+  LaptopIcon,
   LogOutIcon,
   MoonIcon,
   ScrollTextIcon,
@@ -13,7 +13,7 @@ import {
 import { useTheme } from "next-themes"
 import type { ReactNode } from "react"
 import { useAppData, useAuth, useLogout, useSessionEvents } from "@/api/queries"
-import { useSSHKeySync, useSSHTunnels } from "@/api/ssh-keys"
+import { useComputers, useSSHInfo } from "@/api/ssh"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -29,9 +29,9 @@ import logo from "@/logo.svg"
 
 export function AppShell({ children }: { children: ReactNode }) {
   useSessionEvents()
-  const sshSync = useSSHKeySync()
-  const sshTunnels = useSSHTunnels()
-  const tunnelDevices = sshTunnels.data?.sessions.length ?? 0
+  const sshInfo = useSSHInfo()
+  const computers = useComputers()
+  const online = computers.data?.computers.length ?? 0
   const auth = useAuth()
   const appData = useAppData()
   const logout = useLogout()
@@ -61,32 +61,26 @@ export function AppShell({ children }: { children: ReactNode }) {
               <TooltipContent>App data</TooltipContent>
             </Tooltip>
           )}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="relative" asChild>
-                <Link to="/ssh" activeProps={{ className: "bg-muted" }}>
-                  <KeyRoundIcon />
-                  {sshSync.isError ? (
-                    <span className="bg-destructive absolute top-1.5 right-1.5 size-2 rounded-full" />
-                  ) : (
-                    tunnelDevices > 0 && (
+          {sshInfo.data?.enabled && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="relative" asChild>
+                  <Link to="/computers" activeProps={{ className: "bg-muted" }}>
+                    <LaptopIcon />
+                    {online > 0 && (
                       <span className="absolute -top-0.5 -right-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-emerald-500 px-1 text-[10px] leading-none font-semibold text-white tabular-nums">
-                        {tunnelDevices}
+                        {online}
                       </span>
-                    )
-                  )}
-                  <span className="sr-only">SSH keys</span>
-                </Link>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {sshSync.isError
-                ? "SSH keys are not synced"
-                : tunnelDevices > 0
-                  ? `SSH keys · tunnels open to ${tunnelDevices} ${tunnelDevices === 1 ? "device" : "devices"}`
-                  : "SSH keys"}
-            </TooltipContent>
-          </Tooltip>
+                    )}
+                    <span className="sr-only">Computers</span>
+                  </Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {online > 0 ? `Computers · ${online} connected` : "Computers: your local ports on the devices"}
+              </TooltipContent>
+            </Tooltip>
+          )}
           {identity?.admin && (
             <Tooltip>
               <TooltipTrigger asChild>

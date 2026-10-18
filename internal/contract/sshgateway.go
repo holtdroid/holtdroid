@@ -2,83 +2,72 @@ package contract
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"net/http"
 	"net/url"
-	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kriakiku/holtdroid/internal/audit"
+	"github.com/kriakiku/holtdroid/internal/contract/control"
 )
 
 // SSHGateway is the internal API every ssh-gateway replica serves to the api.
 type SSHGateway interface {
-	SetUserKeys(ctx context.Context, user string, keys UserKeys) error
-	KeyRequest(ctx context.Context, code string) (KeyRequest, error)
+	HostKeys(ctx context.Context) ([]string, error)
+	Computers(ctx context.Context, user string) ([]control.Computer, error)
+	SetPublished(ctx context.Context, user, computer string, ports []int) error
 }
 
-// KeyRequest is an SSH connection waiting on one replica for its unknown key
-// to be added in the portal. The client has proven it holds the private key.
-type KeyRequest struct {
-	PublicKey   string    `json:"publicKey" doc:"authorized_keys line"`
-	Fingerprint string    `json:"fingerprint"`
-	Session     string    `json:"session" doc:"SSH user name the client asked for"`
-	ClientIP    string    `json:"clientIP"`
-	ExpiresAt   time.Time `json:"expiresAt"`
+type hostKeys struct {
+	Keys []string `json:"keys" doc:"authorized_keys lines of the gateway's host keys"`
 }
 
-type keyRequestInput struct {
-	Code string `path:"code" pattern:"^[a-z2-7]{16}$"`
+type computers struct {
+	Computers []control.Computer `json:"computers"`
 }
 
-type UserKeys struct {
-	Handle string   `json:"handle" doc:"SSH user name for all of the user's sessions, user-{pseudonym}"`
-	Groups []string `json:"groups"`
-	Admin  bool     `json:"admin"`
-	Keys   []string `json:"keys" maxItems:"64" doc:"authorized_keys lines; replaces the user's set and restarts its TTL"`
-}
-
-// KeysClaimedError lists the indexes of keys another user has registered.
-type KeysClaimedError struct {
-	Keys []int
-}
-
-func (e *KeysClaimedError) Error() string { return "key is registered by another user" }
-
-type setUserKeysInput struct {
+type userInput struct {
 	User string `path:"user" minLength:"1"`
-	Body UserKeys
 }
 
-func keyLocation(i int) string { return fmt.Sprintf("body.keys[%d]", i) }
+type publishedInput struct {
+	User     string `path:"user" minLength:"1"`
+	Computer string `path:"computer" minLength:"1"`
+	Body     struct {
+		Ports []int `json:"ports" maxItems:"256"`
+	}
+}
 
 func RegisterSSHGateway(api huma.API, g SSHGateway) {
 	tags := []string{"ssh-gateway"}
 
-	huma.Register(api, huma.Operation{
-		OperationID: "setUserKeys", Method: http.MethodPut, Path: "/v1/users/{user}/keys", Tags: tags, DefaultStatus: http.StatusNoContent,
-	}, func(ctx context.Context, in *setUserKeysInput) (*struct{}, error) {
-		err := g.SetUserKeys(ctx, in.User, in.Body)
-		if claimed, ok := errors.AsType[*KeysClaimedError](err); ok {
-			details := make([]error, 0, len(claimed.Keys))
-			for _, i := range claimed.Keys {
-				details = append(details, &huma.ErrorDetail{Message: claimed.Error(), Location: keyLocation(i)})
-			}
-			return nil, huma.Error409Conflict(claimed.Error(), details...)
-		}
-		return nil, toHuma(err)
-	})
-
-	huma.Register(api, huma.Operation{OperationID: "getKeyRequest", Method: http.MethodGet, Path: "/v1/key-requests/{code}", Tags: tags},
-		func(ctx context.Context, in *keyRequestInput) (*body[KeyRequest], error) {
-			r, err := g.KeyRequest(ctx, in.Code)
+	huma.Register(api, huma.Operation{OperationID: "getHostKeys", Method: http.MethodGet, Path: "/v1/host-keys", Tags: tags},
+		func(ctx context.Context, _ *struct{}) (*body[hostKeys], error) {
+			keys, err := g.HostKeys(ctx)
 			if err != nil {
 				return nil, toHuma(err)
 			}
-			return &body[KeyRequest]{r}, nil
+			return &body[hostKeys]{hostKeys{keys}}, nil
 		})
+
+	huma.Register(api, huma.Operation{OperationID: "listComputers", Method: http.MethodGet, Path: "/v1/users/{user}/computers", Tags: tags},
+		func(ctx context.Context, in *userInput) (*body[computers], error) {
+			list, err := g.Computers(ctx, in.User)
+			if err != nil {
+				return nil, toHuma(err)
+			}
+			if list == nil {
+				list = []control.Computer{}
+			}
+			return &body[computers]{computers{list}}, nil
+		})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "setPublished", Method: http.MethodPut, Path: "/v1/users/{user}/computers/{computer}/published", Tags: tags,
+		DefaultStatus: http.StatusNoContent,
+	}, func(ctx context.Context, in *publishedInput) (*struct{}, error) {
+		return nil, toHuma(g.SetPublished(ctx, in.User, in.Computer, in.Body.Ports))
+	})
 
 	registerHealth(api, "ssh-gateway")
 }
@@ -89,41 +78,36 @@ func NewSSHGatewayClient(baseURL string, hc *http.Client) *SSHGatewayClient {
 	return &SSHGatewayClient{newClient(baseURL, hc)}
 }
 
-func (g *SSHGatewayClient) SetUserKeys(ctx context.Context, user string, keys UserKeys) error {
-	if keys.Groups == nil {
-		keys.Groups = []string{}
-	}
-	if keys.Keys == nil {
-		keys.Keys = []string{}
-	}
-	err := g.c.do(ctx, http.MethodPut, "/v1/users/"+url.PathEscape(user)+"/keys", keys, nil)
-	if se, ok := errors.AsType[*StatusError](err); ok && se.Status == http.StatusConflict {
-		claimed := &KeysClaimedError{}
-		for _, d := range se.Errors {
-			for i := range keys.Keys {
-				if d.Location == keyLocation(i) {
-					claimed.Keys = append(claimed.Keys, i)
-				}
-			}
-		}
-		return claimed
-	}
-	return err
+func (g *SSHGatewayClient) HostKeys(ctx context.Context) ([]string, error) {
+	var out hostKeys
+	err := g.c.do(ctx, http.MethodGet, "/v1/host-keys", nil, &out)
+	return out.Keys, err
 }
 
-func (g *SSHGatewayClient) KeyRequest(ctx context.Context, code string) (KeyRequest, error) {
-	var r KeyRequest
-	err := g.c.do(ctx, http.MethodGet, "/v1/key-requests/"+url.PathEscape(code), nil, &r)
-	return r, err
+func (g *SSHGatewayClient) Computers(ctx context.Context, user string) ([]control.Computer, error) {
+	var out computers
+	err := g.c.do(ctx, http.MethodGet, "/v1/users/"+url.PathEscape(user)+"/computers", nil, &out)
+	return out.Computers, err
+}
+
+func (g *SSHGatewayClient) SetPublished(ctx context.Context, user, computer string, ports []int) error {
+	if ports == nil {
+		ports = []int{}
+	}
+	return g.c.do(ctx, http.MethodPut, "/v1/users/"+url.PathEscape(user)+"/computers/"+url.PathEscape(computer)+"/published",
+		struct {
+			Ports []int `json:"ports"`
+		}{ports}, nil)
 }
 
 // SSHSessions is the api's internal API for the ssh-gateway: it resolves the
-// session named by an SSH user name, takes tunnel traffic as activity and
-// keeps the gateway's audit events in the api's audit store.
+// sessions behind an SSH user name, takes tunnel traffic as activity, names
+// the certificate authority that signs connect clients' keys and keeps the
+// gateway's audit events in the api's audit store.
 type SSHSessions interface {
-	SSHSession(ctx context.Context, slug string) (SSHSession, error)
 	SSHActivity(ctx context.Context, slug string) error
 	SSHUserSessions(ctx context.Context, handle string) ([]SSHSession, error)
+	SSHAuthority(ctx context.Context) (string, error)
 	RecordAudit(ctx context.Context, events []audit.Event) error
 }
 
@@ -158,15 +142,6 @@ type slugInput struct {
 func RegisterSSHSessions(api huma.API, s SSHSessions) {
 	tags := []string{"ssh-gateway"}
 
-	huma.Register(api, huma.Operation{OperationID: "getSSHSession", Method: http.MethodGet, Path: "/internal/sessions/{slug}", Tags: tags},
-		func(ctx context.Context, in *slugInput) (*body[SSHSession], error) {
-			sess, err := s.SSHSession(ctx, in.Slug)
-			if err != nil {
-				return nil, toHuma(err)
-			}
-			return &body[SSHSession]{sess}, nil
-		})
-
 	huma.Register(api, huma.Operation{
 		OperationID: "sshActivity", Method: http.MethodPost, Path: "/internal/sessions/{slug}/activity", Tags: tags, DefaultStatus: http.StatusNoContent,
 	}, func(ctx context.Context, in *slugInput) (*struct{}, error) {
@@ -185,6 +160,15 @@ func RegisterSSHSessions(api huma.API, s SSHSessions) {
 			return &body[SSHUserSessions]{SSHUserSessions{sessions}}, nil
 		})
 
+	huma.Register(api, huma.Operation{OperationID: "getSSHAuthority", Method: http.MethodGet, Path: "/internal/ssh/authority", Tags: tags},
+		func(ctx context.Context, _ *struct{}) (*body[sshAuthority], error) {
+			key, err := s.SSHAuthority(ctx)
+			if err != nil {
+				return nil, toHuma(err)
+			}
+			return &body[sshAuthority]{sshAuthority{key}}, nil
+		})
+
 	huma.Register(api, huma.Operation{
 		OperationID: "recordAudit", Method: http.MethodPost, Path: "/internal/audit/events", Tags: tags, DefaultStatus: http.StatusNoContent,
 	}, func(ctx context.Context, in *auditEventsInput) (*struct{}, error) {
@@ -192,16 +176,14 @@ func RegisterSSHSessions(api huma.API, s SSHSessions) {
 	})
 }
 
+type sshAuthority struct {
+	PublicKey string `json:"publicKey" doc:"authorized_keys line of the user CA"`
+}
+
 type SSHSessionsClient struct{ c client }
 
 func NewSSHSessionsClient(baseURL string, hc *http.Client) *SSHSessionsClient {
 	return &SSHSessionsClient{newClient(baseURL, hc)}
-}
-
-func (c *SSHSessionsClient) SSHSession(ctx context.Context, slug string) (SSHSession, error) {
-	var s SSHSession
-	err := c.c.do(ctx, http.MethodGet, "/internal/sessions/"+url.PathEscape(slug), nil, &s)
-	return s, err
 }
 
 func (c *SSHSessionsClient) SSHUserSessions(ctx context.Context, handle string) ([]SSHSession, error) {
@@ -216,4 +198,10 @@ func (c *SSHSessionsClient) SSHActivity(ctx context.Context, slug string) error 
 
 func (c *SSHSessionsClient) RecordAudit(ctx context.Context, events []audit.Event) error {
 	return c.c.do(ctx, http.MethodPost, "/internal/audit/events", events, nil)
+}
+
+func (c *SSHSessionsClient) SSHAuthority(ctx context.Context) (string, error) {
+	var out sshAuthority
+	err := c.c.do(ctx, http.MethodGet, "/internal/ssh/authority", nil, &out)
+	return out.PublicKey, err
 }

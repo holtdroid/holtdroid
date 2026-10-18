@@ -230,23 +230,48 @@ agent's is `agent.Tunnels`, which the fake provider reuses.
 | `WS` | `/tunnel/adb` | one WebSocket per ADB connection, binary messages carry raw bytes to the device's adbd, relayed and filtered like `/adb`; 502 before the upgrade when adbd is unreachable |
 | `WS` | `/tunnel/reverse/{port}` | publishes device `localhost:{port}` (`adb reverse`) before the upgrade; device-side connections arrive as yamux streams the agent opens over this socket (the gateway is the yamux server); closing it removes the reverse. 400 for a port outside 1–65535, 409 when the port is already published, 502 when adb fails |
 
-Both carry `X-Holtdroid-User` (the SSH user, for `/v1/tunnels`).
+Both carry `X-Holtdroid-User` (the computer owner's login, for `/v1/tunnels`).
 Messages are at most 1 MiB.
 
 ### ssh-gateway internal API
 
-`contract.RegisterSSHGateway` / `contract.SSHGatewayClient`; the in-memory
-key store is `internal/sshgateway.Keys`.
+`contract.RegisterSSHGateway` / `contract.SSHGatewayClient`; the gateway
+itself (`sshgateway.Gateway`) implements it. Each replica knows only the
+connect clients attached to it, so the api asks every replica.
 
 | Method | Path | Notes |
 |--------|------|-------|
-| `PUT` | `/v1/users/{user}/keys` | from the api: `{handle, groups, admin, keys: [authorized_keys lines]}` (`handle` is the user's `user-…` SSH name, decision #50); replaces that user's set and restarts its TTL; an empty list drops it. 409 with `errors[].location = body.keys[i]` when another user holds a key — nothing is changed then |
-| `GET` | `/v1/key-requests/{code}` | from the api: `{publicKey, fingerprint, session, clientIP, expiresAt}` of a connection waiting on this replica for its unknown key to be added (decision #46); 404 when no connection here holds the code. `code` is 16 characters `[a-z2-7]` |
+| `GET` | `/v1/host-keys` | `{keys: [authorized_keys lines]}`, the host keys the api hands to enrolling clients |
+| `GET` | `/v1/users/{user}/computers` | `{computers: [Computer]}` attached to this replica: `{id, hostname, os, arch, version, clientIP, since, listening: [{port, process?}], published: [port], adb: [{session, port}]}`; a computer that reconnected appears once |
+| `PUT` | `/v1/users/{user}/computers/{computer}/published` | `{ports}` → 204 after the gateway sent the client a `publish` message; 404 when no client of that computer is attached here |
 | `GET` | `/v1/health` | readiness |
 
 In the other direction the gateway calls the api's internal port through
 `contract.SSHSessions` / `contract.SSHSessionsClient` (rows at the end of the
 UI API table).
+
+### Connect client protocol
+
+Types in `internal/contract/control`, which has no dependencies so the
+client binary stays small (decision #64).
+
+- **Enrollment and refresh** are the UI API's `POST /api/v1/connect/enroll`
+  and `/refresh` below.
+- **SSH login** as the user's handle with a certificate from the api's CA:
+  principal = handle, key id = computer id, extensions `user@holtdroid`,
+  `admin@holtdroid` (`true` or absent), `hostname@holtdroid`.
+- **ADB**: `direct-tcpip` to `{provider}-{id}:5555`.
+- **Published ports**: `tcpip-forward` / `cancel-tcpip-forward` for the port
+  on every ready session of the user.
+- **Control**: subsystem `holtdroid-control@holtdroid` on a `session`
+  channel, one JSON object per line, `{type, …}`:
+
+| `type` | From | Fields |
+|--------|------|--------|
+| `hello` | client, once | `hello: {version, os, arch}` |
+| `state` | client, on change | `state: {listening: [{port, process?}], published: [port], adb: [{session, port}]}` |
+| `sessions` | gateway, on change and when the channel opens | `sessions: [{slug, provider, id}]`, the user's ready sessions; absent = none |
+| `publish` | gateway | `publish: [port]`, the exact set the client should publish (from the portal); absent = none |
 
 The fake provider (`internal/provider/fake`) implements all of it with
 placeholder HTML for the screen and DevTools pages.
@@ -266,10 +291,15 @@ keeping the provider in the path is what lets the api stay stateless.
 | `GET` | `/api/v1/auth/oidc/callback` | public; sets the cookie and redirects back |
 | `GET` | `/api/v1/me` | `{user, name, email, groups, admin}` |
 | `GET` | `/api/v1/adb` | `{browser, ownerOnly}`: whether session pages may open ADB at `/s/{provider}/{id}/adb`, and whether only owners and admins may |
-| `GET` | `/api/v1/ssh` | `{enabled, host?, port, allowADB, allowReverse, clientIsolation, maxTunnels, keyRequests, skipHostKeyCheck, handle?}` for the UI; empty `host` = the UI's own host; `handle` is the caller's `user-{pseudonym}` SSH name for all of their sessions; `skipHostKeyCheck` adds `-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null` to the commands it shows |
-| `GET` | `/api/v1/ssh/key-requests/{code}` | the waiting connection behind a link the gateway printed, asked from every replica → `{publicKey, fingerprint, session, clientIP, expiresAt}`; 404 when none holds it (or SSH is disabled), 502 when no replica answered. Adding the key is the ordinary `PUT /api/v1/ssh/keys` |
-| `GET` | `/api/v1/ssh/tunnels` | the caller's SSH tunnels open right now → `{sessions: [{provider, id, adb: [ADBTunnel], reverse: [ReverseTunnel]}]}`, only sessions with at least one; the api asks the agent of every ready session (`GET /v1/tunnels/current`) and leaves out those that don't answer within 5 s. Empty when SSH is disabled. The UI polls it every 5 s for the SSH keys page and the green count on the header's key button |
-| `PUT` | `/api/v1/ssh/keys` | `{keys: [{name, publicKey}]}` (≤ 32) — the caller's full key list, replaces the previous one on every gateway replica → `{replicas}`; 404 when SSH is disabled, 422 on invalid, duplicate or already-claimed keys (`errors[].location = body.keys[i].publicKey`), 502 when no replica accepted |
+| `GET` | `/api/v1/ssh` | `{enabled, host?, port, allowADB, allowReverse, maxTunnels, handle?}` for the UI; empty `host` = the UI's own host; `handle` is the caller's `user-{pseudonym}` SSH name |
+| `POST` | `/api/v1/connect/codes` | `{code, expiresAt}`: a one-time enrollment code for the caller, valid `ssh.codeTTL`; the UI shows `curl -fsSL {origin}/tunnel.sh \| sh -s -- {code}`. 404 when SSH is disabled |
+| `POST` | `/api/v1/connect/enroll` | public; from the client: `{code, publicKey, hostname, os, arch}` → `Credentials` `{user, computer, handle, host, port, hostKeys, certificate, certificateExpiresAt, refreshToken, refreshExpiresAt}`; 401 for an invalid, expired or already used code, 422 for an invalid key, 502 when no gateway names its host key. Emits `ssh.enroll` |
+| `POST` | `/api/v1/connect/refresh` | public; from the client: `{refreshToken, publicKey}` → new `Credentials` with a new refresh token; 401 when the token is invalid or expired or the key isn't the one it was issued for |
+| `GET` | `/api/v1/ssh/computers` | the caller's connected computers from every gateway replica → `{computers: [Computer]}`; empty when SSH is disabled, 502 when no replica answered. The UI polls it every 3 s |
+| `PUT` | `/api/v1/ssh/computers/{id}/published` | `{ports}` (≤ 256, each 1–65535) → 204 once the replica holding that computer passed it on; 404 when it isn't connected |
+| `GET` | `/api/v1/ssh/tunnels` | the caller's tunnels open right now → `{sessions: [{provider, id, adb: [ADBTunnel], reverse: [ReverseTunnel]}]}`, only sessions with at least one; the api asks the agent of every ready session (`GET /v1/tunnels/current`) and leaves out those that don't answer within 5 s. Empty when SSH is disabled. The UI polls it every 5 s for the Computers page |
+| `GET` | `/tunnel.sh` | public; the bootstrap script with the portal URL and the SHA-256 of each build in `ssh.clientDir`; 404 when SSH is disabled |
+| `GET` | `/connect/holtdroid-connect-{os}-{arch}` | public; a client build (`darwin`/`linux`, `amd64`/`arm64`) |
 | `GET` | `/api/v1/sources` | `[{name, readOnly}]` |
 | `GET` | `/api/v1/artifacts?source=&cursor=&limit=` | artifacts the caller may see (private ones only for owner/admins) from every source or one, newest first, offset cursor. Items: `{source, id, revision, fileName, size, uploadedAt, meta, app?, iconUrl?, canManage}` — `id` is base64url of the key, `meta` the sidecar, `app` the parsed APK once cached; per-source failures come back in `errors[]` |
 | `PATCH` | `/api/v1/artifacts/{source}/{id}` | `{visibility}` → artifact; owner or admin, 403 on `readOnly` sources, 404 when the caller can't see it |
@@ -295,7 +325,7 @@ keeping the provider in the path is what lets the api stay stateless.
 | `*` | `/s/{provider}/{id}/…` | proxy to the session's agent (HTTP + WS); any authenticated user may use it; non-GET requests count as activity |
 | `GET` | `/internal/artifacts/{key}` | APK download for agents by cache key, **internal port only** |
 | `GET` | `/internal/app-data/{key}` | app data download for agents, **internal port only**; `key` is `{user hash}/{package}/{id}.tar.zst`, ids carry 96 random bits |
-| `GET` | `/internal/sessions/{slug}` | gateway only, **internal port**: `{provider, id, owner, state, tunnelUrl?}` for slug `{provider}-{id}`; 404 when no provider has it |
+| `GET` | `/internal/ssh/authority` | gateway only, **internal port**: `{publicKey}` of the CA that signs connect clients' certificates; 404 when SSH is disabled |
 | `POST` | `/internal/sessions/{slug}/activity` | gateway only, **internal port**: tunnel traffic counts as activity → 204; 404 for an unknown session |
 | `GET` | `/internal/users/{handle}/sessions` | gateway only, **internal port**: `{sessions: [SSHSession]}`, every session (any state) whose owner has this `user-…` handle; empty for an unknown handle; 500 if a provider can't list, so the gateway keeps what it has |
 | `POST` | `/internal/audit/events` | gateway only, **internal port**: a JSON array (≤ 1000) of audit events the gateway emitted, kept in the api's audit store → 204; dropped when `audit.store` is off |

@@ -57,7 +57,6 @@ them (any namespace by default).
 | `holtdroid_ssh_tunnels`                     | gauge     | ssh-gateway      | `kind` (`adb`, `reverse`)                                                  |
 | `holtdroid_ssh_tunnels_total`               | counter   | ssh-gateway      | `kind`, `result`                                                           |
 | `holtdroid_ssh_bytes_total`                 | counter   | ssh-gateway      |                                                                            |
-| `holtdroid_ssh_key_requests_total`          | counter   | ssh-gateway      | `result` (`created`, `added`, `expired`)                                   |
 | `holtdroid_http_requests_total`             | counter   | every API        | `api`, `operation`, `code`                                                 |
 | `holtdroid_http_request_duration_seconds`   | histogram | every API        | `api`, `operation`                                                         |
 | `holtdroid_audit_events_total`              | counter   | api, ssh-gateway | `action`, `result`                                                         |
@@ -128,30 +127,30 @@ while their regular logs go to stderr. Every audit line has
 | `reason`              | Why it was denied or failed, or why the reaper stopped the session         |
 | `details`             | Action-specific strings                                                    |
 
-| Action              | Details                                              | Notes                                                                                                                     |
-| ------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `auth.signin`       | `method` (`anonymous`, `password`, `oidc`)           | Header mode has no sign-in: your proxy did it                                                                             |
-| `auth.signout`      |                                                      |                                                                                                                           |
-| `session.launch`    | `package`, `location`, `appData`, `appDataCache`     | `appData` is the id of the save the session started from                                                                  |
-| `session.stop`      |                                                      | Stopped by a user                                                                                                         |
-| `session.reap`      | `owner`                                              | `reason`: `idle timeout` or `max TTL reached`                                                                             |
-| `session.extend`    |                                                      |                                                                                                                           |
-| `session.install`   | `package`, `keepData`                                | Another build installed into a running session                                                                            |
-| `session.location`  | `location`                                           | VPN location switch                                                                                                       |
-| `session.clipboard` |                                                      | Clipboard writes through the agent API; never the content. Clipboard sync inside the scrcpy stream is not seen by the api |
-| `artifact.upload`   | `package`, `version`, `visibility`, `temporary`      |                                                                                                                           |
-| `artifact.update`   | `visibility`, `temporary`                            |                                                                                                                           |
-| `artifact.delete`   |                                                      |                                                                                                                           |
-| `ssh.keys`          | `keys`, `fingerprints`, `replicas`                   | A user replaced their SSH keys                                                                                            |
-| `ssh.connect`       | `slug` when denied                                   | From the ssh-gateway                                                                                                      |
-| `ssh.disconnect`    | `seconds`, `bytes`                                   |                                                                                                                           |
-| `ssh.tunnel`        | `kind` (`adb`, `reverse`), `port`                    | Every `-L 5555:adb:5555` and `-R` request                                                                                 |
-| `appdata.save`      | `owner`, `package`, `trigger`, `id`, `cache`, `size` | `trigger`: `stop`, `reap` or `manual`; nothing is recorded when the app had no data                                       |
-| `appdata.download`  | `package`, `id`                                      |                                                                                                                           |
-| `appdata.delete`    | `package`, `id`                                      | Deleted by the user; retention deletions are only logged                                                                  |
-| `adb.connect`       |                                                      | The session page's ADB connection; denied per `adb.browser` / `adb.ownerOnly`                                             |
-| `adb.disconnect`    | `seconds`                                            |                                                                                                                           |
-| `audit.export`      | `events`, `q`                                        | An admin downloaded events from the audit page                                                                            |
+| Action              | Details                                                   | Notes                                                                                                                     |
+| ------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `auth.signin`       | `method` (`anonymous`, `password`, `oidc`)                | Header mode has no sign-in: your proxy did it                                                                             |
+| `auth.signout`      |                                                           |                                                                                                                           |
+| `session.launch`    | `package`, `location`, `appData`, `appDataCache`          | `appData` is the id of the save the session started from                                                                  |
+| `session.stop`      |                                                           | Stopped by a user                                                                                                         |
+| `session.reap`      | `owner`                                                   | `reason`: `idle timeout` or `max TTL reached`                                                                             |
+| `session.extend`    |                                                           |                                                                                                                           |
+| `session.install`   | `package`, `keepData`                                     | Another build installed into a running session                                                                            |
+| `session.location`  | `location`                                                | VPN location switch                                                                                                       |
+| `session.clipboard` |                                                           | Clipboard writes through the agent API; never the content. Clipboard sync inside the scrcpy stream is not seen by the api |
+| `artifact.upload`   | `package`, `version`, `visibility`, `temporary`           |                                                                                                                           |
+| `artifact.update`   | `visibility`, `temporary`                                 |                                                                                                                           |
+| `artifact.delete`   |                                                           |                                                                                                                           |
+| `ssh.enroll`        | `computer`, `hostname`, `fingerprint`, `os`               | A computer was enrolled with a code from the portal; denied for invalid, expired or reused codes                          |
+| `ssh.connect`       | `computer`, `hostname`                                    | From the ssh-gateway; denied for a rejected certificate from the portal's authority                                       |
+| `ssh.disconnect`    | `computer`, `hostname`, `seconds`, `bytes`                |                                                                                                                           |
+| `ssh.tunnel`        | `computer`, `hostname`, `kind` (`adb`, `reverse`), `port` | Every ADB connection and port published on a device                                                                       |
+| `appdata.save`      | `owner`, `package`, `trigger`, `id`, `cache`, `size`      | `trigger`: `stop`, `reap` or `manual`; nothing is recorded when the app had no data                                       |
+| `appdata.download`  | `package`, `id`                                           |                                                                                                                           |
+| `appdata.delete`    | `package`, `id`                                           | Deleted by the user; retention deletions are only logged                                                                  |
+| `adb.connect`       |                                                           | The session page's ADB connection; denied per `adb.browser` / `adb.ownerOnly`                                             |
+| `adb.disconnect`    | `seconds`                                                 |                                                                                                                           |
+| `audit.export`      | `events`, `q`                                             | An admin downloaded events from the audit page                                                                            |
 
 Session actions are also kept in the api's database for the session's
 lifetime.
