@@ -174,10 +174,11 @@ func (m Model) pickerView(rows int) string {
 		}
 		line := title.Render(name) + "  " + muted.Render(firstNonEmpty(a.Package, a.FileName)+" · "+ago(a.UploadedAt, m.now()))
 		if i == p.cursor {
-			b.WriteString(pointer + line + "\n")
+			line = pointer + line
 		} else {
-			b.WriteString("  " + line + "\n")
+			line = "  " + line
 		}
+		b.WriteString(zone(row(i), line) + "\n")
 	}
 	return strings.TrimRight(b.String(), "\n")
 }

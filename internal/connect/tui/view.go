@@ -43,7 +43,10 @@ const (
 |_| |_|\___/|_|\__\__,_|_|  \___/|_|\__,_|`
 )
 
-func (m Model) View() string {
+func (m Model) View() string { return stripZones(m.frame()) }
+
+// frame is the screen with its clickable parts marked.
+func (m Model) frame() string {
 	height := max(m.height-1, 10)
 	side := m.sidebar(height)
 	contentWidth := max(m.width-sidebarWidth-2, 20)
@@ -72,13 +75,13 @@ func (m Model) sidebar(height int) string {
 		line := fmt.Sprintf("%-10s%3s", name, count)
 		switch {
 		case section(i) == m.section && !m.content:
-			b.WriteString(pointer + chosen.Render(line))
+			line = pointer + chosen.Render(line)
 		case section(i) == m.section:
-			b.WriteString(muted.Render("› ") + chosen.Render(line))
+			line = muted.Render("› ") + chosen.Render(line)
 		default:
-			b.WriteString("  " + line)
+			line = "  " + line
 		}
-		b.WriteString("\n")
+		b.WriteString(zone("sec:"+strconv.Itoa(i), line) + "\n")
 	}
 	return lipgloss.NewStyle().Border(border).BorderForeground(dim).Padding(0, 1).
 		Width(sidebarWidth - 2).Height(height - 2).Render(strings.TrimRight(b.String(), "\n"))
@@ -99,7 +102,7 @@ func (m Model) help() string {
 	keys := "↑↓ move · → open · 1-5 sections · q quit"
 	switch {
 	case m.confirm != nil:
-		return ansi.Truncate(warn.Render(" "+m.confirm.text)+muted.Render("  y yes · any other key no"), m.width, "…")
+		return ansi.Truncate(warn.Render(" "+m.confirm.text)+"  "+buttons("y yes · any other key no"), m.width, "…")
 	case m.picker != nil:
 		keys = "type to filter · ↑↓ move · enter launch · esc cancel"
 	case m.adding:
@@ -123,11 +126,44 @@ func (m Model) help() string {
 	case m.section == devices:
 		keys = "→ open · N new device · X stop · 1-5 sections · q quit"
 	}
-	line := muted.Render(" " + keys)
+	line := " " + buttons(keys)
 	if m.flash != "" {
-		line = bad.Render(" "+m.flash) + muted.Render("  ·  "+keys)
+		line = bad.Render(" "+m.flash) + muted.Render("  ·  ") + buttons(keys)
 	}
 	return ansi.Truncate(line, m.width, "…")
+}
+
+// buttons makes every "key what" hint of keys clickable as that key.
+func buttons(keys string) string {
+	parts := strings.Split(keys, " · ")
+	for i, p := range parts {
+		if k := hintKey(p); k != "" {
+			parts[i] = zone("key:"+k, muted.Render(p))
+		} else {
+			parts[i] = muted.Render(p)
+		}
+	}
+	return strings.Join(parts, muted.Render(" · "))
+}
+
+func hintKey(hint string) string {
+	k, _, _ := strings.Cut(hint, " ")
+	switch k {
+	case "→":
+		return "right"
+	case "←":
+		return "left"
+	case "space":
+		return " "
+	case "any":
+		return "n"
+	case "enter", "esc":
+		return k
+	}
+	if len(k) == 1 && (k[0] >= 'a' && k[0] <= 'z' || k[0] >= 'A' && k[0] <= 'Z') {
+		return k
+	}
+	return ""
 }
 
 func (m Model) body(width, height int) string {
@@ -210,7 +246,7 @@ func (m Model) devicesView() string {
 	}
 	b.WriteString(title.Render("Devices") + muted.Render(hint) + "\n\n")
 	if len(s.Sessions) == 0 {
-		b.WriteString(muted.Render("No device is running. Press N to launch one, or launch it in the portal."))
+		b.WriteString(zone("key:N", muted.Render("No device is running. Press N to launch one, or launch it in the portal.")))
 		return b.String()
 	}
 	adb := map[string]connect.ADBDevice{}
@@ -224,10 +260,11 @@ func (m Model) devicesView() string {
 		}
 		line := title.Render(name) + muted.Render("  "+d.Slug)
 		if m.content && i == m.cursor {
-			b.WriteString(pointer + line + "\n")
+			line = pointer + line
 		} else {
-			b.WriteString("  " + line + "\n")
+			line = "  " + line
 		}
+		b.WriteString(zone(row(i), line) + "\n")
 		a, ok2 := adb[d.Slug]
 		switch {
 		case s.ADBOff:
@@ -321,14 +358,15 @@ func (m Model) portsView(height int) string {
 			line += "  " + bad.Render(reason)
 		}
 		if m.content && i == m.cursor {
-			b.WriteString(pointer + line + "\n")
+			line = pointer + line
 		} else {
-			b.WriteString("  " + line + "\n")
+			line = "  " + line
 		}
+		b.WriteString(zone(row(i), line) + "\n")
 	}
 	other := len(s.Listening) - countDev(s)
 	if !m.showAll && other > 0 {
-		fmt.Fprintf(&b, "\n%s", muted.Render(fmt.Sprintf("%d other ports (system services, apps) · a to show", other)))
+		fmt.Fprintf(&b, "\n%s", zone("key:a", muted.Render(fmt.Sprintf("%d other ports (system services, apps) · a to show", other))))
 	}
 	return strings.TrimRight(b.String(), "\n")
 }
@@ -354,31 +392,33 @@ func (m Model) logView(height int) string {
 func (m Model) settingsView(width int) string {
 	s := m.snap
 	var b strings.Builder
-	row := func(name, value string) { b.WriteString(label.Render(name) + value + "\n") }
+	field := func(name, value string) { b.WriteString(label.Render(name) + value + "\n") }
 	b.WriteString(title.Render("Settings") + "\n\n")
 	version := s.Version
 	if version == "" {
 		version = "dev"
 	}
-	row("Client", version)
-	row("Portal", s.Portal)
-	row("User", s.User)
-	row("Computer", s.Hostname+muted.Render(" · "+s.Computer))
-	row("Key", s.Fingerprint)
-	row("Config", tilde(s.Dir))
+	field("Client", version)
+	field("Portal", s.Portal)
+	field("User", s.User)
+	field("Computer", s.Hostname+muted.Render(" · "+s.Computer))
+	field("Key", s.Fingerprint)
+	field("Config", tilde(s.Dir))
 	if m.exe != "" {
-		row("Binary", tilde(m.exe))
+		field("Binary", tilde(m.exe))
 	}
 	if !s.RefreshExpiresAt.IsZero() {
-		row("Enrolled", "until "+s.RefreshExpiresAt.Local().Format("2 Jan 2006")+muted.Render(", extended on every renewal"))
+		field("Enrolled", "until "+s.RefreshExpiresAt.Local().Format("2 Jan 2006")+muted.Render(", extended on every renewal"))
 	}
 	items := m.settingsItems()
 	item := func(id, text string) {
-		if m.content && m.cursor < len(items) && items[m.cursor] == id {
-			b.WriteString(pointer + chosen.Render(text) + "\n")
+		i := slices.Index(items, id)
+		if m.content && i == m.cursor {
+			text = pointer + chosen.Render(text)
 		} else {
-			b.WriteString("  " + text + "\n")
+			text = "  " + text
 		}
+		b.WriteString(zone(row(i), text) + "\n")
 	}
 
 	b.WriteString("\n" + title.Render("The holtdroid command") + "\n")

@@ -139,6 +139,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	case tea.KeyMsg:
 		return m.key(msg)
+	case tea.MouseMsg:
+		return m.mouse(msg)
 	}
 	return m, nil
 }
@@ -421,7 +423,7 @@ func Run(ctx context.Context, log *Log, cfg Config, start func(onChange func(con
 	m := New(cl, log, cl.Snapshot())
 	m.wake = nudge
 	m.outdated, m.update = cfg.Outdated, cfg.Update
-	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithContext(ctx))
+	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion(), tea.WithContext(ctx))
 	go func() {
 		for {
 			select {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -208,24 +209,25 @@ func (m Model) sessionView(width, height int) string {
 	if s.VersionName != "" {
 		name += " " + s.VersionName
 	}
-	b.WriteString(title.Render(name) + muted.Render(" · "+s.Slug) + "\n")
+	b.WriteString(zone("key:esc", muted.Render("‹ ")) + title.Render(name) + muted.Render(" · "+s.Slug) + "\n")
 	if m.snap.ADBOff {
 		b.WriteString(muted.Render(strings.Repeat("─", width)) + "\n")
 		b.WriteString(warn.Render("ADB is turned off on this portal.") + "\n")
 		b.WriteString("Logcat, a shell and the device's details need it.\n\n")
-		b.WriteString(label.Render("R") + "restart the app\n")
-		b.WriteString(label.Render("I") + "reinstall it\n")
-		b.WriteString(label.Render("X") + "stop the device\n")
-		b.WriteString(label.Render("o") + "open it in the browser")
+		b.WriteString(zone("key:R", label.Render("R")+"restart the app") + "\n")
+		b.WriteString(zone("key:I", label.Render("I")+"reinstall it") + "\n")
+		b.WriteString(zone("key:X", label.Render("X")+"stop the device") + "\n")
+		b.WriteString(zone("key:o", label.Render("o")+"open it in the browser"))
 		return b.String()
 	}
 	var bar []string
 	for i, t := range tabs {
 		if tab(i) == ss.tab {
-			bar = append(bar, chosen.Render("["+t+"]"))
+			t = chosen.Render("[" + t + "]")
 		} else {
-			bar = append(bar, " "+t+" ")
+			t = " " + t + " "
 		}
+		bar = append(bar, zone("tab:"+strconv.Itoa(i), t))
 	}
 	b.WriteString(strings.Join(bar, " ") + "\n")
 	b.WriteString(muted.Render(strings.Repeat("─", width)) + "\n")
@@ -235,7 +237,7 @@ func (m Model) sessionView(width, height int) string {
 		b.WriteString(m.logcatView(rows))
 	case shellTab:
 		b.WriteString("A shell on the device, in this terminal.\n\n")
-		b.WriteString(pointer + chosen.Render("Open the shell") + "\n\n")
+		b.WriteString(zone("key:enter", pointer+chosen.Render("Open the shell")) + "\n\n")
 		b.WriteString(muted.Render("exit or Ctrl+D brings you back here. Root on emulators."))
 	case deviceTab:
 		b.WriteString(fieldsView(ss.device, ss.devErr, ss.loading[deviceTab]))
