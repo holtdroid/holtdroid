@@ -103,7 +103,12 @@ deployment"):
   per-session sing-box on the host (decision #69). Image
   `ghcr.io/kriakiku/holtdroid-physical` with adb, scrcpy-server, sing-box
   and the tunnel APK (decision #70). Not yet: root mode, the rest of the
-  Phase 7 protections; not yet tried on a real phone, and not in the chart.
+  Phase 7 protections, the chart. Tried on a real phone (Samsung Galaxy
+  A05, Android 14, no SIM) through `holtdroid-physical` in a scratch
+  namespace on 2026-10-19: install, screen, DevTools of a debuggable app,
+  VPN over USB with location switching on the fly (PL, UA, direct; the
+  app's own traffic follows), reset after the session. The ADB proxy
+  (browser and SSH) is not tried on a phone yet.
 - `provider-fake` (fake devices whose agent streams a recorded screen and serves placeholder
   DevTools pages).
 - Single Go binary + embedded UI, distroless image, Helm chart, CI, release
@@ -119,8 +124,8 @@ deployment"):
 
 ## Next steps, in order
 
-1. Phones: try `provider-physical`, its ADB proxy and the USB VPN on a real
-   phone, then root mode.
+1. Phones: the Helm chart for `provider-physical`, try the ADB proxy on a
+   real phone, then root mode.
 2. The conformance suite (`internal/contract/conformance`) for Provider and
    Agent — the last open item of Phases 1 and 3.
 3. Planned, each starting with a decisions.md entry: Phase 4.7 traffic

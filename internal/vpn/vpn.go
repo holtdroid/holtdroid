@@ -164,6 +164,11 @@ func (c Config) Render(ctx context.Context, sec Secrets, location string) ([]byt
 
 const bypass = "bypass"
 
+// tunnelDNS are the DNS servers Holtdroid Tunnel announces to apps; nothing
+// answers them, so anything but plain DNS (Android's private DNS probe on
+// 853) is refused at once instead of timing out on the bypass route.
+var tunnelDNS = []string{"172.19.0.2/32", "fdfe:dcba:9876::2/128"}
+
 // RenderProxy returns the config of a session's sing-box on a phone's host:
 // a mixed inbound on listen, which the phone's tunnel app reaches through adb
 // reverse, and the clash API on clash. The bypass CIDRs go out directly, as
@@ -179,6 +184,7 @@ func (c Config) RenderProxy(ctx context.Context, sec Secrets, location string, l
 		{"action": "sniff"},
 		{"protocol": "dns", "action": "hijack-dns"},
 		{"port": 53, "action": "hijack-dns"},
+		{"ip_cidr": tunnelDNS, "action": "reject"},
 		{"ip_cidr": c.BypassCIDRs, "outbound": bypass},
 	}
 	return c.render(ctx, sec, location, inbound, rules, []obj{{"type": "direct", "tag": bypass}}, clash)
