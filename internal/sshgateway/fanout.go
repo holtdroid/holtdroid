@@ -18,8 +18,10 @@ import (
 
 func isHandle(name string) bool { return strings.HasPrefix(name, contract.HandlePrefix) }
 
-// retryAfter keeps a port that a device refused (usually because it is
-// already published there) from being asked for again on every refresh.
+// retryAfter caps how long a port that a device refused (usually because it
+// is already published there) waits before it is asked for again. The wait
+// starts at the refresh interval, since a device may still be releasing this
+// connection's previous tunnel for the port, and doubles on every refusal.
 const retryAfter = 30 * time.Second
 
 // fanout publishes a connection's ports on every ready session of its user,
@@ -47,7 +49,12 @@ type device struct {
 	bytes              atomic.Int64
 	reported           time.Time
 	open               map[uint32]*yamux.Session
-	failed             map[uint32]time.Time
+	failed             map[uint32]refusal
+}
+
+type refusal struct {
+	next time.Time
+	wait time.Duration
 }
 
 func newFanout(c *conn, handle string) *fanout {
@@ -188,7 +195,7 @@ func (f *fanout) refresh(ctx context.Context) {
 			f.devices[slug] = &device{
 				provider: s.Provider, id: s.ID, slug: slug, tunnel: contract.NewTunnelClient(s.TunnelURL, nil), reported: now,
 				info: control.Session{Slug: slug, Provider: s.Provider, ID: s.ID, Package: s.Package, Label: s.Label, VersionName: s.VersionName},
-				open: map[uint32]*yamux.Session{}, failed: map[uint32]time.Time{},
+				open: map[uint32]*yamux.Session{}, failed: map[uint32]refusal{},
 			}
 			f.c.log.Info("session joined", "session", slug)
 		}
@@ -199,7 +206,7 @@ func (f *fanout) refresh(ctx context.Context) {
 			if d.open[port] != nil {
 				continue
 			}
-			if at, ok := d.failed[port]; ok && now.Sub(at) < retryAfter {
+			if r, ok := d.failed[port]; ok && now.Before(r.next) {
 				continue
 			}
 			todo = append(todo, attach{d, p.fr})
@@ -241,10 +248,11 @@ func (f *fanout) attach(ctx context.Context, d *device, fr forwardRequest) {
 	f.mu.Lock()
 	_, wanted := f.ports[fr.Port]
 	current := !f.closed && wanted && f.devices[d.slug] == d && d.open[fr.Port] == nil
-	_, failedBefore := d.failed[fr.Port]
+	prev, failedBefore := d.failed[fr.Port]
 	switch {
 	case err != nil && current:
-		d.failed[fr.Port] = time.Now()
+		wait := min(max(2*prev.wait, f.c.g.cfg.RefreshInterval), retryAfter)
+		d.failed[fr.Port] = refusal{next: time.Now().Add(wait), wait: wait}
 	case err == nil && current:
 		d.open[fr.Port] = sess
 		delete(d.failed, fr.Port)

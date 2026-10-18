@@ -255,9 +255,10 @@ func (cl *Client) SetPublished(ports []int) error {
 	cl.st.Published = ports
 	st := cl.st
 	cl.mu.Unlock()
+	err := cl.store.save(st)
 	cl.poke()
 	cl.changed()
-	return cl.store.save(st)
+	return err
 }
 
 // SetMode switches how the client picks the ports it publishes and saves it.
@@ -272,9 +273,10 @@ func (cl *Client) SetMode(mode control.PublishMode) error {
 	st := cl.st
 	cl.mu.Unlock()
 	cl.log.Info("publish mode", "mode", mode)
+	err := cl.store.save(st)
 	cl.poke()
 	cl.changed()
-	return cl.store.save(st)
+	return err
 }
 
 // TogglePublished publishes port, or stops publishing it.

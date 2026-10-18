@@ -98,6 +98,12 @@ func (c *conn) sendSessions(list []control.Session) {
 	c.client.mu.Unlock()
 }
 
+func (c *conn) controlled() bool {
+	c.client.mu.Lock()
+	defer c.client.mu.Unlock()
+	return c.client.w != nil
+}
+
 func (c *conn) info() control.Computer {
 	c.client.mu.Lock()
 	defer c.client.mu.Unlock()
@@ -120,14 +126,14 @@ func nonNil[T any](s []T) []T {
 	return s
 }
 
-// newest is the latest connection of each of the user's computers; a client
-// that reconnects may briefly have two.
+// newest is the latest connection of each of the user's computers that has
+// its control channel open; a client that reconnects may briefly have two.
 func (g *Gateway) newest(user string) map[string]*conn {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	out := map[string]*conn{}
 	for c := range g.conns {
-		if c.user != user {
+		if c.user != user || !c.controlled() {
 			continue
 		}
 		if prev, ok := out[c.computer]; !ok || c.since.After(prev.since) {

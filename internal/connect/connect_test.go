@@ -271,7 +271,8 @@ func TestConnect(t *testing.T) {
 		t.Fatalf("badger sees %+v", list)
 	}
 
-	computer := p.computers("otter").Computers[0].ID
+	first := p.computers("otter").Computers[0]
+	computer := first.ID
 	p.call(http.MethodPut, "/api/v1/ssh/computers/"+computer+"/published", "otter", map[string][]int{"ports": {}})
 	eventually(t, "the port to be unpublished", func() bool { return !reaches() })
 
@@ -290,7 +291,7 @@ func TestConnect(t *testing.T) {
 	go func() { _ = cl.Run(ctx) }()
 	eventually(t, "a reconnect with the saved enrollment", func() bool {
 		list := p.computers("otter")
-		return len(list.Computers) == 1 && len(list.Computers[0].Published) == 0
+		return len(list.Computers) == 1 && list.Computers[0].Since.After(first.Since) && len(list.Computers[0].Published) == 0
 	})
 	p.call(http.MethodPut, "/api/v1/ssh/computers/"+computer+"/published", "otter", map[string][]int{"ports": {local}})
 	eventually(t, "the port published from the portal", reaches)
