@@ -147,7 +147,15 @@ func (p *portal) session(owner string) string {
 
 func echoServer(t *testing.T) int {
 	t.Helper()
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	port, _ := echoOn(t, 0)
+	return port
+}
+
+// echoOn serves an echo server on port (any when 0), like a dev server
+// that can be stopped and started again on the same port.
+func echoOn(t *testing.T, port int) (int, func()) {
+	t.Helper()
+	ln, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -164,7 +172,7 @@ func echoServer(t *testing.T) int {
 			}()
 		}
 	}()
-	return ln.Addr().(*net.TCPAddr).Port
+	return ln.Addr().(*net.TCPAddr).Port, func() { ln.Close() }
 }
 
 func eventually(t *testing.T, what string, ok func() bool) {
@@ -219,12 +227,12 @@ func TestConnect(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	p := newPortal(t)
 	id := p.session("otter")
-	local := echoServer(t)
+	local, stopDev := echoOn(t, 0)
 	out := &syncBuffer{}
 	opts := Options{Portal: p.url, Code: p.code("otter"), Publish: []int{local}, Version: "test", OnChange: Printer(out), Log: slog.New(slog.DiscardHandler)}
 	stop := run(t, opts)
 
-	reaches := func() bool {
+	reachesOn := func(id string) bool {
 		conn, err := p.provider.DialDevice(context.Background(), id, local)
 		if err != nil {
 			return false
@@ -237,6 +245,7 @@ func TestConnect(t *testing.T) {
 		_, err = io.ReadFull(conn, buf)
 		return err == nil && string(buf) == "ping"
 	}
+	reaches := func() bool { return reachesOn(id) }
 	eventually(t, "the local port on the device", reaches)
 	eventually(t, "the status block", func() bool { return strings.Contains(out.String(), "● connected") })
 	if !strings.Contains(out.String(), "|_| |_|") || !strings.Contains(out.String(), "Listening  ") {
@@ -305,6 +314,17 @@ func TestConnect(t *testing.T) {
 		t.Fatal(err)
 	}
 	eventually(t, "the port published again from the client", reaches)
+
+	stopDev()
+	eventually(t, "the dev server to be down", func() bool { return !reaches() })
+	_, stopDev = echoOn(t, local)
+	eventually(t, "the restarted dev server, without publishing again", reaches)
+	if s := cl.Snapshot(); !slices.Equal(s.Published, []int{local}) || !slices.Equal(s.Active, []int{local}) {
+		t.Fatalf("published %v, active %v after the restart", s.Published, s.Active)
+	}
+	newer := p.session("otter")
+	eventually(t, "the port on a device started later", func() bool { return reachesOn(newer) })
+	stopDev()
 
 	root, _ := Dir()
 	portals, err := Portals(root)
