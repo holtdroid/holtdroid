@@ -35,6 +35,11 @@ func (c *conn) serveControl(ctx context.Context, ch io.ReadWriter) {
 		c.client.w = nil
 		c.client.mu.Unlock()
 	}()
+	if err := c.send(control.Message{Type: control.TypeGateway, Gateway: &control.Gateway{
+		ADB: c.g.cfg.AllowADB, Publish: c.g.cfg.AllowReverse,
+	}}); err != nil {
+		return
+	}
 	c.sendSessions(c.fan.sessions())
 
 	sc := bufio.NewScanner(ch)

@@ -559,6 +559,9 @@ func TestADBDisabled(t *testing.T) {
 	h := newHarness(t, func(c *Config) { c.AllowADB = false })
 	slug, _ := h.session("otter")
 	c := h.connect("user-otter", h.cert("otter", nil))
+	if m := openControl(t, c).next(control.TypeGateway); m.Gateway == nil || m.Gateway.ADB || !m.Gateway.Publish {
+		t.Fatalf("gateway %+v", m)
+	}
 	time.Sleep(50 * time.Millisecond)
 	if conn, err := c.Dial("tcp", slug+":5555"); err == nil {
 		conn.Close()
@@ -650,6 +653,9 @@ func TestControl(t *testing.T) {
 	h.session("badger")
 	c := h.connect("user-otter", h.cert("otter", nil))
 	cc := openControl(t, c)
+	if m := cc.next(control.TypeGateway); m.Gateway == nil || !m.Gateway.ADB || !m.Gateway.Publish {
+		t.Fatalf("gateway %+v", m)
+	}
 
 	var got []string
 	eventually(t, "the first session", func() bool {

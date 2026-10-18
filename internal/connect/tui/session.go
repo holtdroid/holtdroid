@@ -58,6 +58,9 @@ type (
 func (m *Model) openSession(s control.Session) tea.Cmd {
 	m.closeSession()
 	m.sess = &session{s: s, logcat: &Log{notify: m.wake}, loading: map[tab]bool{}}
+	if m.snap.ADBOff {
+		return nil
+	}
 	return m.startLogcat()
 }
 
@@ -138,6 +141,14 @@ func (m Model) sessionKey(k tea.KeyMsg) (Model, tea.Cmd) {
 	case "esc", "backspace":
 		m.closeSession()
 		return m, nil
+	case "o":
+		m.openBrowser(ss.s)
+		return m, nil
+	}
+	if m.snap.ADBOff {
+		return m, nil
+	}
+	switch k.String() {
 	case "tab", "right", "l":
 		return m.switchTab((ss.tab + 1) % tab(len(tabs)))
 	case "shift+tab", "left", "h":
@@ -198,6 +209,16 @@ func (m Model) sessionView(width, height int) string {
 		name += " " + s.VersionName
 	}
 	b.WriteString(title.Render(name) + muted.Render(" · "+s.Slug) + "\n")
+	if m.snap.ADBOff {
+		b.WriteString(muted.Render(strings.Repeat("─", width)) + "\n")
+		b.WriteString(warn.Render("ADB is turned off on this portal.") + "\n")
+		b.WriteString("Logcat, a shell and the device's details need it.\n\n")
+		b.WriteString(label.Render("R") + "restart the app\n")
+		b.WriteString(label.Render("I") + "reinstall it\n")
+		b.WriteString(label.Render("X") + "stop the device\n")
+		b.WriteString(label.Render("o") + "open it in the browser")
+		return b.String()
+	}
 	var bar []string
 	for i, t := range tabs {
 		if tab(i) == ss.tab {

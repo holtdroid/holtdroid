@@ -462,3 +462,36 @@ func TestLaunchAndActions(t *testing.T) {
 		t.Fatalf("flash %q", m.flash)
 	}
 }
+
+func TestPortalTurnedOff(t *testing.T) {
+	m, a := model(t)
+	s := snapshot()
+	s.ADBOff, s.PublishOff, s.ADB, s.Active = true, true, nil, nil
+	next, _ := m.Update(snapMsg(s))
+	m = next.(Model)
+	golden(t, "devices-adb-off", press(m, "2", "right").View())
+
+	next, cmd := press(m, "2", "right").Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = next.(Model)
+	if cmd != nil {
+		t.Fatal("logcat started with ADB off")
+	}
+	golden(t, "session-adb-off", m.View())
+	m = press(m, "right", "f")
+	if m.sess.tab != logcatTab || m.sess.appOnly {
+		t.Fatal("tabs work with ADB off")
+	}
+	next, cmd = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("R")})
+	run(next.(Model), cmd)
+
+	m = press(m, "3", "right", " ")
+	if !strings.Contains(m.flash, "turned off") || len(a.toggled) != 0 {
+		t.Fatalf("published with publishing off: %q %v", m.flash, a.toggled)
+	}
+	golden(t, "ports-off", m.View())
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if !slices.Equal(a.did, []string{"restart emulator-d0281282be"}) {
+		t.Fatalf("did %v", a.did)
+	}
+}

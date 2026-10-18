@@ -309,6 +309,10 @@ func (m Model) settingsAction() (tea.Model, tea.Cmd) {
 func (m Model) Restart() string { return m.restart }
 
 func (m *Model) publish(port int) {
+	if m.snap.PublishOff {
+		m.flash = "publishing ports is turned off on this portal"
+		return
+	}
 	if err := m.act.TogglePublished(port); err != nil {
 		m.flash = err.Error()
 	}

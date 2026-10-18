@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net"
@@ -36,7 +37,7 @@ type portal struct {
 	provider *fake.Provider
 }
 
-func newPortal(t *testing.T) *portal {
+func newPortal(t *testing.T, mod ...func(*sshgateway.Config)) *portal {
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -91,6 +92,9 @@ func newPortal(t *testing.T) *portal {
 
 	gcfg := sshgateway.DefaultConfig()
 	gcfg.RefreshInterval = 20 * time.Millisecond
+	for _, f := range mod {
+		f(&gcfg)
+	}
 	hostKey, err := sshgateway.HostKey(ctx, nil, "", log)
 	if err != nil {
 		t.Fatal(err)
@@ -436,4 +440,35 @@ func testLaunch(t *testing.T, cl *Client, p *portal) {
 			return err != nil || s.State == contract.StateStopping
 		})
 	}
+}
+
+func TestConnectWithADBAndPublishingOff(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	p := newPortal(t, func(c *sshgateway.Config) { c.AllowADB, c.AllowReverse = false, false })
+	id := p.session("otter")
+	out := &syncBuffer{}
+	cl, err := New(Options{Portal: p.url, Code: p.code("otter"), Publish: []int{3000}, OnChange: Printer(out), Log: slog.New(slog.DiscardHandler)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go func() { _ = cl.Run(ctx) }()
+
+	eventually(t, "the gateway's flags and the device", func() bool {
+		s := cl.Snapshot()
+		return s.ADBOff && s.PublishOff && len(s.Sessions) == 1
+	})
+	time.Sleep(100 * time.Millisecond)
+	s := cl.Snapshot()
+	if len(s.ADB) != 0 || len(s.Active) != 0 || len(s.Refused) != 0 || !slices.Equal(s.Published, []int{3000}) {
+		t.Fatalf("snapshot %+v", s)
+	}
+	if _, err := cl.DeviceInfo(ctx, "fake-"+id); !errors.Is(err, errADBOff) {
+		t.Fatalf("device info with ADB off: %v", err)
+	}
+	eventually(t, "the status lines", func() bool {
+		return strings.Contains(out.String(), "ADB        turned off") && strings.Contains(out.String(), "Published  turned off")
+	})
 }

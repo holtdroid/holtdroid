@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router"
 import { LaptopIcon, PlusIcon, SmartphoneIcon } from "lucide-react"
 import { useState } from "react"
 import { useSessions } from "@/api/queries"
-import { useSetPublished } from "@/api/ssh"
+import { useSetPublished, useSSHInfo } from "@/api/ssh"
 import type { Computer } from "@/api/client"
 import { CopyButton } from "@/components/copy-button"
 import { Badge } from "@/components/ui/badge"
@@ -25,6 +25,9 @@ export function ComputerCard({ computer: c }: { computer: Computer }) {
   const now = useNow(30_000)
   const sessions = useSessions()
   const setPublished = useSetPublished()
+  const info = useSSHInfo().data
+  const publishOff = info?.allowReverse === false
+  const adbOff = info?.allowADB === false
   const [draft, setDraft] = useState("")
   const published = new Set(c.published)
   const processes = new Map(c.listening.map((p) => [p.port, p.process]))
@@ -60,6 +63,9 @@ export function ComputerCard({ computer: c }: { computer: Computer }) {
       <CardContent className="grid gap-4">
         <div className="grid gap-2">
           <span className="text-xs font-medium">Ports published on your devices</span>
+          {publishOff && (
+            <span className="text-muted-foreground text-xs">Publishing ports is turned off on this portal.</span>
+          )}
           <div className="flex flex-wrap gap-1.5">
             {ports.length === 0 && (
               <span className="text-muted-foreground text-xs">
@@ -85,6 +91,7 @@ export function ComputerCard({ computer: c }: { computer: Computer }) {
                     type="button"
                     aria-pressed={on}
                     title={on ? "Published — click to stop" : "Click to publish on your devices"}
+                    disabled={publishOff}
                     onClick={() => toggle(port)}
                   >
                     <span className={cn("size-1.5 rounded-full", on ? "bg-emerald-500" : "bg-muted-foreground/40")} />
@@ -117,7 +124,7 @@ export function ComputerCard({ computer: c }: { computer: Computer }) {
               aria-invalid={draft !== "" && draftPort === null}
               className="h-8 max-w-48 font-mono text-xs"
             />
-            <Button type="submit" size="sm" variant="secondary" disabled={draftPort === null}>
+            <Button type="submit" size="sm" variant="secondary" disabled={draftPort === null || publishOff}>
               <PlusIcon />
               Publish
             </Button>
@@ -129,7 +136,9 @@ export function ComputerCard({ computer: c }: { computer: Computer }) {
 
         <div className="grid gap-2">
           <span className="text-xs font-medium">ADB</span>
-          {c.adb.length === 0 ? (
+          {adbOff ? (
+            <span className="text-muted-foreground text-xs">ADB is turned off on this portal.</span>
+          ) : c.adb.length === 0 ? (
             <span className="text-muted-foreground text-xs">No device is running.</span>
           ) : (
             <ul className="grid gap-1.5">

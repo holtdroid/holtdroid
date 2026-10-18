@@ -24,7 +24,15 @@ type devices struct {
 	conn map[string]*adbproto.Client
 }
 
+var errADBOff = errors.New("ADB is turned off on this portal")
+
 func (cl *Client) device(slug string) (*adbproto.Client, error) {
+	cl.mu.Lock()
+	off := cl.gateway != nil && !cl.gateway.ADB
+	cl.mu.Unlock()
+	if off {
+		return nil, errADBOff
+	}
 	cl.devs.mu.Lock()
 	defer cl.devs.mu.Unlock()
 	if c := cl.devs.conn[slug]; c != nil {

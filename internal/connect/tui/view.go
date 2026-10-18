@@ -104,10 +104,14 @@ func (m Model) help() string {
 		keys = "type to filter · ↑↓ move · enter launch · esc cancel"
 	case m.adding:
 		keys = "type a port · enter publish · esc cancel"
+	case m.content && m.section == ports && m.snap.PublishOff:
+		keys = "↑↓ move · a show all · ← back · q quit"
 	case m.content && m.section == ports:
 		keys = "↑↓ move · space publish · n another port · a show all · ← back · q quit"
 	case m.content && m.section == settings:
 		keys = "↑↓ move · enter choose · ← back · q quit"
+	case m.sess != nil && m.snap.ADBOff:
+		keys = "R restart app · I reinstall · X stop · o browser · esc back · q quit"
 	case m.sess != nil && m.sess.tab == logcatTab:
 		keys = "←→ tabs · f app only · c clear · r restart log · R restart app · I reinstall · X stop · o browser · esc back"
 	case m.sess != nil && m.sess.tab == shellTab:
@@ -173,7 +177,11 @@ func (m Model) overview(width int) string {
 		devs = fmt.Sprintf("%d running", n)
 	}
 	b.WriteString(label.Render("Devices") + devs + "\n")
-	b.WriteString(label.Render("Published") + ports2text(s.Active) + "\n")
+	if s.PublishOff {
+		b.WriteString(label.Render("Published") + muted.Render("turned off on this portal") + "\n")
+	} else {
+		b.WriteString(label.Render("Published") + ports2text(s.Active) + "\n")
+	}
 	dev := 0
 	for _, p := range s.Listening {
 		if connect.IsDevServer(p.Process) {
@@ -196,7 +204,11 @@ func (m Model) overview(width int) string {
 func (m Model) devicesView() string {
 	s := m.snap
 	var b strings.Builder
-	b.WriteString(title.Render("Devices") + muted.Render("  enter opens logcat, a shell and details · N launches a new one") + "\n\n")
+	hint := "  enter opens logcat, a shell and details · N launches a new one"
+	if s.ADBOff {
+		hint = "  enter opens a device · N launches a new one"
+	}
+	b.WriteString(title.Render("Devices") + muted.Render(hint) + "\n\n")
 	if len(s.Sessions) == 0 {
 		b.WriteString(muted.Render("No device is running. Press N to launch one, or launch it in the portal."))
 		return b.String()
@@ -217,7 +229,11 @@ func (m Model) devicesView() string {
 			b.WriteString("  " + line + "\n")
 		}
 		a, ok2 := adb[d.Slug]
-		if !ok2 {
+		switch {
+		case s.ADBOff:
+			b.WriteString("    " + muted.Render("ADB is turned off on this portal") + "\n\n")
+			continue
+		case !ok2:
 			b.WriteString("    " + muted.Render("no local ADB port") + "\n\n")
 			continue
 		}
@@ -271,6 +287,9 @@ func (m Model) portsView(height int) string {
 	rows := m.portRows()
 	var b strings.Builder
 	b.WriteString(title.Render("Ports") + muted.Render("  published ports reach every device as localhost") + "\n\n")
+	if s.PublishOff {
+		b.WriteString(warn.Render("Publishing ports is turned off on this portal.") + "\n\n")
+	}
 	if m.adding {
 		b.WriteString(chosen.Render("Port to publish: ") + m.input + "█\n\n")
 	}

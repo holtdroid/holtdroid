@@ -67,6 +67,7 @@ type Client struct {
 	listening []control.LocalPort
 	active    []int
 	refused   map[int]string
+	gateway   *control.Gateway
 
 	ssh    atomic.Pointer[ssh.Client]
 	devs   devices
@@ -405,7 +406,6 @@ func (cl *Client) link(ctx context.Context) error {
 	go func() { done <- readControl(ctx, r, msgs) }()
 	go func() { done <- keepalive(ctx, c) }()
 
-	l.publish()
 	l.report()
 	for {
 		select {
@@ -415,6 +415,15 @@ func (cl *Client) link(ctx context.Context) error {
 			return err
 		case m := <-msgs:
 			switch m.Type {
+			case control.TypeGateway:
+				if m.Gateway != nil {
+					cl.mu.Lock()
+					cl.gateway = m.Gateway
+					sessions := cl.sessions
+					cl.mu.Unlock()
+					cl.syncADB(sessions)
+					l.publish()
+				}
 			case control.TypeSessions:
 				cl.mu.Lock()
 				cl.sessions = m.Sessions
@@ -523,6 +532,9 @@ func (l *link) publish() {
 	cl := l.cl
 	cl.mu.Lock()
 	want := slices.Clone(cl.st.Published)
+	if cl.gateway == nil || !cl.gateway.Publish {
+		want = nil
+	}
 	cl.mu.Unlock()
 	refused := map[int]string{}
 	for port, ln := range l.published {
@@ -559,6 +571,7 @@ func (l *link) closePublished() {
 	}
 	l.cl.mu.Lock()
 	l.cl.active = nil
+	l.cl.gateway = nil
 	l.cl.mu.Unlock()
 }
 
@@ -654,6 +667,11 @@ func nonNil[T any](s []T) []T {
 // syncADB keeps one local ADB port per running session. The listeners
 // outlive reconnects, so adb stays connected through a dropped link.
 func (cl *Client) syncADB(sessions []control.Session) {
+	cl.mu.Lock()
+	if cl.gateway == nil || !cl.gateway.ADB {
+		sessions = nil
+	}
+	cl.mu.Unlock()
 	cl.adbMu.Lock()
 	defer cl.adbMu.Unlock()
 	for slug, f := range cl.adbFwd {

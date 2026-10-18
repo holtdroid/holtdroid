@@ -13,18 +13,26 @@ const (
 	TypeState    = "state"
 	TypeSessions = "sessions"
 	TypePublish  = "publish"
+	TypeGateway  = "gateway"
 )
 
 // Message is one line on the control channel. The client sends hello
-// once and state whenever it changes; the gateway sends sessions whenever the
-// user's ready sessions change and publish when the portal changes the
-// computer's published ports.
+// once and state whenever it changes; the gateway sends gateway first, then
+// sessions whenever the user's ready sessions change and publish when the
+// portal changes the computer's published ports.
 type Message struct {
 	Type     string    `json:"type"`
 	Hello    *Hello    `json:"hello,omitempty"`
+	Gateway  *Gateway  `json:"gateway,omitempty"`
 	State    *State    `json:"state,omitempty"`
 	Sessions []Session `json:"sessions,omitempty"`
 	Publish  []int     `json:"publish,omitempty"`
+}
+
+// Gateway is what the gateway allows, so the client doesn't offer the rest.
+type Gateway struct {
+	ADB     bool `json:"adb" doc:"devices' ADB can be reached"`
+	Publish bool `json:"publish" doc:"ports can be published on devices"`
 }
 
 type Hello struct {

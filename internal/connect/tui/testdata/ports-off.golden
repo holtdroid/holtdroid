@@ -1,0 +1,24 @@
+╭──────────────────────╮╭────────────────────────────────────────────────────────────────────╮
+│ holtdroid            ││ Ports  published ports reach every device as localhost             │
+│ ● connected          ││                                                                    │
+│                      ││ Publishing ports is turned off on this portal.                     │
+│   Overview           ││                                                                    │
+│   Devices     1      ││ ▸ ◐ 3006   node                                                    │
+│ › Ports       0      ││   ○ 5173   node                                                    │
+│   Log                ││   ○ 8000   python3.13                                              │
+│   Settings           ││   ◐ 8080   not listening                                           │
+│                      ││                                                                    │
+│                      ││ 3 other ports (system services, apps) · a to show                  │
+│                      ││                                                                    │
+│                      ││                                                                    │
+│                      ││                                                                    │
+│                      ││                                                                    │
+│                      ││                                                                    │
+│                      ││                                                                    │
+│                      ││                                                                    │
+│                      ││                                                                    │
+│                      ││                                                                    │
+│                      ││                                                                    │
+│                      ││                                                                    │
+╰──────────────────────╯╰────────────────────────────────────────────────────────────────────╯
+ publishing ports is turned off on this portal  ·  ↑↓ move · a show all · ← back · q quit

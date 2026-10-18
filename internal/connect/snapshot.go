@@ -37,6 +37,10 @@ type Snapshot struct {
 	Published []int
 	Active    []int
 	Refused   map[int]string
+	// ADBOff and PublishOff say the portal turned these off; both are false
+	// until the gateway has said.
+	ADBOff     bool
+	PublishOff bool
 }
 
 type ADBDevice struct {
@@ -56,6 +60,7 @@ func (cl *Client) Snapshot() Snapshot {
 		Fingerprint: fingerprint(cl.signer.PublicKey()), Dir: cl.store.dir,
 		Sessions: slices.Clone(cl.sessions), ADB: adb, Listening: slices.Clone(cl.listening),
 		Published: slices.Clone(cl.st.Published), Active: slices.Clone(cl.active), Refused: maps.Clone(cl.refused),
+		ADBOff: cl.gateway != nil && !cl.gateway.ADB, PublishOff: cl.gateway != nil && !cl.gateway.Publish,
 	}
 }
 
@@ -116,12 +121,19 @@ func statusBlock(s Snapshot) string {
 			label = "  Devices  "
 		}
 		line := fmt.Sprintf("%s  %-24s", label, d.Slug)
-		if p, ok := adb[d.Slug]; ok {
+		if p, ok := adb[d.Slug]; ok && !s.ADBOff {
 			line += fmt.Sprintf("  adb 127.0.0.1:%d", p)
 		}
 		b.WriteString(strings.TrimRight(line, " ") + "\n")
 	}
-	fmt.Fprintf(&b, "  Published  %s\n", joinPorts(s.Active))
+	if s.ADBOff {
+		b.WriteString("  ADB        turned off on this portal\n")
+	}
+	if s.PublishOff {
+		b.WriteString("  Published  turned off on this portal\n")
+	} else {
+		fmt.Fprintf(&b, "  Published  %s\n", joinPorts(s.Active))
+	}
 	fmt.Fprintf(&b, "  Listening  %d ports on this computer\n", len(s.Listening))
 	return b.String()
 }
