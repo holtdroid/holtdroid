@@ -285,7 +285,7 @@ func devCmd() *cobra.Command {
 	cmd.Flags().StringVar(&listen, "listen", ":8080", "portal address")
 	cmd.Flags().StringVar(&agents, "agents", ":8090", "address for the fake device agents")
 	cmd.Flags().StringVar(&sshAPI, "ssh-api", ":8092", "address for the in-process ssh-gateway's internal API")
-	cmd.Flags().StringVar(&clientDir, "connect-clients", "bin/connect", "directory with holtdroid-connect builds served to tunnel.sh")
+	cmd.Flags().StringVar(&clientDir, "connect-clients", "bin/connect", "directory with the client builds (holtdroid-{os}-{arch}) served to tunnel.sh")
 	cmd.Flags().StringVar(&sshListen, "ssh", ":2222", "address for the in-process ssh-gateway")
 	cmd.Flags().StringVar(&tunnels, "tunnels", ":8091", "address for the fake device agents' tunnel endpoints")
 	cmd.Flags().StringVar(&apks, "apks", "internal/apk/testdata", "read-only directory with APKs to list")

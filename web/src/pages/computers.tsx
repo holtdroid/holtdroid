@@ -18,7 +18,7 @@ export function ComputersPage() {
           <div>
             <h1 className="text-xl font-semibold tracking-tight">Computers</h1>
             <p className="text-muted-foreground max-w-xl text-sm">
-              Your computers connected with holtdroid-connect. Pick which of their ports your devices reach as
+              Your computers connected with the holtdroid client. Pick which of their ports your devices reach as
               localhost; every device you run gets them, including ones you start later.
             </p>
           </div>

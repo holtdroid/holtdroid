@@ -114,7 +114,7 @@ func (s *store) key() (ssh.Signer, error) {
 	if err != nil {
 		return nil, err
 	}
-	block, err := ssh.MarshalPrivateKey(priv, "holtdroid-connect")
+	block, err := ssh.MarshalPrivateKey(priv, "holtdroid")
 	if err != nil {
 		return nil, err
 	}

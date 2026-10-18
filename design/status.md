@@ -30,7 +30,7 @@ deployment"):
   every slot is busy (decision #57).
 - Computers over SSH (Phase 4.11, decision #64; replaced the key-based
   Phase 4.5 flow): `curl {portal}/tunnel.sh | sh -s -- {code}` downloads
-  `holtdroid-connect`, which enrolls the computer with a one-time code,
+  the `holtdroid` client, which enrolls the computer with a one-time code,
   logs in to the ssh-gateway with a 15-minute certificate from the api's CA
   (renewed in the background, refresh token rotated each time), publishes
   the ports picked on the Computers page (or with `--publish`) on every

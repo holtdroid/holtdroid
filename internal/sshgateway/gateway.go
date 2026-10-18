@@ -546,7 +546,7 @@ func (c *conn) session(ctx context.Context, ch ssh.Channel, reqs <-chan *ssh.Req
 		case "shell", "exec":
 			_ = req.Reply(true, nil)
 			go ssh.DiscardRequests(reqs)
-			_, _ = ch.Stderr().Write([]byte("There is no shell here. Connect with holtdroid-connect from the portal's Computers page.\r\n"))
+			_, _ = ch.Stderr().Write([]byte("There is no shell here. Run the holtdroid client from the portal's Computers page.\r\n"))
 			_, _ = ch.SendRequest("exit-status", false, ssh.Marshal(struct{ Status uint32 }{1}))
 			return
 		default:

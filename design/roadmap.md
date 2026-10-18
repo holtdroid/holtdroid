@@ -130,7 +130,7 @@ Design: decisions.md #22. No backward compatibility before the first release.
 Design: decision #64. Replaces the key-based parts of Phase 4.5.
 
 - [x] api as SSH user CA (`sshGateway.caKey`, a secret ref): enrollment codes, refresh tokens with rotation, `POST /api/v1/connect/enroll`, `POST /api/v1/connect/refresh` → certificate; gateway trusts the CA public key instead of the key store
-- [x] `holtdroid-connect`: key generation, enrollment, certificate refresh, reconnect, `holtdroid-control` subsystem (hello, local listening ports, sessions, settings)
+- [x] The `holtdroid` client (`cmd/holtdroid-connect`): key generation, enrollment, certificate refresh, reconnect, `holtdroid-control` subsystem (hello, local listening ports, sessions, settings)
 - [x] Manual port mode in the client and the portal; settings changed from the portal through the gateway replica holding the connection
 - [x] ADB per device on stable local ports, `adb connect`/`disconnect` when `adb` is on `PATH`
 - [ ] TUI (bubbletea): banner, devices, ADB ports, published ports with toggles, mode switch; log output without a terminal

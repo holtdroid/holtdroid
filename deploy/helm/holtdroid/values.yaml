@@ -137,7 +137,7 @@ providers:
       requests: { cpu: 5m, memory: 32Mi }
       limits: { memory: 128Mi }
 
-# SSH access for holtdroid-connect: users run the command from the portal's
+# SSH access for the holtdroid client: users run the command from the portal's
 # Computers page once per computer; the client publishes their local ports on
 # all of their devices and forwards each device's ADB. Only tunnels, never a
 # shell. The api signs each computer's key into a short-lived certificate.

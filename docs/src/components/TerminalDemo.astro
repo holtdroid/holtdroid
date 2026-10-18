@@ -1,0 +1,247 @@
+---
+type Line = { text: string; kind?: "cmd" | "dim" | "ok" | "logo" | "warn" }
+type Step = { tab: number; caption: string; lines: Line[]; pause?: number }
+
+const portal = "https://android.example.com"
+const logo = [
+  " _   _       _ _      _           _     _",
+  "| | | | ___ | | |_ __| |_ __ ___ (_) __| |",
+  "| |_| |/ _ \\| | __/ _` | '__/ _ \\| |/ _` |",
+  "|  _  | (_) | | || (_| | | | (_) | | (_| |",
+  "|_| |_|\\___/|_|\\__\\__,_|_|  \\___/|_|\\__,_|",
+]
+const status = (devices: string[], published: string): Line[] => [
+  { text: "" },
+  { text: `● ${portal} · otter`, kind: "ok" },
+  ...(devices.length === 0
+    ? [{ text: "  Devices    none running" }]
+    : devices.map((d, i) => ({ text: `${i === 0 ? "  Devices  " : "           "}  ${d}` }))),
+  { text: `  Published  ${published}` },
+  { text: "  Listening  3000 node · 5173 node" },
+  { text: "  Choose which ports to publish on the portal's Computers page.", kind: "dim" },
+]
+const device = "emulator-7f3a9c           adb 127.0.0.1:15555"
+
+const steps: Step[] = [
+  {
+    tab: 0,
+    caption: "Paste the command from the Computers page into a terminal.",
+    lines: [{ text: `curl -fsSL ${portal}/tunnel.sh | sh -s -- eyJhbGciOiJIUzI1NiIs…`, kind: "cmd" }],
+  },
+  {
+    tab: 0,
+    caption: "The script downloads the client for your system, checks it and runs it.",
+    lines: [
+      { text: "holtdroid: next time run /Users/otter/.cache/holtdroid/holtdroid to reconnect without a new code" },
+      { text: "18:02:11 computer enrolled user=otter computer=k3zq7c2mxu4hwa5e", kind: "dim" },
+    ],
+  },
+  {
+    tab: 0,
+    caption: "The gateway lets the computer in with its fresh certificate.",
+    lines: [
+      { text: "" },
+      ...logo.map((text) => ({ text, kind: "logo" as const })),
+      { text: "" },
+      { text: "  Signed in as otter on otters-mac" },
+    ],
+  },
+  {
+    tab: 0,
+    caption: "It reports which ports listen on your computer. No device is running yet.",
+    lines: status([], "nothing"),
+    pause: 2600,
+  },
+  {
+    tab: 0,
+    caption: "You launch a device in the portal: it gets its own ADB port right away.",
+    lines: status([device], "nothing"),
+    pause: 2600,
+  },
+  {
+    tab: 0,
+    caption: "You click port 5173 on the Computers page: the device now reaches your dev server as localhost:5173.",
+    lines: [{ text: "18:03:02 port published port=5173", kind: "dim" }, ...status([device], "5173")],
+    pause: 3200,
+  },
+  {
+    tab: 1,
+    caption: "In another terminal, adb already knows the device.",
+    lines: [
+      { text: "adb devices", kind: "cmd" },
+      { text: "List of devices attached" },
+      { text: "127.0.0.1:15555\tdevice" },
+      { text: "" },
+      { text: "adb -s 127.0.0.1:15555 shell getprop ro.product.model", kind: "cmd" },
+      { text: "sdk_gphone64_arm64" },
+    ],
+    pause: 3600,
+  },
+]
+const tabs = ["holtdroid", "zsh"]
+---
+
+<figure class="terminal-demo not-content" data-steps={JSON.stringify(steps)}>
+  <div class="window">
+    <div class="bar">
+      <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
+      <div class="tabs">
+        {tabs.map((name, i) => <span class:list={["tab", { active: i === 0 }]} data-tab={i}>{name}</span>)}
+      </div>
+    </div>
+    {
+      tabs.map((_, i) => (
+        <pre class:list={["screen", { hidden: i !== 0 }]} data-screen={i} aria-hidden="true">
+          {steps
+            .filter((s) => s.tab === i)
+            .flatMap((s) => s.lines)
+            .map((l) => (
+              <span class:list={["line", l.kind]}>{l.text || " "}</span>
+            ))}
+        </pre>
+      ))
+    }
+  </div>
+  <figcaption aria-live="polite">{steps[steps.length - 1]?.caption}</figcaption>
+</figure>
+
+<script>
+  type Line = { text: string; kind?: string }
+  type Step = { tab: number; caption: string; lines: Line[]; pause?: number }
+
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+  async function play(root: HTMLElement) {
+    const steps: Step[] = JSON.parse(root.dataset.steps ?? "[]")
+    const screens = [...root.querySelectorAll<HTMLElement>("[data-screen]")]
+    const tabs = [...root.querySelectorAll<HTMLElement>("[data-tab]")]
+    const caption = root.querySelector("figcaption")!
+    const show = (tab: number) => {
+      screens.forEach((s, i) => s.classList.toggle("hidden", i !== tab))
+      tabs.forEach((t, i) => t.classList.toggle("active", i === tab))
+    }
+    const add = (screen: HTMLElement, line: Line) => {
+      const span = document.createElement("span")
+      span.className = `line ${line.kind ?? ""}`
+      span.textContent = line.kind === "cmd" ? "" : line.text || " "
+      screen.append(span)
+      screen.scrollTop = screen.scrollHeight
+      return span
+    }
+
+    for (;;) {
+      screens.forEach((s) => s.replaceChildren())
+      for (const step of steps) {
+        show(step.tab)
+        caption.textContent = step.caption
+        const screen = screens[step.tab]
+        for (const line of step.lines) {
+          const span = add(screen, line)
+          if (line.kind === "cmd") {
+            await sleep(500)
+            for (const ch of line.text) {
+              span.textContent += ch
+              await sleep(line.text.length > 60 ? 18 : 45)
+            }
+            await sleep(450)
+          } else {
+            await sleep(line.kind === "logo" ? 40 : 70)
+          }
+        }
+        await sleep(step.pause ?? 1600)
+      }
+      await sleep(1500)
+    }
+  }
+
+  if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    document.querySelectorAll<HTMLElement>(".terminal-demo").forEach((root) => void play(root))
+  }
+</script>
+
+<style>
+  .terminal-demo {
+    margin: 1.5rem 0;
+  }
+  .window {
+    border-radius: 0.6rem;
+    overflow: hidden;
+    background: #0f1419;
+    border: 1px solid #2a313a;
+    box-shadow: 0 10px 30px rgb(0 0 0 / 0.25);
+  }
+  .bar {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 0.75rem;
+    background: #1b2129;
+    border-bottom: 1px solid #2a313a;
+  }
+  .dot {
+    width: 0.7rem;
+    height: 0.7rem;
+    border-radius: 50%;
+  }
+  .red {
+    background: #ff5f57;
+  }
+  .yellow {
+    background: #febc2e;
+  }
+  .green {
+    background: #28c840;
+  }
+  .tabs {
+    display: flex;
+    gap: 0.25rem;
+    margin-left: 0.75rem;
+  }
+  .tab {
+    font: 0.75rem var(--sl-font-system-mono, ui-monospace, monospace);
+    color: #8b949e;
+    padding: 0.15rem 0.6rem;
+    border-radius: 0.35rem;
+  }
+  .tab.active {
+    color: #e6edf3;
+    background: #2a313a;
+  }
+  .screen {
+    margin: 0;
+    height: 22rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0.85rem 1rem;
+    background: transparent;
+    border: 0;
+    color: #e6edf3;
+    font: 0.78rem/1.45 var(--sl-font-system-mono, ui-monospace, monospace);
+  }
+  .screen.hidden {
+    display: none;
+  }
+  .line {
+    display: block;
+    white-space: pre;
+  }
+  .cmd::before {
+    content: "~ $ ";
+    color: #3fb950;
+  }
+  .dim {
+    color: #8b949e;
+  }
+  .ok {
+    color: #3fb950;
+  }
+  .logo {
+    color: #d2a8ff;
+  }
+  figcaption {
+    margin-top: 0.6rem;
+    min-height: 2.6em;
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-2);
+  }
+</style>

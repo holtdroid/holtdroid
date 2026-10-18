@@ -15,7 +15,7 @@ build: web connect
 connect:
 	@for p in $(CONNECT_PLATFORMS); do \
 		CGO_ENABLED=0 GOOS=$${p%/*} GOARCH=$${p#*/} $(GO) build -trimpath -ldflags '$(LDFLAGS)' \
-			-o bin/connect/holtdroid-connect-$${p%/*}-$${p#*/} ./cmd/holtdroid-connect || exit 1; \
+			-o bin/connect/holtdroid-$${p%/*}-$${p#*/} ./cmd/holtdroid-connect || exit 1; \
 	done
 
 web: node_modules

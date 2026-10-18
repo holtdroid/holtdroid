@@ -17,7 +17,7 @@ import (
 
 func main() {
 	if err := root().Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, "holtdroid-connect:", err)
+		fmt.Fprintln(os.Stderr, "holtdroid:", err)
 		os.Exit(1)
 	}
 }
@@ -30,10 +30,10 @@ func root() *cobra.Command {
 		verbose bool
 	)
 	cmd := &cobra.Command{
-		Use:   "holtdroid-connect [code]",
+		Use:   "holtdroid [code]",
 		Short: "Connect this computer to a Holtdroid portal: publish local ports on your devices and reach their ADB",
 		Long: "Run the command from the portal's Computers page once; it enrolls this computer with the code in it.\n" +
-			"After that, holtdroid-connect alone reconnects with the saved enrollment.",
+			"After that, holtdroid alone reconnects with the saved enrollment.",
 		Args:          cobra.MaximumNArgs(1),
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -42,7 +42,7 @@ func root() *cobra.Command {
 			if verbose {
 				level = slog.LevelDebug
 			}
-			log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level}))
+			log := slog.New(newLineHandler(os.Stderr, level))
 			if portal == "" {
 				var err error
 				if portal, err = savedPortal(); err != nil {

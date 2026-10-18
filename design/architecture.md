@@ -418,10 +418,10 @@ flowchart LR
   gw -- "WireGuard nl" --> vnl[(VPN server NL)]
 ```
 
-## Computers: holtdroid-connect over SSH
+## Computers: the holtdroid client over SSH
 
 Developers bring a device's ADB to their machine and their machine's dev
-servers to the device with `holtdroid-connect` (`cmd/holtdroid-connect`,
+servers to the device with the `holtdroid` client (`cmd/holtdroid-connect`,
 `internal/connect`), a small Go client that speaks SSH to the
 `ssh-gateway`. Decision #64; it replaced browser-held keys and hand-written
 `ssh` commands (#21, #38, #46, #61).
@@ -436,7 +436,7 @@ curl -fsSL https://android.example.com/tunnel.sh | sh -s -- <one-time code>
 sequenceDiagram
   participant U as Browser
   participant A as api (SSH CA)
-  participant C as holtdroid-connect
+  participant C as holtdroid client
   participant G as ssh-gateway
   U->>A: POST /api/v1/connect/codes
   A-->>U: code (signed, 10 min)
@@ -453,7 +453,7 @@ sequenceDiagram
   of every client build in `ssh.clientDir` (the api image carries
   darwin/linux × amd64/arm64 under `/usr/share/holtdroid/connect`). It
   downloads the matching build into `~/.cache/holtdroid`, checks it, links
-  `~/.cache/holtdroid/holtdroid-connect` and runs it with `/dev/tty` as
+  `~/.cache/holtdroid/holtdroid` and runs it with `/dev/tty` as
   stdin.
 - The client keeps an ed25519 key and its enrollment per portal under the
   user config directory (`holtdroid/connect/{host}/`); it never reads
@@ -590,7 +590,7 @@ ssh:
   codeTTL: 10m
   certificateTTL: 15m
   refreshTTL: 720h
-  clientDir: /usr/share/holtdroid/connect                  # holtdroid-connect-{os}-{arch} served to tunnel.sh
+  clientDir: /usr/share/holtdroid/connect                  # holtdroid-{os}-{arch} served to tunnel.sh
 ```
 
 `holtdroid dev` runs the whole gateway in-process (`--ssh :2222`, internal

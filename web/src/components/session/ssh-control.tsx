@@ -67,7 +67,7 @@ function SSHPanel({ slug, tunnels }: { slug: string; tunnels: Tunnels }) {
       <div className="grid gap-1">
         <span className="font-medium">Your computer</span>
         <span className="text-muted-foreground text-xs">
-          holtdroid-connect publishes your computer&apos;s ports on this device and gives its ADB a local port.
+          The holtdroid client publishes your computer&apos;s ports on this device and gives its ADB a local port.
         </span>
       </div>
 

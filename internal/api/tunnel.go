@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-var clientName = regexp.MustCompile(`^holtdroid-connect-(darwin|linux)-(amd64|arm64)$`)
+var clientName = regexp.MustCompile(`^holtdroid-(darwin|linux)-(amd64|arm64)$`)
 
 type connectClient struct {
 	Platform string
@@ -88,18 +88,18 @@ case "$os-$arch" in
   *) echo "holtdroid: this portal has no client for $os-$arch" >&2; exit 1 ;;
 esac
 dir="${XDG_CACHE_HOME:-$HOME/.cache}/holtdroid"
-bin="$dir/holtdroid-connect-$sum"
+bin="$dir/holtdroid-$sum"
 if [ ! -x "$bin" ]; then
   mkdir -p "$dir"
   tmp="$bin.$$"
-  curl -fsSL "$portal/connect/holtdroid-connect-$os-$arch" -o "$tmp"
+  curl -fsSL "$portal/connect/holtdroid-$os-$arch" -o "$tmp"
   if command -v sha256sum >/dev/null 2>&1; then got=$(sha256sum "$tmp"); else got=$(shasum -a 256 "$tmp"); fi
   if [ "${got%% *}" != "$sum" ]; then rm -f "$tmp"; echo "holtdroid: the download doesn't match its checksum" >&2; exit 1; fi
   chmod 755 "$tmp"
   mv "$tmp" "$bin"
 fi
-ln -sf "$bin" "$dir/holtdroid-connect"
-echo "holtdroid: next time run $dir/holtdroid-connect to reconnect without a new code" >&2
+ln -sf "$bin" "$dir/holtdroid"
+echo "holtdroid: next time run $dir/holtdroid to reconnect without a new code" >&2
 if (: </dev/tty) 2>/dev/null; then
   exec "$bin" --portal "$portal" "$@" </dev/tty
 fi

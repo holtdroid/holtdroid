@@ -1480,7 +1480,8 @@ fragile and would leave out Windows.
 
 **Decision.**
 
-- **Client.** `cmd/holtdroid-connect`, a small Go binary in this module (no
+- **Client.** `holtdroid` (source in `cmd/holtdroid-connect`, so it isn't
+  confused with the server binary), a small Go binary in this module (no
   client-go, no frida). The api serves it from its own image together with
   `GET /tunnel.sh`, a POSIX bootstrap that detects OS and architecture,
   downloads the matching binary (its sha256 is rendered into the script)

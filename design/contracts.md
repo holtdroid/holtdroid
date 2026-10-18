@@ -299,7 +299,7 @@ keeping the provider in the path is what lets the api stay stateless.
 | `PUT` | `/api/v1/ssh/computers/{id}/published` | `{ports}` (≤ 256, each 1–65535) → 204 once the replica holding that computer passed it on; 404 when it isn't connected |
 | `GET` | `/api/v1/ssh/tunnels` | the caller's tunnels open right now → `{sessions: [{provider, id, adb: [ADBTunnel], reverse: [ReverseTunnel]}]}`, only sessions with at least one; the api asks the agent of every ready session (`GET /v1/tunnels/current`) and leaves out those that don't answer within 5 s. Empty when SSH is disabled. The UI polls it every 5 s for the Computers page |
 | `GET` | `/tunnel.sh` | public; the bootstrap script with the portal URL and the SHA-256 of each build in `ssh.clientDir`; 404 when SSH is disabled |
-| `GET` | `/connect/holtdroid-connect-{os}-{arch}` | public; a client build (`darwin`/`linux`, `amd64`/`arm64`) |
+| `GET` | `/connect/holtdroid-{os}-{arch}` | public; a client build (`darwin`/`linux`, `amd64`/`arm64`) |
 | `GET` | `/api/v1/sources` | `[{name, readOnly}]` |
 | `GET` | `/api/v1/artifacts?source=&cursor=&limit=` | artifacts the caller may see (private ones only for owner/admins) from every source or one, newest first, offset cursor. Items: `{source, id, revision, fileName, size, uploadedAt, meta, app?, iconUrl?, canManage}` — `id` is base64url of the key, `meta` the sidecar, `app` the parsed APK once cached; per-source failures come back in `errors[]` |
 | `PATCH` | `/api/v1/artifacts/{source}/{id}` | `{visibility}` → artifact; owner or admin, 403 on `readOnly` sources, 404 when the caller can't see it |

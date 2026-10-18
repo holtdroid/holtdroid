@@ -51,11 +51,11 @@ or cluster layout. The maintainer's homelab is just the first deployment.
 
 ```
 cmd/holtdroid/            main + cobra subcommands (api, provider-fake, provider-emulator, agent, ssh-gateway, dev)
-cmd/holtdroid-connect/    the client users run on their computers (served by the api via /tunnel.sh)
+cmd/holtdroid-connect/    `holtdroid`, the client users run on their computers (served by the api via /tunnel.sh)
 internal/
   contract/               shared request/response types + huma operations for Provider/Agent/SSH-gateway APIs
-  contract/control/       dependency-free types shared with holtdroid-connect (enrollment, control channel)
-  connect/                holtdroid-connect: enrollment, certificate refresh, published ports, per-device ADB
+  contract/control/       dependency-free types shared with the client (enrollment, control channel)
+  connect/                the client: enrollment, certificate refresh, published ports, per-device ADB
   api/                    BFF: UI REST API, registries, APK cache, session proxy, activity, reaper
   source/                 artifact sources: *.apk + .meta.json sidecars in a storage.Store (folder or S3), listed by the api
   provider/               provider implementations: provider/fake (simulated devices for dev/tests), provider/emulator
@@ -197,7 +197,7 @@ make fmt          # golangci-lint fmt (gofumpt, goimports) + oxfmt
 make openapi      # regenerate web/src/api/*.d.ts from the Go contracts — commit the result
 make sqlc         # regenerate internal/db queries from migrations/ + queries.sql — commit the result
 make build        # web + bin/holtdroid with the UI embedded + bin/connect client builds
-make connect      # holtdroid-connect for darwin/linux × amd64/arm64 into bin/connect
+make connect      # the holtdroid client for darwin/linux × amd64/arm64 into bin/connect
 make docs         # docs site into docs/dist
 make dev          # holtdroid dev: api + APKs from internal/apk/testdata + fake devices, anonymous sign-in, on :8080
 make image       # local linux/amd64 image (images/Dockerfile)

@@ -20,7 +20,7 @@ export function ConnectCard({ compact = false }: { compact?: boolean }) {
           <p className="text-muted-foreground text-xs">
             Run it in a terminal on the computer whose ports you want on your devices. The code in it works once, for
             the next {Math.floor(left / 60)}:{String(left % 60).padStart(2, "0")}. Afterwards{" "}
-            <code className="font-mono">~/.cache/holtdroid/holtdroid-connect</code> reconnects without a new one.
+            <code className="font-mono">~/.cache/holtdroid/holtdroid</code> reconnects without a new one.
           </p>
         </>
       ) : (
@@ -44,8 +44,9 @@ export function ConnectCard({ compact = false }: { compact?: boolean }) {
       <CardHeader>
         <CardTitle>Connect a computer</CardTitle>
         <CardDescription>
-          One command per computer, on macOS or Linux. It downloads holtdroid-connect, which makes its own key for this
-          portal, publishes the ports you pick on every device you run and gives each device&apos;s ADB a local port.
+          One command per computer, on macOS or Linux. It downloads the holtdroid client, which makes its own key for
+          this portal, publishes the ports you pick on every device you run and gives each device&apos;s ADB a local
+          port.
         </CardDescription>
       </CardHeader>
       <CardContent>{body}</CardContent>

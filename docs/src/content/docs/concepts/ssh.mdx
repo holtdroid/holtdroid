@@ -1,15 +1,21 @@
 ---
 title: Connecting your computer
-description: Publish your computer's ports on your devices and reach their ADB with holtdroid-connect.
+description: Publish your computer's ports on your devices and reach their ADB with the holtdroid client.
 sidebar:
   order: 5
 ---
 
-`holtdroid-connect` is a small client you run on your own computer. While it
+import TerminalDemo from "../../../components/TerminalDemo.astro"
+
+`holtdroid` is a small client you run on your own computer. While it
 runs, every device you have running in the portal reaches the ports you pick
 as `http://localhost:<port>`, and each device's ADB gets a port on your
 computer. It works over SSH through the portal's gateway, but you don't need
 SSH keys or an `ssh` command.
+
+## What it looks like
+
+<TerminalDemo />
 
 ## Connecting a computer
 
@@ -34,7 +40,7 @@ The code works once and only for 10 minutes, so a command in your shell
 history is useless afterwards. Next time, run the client without a code:
 
 ```sh
-~/.cache/holtdroid/holtdroid-connect
+~/.cache/holtdroid/holtdroid
 ```
 
 Options: `--portal <url>` when the computer is enrolled with several portals,

@@ -308,7 +308,7 @@ func TestComputers(t *testing.T) {
 func TestTunnelScript(t *testing.T) {
 	h := newSSHHarness(t, true, 1)
 	build := []byte("#!/bin/sh\necho client\n")
-	for _, name := range []string{"holtdroid-connect-linux-amd64", "holtdroid-connect-darwin-arm64", "holtdroid-connect-plan9-386", "notes.txt"} {
+	for _, name := range []string{"holtdroid-linux-amd64", "holtdroid-darwin-arm64", "holtdroid-plan9-386", "notes.txt"} {
 		if err := os.WriteFile(filepath.Join(h.cfg.SSH.ClientDir, name), build, 0o755); err != nil {
 			t.Fatal(err)
 		}
@@ -326,11 +326,11 @@ func TestTunnelScript(t *testing.T) {
 		t.Fatalf("sh -n: %v %s", err, out)
 	}
 
-	rec = h.do(http.MethodGet, "/connect/holtdroid-connect-linux-amd64", "", "", nil)
+	rec = h.do(http.MethodGet, "/connect/holtdroid-linux-amd64", "", "", nil)
 	if rec.Code != http.StatusOK || !bytes.Equal(rec.Body.Bytes(), build) {
 		t.Fatalf("client = %d", rec.Code)
 	}
-	for _, name := range []string{"notes.txt", "holtdroid-connect-plan9-386", "..%2fsecret"} {
+	for _, name := range []string{"notes.txt", "holtdroid-plan9-386", "..%2fsecret"} {
 		if rec := h.do(http.MethodGet, "/connect/"+name, "", "", nil); rec.Code != http.StatusNotFound {
 			t.Fatalf("%s = %d", name, rec.Code)
 		}

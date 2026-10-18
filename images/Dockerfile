@@ -29,7 +29,7 @@ COPY cmd/holtdroid-connect cmd/holtdroid-connect
 COPY internal internal
 RUN for p in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64; do \
       CGO_ENABLED=0 GOOS=${p%/*} GOARCH=${p#*/} go build -trimpath -ldflags "-s -w -X main.version=$VERSION" \
-        -o /out/holtdroid-connect-${p%/*}-${p#*/} ./cmd/holtdroid-connect || exit 1; \
+        -o /out/holtdroid-${p%/*}-${p#*/} ./cmd/holtdroid-connect || exit 1; \
     done
 
 FROM gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
