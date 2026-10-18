@@ -56,6 +56,7 @@ type Model struct {
 	exe     string
 	wake    func()
 	openURL func(string) error
+	inspect func() error
 	sess    *session
 	picker  *picker
 	confirm *confirm
@@ -84,7 +85,7 @@ func New(act Actions, log *Log, snap connect.Snapshot) Model {
 	plan, err := connect.InstallPlan()
 	exe, _ := os.Executable()
 	return Model{
-		exe: exe, wake: func() {}, openURL: connect.OpenURL, prefs: connect.LoadPrefs(), savePrefs: connect.SavePrefs,
+		exe: exe, wake: func() {}, openURL: connect.OpenURL, inspect: connect.OpenInspect, prefs: connect.LoadPrefs(), savePrefs: connect.SavePrefs,
 		snap: snap, act: act, log: log, now: time.Now, install: connect.InstallCommand,
 		plan: plan, planErr: err, width: 100, height: 30,
 	}
@@ -238,6 +239,10 @@ func (m Model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.section == devices && m.cursor < len(m.snap.Sessions) {
 			m.content = true
 			m.openBrowser(m.snap.Sessions[m.cursor])
+		}
+	case "w":
+		if m.section == devices {
+			m.openInspect()
 		}
 	case "N":
 		if m.section == devices {

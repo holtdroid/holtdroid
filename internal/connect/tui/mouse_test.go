@@ -142,3 +142,14 @@ func TestPublishMode(t *testing.T) {
 		t.Fatalf("did %q, want %q", a.did, want)
 	}
 }
+
+func TestInspect(t *testing.T) {
+	m, _ := model(t)
+	opened := 0
+	m.inspect = func() error { opened++; return nil }
+	m = press(m, "2", "w")
+	m = click(t, m, "key:w")
+	if opened != 2 || m.flash != "opened chrome://inspect/#devices" {
+		t.Fatalf("opened %d, flash %q", opened, m.flash)
+	}
+}

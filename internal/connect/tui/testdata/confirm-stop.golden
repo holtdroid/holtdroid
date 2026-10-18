@@ -4,10 +4,10 @@
 │                      ││ ▸ Shop 4.2.1  emulator-d0281282be                                  │
 │   Overview           ││     ADB 127.0.0.1:15555  ✓ in adb devices                          │
 │ › Devices     1      ││                                                                    │
-│   Ports       2      ││                                                                    │
-│   Log                ││                                                                    │
-│   Settings           ││                                                                    │
-│                      ││                                                                    │
+│   Ports       2      ││ ╭────────────────────────────────────────────────────────────────╮ │
+│   Log                ││ │ Chrome DevTools  w opens chrome://inspect/#devices             │ │
+│   Settings           ││ │ The app's WebViews show up there with full DevTools.           │ │
+│                      ││ ╰────────────────────────────────────────────────────────────────╯ │
 │                      ││                                                                    │
 │                      ││                                                                    │
 │                      ││                                                                    │

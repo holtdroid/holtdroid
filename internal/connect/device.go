@@ -261,6 +261,24 @@ func (cl *Client) SessionURL(s control.Session) string {
 }
 
 // OpenURL opens u in the computer's browser.
+// InspectURL lists the WebViews of every device in adb devices.
+const InspectURL = "chrome://inspect/#devices"
+
+// OpenInspect opens InspectURL in Chrome; the system's URL opener doesn't
+// handle chrome:// links.
+func OpenInspect() error {
+	ctx := context.Background()
+	if runtime.GOOS == "darwin" {
+		return exec.CommandContext(ctx, "open", "-a", "Google Chrome", InspectURL).Run()
+	}
+	for _, name := range []string{"google-chrome", "google-chrome-stable", "chromium", "chromium-browser"} {
+		if path, err := exec.LookPath(name); err == nil {
+			return exec.CommandContext(ctx, path, InspectURL).Start()
+		}
+	}
+	return errors.New("no Chrome on PATH")
+}
+
 func OpenURL(u string) error {
 	name := "xdg-open"
 	if runtime.GOOS == "darwin" {

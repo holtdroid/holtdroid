@@ -118,15 +118,15 @@ func (m Model) help() string {
 	case m.sess != nil && m.snap.ADBOff:
 		keys = "R restart app · I reinstall · X stop · o browser · esc back · q quit"
 	case m.sess != nil && m.sess.tab == logcatTab:
-		keys = "←→ tabs · f app only · c clear · r restart log · R restart app · I reinstall · X stop · o browser · esc back"
+		keys = "←→ tabs · f all/app · c clear · r restart log · R restart app · I reinstall · X stop · o browser · esc back"
 	case m.sess != nil && m.sess.tab == shellTab:
 		keys = "enter open the shell · ←→ tabs · R restart app · I reinstall · X stop · o browser · esc back"
 	case m.sess != nil:
 		keys = "←→ tabs · r refresh · R restart app · I reinstall · X stop · o browser · esc back"
 	case m.content && m.section == devices:
-		keys = "↑↓ move · enter open · N new device · R restart app · I reinstall · X stop · o browser · ← back"
+		keys = "↑↓ move · enter open · N new device · w inspect · R restart app · I reinstall · X stop · o browser · ← back"
 	case m.section == devices:
-		keys = "→ open · N new device · X stop · 1-5 sections · q quit"
+		keys = "→ open · N new device · w inspect · X stop · 1-5 sections · q quit"
 	}
 	line := " " + buttons(keys)
 	if m.flash != "" {
@@ -177,7 +177,7 @@ func (m Model) body(width, height int) string {
 		if m.sess != nil {
 			return m.sessionView(width, height)
 		}
-		return m.devicesView()
+		return m.devicesView(width)
 	case ports:
 		return m.portsView(height)
 	case logs:
@@ -243,7 +243,7 @@ func (m Model) overview(width int) string {
 	return b.String()
 }
 
-func (m Model) devicesView() string {
+func (m Model) devicesView(width int) string {
 	s := m.snap
 	var b strings.Builder
 	hint := "  enter opens logcat, a shell and details · N launches a new one"
@@ -286,7 +286,23 @@ func (m Model) devicesView() string {
 		}
 		fmt.Fprintf(&b, "    ADB 127.0.0.1:%d  %s\n\n", a.Port, state)
 	}
+	if !s.ADBOff {
+		b.WriteString(m.inspectPlate(width))
+	}
 	return strings.TrimRight(b.String(), "\n")
+}
+
+// inspectPlate points at chrome://inspect, which lists the WebViews of
+// every device in adb devices.
+func (m Model) inspectPlate(width int) string {
+	inAdb := slices.ContainsFunc(m.snap.ADB, func(a connect.ADBDevice) bool { return a.Connected })
+	head := zone("key:w", chosen.Render("Chrome DevTools")+muted.Render("  w opens ")+connect.InspectURL)
+	text := "The app's WebViews show up there with full DevTools."
+	if !inAdb {
+		text = muted.Render("They show up there once a device is in adb devices; install adb to connect them.")
+	}
+	return lipgloss.NewStyle().Border(border).BorderForeground(accent).Padding(0, 1).Width(max(width-2, 20)).
+		Render(head + "\n" + zone("key:w", text))
 }
 
 type portRow struct {

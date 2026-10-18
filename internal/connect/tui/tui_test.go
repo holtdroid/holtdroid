@@ -148,6 +148,7 @@ func model(t *testing.T) (Model, *actions) {
 	m.plan = connect.Install{Path: "/home/otter/.local/bin/holtdroid", Target: "/home/otter/.cache/holtdroid/holtdroid", InPath: true}
 	m.planErr = nil
 	m.openURL = func(string) error { return nil }
+	m.inspect = func() error { return nil }
 	m.prefs = connect.Prefs{}
 	m.savePrefs = func(connect.Prefs) error { return nil }
 	m.install = func() (connect.Install, error) {
@@ -304,7 +305,7 @@ func TestSession(t *testing.T) {
 
 	next, cmd = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("f")})
 	m = next.(Model)
-	if !m.sess.appOnly || cmd == nil {
+	if m.sess.appOnly || cmd == nil {
 		t.Fatal("f didn't filter to the app")
 	}
 	filtered := cmd
@@ -344,7 +345,7 @@ func TestSession(t *testing.T) {
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if !slices.Equal(a.logcat, []bool{false, true}) {
+	if !slices.Equal(a.logcat, []bool{true, false}) {
 		t.Fatalf("logcat runs %v", a.logcat)
 	}
 
@@ -488,7 +489,7 @@ func TestPortalTurnedOff(t *testing.T) {
 	}
 	golden(t, "session-adb-off", m.View())
 	m = press(m, "right", "f")
-	if m.sess.tab != logcatTab || m.sess.appOnly {
+	if m.sess.tab != logcatTab || !m.sess.appOnly {
 		t.Fatal("tabs work with ADB off")
 	}
 	next, cmd = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("R")})

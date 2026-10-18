@@ -2,7 +2,7 @@
 │ holtdroid            ││ ‹ Shop 4.2.1 · emulator-d0281282be                                 │
 │ ● connected          ││ [Logcat]  Shell   Device   App                                     │
 │                      ││ ────────────────────────────────────────────────────────────────── │
-│   Overview           ││ all processes                                                      │
+│   Overview           ││ com.example.shop only                                              │
 │ › Devices     1      ││ 10-18 19:12:01.204 I/ActivityManager(  612): Start proc 4200:com.… │
 │   Ports       2      ││ 10-18 19:12:01.871 D/OkHttp  ( 4200): --> GET https://api.example… │
 │   Log                ││ 10-18 19:12:02.113 W/chromium( 4200): [WARNING:CONSOLE(118)] "Dep… │
@@ -21,4 +21,4 @@
 │                      ││                                                                    │
 │                      ││                                                                    │
 ╰──────────────────────╯╰────────────────────────────────────────────────────────────────────╯
- ←→ tabs · f app only · c clear · r restart log · R restart app · I reinstall · X stop · o brow…
+ ←→ tabs · f all/app · c clear · r restart log · R restart app · I reinstall · X stop · o brows…

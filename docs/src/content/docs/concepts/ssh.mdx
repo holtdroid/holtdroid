@@ -62,9 +62,13 @@ back. While the client has the mouse, hold Option (macOS) or Shift
   devices run, what is published and how long the certificate is valid.
 - **Devices**: your running devices with their local ADB address and
   whether they are already in `adb devices`; `o` opens one's session page in
-  the browser. Enter opens a device, with tabs (`←`/`→`):
+  the browser. Chrome's `chrome://inspect/#devices` lists the WebViews of
+  every device in `adb devices` (keep **Discover USB devices** on), with full
+  DevTools; `w` or a click on the plate under the devices opens it in
+  Chrome. Enter opens a device, with tabs (`←`/`→`):
   - **Logcat** streams the device's log, the last 200 lines first, errors in
-    red and warnings in yellow; `f` shows only the app's process, `c` clears,
+    red and warnings in yellow; it shows only the app's process
+    to begin with, `f` switches between it and every process, `c` clears,
     `r` starts over.
   - **Shell** opens a shell on the device right in this terminal (root on
     emulators); `exit` or Ctrl+D brings you back.

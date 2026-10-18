@@ -58,7 +58,7 @@ type (
 
 func (m *Model) openSession(s control.Session) tea.Cmd {
 	m.closeSession()
-	m.sess = &session{s: s, logcat: &Log{notify: m.wake}, loading: map[tab]bool{}}
+	m.sess = &session{s: s, logcat: &Log{notify: m.wake}, loading: map[tab]bool{}, appOnly: s.Package != ""}
 	if m.snap.ADBOff {
 		return nil
 	}
@@ -145,6 +145,9 @@ func (m Model) sessionKey(k tea.KeyMsg) (Model, tea.Cmd) {
 	case "o":
 		m.openBrowser(ss.s)
 		return m, nil
+	case "w":
+		m.openInspect()
+		return m, nil
 	}
 	if m.snap.ADBOff {
 		return m, nil
@@ -190,6 +193,17 @@ func (m Model) switchTab(t tab) (Model, tea.Cmd) {
 		return m, m.load(t)
 	}
 	return m, nil
+}
+
+func (m *Model) openInspect() {
+	switch {
+	case m.snap.ADBOff:
+		m.flash = "ADB is turned off on this portal"
+	case m.inspect() != nil:
+		m.flash = "open " + connect.InspectURL + " in Chrome"
+	default:
+		m.flash = "opened " + connect.InspectURL
+	}
 }
 
 func (m *Model) openBrowser(s control.Session) {
