@@ -42,6 +42,7 @@ type fanPort struct {
 
 type device struct {
 	provider, id, slug string
+	info               control.Session
 	tunnel             *contract.TunnelClient
 	bytes              atomic.Int64
 	reported           time.Time
@@ -186,6 +187,7 @@ func (f *fanout) refresh(ctx context.Context) {
 		if _, ok := f.devices[slug]; !ok {
 			f.devices[slug] = &device{
 				provider: s.Provider, id: s.ID, slug: slug, tunnel: contract.NewTunnelClient(s.TunnelURL, nil), reported: now,
+				info: control.Session{Slug: slug, Provider: s.Provider, ID: s.ID, Package: s.Package, Label: s.Label, VersionName: s.VersionName},
 				open: map[uint32]*yamux.Session{}, failed: map[uint32]time.Time{},
 			}
 			f.c.log.Info("session joined", "session", slug)
@@ -224,7 +226,7 @@ func (f *fanout) sessions() []control.Session {
 	f.mu.Lock()
 	list := make([]control.Session, 0, len(f.devices))
 	for _, d := range f.devices {
-		list = append(list, control.Session{Slug: d.slug, Provider: d.provider, ID: d.id})
+		list = append(list, d.info)
 	}
 	f.mu.Unlock()
 	slices.SortFunc(list, func(a, b control.Session) int { return strings.Compare(a.Slug, b.Slug) })

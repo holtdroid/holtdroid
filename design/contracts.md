@@ -270,7 +270,7 @@ client binary stays small (decision #64).
 |--------|------|--------|
 | `hello` | client, once | `hello: {version, os, arch}` |
 | `state` | client, on change | `state: {listening: [{port, process?}], published: [port], adb: [{session, port}]}` |
-| `sessions` | gateway, on change and when the channel opens | `sessions: [{slug, provider, id}]`, the user's ready sessions; absent = none |
+| `sessions` | gateway, on change and when the channel opens | `sessions: [{slug, provider, id, package?, label?, versionName?}]`, the user's ready sessions; absent = none |
 | `publish` | gateway | `publish: [port]`, the exact set the client should publish (from the portal); absent = none |
 
 The fake provider (`internal/provider/fake`) implements all of it with
@@ -327,7 +327,7 @@ keeping the provider in the path is what lets the api stay stateless.
 | `GET` | `/internal/app-data/{key}` | app data download for agents, **internal port only**; `key` is `{user hash}/{package}/{id}.tar.zst`, ids carry 96 random bits |
 | `GET` | `/internal/ssh/authority` | gateway only, **internal port**: `{publicKey}` of the CA that signs connect clients' certificates; 404 when SSH is disabled |
 | `POST` | `/internal/sessions/{slug}/activity` | gateway only, **internal port**: tunnel traffic counts as activity → 204; 404 for an unknown session |
-| `GET` | `/internal/users/{handle}/sessions` | gateway only, **internal port**: `{sessions: [SSHSession]}`, every session (any state) whose owner has this `user-…` handle; empty for an unknown handle; 500 if a provider can't list, so the gateway keeps what it has |
+| `GET` | `/internal/users/{handle}/sessions` | gateway only, **internal port**: `{sessions: [SSHSession]}` (`{provider, id, owner, state, tunnelUrl?, package?, label?, versionName?}`), every session (any state) whose owner has this `user-…` handle; empty for an unknown handle; 500 if a provider can't list, so the gateway keeps what it has |
 | `POST` | `/internal/audit/events` | gateway only, **internal port**: a JSON array (≤ 1000) of audit events the gateway emitted, kept in the api's audit store → 204; dropped when `audit.store` is off |
 
 The APK cache is warmed in the background: listing artifacts and polling

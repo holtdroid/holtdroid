@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -277,6 +278,7 @@ func TestConnect(t *testing.T) {
 		s := cl.Snapshot()
 		return s.Connected && len(s.Active) == 1 && s.Active[0] == local && s.Hostname != "" && len(s.ADB) == 1
 	})
+	testDevice(t, cl)
 	if err := cl.TogglePublished(local); err != nil {
 		t.Fatal(err)
 	}
@@ -316,5 +318,55 @@ func TestBadCode(t *testing.T) {
 	err = Run(context.Background(), Options{Portal: p.url, Log: slog.New(slog.DiscardHandler)})
 	if err == nil || !strings.Contains(err.Error(), "not enrolled") {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+func testDevice(t *testing.T, cl *Client) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	sess := cl.Snapshot().Sessions[0]
+	if sess.Package == "" {
+		t.Fatalf("session without a package: %+v", sess)
+	}
+	info, err := cl.DeviceInfo(ctx, sess.Slug)
+	if err != nil || len(info) == 0 || info[0].Name != "Model" || !strings.Contains(info[0].Value, "Fake Pixel 9") {
+		t.Fatalf("device info %+v, %v", info, err)
+	}
+	app, err := cl.AppInfo(ctx, sess)
+	if err != nil || !slices.ContainsFunc(app, func(f Field) bool { return f.Name == "Version" && strings.HasPrefix(f.Value, "4.2.1") }) {
+		t.Fatalf("app info %+v, %v", app, err)
+	}
+
+	lines := make(chan string, 10)
+	lctx, stop := context.WithCancel(ctx)
+	go func() {
+		_ = cl.Logcat(lctx, sess, false, func(l string) {
+			select {
+			case lines <- l:
+			default:
+			}
+		})
+	}()
+	select {
+	case <-lines:
+	case <-ctx.Done():
+		t.Fatal("no logcat line")
+	}
+	stop()
+
+	sh, err := cl.Shell(sess.Slug)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := io.WriteString(sh, "echo shell-works\nexit\n"); err != nil {
+		t.Fatal(err)
+	}
+	out, _ := io.ReadAll(sh)
+	if !strings.Contains(string(out), "shell-works") {
+		t.Fatalf("shell printed %q", out)
+	}
+	if u := cl.SessionURL(sess); !strings.HasSuffix(u, "/session/"+sess.Provider+"/"+sess.ID) {
+		t.Fatalf("session url %s", u)
 	}
 }

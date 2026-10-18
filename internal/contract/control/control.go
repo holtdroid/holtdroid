@@ -40,9 +40,12 @@ type State struct {
 }
 
 type Session struct {
-	Slug     string `json:"slug" doc:"{provider}-{id}, also the host name a client dials for the session's ADB"`
-	Provider string `json:"provider"`
-	ID       string `json:"id"`
+	Slug        string `json:"slug" doc:"{provider}-{id}, also the host name a client dials for the session's ADB"`
+	Provider    string `json:"provider"`
+	ID          string `json:"id"`
+	Package     string `json:"package,omitempty"`
+	Label       string `json:"label,omitempty"`
+	VersionName string `json:"versionName,omitempty"`
 }
 
 // Enroll trades a one-time code from the portal for credentials.

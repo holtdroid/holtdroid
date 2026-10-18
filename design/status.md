@@ -38,8 +38,9 @@ deployment"):
   `adb connect` when adb is installed). The Computers page lists connected
   computers with their loopback listeners as toggles; the session popover
   shows live tunnels and the device's ADB port. The client is a full-screen
-  TUI (Overview, Devices, Ports, Log, Settings with installing the
-  `holtdroid` command); dev-server ports come first, other listeners are
+  TUI (Overview, Devices with Logcat/Shell/Device/App tabs per device and
+  opening the session in the browser, Ports, Log, Settings with installing
+  the `holtdroid` command); dev-server ports come first, other listeners are
   folded. Not yet: the automatic port mode, revoking single computers (needs the database),
   Windows. Covered by an end-to-end test (api + gateway + fake device +
   client); not yet tried against a real emulator.

@@ -144,7 +144,14 @@ func (s *Server) SSHUserSessions(ctx context.Context, handle string) ([]contract
 	for _, provider := range s.provOrder {
 		for _, sess := range all[provider] {
 			if sess.Owner != "" && s.sshHandle(sess.Owner) == handle {
-				out = append(out, contract.SSHSession{Provider: provider, ID: sess.ID, Owner: sess.Owner, State: sess.State, TunnelURL: sess.TunnelURL})
+				ss := contract.SSHSession{
+					Provider: provider, ID: sess.ID, Owner: sess.Owner, State: sess.State, TunnelURL: sess.TunnelURL, Package: sess.Package,
+				}
+				srcName, key, rev := splitRef(sess.ArtifactRef)
+				if e, ok := s.cache.Lookup(ctx, srcName, key, rev); ok {
+					ss.Label, ss.VersionName = e.Meta.Label, e.Meta.VersionName
+				}
+				out = append(out, ss)
 			}
 		}
 	}

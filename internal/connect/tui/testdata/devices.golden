@@ -1,9 +1,9 @@
 ╭──────────────────────╮╭────────────────────────────────────────────────────────────────────╮
-│ holtdroid            ││ Devices                                                            │
+│ holtdroid            ││ Devices  enter opens logcat, a shell and device details            │
 │ ● connected          ││                                                                    │
-│                      ││ emulator-d0281282be                                                │
-│   Overview           ││   ADB         127.0.0.1:15555  ✓ in adb devices                    │
-│ ▸ Devices     1      ││   Shell       adb -s 127.0.0.1:15555 shell                         │
+│                      ││ ▸ Shop 4.2.1  emulator-d0281282be                                  │
+│   Overview           ││     ADB 127.0.0.1:15555  ✓ in adb devices                          │
+│ › Devices     1      ││                                                                    │
 │   Ports       2      ││                                                                    │
 │   Log                ││                                                                    │
 │   Settings           ││                                                                    │
@@ -21,4 +21,4 @@
 │                      ││                                                                    │
 │                      ││                                                                    │
 ╰──────────────────────╯╰────────────────────────────────────────────────────────────────────╯
- ↑↓ move · → open · 1-5 sections · q quit
+ ↑↓ move · enter open · o open in the browser · ← back · q quit

@@ -104,6 +104,14 @@ func (m Model) help() string {
 		keys = "↑↓ move · space publish · n another port · a show all · ← back · q quit"
 	case m.content && m.section == settings:
 		keys = "enter install the holtdroid command · ← back · q quit"
+	case m.sess != nil && m.sess.tab == logcatTab:
+		keys = "←→ tabs · f app only · c clear · r restart · o browser · esc back · q quit"
+	case m.sess != nil && m.sess.tab == shellTab:
+		keys = "enter open the shell · ←→ tabs · o browser · esc back · q quit"
+	case m.sess != nil:
+		keys = "←→ tabs · r refresh · o browser · esc back · q quit"
+	case m.content && m.section == devices:
+		keys = "↑↓ move · enter open · o open in the browser · ← back · q quit"
 	}
 	line := muted.Render(" " + keys)
 	if m.flash != "" {
@@ -115,6 +123,9 @@ func (m Model) help() string {
 func (m Model) body(width, height int) string {
 	switch m.section {
 	case devices:
+		if m.sess != nil {
+			return m.sessionView(width, height)
+		}
 		return m.devicesView()
 	case ports:
 		return m.portsView(height)
@@ -171,7 +182,7 @@ func (m Model) overview(width int) string {
 func (m Model) devicesView() string {
 	s := m.snap
 	var b strings.Builder
-	b.WriteString(title.Render("Devices") + "\n\n")
+	b.WriteString(title.Render("Devices") + muted.Render("  enter opens logcat, a shell and device details") + "\n\n")
 	if len(s.Sessions) == 0 {
 		b.WriteString(muted.Render("No device is running. Launch one in the portal and it shows up here."))
 		return b.String()
@@ -180,20 +191,27 @@ func (m Model) devicesView() string {
 	for _, a := range s.ADB {
 		adb[a.Session] = a
 	}
-	for _, d := range s.Sessions {
-		b.WriteString(title.Render(d.Slug) + "\n")
+	for i, d := range s.Sessions {
+		name := firstNonEmpty(d.Label, d.Package, d.Slug)
+		if d.VersionName != "" {
+			name += " " + d.VersionName
+		}
+		line := title.Render(name) + muted.Render("  "+d.Slug)
+		if m.content && i == m.cursor {
+			b.WriteString(pointer + line + "\n")
+		} else {
+			b.WriteString("  " + line + "\n")
+		}
 		a, ok2 := adb[d.Slug]
 		if !ok2 {
-			b.WriteString("  " + muted.Render("no local ADB port") + "\n\n")
+			b.WriteString("    " + muted.Render("no local ADB port") + "\n\n")
 			continue
 		}
-		addr := fmt.Sprintf("127.0.0.1:%d", a.Port)
 		state := muted.Render("adb connect it yourself")
 		if a.Connected {
 			state = ok.Render("✓ in adb devices")
 		}
-		b.WriteString("  " + label.Render("ADB") + addr + "  " + state + "\n")
-		b.WriteString("  " + label.Render("Shell") + "adb -s " + addr + " shell\n\n")
+		fmt.Fprintf(&b, "    ADB 127.0.0.1:%d  %s\n\n", a.Port, state)
 	}
 	return strings.TrimRight(b.String(), "\n")
 }

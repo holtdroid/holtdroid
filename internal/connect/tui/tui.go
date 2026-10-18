@@ -5,7 +5,9 @@ package tui
 import (
 	"context"
 	"errors"
+	"io"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -15,6 +17,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/kriakiku/holtdroid/internal/connect"
+	"github.com/kriakiku/holtdroid/internal/contract/control"
 )
 
 type section int
@@ -32,6 +35,11 @@ var sections = []string{"Overview", "Devices", "Ports", "Log", "Settings"}
 // Actions are what the UI can ask the client to do.
 type Actions interface {
 	TogglePublished(port int) error
+	DeviceInfo(ctx context.Context, slug string) ([]connect.Field, error)
+	AppInfo(ctx context.Context, s control.Session) ([]connect.Field, error)
+	Logcat(ctx context.Context, s control.Session, app bool, line func(string)) error
+	Shell(slug string) (io.ReadWriteCloser, error)
+	SessionURL(s control.Session) string
 }
 
 type Model struct {
@@ -41,6 +49,9 @@ type Model struct {
 	now     func() time.Time
 	install func() (connect.Install, error)
 	exe     string
+	wake    func()
+	openURL func(string) error
+	sess    *session
 
 	section section
 	content bool
@@ -60,7 +71,7 @@ func New(act Actions, log *Log, snap connect.Snapshot) Model {
 	plan, err := connect.InstallPlan()
 	exe, _ := os.Executable()
 	return Model{
-		exe:  exe,
+		exe: exe, wake: func() {}, openURL: connect.OpenURL,
 		snap: snap, act: act, log: log, now: time.Now, install: connect.InstallCommand,
 		plan: plan, planErr: err, width: 100, height: 30,
 	}
@@ -88,7 +99,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width, m.height = msg.Width, msg.Height
 	case snapMsg:
 		m.snap = connect.Snapshot(msg)
-		m.cursor = min(m.cursor, max(len(m.portRows())-1, 0))
+		m.cursor = min(m.cursor, max(m.items()-1, 0))
+		if m.sess != nil && !slices.ContainsFunc(m.snap.Sessions, func(s control.Session) bool { return s.Slug == m.sess.s.Slug }) {
+			m.flash = m.sess.s.Slug + " stopped"
+			m.closeSession()
+		}
+	case fieldsMsg, logcatEndMsg, shellDoneMsg:
+		m.sessionMsg(msg)
 	case logMsg:
 	case tickMsg:
 		return m, tick()
@@ -131,9 +148,17 @@ func (m Model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	m.flash = ""
 	switch k.String() {
 	case "ctrl+c", "q":
+		m.closeSession()
 		return m, tea.Quit
 	case "1", "2", "3", "4", "5":
+		m.closeSession()
 		m.section, m.content, m.cursor = section(k.String()[0]-'1'), false, 0
+		return m, nil
+	}
+	if m.sess != nil {
+		return m.sessionKey(k)
+	}
+	switch k.String() {
 	case "tab", "right", "l":
 		m.content = m.focusable()
 	case "shift+tab", "left", "h", "esc":
@@ -156,12 +181,21 @@ func (m Model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		switch {
 		case !m.content:
 			m.content = m.focusable()
+		case m.section == devices:
+			if m.cursor < len(m.snap.Sessions) {
+				cmd := m.openSession(m.snap.Sessions[m.cursor])
+				return m, cmd
+			}
 		case m.section == ports:
 			if rows := m.portRows(); m.cursor < len(rows) {
 				m.publish(rows[m.cursor].port)
 			}
 		case m.section == settings:
 			m.plan, m.planErr = m.install()
+		}
+	case "o":
+		if m.section == devices && m.content && m.cursor < len(m.snap.Sessions) {
+			m.openBrowser(m.snap.Sessions[m.cursor])
 		}
 	case "a":
 		if m.section == ports {
@@ -186,10 +220,14 @@ func (m *Model) publish(port int) {
 	}
 }
 
-func (m Model) focusable() bool { return m.section == ports || m.section == settings }
+func (m Model) focusable() bool {
+	return m.section == ports || m.section == settings || m.section == devices && len(m.snap.Sessions) > 0
+}
 
 func (m Model) items() int {
 	switch m.section {
+	case devices:
+		return len(m.snap.Sessions)
 	case ports:
 		return len(m.portRows())
 	case settings:
@@ -221,6 +259,12 @@ func (l *Log) Write(p []byte) (int, error) {
 		notify()
 	}
 	return len(p), nil
+}
+
+func (l *Log) reset() {
+	l.mu.Lock()
+	l.lines = nil
+	l.mu.Unlock()
 }
 
 func (l *Log) tail(n int) []string {
@@ -264,7 +308,9 @@ func Run(ctx context.Context, log *Log, start func(onChange func(connect.Snapsho
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	p := tea.NewProgram(New(cl, log, cl.Snapshot()), tea.WithAltScreen(), tea.WithContext(ctx))
+	m := New(cl, log, cl.Snapshot())
+	m.wake = nudge
+	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithContext(ctx))
 	go func() {
 		for {
 			select {

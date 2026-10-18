@@ -1,11 +1,14 @@
 package tui
 
 import (
+	"context"
 	"flag"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -19,11 +22,52 @@ import (
 
 var update = flag.Bool("update", false, "rewrite golden files")
 
-type actions struct{ toggled []int }
+type actions struct {
+	toggled []int
+	mu      sync.Mutex
+	logcat  []bool
+}
 
 func (a *actions) TogglePublished(port int) error {
 	a.toggled = append(a.toggled, port)
 	return nil
+}
+
+func (a *actions) DeviceInfo(context.Context, string) ([]connect.Field, error) {
+	return []connect.Field{
+		{Name: "Model", Value: "Google sdk_gphone64_arm64"},
+		{Name: "Android", Value: "15 (API 35)"},
+		{Name: "ABI", Value: "arm64-v8a"},
+		{Name: "Screen", Value: "1080x2400 · 420 dpi"},
+		{Name: "Battery", Value: "100%"},
+		{Name: "Locale", Value: "en-US"},
+		{Name: "Time zone", Value: "Europe/Berlin"},
+	}, nil
+}
+
+func (a *actions) AppInfo(_ context.Context, s control.Session) ([]connect.Field, error) {
+	return []connect.Field{
+		{Name: "Name", Value: s.Label},
+		{Name: "Package", Value: s.Package},
+		{Name: "Version", Value: "4.2.1 (4210)"},
+		{Name: "Target", Value: "API 35"},
+		{Name: "Running", Value: "yes, pid 4200"},
+		{Name: "UID", Value: "10187"},
+	}, nil
+}
+
+func (a *actions) Logcat(ctx context.Context, _ control.Session, app bool, _ func(string)) error {
+	a.mu.Lock()
+	a.logcat = append(a.logcat, app)
+	a.mu.Unlock()
+	<-ctx.Done()
+	return nil
+}
+
+func (a *actions) Shell(string) (io.ReadWriteCloser, error) { return nil, io.EOF }
+
+func (a *actions) SessionURL(s control.Session) string {
+	return "https://android.example.com/session/" + s.Provider + "/" + s.ID
 }
 
 var now = time.Date(2026, 10, 18, 19, 12, 0, 0, time.UTC)
@@ -35,8 +79,11 @@ func snapshot() connect.Snapshot {
 		CertificateExpiresAt: now.Add(14 * time.Minute), RefreshExpiresAt: now.Add(30 * 24 * time.Hour),
 		Fingerprint: "SHA256:Zru7u9KFnruNN8vZsTaJL9hayAphx7lrZ0uGzIib12k",
 		Dir:         "/home/otter/.config/holtdroid/connect/android.example.com",
-		Sessions:    []control.Session{{Slug: "emulator-d0281282be", Provider: "emulator", ID: "d0281282be"}},
-		ADB:         []connect.ADBDevice{{Session: "emulator-d0281282be", Port: 15555, Connected: true}},
+		Sessions: []control.Session{{
+			Slug: "emulator-d0281282be", Provider: "emulator", ID: "d0281282be",
+			Package: "com.example.shop", Label: "Shop", VersionName: "4.2.1",
+		}},
+		ADB: []connect.ADBDevice{{Session: "emulator-d0281282be", Port: 15555, Connected: true}},
 		Listening: []control.LocalPort{
 			{Port: 3006, Process: "node"},
 			{Port: 5000, Process: "ControlCenter"},
@@ -62,6 +109,7 @@ func model(t *testing.T) (Model, *actions) {
 	m.width, m.height = 96, 24
 	m.plan = connect.Install{Path: "/home/otter/.local/bin/holtdroid", Target: "/home/otter/.cache/holtdroid/holtdroid", InPath: true}
 	m.planErr = nil
+	m.openURL = func(string) error { return nil }
 	m.install = func() (connect.Install, error) {
 		p := m.plan
 		p.Installed = true
@@ -123,7 +171,7 @@ func trimRight(lines []string) []string {
 func TestScreens(t *testing.T) {
 	m, _ := model(t)
 	golden(t, "overview", m.View())
-	golden(t, "devices", press(m, "2").View())
+	golden(t, "devices", press(m, "2", "right").View())
 	golden(t, "ports", press(m, "3", "right", "down").View())
 	golden(t, "ports-all", press(m, "3", "right", "a").View())
 	toggled := snapshot()
@@ -174,5 +222,90 @@ func TestQuit(t *testing.T) {
 	}
 	if _, cmd := m.Update(doneMsg{}); cmd == nil {
 		t.Fatal("the client stopping doesn't quit")
+	}
+}
+
+func run(m Model, cmd tea.Cmd) Model {
+	if cmd == nil {
+		return m
+	}
+	next, _ := m.Update(cmd())
+	return next.(Model)
+}
+
+func TestSession(t *testing.T) {
+	m, a := model(t)
+	m = press(m, "2", "right")
+	next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = next.(Model)
+	if m.sess == nil || cmd == nil {
+		t.Fatal("enter didn't open the session")
+	}
+	done := make(chan tea.Msg, 1)
+	first := cmd
+	go func() { done <- first() }()
+	for _, l := range []string{
+		"10-18 19:12:01.204 I/ActivityManager(  612): Start proc 4200:com.example.shop/u0a187 for activity",
+		"10-18 19:12:01.871 D/OkHttp  ( 4200): --> GET https://api.example.com/catalog",
+		"10-18 19:12:02.113 W/chromium( 4200): [WARNING:CONSOLE(118)] \"Deprecated API: document.domain setter\"",
+		"10-18 19:12:02.540 E/Checkout( 4200): payment widget failed to load: net::ERR_NAME_NOT_RESOLVED",
+		"10-18 19:12:03.002 I/chromium( 4200): [INFO:CONSOLE(42)] \"cart restored, 3 items\"",
+	} {
+		_, _ = m.sess.logcat.Write([]byte(l + "\n"))
+	}
+	golden(t, "session-logcat", m.View())
+
+	next, cmd = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("f")})
+	m = next.(Model)
+	if !m.sess.appOnly || cmd == nil {
+		t.Fatal("f didn't filter to the app")
+	}
+	filtered := cmd
+	go func() { _ = filtered() }()
+
+	m = press(m, "right")
+	golden(t, "session-shell", m.View())
+	next, cmd = m.Update(tea.KeyMsg{Type: tea.KeyRight})
+	m = run(next.(Model), cmd)
+	golden(t, "session-device", m.View())
+	next, cmd = m.Update(tea.KeyMsg{Type: tea.KeyRight})
+	m = run(next.(Model), cmd)
+	golden(t, "session-app", m.View())
+
+	m = press(m, "o")
+	if !strings.Contains(m.flash, "/session/emulator/d0281282be") {
+		t.Fatalf("flash %q", m.flash)
+	}
+	m = press(m, "esc")
+	if m.sess != nil {
+		t.Fatal("esc didn't close the session")
+	}
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("logcat kept running after the session closed")
+	}
+	eventually := time.Now().Add(5 * time.Second)
+	for {
+		a.mu.Lock()
+		got := slices.Clone(a.logcat)
+		a.mu.Unlock()
+		if len(got) == 2 || time.Now().After(eventually) {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if !slices.Equal(a.logcat, []bool{false, true}) {
+		t.Fatalf("logcat runs %v", a.logcat)
+	}
+
+	m = press(m, "right", "enter")
+	s := snapshot()
+	s.Sessions, s.ADB = nil, nil
+	next, _ = m.Update(snapMsg(s))
+	if m = next.(Model); m.sess != nil || !strings.Contains(m.flash, "stopped") {
+		t.Fatalf("a stopped session stays open: %q", m.flash)
 	}
 }

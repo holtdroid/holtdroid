@@ -53,8 +53,22 @@ goes into it, `←` or Esc comes back, `q` quits.
 
 - **Overview**: whether the computer is connected, as whom, how many
   devices run, what is published and how long the certificate is valid.
-- **Devices**: each running device with its local ADB address, whether it
-  is already in `adb devices`, and the command for a shell.
+- **Devices**: your running devices with their local ADB address and
+  whether they are already in `adb devices`; `o` opens one's session page in
+  the browser. Enter opens a device, with tabs (`←`/`→`):
+  - **Logcat** streams the device's log, the last 200 lines first, errors in
+    red and warnings in yellow; `f` shows only the app's process, `c` clears,
+    `r` starts over.
+  - **Shell** opens a shell on the device right in this terminal (root on
+    emulators); `exit` or Ctrl+D brings you back.
+  - **Device**: model, Android version, ABI, screen, battery, locale, time
+    zone and build.
+  - **App**: the app's name, package, version, target SDK, whether it runs
+    and its UID.
+
+  Esc goes back to the list. These go through the device's ADB like the
+  local port does; no `adb` has to be installed.
+
 - **Ports**: the published ports and the ports of programs that look like
   dev servers (`node`, `bun`, `python`, `java` and the like). Space
   publishes or unpublishes the one under the cursor, `n` publishes a port

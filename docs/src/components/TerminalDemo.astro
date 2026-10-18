@@ -5,6 +5,8 @@ import ports from "../../../internal/connect/tui/testdata/ports.golden?raw"
 import published from "../../../internal/connect/tui/testdata/ports-published.golden?raw"
 import settings from "../../../internal/connect/tui/testdata/settings.golden?raw"
 import installed from "../../../internal/connect/tui/testdata/settings-installed.golden?raw"
+import logcat from "../../../internal/connect/tui/testdata/session-logcat.golden?raw"
+import app from "../../../internal/connect/tui/testdata/session-app.golden?raw"
 
 // Frames of the full-screen UI are the TUI's golden test files, so the demo
 // always shows what the client really draws.
@@ -26,6 +28,8 @@ const steps: Step[] = [
   },
   { tab: 0, caption: "The computer is enrolled and connected; a device you launched is already there.", frame: overview, pause: 3200 },
   { tab: 0, caption: "Devices: each one gets its own ADB port on your computer, already added to adb.", frame: devices, pause: 3000 },
+  { tab: 0, caption: "Enter opens the device: its logcat streams right here, errors in red.", frame: logcat, pause: 3400 },
+  { tab: 0, caption: "→ goes through Shell, Device and App; o opens the session in the browser.", frame: app, pause: 3000 },
   { tab: 0, caption: "Ports: your dev servers, with the published ones lit up.", frame: ports, pause: 2600 },
   { tab: 0, caption: "Space publishes port 5173: every device now reaches it as localhost:5173.", frame: published, pause: 3000 },
   { tab: 0, caption: "Settings: version, where things are, and the holtdroid command.", frame: settings, pause: 2600 },

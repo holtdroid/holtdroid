@@ -427,7 +427,15 @@ servers to the device with the `holtdroid` client (`cmd/holtdroid-connect`,
 `ssh` commands (#21, #38, #46, #61). In a terminal it is a full-screen
 bubbletea UI (`internal/connect/tui`) over the client's `Snapshot`; its
 golden frames in `testdata/` are also the frames of the animated terminal
-on the docs page. Without a terminal it prints status lines
+on the docs page. A device opened in the Devices section gets Logcat
+(`exec:logcat -v time -T 200`, `--pid` of the app with `f`), an interactive
+`shell:` run on the real terminal while bubbletea is suspended (`tea.Exec`),
+and Device/App tabs from `getprop`, `wm`, `dumpsys battery`, `dumpsys
+package` and `pidof`. They speak adb themselves over `direct-tcpip` to
+`{session}:5555` with `adbproto.Client`, a small host-side multiplexer;
+the agent's relay filter applies as for any adb client. The gateway's
+session list (`/internal/users/{handle}/sessions`, `sessions` messages)
+carries each session's package, app name and version for this. Without a terminal it prints status lines
 (`connect.Printer`).
 
 ```sh

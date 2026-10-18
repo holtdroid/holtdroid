@@ -364,7 +364,10 @@ func TestInternalSSHSessions(t *testing.T) {
 
 	h.create("badger")
 	mine, err := c.SSHUserSessions(ctx, h.srv.sshHandle("otter"))
-	want := contract.SSHSession{Provider: "fake", ID: v.ID, Owner: "otter", State: contract.StateProvisioning, TunnelURL: "http://tunnels/agents/" + v.ID}
+	want := contract.SSHSession{
+		Provider: "fake", ID: v.ID, Owner: "otter", State: contract.StateProvisioning, TunnelURL: "http://tunnels/agents/" + v.ID,
+		Package: "com.example.helloworld", Label: "HelloWorld", VersionName: "1.0",
+	}
 	if err != nil || len(mine) != 1 || mine[0] != want {
 		t.Fatalf("otter's sessions %+v, %v", mine, err)
 	}

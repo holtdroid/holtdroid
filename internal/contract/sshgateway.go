@@ -116,11 +116,14 @@ type auditEventsInput struct {
 }
 
 type SSHSession struct {
-	Provider  string       `json:"provider"`
-	ID        string       `json:"id"`
-	Owner     string       `json:"owner"`
-	State     SessionState `json:"state" enum:"provisioning,booting,installing,restoring,instrumenting,ready,stopping,failed"`
-	TunnelURL string       `json:"tunnelUrl,omitempty"`
+	Provider    string       `json:"provider"`
+	ID          string       `json:"id"`
+	Owner       string       `json:"owner"`
+	State       SessionState `json:"state" enum:"provisioning,booting,installing,restoring,instrumenting,ready,stopping,failed"`
+	TunnelURL   string       `json:"tunnelUrl,omitempty"`
+	Package     string       `json:"package,omitempty"`
+	Label       string       `json:"label,omitempty" doc:"the app's name, once the api has parsed its APK"`
+	VersionName string       `json:"versionName,omitempty"`
 }
 
 // HandlePrefix starts the SSH user name that reaches all of a user's

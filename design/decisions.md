@@ -1488,7 +1488,9 @@ fragile and would leave out Windows.
   and runs it. Client and server ship from the same commit, so there is no
   separate repository and no version skew. It uses `x/crypto/ssh` instead
   of the system `ssh`. In a terminal it is a full-screen bubbletea UI
-  (sections on the left: Overview, Devices, Ports, Log, Settings), and
+  (sections on the left: Overview, Devices, Ports, Log, Settings; a device
+  opens with Logcat, Shell, Device and App tabs over the client's own adb
+  connection, `internal/adbproto.Client`, so no local `adb` is needed), and
   Settings can link `holtdroid` onto the user's `PATH`; without a terminal
   or with `--plain` it prints status lines. Ports of programs that look like
   dev servers come first in the UI and on the Computers page; the rest
