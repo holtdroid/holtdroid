@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -12,7 +13,10 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"golang.org/x/term"
+
 	"github.com/kriakiku/holtdroid/internal/connect"
+	"github.com/kriakiku/holtdroid/internal/connect/tui"
 )
 
 func main() {
@@ -28,6 +32,7 @@ func root() *cobra.Command {
 		publish string
 		noADB   bool
 		verbose bool
+		plain   bool
 	)
 	cmd := &cobra.Command{
 		Use:   "holtdroid [code]",
@@ -42,7 +47,13 @@ func root() *cobra.Command {
 			if verbose {
 				level = slog.LevelDebug
 			}
-			log := slog.New(newLineHandler(os.Stderr, level))
+			interactive := !plain && term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stdout.Fd()))
+			var logs tui.Log
+			out := io.Writer(os.Stderr)
+			if interactive {
+				out = &logs
+			}
+			log := slog.New(newLineHandler(out, level))
 			if portal == "" {
 				var err error
 				if portal, err = savedPortal(); err != nil {
@@ -50,7 +61,7 @@ func root() *cobra.Command {
 				}
 			}
 			opts := connect.Options{
-				Portal: strings.TrimRight(portal, "/"), ADBConnect: !noADB, Version: version, Out: os.Stdout, Log: log,
+				Portal: strings.TrimRight(portal, "/"), ADBConnect: !noADB, Version: version, Log: log,
 			}
 			if len(args) == 1 {
 				opts.Code = args[0]
@@ -64,13 +75,21 @@ func root() *cobra.Command {
 			}
 			ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 			defer stop()
-			return connect.Run(ctx, opts)
+			if !interactive {
+				opts.OnChange = connect.Printer(os.Stdout)
+				return connect.Run(ctx, opts)
+			}
+			return tui.Run(ctx, &logs, func(onChange func(connect.Snapshot)) (tui.Client, error) {
+				opts.OnChange = onChange
+				return connect.New(opts)
+			})
 		},
 	}
 	cmd.Flags().StringVar(&portal, "portal", "", "portal URL (default: the only portal this computer is enrolled with)")
 	cmd.Flags().StringVar(&publish, "publish", "", "comma-separated ports to publish on your devices, replacing the saved list")
 	cmd.Flags().BoolVar(&noADB, "no-adb-connect", false, "don't run adb connect for each device")
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "debug logging")
+	cmd.Flags().BoolVar(&plain, "plain", false, "print status lines instead of the full-screen UI (the default without a terminal)")
 	return cmd
 }
 

@@ -1,0 +1,24 @@
+╭──────────────────────╮╭────────────────────────────────────────────────────────────────────╮
+│ holtdroid            ││ Settings                                                           │
+│ ● connected          ││                                                                    │
+│                      ││ Client      v0.4.0                                                 │
+│   Overview           ││ Portal      https://android.example.com                            │
+│   Devices     1      ││ User        otter                                                  │
+│   Ports       2      ││ Computer    otters-mac · 4ma52uwpbqwcbtbp                          │
+│   Log                ││ Key         SHA256:Zru7u9KFnruNN8vZsTaJL9hayAphx7lrZ0uGzIib12k     │
+│ › Settings           ││ Config      ~/.config/holtdroid/connect/android.example.com        │
+│                      ││ Binary      ~/.cache/holtdroid/holtdroid-6557e34d57c7f6f9          │
+│                      ││ Enrolled    until 17 Nov 2026, extended on every renewal           │
+│                      ││                                                                    │
+│                      ││ The holtdroid command                                              │
+│                      ││ ▸ Install ~/.local/bin/holtdroid                                   │
+│                      ││   so that holtdroid starts this client from any terminal           │
+│                      ││                                                                    │
+│                      ││                                                                    │
+│                      ││                                                                    │
+│                      ││                                                                    │
+│                      ││                                                                    │
+│                      ││                                                                    │
+│                      ││                                                                    │
+╰──────────────────────╯╰────────────────────────────────────────────────────────────────────╯
+ enter install the holtdroid command · ← back · q quit

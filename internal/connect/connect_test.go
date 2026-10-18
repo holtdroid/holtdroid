@@ -207,7 +207,7 @@ func TestConnect(t *testing.T) {
 	id := p.session("otter")
 	local := echoServer(t)
 	out := &syncBuffer{}
-	opts := Options{Portal: p.url, Code: p.code("otter"), Publish: []int{local}, Version: "test", Out: out, Log: slog.New(slog.DiscardHandler)}
+	opts := Options{Portal: p.url, Code: p.code("otter"), Publish: []int{local}, Version: "test", OnChange: Printer(out), Log: slog.New(slog.DiscardHandler)}
 	stop := run(t, opts)
 
 	reaches := func() bool {
@@ -224,7 +224,8 @@ func TestConnect(t *testing.T) {
 		return err == nil && string(buf) == "ping"
 	}
 	eventually(t, "the local port on the device", reaches)
-	if !strings.Contains(out.String(), "Holtdroid") && !strings.Contains(out.String(), "|_| |_|") {
+	eventually(t, "the status block", func() bool { return strings.Contains(out.String(), "● connected") })
+	if !strings.Contains(out.String(), "|_| |_|") || !strings.Contains(out.String(), "Listening  ") {
 		t.Fatalf("no banner in %q", out.String())
 	}
 
@@ -258,14 +259,36 @@ func TestConnect(t *testing.T) {
 	}
 
 	again := opts
-	again.Code, again.Publish = "", nil
-	run(t, again)
+	again.Code, again.Publish, again.OnChange = "", nil, nil
+	cl, err := New(again)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancelAgain := context.WithCancel(context.Background())
+	t.Cleanup(cancelAgain)
+	go func() { _ = cl.Run(ctx) }()
 	eventually(t, "a reconnect with the saved enrollment", func() bool {
 		list := p.computers("otter")
 		return len(list.Computers) == 1 && len(list.Computers[0].Published) == 0
 	})
 	p.call(http.MethodPut, "/api/v1/ssh/computers/"+computer+"/published", "otter", map[string][]int{"ports": {local}})
 	eventually(t, "the port published from the portal", reaches)
+	eventually(t, "the snapshot to show it", func() bool {
+		s := cl.Snapshot()
+		return s.Connected && len(s.Active) == 1 && s.Active[0] == local && s.Hostname != "" && len(s.ADB) == 1
+	})
+	if err := cl.TogglePublished(local); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "the port unpublished from the client", func() bool { return !reaches() })
+	eventually(t, "the portal to see it", func() bool {
+		list := p.computers("otter")
+		return len(list.Computers) == 1 && len(list.Computers[0].Published) == 0
+	})
+	if err := cl.TogglePublished(local); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "the port published again from the client", reaches)
 
 	root, _ := Dir()
 	portals, err := Portals(root)
@@ -286,11 +309,11 @@ func TestBadCode(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	p := newPortal(t)
-	err := Run(context.Background(), Options{Portal: p.url, Code: "nope", Out: io.Discard, Log: slog.New(slog.DiscardHandler)})
+	err := Run(context.Background(), Options{Portal: p.url, Code: "nope", Log: slog.New(slog.DiscardHandler)})
 	if err == nil || !strings.Contains(err.Error(), "invalid or expired") {
 		t.Fatalf("err = %v", err)
 	}
-	err = Run(context.Background(), Options{Portal: p.url, Out: io.Discard, Log: slog.New(slog.DiscardHandler)})
+	err = Run(context.Background(), Options{Portal: p.url, Log: slog.New(slog.DiscardHandler)})
 	if err == nil || !strings.Contains(err.Error(), "not enrolled") {
 		t.Fatalf("err = %v", err)
 	}

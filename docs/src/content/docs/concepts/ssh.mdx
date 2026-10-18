@@ -32,8 +32,8 @@ code from the command. The client then:
 
 - makes its own key for this portal (it never touches `~/.ssh`) and trades
   the code for this computer's enrollment, named after its hostname;
-- connects to the gateway and shows the banner, your devices and their ports;
-- keeps running until you press Ctrl+C, and reconnects by itself when the
+- connects to the gateway and opens its full-screen UI;
+- keeps running until you press `q`, and reconnects by itself when the
   network drops or the laptop wakes up.
 
 The code works once and only for 10 minutes, so a command in your shell
@@ -43,9 +43,42 @@ history is useless afterwards. Next time, run the client without a code:
 ~/.cache/holtdroid/holtdroid
 ```
 
+or install the `holtdroid` command from **Settings** and just run
+`holtdroid`.
+
+## The client's screens
+
+The sections are on the left; `↑`/`↓` or `1`–`5` pick one, `→` or Enter
+goes into it, `←` or Esc comes back, `q` quits.
+
+- **Overview**: whether the computer is connected, as whom, how many
+  devices run, what is published and how long the certificate is valid.
+- **Devices**: each running device with its local ADB address, whether it
+  is already in `adb devices`, and the command for a shell.
+- **Ports**: the published ports and the ports of programs that look like
+  dev servers (`node`, `bun`, `python`, `java` and the like). Space
+  publishes or unpublishes the one under the cursor, `n` publishes a port
+  by number (also one nothing listens on yet), `a` shows every other
+  listener too: system services and desktop apps. A port the gateway
+  refused shows why.
+- **Log**: what the client did, newest at the bottom.
+- **Settings**: the client's version, the portal, user, computer and key,
+  where the enrollment and the binary are, and **Install**: it links
+  `holtdroid` into the first writable directory on your `PATH` among
+  `~/.local/bin`, `~/bin`, `/opt/homebrew/bin` and `/usr/local/bin`
+  (`~/.local/bin` otherwise, with the line to add it to your `PATH`). The
+  link points at `~/.cache/holtdroid/holtdroid`, which `tunnel.sh` moves to
+  the newest client whenever you run it again; an existing `holtdroid` that
+  isn't this client is never replaced.
+
+Without a terminal (in a script, a service or with `--plain`) the client
+prints the banner and a short status block instead, whenever the
+connection, the devices or the published ports change.
+
 Options: `--portal <url>` when the computer is enrolled with several portals,
 `--publish 3000,5173` to replace the list of published ports,
-`--no-adb-connect` to leave `adb` alone, `-v` for debug logs. The key and the
+`--no-adb-connect` to leave `adb` alone, `--plain` for status lines instead
+of the full-screen UI, `-v` for debug logs. The key and the
 enrollment are in your user config directory (`~/Library/Application
 Support/holtdroid/connect` on macOS, `~/.config/holtdroid/connect` on Linux);
 delete the portal's folder there to forget it.
@@ -53,11 +86,13 @@ delete the portal's folder there to forget it.
 ## Publishing ports
 
 The client watches which TCP ports listen on your computer's loopback and
-reports them to the portal. On the **Computers** page each connected computer
-lists them with the program behind each one; click a port to publish it on
-your devices, click again to stop. You can also publish a port nothing
-listens on yet, for a dev server you are about to start. The choice is saved
-on the computer, so it survives restarts of the client.
+reports them to the portal. Publish them in the client's **Ports** section
+or on the **Computers** page, which lists each connected computer's
+published ports and dev servers (**Show all** adds the other listeners);
+click a port to publish it on your devices, click again to stop. You can
+also publish a port nothing listens on yet, for a dev server you are about
+to start. The choice is saved on the computer, so it survives restarts of
+the client.
 
 A published port goes to every device you run, including ones you start
 later, and only to yours. Apps and WebViews reach it as

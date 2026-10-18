@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { useNow } from "@/hooks/use-now"
+import { groupPorts } from "@/lib/dev-ports"
 import { formatRelative } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
@@ -27,7 +28,9 @@ export function ComputerCard({ computer: c }: { computer: Computer }) {
   const [draft, setDraft] = useState("")
   const published = new Set(c.published)
   const processes = new Map(c.listening.map((p) => [p.port, p.process]))
-  const ports = [...new Set([...c.listening.map((p) => p.port), ...c.published])].toSorted((a, b) => a - b)
+  const groups = groupPorts(c.listening, c.published)
+  const [showAll, setShowAll] = useState(false)
+  const ports = showAll ? [...groups.main, ...groups.other].toSorted((a, b) => a - b) : groups.main
   const draftPort = parsePort(draft)
 
   const publish = (next: Set<number>) => setPublished.mutate({ id: c.id, ports: [...next].toSorted((a, b) => a - b) })
@@ -59,7 +62,11 @@ export function ComputerCard({ computer: c }: { computer: Computer }) {
           <span className="text-xs font-medium">Ports published on your devices</span>
           <div className="flex flex-wrap gap-1.5">
             {ports.length === 0 && (
-              <span className="text-muted-foreground text-xs">Nothing listens on this computer&apos;s loopback.</span>
+              <span className="text-muted-foreground text-xs">
+                {groups.other.length === 0
+                  ? "Nothing listens on this computer's loopback."
+                  : "No dev server is listening on this computer."}
+              </span>
             )}
             {ports.map((port) => {
               const on = published.has(port)
@@ -88,6 +95,11 @@ export function ComputerCard({ computer: c }: { computer: Computer }) {
                 </Badge>
               )
             })}
+            {groups.other.length > 0 && (
+              <Button size="xs" variant="ghost" className="text-muted-foreground" onClick={() => setShowAll(!showAll)}>
+                {showAll ? "Show fewer" : `Show all ${groups.main.length + groups.other.length}`}
+              </Button>
+            )}
           </div>
           <form
             className="flex items-center gap-1.5"

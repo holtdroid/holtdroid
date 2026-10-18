@@ -424,7 +424,11 @@ Developers bring a device's ADB to their machine and their machine's dev
 servers to the device with the `holtdroid` client (`cmd/holtdroid-connect`,
 `internal/connect`), a small Go client that speaks SSH to the
 `ssh-gateway`. Decision #64; it replaced browser-held keys and hand-written
-`ssh` commands (#21, #38, #46, #61).
+`ssh` commands (#21, #38, #46, #61). In a terminal it is a full-screen
+bubbletea UI (`internal/connect/tui`) over the client's `Snapshot`; its
+golden frames in `testdata/` are also the frames of the animated terminal
+on the docs page. Without a terminal it prints status lines
+(`connect.Printer`).
 
 ```sh
 curl -fsSL https://android.example.com/tunnel.sh | sh -s -- <one-time code>

@@ -5,6 +5,7 @@ import (
 	"net"
 	"os"
 	"slices"
+	"strings"
 
 	gnet "github.com/shirou/gopsutil/v4/net"
 	"github.com/shirou/gopsutil/v4/process"
@@ -50,4 +51,25 @@ func processName(ctx context.Context, pid int32, names map[int32]string) string 
 	}
 	names[pid] = name
 	return name
+}
+
+var devProcesses = []string{
+	"node", "bun", "deno", "python", "ruby", "php", "java", "dotnet", "go", "nginx", "caddy", "httpd", "beam.smp",
+	"uvicorn", "gunicorn", "puma", "next-server", "vite", "esbuild", "mitmproxy", "mitmweb", "charles",
+}
+
+// IsDevServer guesses from the process name whether a port is something a
+// developer would publish, rather than a system service or desktop app.
+// The portal's Computers page uses the same list.
+func IsDevServer(process string) bool {
+	name := strings.ToLower(process)
+	if name == "" {
+		return false
+	}
+	for _, p := range devProcesses {
+		if strings.HasPrefix(name, p) {
+			return true
+		}
+	}
+	return false
 }

@@ -1,0 +1,24 @@
+╭──────────────────────╮╭────────────────────────────────────────────────────────────────────╮
+│ holtdroid            ││  _   _       _ _      _           _     _                          │
+│ ○ reconnecting       ││ | | | | ___ | | |_ __| |_ __ ___ (_) __| |                         │
+│                      ││ | |_| |/ _ \| | __/ _` | '__/ _ \| |/ _` |                         │
+│ ▸ Overview           ││ |  _  | (_) | | || (_| | | | (_) | | (_| |                         │
+│   Devices     0      ││ |_| |_|\___/|_|\__\__,_|_|  \___/|_|\__,_|                         │
+│   Ports       0      ││                                                                    │
+│   Log                ││ ○ Reconnecting in 2s: connection refused · android.example.com     │
+│   Settings           ││   as otter on otters-mac                                           │
+│                      ││                                                                    │
+│                      ││ Devices     none running                                           │
+│                      ││ Published   nothing                                                │
+│                      ││ Listening   6 ports, 3 look like dev servers                       │
+│                      ││ Certificate valid for 14m, renewed in the background               │
+│                      ││                                                                    │
+│                      ││ Pick the ports your devices reach as localhost in Ports.           │
+│                      ││                                                                    │
+│                      ││                                                                    │
+│                      ││                                                                    │
+│                      ││                                                                    │
+│                      ││                                                                    │
+│                      ││                                                                    │
+╰──────────────────────╯╰────────────────────────────────────────────────────────────────────╯
+ ↑↓ move · → open · 1-5 sections · q quit

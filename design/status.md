@@ -37,8 +37,10 @@ deployment"):
   device of the user and gives each device's ADB a local port (15555 up,
   `adb connect` when adb is installed). The Computers page lists connected
   computers with their loopback listeners as toggles; the session popover
-  shows live tunnels and the device's ADB port. Not yet: the TUI, the
-  automatic port mode, revoking single computers (needs the database),
+  shows live tunnels and the device's ADB port. The client is a full-screen
+  TUI (Overview, Devices, Ports, Log, Settings with installing the
+  `holtdroid` command); dev-server ports come first, other listeners are
+  folded. Not yet: the automatic port mode, revoking single computers (needs the database),
   Windows. Covered by an end-to-end test (api + gateway + fake device +
   client); not yet tried against a real emulator.
 - ADB in the browser (decision #51): one Tango connection per session page
@@ -104,8 +106,8 @@ deployment"):
 2. Planned, each starting with a decisions.md entry: Phase 4.7 traffic
    inspection proxy, Phase 4.8 MCP server. Both optional and off by
    default; each adds its own audit events and metrics (decision #44).
-3. The rest of Phase 4.11 (decision #64): the client's TUI, the automatic
-   port mode, Windows, and revocation once the database persists.
+3. The rest of Phase 4.11 (decision #64): the automatic port mode,
+   Windows, and revocation once the database persists.
 4. Whatever more use of real sessions turns up (Phase 6).
 
 ## Requirements from the maintainer

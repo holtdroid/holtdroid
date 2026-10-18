@@ -56,6 +56,7 @@ internal/
   contract/               shared request/response types + huma operations for Provider/Agent/SSH-gateway APIs
   contract/control/       dependency-free types shared with the client (enrollment, control channel)
   connect/                the client: enrollment, certificate refresh, published ports, per-device ADB
+  connect/tui/            the client's full-screen UI (bubbletea); golden frames double as the docs demo
   api/                    BFF: UI REST API, registries, APK cache, session proxy, activity, reaper
   source/                 artifact sources: *.apk + .meta.json sidecars in a storage.Store (folder or S3), listed by the api
   provider/               provider implementations: provider/fake (simulated devices for dev/tests), provider/emulator
