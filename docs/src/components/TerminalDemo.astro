@@ -159,18 +159,18 @@ const tabs = ["holtdroid", "zsh"]
   }
 </script>
 
-<style>
+<style is:global>
   .terminal-demo {
     margin: 1.5rem 0;
   }
-  .window {
+  .terminal-demo .window {
     border-radius: 0.6rem;
     overflow: hidden;
     background: #0f1419;
     border: 1px solid #2a313a;
     box-shadow: 0 10px 30px rgb(0 0 0 / 0.25);
   }
-  .bar {
+  .terminal-demo .bar {
     display: flex;
     align-items: center;
     gap: 0.4rem;
@@ -178,36 +178,36 @@ const tabs = ["holtdroid", "zsh"]
     background: #1b2129;
     border-bottom: 1px solid #2a313a;
   }
-  .dot {
+  .terminal-demo .dot {
     width: 0.7rem;
     height: 0.7rem;
     border-radius: 50%;
   }
-  .red {
+  .terminal-demo .red {
     background: #ff5f57;
   }
-  .yellow {
+  .terminal-demo .yellow {
     background: #febc2e;
   }
-  .green {
+  .terminal-demo .green {
     background: #28c840;
   }
-  .tabs {
+  .terminal-demo .tabs {
     display: flex;
     gap: 0.25rem;
     margin-left: 0.75rem;
   }
-  .tab {
+  .terminal-demo .tab {
     font: 0.75rem var(--sl-font-system-mono, ui-monospace, monospace);
     color: #8b949e;
     padding: 0.15rem 0.6rem;
     border-radius: 0.35rem;
   }
-  .tab.active {
+  .terminal-demo .tab.active {
     color: #e6edf3;
     background: #2a313a;
   }
-  .screen {
+  .terminal-demo .screen {
     margin: 0;
     height: 22rem;
     overflow-x: auto;
@@ -218,27 +218,27 @@ const tabs = ["holtdroid", "zsh"]
     color: #e6edf3;
     font: 0.78rem/1.45 var(--sl-font-system-mono, ui-monospace, monospace);
   }
-  .screen.hidden {
+  .terminal-demo .screen.hidden {
     display: none;
   }
-  .line {
+  .terminal-demo .line {
     display: block;
     white-space: pre;
   }
-  .cmd::before {
+  .terminal-demo .cmd::before {
     content: "~ $ ";
     color: #3fb950;
   }
-  .dim {
+  .terminal-demo .dim {
     color: #8b949e;
   }
-  .ok {
+  .terminal-demo .ok {
     color: #3fb950;
   }
-  .logo {
+  .terminal-demo .logo {
     color: #d2a8ff;
   }
-  figcaption {
+  .terminal-demo figcaption {
     margin-top: 0.6rem;
     min-height: 2.6em;
     font-size: var(--sl-text-sm);
