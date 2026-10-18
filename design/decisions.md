@@ -1230,9 +1230,10 @@ the portal can reach into the iframe's document and localStorage.
   `secondary*`, `neutral*`, `neutral-variant*`) with grays of the same tone
   (`lab(T 0 0)`), the font tokens (`--default-font-family`, monospace) with
   the portal's Geist and Tailwind's mono stack, and the blue-tinted dark
-  surfaces. Under the dark theme the gray tones below 40 are pulled down
-  along `T²/40` (tone 10 → lab 2.5, 20 → 10, continuous at 40), so DevTools'
-  containers land on the portal's near-black background and cards instead
+  surfaces. Under the dark theme (`.-theme-with-dark-background`, older
+  revisions without the dash) the gray tones below 40 are pulled down along
+  `T³/1600` (panels, tone 15 → lab 2; toolbars, 25 → 10; continuous at 40),
+  so DevTools lands on the portal's near-black background and cards instead
   of mid-gray; text tones (40 and up) are unchanged. Custom properties inherit into DevTools' shadow roots, so a
   stylesheet on `:root` reaches every panel. The frontend files are not
   rewritten: the agent keeps serving them byte for byte.

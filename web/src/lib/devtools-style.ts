@@ -13,7 +13,7 @@ const gray = (lightness: (t: number) => number) =>
 
 const palette = gray((t) => t)
 
-const darkPalette = gray((t) => (t < 40 ? (t * t) / 40 : t))
+const darkPalette = gray((t) => (t < 40 ? t ** 3 / 1600 : t))
 
 const darkSurfaces = [4, 6, 8, 9, 11].map(
   (p, i) => `--sys-color-surface${i + 1}: color-mix(in srgb, white ${p}%, var(--ref-palette-neutral10)) !important;`,
@@ -26,6 +26,7 @@ const css = `${geistFaces}
   --monospace-font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace !important;
   --source-code-font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace !important;
 }
+:root.-theme-with-dark-background,
 :root.theme-with-dark-background {
   ${darkPalette.join("\n  ")}
   ${darkSurfaces.join("\n  ")}
