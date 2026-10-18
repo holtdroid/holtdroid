@@ -38,6 +38,7 @@ type fakeScrcpy struct {
 	forwards []string
 	clip     string
 	clipConn net.Conn
+	opus     bool
 }
 
 func newFakeScrcpy(t *testing.T) *fakeScrcpy {
@@ -84,8 +85,18 @@ func (f *fakeScrcpy) serve(c net.Conn, role string) {
 		_, _ = c.Write([]byte("video-bytes"))
 		_, _ = io.Copy(io.Discard, c)
 	case "audio":
-		_, _ = c.Write([]byte("opus-bytes"))
-		_, _ = io.Copy(io.Discard, c)
+		if !f.opusStream() {
+			_, _ = c.Write([]byte("opus-bytes"))
+			_, _ = io.Copy(io.Discard, c)
+			return
+		}
+		_, _ = c.Write(append([]byte("opus"), audioPacket(configFlag, "CF")...))
+		for i := uint64(1); ; i++ {
+			if _, err := c.Write(audioPacket(i, "abc")); err != nil {
+				return
+			}
+			time.Sleep(5 * time.Millisecond)
+		}
 	case "control":
 		buf := make([]byte, 64)
 		for {
@@ -346,6 +357,56 @@ func TestScrcpyAudio(t *testing.T) {
 		if !strings.Contains(cmd, want) {
 			t.Errorf("command %q lacks %q", cmd, want)
 		}
+	}
+}
+
+func (f *fakeScrcpy) opusStream() bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.opus
+}
+
+func audioPacket(pts uint64, payload string) []byte {
+	p := binary.BigEndian.AppendUint64(nil, pts)
+	p = binary.BigEndian.AppendUint32(p, uint32(len(payload)))
+	return append(p, payload...)
+}
+
+func TestScrcpyKeepAudio(t *testing.T) {
+	dev := newFakeScrcpy(t)
+	dev.opus = true
+	cfg := DefaultScrcpyConfig()
+	cfg.KeepAudio = true
+	s := NewScrcpy(cfg, dev, slog.New(slog.DiscardHandler))
+	mux := http.NewServeMux()
+	s.Register(mux)
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	go s.Run(ctx)
+
+	waitFor(t, func() bool {
+		dev.mu.Lock()
+		defer dev.mu.Unlock()
+		return len(dev.cmds) == 1
+	})
+	for range 2 {
+		c := dialWS(ctx, t, "ws"+strings.TrimPrefix(srv.URL, "http")+"/display/audio")
+		_, header, err := c.Read(ctx)
+		if err != nil || !bytes.Equal(header, append([]byte("opus"), audioPacket(configFlag, "CF")...)) {
+			t.Fatalf("header %q, %v", header, err)
+		}
+		_, packet, err := c.Read(ctx)
+		if err != nil || len(packet) != 15 || string(packet[12:]) != "abc" {
+			t.Fatalf("packet %q, %v", packet, err)
+		}
+		_ = c.Close(websocket.StatusNormalClosure, "")
+	}
+	dev.mu.Lock()
+	defer dev.mu.Unlock()
+	if len(dev.cmds) != 1 {
+		t.Fatalf("%d captures, want one for the whole session", len(dev.cmds))
 	}
 }
 

@@ -191,6 +191,7 @@ func (a *Agent) Run(parent context.Context) {
 		return
 	}
 	go a.devtools.Run(ctx, 2*time.Second)
+	go a.screen.Run(ctx)
 	go a.clip.Run(ctx, a.onClip)
 
 	if err := a.run(ctx); err != nil {

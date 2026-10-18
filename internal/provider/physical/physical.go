@@ -485,6 +485,7 @@ func (p *Provider) start(s contract.Session, artifactURL string, resume bool, v 
 	cfg.ADBServer = p.cfg.ADB.Server
 	cfg.ADBShell = p.cfg.ADB.Shell
 	cfg.Scrcpy = p.cfg.Agent.Scrcpy
+	cfg.Scrcpy.KeepAudio = true
 	cfg.LocalesDex = ""
 	cfg.DevToolsFrontend = p.cfg.Agent.DevToolsFrontend
 	cfg.CacheDir = p.cfg.Agent.CacheDir

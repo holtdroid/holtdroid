@@ -202,6 +202,24 @@ After a restart a session's sing-box starts again at the session's first
 location. Someone with `adb.shell: full` can turn the radios back on and
 stop the tunnel; the agent starts the tunnel again within a poll.
 
+## Sound, microphone and camera
+
+A phone sits in someone's room, so it should neither play sound nor hear
+or see anything:
+
+- **Sound** goes only to the browser. A phone session keeps one audio
+  capture running from start to end and shares it with every viewer; while
+  scrcpy captures the output, Android doesn't play it on the phone, so the
+  phone stays silent even when nobody has the session's sound on. Between
+  sessions every volume is at zero.
+- **Microphone**: the phone's _Microphone access_ privacy toggle is turned
+  off, so apps record silence. Without the device owner a user can turn it
+  back on from the system prompt; the agent turns it off again on every poll.
+- **Camera**: where the phone has a _Camera access_ toggle it is turned off
+  the same way and apps see a blank picture. Many phones (the Galaxy A05,
+  for one) don't have it. Android without root can't feed apps a fake
+  camera picture; cover the lens, with a sticker of any picture if you like.
+
 ## Cleaning a phone
 
 The first time the provider sees a phone free, it records a **baseline**:

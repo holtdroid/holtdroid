@@ -21,11 +21,14 @@ import (
 	"github.com/kriakiku/holtdroid/internal/contract"
 )
 
+// KeepAudio captures the device's audio for the whole session instead of
+// per viewer, so the device never plays it out loud (phones).
 type ScrcpyConfig struct {
-	Server  string
-	Version string
-	BitRate int
-	MaxFPS  int
+	Server    string
+	Version   string
+	BitRate   int
+	MaxFPS    int
+	KeepAudio bool
 }
 
 func DefaultScrcpyConfig() ScrcpyConfig {
@@ -54,17 +57,33 @@ type Scrcpy struct {
 	dev ScrcpyDevice
 	log *slog.Logger
 
+	audio    *audioHub
 	mu       sync.Mutex
 	encoders []string
 }
 
 func NewScrcpy(cfg ScrcpyConfig, dev ScrcpyDevice, log *slog.Logger) *Scrcpy {
-	return &Scrcpy{cfg: cfg, dev: dev, log: log}
+	s := &Scrcpy{cfg: cfg, dev: dev, log: log}
+	if cfg.KeepAudio {
+		s.audio = newAudioHub(s)
+	}
+	return s
 }
 
 func (s *Scrcpy) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /display/scrcpy", s.serveVideo)
-	mux.HandleFunc("GET /display/audio", s.serveAudio)
+	if s.audio != nil {
+		mux.HandleFunc("GET /display/audio", s.audio.serve)
+	} else {
+		mux.HandleFunc("GET /display/audio", s.serveAudio)
+	}
+}
+
+// Run keeps the session's audio capture going when KeepAudio is set.
+func (s *Scrcpy) Run(ctx context.Context) {
+	if s.audio != nil {
+		s.audio.run(ctx)
+	}
 }
 
 type videoOptions struct {

@@ -1781,3 +1781,26 @@ meanwhile. Shell can't remove tasks from recents or clear the clipboard,
 so stopped apps may still show there. Clearing every launcher app's data
 resets their first-run screens. PINs, accounts, calls and Settings need
 the device owner (Holtdroid Tunnel, next).
+
+## 72. A phone session keeps its audio captured; mic and camera privacy toggles stay on
+
+**Context.** A test phone lives in the maintainer's flat. Sound should reach
+only the browser, and the microphone and camera must not pick up the room.
+There is no root, so audio routing and fake cameras are out of reach.
+
+**Decision.** scrcpy's `output` audio source (without `audio_dup`) stops
+playback on the device while it captures. With `ScrcpyConfig.KeepAudio`,
+which `provider-physical` sets, the agent runs one capture for the whole
+session (`audioHub`) and fans it out to every `/display/audio` viewer,
+replaying the codec id and Opus config packet to each new one, instead of a
+server per viewer. Parking a phone mutes streams 1–5. The cleanup and every
+session poll run `cmd sensor_privacy enable 0 microphone` and the same for
+the camera, so apps get silence and, where the toggle exists, a blank
+picture.
+
+**Consequences.** The phone is silent as long as the session's capture
+runs; between sessions it is muted. Without the device owner a user can
+lift the microphone block from the system prompt for up to one poll; the
+device owner's `DISALLOW_MICROPHONE_TOGGLE` and `DISALLOW_CAMERA_TOGGLE`
+close that. Phones without a camera toggle keep a working camera until the
+device owner disables it or the lens is covered; a fake picture needs root.

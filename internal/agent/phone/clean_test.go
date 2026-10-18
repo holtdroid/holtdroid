@@ -84,6 +84,8 @@ func TestClean(t *testing.T) {
 		"cmd wifi forget-network 0; cmd wifi forget-network 4",
 		"cmd wifi set-wifi-enabled disabled",
 		"cmd power set-mode 1",
+		"cmd sensor_privacy enable 0 microphone",
+		"cmd media_session volume --stream $s --set 0",
 		"input keyevent KEYCODE_SLEEP",
 		"remove-all",
 	} {

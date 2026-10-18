@@ -140,6 +140,7 @@ func Clean(ctx context.Context, adb ADB, c Cleanup) error {
 	}
 	run("storage", wipeStorage)
 	run("device", resetDevice)
+	run("privacy", privacy)
 	if c.Baseline != nil {
 		if script := restoreScript(ctx, adb, c.Baseline); script != "" {
 			run("settings", script)
@@ -181,9 +182,16 @@ cmd bluetooth_manager disable >/dev/null 2>&1; svc nfc disable >/dev/null 2>&1; 
 input keyevent KEYCODE_HOME; true`
 
 // park leaves a phone between sessions: battery saver, lowest brightness,
-// screen off.
+// every stream muted, screen off.
 const park = `cmd power set-mode 1; settings put system screen_brightness_mode 0; settings put system screen_brightness 1
+for s in 1 2 3 4 5; do cmd media_session volume --stream $s --set 0 >/dev/null 2>&1; done
 svc power stayon false; input keyevent KEYCODE_SLEEP; true`
+
+// privacy blocks the microphone, and the camera where the phone has that
+// toggle, so apps get silence and a blank picture. Without a device owner
+// a user can lift it from the system's prompt, so sessions put it back on
+// every poll.
+const privacy = "cmd sensor_privacy enable 0 microphone >/dev/null 2>&1; cmd sensor_privacy enable 0 camera >/dev/null 2>&1; true"
 
 func brightness(b *Baseline) string {
 	if b == nil {

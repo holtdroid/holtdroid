@@ -91,6 +91,9 @@ func (p *Phone) Run(ctx context.Context, booted func()) error {
 		state, err := p.adb.State(ctx)
 		if err == nil && state == "device" {
 			misses = 0
+			if _, err := p.adb.Shell(ctx, privacy); err != nil && ctx.Err() == nil {
+				p.log.Warn("block the microphone", "err", err)
+			}
 			p.keepTunnel(ctx)
 			continue
 		}
