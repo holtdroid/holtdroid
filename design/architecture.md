@@ -442,7 +442,11 @@ With `ssh.insecureTLS` the connect command and the client skip TLS
 verification towards the portal (remembered per portal as `insecure` in
 the client's state). The gateway's
 session list (`/internal/users/{handle}/sessions`, `sessions` messages)
-carries each session's package, app name and version for this. Without a terminal it prints status lines
+carries each session's package, app name and version for this. The
+gateway's first control message, `gateway: {adb, publish}`, tells the
+client which of `allowADB` and `allowReverse` are on, so it neither opens
+local ADB ports nor requests ports the gateway would refuse, and the UI
+explains what is off instead of showing raw SSH errors. Without a terminal it prints status lines
 (`connect.Printer`). On start it compares its own SHA-256 with the portal's
 `/connect/manifest.json` and, when they differ, updates (asking first unless
 `autoUpdate` is set in `holtdroid/client.json`): it downloads into

@@ -246,6 +246,13 @@ The api image carries the client builds and serves them with `/tunnel.sh`.
 | `refreshTTL`              | `720h`    | How long an unused computer stays enrolled                           |
 | `insecureTLS`             | `false`   | The command and the client accept the portal's certificate unchecked |
 
+The client learns `allowADB` and `allowReverse` from the gateway when it
+connects. With ADB off it opens no local ADB ports, runs no `adb connect`
+and shows a device without the Logcat, Shell, Device and App tabs; launching,
+restarting, reinstalling and stopping still work, since they go through the
+portal's API. With publishing off it keeps your chosen ports but doesn't ask
+for them, and both the client and the Computers page say so.
+
 `insecureTLS` is for a portal with a self-signed certificate, such as a
 development setup: the command becomes `curl -fsSLk …` and the client
 starts with `--insecure`. Anyone between the computer and the portal could

@@ -269,6 +269,7 @@ client binary stays small (decision #64).
 | `type` | From | Fields |
 |--------|------|--------|
 | `hello` | client, once | `hello: {version, os, arch}` |
+| `gateway` | gateway, first | `gateway: {adb, publish}`: whether this gateway carries ADB and published ports; the client opens no ADB ports and asks for no ports when they are off |
 | `state` | client, on change | `state: {listening: [{port, process?}], published: [port], adb: [{session, port}]}` |
 | `sessions` | gateway, on change and when the channel opens | `sessions: [{slug, provider, id, package?, label?, versionName?}]`, the user's ready sessions; absent = none |
 | `publish` | gateway | `publish: [port]`, the exact set the client should publish (from the portal); absent = none |
