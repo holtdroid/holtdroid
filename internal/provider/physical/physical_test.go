@@ -21,6 +21,7 @@ import (
 
 	"github.com/kriakiku/holtdroid/internal/agent"
 	"github.com/kriakiku/holtdroid/internal/agent/phone"
+	"github.com/kriakiku/holtdroid/internal/apk"
 	"github.com/kriakiku/holtdroid/internal/contract"
 	"github.com/kriakiku/holtdroid/internal/vpn"
 )
@@ -113,7 +114,11 @@ func newProvider(t *testing.T, host *fakeHost, state string, configure ...func(*
 	if cfg.Phones == nil {
 		cfg.Phones = []Phone{{Serial: "A1"}, {Serial: "B2", Label: "Desk phone"}}
 	}
-	p, err := New(cfg, host, WithLogger(slog.New(slog.DiscardHandler)))
+	p, err := New(cfg, host, WithLogger(slog.New(slog.DiscardHandler)), func(p *Provider) {
+		p.apk = func(string) (apk.Metadata, []byte, error) {
+			return apk.Metadata{Package: phone.TunnelPackage, VersionName: "0.1.0"}, nil, nil
+		}
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -284,7 +289,7 @@ func TestVPN(t *testing.T) {
 	}
 	a := host.agent(0)
 	tun := a.tunnel
-	if tun == nil || tun.Port != 29180 || tun.HostPort == 0 || tun.APK != "/opt/holtdroid/holtdroid-tunnel.apk" || !tun.IPv6 {
+	if tun == nil || tun.Port != 29180 || tun.HostPort == 0 || tun.APK != "/opt/holtdroid/holtdroid-tunnel.apk" || tun.Version != "0.1.0" || !tun.IPv6 {
 		t.Fatalf("tunnel %+v", tun)
 	}
 	if a.cfg.Location != "de" || a.cfg.ClashAPI == "" || a.cfg.IPInfoProxy != fmt.Sprintf("http://127.0.0.1:%d", tun.HostPort) {
@@ -359,4 +364,23 @@ func TestValidateADB(t *testing.T) {
 			t.Errorf("shell %q: %v", shell, err)
 		}
 	}
+}
+
+func TestTunnelAPKMustBeTheTunnel(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.StateFile = filepath.Join(t.TempDir(), "state.json")
+	cfg.Tunnel.APK = "../../apk/testdata/" + firstAPK(t)
+	cfg.VPN.Locations = []vpn.Location{{ID: "de", Outbound: map[string]any{"type": "socks", "server": "gateway.example", "server_port": 1080}}}
+	if _, err := New(cfg, &fakeHost{}); err == nil || !strings.Contains(err.Error(), "not "+phone.TunnelPackage) {
+		t.Fatalf("err %v", err)
+	}
+}
+
+func firstAPK(t *testing.T) string {
+	t.Helper()
+	m, _ := filepath.Glob("../../apk/testdata/*.apk")
+	if len(m) == 0 {
+		t.Skip("no test APK")
+	}
+	return filepath.Base(m[0])
 }

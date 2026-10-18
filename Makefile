@@ -5,7 +5,7 @@ LDFLAGS := -s -w -X main.version=$(VERSION)
 
 CONNECT_PLATFORMS := darwin/amd64 darwin/arm64 linux/amd64 linux/arm64
 
-.PHONY: all build connect web docs openapi sqlc check test lint fmt dev web-dev image session-image clean
+.PHONY: all build connect web docs openapi sqlc check test lint fmt dev web-dev image physical-image session-image clean
 
 all: build
 
@@ -58,6 +58,9 @@ check: openapi sqlc lint test build docs
 
 image:
 	docker buildx build --platform linux/amd64 -f images/Dockerfile --build-arg VERSION=$(VERSION) -t holtdroid:$(VERSION) --load .
+
+physical-image:
+	docker buildx build --platform linux/amd64 -f images/physical.Dockerfile --build-arg VERSION=$(VERSION) -t holtdroid-physical:$(VERSION) --load .
 
 session-image:
 	docker buildx build --platform linux/amd64 -f images/session.Dockerfile --build-arg VERSION=$(VERSION) -t holtdroid-session:$(VERSION) --load .

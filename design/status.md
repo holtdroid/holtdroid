@@ -100,8 +100,10 @@ deployment"):
   with resume after a restart, reset after each session. ADB (browser,
   logcat, tunnels) through the filtering proxy with `adb.shell` (decision
   #68). VPN locations over the USB cable through Holtdroid Tunnel and a
-  per-session sing-box on the host (decision #69). Not yet: root mode, the rest of the Phase 7
-  protections; not yet tried on a real phone, and not in the chart.
+  per-session sing-box on the host (decision #69). Image
+  `ghcr.io/kriakiku/holtdroid-physical` with adb, scrcpy-server, sing-box
+  and the tunnel APK (decision #70). Not yet: root mode, the rest of the
+  Phase 7 protections; not yet tried on a real phone, and not in the chart.
 - `provider-fake` (fake devices whose agent streams a recorded screen and serves placeholder
   DevTools pages).
 - Single Go binary + embedded UI, distroless image, Helm chart, CI, release

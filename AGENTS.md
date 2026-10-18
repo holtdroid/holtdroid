@@ -76,7 +76,7 @@ frida/                    Frida scripts (TypeScript, own bun.lock), bundled into
 docs/                     public documentation site (Astro Starlight)
 design/                   internal design docs for contributors and agents (this is not the public site)
 deploy/helm/holtdroid/    Helm chart
-images/                   Dockerfile (distroless holtdroid) and session.Dockerfile (emulator + agent)
+images/                   Dockerfile (distroless holtdroid), session.Dockerfile (emulator + agent), physical.Dockerfile (provider-physical + adb, sing-box, tunnel)
 .github/workflows/        CI, release, docs
 ```
 
@@ -136,8 +136,8 @@ Directories that do not exist yet are planned — create them exactly there.
   impure calls during render — derive state during render or use
   `useEffectEvent`.
 - **Docs site:** Astro Starlight in `docs/`.
-- **Deployment:** Helm chart; images on `ghcr.io/kriakiku/holtdroid` and
-  `ghcr.io/kriakiku/holtdroid-session`.
+- **Deployment:** Helm chart; images on `ghcr.io/kriakiku/holtdroid`,
+  `ghcr.io/kriakiku/holtdroid-session` and `ghcr.io/kriakiku/holtdroid-physical`.
 
 ## Hard rules
 
@@ -202,6 +202,7 @@ make connect      # the holtdroid client for darwin/linux × amd64/arm64 into bi
 make docs         # docs site into docs/dist
 make dev          # holtdroid dev: api + APKs from internal/apk/testdata + fake devices, anonymous sign-in, on :8080
 make image       # local linux/amd64 image (images/Dockerfile)
+make physical-image # local provider-physical image (images/physical.Dockerfile)
 make web-dev      # Vite dev server proxying /api and /s to :8080
 ```
 

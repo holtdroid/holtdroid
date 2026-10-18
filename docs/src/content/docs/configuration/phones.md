@@ -51,6 +51,26 @@ Holtdroid Tunnel APK, see [VPN on phones](#vpn-on-phones).
 holtdroid provider-physical --config physical.yaml
 ```
 
+Or run the image `ghcr.io/kriakiku/holtdroid-physical` (linux/amd64), which
+has all of that pinned: adb, scrcpy-server, sing-box and the Holtdroid
+Tunnel APK (`tunnel.apk` already points at it, and its version is read from
+the APK). It runs as uid 65532 and keeps its state and adb's key in
+`/var/lib/holtdroid`; mount a volume there, or every new container is a new
+adb host and each phone asks again to allow USB debugging. The container
+needs the host's USB devices (`/dev/bus/usb`) and permission to open them:
+either a udev rule on the host that gives a group access to the phones
+(for example NixOS `programs.adb.enable`, group `adbusers`) and that group
+as a supplementary group of the container, or root in the container.
+
+```sh
+docker run -d --name phones -p 8080:8080 -p 8081:8081 \
+  --device /dev/bus/usb --group-add "$(getent group adbusers | cut -d: -f3)" \
+  -v phones:/var/lib/holtdroid -v "$PWD/physical.yaml:/etc/holtdroid/physical.yaml:ro" \
+  ghcr.io/kriakiku/holtdroid-physical:main provider-physical -c /etc/holtdroid/physical.yaml
+```
+
+Only one adb server may own a phone: stop any other `adb` on that host.
+
 ```yaml
 listen: ":8080" # provider API and the session agents, for the api
 tunnelListen: ":8081" # tunnel endpoints, for the ssh-gateway only

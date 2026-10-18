@@ -28,6 +28,7 @@ import (
 
 	"github.com/kriakiku/holtdroid/internal/agent"
 	"github.com/kriakiku/holtdroid/internal/agent/phone"
+	"github.com/kriakiku/holtdroid/internal/apk"
 	"github.com/kriakiku/holtdroid/internal/contract"
 	"github.com/kriakiku/holtdroid/internal/vpn"
 )
@@ -92,7 +93,7 @@ func DefaultConfig() Config {
 		Agent:        AgentConfig{Scrcpy: a.Scrcpy, DevToolsFrontend: a.DevToolsFrontend, CacheDir: a.CacheDir},
 		VPN:          vpn.DefaultConfig(),
 		SingBox:      "sing-box",
-		Tunnel:       TunnelConfig{Port: 29180, IPv6: true},
+		Tunnel:       TunnelConfig{APK: "/opt/holtdroid/holtdroid-tunnel.apk", Port: 29180, IPv6: true},
 	}
 }
 
@@ -123,6 +124,9 @@ func (c Config) Validate() error {
 	if c.VPN.Enabled() && (c.Tunnel.Port < 1 || c.Tunnel.Port > 65535) {
 		errs = append(errs, fmt.Errorf("tunnel.port %d is not a port", c.Tunnel.Port))
 	}
+	if c.VPN.Enabled() && c.Tunnel.APK == "" {
+		errs = append(errs, errors.New("tunnel.apk is required with vpn locations"))
+	}
 	return errors.Join(errs...)
 }
 
@@ -135,6 +139,7 @@ type Provider struct {
 	log  *slog.Logger
 	ver  string
 	sec  vpn.Secrets
+	apk  func(string) (apk.Metadata, []byte, error)
 	base context.Context
 	stop context.CancelFunc
 
@@ -189,11 +194,17 @@ func New(cfg Config, host Host, opts ...Option) (*Provider, error) {
 	}
 	base, stop := context.WithCancel(context.Background())
 	p := &Provider{
-		cfg: cfg, host: host, now: time.Now, log: slog.Default(), base: base, stop: stop,
+		cfg: cfg, host: host, now: time.Now, log: slog.Default(), apk: apk.Parse, base: base, stop: stop,
 		inventory: map[string]phoneInfo{}, sessions: map[string]*session{}, resets: map[string]string{},
 	}
 	for _, opt := range opts {
 		opt(p)
+	}
+	if cfg.VPN.Enabled() {
+		if err := p.checkTunnel(); err != nil {
+			stop()
+			return nil, err
+		}
 	}
 	st, err := p.load()
 	if err != nil {
@@ -480,6 +491,22 @@ func (p *Provider) start(s contract.Session, artifactURL string, resume bool, v 
 		v.remove()
 	}()
 	return sess
+}
+
+// checkTunnel makes sure tunnel.apk is Holtdroid Tunnel and takes its
+// version from the APK when tunnel.version is empty.
+func (p *Provider) checkTunnel() error {
+	meta, _, err := p.apk(p.cfg.Tunnel.APK)
+	if err != nil {
+		return fmt.Errorf("tunnel.apk: %w", err)
+	}
+	if meta.Package != phone.TunnelPackage {
+		return fmt.Errorf("tunnel.apk is %s, not %s", meta.Package, phone.TunnelPackage)
+	}
+	if p.cfg.Tunnel.Version == "" {
+		p.cfg.Tunnel.Version = meta.VersionName
+	}
+	return nil
 }
 
 type vpnRun struct {

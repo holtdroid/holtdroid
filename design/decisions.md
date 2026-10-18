@@ -1723,3 +1723,28 @@ reset. A resumed session starts again at its first location. Its control
 receiver needs `DUMP`, which only the shell has, so the app under test
 can't stop it; a user with `adb.shell: full` can, and the agent restarts
 it. A device-owner app can later pin it as always-on VPN with lockdown.
+
+## 70. provider-physical ships as its own image with its tools pinned
+
+**Context.** The provider needs adb, the scrcpy server it pushes, sing-box
+for VPN locations and the Holtdroid Tunnel APK, all on the USB host. The
+api image is distroless static and multi-arch; the session image carries
+an emulator. Neither fits.
+
+**Decision.** `images/physical.Dockerfile` builds
+`ghcr.io/kriakiku/holtdroid-physical` for linux/amd64 only (platform-tools
+for Linux is x86_64): the holtdroid binary without the UI, `adb` from the
+same platform-tools zip as the session image, scrcpy-server, sing-box and
+the tunnel APK, each pinned by version and checksum, on distroless `cc`
+(adb is a glibc binary). It runs as 65532 with `HOME` and the working
+directory in `/var/lib/holtdroid`, so the state file and adb's key land on
+one volume. `tunnel.apk` defaults to the APK in the image, and its version
+is read from the APK when `tunnel.version` is empty, so bumping the tunnel
+is one Dockerfile change. The release workflow builds it on every push and
+the deploy branch waits for it.
+
+**Consequences.** USB access without root needs a host udev rule and a
+supplementary group; root in the container is the documented fallback.
+Losing the volume makes the host a new adb key, and every phone asks again
+to allow debugging. A host with its own adb server running must stop it,
+since only one server can own a phone.
