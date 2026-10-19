@@ -723,9 +723,11 @@ the USB cable: Holtdroid Tunnel on the phone, `adb reverse`, a per-session
 sing-box on the host (decision #69). Root mode per phone exists as well
 (decision #80): through Magisk `su` the agent runs Frida, the system
 language and clock, app data, fake GPS and timezone that follow the VPN
-location, a transparent sing-box tun (the app sees Wi-Fi, not a VpnService)
-with an egress health-gate, root hidden from the app under test (Magisk
-DenyList) and a calls lockdown. That `su` escalation is transitional: it
+location, a transparent sing-box tun (with an egress health-gate; the Frida
+agent presents the app a synthetic validated Wi-Fi network over it, since a
+kernel route registers none, so the app sees Wi-Fi, not a VpnService or an
+outage), root hidden from the app under test (Magisk DenyList) and a calls
+lockdown. That `su` escalation is transitional: it
 grants `su` to the shell uid, so the layer-3 hardening below (token-auth
 frida-server, `su` denied to the shell, a root watchdog) is still the plan,
 as is the rest of this section.

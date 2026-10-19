@@ -403,7 +403,10 @@ undone when the session ends:
   ordinary Wi-Fi connection, not a VPN. Traffic still leaves through the
   host's per-session sing-box over the USB cable, and the default route is
   swung into the tun only while that egress is healthy, so a dead proxy
-  fails fast instead of hanging the phone.
+  fails fast instead of hanging the phone. A raw route carries no
+  `ConnectivityManager` network, so Frida shows the app a synthetic
+  validated Wi-Fi network when the system has none — otherwise it would
+  report no connection at all. The phone itself needs no Wi-Fi or SIM.
 - **A calls lockdown**: airplane mode (Wi-Fi back on for the tunnel), the
   dialer and emergency apps disabled, and the lock screen off so its
   emergency button is gone.

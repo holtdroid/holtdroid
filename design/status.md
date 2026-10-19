@@ -129,9 +129,11 @@ deployment"):
   clock, battery, app data, fake GPS and timezone that follow the VPN
   location (random point in a per-location radius; a non-persistent override
   pins a manual one), the app under test hidden from root via the Magisk
-  DenyList, a transparent sing-box tun (the app sees Wi-Fi, not a VpnService;
-  default swung into the tun only while the host egress is healthy, else left
-  on a dead dummy so a down egress fails fast), and a calls lockdown
+  DenyList, a transparent sing-box tun (Frida shows the app a synthetic
+  validated Wi-Fi network over it, since a raw route registers none, so the
+  app sees Wi-Fi not a VpnService nor an outage; default swung into the tun
+  only while the host egress is healthy, else left on a dead dummy so a down
+  egress fails fast), and a calls lockdown
   (airplane, dialer and emergency apps disabled, keyguard off). Verified on
   the A05 on 2026-10-19: root boot, root hidden, lockdown, the tun comes up
   and the gate keeps the system healthy with the egress down, GPS+timezone

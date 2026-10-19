@@ -1,4 +1,5 @@
 import Java from "frida-java-bridge"
+import { spoofConnectivity } from "./connectivity"
 
 function enableDebugging() {
   try {
@@ -9,6 +10,8 @@ function enableDebugging() {
 }
 
 Java.perform(() => {
+  spoofConnectivity()
+
   const WebView = Java.use("android.webkit.WebView")
   WebView.setWebContentsDebuggingEnabled.implementation = function () {
     this.setWebContentsDebuggingEnabled(true)

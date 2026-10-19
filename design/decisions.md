@@ -2045,12 +2045,17 @@ Root mode adds, all reversed on cleanup:
 - **Transparent tunnel** (`phone.RootTunnel`): a static arm64 sing-box tun
   (`auto_route:false`, system stack) started as root; the agent adds the
   default route into the tun itself and sends everything to a socks outbound
-  that adb reverse maps to the host's per-session sing-box. The app sees
-  Wi-Fi, not a VpnService. The phone needs no network of its own (egress is
-  loopback over USB); a dummy default route gives sing-box an interface. The
-  default is only swung into the tun while an HTTP probe through the host
-  egress succeeds — otherwise it stays on the dead dummy, so a down egress
-  fails fast instead of starving the system in a tun with no way out.
+  that adb reverse maps to the host's per-session sing-box. The phone needs
+  no network of its own (egress is loopback over USB); a dummy default route
+  gives sing-box an interface. The default is only swung into the tun while
+  an HTTP probe through the host egress succeeds — otherwise it stays on the
+  dead dummy, so a down egress fails fast instead of starving the system in a
+  tun with no way out. A kernel route is invisible to `ConnectivityManager`,
+  which registers no agent for it, so the app would see no network at all
+  (and some crash in a network callback); the Frida agent therefore presents
+  the app a synthetic validated Wi-Fi network whenever the system has none,
+  so it sees Wi-Fi, not a VpnService and not an outage. Sockets stay on the
+  default route because the fake network is never bound.
 - **GPS and clock follow the VPN location**: each location carries
   `geo {lat,lng,radius}` (default 10km) and a `timezone`; on switch the GPS
   is faked to a random point in the radius (gps and network test providers,
