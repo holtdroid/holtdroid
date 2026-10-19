@@ -6,7 +6,7 @@ ARG GO_IMAGE=docker.io/library/golang:1.27.2-bookworm@sha256:5cf287a799e6b94384b
 ARG BUN_IMAGE=docker.io/oven/bun:1.4.3@sha256:ec06c3b6cea04192ae6770c434f668ca41d343ad19fa6472216c7b48be39c598
 ARG FRIDA_VERSION=17.15.5
 ARG UBUNTU_IMAGE=docker.io/library/ubuntu:24.04@sha256:68ee22004a9109b44973313b02ff7b1de250f1de0f5ecb628d73f579aaff33ac
-ARG JDK_IMAGE=docker.io/library/eclipse-temurin:21-jdk-noble@sha256:107215954359f1ab0be058a247d7c64ed6e69c71c1682d471d38ef751ec8e964
+ARG JDK_IMAGE=docker.io/library/eclipse-temurin:26-jdk-noble@sha256:26d6a81be420aa8debd8618b58b27755663ba36f2418d7196e91f1c0aedc1809
 
 FROM --platform=$BUILDPLATFORM ${GO_IMAGE} AS sdk
 ARG FRIDA_VERSION
