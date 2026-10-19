@@ -167,12 +167,12 @@ func (c Config) Validate() error {
 var packageName = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+$`)
 
 type Provider struct {
-	cfg  Config
-	host Host
-	now  func() time.Time
-	log  *slog.Logger
-	ver  string
-	sec  vpn.Secrets
+	cfg      Config
+	host     Host
+	now      func() time.Time
+	log      *slog.Logger
+	ver      string
+	sec      vpn.Secrets
 	apk      func(string) (apk.Metadata, []byte, error)
 	base     context.Context
 	stop     context.CancelFunc

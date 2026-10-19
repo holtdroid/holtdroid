@@ -1795,16 +1795,20 @@ which `provider-physical` sets, the agent runs one capture for the whole
 session (`audioHub`) and fans it out to every `/display/audio` viewer,
 replaying the codec id and Opus config packet to each new one, instead of a
 server per viewer. Parking a phone mutes streams 1–5. The cleanup and every
-session poll run `cmd sensor_privacy enable 0 microphone` and the same for
-the camera, so apps get silence and, where the toggle exists, a blank
-picture.
+session poll deny the app under test the microphone and camera through
+appops (`RECORD_AUDIO`/`CAMERA` → ignore), so it gets silence and no
+picture. It does **not** use the device-wide `sensor_privacy` microphone
+toggle: on some phones (the Galaxy A05) enabling it makes
+`AudioFlinger::createRecord` hang until audioserver aborts, which crashes
+any app that touches audio (seen with 1xbet). Cleanup also clears a stuck
+`sensor_privacy` mute an older build may have left.
 
 **Consequences.** The phone is silent as long as the session's capture
-runs; between sessions it is muted. Without the device owner a user can
-lift the microphone block from the system prompt for up to one poll; the
-device owner's `DISALLOW_MICROPHONE_TOGGLE` and `DISALLOW_CAMERA_TOGGLE`
-close that. Phones without a camera toggle keep a working camera until the
-device owner disables it or the lens is covered; a fake picture needs root.
+runs; between sessions it is muted. The per-app appops block is set by
+root/adb, so a user can't lift it from a system prompt, but it covers only
+the app under test, not every app on the device; for a dedicated test phone
+that is enough. Phones without a camera keep working hardware; a fake
+picture needs root.
 
 ## 73. Phones suspend risky apps and set the app's language instead of the system's
 

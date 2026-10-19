@@ -158,7 +158,7 @@ func Clean(ctx context.Context, adb ADB, c Cleanup) error {
 	if c.ProtectBattery {
 		run("battery", "settings put global protect_battery 1")
 	}
-	run("privacy", privacy)
+	run("privacy", clearPrivacy)
 	if c.Baseline != nil {
 		if script := restoreScript(ctx, adb, c.Baseline); script != "" {
 			run("settings", script)
@@ -173,7 +173,7 @@ func Clean(ctx context.Context, adb ADB, c Cleanup) error {
 		if err := ownerActions(ctx, adb, o); err != nil {
 			errs = append(errs, err)
 		}
-		run("privacy", privacy)
+		run("privacy", clearPrivacy)
 	}
 	if c.End {
 		run("park", park)
@@ -215,11 +215,22 @@ for s in 1 2 3 5; do cmd media_session volume --stream $s --set 0 >/dev/null 2>&
 cmd media_session volume --stream 4 --set 1 >/dev/null 2>&1
 svc power stayon false; input keyevent KEYCODE_SLEEP; true`
 
-// privacy blocks the microphone, and the camera where the phone has that
-// toggle, so apps get silence and a blank picture. Without a device owner
-// a user can lift it from the system's prompt, so sessions put it back on
-// every poll.
-const privacy = "cmd sensor_privacy enable 0 microphone >/dev/null 2>&1; cmd sensor_privacy enable 0 camera >/dev/null 2>&1; true"
+// clearPrivacy lifts the device-wide sensor-privacy mic/camera mute. The mute
+// is never set any more: on some phones (Samsung A05) the microphone toggle
+// makes AudioFlinger::createRecord hang until audioserver aborts, which
+// crashes apps that touch audio. Blocking is per app instead (mutePrivacy).
+// Clean clears any mute a stuck session or an older build left behind.
+const clearPrivacy = "cmd sensor_privacy disable 0 microphone >/dev/null 2>&1; cmd sensor_privacy disable 0 camera >/dev/null 2>&1; true"
+
+// mutePrivacy denies the app under test the microphone and camera through
+// appops, so it gets silence and no picture without the device-wide sensor
+// toggle that hangs the audio HAL. It is idempotent and re-applied each poll.
+func mutePrivacy(pkg string) string {
+	if !packageName.MatchString(pkg) {
+		return "true"
+	}
+	return "appops set " + pkg + " RECORD_AUDIO ignore >/dev/null 2>&1; appops set " + pkg + " CAMERA ignore >/dev/null 2>&1; true"
+}
 
 func brightness(b *Baseline) string {
 	if b == nil {
