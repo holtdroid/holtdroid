@@ -69,7 +69,7 @@ export function useArtifacts(source: string) {
   return useQuery({
     queryKey: keys.artifacts(source),
     queryFn: () =>
-      unwrap(api.GET("/api/v1/artifacts", { params: { query: source ? { source, limit: 100 } : { limit: 100 } } })),
+      unwrap(api.GET("/api/v1/artifacts", { params: { query: source ? { source, limit: 500 } : { limit: 500 } } })),
     refetchInterval: (query) => (query.state.data?.items.some((a) => !a.app) ? 3_000 : 60_000),
     placeholderData: keepPreviousData,
   })

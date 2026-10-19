@@ -52,6 +52,15 @@ const homeRoute = createRoute({
   component: HomePage,
 })
 
+const appRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/apps/$pkg",
+  component: function App() {
+    const { pkg } = appRoute.useParams()
+    return <HomePage key={pkg} pkg={pkg} />
+  },
+})
+
 const sessionRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/session/$provider/$id",
@@ -83,7 +92,15 @@ const auditRoute = createRoute({
 const appDataRoute = createRoute({ getParentRoute: () => rootRoute, path: "/app-data", component: AppDataPage })
 
 const router = createRouter({
-  routeTree: rootRoute.addChildren([homeRoute, launchRoute, sessionRoute, computersRoute, auditRoute, appDataRoute]),
+  routeTree: rootRoute.addChildren([
+    homeRoute,
+    appRoute,
+    launchRoute,
+    sessionRoute,
+    computersRoute,
+    auditRoute,
+    appDataRoute,
+  ]),
 })
 
 declare module "@tanstack/react-router" {

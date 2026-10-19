@@ -10,6 +10,7 @@ import {
   Trash2Icon,
   UploadIcon,
 } from "lucide-react"
+import { Link } from "@tanstack/react-router"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import type { ArtifactView } from "@/api/client"
@@ -49,7 +50,41 @@ export function artifactTitle(a: ArtifactView) {
   return a.meta.title || a.app?.label || a.fileName
 }
 
-export function ArtifactList({ onLaunch }: { onLaunch: (artifact: ArtifactView) => void }) {
+export function appTitle(a: ArtifactView) {
+  return a.app?.label || artifactTitle(a)
+}
+
+type AppGroup = { key: string; pkg?: string; items: ArtifactView[] }
+
+function groupByPackage(items: ArtifactView[]) {
+  const groups = new Map<string, AppGroup>()
+  for (const a of items) {
+    const pkg = a.app?.package
+    const key = pkg ?? `${a.source}/${a.id}`
+    const group = groups.get(key)
+    if (group) group.items.push(a)
+    else groups.set(key, { key, pkg, items: [a] })
+  }
+  return [...groups.values()]
+}
+
+function matches(a: ArtifactView, q: string) {
+  return [
+    a.fileName,
+    a.meta.title,
+    a.app?.label,
+    a.app?.package,
+    a.app?.versionName,
+    a.meta.uploadedBy,
+    a.meta.note,
+    a.meta.changelog,
+    ...Object.values(a.meta.tags ?? {}),
+  ]
+    .filter(Boolean)
+    .some((v) => v!.toLowerCase().includes(q))
+}
+
+export function ArtifactList({ onLaunch, pkg }: { onLaunch: (artifact: ArtifactView) => void; pkg?: string }) {
   const [source, setSource] = useState(ALL)
   const [query, setQuery] = useState("")
   const [uploading, setUploading] = useState<{ file: File | null } | null>(null)
@@ -60,26 +95,17 @@ export function ArtifactList({ onLaunch }: { onLaunch: (artifact: ArtifactView) 
   const now = useNow(30_000)
   const canUpload = !!uploads.data?.enabled
 
-  const items = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    const all = artifacts.data?.items ?? []
-    if (!q) return all
-    return all.filter((a) =>
-      [
-        a.fileName,
-        a.meta.title,
-        a.app?.label,
-        a.app?.package,
-        a.app?.versionName,
-        a.meta.uploadedBy,
-        a.meta.note,
-        a.meta.changelog,
-        ...Object.values(a.meta.tags ?? {}),
-      ]
-        .filter(Boolean)
-        .some((v) => v!.toLowerCase().includes(q)),
-    )
-  }, [artifacts.data, query])
+  const all = useMemo(
+    () => (artifacts.data?.items ?? []).filter((a) => !pkg || a.app?.package === pkg),
+    [artifacts.data, pkg],
+  )
+  const q = query.trim().toLowerCase()
+  const items = useMemo(() => (q ? all.filter((a) => matches(a, q)) : all), [all, q])
+  const groups = useMemo(
+    () => (pkg ? [] : groupByPackage(all).filter((g) => !q || g.items.some((a) => matches(a, q)))),
+    [all, pkg, q],
+  )
+  const empty = pkg ? items.length === 0 : groups.length === 0
 
   return (
     <section
@@ -105,7 +131,9 @@ export function ArtifactList({ onLaunch }: { onLaunch: (artifact: ArtifactView) 
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by name, package, version, uploader, changelog…"
+            placeholder={
+              pkg ? "Search by version, uploader, changelog…" : "Search by name, package, version, uploader, changelog…"
+            }
             className="pl-8"
           />
         </div>
@@ -139,21 +167,29 @@ export function ArtifactList({ onLaunch }: { onLaunch: (artifact: ArtifactView) 
         </Alert>
       ))}
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="@container relative min-h-0 flex-1 overflow-y-auto">
         {artifacts.isPending ? (
           <div className="grid gap-2">
             {Array.from({ length: 5 }, (_, i) => (
               <Skeleton key={i} className="h-20 rounded-xl" />
             ))}
           </div>
-        ) : items.length === 0 ? (
+        ) : empty ? (
           <p className="text-muted-foreground py-12 text-center text-sm">
             {query
               ? "Nothing matches your search."
-              : canUpload
-                ? "No APKs yet. Drop one here or press Upload."
-                : "No APKs found in the configured sources yet."}
+              : pkg
+                ? "No builds of this app in the selected sources."
+                : canUpload
+                  ? "No APKs yet. Drop one here or press Upload."
+                  : "No APKs found in the configured sources yet."}
           </p>
+        ) : !pkg ? (
+          <ul className="grid gap-2 @2xl:grid-cols-2">
+            {groups.map((g) => (
+              <AppCard key={g.key} group={g} now={now} onLaunch={onLaunch} />
+            ))}
+          </ul>
         ) : (
           <ul className="grid gap-2">
             {items.map((a) => (
@@ -170,6 +206,72 @@ export function ArtifactList({ onLaunch }: { onLaunch: (artifact: ArtifactView) 
         onUploaded={onLaunch}
       />
     </section>
+  )
+}
+
+function AppCard({
+  group: { pkg, items },
+  now,
+  onLaunch,
+}: {
+  group: AppGroup
+  now: number
+  onLaunch: (a: ArtifactView) => void
+}) {
+  const latest = items[0]!
+  const title = appTitle(latest)
+  const versions = new Set(items.map((a) => a.app?.versionName).filter(Boolean)).size
+  const sources = [...new Set(items.map((a) => a.source))]
+  return (
+    <li className="bg-card hover:bg-accent/40 relative flex flex-col gap-2 rounded-xl border p-3 transition-colors">
+      <div className="flex items-start gap-3">
+        <AppIcon src={latest.iconUrl} className="size-12" />
+        <div className="min-w-0 flex-1">
+          {pkg ? (
+            <Link
+              to="/apps/$pkg"
+              params={{ pkg }}
+              className="block truncate font-medium after:absolute after:inset-0 after:rounded-xl"
+            >
+              {title}
+            </Link>
+          ) : (
+            <span className="block truncate font-medium">{title}</span>
+          )}
+          <span className="text-muted-foreground block truncate font-mono text-xs">
+            {pkg ?? "Reading package info…"}
+          </span>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-1">
+        {latest.app?.versionName && <Badge variant="secondary">{latest.app.versionName}</Badge>}
+        <Badge variant="outline">
+          {items.length} {items.length === 1 ? "build" : "builds"}
+          {versions > 1 ? ` · ${versions} versions` : ""}
+        </Badge>
+        {sources.map((s) => (
+          <Badge key={s} variant="outline" className="font-normal">
+            {s}
+          </Badge>
+        ))}
+      </div>
+      <div className="mt-auto flex items-center gap-2">
+        <span
+          className="text-muted-foreground min-w-0 flex-1 truncate text-xs"
+          title={new Date(latest.uploadedAt).toLocaleString()}
+        >
+          Latest {formatRelative(latest.uploadedAt, now)}
+          {latest.meta.uploadedBy ? ` by ${latest.meta.uploadedBy}` : ""}
+        </span>
+        <div className="relative z-10 flex shrink-0 items-center gap-1">
+          <QuickLaunchButton artifact={latest} />
+          <Button onClick={() => onLaunch(latest)}>
+            <RocketIcon />
+            Launch
+          </Button>
+        </div>
+      </div>
+    </li>
   )
 }
 

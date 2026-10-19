@@ -1,17 +1,19 @@
-import { useNavigate, useSearch } from "@tanstack/react-router"
+import { Link, useNavigate, useSearch } from "@tanstack/react-router"
+import { ArrowLeftIcon } from "lucide-react"
 import { useState } from "react"
 import type { ArtifactView } from "@/api/client"
-import { useArtifact } from "@/api/queries"
-import { ArtifactList } from "@/components/artifact-list"
+import { useArtifact, useArtifacts } from "@/api/queries"
+import { AppIcon } from "@/components/app-icon"
+import { appTitle, ArtifactList } from "@/components/artifact-list"
 import { LaunchDialog } from "@/components/launch-dialog"
 import { QuickLauncher } from "@/components/quick-launcher"
 import { SessionsPanel } from "@/components/sessions-panel"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 
-export function HomePage() {
+export function HomePage({ pkg }: { pkg?: string }) {
   const [launching, setLaunching] = useState<ArtifactView | null>(null)
-  const search = useSearch({ from: "/" })
+  const search = useSearch({ strict: false })
   const navigate = useNavigate()
   const linked = useArtifact(search.source ?? "", search.launch ?? "")
   const clearLink = () => void navigate({ to: "/", search: {}, replace: true })
@@ -26,10 +28,16 @@ export function HomePage() {
   return (
     <div className="mx-auto grid h-full max-w-7xl gap-6 p-4 lg:grid-cols-[minmax(0,1fr)_380px] lg:p-6">
       <div className="flex min-h-0 flex-col gap-3">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">APKs</h1>
-          <p className="text-muted-foreground text-sm">Pick a build to launch it on a fresh Android device.</p>
-        </div>
+        {pkg ? (
+          <AppHeader pkg={pkg} />
+        ) : (
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight">Apps</h1>
+            <p className="text-muted-foreground text-sm">
+              Launch the latest build of an app on a fresh Android device, or open it to pick another build.
+            </p>
+          </div>
+        )}
         {linked.isError && (
           <Alert variant="destructive">
             <AlertDescription className="flex items-center justify-between gap-2">
@@ -40,7 +48,7 @@ export function HomePage() {
             </AlertDescription>
           </Alert>
         )}
-        <ArtifactList onLaunch={setLaunching} />
+        <ArtifactList pkg={pkg} onLaunch={setLaunching} />
       </div>
       <SessionsPanel />
       {search.quick && linked.data && <QuickLauncher artifact={linked.data} onFallback={dropQuick} />}
@@ -48,6 +56,25 @@ export function HomePage() {
         artifact={launching ?? (search.launch && !search.quick ? (linked.data ?? null) : null)}
         onClose={close}
       />
+    </div>
+  )
+}
+
+function AppHeader({ pkg }: { pkg: string }) {
+  const artifacts = useArtifacts("")
+  const latest = artifacts.data?.items.find((a) => a.app?.package === pkg)
+  return (
+    <div className="flex items-center gap-3">
+      <Button variant="ghost" size="icon" asChild>
+        <Link to="/" aria-label="All apps">
+          <ArrowLeftIcon />
+        </Link>
+      </Button>
+      <AppIcon src={latest?.iconUrl} className="size-10" />
+      <div className="min-w-0">
+        <h1 className="truncate text-xl font-semibold tracking-tight">{latest ? appTitle(latest) : pkg}</h1>
+        <p className="text-muted-foreground truncate font-mono text-sm">{pkg}</p>
+      </div>
     </div>
   )
 }

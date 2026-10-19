@@ -12,11 +12,13 @@ hybrid apps, support engineers reproducing a customer bug.
 
 ## A session, end to end
 
-1. Open the portal. The home page lists the APKs in your configured sources
-   (a folder or bucket that CI or a Slack sync job fills, plus your own
-   uploads) with icon, version, package name, who posted it, its note and
-   changelog.
-2. Pick one, choose a VPN location if you need one, press **Launch**. A free
+1. Open the portal. The home page shows one card per app (package name) found
+   in your configured sources (a folder or bucket that CI or a Slack sync job
+   fills, plus your own uploads): its latest version, how many builds and
+   versions there are and which sources they come from. **Launch** on a card
+   starts the latest build; click the card to see every build of the app with
+   its version, who posted it, its note and changelog.
+2. Pick a build, choose a VPN location if you need one, press **Launch**. A free
    slot is assigned and a fresh Android device boots (about a minute). The
    ⚡ button next to it skips the dialog and launches with the device and
    location you used last time (or the defaults). When every device is busy,
