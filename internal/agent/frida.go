@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -55,6 +56,42 @@ func (f *Frida) prepare() error {
 	return nil
 }
 
+// deviceGone matches the FError frida-server raises once the device handle is
+// stale — the phone re-enumerated on USB (reboot or replug). Narrow on
+// purpose so every other failure propagates unretried.
+func deviceGone(err error) bool {
+	return err != nil && strings.Contains(strings.ToLower(err.Error()), "device is gone")
+}
+
+// withDevice resolves the cached device and runs op against it. If op fails
+// because the handle went stale, it drops the handle, re-resolves the device
+// and retries op exactly once.
+func (f *Frida) withDevice(op func(dev *frida.Device) error) error {
+	if err := f.prepare(); err != nil {
+		return err
+	}
+	f.mu.Lock()
+	dev := f.dev
+	f.mu.Unlock()
+	err := op(dev)
+	if !deviceGone(err) {
+		return err
+	}
+	f.log.Warn("frida device gone, re-resolving", "serial", f.serial, "err", err)
+	f.mu.Lock()
+	if f.dev == dev {
+		f.dev = nil
+	}
+	f.mu.Unlock()
+	if err := f.prepare(); err != nil {
+		return err
+	}
+	f.mu.Lock()
+	dev = f.dev
+	f.mu.Unlock()
+	return op(dev)
+}
+
 // CompileScripts bundles agent.ts and system.ts in dir, with the node_modules
 // next to them, into agent.js and system.js.
 func CompileScripts(dir string) error {
@@ -86,70 +123,69 @@ func (f *Frida) SetWallpaper(ctx context.Context, w Wallpaper) error {
 }
 
 func (f *Frida) callSystem(ctx context.Context, fn string, args ...any) error {
-	if err := f.prepare(); err != nil {
+	return f.withDevice(func(dev *frida.Device) error {
+		sess, err := dev.AttachWithContext(ctx, "system_server", nil)
+		if err != nil {
+			return fmt.Errorf("attach system_server: %w", err)
+		}
+		defer func() { _ = sess.Detach() }()
+		script, err := sess.CreateScript(f.system)
+		if err != nil {
+			return fmt.Errorf("create script: %w", err)
+		}
+		if err := script.Load(); err != nil {
+			return fmt.Errorf("load script: %w", err)
+		}
+		defer func() { _ = script.Unload() }()
+		_, err = callScript(ctx, script, fn, args...)
 		return err
-	}
-	sess, err := f.dev.AttachWithContext(ctx, "system_server", nil)
-	if err != nil {
-		return fmt.Errorf("attach system_server: %w", err)
-	}
-	defer func() { _ = sess.Detach() }()
-	script, err := sess.CreateScript(f.system)
-	if err != nil {
-		return fmt.Errorf("create script: %w", err)
-	}
-	if err := script.Load(); err != nil {
-		return fmt.Errorf("load script: %w", err)
-	}
-	defer func() { _ = script.Unload() }()
-	_, err = callScript(ctx, script, fn, args...)
-	return err
+	})
 }
 
 func (f *Frida) Spawn(_ context.Context, pkg string) (App, error) {
-	if err := f.prepare(); err != nil {
-		return nil, err
-	}
-	pid, err := f.dev.Spawn(pkg, nil)
-	if err != nil {
-		return nil, fmt.Errorf("spawn: %w", err)
-	}
-	return f.instrument(pid)
+	var app App
+	err := f.withDevice(func(dev *frida.Device) error {
+		pid, err := dev.Spawn(pkg, nil)
+		if err != nil {
+			return fmt.Errorf("spawn: %w", err)
+		}
+		app, err = f.instrument(pid)
+		return err
+	})
+	return app, err
 }
 
 // Watch gates every process the device starts, instruments the app's main
 // process and resumes all others straight away.
 func (f *Frida) Watch(ctx context.Context, pkg string, launched func(App)) error {
-	if err := f.prepare(); err != nil {
-		return err
-	}
-	dev := f.dev
-	dev.On("spawn_added", func(spawn *frida.Spawn) {
-		pid, id := spawn.PID(), spawn.Identifier()
-		go func() {
-			if id != pkg {
-				if err := dev.Resume(pid); err != nil {
-					f.log.Warn("resume gated process", "process", id, "pid", pid, "err", err)
+	return f.withDevice(func(dev *frida.Device) error {
+		dev.On("spawn_added", func(spawn *frida.Spawn) {
+			pid, id := spawn.PID(), spawn.Identifier()
+			go func() {
+				if id != pkg {
+					if err := dev.Resume(pid); err != nil {
+						f.log.Warn("resume gated process", "process", id, "pid", pid, "err", err)
+					}
+					return
 				}
-				return
-			}
-			app, err := f.instrument(pid)
-			if err != nil {
-				f.log.Warn("instrument app started on the device", "pid", pid, "err", err)
-				_ = dev.Resume(pid)
-				return
-			}
-			launched(app)
+				app, err := f.instrument(pid)
+				if err != nil {
+					f.log.Warn("instrument app started on the device", "pid", pid, "err", err)
+					_ = dev.Resume(pid)
+					return
+				}
+				launched(app)
+			}()
+		})
+		if err := dev.EnableSpawnGating(); err != nil {
+			return fmt.Errorf("enable spawn gating: %w", err)
+		}
+		go func() {
+			<-ctx.Done()
+			_ = dev.DisableSpawnGating()
 		}()
+		return nil
 	})
-	if err := dev.EnableSpawnGating(); err != nil {
-		return fmt.Errorf("enable spawn gating: %w", err)
-	}
-	go func() {
-		<-ctx.Done()
-		_ = dev.DisableSpawnGating()
-	}()
-	return nil
 }
 
 // instrument loads the script into a suspended process and resumes it.

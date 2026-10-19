@@ -2087,4 +2087,10 @@ layer-3 hardening (token-auth frida-server, su denied to shell, root
 watchdog) is still to come, as is the network-speed profile (the A05 kernel
 has no `sch_netem`). The physical image is now built with Frida and carries
 the arm64 frida-server, a static arm64 sing-box, the locales dex and the
-Frida bundles.
+Frida bundles. The Frida instrumenter caches one device handle for its
+lifetime; when the phone re-enumerates on USB (reboot or replug) that handle
+goes stale and every op fails with `FError: Device is gone`. Rather than
+restart the provider pod, the instrumenter now drops the handle on a
+gone-error, re-resolves it via `frida.DeviceByID` and retries the op once (at
+`Spawn`, `Watch` and `callSystem`); the match is narrow so other errors still
+propagate.
