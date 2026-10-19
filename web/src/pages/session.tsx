@@ -11,13 +11,13 @@ import { DeviceScreen } from "@/components/session/device-screen"
 import { useLiveScreen } from "@/components/session/live-screen"
 import { DevToolsPanel } from "@/components/session/devtools-panel"
 import { MetricsBar } from "@/components/session/metrics-bar"
+import { ScreenSplit } from "@/components/session/screen-split"
 import { AppActions, SessionToolbar } from "@/components/session/session-toolbar"
 import { StartProgress } from "@/components/session/start-progress"
 import { ToolTabs } from "@/components/session/tool-tabs"
 import { VersionSwitcher } from "@/components/session/version-switcher"
 import { SessionStateBadge } from "@/components/session-state-badge"
 import { Button } from "@/components/ui/button"
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useActivityHeartbeat } from "@/hooks/use-activity-heartbeat"
 import { useEventSource } from "@/hooks/use-event-source"
@@ -158,41 +158,32 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
             appData={session.appData}
           />
         ) : (
-          <ResizablePanelGroup orientation="horizontal">
-            <ResizablePanel defaultSize="42" minSize="20">
-              <div className="flex size-full">
-                <div className="min-w-0 flex-1">
-                  <DeviceScreen provider={provider} id={id} live={live} />
-                </div>
-                <DeviceRail
+          <ScreenSplit>
+            <DeviceScreen provider={provider} id={id} live={live} />
+            <DeviceRail
+              provider={provider}
+              id={id}
+              session={session}
+              live={live}
+              adb={adbAllowed ? adb : null}
+              clipboard={caps?.clipboard ?? false}
+              locations={caps?.locations ?? []}
+            />
+            <ToolTabs tab={tab} onTab={setTab} adb={adbAllowed ? adb : null} session={session}>
+              {caps?.devtools ? (
+                <DevToolsPanel
                   provider={provider}
                   id={id}
-                  session={session}
-                  live={live}
-                  adb={adbAllowed ? adb : null}
-                  clipboard={caps?.clipboard ?? false}
-                  locations={caps?.locations ?? []}
+                  frameRef={registerFrame}
+                  debuggableOnly={session.capabilities?.devtools === "debuggable"}
                 />
-              </div>
-            </ResizablePanel>
-            <ResizableHandle withHandle />
-            <ResizablePanel defaultSize="58" minSize="20">
-              <ToolTabs tab={tab} onTab={setTab} adb={adbAllowed ? adb : null} session={session}>
-                {caps?.devtools ? (
-                  <DevToolsPanel
-                    provider={provider}
-                    id={id}
-                    frameRef={registerFrame}
-                    debuggableOnly={session.capabilities?.devtools === "debuggable"}
-                  />
-                ) : (
-                  <div className="text-muted-foreground grid h-full place-items-center text-sm">
-                    This device does not support DevTools.
-                  </div>
-                )}
-              </ToolTabs>
-            </ResizablePanel>
-          </ResizablePanelGroup>
+              ) : (
+                <div className="text-muted-foreground grid h-full place-items-center text-sm">
+                  This device does not support DevTools.
+                </div>
+              )}
+            </ToolTabs>
+          </ScreenSplit>
         )}
       </div>
       {state === "ready" && (

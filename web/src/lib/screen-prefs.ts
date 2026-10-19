@@ -20,6 +20,7 @@ export type ScreenPrefs = {
   recordAuto: boolean
   deviceTheme: DeviceTheme
   railLabels: boolean
+  autoFit: boolean
   keyboardLayouts: string[] | null
   clipboard: boolean
   clipboardSync: ClipboardSync
@@ -38,6 +39,7 @@ export const defaultScreenPrefs: ScreenPrefs = {
   recordAuto: false,
   deviceTheme: "manual",
   railLabels: true,
+  autoFit: true,
   keyboardLayouts: null,
   clipboard: true,
   clipboardSync: "both",

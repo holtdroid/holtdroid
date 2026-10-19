@@ -34,7 +34,10 @@ hybrid apps, support engineers reproducing a customer bug.
    name and icon to switch to another build, and the icons next to it
    restart or reinstall the app or save its data; **Extend** and **Stop**
    sit on the right. The bar at the bottom shows the device's load and its
-   current external IP.
+   current external IP. By default the screen's side follows the screen: it
+   grows or shrinks until the screen fills its height or the side reaches
+   70% of the page, also when the device rotates. Dragging the divider sizes
+   it by hand; the button on the divider turns following back on.
 
    A rail next to the screen has the hardware buttons (lock or screen off,
    wake, volume, rotate, back/home/recents, notifications, quick settings),
