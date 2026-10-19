@@ -450,7 +450,7 @@ class Phone {
     const { nw, nh } = this
     const W = this.#w
     const H = this.#h
-    const R = nw * 0.12
+    const R = nw * 0.06
     ctx.save()
     ctx.globalAlpha = alpha
     ctx.translate(cx, cy)
@@ -475,7 +475,7 @@ class Phone {
     ctx.stroke()
 
     ctx.beginPath()
-    ctx.roundRect(-nw / 2, -nh / 2, nw, nh, R - this.#b)
+    ctx.roundRect(-nw / 2, -nh / 2, nw, nh, nw * 0.02)
     ctx.clip()
     ctx.fillStyle = "#000"
     ctx.fillRect(-nw / 2, -nh / 2, nw, nh)

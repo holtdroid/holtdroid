@@ -1848,7 +1848,9 @@ phone of another shape.
 **Decision.** Two scenes in `web/src/lib/composer.ts`. `PhoneScene` draws
 a plain rounded frame around the scrcpy canvas; the video size follows the
 framed phone in the orientation it had when recording started (long side
-1920), and later rotations turn the frame inside it. `TabScene` draws the
+1920), and later rotations turn the frame inside it. Recording waits for
+the first decoded frame: until then the scrcpy canvas keeps the browser's
+default 300×150 and would give the video a 2:1 shape. `TabScene` draws the
 current tab from `getDisplayMedia`, uncropped, under a 56-unit strip with
 the logo, app, device details and timer; the video size is the tab's size
 at the start (width clamped to 1280–2560) plus the strip, and the tab is

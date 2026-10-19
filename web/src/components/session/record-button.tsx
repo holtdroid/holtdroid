@@ -41,6 +41,10 @@ const recordModes: Record<RecordMode, { label: string; hint: string; icon: React
 const idle: AdbStatus = { state: "idle" }
 const noSubscribe = () => () => undefined
 
+async function waitFor(check: () => boolean, ms: number) {
+  for (let i = 0; i < ms / 100 && !check(); i++) await new Promise((r) => setTimeout(r, 100))
+}
+
 function errorText(e: unknown) {
   return e instanceof Error ? e.message : String(e)
 }
@@ -116,13 +120,14 @@ export function RecordButton({
   }
 
   const scene = async (m: RecordMode): Promise<{ scene: Scene; tab?: MediaStream } | null> => {
-    if (m === "screen")
-      return {
-        scene: new PhoneScene(
-          () => live.connection?.canvas ?? null,
-          () => latest.current,
-        ),
+    if (m === "screen") {
+      const screen = () => {
+        const c = live.connection
+        return c && c.stats().frames > 0 ? c.canvas : null
       }
+      await waitFor(() => screen() !== null, 5000)
+      return { scene: new PhoneScene(screen, () => latest.current) }
+    }
     try {
       const tab = await captureTab()
       return { scene: new TabScene(tab, () => latest.current), tab }
