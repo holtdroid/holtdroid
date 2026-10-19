@@ -1,7 +1,8 @@
-import { Link } from "@tanstack/react-router"
+import { Link, useMatchRoute } from "@tanstack/react-router"
 import {
   BookOpenIcon,
   DatabaseIcon,
+  LayoutGridIcon,
   LaptopIcon,
   LogOutIcon,
   MoonIcon,
@@ -35,6 +36,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const auth = useAuth()
   const appData = useAppData()
   const logout = useLogout()
+  const matchRoute = useMatchRoute()
+  const onApps = Boolean(matchRoute({ to: "/" }) || matchRoute({ to: "/apps/$pkg", fuzzy: true }))
   const { resolvedTheme, setTheme } = useTheme()
   const identity = auth.data?.identity
   const mode = auth.data?.mode
@@ -48,6 +51,17 @@ export function AppShell({ children }: { children: ReactNode }) {
           Holtdroid
         </Link>
         <div className="ml-auto flex items-center gap-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className={onApps ? "bg-muted" : undefined} asChild>
+                <Link to="/">
+                  <LayoutGridIcon />
+                  <span className="sr-only">Apps</span>
+                </Link>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Apps</TooltipContent>
+          </Tooltip>
           {appData.data?.enabled && (
             <Tooltip>
               <TooltipTrigger asChild>
