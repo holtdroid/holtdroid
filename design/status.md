@@ -129,11 +129,11 @@ deployment"):
   clock, battery, app data, fake GPS and timezone that follow the VPN
   location (random point in a per-location radius; a non-persistent override
   pins a manual one), the app under test hidden from root via the Magisk
-  DenyList, the VpnService tunnel with Frida relabelling its transport
-  VPN→Wi-Fi so the app sees Wi-Fi while Android still gives it a real network
-  with DNS (the kernel-route transparent tun is behind the off-by-default
-  `transparentTunnel` flag — it hides the VPN fully but has no DNS yet), and
-  a calls lockdown
+  DenyList, a real Wi-Fi network joined through su with all traffic tproxy'd
+  through the tunnel (no VpnService, no tun — anti-VPN apps like 1xbet accept
+  it; needs a `wifi` SSID, else it falls back to the VpnService tunnel with a
+  Frida VPN→Wi-Fi relabel; the kernel-route tun stays behind the off-by-default
+  `transparentTunnel` flag), and a calls lockdown
   (airplane, dialer and emergency apps disabled, keyguard off). Verified on
   the A05 on 2026-10-19: root boot, root hidden, lockdown, the tun comes up
   and the gate keeps the system healthy with the egress down, GPS+timezone

@@ -88,22 +88,46 @@ var CallApps = []string{
 }
 
 // lockdownCalls makes a rooted phone unable to place calls from its screen:
-// airplane mode (so the normal radios are down), every dialer and emergency
-// UI disabled, and the lock screen off so its emergency button is gone.
-// Android never lets emergency calls be blocked outright, so this pairs with
-// SIM-less phones out of cellular range and the Frida call hook; see
-// architecture.md. Reversed by unlockCalls at cleanup.
+// mobile data off (nothing leaves over cellular), every dialer and emergency
+// UI disabled, and the lock screen off so its emergency button is gone. It
+// does not use airplane mode, so a real Wi-Fi network stays up for the tproxy
+// tunnel. Android never lets emergency calls be blocked outright, so this
+// pairs with SIM-less phones out of cellular range; see architecture.md.
+// Reversed by unlockCalls at cleanup.
 func lockdownCalls(ctx context.Context, adb ADB) error {
-	// Airplane mode turns off the cellular radio (and wifi); wifi is turned
-	// back on because the transparent tunnel needs it as the underlying
-	// interface, while cellular stays off for calls.
-	cmds := []string{"cmd connectivity airplane-mode enable >/dev/null 2>&1", "svc wifi enable >/dev/null 2>&1"}
+	cmds := []string{"svc data disable >/dev/null 2>&1"}
 	for _, p := range CallApps {
 		cmds = append(cmds, "pm disable-user --user 0 "+p+" >/dev/null 2>&1")
 	}
 	cmds = append(cmds, "locksettings set-disabled true >/dev/null 2>&1", "true")
 	_, err := rootShell(ctx, adb, strings.Join(cmds, "; "))
 	return err
+}
+
+// connectWifi joins the phone to a real Wi-Fi network through su (the shell
+// uid is not allowed to), so apps see an ordinary network while the tproxy
+// tunnel carries the traffic. The network needs no internet of its own.
+func connectWifi(ctx context.Context, adb ADB, ssid, pass string) error {
+	if ssid == "" {
+		return nil
+	}
+	if _, err := rootShell(ctx, adb, "svc wifi enable"); err != nil {
+		return err
+	}
+	connect := `cmd wifi connect-network "` + ssid + `" wpa2 "` + pass + `"`
+	for range 20 {
+		out, _ := rootShell(ctx, adb, "cmd wifi status 2>/dev/null")
+		if strings.Contains(out, `connected to "`+ssid+`"`) {
+			return nil
+		}
+		_, _ = rootShell(ctx, adb, connect)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(2 * time.Second):
+		}
+	}
+	return fmt.Errorf("could not join wifi %q", ssid)
 }
 
 // unlockCalls undoes lockdownCalls.

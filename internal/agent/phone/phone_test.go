@@ -170,13 +170,55 @@ func TestRootTunnelStart(t *testing.T) {
 	}
 }
 
+func TestTproxyTunnelStart(t *testing.T) {
+	adb := &fakeADB{reply: func(cmd string) string {
+		switch {
+		case strings.Contains(cmd, "-x "+singBoxRemote):
+			return "no"
+		case strings.Contains(cmd, "pidof holtdroid-sing-box"):
+			return "1234"
+		}
+		return ""
+	}}
+	tt := &TproxyTunnel{SingBox: "/opt/holtdroid/sing-box-android", Port: 29180, HostPort: 40000}
+	if err := tt.start(context.Background(), adb); err != nil {
+		t.Fatal(err)
+	}
+	reversed := slices.Contains(adb.calls, fmt.Sprintf("reverse %d %d", 29180, 40000))
+	rules := slices.ContainsFunc(adb.calls, func(c string) bool {
+		return strings.Contains(c, "su -Z "+magiskSELinux) && strings.Contains(c, "TPROXY --on-port 7893")
+	})
+	if !reversed || !rules {
+		t.Fatalf("tproxy start incomplete (rev %v rules %v): %q", reversed, rules, adb.calls)
+	}
+	if cfg := tt.config(); !strings.Contains(cfg, `"server_port": 29180`) || !strings.Contains(cfg, `"type": "tproxy"`) {
+		t.Fatalf("bad sing-box config: %s", cfg)
+	}
+}
+
+func TestConnectWifi(t *testing.T) {
+	adb := &fakeADB{reply: func(cmd string) string {
+		if strings.Contains(cmd, "cmd wifi status") {
+			return `Wifi is connected to "Net"`
+		}
+		return ""
+	}}
+	if err := connectWifi(context.Background(), adb, "Net", "pw"); err != nil {
+		t.Fatal(err)
+	}
+	adb2 := &fakeADB{}
+	if err := connectWifi(context.Background(), adb2, "", ""); err != nil || len(adb2.calls) != 0 {
+		t.Fatalf("empty ssid should be a no-op: %v %q", err, adb2.calls)
+	}
+}
+
 func TestLockdownCalls(t *testing.T) {
 	adb := &fakeADB{}
 	if err := lockdownCalls(context.Background(), adb); err != nil {
 		t.Fatal(err)
 	}
 	c := strings.Join(adb.calls, " ")
-	if !strings.Contains(c, "su -c") || !strings.Contains(c, "airplane-mode enable") ||
+	if !strings.Contains(c, "su -c") || !strings.Contains(c, "svc data disable") ||
 		!strings.Contains(c, "pm disable-user --user 0 com.samsung.android.emergency") ||
 		!strings.Contains(c, "locksettings set-disabled true") {
 		t.Fatalf("lockdown missing steps: %q", adb.calls)

@@ -13,6 +13,9 @@
 {{- with $p.vpn }}
 {{- $_ := set $cfg "vpn" . -}}
 {{- end }}
+{{- with $p.wifi }}
+{{- $_ := set $cfg "wifi" . -}}
+{{- end }}
 {{- $telemetry := include "holtdroid.telemetry" . | fromYaml -}}
 {{- if .Values.telemetry.metrics.enabled }}
 {{- $_ := set $telemetry "metrics" (dict "listen" (printf ":%d" (int $p.metricsPort))) -}}

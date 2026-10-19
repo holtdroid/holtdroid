@@ -398,18 +398,25 @@ undone when the session ends:
   overridden). A per-session **Override** toggle on the session page pins a
   manual position; it is not kept after the session.
 - **Root hidden** from the app under test (added to the Magisk DenyList).
-- **A tunnel that looks like Wi-Fi**: a rooted session reaches the internet
-  through the same VpnService tunnel as a non-root one (so Android gives it a
-  real network with working DNS, which a phone with no SIM and no Wi-Fi
-  otherwise lacks), but Frida makes the app under test see an ordinary Wi-Fi
-  connection instead of a VPN: it relabels the active network's transport from
-  VPN to Wi-Fi, reports `WifiManager` as connected, and hides the `tun`
-  interface from `NetworkInterface`, so apps that refuse a VPN (or fall back
-  to the wrong domains) work. Traffic still leaves through the host's
-  per-session sing-box over the USB cable, and the phone itself needs no
-  Wi-Fi or SIM. (A fully transparent kernel-route tun is available behind the
-  off-by-default `transparentTunnel` flag; it hides the VPN completely but has
-  no DNS yet, so apps cannot resolve host names through it.)
+- **A real Wi-Fi network with the traffic tunnelled underneath**: with a
+  `wifi` SSID configured, a rooted session joins that real Wi-Fi AP, so apps
+  see a genuine, validated Wi-Fi network — no VPN of any kind, which is what
+  apps that refuse a VPN (or fall back to the wrong domains) need. The AP
+  needs no internet of its own: iptables `TPROXY` redirects all traffic
+  through a sing-box into the host's per-session sing-box over the USB cable,
+  DNS is resolved over the tunnel (no leak), and the egress is the chosen VPN
+  location. Without a `wifi` SSID the session falls back to a VpnService
+  tunnel (Frida then masks it as Wi-Fi as best it can). A fully transparent
+  kernel-route tun is also available behind the off-by-default
+  `transparentTunnel` flag, but it has no DNS yet.
+
+  ```yaml
+  providers:
+    physical:
+      wifi:
+        ssid: Starbucks
+        password: env:WIFI_PASSWORD
+  ```
 - **A calls lockdown**: airplane mode (Wi-Fi back on for the tunnel), the
   dialer and emergency apps disabled, and the lock screen off so its
   emergency button is gone.

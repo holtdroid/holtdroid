@@ -71,6 +71,11 @@ type Session struct {
 	// the agent instruments the app (DevTools for release builds) and the
 	// extra root capabilities apply.
 	Root bool
+	// WifiSSID and WifiPassword join a rooted phone to a real Wi-Fi network so
+	// apps see an ordinary network while the tproxy tunnel carries the traffic
+	// (TproxyTunnel). The network needs no internet of its own.
+	WifiSSID     string
+	WifiPassword string
 }
 
 type Phone struct {
@@ -116,6 +121,9 @@ func (p *Phone) Run(ctx context.Context, booted func()) error {
 		}
 		if err := lockdownCalls(ctx, p.adb); err != nil {
 			p.log.Warn("lock down calls", "err", err)
+		}
+		if err := connectWifi(ctx, p.adb, p.s.WifiSSID, p.s.WifiPassword); err != nil {
+			p.log.Warn("join wifi", "err", err)
 		}
 	}
 	if p.s.Tunnel != nil {

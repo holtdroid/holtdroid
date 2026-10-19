@@ -33,6 +33,7 @@ import (
 	"github.com/kriakiku/holtdroid/internal/agent/phone"
 	"github.com/kriakiku/holtdroid/internal/apk"
 	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/kriakiku/holtdroid/internal/secrets"
 	"github.com/kriakiku/holtdroid/internal/vpn"
 )
 
@@ -51,6 +52,11 @@ type Config struct {
 	VPN          vpn.Config
 	SingBox      string
 	Tunnel       TunnelConfig
+	// Wifi joins rooted phones to a real Wi-Fi network so apps see an ordinary
+	// network while the tproxy tunnel carries the traffic. With a wifi SSID a
+	// rooted session routes through the tproxy tunnel (no VpnService, no tun),
+	// which anti-VPN apps accept.
+	Wifi WifiConfig
 	// TransparentTunnel routes a rooted phone through the kernel-route
 	// sing-box tun instead of the VpnService. It is off by default: the tun
 	// hides the VPN but leaves Android without a network agent, so DNS does
@@ -66,6 +72,14 @@ type TunnelConfig struct {
 	Version string
 	Port    int
 	IPv6    bool
+}
+
+// WifiConfig is the real Wi-Fi network rooted phones join so apps see an
+// ordinary network. The network needs no internet of its own; the tproxy
+// tunnel carries the traffic. Password is a secret reference.
+type WifiConfig struct {
+	SSID     string
+	Password string
 }
 
 // Phone is one phone in the inventory, by its adb serial.
@@ -159,10 +173,11 @@ type Provider struct {
 	log  *slog.Logger
 	ver  string
 	sec  vpn.Secrets
-	apk  func(string) (apk.Metadata, []byte, error)
-	base context.Context
-	stop context.CancelFunc
-	root fs.FS
+	apk      func(string) (apk.Metadata, []byte, error)
+	base     context.Context
+	stop     context.CancelFunc
+	root     fs.FS
+	wifiPass string
 
 	mu          sync.Mutex
 	vpnDir      string
@@ -224,6 +239,18 @@ func New(cfg Config, host Host, opts ...Option) (*Provider, error) {
 	}
 	for _, opt := range opts {
 		opt(p)
+	}
+	if cfg.Wifi.Password != "" {
+		if p.sec == nil {
+			stop()
+			return nil, errors.New("wifi password needs a secret resolver")
+		}
+		pass, err := p.sec.Resolve(base, secrets.Ref(cfg.Wifi.Password))
+		if err != nil {
+			stop()
+			return nil, fmt.Errorf("resolve wifi password: %w", err)
+		}
+		p.wifiPass = pass
 	}
 	if err := p.checkTunnel(); err != nil {
 		stop()
@@ -575,9 +602,14 @@ func (p *Provider) start(s contract.Session, artifactURL string, resume bool, v 
 		cfg.USBNetwork = true
 		cfg.ClashAPI = "http://" + v.clash
 		cfg.IPInfoProxy = "http://" + v.mixed.String()
-		if root && p.cfg.TransparentTunnel {
+		switch {
+		case root && p.cfg.TransparentTunnel:
 			ps.Tunnel = &phone.RootTunnel{SingBox: p.cfg.Phone.SingBox, Port: p.cfg.Tunnel.Port, HostPort: int(v.mixed.Port())}
-		} else {
+		case root && p.cfg.Wifi.SSID != "":
+			ps.WifiSSID = p.cfg.Wifi.SSID
+			ps.WifiPassword = p.wifiPass
+			ps.Tunnel = &phone.TproxyTunnel{SingBox: p.cfg.Phone.SingBox, Port: p.cfg.Tunnel.Port, HostPort: int(v.mixed.Port())}
+		default:
 			ps.Tunnel = &phone.Tunnel{Port: p.cfg.Tunnel.Port, HostPort: int(v.mixed.Port()), IPv6: p.cfg.Tunnel.IPv6}
 		}
 	}

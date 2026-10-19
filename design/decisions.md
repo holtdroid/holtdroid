@@ -2038,23 +2038,33 @@ device/exec, so the emulator's code works unchanged.
 Root mode adds, all reversed on cleanup:
 - **Hide root**: the app under test is added to the Magisk DenyList
   (retried each poll, since it is installed after boot).
-- **Calls lockdown**: airplane mode (wifi re-enabled for the tunnel), the
-  dialer and emergency apps disabled, keyguard off. Android never lets
-  emergency calls be blocked outright, so the real guarantee is a SIM-less
-  phone out of cellular range; this only removes the on-screen vectors.
-- **Tunnel that looks like Wi-Fi**: a rooted session reaches the internet
-  through the same VpnService tunnel as a non-root one (Holtdroid Tunnel over
-  adb reverse to the host's per-session sing-box), because only a registered
-  network agent gives Android working DNS and routing on a phone with no SIM
-  and no Wi-Fi. Android registers that agent with the VPN transport, which
-  apps can see and some refuse (or fall back to the wrong domains), so the
-  Frida agent makes the app see an ordinary Wi-Fi connection: it relabels the
-  active network's transport from VPN to Wi-Fi (flipping `hasTransport`, the
-  `NOT_VPN` capability and `NetworkInfo.getType`), reports `WifiManager` as
-  enabled with an associated `WifiInfo` (the farm phone has no real Wi-Fi, so
-  its own is "disconnected"), and renames the `tun` interface to `wlan0` so
-  VPN detection that enumerates `NetworkInterface` does not see it — while the
-  real VPN network keeps carrying the app's data and DNS. A kernel-route transparent tun (`phone.RootTunnel`, a static arm64
+- **Calls lockdown**: mobile data off, the dialer and emergency apps
+  disabled, keyguard off. It does not use airplane mode, so the real Wi-Fi
+  stays up for the tproxy tunnel (and apps do not read airplane mode as "no
+  network"). Android never lets emergency calls be blocked outright, so the
+  real guarantee is a SIM-less phone out of cellular range; this only removes
+  the on-screen vectors.
+- **A real Wi-Fi network, traffic tproxy'd through the tunnel**
+  (`phone.TproxyTunnel`, the default when a `wifi` SSID is set): the phone
+  joins a real Wi-Fi AP through `su` (`cmd wifi connect-network`), so apps see
+  a genuine, validated Wi-Fi network — no VpnService, no tun, nothing for an
+  anti-VPN app to detect. The AP needs no internet of its own: iptables
+  `TPROXY` (mangle `PREROUTING`/`OUTPUT`, an `fwmark` rule and a local route
+  table) redirects every non-local packet to a sing-box `tproxy` inbound,
+  which sends it to a socks outbound that adb reverse maps to the host's
+  per-session sing-box; sing-box hijacks DNS and resolves it over the tunnel,
+  so DNS does not leak the real location, and Android's own captive-portal
+  probe goes through the tunnel too, which validates the Wi-Fi. This exists
+  because a VpnService (the non-root path, and an earlier root attempt) is
+  detectable below the Java layer — `1xbet`'s native anti-fraud (VMP) sees it
+  and stalls — and a kernel-route tun still shows a `tun` interface. Only a
+  real Wi-Fi plus a tproxy (no interface of its own) looks like an ordinary
+  device, the way the emulator does (which routes transparently in its pod
+  with no VpnService). The A05 kernel has `TPROXY` and policy routing, which
+  this needs. Without a `wifi` SSID a rooted session falls back to the
+  VpnService tunnel, and the Frida connectivity relabel (VPN→Wi-Fi,
+  `WifiManager`, `NetworkInterface`) stays as a best-effort masking for that
+  fallback. A kernel-route transparent tun (`phone.RootTunnel`, a static arm64
   sing-box tun, default route added by the agent, egress health-gated) hides
   the VPN more completely but registers no network agent, so
   `ConnectivityManager` reports nothing and DNS cannot resolve (Android 14

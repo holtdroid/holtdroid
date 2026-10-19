@@ -146,6 +146,7 @@ func Clean(ctx context.Context, adb ADB, c Cleanup) error {
 	}
 	if c.Root {
 		run("tun", "su -Z "+magiskSELinux+" -c "+shellQuote(stopRootTunnel))
+		run("tproxy", "su -Z "+magiskSELinux+" -c "+shellQuote(tproxyTeardown))
 		run("frida", "su -c "+shellQuote("pkill -x frida-server 2>/dev/null; true"))
 		run("calls", unlockCalls(ctx, adb))
 		if packageName.MatchString(c.Package) {
