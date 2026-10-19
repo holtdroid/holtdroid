@@ -145,3 +145,26 @@ func TestAppEnsure(t *testing.T) {
 		})
 	}
 }
+
+func TestOwnerActions(t *testing.T) {
+	ctx := context.Background()
+	for _, tc := range []struct {
+		name     string
+		owner    ownerStatus
+		lockdown bool
+	}{
+		{"fresh owner", ownerStatus{DeviceOwner: true}, true},
+		{"usb restricted", ownerStatus{DeviceOwner: true, Restrictions: []string{"no_modify_accounts", "no_usb_file_transfer"}}, true},
+		{"locked down", ownerStatus{DeviceOwner: true, Restrictions: []string{"no_modify_accounts", "no_sms"}}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			adb := &appADB{}
+			_ = ownerActions(ctx, adb, tc.owner)
+			calls := strings.Join(adb.calls, "\n")
+			if !strings.Contains(calls, ".SESSION_END") || !strings.Contains(calls, ".CLEAR_PASSWORD") ||
+				strings.Contains(calls, ".LOCKDOWN --es skip no_usb_file_transfer") != tc.lockdown {
+				t.Fatalf("calls:\n%s", calls)
+			}
+		})
+	}
+}

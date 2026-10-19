@@ -155,8 +155,8 @@ func Clean(ctx context.Context, adb ADB, c Cleanup) error {
 	} else {
 		run("radios", "svc wifi enable; svc data enable; true")
 	}
-	if Owner(ctx, adb) {
-		if err := ownerActions(ctx, adb); err != nil {
+	if o := owner(ctx, adb); o.DeviceOwner {
+		if err := ownerActions(ctx, adb, o); err != nil {
 			errs = append(errs, err)
 		}
 	}

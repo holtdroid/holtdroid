@@ -1920,8 +1920,12 @@ VPN locations, and replaces an older build signed with another key unless
 the app is the device owner. The agent learns ownership from the app's
 `STATUS`: as owner, the `Launcher` starts the app under test with
 `SESSION_START` (features `system_info,notifications,home,overview`, so no
-power menu) instead of `monkey`, and every cleanup ends with `SESSION_END`,
-`CLEAR_PASSWORD` and `LOCKDOWN`. The wallpaper goes through `WALLPAPER`
+power menu) instead of `monkey`, and every cleanup ends with `SESSION_END`
+and `CLEAR_PASSWORD`, plus `LOCKDOWN --es skip no_usb_file_transfer` when
+the restrictions aren't in place yet. Every `LOCKDOWN`, even an unchanged
+one, and the USB file transfer restriction make the phone re-enumerate on
+USB; the image sets `ADB_LIBUSB=0` so adb's own backend, which scans
+`/dev/bus/usb`, finds it again in a container without udev. The wallpaper goes through `WALLPAPER`
 (`rows_b64`) whether or not the app is the owner. Provisioning stays a
 manual `dpm set-device-owner` by the operator.
 

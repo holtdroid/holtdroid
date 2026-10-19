@@ -289,7 +289,9 @@ phone down:
 
 - no accounts, factory reset, safe mode, network reset, new users or work
   profiles, outgoing calls or SMS, Wi-Fi/Bluetooth/tethering/mobile network
-  or VPN/private DNS changes, APKs from the browser, USB file transfer;
+  or VPN/private DNS changes, APKs from the browser (USB file transfer stays
+  allowed: switching it off makes the phone reconnect on USB, and the cable
+  ends at the provider's host);
 - the microphone and camera toggles frozen and the camera disabled for
   every app;
 - no lock screen, and a PIN someone set is removed after every session;
