@@ -1923,9 +1923,15 @@ the app is the device owner. The agent learns ownership from the app's
 power menu) instead of `monkey`, and every cleanup ends with `SESSION_END`
 and `CLEAR_PASSWORD`, plus `LOCKDOWN --es skip no_usb_file_transfer` when
 the restrictions aren't in place yet. Every `LOCKDOWN`, even an unchanged
-one, and the USB file transfer restriction make the phone re-enumerate on
-USB; the image sets `ADB_LIBUSB=0` so adb's own backend, which scans
-`/dev/bus/usb`, finds it again in a container without udev. The wallpaper goes through `WALLPAPER`
+one, the USB file transfer restriction, and on Samsung entering or leaving
+lock task make the phone re-enumerate on USB. adb (libusb; platform-tools
+r37 has no other Linux backend) only notices that through kernel hotplug
+events, which reach the host's network namespace only, so the provider
+runs on the host network. Kiosk calls whose reply is lost to such a
+reconnect wait for the phone and check the result through `STATUS`. On
+the host network a phone's sing-box doesn't bind outbounds to the default
+interface (`auto_detect_interface` stays for the emulator's tun), or
+cluster addresses such as the resolver become unreachable. The wallpaper goes through `WALLPAPER`
 (`rows_b64`) whether or not the app is the owner. Provisioning stays a
 manual `dpm set-device-owner` by the operator.
 

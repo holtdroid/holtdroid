@@ -159,7 +159,7 @@ func (c Config) Render(ctx context.Context, sec Secrets, location string) ([]byt
 		{"action": "sniff"},
 		{"protocol": "dns", "action": "hijack-dns"},
 	}
-	return c.render(ctx, sec, location, inbound, rules, nil, ClashAPI)
+	return c.render(ctx, sec, location, inbound, rules, nil, ClashAPI, true)
 }
 
 const bypass = "bypass"
@@ -187,10 +187,14 @@ func (c Config) RenderProxy(ctx context.Context, sec Secrets, location string, l
 		{"ip_cidr": tunnelDNS, "action": "reject"},
 		{"ip_cidr": c.BypassCIDRs, "outbound": bypass},
 	}
-	return c.render(ctx, sec, location, inbound, rules, []obj{{"type": "direct", "tag": bypass}}, clash)
+	return c.render(ctx, sec, location, inbound, rules, []obj{{"type": "direct", "tag": bypass}}, clash, false)
 }
 
-func (c Config) render(ctx context.Context, sec Secrets, location string, inbound obj, rules, extra []obj, clash string) ([]byte, error) {
+// render binds outbounds to the default interface only behind a tun, where
+// they would otherwise loop; a phone's sing-box runs in the host's network,
+// and binding there would route cluster addresses (the resolver) past the
+// pod network.
+func (c Config) render(ctx context.Context, sec Secrets, location string, inbound obj, rules, extra []obj, clash string, bindInterface bool) ([]byte, error) {
 	if !c.Enabled() {
 		return nil, errors.New("vpn: no locations configured")
 	}
@@ -247,7 +251,7 @@ func (c Config) render(ctx context.Context, sec Secrets, location string, inboun
 		Route: obj{
 			"rules":                   rules,
 			"final":                   Selector,
-			"auto_detect_interface":   true,
+			"auto_detect_interface":   bindInterface,
 			"default_domain_resolver": "local",
 		},
 		Experimental: obj{"clash_api": obj{"external_controller": clash}},

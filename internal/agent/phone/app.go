@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 )
 
 // App is the Holtdroid Tunnel APK every phone gets: the VPN, the device
@@ -25,6 +26,39 @@ type AppADB interface {
 type ownerStatus struct {
 	DeviceOwner  bool     `json:"device_owner"`
 	Restrictions []string `json:"restrictions"`
+	LockTask     string   `json:"lock_task"`
+	Session      string   `json:"session"`
+}
+
+// waiter is an adb that can wait for the phone to come back.
+type waiter interface {
+	WaitBoot(ctx context.Context) error
+}
+
+// kioskCall sends a lock-task action. Entering or leaving lock task makes
+// some phones (Samsung) re-enumerate on USB, so the reply can be lost; then
+// it waits for the phone and checks the result through STATUS.
+func kioskCall(ctx context.Context, adb Shell, action, extras string, done func(ownerStatus) bool) error {
+	st, code, err := broadcast(ctx, adb, action, extras)
+	if err == nil {
+		if code != -1 {
+			return fmt.Errorf("%s: %s", action, st.Error)
+		}
+		return nil
+	}
+	w, ok := adb.(waiter)
+	if !ok {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	if werr := w.WaitBoot(ctx); werr != nil {
+		return errors.Join(err, werr)
+	}
+	if o := owner(ctx, adb); done(o) {
+		return nil
+	}
+	return fmt.Errorf("%s: %w", action, err)
 }
 
 // lockdownExtras leave USB file transfer allowed: the restriction switches
@@ -93,24 +127,22 @@ func StartSession(ctx context.Context, adb Shell, pkg string) error {
 	if !packageName.MatchString(pkg) {
 		return fmt.Errorf("bad package name %q", pkg)
 	}
-	st, code, err := broadcast(ctx, adb, "SESSION_START", "--es package "+pkg+" --es features "+kioskFeatures)
-	switch {
-	case err != nil:
-		return err
-	case code != -1:
-		return fmt.Errorf("start the kiosk: %s", st.Error)
-	}
-	return nil
+	return kioskCall(ctx, adb, "SESSION_START", "--es package "+pkg+" --es features "+kioskFeatures, func(o ownerStatus) bool {
+		return o.LockTask != "none" && o.Session == pkg
+	})
 }
 
 // ownerActions run after every cleanup on a device owner: end the kiosk,
 // remove a PIN someone set and put the lockdown back.
 func ownerActions(ctx context.Context, adb Shell, owner ownerStatus) error {
-	actions := [][2]string{{"SESSION_END", ""}, {"CLEAR_PASSWORD", ""}}
+	var errs []error
+	if err := kioskCall(ctx, adb, "SESSION_END", "", func(o ownerStatus) bool { return o.LockTask == "none" }); err != nil {
+		errs = append(errs, err)
+	}
+	actions := [][2]string{{"CLEAR_PASSWORD", ""}}
 	if !owner.lockedDown() {
 		actions = append(actions, [2]string{"LOCKDOWN", lockdownExtras})
 	}
-	var errs []error
 	for _, a := range actions {
 		action := a[0]
 		st, code, err := broadcast(ctx, adb, action, a[1])

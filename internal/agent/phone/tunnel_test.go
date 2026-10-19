@@ -168,3 +168,34 @@ func TestOwnerActions(t *testing.T) {
 		})
 	}
 }
+
+type flakyADB struct {
+	appADB
+	waited int
+}
+
+func (f *flakyADB) Shell(ctx context.Context, cmd string) (string, error) {
+	_, _ = f.fakeADB.Shell(ctx, cmd)
+	switch {
+	case strings.Contains(cmd, ".SESSION_START"):
+		return "", errors.New("adb: device 'R92X' not found")
+	case strings.Contains(cmd, ".STATUS"):
+		return `Broadcast completed: result=-1, data="{"owner":{"device_owner":true,"lock_task":"locked","session":"com.x"}}"`, nil
+	}
+	return "", nil
+}
+
+func (f *flakyADB) WaitBoot(context.Context) error {
+	f.waited++
+	return nil
+}
+
+func TestStartSessionAcrossAReconnect(t *testing.T) {
+	adb := &flakyADB{}
+	if err := StartSession(context.Background(), adb, "com.x"); err != nil || adb.waited != 1 {
+		t.Fatalf("err %v, waited %d", err, adb.waited)
+	}
+	if err := StartSession(context.Background(), adb, "com.y"); err == nil {
+		t.Fatal("a kiosk for another package counted as started")
+	}
+}

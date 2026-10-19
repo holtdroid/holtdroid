@@ -56,7 +56,7 @@
     }
   ],
   "route": {
-    "auto_detect_interface": true,
+    "auto_detect_interface": false,
     "default_domain_resolver": "local",
     "final": "select",
     "rules": [

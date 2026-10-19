@@ -57,19 +57,26 @@ Tunnel APK (`tunnel.apk` already points at it, and its version is read from
 the APK). It runs as uid 65532 and keeps its state and adb's key in
 `/var/lib/holtdroid`; mount a volume there, or every new container is a new
 adb host and each phone asks again to allow USB debugging. The container
-needs the host's USB devices (`/dev/bus/usb`) and permission to open them:
+needs the host's network (adb learns that a phone reconnected on USB from
+the kernel's hotplug events, which only reach the host's network
+namespace; without it a rebooted or re-enumerated phone stays gone until
+adb restarts), the host's USB devices (`/dev/bus/usb`) and permission to
+open them:
 either a udev rule on the host that gives a group access to the phones
 (for example NixOS `programs.adb.enable`, group `adbusers`) and that group
 as a supplementary group of the container, or root in the container.
 
 ```sh
-docker run -d --name phones -p 8080:8080 -p 8081:8081 \
+docker run -d --name phones --network host \
   --device /dev/bus/usb --group-add "$(getent group adbusers | cut -d: -f3)" \
   -v phones:/var/lib/holtdroid -v "$PWD/physical.yaml:/etc/holtdroid/physical.yaml:ro" \
   ghcr.io/kriakiku/holtdroid-physical:main provider-physical -c /etc/holtdroid/physical.yaml
 ```
 
 Only one adb server may own a phone: stop any other `adb` on that host.
+On the host network the provider's `listen` and `tunnelListen` ports are
+open on the host's interfaces and have no authentication of their own:
+firewall them so that only the api and the ssh-gateway reach them.
 
 ```yaml
 listen: ":8080" # provider API and the session agents, for the api

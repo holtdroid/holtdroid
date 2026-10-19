@@ -45,11 +45,7 @@ FROM gcr.io/distroless/cc-debian12:nonroot@sha256:9dac0a79194e45a7da0158a9c6da57
 COPY --from=tools /out/ /
 COPY --from=tools --chown=65532:65532 /state/holtdroid /var/lib/holtdroid
 COPY --from=go /out/holtdroid /usr/local/bin/holtdroid
-# adb's own USB backend scans /dev/bus/usb; libusb waits for hotplug events
-# that never reach a container without udev, so a phone that reconnects on
-# USB would stay gone.
-ENV HOME=/var/lib/holtdroid \
-    ADB_LIBUSB=0
+ENV HOME=/var/lib/holtdroid
 WORKDIR /var/lib/holtdroid
 USER 65532:65532
 ENTRYPOINT ["/usr/local/bin/holtdroid"]
