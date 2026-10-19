@@ -328,8 +328,9 @@ phone down:
   or VPN/private DNS changes, APKs from the browser (USB file transfer stays
   allowed: switching it off makes the phone reconnect on USB, and the cable
   ends at the provider's host);
-- the microphone and camera toggles frozen and the camera disabled for
-  every app;
+- the camera disabled for every app (the microphone and camera toggles
+  are left to the cleanup, which keeps them blocked: freezing them through
+  the device owner turns access back on);
 - no lock screen, and a PIN someone set is removed after every session;
 - the tunnel is the always-on VPN with lockdown: no traffic leaves the phone
   outside it;

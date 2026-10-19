@@ -1921,8 +1921,12 @@ the app is the device owner. The agent learns ownership from the app's
 `STATUS`: as owner, the `Launcher` starts the app under test with
 `SESSION_START` (features `system_info,notifications,home,overview`, so no
 power menu) instead of `monkey`, and every cleanup ends with `SESSION_END`,
-`CLEAR_PASSWORD` when a PIN is set, plus `LOCKDOWN --es skip no_usb_file_transfer` when
-the restrictions aren't in place yet. Every `LOCKDOWN`, even an unchanged
+`CLEAR_PASSWORD` when a PIN is set, plus `LOCKDOWN --es skip
+no_usb_file_transfer,disallow_microphone_toggle,disallow_camera_toggle`
+when the restrictions aren't as wanted yet. On the A05 the toggle
+restrictions turned microphone access back on and froze it there, so the
+agent leaves the toggles free and blocks the sensors itself on every
+cleanup and poll. Every `LOCKDOWN`, even an unchanged
 one, the USB file transfer restriction, and on Samsung entering or leaving
 lock task make the phone re-enumerate on USB. adb (libusb; platform-tools
 r37 has no other Linux backend) only notices that through kernel hotplug

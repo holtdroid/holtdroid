@@ -62,16 +62,21 @@ func kioskCall(ctx context.Context, adb Shell, action, extras string, done func(
 	return fmt.Errorf("%s: %w", action, err)
 }
 
-// lockdownExtras leave USB file transfer allowed: the restriction switches
+// lockdownExtras leave USB file transfer allowed (the restriction switches
 // the phone's USB functions, which drops adb for a moment, and the other end
-// of the cable is the provider's host anyway.
-const lockdownExtras = "--es skip no_usb_file_transfer"
+// of the cable is the provider's host anyway) and the sensor toggles free:
+// restricting them turns microphone and camera access back on and freezes
+// it there, so the cleanup and every poll block them instead.
+const lockdownExtras = "--es skip no_usb_file_transfer,disallow_microphone_toggle,disallow_camera_toggle"
+
+var lockdownSkipped = []string{"no_usb_file_transfer", "disallow_microphone_toggle", "disallow_camera_toggle"}
 
 // lockedDown tells whether the lockdown is in place as Holtdroid applies
 // it. LOCKDOWN replaces every restriction and makes the phone reconnect on
 // USB, so it only runs when it would change something.
 func (o ownerStatus) lockedDown() bool {
-	return slices.Contains(o.Restrictions, "no_modify_accounts") && !slices.Contains(o.Restrictions, "no_usb_file_transfer")
+	return slices.Contains(o.Restrictions, "no_modify_accounts") &&
+		!slices.ContainsFunc(o.Restrictions, func(r string) bool { return slices.Contains(lockdownSkipped, r) })
 }
 
 // Ensure installs the app when it is missing or another version. A build

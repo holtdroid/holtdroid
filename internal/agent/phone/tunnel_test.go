@@ -155,6 +155,7 @@ func TestOwnerActions(t *testing.T) {
 	}{
 		{"fresh owner", ownerStatus{DeviceOwner: true, PasswordSet: true}, true},
 		{"usb restricted", ownerStatus{DeviceOwner: true, Restrictions: []string{"no_modify_accounts", "no_usb_file_transfer"}}, true},
+		{"mic toggle frozen", ownerStatus{DeviceOwner: true, Restrictions: []string{"no_modify_accounts", "disallow_microphone_toggle"}}, true},
 		{"locked down", ownerStatus{DeviceOwner: true, Restrictions: []string{"no_modify_accounts", "no_sms"}}, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -162,7 +163,7 @@ func TestOwnerActions(t *testing.T) {
 			_ = ownerActions(ctx, adb, tc.owner)
 			calls := strings.Join(adb.calls, "\n")
 			if !strings.Contains(calls, ".SESSION_END") || strings.Contains(calls, ".CLEAR_PASSWORD") != tc.owner.PasswordSet ||
-				strings.Contains(calls, ".LOCKDOWN --es skip no_usb_file_transfer") != tc.lockdown {
+				strings.Contains(calls, ".LOCKDOWN --es skip no_usb_file_transfer,disallow_microphone_toggle,disallow_camera_toggle") != tc.lockdown {
 				t.Fatalf("calls:\n%s", calls)
 			}
 		})

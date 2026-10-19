@@ -159,6 +159,7 @@ func Clean(ctx context.Context, adb ADB, c Cleanup) error {
 		if err := ownerActions(ctx, adb, o); err != nil {
 			errs = append(errs, err)
 		}
+		run("privacy", privacy)
 	}
 	if c.End {
 		run("park", park)
