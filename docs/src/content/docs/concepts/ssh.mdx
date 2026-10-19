@@ -51,43 +51,26 @@ or install the `holtdroid` command from **Settings** and just run
 The sections are on the left; `↑`/`↓` or `1`–`5` pick one, `→` or Enter
 goes into it, `←` or Esc comes back, `q` quits.
 
-The mouse works too: click a section, a tab or a hint in the bottom line
-(`X stop`, `y yes`, …) to do what its key does, and scroll lists with the
-wheel. One click on a port or a setting acts on it; a device or a build
-opens or launches on the second click, `‹` next to an opened device goes
-back. While the client has the mouse, hold Option (macOS) or Shift
-(most Linux terminals) to select text.
+The mouse works too: click a section or a hint in the bottom line
+(`y yes`, …) to do what its key does, and scroll lists with the wheel. One
+click on a port or a setting acts on it; a device opens on the second
+click. While the client has the mouse, hold Option (macOS) or Shift (most
+Linux terminals) to select text.
+
+The client doesn't manage devices: launching, restarting, reinstalling and
+stopping them, logcat, a shell and the device's details are on the portal's
+session page. **Launch a device** (`n` or a click, on Overview and Devices)
+opens the portal in the browser.
 
 - **Overview**: whether the computer is connected, as whom, how many
   devices run, what is published and how long the certificate is valid.
 - **Devices**: your running devices with their local ADB address and
-  whether they are already in `adb devices`; `o` opens one's session page in
-  the browser. Chrome's `chrome://inspect/#devices` lists the WebViews of
-  every device in `adb devices` (keep **Discover USB devices** on), with full
-  DevTools; `w` or a click on the plate under the devices opens it in
-  Chrome. Enter opens a device, with tabs (`←`/`→`):
-  - **Logcat** streams the device's log, the last 200 lines first, errors in
-    red and warnings in yellow; it shows only the app's process
-    to begin with, `f` switches between it and every process, `c` clears,
-    `r` starts over.
-  - **Shell** opens a shell on the device right in this terminal (root on
-    emulators); `exit` or Ctrl+D brings you back.
-  - **Device**: model, Android version, ABI, screen, battery, locale, time
-    zone and build.
-  - **App**: the app's name, package, version, target SDK, whether it runs
-    and its UID.
-
-  Esc goes back to the list. These go through the device's ADB like the
-  local port does; no `adb` has to be installed.
-
-  `N` launches a new device: pick one of the newest builds you can see
-  (typing filters them) and the client starts it on the first provider
-  with a free slot; it shows up once it has booted. On the highlighted
-  device, also right after picking Devices in the menu, or on an opened
-  one, `R` restarts the app, `I` reinstalls it (its data is lost) and `X`
-  stops the device; the last two ask for `y` (or Enter) first. The client does
-  these as you through the portal's API, with the same rights as the
-  browser.
+  whether they are already in `adb devices`; Enter, `o` or a second click
+  opens one's session page in the browser. Chrome's
+  `chrome://inspect/#devices` lists the WebViews of every device in
+  `adb devices` (keep **Discover USB devices** on), with full DevTools; `w`
+  or a click on the plate under the devices opens it in Chrome. With ADB
+  turned off on the portal the plate says it's unavailable.
 
 - **Ports**: the published ports and the ports of programs that look like
   dev servers (`node`, `bun`, `python`, `java` and the like). Space
@@ -281,9 +264,7 @@ The api image carries the client builds and serves them with `/tunnel.sh`.
 
 The client learns `allowADB` and `allowReverse` from the gateway when it
 connects. With ADB off it opens no local ADB ports, runs no `adb connect`
-and shows a device without the Logcat, Shell, Device and App tabs; launching,
-restarting, reinstalling and stopping still work, since they go through the
-portal's API. With publishing off it keeps your chosen ports but doesn't ask
+and marks `chrome://inspect` as unavailable. With publishing off it keeps your chosen ports but doesn't ask
 for them, and both the client and the Computers page say so.
 
 `insecureTLS` is for a portal with a self-signed certificate, such as a

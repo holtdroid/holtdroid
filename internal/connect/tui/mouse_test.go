@@ -70,42 +70,16 @@ func TestMouse(t *testing.T) {
 		t.Fatalf("wheel over the menu: section %d content %v", m.section, m.content)
 	}
 
+	var opened []string
+	m.openURL = func(u string) error { opened = append(opened, u); return nil }
 	m = click(t, m, "row:0")
-	if m.sess != nil || !m.content {
+	if len(opened) != 0 || !m.content {
 		t.Fatal("the first click on a device opened it")
 	}
-	if m, _ = clickCmd(t, m, "row:0"); m.sess == nil {
-		t.Fatal("the second click didn't open the device")
-	}
-	m = click(t, m, "tab:2")
-	if m.sess.tab != deviceTab || len(m.sess.device) == 0 {
-		t.Fatalf("tab %d device %v", m.sess.tab, m.sess.device)
-	}
-
-	m = click(t, m, "key:X")
-	if m.confirm == nil {
-		t.Fatal("X stop didn't ask")
-	}
+	m = click(t, m, "row:0")
 	m = click(t, m, "key:n")
-	if m.confirm != nil || m.flash != "cancelled" {
-		t.Fatalf("no didn't cancel: %q", m.flash)
-	}
-	m = click(t, click(t, m, "key:X"), "key:y")
-	if m.flash != "stopped emulator-d0281282be" {
-		t.Fatalf("flash %q", m.flash)
-	}
-
-	m = click(t, m, "key:esc")
-	if m.sess != nil {
-		t.Fatal("esc back didn't close the device")
-	}
-	m = click(t, m, "key:N")
-	if m.picker == nil || len(m.picker.items) != 3 {
-		t.Fatalf("picker %+v", m.picker)
-	}
-	m = click(t, click(t, m, "row:2"), "row:2")
-	if m.picker != nil || !slices.Contains(a.did, "launch a3") {
-		t.Fatalf("did %v", a.did)
+	if want := []string{"https://android.example.com/session/emulator/d0281282be", "https://android.example.com"}; !slices.Equal(opened, want) {
+		t.Fatalf("opened %q, want %q", opened, want)
 	}
 
 	m = click(t, m, "sec:4")

@@ -105,8 +105,6 @@ func (m Model) help() string {
 	case m.confirm != nil:
 		answers := "  " + buttons("y yes · any other key no")
 		return ansi.Truncate(warn.Render(" "+m.confirm.text), max(m.width-ansi.StringWidth(answers), 10), "…") + answers
-	case m.picker != nil:
-		keys = "type to filter · ↑↓ move · enter launch · esc cancel"
 	case m.adding:
 		keys = "type a port · enter publish · esc cancel"
 	case m.content && m.section == ports && m.snap.PublishOff:
@@ -115,18 +113,16 @@ func (m Model) help() string {
 		keys = "↑↓ move · space publish · n another port · a show all · m mode · ← back · q quit"
 	case m.content && m.section == settings:
 		keys = "↑↓ move · enter choose · ← back · q quit"
-	case m.sess != nil && m.snap.ADBOff:
-		keys = "R restart app · I reinstall · X stop · o browser · esc back · q quit"
-	case m.sess != nil && m.sess.tab == logcatTab:
-		keys = "←→ tabs · f all/app · c clear · r restart log · R restart app · I reinstall · X stop · o browser · esc back"
-	case m.sess != nil && m.sess.tab == shellTab:
-		keys = "enter open the shell · ←→ tabs · R restart app · I reinstall · X stop · o browser · esc back"
-	case m.sess != nil:
-		keys = "←→ tabs · r refresh · R restart app · I reinstall · X stop · o browser · esc back"
+	case m.content && m.section == devices && m.snap.ADBOff:
+		keys = "↑↓ move · enter browser · n launch · ← back · q quit"
 	case m.content && m.section == devices:
-		keys = "↑↓ move · enter open · N new device · w inspect · R restart app · I reinstall · X stop · o browser · ← back"
+		keys = "↑↓ move · enter browser · w inspect · n launch · ← back · q quit"
+	case m.section == devices && m.snap.ADBOff:
+		keys = "→ choose · n launch · 1-5 sections · q quit"
 	case m.section == devices:
-		keys = "→ open · N new device · w inspect · X stop · 1-5 sections · q quit"
+		keys = "→ choose · w inspect · n launch · 1-5 sections · q quit"
+	case m.section == overview:
+		keys = "↑↓ move · n launch a device · 1-5 sections · q quit"
 	}
 	line := " " + buttons(keys)
 	if m.flash != "" {
@@ -171,12 +167,6 @@ func hintKey(hint string) string {
 func (m Model) body(width, height int) string {
 	switch m.section {
 	case devices:
-		if m.picker != nil {
-			return m.pickerView(height)
-		}
-		if m.sess != nil {
-			return m.sessionView(width, height)
-		}
 		return m.devicesView(width)
 	case ports:
 		return m.portsView(height)
@@ -240,19 +230,17 @@ func (m Model) overview(width int) string {
 	} else {
 		b.WriteString("\n" + muted.Render("Pick the ports your devices reach as localhost in Ports."))
 	}
+	b.WriteString("\n\n" + m.launchButton())
 	return b.String()
 }
 
 func (m Model) devicesView(width int) string {
 	s := m.snap
 	var b strings.Builder
-	hint := "  enter opens logcat, a shell and details · N launches a new one"
-	if s.ADBOff {
-		hint = "  enter opens a device · N launches a new one"
-	}
-	b.WriteString(title.Render("Devices") + muted.Render(hint) + "\n\n")
+	b.WriteString(title.Render("Devices") + muted.Render("  enter opens one in the browser") + "\n\n")
+	b.WriteString(m.launchButton() + "\n\n")
 	if len(s.Sessions) == 0 {
-		b.WriteString(zone("key:N", muted.Render("No device is running. Press N to launch one, or launch it in the portal.")))
+		b.WriteString(muted.Render("No device is running."))
 		return b.String()
 	}
 	adb := map[string]connect.ADBDevice{}
@@ -274,7 +262,7 @@ func (m Model) devicesView(width int) string {
 		a, ok2 := adb[d.Slug]
 		switch {
 		case s.ADBOff:
-			b.WriteString("    " + muted.Render("ADB is turned off on this portal") + "\n\n")
+			b.WriteString("\n")
 			continue
 		case !ok2:
 			b.WriteString("    " + muted.Render("no local ADB port") + "\n\n")
@@ -286,23 +274,38 @@ func (m Model) devicesView(width int) string {
 		}
 		fmt.Fprintf(&b, "    ADB 127.0.0.1:%d  %s\n\n", a.Port, state)
 	}
-	if !s.ADBOff {
-		b.WriteString(m.inspectPlate(width))
-	}
+	b.WriteString(m.inspectPlate(width))
 	return strings.TrimRight(b.String(), "\n")
 }
 
 // inspectPlate points at chrome://inspect, which lists the WebViews of
 // every device in adb devices.
 func (m Model) inspectPlate(width int) string {
+	plate := lipgloss.NewStyle().Border(border).BorderForeground(accent).Padding(0, 1).Width(max(width-2, 20))
+	if m.snap.ADBOff {
+		return plate.BorderForeground(dim).Render(muted.Render("Chrome DevTools  unavailable") + "\n" +
+			muted.Render("ADB is turned off on this portal, so chrome://inspect can't reach the devices."))
+	}
 	inAdb := slices.ContainsFunc(m.snap.ADB, func(a connect.ADBDevice) bool { return a.Connected })
 	head := zone("key:w", chosen.Render("Chrome DevTools")+muted.Render("  w opens ")+connect.InspectURL)
 	text := "The app's WebViews show up there with full DevTools."
 	if !inAdb {
 		text = muted.Render("They show up there once a device is in adb devices; install adb to connect them.")
 	}
-	return lipgloss.NewStyle().Border(border).BorderForeground(accent).Padding(0, 1).Width(max(width-2, 20)).
-		Render(head + "\n" + zone("key:w", text))
+	return plate.Render(head + "\n" + zone("key:w", text))
+}
+
+func (m Model) launchButton() string {
+	return zone("key:n", chosen.Render("[ Launch a device ]")+muted.Render("  n opens "+host(m.snap.Portal)))
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 type portRow struct {

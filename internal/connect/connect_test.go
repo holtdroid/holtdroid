@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"io"
 	"log/slog"
 	"net"
@@ -25,7 +24,6 @@ import (
 	"github.com/kriakiku/holtdroid/internal/audit"
 	"github.com/kriakiku/holtdroid/internal/auth"
 	"github.com/kriakiku/holtdroid/internal/contract"
-	"github.com/kriakiku/holtdroid/internal/contract/control"
 	"github.com/kriakiku/holtdroid/internal/provider/fake"
 	"github.com/kriakiku/holtdroid/internal/sshgateway"
 )
@@ -299,8 +297,7 @@ func TestConnect(t *testing.T) {
 		s := cl.Snapshot()
 		return s.Connected && len(s.Active) == 1 && s.Active[0] == local && s.Hostname != "" && len(s.ADB) == 1
 	})
-	testDevice(t, cl)
-	testLaunch(t, cl, p)
+	testSessionURL(t, cl)
 	if err := cl.TogglePublished(local); err != nil {
 		t.Fatal(err)
 	}
@@ -354,92 +351,11 @@ func TestBadCode(t *testing.T) {
 	}
 }
 
-func testDevice(t *testing.T, cl *Client) {
+func testSessionURL(t *testing.T, cl *Client) {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
 	sess := cl.Snapshot().Sessions[0]
-	if sess.Package == "" {
-		t.Fatalf("session without a package: %+v", sess)
-	}
-	info, err := cl.DeviceInfo(ctx, sess.Slug)
-	if err != nil || len(info) == 0 || info[0].Name != "Model" || !strings.Contains(info[0].Value, "Fake Pixel 9") {
-		t.Fatalf("device info %+v, %v", info, err)
-	}
-	app, err := cl.AppInfo(ctx, sess)
-	if err != nil || !slices.ContainsFunc(app, func(f Field) bool { return f.Name == "Version" && strings.HasPrefix(f.Value, "4.2.1") }) {
-		t.Fatalf("app info %+v, %v", app, err)
-	}
-
-	lines := make(chan string, 10)
-	lctx, stop := context.WithCancel(ctx)
-	go func() {
-		_ = cl.Logcat(lctx, sess, false, func(l string) {
-			select {
-			case lines <- l:
-			default:
-			}
-		})
-	}()
-	select {
-	case <-lines:
-	case <-ctx.Done():
-		t.Fatal("no logcat line")
-	}
-	stop()
-
-	sh, err := cl.Shell(sess.Slug)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := io.WriteString(sh, "echo shell-works\nexit\n"); err != nil {
-		t.Fatal(err)
-	}
-	out, _ := io.ReadAll(sh)
-	if !strings.Contains(string(out), "shell-works") {
-		t.Fatalf("shell printed %q", out)
-	}
 	if u := cl.SessionURL(sess); !strings.HasSuffix(u, "/session/"+sess.Provider+"/"+sess.ID) {
 		t.Fatalf("session url %s", u)
-	}
-}
-
-func testLaunch(t *testing.T, cl *Client, p *portal) {
-	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	arts, err := cl.Artifacts(ctx)
-	if err != nil || len(arts) != 1 || arts[0].FileName != "helloworld.apk" {
-		t.Fatalf("artifacts %+v, %v", arts, err)
-	}
-	slug, err := cl.Launch(ctx, arts[0])
-	if err != nil || !strings.HasPrefix(slug, "fake-") {
-		t.Fatalf("launch %q, %v", slug, err)
-	}
-	var launched control.Session
-	eventually(t, "the launched device to join", func() bool {
-		for _, s := range cl.Snapshot().Sessions {
-			if s.Slug == slug {
-				launched = s
-				return true
-			}
-		}
-		return false
-	})
-	if launched.Package != "com.example.helloworld" {
-		t.Fatalf("launched %+v", launched)
-	}
-	if err := cl.AppAction(ctx, launched, "restart"); err != nil {
-		t.Fatalf("restart: %v", err)
-	}
-	if err := cl.Stop(ctx, launched); err != nil {
-		t.Fatalf("stop: %v", err)
-	}
-	if _, err := p.provider.Get(ctx, launched.ID); err == nil {
-		eventually(t, "the device to stop", func() bool {
-			s, err := p.provider.Get(ctx, launched.ID)
-			return err != nil || s.State == contract.StateStopping
-		})
 	}
 }
 
@@ -447,7 +363,7 @@ func TestConnectWithADBAndPublishingOff(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	p := newPortal(t, func(c *sshgateway.Config) { c.AllowADB, c.AllowReverse = false, false })
-	id := p.session("otter")
+	p.session("otter")
 	out := &syncBuffer{}
 	cl, err := New(Options{Portal: p.url, Code: p.code("otter"), Publish: []int{3000}, OnChange: Printer(out), Log: slog.New(slog.DiscardHandler)})
 	if err != nil {
@@ -465,9 +381,6 @@ func TestConnectWithADBAndPublishingOff(t *testing.T) {
 	s := cl.Snapshot()
 	if len(s.ADB) != 0 || len(s.Active) != 0 || len(s.Refused) != 0 || !slices.Equal(s.Published, []int{3000}) {
 		t.Fatalf("snapshot %+v", s)
-	}
-	if _, err := cl.DeviceInfo(ctx, "fake-"+id); !errors.Is(err, errADBOff) {
-		t.Fatalf("device info with ADB off: %v", err)
 	}
 	eventually(t, "the status lines", func() bool {
 		return strings.Contains(out.String(), "ADB        turned off") && strings.Contains(out.String(), "Published  turned off")

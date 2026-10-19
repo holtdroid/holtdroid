@@ -1494,9 +1494,8 @@ fragile and would leave out Windows.
   and runs it. Client and server ship from the same commit, so there is no
   separate repository and no version skew. It uses `x/crypto/ssh` instead
   of the system `ssh`. In a terminal it is a full-screen bubbletea UI
-  (sections on the left: Overview, Devices, Ports, Log, Settings; a device
-  opens with Logcat, Shell, Device and App tabs over the client's own adb
-  connection, `internal/adbproto.Client`, so no local `adb` is needed), and
+  (sections on the left: Overview, Devices, Ports, Log, Settings; device
+  tools were dropped from it later, see #75), and
   Settings can link `holtdroid` onto the user's `PATH`; without a terminal
   or with `--plain` it prints status lines. Ports of programs that look like
   dev servers come first in the UI and on the Computers page; the rest
@@ -1860,6 +1859,26 @@ mode only offers a toast, because `getDisplayMedia` needs a click.
 recording works wherever `getDisplayMedia` does. The tool panel is shown
 at the size the user sees it. A phone that rotates after the start is drawn
 smaller, because the encoder keeps one size per file.
+
+## 75. The client's UI opens the browser instead of managing devices
+
+Supersedes the device tools of #64.
+
+**Context.** The TUI had grown a second session page: logcat, a shell,
+device and app details over its own adb connection, a build picker to
+launch devices, and restart, reinstall and stop through the portal's API.
+All of it already exists on the session page, and keeping two versions
+in step costs more than it gives.
+
+**Decision.** The TUI keeps what only the client can do: published ports,
+local ADB ports, updates and the `holtdroid` command. Devices lists the
+running devices; Enter opens a session page in the browser and `w` opens
+`chrome://inspect` (unavailable with ADB off). **Launch a device** opens
+the portal. The client no longer calls the portal's REST API.
+
+**Consequences.** `internal/connect` has no adb client of its own and no
+API calls besides enrollment and refresh. The access token from #64 is
+still issued with every refresh but the client doesn't use it.
 
 ## 76. Launches pick any provider by default, or one device
 

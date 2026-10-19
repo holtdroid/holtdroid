@@ -427,17 +427,9 @@ servers to the device with the `holtdroid` client (`cmd/holtdroid-connect`,
 `ssh` commands (#21, #38, #46, #61). In a terminal it is a full-screen
 bubbletea UI (`internal/connect/tui`) over the client's `Snapshot`; its
 golden frames in `testdata/` are also the frames of the animated terminal
-on the docs page. A device opened in the Devices section gets Logcat
-(`exec:logcat -v time -T 200`, `--pid` of the app with `f`), an interactive
-`shell:` run on the real terminal while bubbletea is suspended (`tea.Exec`),
-and Device/App tabs from `getprop`, `wm`, `dumpsys battery`, `dumpsys
-package` and `pidof`. They speak adb themselves over `direct-tcpip` to
-`{session}:5555` with `adbproto.Client`, a small host-side multiplexer;
-the agent's relay filter applies as for any adb client. Launching (`N`,
-`GET /api/v1/artifacts` + `providers`, `POST /api/v1/sessions`), stopping
-(`DELETE`) and restarting or reinstalling the app (`POST
-/s/{provider}/{id}/v1/app/{restart|reinstall}`) use the portal's own API
-with the access token from the last refresh as `Authorization: Bearer`.
+on the docs page. It doesn't manage devices (decision #75): Devices opens
+a session page (`/session/{provider}/{id}`) or `chrome://inspect` in the
+browser, and **Launch a device** opens the portal itself.
 With `ssh.insecureTLS` the connect command and the client skip TLS
 verification towards the portal (remembered per portal as `insecure` in
 the client's state). The gateway's

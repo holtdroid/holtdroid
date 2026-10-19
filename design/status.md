@@ -39,9 +39,8 @@ deployment"):
   `adb connect` when adb is installed). The Computers page lists connected
   computers with their loopback listeners as toggles; the session popover
   shows live tunnels and the device's ADB port. The client is a full-screen
-  TUI (Overview, Devices with Logcat/Shell/Device/App tabs per device and
-  opening the session in the browser, launching new devices, restarting,
-  reinstalling and stopping them through the API with a bearer token,
+  TUI (Overview, Devices opening a session or chrome://inspect in the
+  browser and a launch button that opens the portal, decision #75,
   Ports, Log, Settings with installing
   the `holtdroid` command and automatic updates); the client offers to
   update itself when the portal serves a different build; dev-server ports come first, other listeners are

@@ -1,12 +1,14 @@
 ╭──────────────────────╮╭────────────────────────────────────────────────────────────────────╮
-│ holtdroid            ││ Devices  enter opens logcat, a shell and details · N launches a n… │
+│ holtdroid            ││ Devices  enter opens one in the browser                            │
 │ ● connected          ││                                                                    │
-│                      ││ ▸ Shop 4.2.1  emulator-d0281282be                                  │
-│   Overview           ││     ADB 127.0.0.1:15555  ✓ in adb devices                          │
-│ › Devices     1      ││                                                                    │
-│   Ports       2      ││ ╭────────────────────────────────────────────────────────────────╮ │
-│   Log                ││ │ Chrome DevTools  w opens chrome://inspect/#devices             │ │
-│   Settings           ││ │ The app's WebViews show up there with full DevTools.           │ │
+│                      ││ [ Launch a device ]  n opens android.example.com                   │
+│   Overview           ││                                                                    │
+│ › Devices     1      ││ ▸ Shop 4.2.1  emulator-d0281282be                                  │
+│   Ports       2      ││     ADB 127.0.0.1:15555  ✓ in adb devices                          │
+│   Log                ││                                                                    │
+│   Settings           ││ ╭────────────────────────────────────────────────────────────────╮ │
+│                      ││ │ Chrome DevTools  w opens chrome://inspect/#devices             │ │
+│                      ││ │ The app's WebViews show up there with full DevTools.           │ │
 │                      ││ ╰────────────────────────────────────────────────────────────────╯ │
 │                      ││                                                                    │
 │                      ││                                                                    │
@@ -18,7 +20,5 @@
 │                      ││                                                                    │
 │                      ││                                                                    │
 │                      ││                                                                    │
-│                      ││                                                                    │
-│                      ││                                                                    │
 ╰──────────────────────╯╰────────────────────────────────────────────────────────────────────╯
- ↑↓ move · enter open · N new device · w inspect · R restart app · I reinstall · X stop · o bro…
+ ↑↓ move · enter browser · w inspect · n launch · ← back · q quit

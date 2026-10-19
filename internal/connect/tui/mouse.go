@@ -57,13 +57,8 @@ func (m Model) mouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	case "key":
 		return m.key(keyMsg(arg))
 	case "sec":
-		m.picker, m.adding, m.input, m.flash = nil, false, "", ""
-		m.closeSession()
+		m.adding, m.input, m.flash = false, "", ""
 		m.section, m.content, m.cursor = section(n), false, 0
-	case "tab":
-		if m.sess != nil && !m.snap.ADBOff {
-			return m.switchTab(tab(n))
-		}
 	case "row":
 		return m.clickRow(n)
 	case "mode":
@@ -72,16 +67,9 @@ func (m Model) mouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// clickRow picks a row; a second click on a device or build opens or
-// launches it, while ports and settings act on the first click.
+// clickRow picks a row; a second click on a device opens it, while ports
+// and settings act on the first click.
 func (m Model) clickRow(n int) (tea.Model, tea.Cmd) {
-	if p := m.picker; p != nil {
-		if p.cursor == n {
-			return m.key(keyMsg("enter"))
-		}
-		p.cursor = n
-		return m, nil
-	}
 	again := m.content && m.cursor == n
 	m.content, m.cursor = true, n
 	if m.section == devices && !again {
@@ -96,10 +84,8 @@ func (m Model) wheel(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		k = "up"
 	}
 	switch {
-	case m.confirm != nil || m.adding || m.sess != nil:
+	case m.confirm != nil || m.adding:
 		return m, nil
-	case m.picker != nil:
-		return m.key(keyMsg(k))
 	case msg.X < sidebarWidth:
 		m.content = false
 	case m.focusable():

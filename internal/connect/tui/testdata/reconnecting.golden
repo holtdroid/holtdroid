@@ -15,10 +15,10 @@
 │                      ││                                                                    │
 │                      ││ Pick the ports your devices reach as localhost in Ports.           │
 │                      ││                                                                    │
-│                      ││                                                                    │
+│                      ││ [ Launch a device ]  n opens android.example.com                   │
 │                      ││                                                                    │
 │                      ││                                                                    │
 │                      ││                                                                    │
 │                      ││                                                                    │
 ╰──────────────────────╯╰────────────────────────────────────────────────────────────────────╯
- ↑↓ move · → open · 1-5 sections · q quit
+ ↑↓ move · n launch a device · 1-5 sections · q quit

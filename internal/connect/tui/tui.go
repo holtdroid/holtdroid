@@ -5,9 +5,7 @@ package tui
 import (
 	"context"
 	"errors"
-	"io"
 	"os"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -36,15 +34,7 @@ var sections = []string{"Overview", "Devices", "Ports", "Log", "Settings"}
 type Actions interface {
 	TogglePublished(port int) error
 	SetMode(mode control.PublishMode) error
-	DeviceInfo(ctx context.Context, slug string) ([]connect.Field, error)
-	AppInfo(ctx context.Context, s control.Session) ([]connect.Field, error)
-	Logcat(ctx context.Context, s control.Session, app bool, line func(string)) error
-	Shell(slug string) (io.ReadWriteCloser, error)
 	SessionURL(s control.Session) string
-	Artifacts(ctx context.Context) ([]connect.Artifact, error)
-	Launch(ctx context.Context, a connect.Artifact) (string, error)
-	Stop(ctx context.Context, s control.Session) error
-	AppAction(ctx context.Context, s control.Session, action string) error
 }
 
 type Model struct {
@@ -54,11 +44,8 @@ type Model struct {
 	now     func() time.Time
 	install func() (connect.Install, error)
 	exe     string
-	wake    func()
 	openURL func(string) error
 	inspect func() error
-	sess    *session
-	picker  *picker
 	confirm *confirm
 
 	outdated  bool
@@ -85,18 +72,42 @@ func New(act Actions, log *Log, snap connect.Snapshot) Model {
 	plan, err := connect.InstallPlan()
 	exe, _ := os.Executable()
 	return Model{
-		exe: exe, wake: func() {}, openURL: connect.OpenURL, inspect: connect.OpenInspect, prefs: connect.LoadPrefs(), savePrefs: connect.SavePrefs,
+		exe: exe, openURL: connect.OpenURL, inspect: connect.OpenInspect, prefs: connect.LoadPrefs(), savePrefs: connect.SavePrefs,
 		snap: snap, act: act, log: log, now: time.Now, install: connect.InstallCommand,
 		plan: plan, planErr: err, width: 100, height: 30,
 	}
 }
 
 type (
-	snapMsg connect.Snapshot
-	logMsg  struct{}
-	tickMsg struct{}
-	doneMsg struct{ err error }
+	snapMsg   connect.Snapshot
+	logMsg    struct{}
+	tickMsg   struct{}
+	doneMsg   struct{ err error }
+	actionMsg struct {
+		text string
+		err  error
+	}
 )
+
+// confirm asks y/n before an action with consequences.
+type confirm struct {
+	text  string
+	doing string
+	run   tea.Cmd
+}
+
+// do runs an action in the background and reports how it went.
+func (m Model) do(what string, run func(ctx context.Context) (string, error)) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		text, err := run(ctx)
+		if err != nil {
+			return actionMsg{text: what, err: err}
+		}
+		return actionMsg{text: text}
+	}
+}
 
 func tick() tea.Cmd {
 	return tea.Tick(time.Second, func(time.Time) tea.Msg { return tickMsg{} })
@@ -114,19 +125,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case snapMsg:
 		m.snap = connect.Snapshot(msg)
 		m.cursor = min(m.cursor, max(m.items()-1, 0))
-		if m.sess != nil && !slices.ContainsFunc(m.snap.Sessions, func(s control.Session) bool { return s.Slug == m.sess.s.Slug }) {
-			m.flash = m.sess.s.Slug + " stopped"
-			m.closeSession()
-		}
-	case fieldsMsg, logcatEndMsg, shellDoneMsg:
-		m.sessionMsg(msg)
-	case artifactsMsg:
-		if m.picker != nil {
-			m.picker.loading, m.picker.items = false, msg.items
-			if msg.err != nil {
-				m.picker.err = msg.err.Error()
-			}
-		}
 	case actionMsg:
 		if msg.err != nil {
 			m.flash = msg.text + ": " + msg.err.Error()
@@ -184,23 +182,12 @@ func (m Model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.flash = "cancelled"
 		return m, nil
 	}
-	if m.picker != nil && k.String() != "ctrl+c" {
-		return m.pickerKey(k)
-	}
 	m.flash = ""
 	switch k.String() {
 	case "ctrl+c", "q":
-		m.closeSession()
 		return m, tea.Quit
 	case "1", "2", "3", "4", "5":
-		m.closeSession()
 		m.section, m.content, m.cursor = section(k.String()[0]-'1'), false, 0
-		return m, nil
-	}
-	if m.sess != nil {
-		return m.sessionKey(k)
-	}
-	switch k.String() {
 	case "tab", "right", "l":
 		m.content = m.focusable()
 	case "shift+tab", "left", "h", "esc":
@@ -225,8 +212,7 @@ func (m Model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.content = m.focusable()
 		case m.section == devices:
 			if m.cursor < len(m.snap.Sessions) {
-				cmd := m.openSession(m.snap.Sessions[m.cursor])
-				return m, cmd
+				m.openBrowser(m.snap.Sessions[m.cursor])
 			}
 		case m.section == ports:
 			if rows := m.portRows(); m.cursor < len(rows) {
@@ -244,17 +230,6 @@ func (m Model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.section == devices {
 			m.openInspect()
 		}
-	case "N":
-		if m.section == devices {
-			m.content = true
-			return m, m.openPicker()
-		}
-	case "R", "I", "X":
-		if m.section == devices && m.cursor < len(m.snap.Sessions) {
-			m.content = true
-			next, cmd, _ := m.deviceAction(k.String(), m.snap.Sessions[m.cursor])
-			return next, cmd
-		}
 	case "m":
 		if m.section == ports {
 			return m.askMode(nextMode(m.mode()))
@@ -265,9 +240,8 @@ func (m Model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.cursor = min(m.cursor, max(len(m.portRows())-1, 0))
 		}
 	case "n":
-		if m.section == devices {
-			m.content = true
-			return m, m.openPicker()
+		if m.section == devices || m.section == overview {
+			m.openPortal()
 		}
 		if m.section == ports {
 			m.adding, m.content = true, true
@@ -314,7 +288,6 @@ func (m Model) settingsAction() (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.restart = path
-		m.closeSession()
 		return m, tea.Quit
 	}
 	return m, nil
@@ -388,6 +361,30 @@ func (m Model) askMode(mode control.PublishMode) (Model, tea.Cmd) {
 	return m, run
 }
 
+func (m *Model) openInspect() {
+	switch {
+	case m.snap.ADBOff:
+		m.flash = "chrome://inspect is unavailable: ADB is turned off on this portal"
+	case m.inspect() != nil:
+		m.flash = "open " + connect.InspectURL + " in Chrome"
+	default:
+		m.flash = "opened " + connect.InspectURL
+	}
+}
+
+func (m *Model) openBrowser(s control.Session) { m.open(m.act.SessionURL(s)) }
+
+// openPortal is where devices are launched: the portal's start page.
+func (m *Model) openPortal() { m.open(m.snap.Portal) }
+
+func (m *Model) open(u string) {
+	if err := m.openURL(u); err != nil {
+		m.flash = "could not open " + u
+	} else {
+		m.flash = "opened " + u
+	}
+}
+
 func (m Model) focusable() bool {
 	return m.section == ports || m.section == settings || m.section == devices && len(m.snap.Sessions) > 0
 }
@@ -427,12 +424,6 @@ func (l *Log) Write(p []byte) (int, error) {
 		notify()
 	}
 	return len(p), nil
-}
-
-func (l *Log) reset() {
-	l.mu.Lock()
-	l.lines = nil
-	l.mu.Unlock()
 }
 
 func (l *Log) tail(n int) []string {
@@ -486,7 +477,6 @@ func Run(ctx context.Context, log *Log, cfg Config, start func(onChange func(con
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	m := New(cl, log, cl.Snapshot())
-	m.wake = nudge
 	m.outdated, m.update = cfg.Outdated, cfg.Update
 	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion(), tea.WithContext(ctx))
 	go func() {

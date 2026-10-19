@@ -72,7 +72,6 @@ type Client struct {
 	gateway   *control.Gateway
 
 	ssh    atomic.Pointer[ssh.Client]
-	devs   devices
 	adbMu  sync.Mutex
 	adbFwd map[string]*adbForward
 }
@@ -154,7 +153,6 @@ func (cl *Client) Run(ctx context.Context) error {
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
 	defer cl.closeADB()
-	defer cl.closeDevices()
 	go cl.keepFresh(ctx, cancel)
 	go cl.watchPorts(ctx)
 

@@ -1,15 +1,15 @@
 ╭──────────────────────╮╭────────────────────────────────────────────────────────────────────╮
-│ holtdroid            ││ Devices  enter opens a device · N launches a new one               │
+│ holtdroid            ││ Devices  enter opens one in the browser                            │
 │ ● connected          ││                                                                    │
-│                      ││ ▸ Shop 4.2.1  emulator-d0281282be                                  │
-│   Overview           ││     ADB is turned off on this portal                               │
-│ › Devices     1      ││                                                                    │
+│                      ││ [ Launch a device ]  n opens android.example.com                   │
+│   Overview           ││                                                                    │
+│ › Devices     1      ││ ▸ Shop 4.2.1  emulator-d0281282be                                  │
 │   Ports       0      ││                                                                    │
-│   Log                ││                                                                    │
-│   Settings           ││                                                                    │
-│                      ││                                                                    │
-│                      ││                                                                    │
-│                      ││                                                                    │
+│   Log                ││ ╭────────────────────────────────────────────────────────────────╮ │
+│   Settings           ││ │ Chrome DevTools  unavailable                                   │ │
+│                      ││ │ ADB is turned off on this portal, so chrome://inspect can't    │ │
+│                      ││ │ reach the devices.                                             │ │
+│                      ││ ╰────────────────────────────────────────────────────────────────╯ │
 │                      ││                                                                    │
 │                      ││                                                                    │
 │                      ││                                                                    │
@@ -21,4 +21,4 @@
 │                      ││                                                                    │
 │                      ││                                                                    │
 ╰──────────────────────╯╰────────────────────────────────────────────────────────────────────╯
- ↑↓ move · enter open · N new device · w inspect · R restart app · I reinstall · X stop · o bro…
+ ↑↓ move · enter browser · n launch · ← back · q quit

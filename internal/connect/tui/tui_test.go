@@ -1,9 +1,7 @@
 package tui
 
 import (
-	"context"
 	"flag"
-	"io"
 	"os"
 	"path/filepath"
 	"slices"
@@ -25,37 +23,7 @@ var update = flag.Bool("update", false, "rewrite golden files")
 type actions struct {
 	toggled []int
 	mu      sync.Mutex
-	logcat  []bool
 	did     []string
-}
-
-func (a *actions) Artifacts(context.Context) ([]connect.Artifact, error) {
-	return []connect.Artifact{
-		{Source: "slack", ID: "a1", Name: "Shop", Version: "4.2.2", Package: "com.example.shop", UploadedAt: now.Add(-2 * time.Hour)},
-		{Source: "slack", ID: "a2", Name: "Shop", Version: "4.2.1", Package: "com.example.shop", UploadedAt: now.Add(-26 * time.Hour)},
-		{Source: "github", ID: "a3", Name: "Holtdroid WebView", Version: "1.4.0", Package: "dev.holtdroid.webview", UploadedAt: now.Add(-72 * time.Hour)},
-	}, nil
-}
-
-func (a *actions) Launch(_ context.Context, art connect.Artifact) (string, error) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	a.did = append(a.did, "launch "+art.ID)
-	return "emulator-0a1b2c3d4e", nil
-}
-
-func (a *actions) Stop(_ context.Context, s control.Session) error {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	a.did = append(a.did, "stop "+s.Slug)
-	return nil
-}
-
-func (a *actions) AppAction(_ context.Context, s control.Session, action string) error {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	a.did = append(a.did, action+" "+s.Slug)
-	return nil
 }
 
 func (a *actions) SetMode(mode control.PublishMode) error {
@@ -69,39 +37,6 @@ func (a *actions) TogglePublished(port int) error {
 	a.toggled = append(a.toggled, port)
 	return nil
 }
-
-func (a *actions) DeviceInfo(context.Context, string) ([]connect.Field, error) {
-	return []connect.Field{
-		{Name: "Model", Value: "Google sdk_gphone64_arm64"},
-		{Name: "Android", Value: "15 (API 35)"},
-		{Name: "ABI", Value: "arm64-v8a"},
-		{Name: "Screen", Value: "1080x2400 · 420 dpi"},
-		{Name: "Battery", Value: "100%"},
-		{Name: "Locale", Value: "en-US"},
-		{Name: "Time zone", Value: "Europe/Berlin"},
-	}, nil
-}
-
-func (a *actions) AppInfo(_ context.Context, s control.Session) ([]connect.Field, error) {
-	return []connect.Field{
-		{Name: "Name", Value: s.Label},
-		{Name: "Package", Value: s.Package},
-		{Name: "Version", Value: "4.2.1 (4210)"},
-		{Name: "Target", Value: "API 35"},
-		{Name: "Running", Value: "yes, pid 4200"},
-		{Name: "UID", Value: "10187"},
-	}, nil
-}
-
-func (a *actions) Logcat(ctx context.Context, _ control.Session, app bool, _ func(string)) error {
-	a.mu.Lock()
-	a.logcat = append(a.logcat, app)
-	a.mu.Unlock()
-	<-ctx.Done()
-	return nil
-}
-
-func (a *actions) Shell(string) (io.ReadWriteCloser, error) { return nil, io.EOF }
 
 func (a *actions) SessionURL(s control.Session) string {
 	return "https://android.example.com/session/" + s.Provider + "/" + s.ID
@@ -281,80 +216,23 @@ func run(m Model, cmd tea.Cmd) Model {
 	return next.(Model)
 }
 
-func TestSession(t *testing.T) {
-	m, a := model(t)
-	m = press(m, "2", "right")
-	next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	m = next.(Model)
-	if m.sess == nil || cmd == nil {
-		t.Fatal("enter didn't open the session")
-	}
-	done := make(chan tea.Msg, 1)
-	first := cmd
-	go func() { done <- first() }()
-	for _, l := range []string{
-		"10-18 19:12:01.204 I/ActivityManager(  612): Start proc 4200:com.example.shop/u0a187 for activity",
-		"10-18 19:12:01.871 D/OkHttp  ( 4200): --> GET https://api.example.com/catalog",
-		"10-18 19:12:02.113 W/chromium( 4200): [WARNING:CONSOLE(118)] \"Deprecated API: document.domain setter\"",
-		"10-18 19:12:02.540 E/Checkout( 4200): payment widget failed to load: net::ERR_NAME_NOT_RESOLVED",
-		"10-18 19:12:03.002 I/chromium( 4200): [INFO:CONSOLE(42)] \"cart restored, 3 items\"",
-	} {
-		_, _ = m.sess.logcat.Write([]byte(l + "\n"))
-	}
-	golden(t, "session-logcat", m.View())
-
-	next, cmd = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("f")})
-	m = next.(Model)
-	if m.sess.appOnly || cmd == nil {
-		t.Fatal("f didn't filter to the app")
-	}
-	filtered := cmd
-	go func() { _ = filtered() }()
-
-	m = press(m, "right")
-	golden(t, "session-shell", m.View())
-	next, cmd = m.Update(tea.KeyMsg{Type: tea.KeyRight})
-	m = run(next.(Model), cmd)
-	golden(t, "session-device", m.View())
-	next, cmd = m.Update(tea.KeyMsg{Type: tea.KeyRight})
-	m = run(next.(Model), cmd)
-	golden(t, "session-app", m.View())
-
-	m = press(m, "o")
+func TestDevices(t *testing.T) {
+	m, _ := model(t)
+	var opened []string
+	m.openURL = func(u string) error { opened = append(opened, u); return nil }
+	m = press(m, "2", "right", "enter")
 	if !strings.Contains(m.flash, "/session/emulator/d0281282be") {
 		t.Fatalf("flash %q", m.flash)
 	}
-	m = press(m, "esc")
-	if m.sess != nil {
-		t.Fatal("esc didn't close the session")
+	m = press(m, "o", "n", "1", "n")
+	want := []string{
+		"https://android.example.com/session/emulator/d0281282be",
+		"https://android.example.com/session/emulator/d0281282be",
+		"https://android.example.com",
+		"https://android.example.com",
 	}
-	select {
-	case <-done:
-	case <-time.After(5 * time.Second):
-		t.Fatal("logcat kept running after the session closed")
-	}
-	eventually := time.Now().Add(5 * time.Second)
-	for {
-		a.mu.Lock()
-		got := slices.Clone(a.logcat)
-		a.mu.Unlock()
-		if len(got) == 2 || time.Now().After(eventually) {
-			break
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	if !slices.Equal(a.logcat, []bool{true, false}) {
-		t.Fatalf("logcat runs %v", a.logcat)
-	}
-
-	m = press(m, "right", "enter")
-	s := snapshot()
-	s.Sessions, s.ADB = nil, nil
-	next, _ = m.Update(snapMsg(s))
-	if m = next.(Model); m.sess != nil || !strings.Contains(m.flash, "stopped") {
-		t.Fatalf("a stopped session stays open: %q", m.flash)
+	if !slices.Equal(opened, want) {
+		t.Fatalf("opened %q, want %q", opened, want)
 	}
 }
 
@@ -421,59 +299,6 @@ func TestUpdatePrompt(t *testing.T) {
 	}
 }
 
-func TestLaunchAndActions(t *testing.T) {
-	m, a := model(t)
-	m = press(m, "2")
-	next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("N")})
-	m = run(next.(Model), cmd)
-	if m.picker == nil || len(m.picker.items) != 3 {
-		t.Fatalf("picker %+v", m.picker)
-	}
-	golden(t, "launch", m.View())
-
-	m = press(m, "w", "e", "b")
-	if items := m.picker.visible(); len(items) != 1 || items[0].ID != "a3" {
-		t.Fatalf("filtered %+v", items)
-	}
-	next, cmd = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	m = run(next.(Model), cmd)
-	if m.picker != nil || !strings.Contains(m.flash, "launched Holtdroid WebView as emulator-0a1b2c3d4e") {
-		t.Fatalf("after launch: %q", m.flash)
-	}
-
-	m = press(m, "X")
-	if m.confirm == nil {
-		t.Fatal("X didn't ask")
-	}
-	golden(t, "confirm-stop", m.View())
-	m = press(m, "n")
-	if m.confirm != nil || m.flash != "cancelled" {
-		t.Fatalf("n didn't cancel: %q", m.flash)
-	}
-	next, cmd = press(m, "X").Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("y")})
-	if m = next.(Model); m.flash != "stopping emulator-d0281282be…" {
-		t.Fatalf("flash %q", m.flash)
-	}
-	m = run(m, cmd)
-	if m.flash != "stopped emulator-d0281282be" {
-		t.Fatalf("flash %q", m.flash)
-	}
-
-	next, cmd = press(m, "enter").Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("R")})
-	m = run(next.(Model), cmd)
-	next, cmd = press(m, "I").Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("y")})
-	m = run(next.(Model), cmd)
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	want := []string{"launch a3", "stop emulator-d0281282be", "restart emulator-d0281282be", "reinstall emulator-d0281282be"}
-	if !slices.Equal(a.did, want) {
-		t.Fatalf("did %q, want %q", a.did, want)
-	}
-	if m.flash != "reinstalled Shop" {
-		t.Fatalf("flash %q", m.flash)
-	}
-}
-
 func TestPortalTurnedOff(t *testing.T) {
 	m, a := model(t)
 	s := snapshot()
@@ -482,27 +307,16 @@ func TestPortalTurnedOff(t *testing.T) {
 	m = next.(Model)
 	golden(t, "devices-adb-off", press(m, "2", "right").View())
 
-	next, cmd := press(m, "2", "right").Update(tea.KeyMsg{Type: tea.KeyEnter})
-	m = next.(Model)
-	if cmd != nil {
-		t.Fatal("logcat started with ADB off")
+	inspected := false
+	m.inspect = func() error { inspected = true; return nil }
+	m = press(m, "2", "w")
+	if inspected || !strings.Contains(m.flash, "unavailable") {
+		t.Fatalf("inspect with ADB off: %v %q", inspected, m.flash)
 	}
-	golden(t, "session-adb-off", m.View())
-	m = press(m, "right", "f")
-	if m.sess.tab != logcatTab || !m.sess.appOnly {
-		t.Fatal("tabs work with ADB off")
-	}
-	next, cmd = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("R")})
-	run(next.(Model), cmd)
 
 	m = press(m, "3", "right", " ")
 	if !strings.Contains(m.flash, "turned off") || len(a.toggled) != 0 {
 		t.Fatalf("published with publishing off: %q %v", m.flash, a.toggled)
 	}
 	golden(t, "ports-off", m.View())
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	if !slices.Equal(a.did, []string{"restart emulator-d0281282be"}) {
-		t.Fatalf("did %v", a.did)
-	}
 }
