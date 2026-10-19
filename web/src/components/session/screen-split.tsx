@@ -1,4 +1,4 @@
-import { ProportionsIcon } from "lucide-react"
+import { MoveHorizontalIcon } from "lucide-react"
 import { type ReactNode, useEffect, useRef, useState } from "react"
 import { usePanelRef } from "react-resizable-panels"
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"
@@ -51,7 +51,7 @@ export function ScreenSplit({ children: [screen, rail, tools] }: { children: [Re
   }, [autoFit, panel])
 
   return (
-    <div ref={area} className="relative size-full">
+    <div ref={area} className="group/split relative size-full">
       <ResizablePanelGroup
         orientation="horizontal"
         onLayoutChanged={(_, meta) => {
@@ -81,15 +81,15 @@ export function ScreenSplit({ children: [screen, rail, tools] }: { children: [Re
               onClick={() => setScreenPrefs({ autoFit: !autoFit })}
               style={{ left: edge }}
               className={cn(
-                "bg-background text-muted-foreground hover:text-foreground absolute top-1/2 z-20 grid size-6 -translate-x-1/2 -translate-y-[calc(100%+1rem)] cursor-pointer place-items-center rounded-full border shadow-sm [&_svg]:size-3.5",
-                autoFit && "border-primary text-primary",
+                "absolute top-1/2 z-20 ml-2 grid size-7 -translate-y-1/2 cursor-pointer place-items-center rounded-md bg-white/10 text-white/70 opacity-0 backdrop-blur transition-opacity delay-300 hover:bg-white/20 hover:text-white hover:opacity-100 hover:delay-0 focus-visible:opacity-100 focus-visible:delay-0 group-has-[[data-slot=resizable-handle]:hover]/split:opacity-100 group-has-[[data-slot=resizable-handle]:hover]/split:delay-0 [&_svg]:size-4",
+                autoFit && "text-white",
               )}
             >
-              <ProportionsIcon />
+              <MoveHorizontalIcon />
               <span className="sr-only">Fit to the screen</span>
             </button>
           </TooltipTrigger>
-          <TooltipContent>
+          <TooltipContent side="right">
             {autoFit ? "Follows the screen; drag the handle to size it yourself" : "Fit the panel to the screen"}
           </TooltipContent>
         </Tooltip>
