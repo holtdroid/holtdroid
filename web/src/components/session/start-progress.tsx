@@ -44,7 +44,7 @@ export function StartProgress({
 
   return (
     <div className="grid h-full place-items-center p-6">
-      <div className="bg-card w-full max-w-md rounded-2xl border p-6">
+      <div className="bg-card w-full max-w-md rounded-2xl border p-6 [corner-shape:squircle] supports-[corner-shape:squircle]:rounded-[2.5rem]">
         <h2 className="mb-1 font-semibold">{failed ? "The device failed to start" : "Starting your device"}</h2>
         <p className="text-muted-foreground mb-5 text-sm">
           {failed ? reason || "See the provider logs for details." : detail || "This usually takes about a minute."}
