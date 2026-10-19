@@ -45,6 +45,7 @@ export function ScreenSplit({ children: [screen, rail, tools] }: { children: [Re
     const resized = new ResizeObserver(fit)
     resized.observe(box)
     resized.observe(line)
+    resized.observe(view)
     const mutated = new MutationObserver(fit)
     mutated.observe(view, { subtree: true, childList: true, attributes: true, attributeFilter: ["width", "height"] })
     fit()
