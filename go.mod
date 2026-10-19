@@ -22,7 +22,7 @@ require (
 	github.com/knadh/koanf/parsers/yaml v1.1.1
 	github.com/knadh/koanf/providers/confmap v1.0.1
 	github.com/knadh/koanf/providers/env/v2 v2.0.2
-	github.com/knadh/koanf/v2 v2.3.8
+	github.com/knadh/koanf/v2 v2.4.1
 	github.com/minio/minio-go/v7 v7.4.1
 	github.com/muesli/termenv v0.16.0
 	github.com/pressly/goose/v3 v3.29.0
