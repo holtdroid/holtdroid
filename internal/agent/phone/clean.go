@@ -76,15 +76,16 @@ var settingKey = regexp.MustCompile(`^[A-Za-z0-9_.:-]+$`)
 // volatileSetting matches settings the system keeps changing by itself, or
 // that the cleanup sets on its own; they are never put back.
 var volatileSetting = regexp.MustCompile(`(?i)(^phenotype|^_boot|boot_count|_count$|_time_millis$|timestamp|_date$|^android_id$|last_.*(time|report)|^config_update|_version|^gms_|` +
-	`^low_power|^screen_brightness|^stay_on_while_plugged_in$|^wifi_on$|^mobile_data|^bluetooth_on$|^location_mode$|^adb_enabled$)`)
+	`^low_power|^protect_battery$|^screen_brightness|^stay_on_while_plugged_in$|^wifi_on$|^mobile_data|^bluetooth_on$|^location_mode$|^adb_enabled$)`)
 
 // Cleanup is what Clean puts back.
 type Cleanup struct {
-	Package  string
-	Baseline *Baseline
-	Offline  bool
-	End      bool
-	Suspend  []string
+	Package        string
+	Baseline       *Baseline
+	Offline        bool
+	End            bool
+	Suspend        []string
+	ProtectBattery bool
 }
 
 // keep are never uninstalled or cleared.
@@ -144,6 +145,9 @@ func Clean(ctx context.Context, adb ADB, c Cleanup) error {
 	}
 	run("storage", wipeStorage)
 	run("device", resetDevice)
+	if c.ProtectBattery {
+		run("battery", "settings put global protect_battery 1")
+	}
 	run("privacy", privacy)
 	if c.Baseline != nil {
 		if script := restoreScript(ctx, adb, c.Baseline); script != "" {

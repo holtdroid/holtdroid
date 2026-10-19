@@ -4,6 +4,7 @@ import type { ArtifactView, ProviderView } from "@/api/client"
 import { useAppDataFor } from "@/api/queries"
 import { AppIcon } from "@/components/app-icon"
 import { artifactTitle } from "@/components/artifact-list"
+import { DeviceBadges } from "@/components/device-badges"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -131,6 +132,14 @@ export function LaunchDialog({ artifact, onClose }: { artifact: ArtifactView | n
                 </SelectContent>
               </Select>
             </div>
+          )}
+
+          {provider && (
+            <DeviceBadges
+              provider={provider}
+              slot={slot ?? (slots.length === 1 ? slots[0] : undefined)}
+              appABIs={artifact?.app?.abis}
+            />
           )}
 
           {locations.length > 0 && (

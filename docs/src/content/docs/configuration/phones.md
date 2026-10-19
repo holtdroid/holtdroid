@@ -58,6 +58,9 @@ providers:
       adb: { shell: allowlist }
 ```
 
+Phones come before emulators in the api's `providers`, so an **Any** launch
+takes a free phone first.
+
 The pod runs on that node's **host network** (adb only notices a phone
 reconnecting on USB through hotplug events, which reach the host's network
 namespace), as root and privileged so it can open the USB devices, with
@@ -134,25 +137,26 @@ providers:
     url: http://phones.homelab.example:8080
 ```
 
-| Key                 | Default                   | Meaning                                                                                      |
-| ------------------- | ------------------------- | -------------------------------------------------------------------------------------------- |
-| `adb.bin`           | `adb`                     | The adb CLI the provider runs                                                                |
-| `adb.server`        | `127.0.0.1:5037`          | The host adb server user ADB goes through; the one `adb.bin` uses                            |
-| `adb.shell`         | `allowlist`               | Shell commands users may run over ADB: `full`, `allowlist` or `off` (see below)              |
-| `phones[]`          | `[]`                      | The inventory: `serial` from `adb devices` and an optional `label`. Other phones are ignored |
-| `stateFile`         | `holtdroid-physical.json` | Sessions, pending resets, baselines and maintenance holds; a restart picks them up again     |
-| `refresh`           | `5s`                      | How often the provider checks which phones are connected                                     |
-| `resetTimeout`      | `5m`                      | How long cleaning a phone after a session may take                                           |
-| `phone.bootTimeout` | `2m`                      | How long a session waits for its phone to show up                                            |
-| `phone.poll`        | `5s`                      | How often a session checks that its phone is still connected                                 |
-| `phone.misses`      | `3`                       | Missed checks in a row after which the session fails with "phone disconnected"               |
-| `phone.suspend`     | Settings, Contacts, …     | Packages kept suspended so sessions can't open them (see below)                              |
-| `vpn.*`             | no locations              | Locations, exactly as for the [emulator provider](/holtdroid/configuration/emulator/#vpn)    |
-| `singBox`           | `sing-box`                | The sing-box binary the provider runs per session when `vpn.locations` is set                |
-| `tunnel.apk`        |                           | Holtdroid Tunnel APK, installed on a phone when it is missing or not `tunnel.version`        |
-| `tunnel.version`    |                           | The version `tunnel.apk` is; empty installs only when the app is missing                     |
-| `tunnel.port`       | `29180`                   | The phone-side port of the tunnel's `adb reverse`; don't publish it from a computer          |
-| `tunnel.ipv6`       | `true`                    | Give the phone IPv6 through the tunnel                                                       |
+| Key                    | Default                   | Meaning                                                                                         |
+| ---------------------- | ------------------------- | ----------------------------------------------------------------------------------------------- |
+| `adb.bin`              | `adb`                     | The adb CLI the provider runs                                                                   |
+| `adb.server`           | `127.0.0.1:5037`          | The host adb server user ADB goes through; the one `adb.bin` uses                               |
+| `adb.shell`            | `allowlist`               | Shell commands users may run over ADB: `full`, `allowlist` or `off` (see below)                 |
+| `phones[]`             | `[]`                      | The inventory: `serial` from `adb devices` and an optional `label`. Other phones are ignored    |
+| `stateFile`            | `holtdroid-physical.json` | Sessions, pending resets, baselines and maintenance holds; a restart picks them up again        |
+| `refresh`              | `5s`                      | How often the provider checks which phones are connected                                        |
+| `resetTimeout`         | `5m`                      | How long cleaning a phone after a session may take                                              |
+| `phone.bootTimeout`    | `2m`                      | How long a session waits for its phone to show up                                               |
+| `phone.poll`           | `5s`                      | How often a session checks that its phone is still connected                                    |
+| `phone.misses`         | `3`                       | Missed checks in a row after which the session fails with "phone disconnected"                  |
+| `phone.suspend`        | Settings, Contacts, …     | Packages kept suspended so sessions can't open them (see below)                                 |
+| `phone.protectBattery` | `true`                    | Turn on Samsung's _Protect battery_ (charging stops at 80% on One UI 6): phones stay plugged in |
+| `vpn.*`                | no locations              | Locations, exactly as for the [emulator provider](/holtdroid/configuration/emulator/#vpn)       |
+| `singBox`              | `sing-box`                | The sing-box binary the provider runs per session when `vpn.locations` is set                   |
+| `tunnel.apk`           |                           | Holtdroid Tunnel APK, installed on a phone when it is missing or not `tunnel.version`           |
+| `tunnel.version`       |                           | The version `tunnel.apk` is; empty installs only when the app is missing                        |
+| `tunnel.port`          | `29180`                   | The phone-side port of the tunnel's `adb reverse`; don't publish it from a computer             |
+| `tunnel.ipv6`          | `true`                    | Give the phone IPv6 through the tunnel                                                          |
 
 A phone is `offline` in the launch dialog while adb doesn't list it as
 `device` (unplugged, `unauthorized`, booting).

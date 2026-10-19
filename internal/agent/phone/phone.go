@@ -16,6 +16,9 @@ type Config struct {
 	Poll        time.Duration
 	Misses      int
 	Suspend     []string
+	// ProtectBattery caps charging (Samsung's "Protect battery", at 80% on
+	// One UI 6): phones stay plugged in all the time.
+	ProtectBattery bool
 }
 
 // DefaultSuspend are the apps a session must not open: settings (a PIN,
@@ -33,7 +36,7 @@ var DefaultSuspend = []string{
 }
 
 func DefaultConfig() Config {
-	return Config{BootTimeout: 2 * time.Minute, Poll: 5 * time.Second, Misses: 3, Suspend: DefaultSuspend}
+	return Config{BootTimeout: 2 * time.Minute, Poll: 5 * time.Second, Misses: 3, Suspend: DefaultSuspend, ProtectBattery: true}
 }
 
 // ADB is what a phone session needs from adb.
@@ -84,7 +87,7 @@ func (p *Phone) Run(ctx context.Context, booted func()) error {
 		return fmt.Errorf("phone did not come up: %w", err)
 	}
 	if !p.s.Resume {
-		if err := Clean(ctx, p.adb, Cleanup{Package: p.s.Package, Baseline: p.s.Baseline, Offline: p.s.Tunnel != nil, Suspend: p.cfg.Suspend}); err != nil {
+		if err := Clean(ctx, p.adb, Cleanup{Package: p.s.Package, Baseline: p.s.Baseline, Offline: p.s.Tunnel != nil, Suspend: p.cfg.Suspend, ProtectBattery: p.cfg.ProtectBattery}); err != nil {
 			p.log.Warn("clean the phone before the session", "err", err)
 		}
 	}

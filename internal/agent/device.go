@@ -25,6 +25,7 @@ type Controls struct {
 	dev        Device
 	localesDex string
 	appLocales string
+	usbNetwork bool
 	noConsole  bool
 	now        func() time.Time
 
@@ -98,6 +99,7 @@ func (c *Controls) State(ctx context.Context) (contract.DeviceState, error) {
 			s.Locales = append(s.Locales, tag)
 		}
 	}
+	s.USBNetwork = c.usbNetwork
 	s.LanguageScope = contract.LanguageSystem
 	if c.appLocales != "" {
 		s.LanguageScope = contract.LanguageApp

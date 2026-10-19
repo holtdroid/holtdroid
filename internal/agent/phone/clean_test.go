@@ -67,7 +67,7 @@ func TestClean(t *testing.T) {
 			"system": "font_scale=1.3\nscreen_brightness=1\nscreen_brightness_mode=0\nringtone=x\n",
 		},
 	}
-	if err := Clean(context.Background(), adb, Cleanup{Package: "com.example.shop", Baseline: base, Offline: true, End: true, Suspend: []string{"com.android.settings", "com.example.shop"}}); err != nil {
+	if err := Clean(context.Background(), adb, Cleanup{Package: "com.example.shop", Baseline: base, Offline: true, End: true, Suspend: []string{"com.android.settings", "com.example.shop"}, ProtectBattery: true}); err != nil {
 		t.Fatal(err)
 	}
 	calls := strings.Join(adb.calls, "\n")
@@ -85,6 +85,7 @@ func TestClean(t *testing.T) {
 		"cmd wifi set-wifi-enabled disabled",
 		"cmd power set-mode 1",
 		"pm suspend --user 0 com.android.settings",
+		"settings put global protect_battery 1",
 		"cmd sensor_privacy enable 0 microphone",
 		"cmd media_session volume --stream $s --set 0",
 		"cmd media_session volume --stream 4 --set 1",

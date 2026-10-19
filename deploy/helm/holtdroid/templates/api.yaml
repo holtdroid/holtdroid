@@ -8,14 +8,14 @@
 {{- $_ := set $cfg "audit" (include "holtdroid.audit" (dict "root" . "component" "api") | fromYaml) -}}
 {{- $auditVolume := and .Values.audit.store.enabled (eq .Values.audit.store.persistence "volume") -}}
 {{- $providers := list -}}
+{{- if .Values.providers.physical.enabled -}}
+{{- $providers = append $providers (dict "name" .Values.providers.physical.name "url" (printf "http://%s-provider-physical:%d" $name (int .Values.providers.physical.port))) -}}
+{{- end -}}
 {{- if .Values.providers.fake.enabled -}}
 {{- $providers = append $providers (dict "name" .Values.providers.fake.name "url" (printf "http://%s-provider-fake:8080" $name)) -}}
 {{- end -}}
 {{- if .Values.providers.emulator.enabled -}}
 {{- $providers = append $providers (dict "name" .Values.providers.emulator.name "url" (printf "http://%s-provider-emulator:8080" $name)) -}}
-{{- end -}}
-{{- if .Values.providers.physical.enabled -}}
-{{- $providers = append $providers (dict "name" .Values.providers.physical.name "url" (printf "http://%s-provider-physical:%d" $name (int .Values.providers.physical.port))) -}}
 {{- end -}}
 {{- $providers = concat $providers .Values.extraProviders -}}
 {{- $_ := set $cfg "providers" $providers -}}

@@ -299,6 +299,7 @@ type DeviceState struct {
 	Geo                *GeoPoint      `json:"geo,omitempty" doc:"the faked GPS position; empty while the device reports its default one"`
 	CanFakeGeo         bool           `json:"canFakeGeo"`
 	CanSimulateBattery bool           `json:"canSimulateBattery" doc:"the battery level and charging can be set; battery saver works everywhere"`
+	USBNetwork         bool           `json:"usbNetwork" doc:"the device reaches the internet over USB through the host, so Wi-Fi and mobile data are off on purpose"`
 	AutoTime           bool           `json:"autoTime"`
 	TimeOffset         int64          `json:"timeOffset" doc:"device clock minus real time, in milliseconds"`
 }

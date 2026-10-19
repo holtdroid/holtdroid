@@ -18,10 +18,11 @@ import {
   SignalIcon,
   SunIcon,
   SunMoonIcon,
+  UsbIcon,
   WifiIcon,
   WifiOffIcon,
-  type LucideIcon,
   XIcon,
+  type LucideIcon,
 } from "lucide-react"
 import { useTheme } from "next-themes"
 import { type ReactNode, useEffect, useEffectEvent, useMemo, useRef, useState } from "react"
@@ -143,22 +144,38 @@ function NetworkControl({
 }: Props & { provider: string; id: string; locations: Location[] }) {
   const slow = !!s.networkProfile && s.networkProfile !== "full"
   const speed = networks.find((n) => n.value === s.networkProfile)?.label
+  const radios = !s.usbNetwork
   const summary = s.airplaneMode
     ? "Airplane mode"
-    : [s.wifi && "Wi-Fi", s.mobileData && "Mobile data", slow && speed].filter(Boolean).join(" · ") || "Offline"
-  const icon = s.airplaneMode ? PlaneIcon : s.wifi ? WifiIcon : s.mobileData ? SignalIcon : WifiOffIcon
+    : [s.usbNetwork && "USB", s.wifi && "Wi-Fi", s.mobileData && "Mobile data", slow && speed]
+        .filter(Boolean)
+        .join(" · ") || "Offline"
+  const icon = s.airplaneMode
+    ? PlaneIcon
+    : s.wifi
+      ? WifiIcon
+      : s.mobileData
+        ? SignalIcon
+        : s.usbNetwork
+          ? UsbIcon
+          : WifiOffIcon
 
   return (
     <RailControl
       label="Network"
       icon={icon}
       active={s.airplaneMode}
-      changed={s.airplaneMode || !s.wifi || !s.mobileData || slow}
+      changed={s.airplaneMode || s.wifi !== radios || s.mobileData !== radios || slow}
       summary={summary}
       hint={`Click the icon to turn airplane mode ${s.airplaneMode ? "off" : "on"}`}
       onClick={() => set({ airplaneMode: !s.airplaneMode })}
       onReset={() =>
-        set({ airplaneMode: false, wifi: true, mobileData: true, ...(s.networkProfile && { networkProfile: "full" }) })
+        set({
+          airplaneMode: false,
+          wifi: radios,
+          mobileData: radios,
+          ...(s.networkProfile && { networkProfile: "full" }),
+        })
       }
     >
       <ControlGroup>
@@ -170,6 +187,11 @@ function NetworkControl({
         />
         <Toggle label="Wi-Fi" checked={s.wifi} disabled={busy} onChange={(v) => set({ wifi: v })} />
         <Toggle label="Mobile data" checked={s.mobileData} disabled={busy} onChange={(v) => set({ mobileData: v })} />
+        {s.usbNetwork && (
+          <p className="text-muted-foreground text-xs">
+            This phone reaches the internet over USB through the session&apos;s VPN, so Wi-Fi and mobile data stay off.
+          </p>
+        )}
         {s.networkProfile && (
           <Row label="Speed">
             <Select

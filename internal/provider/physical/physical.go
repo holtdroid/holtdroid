@@ -511,6 +511,7 @@ func (p *Provider) start(s contract.Session, artifactURL string, resume bool, v 
 	var tunnel *phone.Tunnel
 	if v != nil {
 		cfg.Location = s.Location
+		cfg.USBNetwork = true
 		cfg.ClashAPI = "http://" + v.clash
 		cfg.IPInfoProxy = "http://" + v.mixed.String()
 		tunnel = &phone.Tunnel{Port: p.cfg.Tunnel.Port, HostPort: int(v.mixed.Port()), IPv6: p.cfg.Tunnel.IPv6}
@@ -680,7 +681,7 @@ func (p *Provider) reset(serial, pkg string, done <-chan struct{}) {
 	p.mu.Lock()
 	baseline := p.baselines[serial]
 	p.mu.Unlock()
-	if err := p.host.Clean(ctx, serial, phone.Cleanup{Package: pkg, Baseline: baseline, Offline: p.cfg.VPN.Enabled(), End: true, Suspend: p.cfg.Phone.Suspend}); err != nil {
+	if err := p.host.Clean(ctx, serial, phone.Cleanup{Package: pkg, Baseline: baseline, Offline: p.cfg.VPN.Enabled(), End: true, Suspend: p.cfg.Phone.Suspend, ProtectBattery: p.cfg.Phone.ProtectBattery}); err != nil {
 		p.log.Warn("reset phone", "serial", serial, "err", err)
 	} else {
 		p.log.Info("phone reset", "serial", serial, "package", pkg)

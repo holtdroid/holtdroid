@@ -47,6 +47,7 @@ type Config struct {
 	Root             bool
 	EmulatorConsole  bool
 	AppLanguage      bool
+	USBNetwork       bool
 	HostMetrics      bool
 }
 
@@ -155,6 +156,7 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 
 func newControls(cfg Config, dev Device) *Controls {
 	c := NewControls(dev, cfg.LocalesDex, cfg.EmulatorConsole)
+	c.usbNetwork = cfg.USBNetwork
 	if cfg.AppLanguage && packageName.MatchString(cfg.Package) {
 		c.appLocales = cfg.Package
 	}

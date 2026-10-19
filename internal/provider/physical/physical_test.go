@@ -319,7 +319,7 @@ func TestVPN(t *testing.T) {
 	if tun == nil || tun.Port != 29180 || tun.HostPort == 0 || a.session.App.APK != "/opt/holtdroid/holtdroid-tunnel.apk" || a.session.App.Version != "0.1.0" || !tun.IPv6 {
 		t.Fatalf("tunnel %+v", tun)
 	}
-	if a.cfg.Location != "de" || a.cfg.ClashAPI == "" || a.cfg.IPInfoProxy != fmt.Sprintf("http://127.0.0.1:%d", tun.HostPort) {
+	if a.cfg.Location != "de" || !a.cfg.USBNetwork || a.cfg.ClashAPI == "" || a.cfg.IPInfoProxy != fmt.Sprintf("http://127.0.0.1:%d", tun.HostPort) {
 		t.Fatalf("agent config: location %q, clash %q, ipinfo proxy %q", a.cfg.Location, a.cfg.ClashAPI, a.cfg.IPInfoProxy)
 	}
 	var args string

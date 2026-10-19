@@ -482,6 +482,8 @@ export interface components {
              */
             timeOffset: number;
             timeZone: string;
+            /** @description the device reaches the internet over USB through the host, so Wi-Fi and mobile data are off on purpose */
+            usbNetwork: boolean;
             wifi: boolean;
         };
         ErrorDetail: {
