@@ -58,6 +58,9 @@ func (a *Agent) wallpaper(artifactRef, file string) Wallpaper {
 // setWallpaper draws the session details on the home and lock screens in the
 // background; a failure only costs the wallpaper.
 func (a *Agent) setWallpaper(ctx context.Context, artifactRef, file string) {
+	if a.cfg.NoWallpaper {
+		return
+	}
 	w := a.wallpaper(artifactRef, file)
 	go func() {
 		if err := a.inst.SetWallpaper(ctx, w); err != nil {

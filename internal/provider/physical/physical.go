@@ -584,6 +584,7 @@ func (p *Provider) start(s contract.Session, artifactURL string, resume bool, v 
 		cfg.Script = p.cfg.Agent.FridaScript
 		cfg.AppLanguage = false
 		cfg.Geo = geoFixes(p.cfg.VPN)
+		cfg.NoWallpaper = true
 	} else {
 		cfg.LocalesDex = ""
 		cfg.AppLanguage = true

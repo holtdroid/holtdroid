@@ -1383,7 +1383,10 @@ system and the call came back as `DeadSystemException`.
 the device and runs `app_process` as root with the tags; it calls the same
 `LocalePicker.updateLocales` through reflection, so it applies at once and
 persists. Frida stays in `system_server` only for the wallpaper, drawn once
-per install.
+per install — and rooted phones skip even that (`NoWallpaper`), because the
+Frida detach from `system_server` crashes it on some phones (Samsung A05:
+"attempting to detach while still running code" → a soft reboot), so the
+cosmetic wallpaper is not worth the risk there.
 
 **Consequences.** A failure kills a throwaway process, not the system. The
 image build needs a JDK stage. Devices without root would fail the

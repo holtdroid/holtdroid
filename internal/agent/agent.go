@@ -53,6 +53,10 @@ type Config struct {
 	AppLanguage     bool
 	USBNetwork      bool
 	HostMetrics     bool
+	// NoWallpaper skips the session wallpaper. The Frida wallpaper attaches to
+	// system_server, whose detach crashes it on some phones (Samsung A05), so
+	// rooted phones turn it off.
+	NoWallpaper bool
 }
 
 func DefaultConfig() Config {
