@@ -1,0 +1,202 @@
+---
+title: Rooting a phone
+description: How one test phone was bootloader-unlocked and rooted with Magisk, for the record, with the sites and repositories that were used.
+sidebar:
+  order: 7
+tableOfContents: false
+---
+
+import RiskGate from "../../../components/RiskGate.astro"
+
+:::danger[Read before you tick anything]
+Holtdroid does not need root, and the [phone provider](/holtdroid/configuration/phones/) does not use it yet. This
+page exists because one test phone was rooted to prepare for Frida and DevTools on release builds, and the process was
+full of traps worth writing down. It is a record of what was done to one device, not a recommendation to do it to
+yours. Everything here can destroy a phone.
+:::
+
+<RiskGate>
+
+## What this is
+
+A walkthrough of unlocking the bootloader and installing Magisk on a **Samsung Galaxy A05** (`SM-A055M`, region
+`GTO`, firmware `A055MUBU5CXH1`, Android 14, MediaTek MT6769), done from the Linux host that runs the phone provider,
+with the phone's USB on that host. Other models differ in details (partition names, how the bootloader is unlocked,
+which tool can flash it); the shape of the work is the same.
+
+What root gives Holtdroid later: Frida for DevTools on release builds, reading app data, changing the system language.
+What it costs on a Samsung: the Knox fuse blows the moment the bootloader is unlocked and never un-blows — Samsung Pay,
+Secure Folder, Samsung Health's secure parts and the warranty are gone for good, OTA updates stop, and the boot screen
+warns about an unofficial OS from then on.
+
+## Tools and sources used
+
+| What                         | Where                                                                                                                                           | Used for                                                     |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| platform-tools (`adb`)       | [developer.android.com/tools/releases/platform-tools](https://developer.android.com/tools/releases/platform-tools) (or nixpkgs `android-tools`) | Talk to the phone, reboot to download mode, patch headlessly |
+| Stock firmware               | [samfw.com](https://samfw.com) — model `SM-A055M`, region `GTO`, build `A055MUBU5CXH1`                                                          | Source of the matching `boot.img` and `vbmeta.img`           |
+| Magisk                       | [github.com/topjohnwu/Magisk](https://github.com/topjohnwu/Magisk/releases) — `Magisk-v30.7.apk`                                                | Patch `boot.img`, grant root                                 |
+| Thor (Odin reimplementation) | [github.com/Samsung-Loki/Thor](https://github.com/Samsung-Loki/Thor)                                                                            | Flash on Linux where heimdall fails on modern Samsung        |
+| `lz4`                        | distro package / nixpkgs                                                                                                                        | Decompress `*.img.lz4` from the firmware tar                 |
+
+Things that did **not** work and why, so you don't repeat them:
+
+- **heimdall** (`brew`/nixpkgs) detects the device but fails `begin odin` with `Protocol initialisation failed!` on
+  this Samsung — its download protocol is too old. Thor handshakes fine.
+- **samfirm.js / samloader** CLIs hit `403 / Access Denied` from Samsung's FOTA server for this model+region, so the
+  firmware was downloaded from samfw.com through a browser instead.
+- There is no `init_boot` partition in this firmware — the ramdisk is in `boot.img` (header v2). Patch `boot.img`,
+  not `init_boot.img`.
+
+## Step 1 — allow the unlock
+
+On the phone: **Settings → About phone → Software information → tap Build number 7×** to unlock Developer options,
+then **Settings → Developer options → OEM unlocking → on**. If the toggle is greyed out, the phone has to be online
+for a while first (Samsung's RMM/KG state); leave it on Wi-Fi with a SIM and try again later.
+
+Confirm from a computer:
+
+```sh
+adb shell getprop sys.oem_unlock_allowed   # want: 1
+```
+
+## Step 2 — unlock the bootloader (wipes the phone)
+
+This factory-resets the device and trips Knox. On Samsung the unlock screen is **not** reachable with
+`adb reboot download` — that lands in plain Odin mode, which has no unlock prompt. Use the key combo:
+
+1. Power the phone off.
+2. Hold **Volume Up + Volume Down** together and plug in the USB cable; keep holding.
+3. On the blue warning screen, **long-press Volume Up** to reach the unlock screen, then **Volume Up again** to
+   confirm. The phone wipes itself and reboots.
+
+Verify after it boots and you re-enable USB debugging:
+
+```sh
+adb shell getprop ro.boot.flash.locked        # 0
+adb shell getprop ro.boot.verifiedbootstate   # orange
+adb shell getprop ro.boot.vbmeta.device_state # unlocked
+```
+
+## Step 3 — get boot.img and vbmeta.img from stock
+
+Download the exact firmware (`SM-A055M` / `GTO` / `A055MUBU5CXH1`) from samfw.com. It is one big `*_fac.zip`
+containing `AP_*.tar.md5`, `BL`, `CP`, `CSC` and `HOME_CSC`. You only need the AP. To avoid unpacking ~7 GB, stream
+just the two images out of it:
+
+```sh
+unzip -p SAMFW.COM_SM-A055M_GTO_A055MUBU5CXH1_fac.zip 'AP_*.tar.md5' \
+  | tar -xv boot.img.lz4 vbmeta.img.lz4
+lz4 -d boot.img.lz4 boot.img
+lz4 -d vbmeta.img.lz4 vbmeta.img
+```
+
+## Step 4 — patch boot.img with Magisk (headless)
+
+A racked phone has no screen to tap, so patch from the command line instead of the Magisk GUI. Unpack the APK's
+native binaries (they ship as `lib*.so`) and its scripts, push them with `boot.img` to the phone, and run
+`boot_patch.sh` **with the right flags** — this is the trap that bootlooped the device the first time:
+
+- `KEEPVERITY=true` and `KEEPFORCEENCRYPT=true` — the Magisk app sets both for Samsung. With them `false`,
+  `boot_patch.sh` strips `fileencryption=…,keydirectory=/metadata/…` from the fstab, `/data` won't mount, and the
+  phone reboots into the "data may be corrupt" recovery (rescue party) forever.
+- `PATCHVBMETAFLAG=true` — patches the vbmeta flags inside the boot image.
+
+```sh
+# on the host, from the unpacked Magisk apk directory:
+mkdir mp && cd mp
+cp lib/arm64-v8a/libmagiskboot.so  magiskboot
+cp lib/arm64-v8a/libmagiskinit.so  magiskinit
+cp lib/arm64-v8a/libmagisk.so      magisk
+cp lib/arm64-v8a/libinit-ld.so     init-ld
+cp assets/boot_patch.sh assets/util_functions.sh assets/stub.apk .
+cp /path/to/boot.img .
+
+adb push . /data/local/tmp/mp
+adb shell chmod 0755 /data/local/tmp/mp/magiskboot /data/local/tmp/mp/magiskinit \
+  /data/local/tmp/mp/magisk /data/local/tmp/mp/init-ld
+adb shell "cd /data/local/tmp/mp && \
+  KEEPVERITY=true KEEPFORCEENCRYPT=true PATCHVBMETAFLAG=true sh ./boot_patch.sh boot.img"
+adb pull /data/local/tmp/mp/new-boot.img new-boot.img
+```
+
+`Failed to patch` lines about the dtb during the run are normal — magiskboot patches verity in the dtb only where it
+finds the pattern. What matters is `Repack to boot image: [new-boot.img]` at the end.
+
+## Step 5 — disable verification in vbmeta
+
+With an unlocked bootloader the patched boot still needs verification off, or the phone drops to the red
+"An error has occurred while updating the device software" download screen. Clear the AVB flags (byte offset 120,
+set to `3` = `disable verity` + `disable verification`):
+
+```sh
+python3 - <<'PY'
+import struct
+b = bytearray(open("vbmeta.img","rb").read())
+assert b[:4] == b"AVB0"
+b[120:124] = struct.pack(">I", 3)
+open("vbmeta_disabled.img","wb").write(b)
+PY
+```
+
+## Step 6 — pack an Odin tar
+
+Odin/Thor flash tar archives whose entry names match the device's partitions. Put the patched boot and the disabled
+vbmeta in one `ustar` tar:
+
+```sh
+mkdir fw && cp new-boot.img fw/boot.img && cp vbmeta_disabled.img fw/vbmeta.img
+( cd fw && tar -H ustar -cf AP_fix.tar boot.img vbmeta.img )
+```
+
+Keep a rollback tar with the **stock** `boot.img` + stock `vbmeta.img` the same way — if the phone bootloops, flash
+that to get a clean, unrooted (but still unlocked) phone back without reflashing the whole firmware.
+
+## Step 7 — flash with Thor
+
+heimdall cannot flash this phone; Thor (a .NET Odin reimplementation) can. Download the Linux build from its
+releases, make it executable, and run it. On NixOS a foreign ELF needs an FHS wrapper (`steam-run`); on an ordinary
+distro run it directly. Root is needed for raw USB, and the host's `cdc_acm` module can grab the device in download
+mode — unload it if `connect` finds nothing:
+
+```sh
+sudo modprobe -r cdc_acm   # only if the device isn't found
+sudo ./Thor-Linux          # NixOS: sudo steam-run ./Thor-Linux
+```
+
+Put the phone in download mode first (`adb reboot download`, or the Volume Up + Volume Down + cable combo), then in
+the Thor shell:
+
+```
+connect
+begin odin
+flashTar <directory-with-AP_fix.tar>
+reboot normal
+exit
+```
+
+Pick the device at `connect`, tick `boot` and `vbmeta` at `flashTar`, confirm. `reboot normal` boots straight into
+the system instead of shutting down. First boot with Magisk takes a minute or two; the "not running official
+software" warning on boot is expected now.
+
+## Step 8 — finish Magisk and grant root
+
+Install the Magisk app and open it; it asks to do **additional setup** and reboots once more. After that, root works,
+but the adb `shell` user is denied by default — grant it:
+
+```sh
+adb install Magisk-v30.7.apk
+# in Magisk: Superuser tab → enable the toggle for "[SharedUID] Shell" (com.android.shell)
+adb shell su -c id   # want: uid=0(root) ... context=u:r:magisk:s0
+```
+
+That `su` then works from the provider's adb too, so the host — and Holtdroid's agent — has root on the phone.
+
+## If it bootloops
+
+Flash the **stock** rollback tar from step 6 (stock `boot.img` + stock `vbmeta.img`) with Thor and `reboot normal`.
+The phone comes up unrooted, data wiped, bootloader still unlocked; re-enable USB debugging and start again from step
+4 with the correct flags. A failed flash never bricks on its own: the device stays in download mode and can always be
+reflashed with full stock firmware.
+
+</RiskGate>

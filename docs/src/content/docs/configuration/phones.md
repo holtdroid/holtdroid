@@ -378,3 +378,5 @@ adb shell am broadcast -n io.github.kriakiku.holtdroid.tunnel/.ControlReceiver -
 
 A check after the cleanup before a phone is offered again, power cycling
 through the USB hub, and root mode with Frida (DevTools for release builds).
+The provider needs no root today; [rooting a phone](/holtdroid/configuration/rooting/)
+is written up separately, as a record of what it takes and costs on one device.
