@@ -153,7 +153,7 @@ func TestOwnerActions(t *testing.T) {
 		owner    ownerStatus
 		lockdown bool
 	}{
-		{"fresh owner", ownerStatus{DeviceOwner: true}, true},
+		{"fresh owner", ownerStatus{DeviceOwner: true, PasswordSet: true}, true},
 		{"usb restricted", ownerStatus{DeviceOwner: true, Restrictions: []string{"no_modify_accounts", "no_usb_file_transfer"}}, true},
 		{"locked down", ownerStatus{DeviceOwner: true, Restrictions: []string{"no_modify_accounts", "no_sms"}}, false},
 	} {
@@ -161,7 +161,7 @@ func TestOwnerActions(t *testing.T) {
 			adb := &appADB{}
 			_ = ownerActions(ctx, adb, tc.owner)
 			calls := strings.Join(adb.calls, "\n")
-			if !strings.Contains(calls, ".SESSION_END") || !strings.Contains(calls, ".CLEAR_PASSWORD") ||
+			if !strings.Contains(calls, ".SESSION_END") || strings.Contains(calls, ".CLEAR_PASSWORD") != tc.owner.PasswordSet ||
 				strings.Contains(calls, ".LOCKDOWN --es skip no_usb_file_transfer") != tc.lockdown {
 				t.Fatalf("calls:\n%s", calls)
 			}

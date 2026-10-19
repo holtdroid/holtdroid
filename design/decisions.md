@@ -1920,8 +1920,8 @@ VPN locations, and replaces an older build signed with another key unless
 the app is the device owner. The agent learns ownership from the app's
 `STATUS`: as owner, the `Launcher` starts the app under test with
 `SESSION_START` (features `system_info,notifications,home,overview`, so no
-power menu) instead of `monkey`, and every cleanup ends with `SESSION_END`
-and `CLEAR_PASSWORD`, plus `LOCKDOWN --es skip no_usb_file_transfer` when
+power menu) instead of `monkey`, and every cleanup ends with `SESSION_END`,
+`CLEAR_PASSWORD` when a PIN is set, plus `LOCKDOWN --es skip no_usb_file_transfer` when
 the restrictions aren't in place yet. Every `LOCKDOWN`, even an unchanged
 one, the USB file transfer restriction, and on Samsung entering or leaving
 lock task make the phone re-enumerate on USB. adb (libusb; platform-tools

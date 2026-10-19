@@ -28,6 +28,7 @@ type ownerStatus struct {
 	Restrictions []string `json:"restrictions"`
 	LockTask     string   `json:"lock_task"`
 	Session      string   `json:"session"`
+	PasswordSet  bool     `json:"password_set"`
 }
 
 // waiter is an adb that can wait for the phone to come back.
@@ -139,7 +140,10 @@ func ownerActions(ctx context.Context, adb Shell, owner ownerStatus) error {
 	if err := kioskCall(ctx, adb, "SESSION_END", "", func(o ownerStatus) bool { return o.LockTask == "none" }); err != nil {
 		errs = append(errs, err)
 	}
-	actions := [][2]string{{"CLEAR_PASSWORD", ""}}
+	var actions [][2]string
+	if owner.PasswordSet {
+		actions = append(actions, [2]string{"CLEAR_PASSWORD", ""})
+	}
 	if !owner.lockedDown() {
 		actions = append(actions, [2]string{"LOCKDOWN", lockdownExtras})
 	}
