@@ -102,13 +102,16 @@ deployment"):
   #68). VPN locations over the USB cable through Holtdroid Tunnel and a
   per-session sing-box on the host (decision #69). Image
   `ghcr.io/kriakiku/holtdroid-physical` with adb, scrcpy-server, sing-box
-  and the tunnel APK (decision #70). Not yet: root mode, the rest of the
-  Phase 7 protections, the chart. Tried on a real phone (Samsung Galaxy
+  and the tunnel APK (decision #70). In the chart as `providers.physical`
+  on the phones' node host network (decision #78), deployed on the
+  maintainer's cluster with a Galaxy A05 on k3s-1 whose Holtdroid Tunnel is
+  the device owner (decision #77). Not yet: root mode, a check after the
+  cleanup. Tried on a real phone (Samsung Galaxy
   A05, Android 14, no SIM) through `holtdroid-physical` in a scratch
   namespace on 2026-10-19: install, screen, DevTools of a debuggable app,
   VPN over USB with location switching on the fly (PL, UA, direct; the
   app's own traffic follows), reset after the session. The ADB proxy
-  (browser and SSH) is not tried on a phone yet. Phones are cleaned against
+  (browser) works on the phone; over SSH it is not tried yet. Phones are cleaned against
   a recorded baseline before and after every session and parked between
   them (decision #71); sound stays in the browser (routed to the session's
   capture, verified on the A05) and the microphone is blocked (decision
@@ -129,8 +132,8 @@ deployment"):
 
 ## Next steps, in order
 
-1. Phones: the Helm chart for `provider-physical`, try the ADB proxy on a
-   real phone, then root mode.
+1. Phones: try the ADB proxy over SSH on the real phone, a check after the
+   cleanup, then root mode.
 2. The conformance suite (`internal/contract/conformance`) for Provider and
    Agent — the last open item of Phases 1 and 3.
 3. Planned, each starting with a decisions.md entry: Phase 4.7 traffic
