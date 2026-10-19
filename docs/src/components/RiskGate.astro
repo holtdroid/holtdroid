@@ -1,49 +1,47 @@
 ---
-const required = [
-  "I take these risks on myself. Nobody talked me into anything: I decide what happens to my device, and I own the outcome.",
-  "This can break the device for good: a brick that never boots again, every byte of data gone, no way back.",
-  "Nobody is responsible for what happens, not the author of this site, not the Holtdroid project, not the authors of the tools mentioned here.",
-  "This may violate the terms of use of my device, of its vendor's services, of my carrier, and the rules of my employer or organisation.",
-  "It limits the device irreversibly: on Samsung the Knox fuse blows once and forever, taking Samsung Pay, Secure Folder, every Knox-backed feature and the warranty with it, even after going back to stock.",
-  "I am reading this for educational purposes only. I am not planning to root or reflash my device, or anyone else's.",
+// The checklist that unblurs the rooting guide. One of the items is a trap
+// ("I am a cactus"): it looks like every other line, and only when someone
+// hits the reveal button with it ticked does it light up and refuse.
+const items = [
+  { text: "I take these risks on myself. Nobody talked me into anything: I decide what happens to my device, and I own the outcome." },
+  { text: "This can break the device for good: a brick that never boots again, every byte of data gone, no way back." },
+  { text: "Nobody is responsible for what happens, not the author of this site, not the Holtdroid project, not the authors of the tools mentioned here." },
+  { text: "I am a cactus. 🌵", cactus: true },
+  { text: "This may violate the terms of use of my device, of its vendor's services, of my carrier, and the rules of my employer or organisation." },
+  { text: "It limits the device irreversibly: on Samsung the Knox fuse blows once and forever, taking Samsung Pay, Secure Folder, every Knox-backed feature and the warranty with it, even after going back to stock." },
+  { text: "I am reading this for educational purposes only. I am not planning to root or reflash my device, or anyone else's." },
 ]
 ---
 
 <div class="risk-gate not-content" data-risk-gate>
-  <form class="gate" onsubmit="return false">
+  <form class="gate" data-gate onsubmit="return false">
     <p class="lead">
       This page is blurred on purpose. It describes how a test phone was unlocked and rooted, step by step, with the
       sites and repositories that were used. Before it unblurs, tick every statement below. All of them, honestly.
     </p>
     <ul class="terms">
       {
-        required.map((text) => (
-          <li>
+        items.map((item) => (
+          <li class:list={["term", { cactus: item.cactus }]} data-cactus={item.cactus ? "" : null}>
             <label>
-              <input type="checkbox" data-required />
-              <span>{text}</span>
+              <input type="checkbox" data-input data-cactus-input={item.cactus ? "" : null} />
+              <span>{item.text}</span>
             </label>
           </li>
         ))
       }
-      <li class="cactus-row" data-cactus-row>
-        <label>
-          <input type="checkbox" data-cactus />
-          <span>I am a cactus. 🌵</span>
-        </label>
-      </li>
     </ul>
     <div class="actions">
-      <span class="button-wrap" data-button-wrap>
-        <button type="button" disabled data-reveal>Show the guide</button>
-        <span class="tip" role="tooltip">
-          Absolutely not. This project is firmly, openly and irreversibly anti-cactus. Cacti are not allowed to root
-          anything. Untick that box, or go photosynthesise somewhere else.
-        </span>
-      </span>
+      <button type="button" disabled data-reveal>Show the guide</button>
       <span class="hint" data-hint aria-live="polite">Tick every statement to continue.</span>
     </div>
   </form>
+
+  <aside class="disclaimer" data-disclaimer hidden>
+    <strong>At your own risk.</strong> Everything on this page is done by you, on your own responsibility. The outcome
+    is yours, not the maintainer's, not the Holtdroid project's, not the authors' of the tools named here.
+  </aside>
+
   <div class="content" data-content aria-hidden="true" inert>
     <slot />
   </div>
@@ -51,37 +49,43 @@ const required = [
 
 <script>
   function arm(root: HTMLElement) {
-    const required = [...root.querySelectorAll<HTMLInputElement>("[data-required]")]
-    const cactus = root.querySelector<HTMLInputElement>("[data-cactus]")!
-    const cactusRow = root.querySelector<HTMLElement>("[data-cactus-row]")!
-    const wrap = root.querySelector<HTMLElement>("[data-button-wrap]")!
+    const inputs = [...root.querySelectorAll<HTMLInputElement>("[data-input]")]
+    const cactusRow = root.querySelector<HTMLElement>("[data-cactus]")
+    const cactusInput = root.querySelector<HTMLInputElement>("[data-cactus-input]")
+    const normal = inputs.filter((i) => i !== cactusInput)
     const button = root.querySelector<HTMLButtonElement>("[data-reveal]")!
     const hint = root.querySelector<HTMLElement>("[data-hint]")!
+    const gate = root.querySelector<HTMLElement>("[data-gate]")!
+    const disclaimer = root.querySelector<HTMLElement>("[data-disclaimer]")!
     const content = root.querySelector<HTMLElement>("[data-content]")!
 
+    const allTicked = () => normal.every((i) => i.checked)
     const update = () => {
-      const all = required.every((i) => i.checked)
-      const isCactus = cactus.checked
-      cactusRow.classList.toggle("lit", isCactus)
-      wrap.classList.toggle("cactus", isCactus)
-      button.disabled = isCactus || !all
-      hint.textContent = isCactus
-        ? "A cactus has been detected. The button has been withdrawn."
-        : all
-          ? "Thank you. The guide is yours."
-          : `${required.filter((i) => i.checked).length} of ${required.length} ticked.`
+      cactusRow?.classList.remove("lit")
+      button.disabled = !allTicked()
+      hint.textContent = allTicked()
+        ? "Ready. Press the button."
+        : `${normal.filter((i) => i.checked).length} of ${normal.length} ticked.`
     }
 
-    for (const input of [...required, cactus]) input.addEventListener("change", update)
+    for (const input of inputs) input.addEventListener("change", update)
+
     button.addEventListener("click", () => {
       if (button.disabled) return
+      if (cactusInput?.checked) {
+        cactusRow?.classList.add("lit")
+        hint.textContent =
+          "A cactus. This project is firmly, openly and irreversibly anti-cactus — cacti may not root anything. Untick that, or go photosynthesise elsewhere."
+        cactusRow?.scrollIntoView({ block: "center", behavior: "smooth" })
+        return
+      }
       root.classList.add("open")
+      gate.hidden = true
+      disclaimer.hidden = false
       content.removeAttribute("aria-hidden")
       content.removeAttribute("inert")
-      for (const input of [...required, cactus]) input.disabled = true
-      button.disabled = true
-      hint.textContent = "Unblurred. Read it, and then do nothing with it."
     })
+
     update()
   }
 
@@ -108,7 +112,7 @@ const required = [
     display: grid;
     gap: 0.6rem;
   }
-  .risk-gate .terms label {
+  .risk-gate .term label {
     display: grid;
     grid-template-columns: 1.4rem 1fr;
     gap: 0.6rem;
@@ -118,33 +122,35 @@ const required = [
     cursor: pointer;
     line-height: 1.45;
   }
-  .risk-gate .terms label:hover {
+  .risk-gate .term label:hover {
     background: color-mix(in srgb, var(--sl-color-white) 6%, transparent);
   }
-  .risk-gate .terms input {
+  .risk-gate .term input {
     margin: 0.25rem 0 0;
     width: 1.1rem;
     height: 1.1rem;
     accent-color: var(--sl-color-orange);
   }
-  .risk-gate .cactus-row {
-    margin-top: 0.5rem;
-    border-top: 1px dashed var(--sl-color-gray-4);
-    padding-top: 0.6rem;
-  }
-  .risk-gate .cactus-row label {
-    font-style: italic;
-    color: var(--sl-color-gray-2);
-  }
-  .risk-gate .cactus-row.lit label {
+  .risk-gate .term.lit label {
     background: color-mix(in srgb, var(--sl-color-green) 22%, transparent);
     box-shadow: 0 0 0 2px var(--sl-color-green);
     color: var(--sl-color-white);
-    font-style: normal;
     font-weight: 600;
+    animation: risk-gate-pop 0.3s ease;
   }
-  .risk-gate .cactus-row.lit input {
+  .risk-gate .term.lit input {
     accent-color: var(--sl-color-green);
+  }
+  @keyframes risk-gate-pop {
+    0% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.02);
+    }
+    100% {
+      transform: scale(1);
+    }
   }
   .risk-gate .actions {
     display: flex;
@@ -152,10 +158,6 @@ const required = [
     align-items: center;
     gap: 0.75rem 1rem;
     margin-top: 1.1rem;
-  }
-  .risk-gate .button-wrap {
-    position: relative;
-    display: inline-block;
   }
   .risk-gate button {
     font: inherit;
@@ -171,41 +173,26 @@ const required = [
     cursor: not-allowed;
     opacity: 0.45;
   }
-  .risk-gate .button-wrap.cactus button:disabled {
-    background: var(--sl-color-green);
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-  .risk-gate .tip {
-    display: none;
-    position: absolute;
-    left: 0;
-    bottom: calc(100% + 0.6rem);
-    width: min(22rem, 80vw);
-    padding: 0.6rem 0.8rem;
-    border-radius: 0.5rem;
-    background: var(--sl-color-black);
-    color: var(--sl-color-white);
-    border: 1px solid var(--sl-color-green);
-    font-size: var(--sl-text-sm);
-    line-height: 1.4;
-    z-index: 2;
-  }
-  .risk-gate .tip::after {
-    content: "";
-    position: absolute;
-    left: 1.2rem;
-    top: 100%;
-    border: 0.45rem solid transparent;
-    border-top-color: var(--sl-color-green);
-  }
-  .risk-gate .button-wrap.cactus:hover .tip,
-  .risk-gate .button-wrap.cactus:focus-within .tip {
-    display: block;
-  }
   .risk-gate .hint {
     font-size: var(--sl-text-sm);
     color: var(--sl-color-gray-2);
+  }
+  .risk-gate .disclaimer {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    margin: 0 0 1.25rem;
+    padding: 0.7rem 1rem;
+    border: 1px solid var(--sl-color-orange);
+    border-radius: 0.5rem;
+    background: var(--sl-color-orange-low);
+    color: var(--sl-color-white);
+    font-size: var(--sl-text-sm);
+    line-height: 1.45;
+    backdrop-filter: blur(6px);
+  }
+  .risk-gate .disclaimer strong {
+    color: var(--sl-color-orange-high);
   }
   .risk-gate .content {
     filter: blur(9px);
@@ -217,8 +204,5 @@ const required = [
     filter: none;
     user-select: auto;
     pointer-events: auto;
-  }
-  .risk-gate.open .gate {
-    opacity: 0.7;
   }
 </style>
