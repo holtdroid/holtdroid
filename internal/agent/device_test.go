@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"errors"
+	"math"
 	"net/http"
 	"reflect"
 	"slices"
@@ -69,7 +70,7 @@ autotime=0
 `,
 		clock: "1760003600000000000",
 	}
-	c := NewControls(dev, "", true)
+	c := NewControls(dev, "", true, false)
 	c.now = func() time.Time { return now }
 	got, err := c.State(context.Background())
 	if err != nil {
@@ -127,7 +128,7 @@ func TestControlsUpdate(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dev := &scriptedDevice{clock: "1760000000"}
-			c := NewControls(dev, "", true)
+			c := NewControls(dev, "", true, false)
 			c.now = func() time.Time { return now }
 			if _, err := c.Update(context.Background(), tc.in); err != nil {
 				t.Fatal(err)
@@ -143,7 +144,7 @@ func TestControlsUpdate(t *testing.T) {
 }
 
 func TestControlsLocaleUnsupported(t *testing.T) {
-	c := NewControls(&scriptedDevice{clock: "1760000000"}, "", true)
+	c := NewControls(&scriptedDevice{clock: "1760000000"}, "", true, false)
 	if _, err := c.Update(context.Background(), contract.DeviceSettings{Locales: []string{"ru-RU"}}); err == nil {
 		t.Fatal("want an error without a locale setter")
 	}
@@ -163,14 +164,14 @@ func TestControlsActions(t *testing.T) {
 		{contract.DeviceRotateRight, "settings put system accelerometer_rotation 0 && settings put system user_rotation 2"},
 	} {
 		dev := &scriptedDevice{}
-		if err := NewControls(dev, "", true).Action(context.Background(), tc.action); err != nil {
+		if err := NewControls(dev, "", true, false).Action(context.Background(), tc.action); err != nil {
 			t.Fatal(err)
 		}
 		if len(dev.cmds) != 1 || dev.cmds[0] != tc.cmd {
 			t.Errorf("%s: %q", tc.action, dev.cmds)
 		}
 	}
-	if err := NewControls(&scriptedDevice{}, "", true).Action(context.Background(), "explode"); err == nil {
+	if err := NewControls(&scriptedDevice{}, "", true, false).Action(context.Background(), "explode"); err == nil {
 		t.Fatal("unknown action accepted")
 	}
 }
@@ -214,7 +215,7 @@ func TestAgentDeviceAPI(t *testing.T) {
 
 func TestControlsOnAPhone(t *testing.T) {
 	dev := &scriptedDevice{clock: "1760000000"}
-	c := NewControls(dev, "", false)
+	c := NewControls(dev, "", false, false)
 	s, err := c.State(context.Background())
 	if err != nil || s.CanFakeGeo || s.CanSimulateBattery || s.NetworkProfile != "" {
 		t.Fatalf("state %+v, %v", s, err)
@@ -229,7 +230,7 @@ func TestControlsOnAPhone(t *testing.T) {
 
 func TestControlsAppLanguage(t *testing.T) {
 	dev := &scriptedDevice{clock: "1760000000"}
-	c := NewControls(dev, "", false)
+	c := NewControls(dev, "", false, false)
 	c.appLocales = "com.example.shop"
 	s, err := c.State(context.Background())
 	if err != nil || s.LanguageScope != contract.LanguageApp || s.Locale != "lt-LT" || len(s.Locales) != 1 {
@@ -240,5 +241,81 @@ func TestControlsAppLanguage(t *testing.T) {
 	}
 	if !slices.Contains(dev.cmds, "cmd locale set-app-locales com.example.shop --user 0 --locales de-DE") {
 		t.Fatalf("cmds %q", dev.cmds)
+	}
+}
+
+func TestControlsOnARootedPhone(t *testing.T) {
+	dev := &scriptedDevice{state: "level=55\n", clock: "1760000000"}
+	c := NewControls(dev, "/locales.dex", false, true)
+	s, err := c.State(context.Background())
+	if err != nil || !s.CanSimulateBattery || !s.CanFakeGeo {
+		t.Fatalf("state %+v, %v", s, err)
+	}
+	if _, err := c.Update(context.Background(), contract.DeviceSettings{BatteryLevel: new(55)}); err != nil {
+		t.Fatalf("battery on a rooted phone: %v", err)
+	}
+	if len(dev.cmds) != 1 || !strings.HasPrefix(dev.cmds[0], "su -c '") || !strings.Contains(dev.cmds[0], "dumpsys battery set level 55") {
+		t.Fatalf("rooted update not escalated through su: %q", dev.cmds)
+	}
+	dev.cmds = nil
+	if _, err := c.Update(context.Background(), contract.DeviceSettings{Locales: []string{"de-DE"}}); err != nil {
+		t.Fatalf("system language on a rooted phone: %v", err)
+	}
+	if len(dev.cmds) != 1 || !strings.Contains(dev.cmds[0], "su -c '") || !strings.Contains(dev.cmds[0], "app_process / Locales de-DE") {
+		t.Fatalf("system language not set through su app_process: %q", dev.cmds)
+	}
+	dev.cmds = nil
+	if _, err := c.Update(context.Background(), contract.DeviceSettings{Geo: &contract.GeoPoint{Latitude: 48.8566, Longitude: 2.3522}}); err != nil {
+		t.Fatalf("fake GPS on a rooted phone: %v", err)
+	}
+	if len(dev.cmds) != 1 || !strings.Contains(dev.cmds[0], "add-test-provider gps") || !strings.Contains(dev.cmds[0], "set-test-provider-location gps --location 48.8566,2.3522") {
+		t.Fatalf("GPS not faked through a test provider: %q", dev.cmds)
+	}
+}
+
+func TestRandomInRadius(t *testing.T) {
+	const lat, lng, r = 50.45, 30.52, 5000.0
+	for range 500 {
+		p := randomInRadius(lat, lng, r)
+		dLat := (p.Latitude - lat) * 111320
+		dLng := (p.Longitude - lng) * 111320 * math.Cos(lat*math.Pi/180)
+		if d := math.Hypot(dLat, dLng); d > r*1.02 {
+			t.Fatalf("point %v is %.0fm from centre, radius %.0f", p, d, r)
+		}
+	}
+	// zero radius falls back to the 10km default, not a single point
+	if p := randomInRadius(lat, lng, 0); p.Latitude == lat && p.Longitude == lng {
+		t.Fatalf("zero radius did not spread")
+	}
+}
+
+func TestFollowLocationRooted(t *testing.T) {
+	dev := &scriptedDevice{clock: "1760000000"}
+	c := NewControls(dev, "", false, true) // rooted phone
+	if err := c.FollowLocation(context.Background(), &contract.GeoPoint{Latitude: 50.45, Longitude: 30.52}, "Europe/Kyiv"); err != nil {
+		t.Fatal(err)
+	}
+	all := strings.Join(dev.cmds, "\n")
+	if !strings.Contains(all, "su -c") || !strings.Contains(all, "cmd alarm set-timezone Europe/Kyiv") {
+		t.Fatalf("timezone not set silently via su: %q", dev.cmds)
+	}
+	if !strings.Contains(all, "add-test-provider gps") || !strings.Contains(all, "add-test-provider network") {
+		t.Fatalf("geo not faked for gps and network (forbid real): %q", dev.cmds)
+	}
+	// a manual override stops the location from moving the GPS, but tz still follows
+	dev.cmds = nil
+	if _, err := c.Update(context.Background(), contract.DeviceSettings{Geo: &contract.GeoPoint{Latitude: 1, Longitude: 2}}); err != nil {
+		t.Fatal(err)
+	}
+	dev.cmds = nil
+	if err := c.FollowLocation(context.Background(), &contract.GeoPoint{Latitude: 9, Longitude: 9}, "Asia/Tokyo"); err != nil {
+		t.Fatal(err)
+	}
+	all = strings.Join(dev.cmds, "\n")
+	if !strings.Contains(all, "set-timezone Asia/Tokyo") {
+		t.Fatalf("tz should still follow location under override: %q", dev.cmds)
+	}
+	if strings.Contains(all, "set-test-provider-location") {
+		t.Fatalf("override should keep the location from moving the GPS: %q", dev.cmds)
 	}
 }

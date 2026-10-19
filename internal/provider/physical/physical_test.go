@@ -53,7 +53,8 @@ func (h *fakeHost) Inspect(_ context.Context, serial string) (contract.DeviceInf
 func (h *fakeHost) Agent(cfg agent.Config, s phone.Session, _ *slog.Logger) Agent {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	a := &fakeAgent{cfg: cfg, tunnel: s.Tunnel, session: s, state: contract.StateReady}
+	tun, _ := s.Tunnel.(*phone.Tunnel)
+	a := &fakeAgent{cfg: cfg, tunnel: tun, session: s, state: contract.StateReady}
 	h.agents = append(h.agents, a)
 	return a
 }

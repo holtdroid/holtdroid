@@ -105,7 +105,7 @@ func providerEmulatorCmd(c *common) *cobra.Command {
 func providerPhysicalCmd(c *common) *cobra.Command {
 	return &cobra.Command{
 		Use:   "provider-physical",
-		Short: "Run the device provider for phones plugged into this host over USB (no root needed)",
+		Short: "Run the device provider for phones plugged into this host over USB (root optional, per phone)",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg := physical.DefaultConfig()
 			rt, err := loadConfig(c.configPath, &cfg)

@@ -10,6 +10,14 @@ import (
 	"strings"
 )
 
+// tunnel is how a session's phone reaches the internet: the VpnService app
+// (non-root) or a sing-box tun started through su (root). Both carry the
+// phone's traffic over adb reverse to the host's per-session sing-box.
+type tunnel interface {
+	start(ctx context.Context, adb ADB) error
+	running(ctx context.Context, adb ADB) (bool, error)
+}
+
 // TunnelPackage is Holtdroid Tunnel (github.com/kriakiku/holtdroid-tunnel),
 // the VpnService that sends the phone's traffic over adb reverse to the host.
 const TunnelPackage = "io.github.kriakiku.holtdroid.tunnel"
@@ -43,7 +51,7 @@ type tunnelStatus struct {
 
 // start turns the radios off so nothing leaves the phone except through
 // the host, maps the port and starts the VPN; App.Ensure installs the app.
-func (t *Tunnel) start(ctx context.Context, adb TunnelADB) error {
+func (t *Tunnel) start(ctx context.Context, adb ADB) error {
 	if _, err := adb.Shell(ctx, "appops set "+TunnelPackage+" ACTIVATE_VPN allow; svc wifi disable; svc data disable"); err != nil {
 		return err
 	}
@@ -63,7 +71,7 @@ func (t *Tunnel) start(ctx context.Context, adb TunnelADB) error {
 }
 
 // running tells whether the VPN is up and reaches the host.
-func (t *Tunnel) running(ctx context.Context, adb TunnelADB) (bool, error) {
+func (t *Tunnel) running(ctx context.Context, adb ADB) (bool, error) {
 	st, _, err := broadcast(ctx, adb, "STATUS", "")
 	if err != nil {
 		return false, err

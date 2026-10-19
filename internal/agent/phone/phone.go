@@ -1,5 +1,7 @@
 // Package phone prepares a physical phone on USB for a session and puts it
-// back afterwards. It needs no root.
+// back afterwards. A session runs without root; a rooted phone (Session.Root)
+// additionally starts frida-server through su so the agent can instrument the
+// app and apply the extra root capabilities.
 package phone
 
 import (
@@ -19,6 +21,12 @@ type Config struct {
 	// ProtectBattery caps charging (Samsung's "Protect battery", at 80% on
 	// One UI 6): phones stay plugged in all the time.
 	ProtectBattery bool
+	// FridaServer is the frida-server binary pushed to a rooted phone and
+	// started through su; empty disables root mode even for a root session.
+	FridaServer string
+	// SingBox is the static arm64 sing-box pushed to a rooted phone for the
+	// transparent tun tunnel (RootTunnel).
+	SingBox string
 }
 
 // DefaultSuspend are the apps a session must not open: settings (a PIN,
@@ -36,7 +44,7 @@ var DefaultSuspend = []string{
 }
 
 func DefaultConfig() Config {
-	return Config{BootTimeout: 2 * time.Minute, Poll: 5 * time.Second, Misses: 3, Suspend: DefaultSuspend, ProtectBattery: true}
+	return Config{BootTimeout: 2 * time.Minute, Poll: 5 * time.Second, Misses: 3, Suspend: DefaultSuspend, ProtectBattery: true, FridaServer: "/opt/holtdroid/frida-server", SingBox: "/opt/holtdroid/sing-box-android"}
 }
 
 // ADB is what a phone session needs from adb.
@@ -44,6 +52,7 @@ type ADB interface {
 	WaitBoot(ctx context.Context) error
 	State(ctx context.Context) (string, error)
 	Shell(ctx context.Context, cmd string) (string, error)
+	Push(ctx context.Context, local, remote string) error
 	Install(ctx context.Context, apk string) error
 	Reverse(ctx context.Context, port, local int) error
 	RemoveAll(ctx context.Context) error
@@ -55,9 +64,13 @@ type ADB interface {
 type Session struct {
 	Package  string
 	App      App
-	Tunnel   *Tunnel
+	Tunnel   tunnel
 	Baseline *Baseline
 	Resume   bool
+	// Root runs the session with root: frida-server is started through su so
+	// the agent instruments the app (DevTools for release builds) and the
+	// extra root capabilities apply.
+	Root bool
 }
 
 type Phone struct {
@@ -87,7 +100,7 @@ func (p *Phone) Run(ctx context.Context, booted func()) error {
 		return fmt.Errorf("phone did not come up: %w", err)
 	}
 	if !p.s.Resume {
-		if err := Clean(ctx, p.adb, Cleanup{Package: p.s.Package, Baseline: p.s.Baseline, Offline: p.s.Tunnel != nil, Suspend: p.cfg.Suspend, ProtectBattery: p.cfg.ProtectBattery}); err != nil {
+		if err := Clean(ctx, p.adb, Cleanup{Package: p.s.Package, Baseline: p.s.Baseline, Offline: p.s.Tunnel != nil && !p.s.Root, Root: p.s.Root, Suspend: p.cfg.Suspend, ProtectBattery: p.cfg.ProtectBattery}); err != nil {
 			p.log.Warn("clean the phone before the session", "err", err)
 		}
 	}
@@ -96,6 +109,14 @@ func (p *Phone) Run(ctx context.Context, booted func()) error {
 	}
 	if _, err := p.adb.Shell(ctx, wake); err != nil {
 		p.log.Warn("could not wake the phone", "err", err)
+	}
+	if p.s.Root {
+		if err := p.prepareRoot(ctx); err != nil {
+			return fmt.Errorf("root mode: %w", err)
+		}
+		if err := lockdownCalls(ctx, p.adb); err != nil {
+			p.log.Warn("lock down calls", "err", err)
+		}
 	}
 	if p.s.Tunnel != nil {
 		if err := p.s.Tunnel.start(ctx, p.adb); err != nil {
@@ -115,6 +136,9 @@ func (p *Phone) Run(ctx context.Context, booted func()) error {
 			misses = 0
 			if _, err := p.adb.Shell(ctx, privacy); err != nil && ctx.Err() == nil {
 				p.log.Warn("block the microphone", "err", err)
+			}
+			if p.s.Root {
+				p.hideRoot(ctx)
 			}
 			p.keepTunnel(ctx)
 			continue

@@ -297,6 +297,7 @@ type DeviceState struct {
 	Locales            []string       `json:"locales" doc:"the system languages in order: the first is locale, the rest add their keyboard layouts"`
 	LanguageScope      LanguageScope  `json:"languageScope" enum:"system,app" doc:"system: locales are the system languages; app: only the app under test's language can be set (phones without root)"`
 	Geo                *GeoPoint      `json:"geo,omitempty" doc:"the faked GPS position; empty while the device reports its default one"`
+	GeoOverride        bool           `json:"geoOverride" doc:"the GPS is a session override set by the user; otherwise it follows the VPN location"`
 	CanFakeGeo         bool           `json:"canFakeGeo"`
 	CanSimulateBattery bool           `json:"canSimulateBattery" doc:"the battery level and charging can be set; battery saver works everywhere"`
 	USBNetwork         bool           `json:"usbNetwork" doc:"the device reaches the internet over USB through the host, so Wi-Fi and mobile data are off on purpose"`

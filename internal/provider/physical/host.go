@@ -104,7 +104,19 @@ func parseProps(out string) contract.SlotCapabilities {
 
 func (h ADBHost) Agent(cfg agent.Config, s phone.Session, log *slog.Logger) Agent {
 	adb := agent.ADB{Bin: h.Bin, Serial: cfg.Serial}
-	return agent.New(cfg, adb, agent.NewLauncher(adb), phone.New(h.Phone, adb, s, log).Run, log)
+	var inst agent.Instrumenter
+	if cfg.Root {
+		if f, err := agent.NewFrida(cfg.Serial, cfg.Script, log); err != nil {
+			log.Warn("root mode wants Frida but this binary has none; the session runs without root", "err", err)
+			s.Root, cfg.Root = false, false
+		} else {
+			inst = f
+		}
+	}
+	if inst == nil {
+		inst = agent.NewLauncher(adb)
+	}
+	return agent.New(cfg, adb, inst, phone.New(h.Phone, adb, s, log).Run, log)
 }
 
 func (h ADBHost) Capture(ctx context.Context, serial string) (*phone.Baseline, error) {

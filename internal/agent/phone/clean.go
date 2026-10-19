@@ -84,6 +84,7 @@ type Cleanup struct {
 	Baseline       *Baseline
 	Offline        bool
 	End            bool
+	Root           bool
 	Suspend        []string
 	ProtectBattery bool
 }
@@ -142,6 +143,14 @@ func Clean(ctx context.Context, adb ADB, c Cleanup) error {
 	}
 	if s := suspendScript(c); s != "" {
 		run("suspend", s)
+	}
+	if c.Root {
+		run("tun", "su -Z "+magiskSELinux+" -c "+shellQuote(stopRootTunnel))
+		run("frida", "su -c "+shellQuote("pkill -x frida-server 2>/dev/null; true"))
+		run("calls", unlockCalls(ctx, adb))
+		if packageName.MatchString(c.Package) {
+			run("denylist", "su -c "+shellQuote(denylist("rm", c.Package)))
+		}
 	}
 	run("storage", wipeStorage)
 	run("device", resetDevice)

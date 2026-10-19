@@ -538,14 +538,14 @@ function LanguageControl({ s, set, busy, provider, id, vpn }: Props & { provider
     <RailControl
       label="Language and region"
       icon={LanguagesIcon}
-      changed={relabeled || !!s.geo}
+      changed={relabeled || s.geoOverride}
       summary={[languageName(s.locale, s.locale), s.timeZone.replaceAll("_", " "), s.geo && `GPS ${geoName(s.geo)}`]
         .filter(Boolean)
         .join(" · ")}
       onReset={() =>
         set({
           ...(relabeled && { locales: appOnly ? [baseLayout] : desiredLocales(baseLayout, current) }),
-          ...(s.geo && { resetGeo: true }),
+          ...(s.geoOverride && { resetGeo: true }),
         })
       }
     >
@@ -652,6 +652,8 @@ function KeyboardLayouts({
 function GeoControl({ s, set, busy, vpnCountry }: Props & { vpnCountry?: string }) {
   const [text, setText] = useState("")
   const [locating, setLocating] = useState(false)
+  const [override, setOverride] = useState(s.geoOverride)
+  const manual = override || s.geoOverride
   const cities = useMemo(
     () =>
       CITIES.map((c) => ({
@@ -686,50 +688,70 @@ function GeoControl({ s, set, busy, vpnCountry }: Props & { vpnCountry?: string 
       <div className="flex items-center gap-2 text-sm">
         <MapPinIcon className="text-muted-foreground size-4" />
         <span className="min-w-0 flex-1 truncate">{geoName(s.geo)}</span>
-        {!s.geo && <span className="text-muted-foreground text-xs">emulator default</span>}
+        {!manual && <span className="text-muted-foreground text-xs">follows the VPN location</span>}
       </div>
-      <Combobox
-        className="w-full"
-        icon={MapPinIcon}
-        placeholder="Search cities…"
-        options={cities}
-        value=""
-        disabled={busy}
-        onChange={(name) => {
-          const c = CITIES.find((x) => x.name === name)
-          if (c) goTo(c.latitude, c.longitude)
-        }}
-      />
-      <form
-        className="flex gap-2"
-        onSubmit={(e) => {
-          e.preventDefault()
-          if (point && valid) goTo(point.latitude, point.longitude)
-        }}
-      >
-        <Input
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="52.2297, 21.0122"
-          aria-label="Latitude, longitude"
-          className="h-8 font-mono text-xs"
+      <label className="flex items-center justify-between gap-2 text-sm">
+        <span>Override for this session</span>
+        <Switch
+          checked={manual}
+          disabled={busy}
+          onCheckedChange={(v) => {
+            setOverride(v)
+            if (!v && s.geoOverride) set({ resetGeo: true })
+          }}
         />
-        <Button type="submit" size="sm" variant="outline" disabled={busy || !valid}>
-          Set
-        </Button>
-      </form>
-      <div className="flex flex-wrap gap-1">
-        <Button size="xs" variant="ghost" disabled={busy || locating} onClick={locate}>
-          <LocateFixedIcon />
-          Use mine
-        </Button>
-        {vpnCity && (
-          <Button size="xs" variant="ghost" disabled={busy} onClick={() => goTo(vpnCity.latitude, vpnCity.longitude)}>
-            <GlobeIcon />
-            Match VPN ({vpnCity.name})
-          </Button>
-        )}
-      </div>
+      </label>
+      {manual && (
+        <>
+          <Combobox
+            className="w-full"
+            icon={MapPinIcon}
+            placeholder="Search cities…"
+            options={cities}
+            value=""
+            disabled={busy}
+            onChange={(name) => {
+              const c = CITIES.find((x) => x.name === name)
+              if (c) goTo(c.latitude, c.longitude)
+            }}
+          />
+          <form
+            className="flex gap-2"
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (point && valid) goTo(point.latitude, point.longitude)
+            }}
+          >
+            <Input
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="52.2297, 21.0122"
+              aria-label="Latitude, longitude"
+              className="h-8 font-mono text-xs"
+            />
+            <Button type="submit" size="sm" variant="outline" disabled={busy || !valid}>
+              Set
+            </Button>
+          </form>
+          <div className="flex flex-wrap gap-1">
+            <Button size="xs" variant="ghost" disabled={busy || locating} onClick={locate}>
+              <LocateFixedIcon />
+              Use mine
+            </Button>
+            {vpnCity && (
+              <Button
+                size="xs"
+                variant="ghost"
+                disabled={busy}
+                onClick={() => goTo(vpnCity.latitude, vpnCity.longitude)}
+              >
+                <GlobeIcon />
+                Match VPN ({vpnCity.name})
+              </Button>
+            )}
+          </div>
+        </>
+      )}
     </ControlGroup>
   )
 }

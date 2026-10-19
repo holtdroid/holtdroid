@@ -45,10 +45,14 @@ type Config struct {
 	Version          string
 	Resume           bool
 	Root             bool
-	EmulatorConsole  bool
-	AppLanguage      bool
-	USBNetwork       bool
-	HostMetrics      bool
+	RootShell        bool
+	// Geo maps a VPN location id to where it is, so the GPS and timezone
+	// follow the active location (a rooted phone fakes them).
+	Geo             map[string]LocationGeo
+	EmulatorConsole bool
+	AppLanguage     bool
+	USBNetwork      bool
+	HostMetrics     bool
 }
 
 func DefaultConfig() Config {
@@ -70,6 +74,15 @@ func DefaultConfig() Config {
 		EmulatorConsole:  true,
 		HostMetrics:      true,
 	}
+}
+
+// LocationGeo is where a VPN location is: a session's GPS is faked to a
+// random point within Radius metres (0 means 10km) and the timezone is set.
+type LocationGeo struct {
+	Lat      float64
+	Lng      float64
+	Radius   float64
+	Timezone string
 }
 
 // Instrumenter starts an app with WebView debugging. Watch instruments the
@@ -155,7 +168,7 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 }
 
 func newControls(cfg Config, dev Device) *Controls {
-	c := NewControls(dev, cfg.LocalesDex, cfg.EmulatorConsole)
+	c := NewControls(dev, cfg.LocalesDex, cfg.EmulatorConsole, cfg.RootShell)
 	c.usbNetwork = cfg.USBNetwork
 	if cfg.AppLanguage && packageName.MatchString(cfg.Package) {
 		c.appLocales = cfg.Package
@@ -261,6 +274,7 @@ func (a *Agent) run(ctx context.Context) error {
 			a.log.Warn("initial location", "location", a.cfg.Location, "err", err)
 		}
 	}
+	a.followLocationGeo(ctx, a.cfg.Location)
 	if err := a.inst.Watch(ctx, a.cfg.Package, a.launched); err != nil {
 		a.log.Warn("app launches from the device won't be instrumented", "err", err)
 	}
@@ -448,7 +462,7 @@ func (a *Agent) restore(ctx context.Context, req contract.AppDataRestore) error 
 	}
 	defer os.Remove(file)
 	a.setStatus(contract.StateRestoring, "Restoring app data")
-	if err := restoreAppData(ctx, a.dev, a.cfg.Package, file, req.Cache); err != nil {
+	if err := restoreAppData(ctx, a.appDataDev(), a.cfg.Package, file, req.Cache); err != nil {
 		return err
 	}
 	a.log.Info("restored app data", "cache", req.Cache)
@@ -462,17 +476,30 @@ func (a *Agent) export(e *exportRequest) error {
 	return err
 }
 
+// appDataDev is the device the app-data commands run on: su-wrapped on a
+// rooted phone so reading and writing /data/data works like it does on the
+// emulator's root adbd.
+func (a *Agent) appDataDev() Device {
+	if a.cfg.RootShell {
+		if ad, ok := a.dev.(appDataDevice); ok {
+			return suDevice{Device: a.dev, ad: ad}
+		}
+	}
+	return a.dev
+}
+
 func (a *Agent) exportTo(e *exportRequest) error {
 	fail := func(err error) error {
 		e.result <- exportResult{err: err}
 		return err
 	}
-	dev, ok := a.dev.(appDataDevice)
+	adev := a.appDataDev()
+	dev, ok := adev.(appDataDevice)
 	if !ok || !a.cfg.Root || !packageName.MatchString(a.cfg.Package) {
 		return fail(fmt.Errorf("%w: this device can't export app data", contract.ErrInvalid))
 	}
 	a.kill(e.ctx)
-	entries, err := listAppData(e.ctx, a.dev, a.cfg.Package)
+	entries, err := listAppData(e.ctx, adev, a.cfg.Package)
 	if err != nil {
 		return fail(err)
 	}
@@ -615,7 +642,25 @@ func (a *Agent) Network(ctx context.Context) (contract.Network, error) {
 }
 
 func (a *Agent) SetLocation(ctx context.Context, location string) (contract.Network, error) {
-	return a.network.SetLocation(ctx, location)
+	net, err := a.network.SetLocation(ctx, location)
+	if err != nil {
+		return net, err
+	}
+	a.followLocationGeo(ctx, location)
+	return net, nil
+}
+
+// followLocationGeo fakes the GPS to a random point in the location's area and
+// sets its timezone, unless the user has overridden the GPS for the session.
+func (a *Agent) followLocationGeo(ctx context.Context, location string) {
+	g, ok := a.cfg.Geo[location]
+	if !ok {
+		return
+	}
+	pt := randomInRadius(g.Lat, g.Lng, g.Radius)
+	if err := a.controls.FollowLocation(ctx, &pt, g.Timezone); err != nil {
+		a.log.Warn("set the location's geo", "location", location, "err", err)
+	}
 }
 
 func (a *Agent) App(_ context.Context, action contract.AppAction) error {

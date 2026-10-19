@@ -41,6 +41,19 @@ type Location struct {
 	ID       string
 	Label    string
 	Outbound any
+	// Geo is where this location is; a session's GPS is faked to a random
+	// point within it (Radius metres, default 10km). Empty leaves the GPS
+	// alone.
+	Geo *GeoArea
+	// Timezone is the IANA zone set with the location (e.g. Europe/Kyiv).
+	Timezone string
+}
+
+// GeoArea is a circle a faked GPS position is placed in at random.
+type GeoArea struct {
+	Lat    float64
+	Lng    float64
+	Radius float64 // metres; 0 means the default 10km
 }
 
 func DefaultConfig() Config {
@@ -89,6 +102,14 @@ func (c Config) Validate() error {
 			}
 		default:
 			errs = append(errs, fmt.Errorf("vpn.locations[%d].outbound: want a sing-box outbound object or a secret reference", i))
+		}
+		if g := l.Geo; g != nil {
+			if g.Lat < -90 || g.Lat > 90 || g.Lng < -180 || g.Lng > 180 {
+				errs = append(errs, fmt.Errorf("vpn.locations[%d].geo: lat/lng out of range", i))
+			}
+			if g.Radius < 0 {
+				errs = append(errs, fmt.Errorf("vpn.locations[%d].geo.radius must be >= 0", i))
+			}
 		}
 	}
 	for _, cidr := range c.BypassCIDRs {

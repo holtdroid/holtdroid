@@ -1,19 +1,21 @@
 ---
 title: Phone provider
-description: Run sessions on real Android phones plugged into a host over USB, without root.
+description: Run sessions on real Android phones plugged into a host over USB, with or without root.
 sidebar:
   order: 6
 ---
 
 The `provider-physical` service turns phones plugged into one host into
 session slots: one phone is one slot. It runs on that host, next to its adb
-server, and runs every session's device agent in its own process. The phones
-need no root.
+server, and runs every session's device agent in its own process. A phone
+runs without root by default; a rooted phone (Magisk) can be marked
+`root: true` for more — see [Root mode](#root-mode).
 
 :::caution[Early stage]
-Phones are a work in progress. Today a phone runs without root and without
-most of the protections it needs, so give phone sessions only to people you
-trust with the phone.
+Phones are a work in progress, and the protections a phone needs are not all
+in place yet (no device-owner app, and root mode still grants `su` to the
+shell uid — see [Root mode](#root-mode)), so give phone sessions only to
+people you trust with the phone.
 :::
 
 ## What works without root
@@ -123,6 +125,7 @@ stateFile: /var/lib/holtdroid/physical.json
 phones:
   - serial: 1A2B3C4D5E6F
     label: Pixel 7 on the desk # default: the phone's model
+    root: false # true for a Magisk-rooted phone, see Root mode
 agent:
   scrcpy:
     server: /opt/scrcpy/scrcpy-server
@@ -137,26 +140,26 @@ providers:
     url: http://phones.homelab.example:8080
 ```
 
-| Key                    | Default                   | Meaning                                                                                         |
-| ---------------------- | ------------------------- | ----------------------------------------------------------------------------------------------- |
-| `adb.bin`              | `adb`                     | The adb CLI the provider runs                                                                   |
-| `adb.server`           | `127.0.0.1:5037`          | The host adb server user ADB goes through; the one `adb.bin` uses                               |
-| `adb.shell`            | `allowlist`               | Shell commands users may run over ADB: `full`, `allowlist` or `off` (see below)                 |
-| `phones[]`             | `[]`                      | The inventory: `serial` from `adb devices` and an optional `label`. Other phones are ignored    |
-| `stateFile`            | `holtdroid-physical.json` | Sessions, pending resets, baselines and maintenance holds; a restart picks them up again        |
-| `refresh`              | `5s`                      | How often the provider checks which phones are connected                                        |
-| `resetTimeout`         | `5m`                      | How long cleaning a phone after a session may take                                              |
-| `phone.bootTimeout`    | `2m`                      | How long a session waits for its phone to show up                                               |
-| `phone.poll`           | `5s`                      | How often a session checks that its phone is still connected                                    |
-| `phone.misses`         | `3`                       | Missed checks in a row after which the session fails with "phone disconnected"                  |
-| `phone.suspend`        | Settings, Contacts, …     | Packages kept suspended so sessions can't open them (see below)                                 |
-| `phone.protectBattery` | `true`                    | Turn on Samsung's _Protect battery_ (charging stops at 80% on One UI 6): phones stay plugged in |
-| `vpn.*`                | no locations              | Locations, exactly as for the [emulator provider](/holtdroid/configuration/emulator/#vpn)       |
-| `singBox`              | `sing-box`                | The sing-box binary the provider runs per session when `vpn.locations` is set                   |
-| `tunnel.apk`           |                           | Holtdroid Tunnel APK, installed on a phone when it is missing or not `tunnel.version`           |
-| `tunnel.version`       |                           | The version `tunnel.apk` is; empty installs only when the app is missing                        |
-| `tunnel.port`          | `29180`                   | The phone-side port of the tunnel's `adb reverse`; don't publish it from a computer             |
-| `tunnel.ipv6`          | `true`                    | Give the phone IPv6 through the tunnel                                                          |
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `adb.bin` | `adb` | The adb CLI the provider runs |
+| `adb.server` | `127.0.0.1:5037` | The host adb server user ADB goes through; the one `adb.bin` uses |
+| `adb.shell` | `allowlist` | Shell commands users may run over ADB: `full`, `allowlist` or `off` (see below) |
+| `phones[]` | `[]` | The inventory: `serial` from `adb devices`, an optional `label`, and `root: true` for a rooted phone (see [Root mode](#root-mode)). Other phones are ignored |
+| `stateFile` | `holtdroid-physical.json` | Sessions, pending resets, baselines and maintenance holds; a restart picks them up again |
+| `refresh` | `5s` | How often the provider checks which phones are connected |
+| `resetTimeout` | `5m` | How long cleaning a phone after a session may take |
+| `phone.bootTimeout` | `2m` | How long a session waits for its phone to show up |
+| `phone.poll` | `5s` | How often a session checks that its phone is still connected |
+| `phone.misses` | `3` | Missed checks in a row after which the session fails with "phone disconnected" |
+| `phone.suspend` | Settings, Contacts, … | Packages kept suspended so sessions can't open them (see below) |
+| `phone.protectBattery` | `true` | Turn on Samsung's _Protect battery_ (charging stops at 80% on One UI 6): phones stay plugged in |
+| `vpn.*` | no locations | Locations, exactly as for the [emulator provider](/holtdroid/configuration/emulator/#vpn) |
+| `singBox` | `sing-box` | The sing-box binary the provider runs per session when `vpn.locations` is set |
+| `tunnel.apk` | | Holtdroid Tunnel APK, installed on a phone when it is missing or not `tunnel.version` |
+| `tunnel.version` | | The version `tunnel.apk` is; empty installs only when the app is missing |
+| `tunnel.port` | `29180` | The phone-side port of the tunnel's `adb reverse`; don't publish it from a computer |
+| `tunnel.ipv6` | `true` | Give the phone IPv6 through the tunnel |
 
 A phone is `offline` in the launch dialog while adb doesn't list it as
 `device` (unplugged, `unauthorized`, booting).
@@ -310,8 +313,10 @@ The baseline is the phone as it was then, so plug in a phone the way it
 should look for every session. To record it again, stop the provider and
 remove the phone from `baselines` in the state file.
 
-Battery level and charging are an emulator's simulation; phones offer only
-battery saver. Fake GPS and network emulation are emulator-only too.
+Battery level and charging are an emulator's simulation; a phone offers only
+battery saver without root. Fake GPS and network emulation are emulator-only
+too. A rooted phone gets the battery, GPS and clock back — see
+[Root mode](#root-mode).
 
 Apps a session must not open are kept **suspended** (`pm suspend`, no root
 needed): Settings (so no PIN, Developer options, USB debugging or resets),
@@ -326,7 +331,7 @@ cleanup suspends it again.
 Without root the system language can't be changed, so on phones the
 language control sets the app's own language (Android 13+,
 `cmd locale set-app-locales`), and keyboard languages are chosen in the
-phone's keyboard. A global proxy left by a user is cleared with
+phone's keyboard; a rooted phone sets the system language instead. A global proxy left by a user is cleared with
 `settings put global http_proxy :0`; deleting the setting alone leaves it
 applied.
 
@@ -374,9 +379,66 @@ signed with the same key. The image ships one. To undo it:
 adb shell am broadcast -n io.github.kriakiku.holtdroid.tunnel/.ControlReceiver -a io.github.kriakiku.holtdroid.tunnel.RELEASE
 ```
 
+## Root mode
+
+Mark a Magisk-rooted phone `root: true` and its sessions gain what needs
+root. The agent escalates through Magisk's `su`, so the phone must grant it
+to the shell uid (Magisk Superuser → the shell app). Root mode adds, all
+undone when the session ends:
+
+- **Frida**: the app under test is instrumented as on the emulator, so
+  **release builds get DevTools**, not only debuggable ones.
+- **System language and clock**, battery level and charging, and **app data
+  save and restore** — all the device settings that are emulator-only
+  without root.
+- **GPS and clock follow the VPN location**: give each location a `geo`
+  (centre and radius, default 10&nbsp;km) and a `timezone`; switching
+  location drops the phone at a random point in that radius and sets the
+  zone, quietly. The real position is never exposed (the real providers are
+  overridden). A per-session **Override** toggle on the session page pins a
+  manual position; it is not kept after the session.
+- **Root hidden** from the app under test (added to the Magisk DenyList).
+- **A transparent tunnel** instead of the VpnService one: a sing-box `tun`
+  started as root takes the phone's default route, so the app sees an
+  ordinary Wi-Fi connection, not a VPN. Traffic still leaves through the
+  host's per-session sing-box over the USB cable, and the default route is
+  swung into the tun only while that egress is healthy, so a dead proxy
+  fails fast instead of hanging the phone.
+- **A calls lockdown**: airplane mode (Wi-Fi back on for the tunnel), the
+  dialer and emergency apps disabled, and the lock screen off so its
+  emergency button is gone.
+
+```yaml
+phones:
+  - serial: 1A2B3C4D5E6F
+    root: true
+vpn:
+  default: pl
+  locations:
+    - id: pl
+      label: Poland
+      timezone: Europe/Warsaw
+      geo: { lat: 52.2297, lng: 21.0122, radius: 10000 }
+      outbound: { type: socks, server: vpn-gateway.example, server_port: 1080 }
+```
+
+:::danger[Emergency calls]
+Android does not let anything block emergency calls — not even a device
+owner. The lockdown only removes the on-screen ways to dial; the real
+guarantee that a session can't call 112/911 is a phone with **no SIM and no
+usable cellular signal**. Run the farm phones that way.
+:::
+
+Root mode is transitional: it grants `su` to the shell uid, so a user with
+`adb.shell: full` would inherit root (phones default to `allowlist`). The
+hardening that keeps root from users — a token-authenticated frida-server
+and `su` denied to the shell uid, with a watchdog — is still to come, as is
+the network-speed profile on phones whose kernel has no traffic shaping.
+
 ## What is still missing
 
-A check after the cleanup before a phone is offered again, power cycling
-through the USB hub, and root mode with Frida (DevTools for release builds).
-The provider needs no root today; [rooting a phone](/holtdroid/configuration/rooting/)
-is written up separately, as a record of what it takes and costs on one device.
+Phones are not disposable like emulators, so a phone still needs more than it
+has: the root hardening that keeps root from users (above), a deeper cleanup
+with a check before a phone is offered again, and power cycling through the
+USB hub. [Rooting a phone](/holtdroid/configuration/rooting/) is written up
+separately, as a record of what it takes and costs on one device.

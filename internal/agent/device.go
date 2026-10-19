@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
+	"math/rand/v2"
 	"regexp"
 	"slices"
 	"strconv"
@@ -27,25 +29,36 @@ type Controls struct {
 	appLocales string
 	usbNetwork bool
 	noConsole  bool
+	rooted     bool
 	now        func() time.Time
 
-	mu      sync.Mutex
-	network contract.NetworkProfile
-	geo     *contract.GeoPoint
+	mu          sync.Mutex
+	network     contract.NetworkProfile
+	geo         *contract.GeoPoint
+	geoOverride bool
 }
 
 // NewControls changes the system language by running localesDex, a dex
 // file on the agent's disk, with app_process; empty disables it.
 // NewControls uses the emulator console for network conditions, the GPS and
 // the battery when emulator is set and the device has one.
-func NewControls(dev Device, localesDex string, emulator bool) *Controls {
-	return &Controls{dev: dev, localesDex: localesDex, noConsole: !emulator, now: time.Now, network: contract.NetworkFull}
+func NewControls(dev Device, localesDex string, emulator, rooted bool) *Controls {
+	return &Controls{dev: dev, localesDex: localesDex, noConsole: !emulator, rooted: rooted, now: time.Now, network: contract.NetworkFull}
 }
 
 // console is the emulator console, unless the device is a phone.
 func (c *Controls) console() (console, bool) {
 	con, ok := c.dev.(console)
 	return con, ok && !c.noConsole
+}
+
+// exec runs a setting-changing command, as root through su on a rooted phone
+// (the emulator's adbd is already root and needs no su).
+func (c *Controls) exec(ctx context.Context, cmd string) (string, error) {
+	if c.rooted {
+		cmd = suWrap(cmd)
+	}
+	return c.dev.Shell(ctx, cmd)
 }
 
 const stateScript = `echo "airplane=$(settings get global airplane_mode_on)"
@@ -128,6 +141,14 @@ func (c *Controls) State(ctx context.Context) (contract.DeviceState, error) {
 		c.mu.Lock()
 		s.NetworkProfile = c.network
 		s.Geo = c.geo
+		s.GeoOverride = c.geoOverride
+		s.CanFakeGeo = true
+		s.CanSimulateBattery = true
+		c.mu.Unlock()
+	} else if c.rooted {
+		c.mu.Lock()
+		s.Geo = c.geo
+		s.GeoOverride = c.geoOverride
 		s.CanFakeGeo = true
 		s.CanSimulateBattery = true
 		c.mu.Unlock()
@@ -190,8 +211,8 @@ func (c *Controls) Update(ctx context.Context, in contract.DeviceSettings) (cont
 	if in.MobileData != nil {
 		add("svc data " + pick(*in.MobileData, "enable", "disable"))
 	}
-	if _, ok := c.console(); !ok && (in.Charging != nil || in.BatteryLevel != nil) {
-		return contract.DeviceState{}, fmt.Errorf("%w: only an emulator's battery can be simulated", contract.ErrInvalid)
+	if _, ok := c.console(); !ok && !c.rooted && (in.Charging != nil || in.BatteryLevel != nil) {
+		return contract.DeviceState{}, fmt.Errorf("%w: this device's battery can't be simulated", contract.ErrInvalid)
 	}
 	charging := in.Charging
 	if in.BatterySaver != nil && *in.BatterySaver && charging == nil {
@@ -233,7 +254,7 @@ func (c *Controls) Update(ctx context.Context, in contract.DeviceSettings) (cont
 		add("settings put global auto_time 0")
 	}
 	if len(cmds) > 0 {
-		if _, err := c.dev.Shell(ctx, strings.Join(cmds, " && ")); err != nil {
+		if _, err := c.exec(ctx, strings.Join(cmds, " && ")); err != nil {
 			return contract.DeviceState{}, err
 		}
 	}
@@ -258,6 +279,9 @@ func (c *Controls) Update(ctx context.Context, in contract.DeviceSettings) (cont
 		if err := c.setGeo(ctx, in.Geo); err != nil {
 			return contract.DeviceState{}, err
 		}
+		c.mu.Lock()
+		c.geoOverride = in.Geo != nil
+		c.mu.Unlock()
 	}
 	if len(in.Locales) > 0 && c.appLocales != "" {
 		if _, err := c.dev.Shell(ctx, "cmd locale set-app-locales "+c.appLocales+" --user 0 --locales "+in.Locales[0]); err != nil {
@@ -305,13 +329,13 @@ func (c *Controls) setLocales(ctx context.Context, tags string) error {
 	if err := c.dev.Push(ctx, c.localesDex, localesRemote); err != nil {
 		return err
 	}
-	_, err := c.dev.Shell(ctx, "CLASSPATH="+localesRemote+" app_process / Locales "+tags)
+	_, err := c.exec(ctx, "CLASSPATH="+localesRemote+" app_process / Locales "+tags)
 	return err
 }
 
 func (c *Controls) setTime(ctx context.Context, offset int64, auto bool) error {
 	at := c.now().Add(time.Duration(offset) * time.Millisecond).UnixMilli()
-	_, err := c.dev.Shell(ctx, fmt.Sprintf("settings put global auto_time %s && cmd alarm set-time %d", pick(auto, "1", "0"), at))
+	_, err := c.exec(ctx, fmt.Sprintf("settings put global auto_time %s && cmd alarm set-time %d", pick(auto, "1", "0"), at))
 	return err
 }
 
@@ -341,18 +365,93 @@ func (c *Controls) setNetwork(ctx context.Context, p contract.NetworkProfile) er
 var defaultGeo = contract.GeoPoint{Latitude: 37.4219983, Longitude: -122.084}
 
 func (c *Controls) setGeo(ctx context.Context, geo *contract.GeoPoint) error {
-	con, ok := c.console()
-	if !ok {
+	switch con, ok := c.console(); {
+	case ok:
+		at := cmp.Or(geo, &defaultGeo)
+		if _, err := con.Emu(ctx, fmt.Sprintf("geo fix %s %s", strconv.FormatFloat(at.Longitude, 'f', -1, 64), strconv.FormatFloat(at.Latitude, 'f', -1, 64))); err != nil {
+			return err
+		}
+	case c.rooted:
+		if err := c.setGeoRoot(ctx, geo); err != nil {
+			return err
+		}
+	default:
 		return fmt.Errorf("%w: this device can't fake its location", contract.ErrInvalid)
-	}
-	at := cmp.Or(geo, &defaultGeo)
-	if _, err := con.Emu(ctx, fmt.Sprintf("geo fix %s %s", strconv.FormatFloat(at.Longitude, 'f', -1, 64), strconv.FormatFloat(at.Latitude, 'f', -1, 64))); err != nil {
-		return err
 	}
 	c.mu.Lock()
 	c.geo = geo
 	c.mu.Unlock()
 	return nil
+}
+
+// mockProviders are the location providers a rooted phone fakes. Test
+// providers replace the real ones of the same name, so faking gps and network
+// (what fused aggregates) also keeps apps from seeing the real position.
+var mockProviders = []string{"gps", "network"}
+
+// setGeoRoot drives the location service's test providers, which Android lets
+// a caller with the mock_location app-op register. geo nil removes them.
+func (c *Controls) setGeoRoot(ctx context.Context, geo *contract.GeoPoint) error {
+	if geo == nil {
+		cmds := []string{}
+		for _, p := range mockProviders {
+			cmds = append(cmds, "cmd location providers remove-test-provider "+p+" >/dev/null 2>&1")
+		}
+		_, err := c.dev.Shell(ctx, strings.Join(append(cmds, "true"), "; "))
+		return err
+	}
+	lat := strconv.FormatFloat(geo.Latitude, 'f', -1, 64)
+	lng := strconv.FormatFloat(geo.Longitude, 'f', -1, 64)
+	cmds := []string{"appops set 2000 android:mock_location allow"}
+	for _, p := range mockProviders {
+		cmds = append(cmds,
+			"cmd location providers add-test-provider "+p+" >/dev/null 2>&1",
+			"cmd location providers set-test-provider-enabled "+p+" true",
+			"cmd location providers set-test-provider-location "+p+" --location "+lat+","+lng)
+	}
+	_, err := c.dev.Shell(ctx, strings.Join(cmds, "\n"))
+	return err
+}
+
+// FollowLocation sets the timezone for the active VPN location (always) and
+// fakes the GPS to pt (unless the user has overridden it for the session). It
+// is applied quietly on a location switch, not as a user setting.
+func (c *Controls) FollowLocation(ctx context.Context, pt *contract.GeoPoint, tz string) error {
+	if tz != "" {
+		if err := c.setTimezone(ctx, tz); err != nil {
+			return err
+		}
+	}
+	c.mu.Lock()
+	override := c.geoOverride
+	c.mu.Unlock()
+	if override {
+		return nil
+	}
+	return c.setGeo(ctx, pt)
+}
+
+func (c *Controls) setTimezone(ctx context.Context, tz string) error {
+	_, err := c.exec(ctx, "settings put global auto_time_zone 0 && cmd alarm set-timezone "+tz)
+	return err
+}
+
+// randomInRadius picks a uniformly random point within radius metres of a
+// centre (equirectangular approximation, fine for a city-sized radius).
+func randomInRadius(lat, lng, radius float64) contract.GeoPoint {
+	if radius <= 0 {
+		radius = 10000
+	}
+	d := radius * math.Sqrt(rand.Float64())
+	t := 2 * math.Pi * rand.Float64()
+	cosLat := math.Cos(lat * math.Pi / 180)
+	if cosLat < 1e-9 {
+		cosLat = 1e-9
+	}
+	return contract.GeoPoint{
+		Latitude:  lat + (d*math.Sin(t))/111320.0,
+		Longitude: lng + (d*math.Cos(t))/(111320.0*cosLat),
+	}
 }
 
 var deviceKeys = map[contract.DeviceAction]string{

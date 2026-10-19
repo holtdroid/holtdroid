@@ -460,6 +460,8 @@ export interface components {
             fontScale: number;
             /** @description the faked GPS position; empty while the device reports its default one */
             geo?: components["schemas"]["GeoPoint"];
+            /** @description the GPS is a session override set by the user; otherwise it follows the VPN location */
+            geoOverride: boolean;
             /**
              * @description system: locales are the system languages; app: only the app under test's language can be set (phones without root)
              * @enum {string}

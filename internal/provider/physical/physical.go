@@ -1,7 +1,9 @@
 // Package physical is the device provider for phones plugged into this host
 // over USB. Slots are phones; every session runs its agent in this process
-// against one phone, without root. Session state is kept in a file so a
-// restart picks the sessions up again.
+// against one phone. A phone runs without root unless it is marked root in the
+// config, in which case the agent instruments the app under Frida and gains
+// the extra root capabilities. Session state is kept in a file so a restart
+// picks the sessions up again.
 package physical
 
 import (
@@ -64,6 +66,11 @@ type TunnelConfig struct {
 type Phone struct {
 	Serial string
 	Label  string
+	// Root marks a phone whose Magisk gives the agent su: the session runs
+	// under Frida (DevTools for release builds), the system language and
+	// clock, app data and network/location emulation, and hides root from
+	// the app under test. Set it only for phones that are actually rooted.
+	Root bool
 }
 
 // ADBConfig is the host's adb and what users may do through it.
@@ -78,6 +85,12 @@ type AgentConfig struct {
 	Scrcpy           agent.ScrcpyConfig
 	DevToolsFrontend string
 	CacheDir         string
+	// LocalesDex sets the system language on rooted phones (app_process);
+	// non-root phones set only the app's language instead.
+	LocalesDex string
+	// FridaScript is the directory with the agent's Frida bundles
+	// (agent.js, system.js), used for root sessions.
+	FridaScript string
 }
 
 func DefaultConfig() Config {
@@ -91,7 +104,7 @@ func DefaultConfig() Config {
 		Refresh:      5 * time.Second,
 		ResetTimeout: 5 * time.Minute,
 		Phone:        phone.DefaultConfig(),
-		Agent:        AgentConfig{Scrcpy: a.Scrcpy, DevToolsFrontend: a.DevToolsFrontend, CacheDir: a.CacheDir},
+		Agent:        AgentConfig{Scrcpy: a.Scrcpy, DevToolsFrontend: a.DevToolsFrontend, CacheDir: a.CacheDir, LocalesDex: a.LocalesDex, FridaScript: a.Script},
 		VPN:          vpn.DefaultConfig(),
 		SingBox:      "sing-box",
 		Tunnel:       TunnelConfig{APK: "/opt/holtdroid/holtdroid-tunnel.apk", Port: 29180, IPv6: true},
@@ -301,6 +314,11 @@ func (p *Provider) refresh(ctx context.Context) {
 			if err != nil {
 				p.log.Warn("describe phone", "serial", ph.Serial, "err", err)
 			} else {
+				if ph.Root {
+					caps.Root = true
+					caps.DevTools = contract.DevToolsAll
+					caps.AppData = true
+				}
 				info.caps = &caps
 			}
 		}
@@ -336,6 +354,32 @@ func (p *Provider) capture(ctx context.Context, serial string) {
 
 func (p *Provider) listed(serial string) bool {
 	return slices.ContainsFunc(p.cfg.Phones, func(ph Phone) bool { return ph.Serial == serial })
+}
+
+// geoFixes maps each VPN location with a geo or timezone to what the agent
+// needs to make the GPS and clock follow it.
+func geoFixes(v vpn.Config) map[string]agent.LocationGeo {
+	m := map[string]agent.LocationGeo{}
+	for _, l := range v.Locations {
+		if l.Geo == nil && l.Timezone == "" {
+			continue
+		}
+		g := agent.LocationGeo{Timezone: l.Timezone}
+		if l.Geo != nil {
+			g.Lat, g.Lng, g.Radius = l.Geo.Lat, l.Geo.Lng, l.Geo.Radius
+		}
+		m[l.ID] = g
+	}
+	return m
+}
+
+func (p *Provider) phoneRoot(serial string) bool {
+	for _, ph := range p.cfg.Phones {
+		if ph.Serial == serial {
+			return ph.Root
+		}
+	}
+	return false
 }
 
 func (p *Provider) Capabilities(context.Context) (contract.Capabilities, error) {
@@ -438,8 +482,6 @@ func (p *Provider) Create(ctx context.Context, req contract.CreateSession) (cont
 		return contract.Session{}, fmt.Errorf("%w: bad package name %q", contract.ErrInvalid, req.Package)
 	case req.Location != "" && !slices.ContainsFunc(p.cfg.VPN.Offered(), func(l contract.Location) bool { return l.ID == req.Location }):
 		return contract.Session{}, fmt.Errorf("%w: unknown location %q", contract.ErrInvalid, req.Location)
-	case req.AppData != nil:
-		return contract.Session{}, fmt.Errorf("%w: phones without root can't restore app data", contract.ErrInvalid)
 	}
 	id := randomID()
 	v, err := p.prepareVPN(ctx, id, location)
@@ -453,6 +495,10 @@ func (p *Provider) Create(ctx context.Context, req contract.CreateSession) (cont
 	if err != nil {
 		v.remove()
 		return contract.Session{}, err
+	}
+	if req.AppData != nil && !p.phoneRoot(slots[i].ID) {
+		v.remove()
+		return contract.Session{}, fmt.Errorf("%w: this phone can't restore app data without root", contract.ErrInvalid)
 	}
 	now := p.now().UTC()
 	s := contract.Session{
@@ -493,13 +539,22 @@ func (p *Provider) start(s contract.Session, artifactURL string, resume bool, v 
 	cfg.ADBShell = p.cfg.ADB.Shell
 	cfg.Scrcpy = p.cfg.Agent.Scrcpy
 	cfg.Scrcpy.KeepAudio = true
-	cfg.LocalesDex = ""
 	cfg.DevToolsFrontend = p.cfg.Agent.DevToolsFrontend
 	cfg.CacheDir = p.cfg.Agent.CacheDir
-	cfg.Root = false
 	cfg.HostMetrics = false
 	cfg.EmulatorConsole = false
-	cfg.AppLanguage = true
+	root := p.phoneRoot(s.Slot)
+	cfg.Root = root
+	cfg.RootShell = root
+	if root {
+		cfg.LocalesDex = p.cfg.Agent.LocalesDex
+		cfg.Script = p.cfg.Agent.FridaScript
+		cfg.AppLanguage = false
+		cfg.Geo = geoFixes(p.cfg.VPN)
+	} else {
+		cfg.LocalesDex = ""
+		cfg.AppLanguage = true
+	}
 	cfg.Resume = resume
 	cfg.Version = p.ver
 	cfg.Session = agent.Session{ID: s.ID, Owner: s.Owner, ArtifactRef: s.ArtifactRef, Slot: s.Slot, CreatedAt: s.CreatedAt.Format(time.RFC3339)}
@@ -508,18 +563,22 @@ func (p *Provider) start(s contract.Session, artifactURL string, resume bool, v 
 			s.Capabilities = info.caps
 		}
 	}
-	var tunnel *phone.Tunnel
+	ps := phone.Session{Package: s.Package, App: phone.App{APK: p.cfg.Tunnel.APK, Version: p.cfg.Tunnel.Version}, Baseline: p.baselines[s.Slot], Resume: resume, Root: root}
 	if v != nil {
 		cfg.Location = s.Location
 		cfg.USBNetwork = true
 		cfg.ClashAPI = "http://" + v.clash
 		cfg.IPInfoProxy = "http://" + v.mixed.String()
-		tunnel = &phone.Tunnel{Port: p.cfg.Tunnel.Port, HostPort: int(v.mixed.Port()), IPv6: p.cfg.Tunnel.IPv6}
+		if root {
+			ps.Tunnel = &phone.RootTunnel{SingBox: p.cfg.Phone.SingBox, Port: p.cfg.Tunnel.Port, HostPort: int(v.mixed.Port())}
+		} else {
+			ps.Tunnel = &phone.Tunnel{Port: p.cfg.Tunnel.Port, HostPort: int(v.mixed.Port()), IPv6: p.cfg.Tunnel.IPv6}
+		}
 	}
 	log := p.log.With("session", s.ID, "serial", s.Slot)
 	ctx, cancel := context.WithCancel(p.base)
 	sess := &session{s: s, artifactURL: artifactURL, cancel: cancel, done: make(chan struct{})}
-	sess.agent = p.host.Agent(cfg, phone.Session{Package: s.Package, App: phone.App{APK: p.cfg.Tunnel.APK, Version: p.cfg.Tunnel.Version}, Tunnel: tunnel, Baseline: p.baselines[s.Slot], Resume: resume}, log)
+	sess.agent = p.host.Agent(cfg, ps, log)
 	sess.handler, sess.tunnel = sess.agent.Handler(), sess.agent.TunnelHandler()
 	p.sessions[s.ID] = sess
 	go func() {
@@ -681,7 +740,7 @@ func (p *Provider) reset(serial, pkg string, done <-chan struct{}) {
 	p.mu.Lock()
 	baseline := p.baselines[serial]
 	p.mu.Unlock()
-	if err := p.host.Clean(ctx, serial, phone.Cleanup{Package: pkg, Baseline: baseline, Offline: p.cfg.VPN.Enabled(), End: true, Suspend: p.cfg.Phone.Suspend, ProtectBattery: p.cfg.Phone.ProtectBattery}); err != nil {
+	if err := p.host.Clean(ctx, serial, phone.Cleanup{Package: pkg, Baseline: baseline, Offline: p.cfg.VPN.Enabled() && !p.phoneRoot(serial), End: true, Root: p.phoneRoot(serial), Suspend: p.cfg.Phone.Suspend, ProtectBattery: p.cfg.Phone.ProtectBattery}); err != nil {
 		p.log.Warn("reset phone", "serial", serial, "err", err)
 	} else {
 		p.log.Info("phone reset", "serial", serial, "package", pkg)
