@@ -77,6 +77,8 @@ uploads:
   enabled: true
   maxSize: 1GiB
   temporaryTTL: 168h
+downloads:
+  adminOnly: false
 appData:
   enabled: false
 adb:
@@ -104,6 +106,7 @@ providers:
 | `database.type`         | `memory`    | Only `memory` for now: SQLite in RAM, empty after every restart                                       |
 | `sources[]`             | `local`     | Folders or S3 buckets with APKs, see [Artifact sources](/holtdroid/sources/overview/)                 |
 | `uploads.*`             | enabled     | Uploads from the UI, see [Artifact sources](/holtdroid/sources/overview/#uploads)                     |
+| `downloads.adminOnly`   | `false`     | Only admins may download APKs, see [Downloads](/holtdroid/sources/overview/#downloads)                |
 | `appData.*`             | off         | Save app data between sessions, see [App data](/holtdroid/concepts/app-data/)                         |
 | `adb.browser`           | `true`      | ADB tools on the session page, see [ADB tools](/holtdroid/concepts/adb/)                              |
 | `adb.ownerOnly`         | `true`      | Only a session's owner and admins may use its ADB tools                                               |

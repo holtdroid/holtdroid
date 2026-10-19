@@ -1,4 +1,5 @@
 import {
+  DownloadIcon,
   EllipsisVerticalIcon,
   ExternalLinkIcon,
   EyeIcon,
@@ -14,7 +15,14 @@ import { Link } from "@tanstack/react-router"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import type { ArtifactView } from "@/api/client"
-import { useArtifacts, useDeleteArtifact, useSources, useUpdateArtifact, useUploads } from "@/api/queries"
+import {
+  artifactDownloadURL,
+  useArtifacts,
+  useDeleteArtifact,
+  useSources,
+  useUpdateArtifact,
+  useUploads,
+} from "@/api/queries"
 import { AppIcon } from "@/components/app-icon"
 import { QuickLaunchButton } from "@/components/quick-launch-button"
 import { UploadDialog } from "@/components/upload-dialog"
@@ -371,6 +379,18 @@ function ArtifactRow({
               Open where this build came from{a.meta.origin ? ` (${a.meta.origin})` : ""}{" "}
               <span className="font-mono opacity-70">{link.host}</span>
             </TooltipContent>
+          </Tooltip>
+        )}
+        {a.canDownload && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" asChild>
+                <a href={artifactDownloadURL(a)} download={a.fileName} aria-label="Download the APK">
+                  <DownloadIcon />
+                </a>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Download {a.fileName}</TooltipContent>
           </Tooltip>
         )}
         {a.canManage && <ManageMenu artifact={a} title={title} />}

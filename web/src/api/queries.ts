@@ -110,6 +110,10 @@ export function useUpload() {
   })
 }
 
+export function artifactDownloadURL(a: Pick<ArtifactView, "source" | "id">) {
+  return `/api/v1/artifacts/${encodeURIComponent(a.source)}/${encodeURIComponent(a.id)}/download`
+}
+
 function artifactPath(a: Pick<ArtifactView, "source" | "id">) {
   return { path: { source: a.source, id: a.id } }
 }

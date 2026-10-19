@@ -369,3 +369,49 @@ func TestCacheReparsesOldParserEntries(t *testing.T) {
 		t.Fatalf("reparsed %+v, %v", again, err)
 	}
 }
+
+func TestDownloads(t *testing.T) {
+	want, err := os.ReadFile("../apk/testdata/helloworld.apk")
+	if err != nil {
+		t.Fatal(err)
+	}
+	download := "/api/v1/artifacts/local/" + encodeID("hello.apk") + "/download"
+	tests := []struct {
+		name      string
+		adminOnly bool
+		user      string
+		groups    string
+		allowed   bool
+	}{
+		{"everyone by default", false, "otter", "", true},
+		{"admin only, user", true, "otter", "", false},
+		{"admin only, admin", true, "root", "admins", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := newHarnessWith(t, 1, func(c *Config) { c.Downloads.AdminOnly = tt.adminOnly })
+			if got := h.list(tt.user, tt.groups)["hello.apk"].CanDownload; got != tt.allowed {
+				t.Fatalf("canDownload = %v", got)
+			}
+			rec := h.do(http.MethodGet, download, tt.user, tt.groups, nil)
+			if !tt.allowed {
+				if rec.Code != http.StatusForbidden {
+					t.Fatalf("download: %d", rec.Code)
+				}
+				return
+			}
+			if rec.Code != http.StatusOK || !bytes.Equal(rec.Body.Bytes(), want) {
+				t.Fatalf("download: %d, %d bytes", rec.Code, rec.Body.Len())
+			}
+			if cd := rec.Header().Get("Content-Disposition"); cd != "attachment; filename=hello.apk" {
+				t.Fatalf("Content-Disposition %q", cd)
+			}
+		})
+	}
+
+	h := newHarness(t, 1)
+	up := decode[ArtifactView](t, h.upload("otter", "", "secret.apk", want, map[string]string{"visibility": "private"}))
+	if rec := h.do(http.MethodGet, artifactPathFor(up)+"/download", "beaver", "", nil); rec.Code != http.StatusNotFound {
+		t.Fatalf("stranger downloading a private upload: %d", rec.Code)
+	}
+}

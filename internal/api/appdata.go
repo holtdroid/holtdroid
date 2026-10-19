@@ -412,7 +412,7 @@ type appDataPath struct {
 	ID      string `path:"id"`
 }
 
-type appDataDownload struct {
+type fileDownload struct {
 	ContentType        string `header:"Content-Type"`
 	ContentLength      int64  `header:"Content-Length"`
 	ContentDisposition string `header:"Content-Disposition"`
@@ -475,7 +475,7 @@ func (s *Server) registerAppData(api huma.API) {
 			Description: "the archive",
 			Content:     map[string]*huma.MediaType{"application/zstd": {Schema: &huma.Schema{Type: "string", Format: "binary"}}},
 		}},
-	}, func(ctx context.Context, in *appDataPath) (*appDataDownload, error) {
+	}, func(ctx context.Context, in *appDataPath) (*fileDownload, error) {
 		ev := audit.Event{Action: audit.AppDataDownload, Details: map[string]string{"package": in.Package, "id": in.ID}}
 		m, err := s.ownAppData(ctx, in.Package, in.ID)
 		if err == nil && !s.cfg.AppData.Export {
@@ -491,7 +491,7 @@ func (s *Server) registerAppData(api huma.API) {
 		if err != nil {
 			return nil, httpError(err)
 		}
-		return &appDataDownload{
+		return &fileDownload{
 			ContentType:        "application/zstd",
 			ContentLength:      size,
 			ContentDisposition: fmt.Sprintf("attachment; filename=%q", m.Package+"-"+m.ID+".tar.zst"),

@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"os"
 	"path"
@@ -30,23 +31,28 @@ import (
 
 const (
 	uploadPath          = "/api/v1/uploads"
+	apkContentType      = "application/vnd.android.package-archive"
 	defaultPollInterval = 30 * time.Second
 )
 
-var errUploadsDisabled = errors.New("uploads are disabled")
+var (
+	errUploadsDisabled = errors.New("uploads are disabled")
+	errDownloadsAdmin  = errors.New("only admins may download APKs on this server")
+)
 
 type ArtifactView struct {
-	Source     string        `json:"source"`
-	ID         string        `json:"id" doc:"Opaque, URL-safe"`
-	Revision   string        `json:"revision" doc:"Changes whenever the file is replaced"`
-	FileName   string        `json:"fileName"`
-	Size       int64         `json:"size"`
-	UploadedAt time.Time     `json:"uploadedAt"`
-	Meta       source.Meta   `json:"meta" doc:"Contents of the optional .meta.json sidecar"`
-	App        *apk.Metadata `json:"app,omitempty" doc:"Parsed from the APK once it is cached"`
-	IconURL    string        `json:"iconUrl,omitempty"`
-	CanManage  bool          `json:"canManage" doc:"The caller may change visibility or delete it"`
-	ExpiresAt  time.Time     `json:"expiresAt,omitzero" doc:"When a temporary build is deleted unless a session uses it before"`
+	Source      string        `json:"source"`
+	ID          string        `json:"id" doc:"Opaque, URL-safe"`
+	Revision    string        `json:"revision" doc:"Changes whenever the file is replaced"`
+	FileName    string        `json:"fileName"`
+	Size        int64         `json:"size"`
+	UploadedAt  time.Time     `json:"uploadedAt"`
+	Meta        source.Meta   `json:"meta" doc:"Contents of the optional .meta.json sidecar"`
+	App         *apk.Metadata `json:"app,omitempty" doc:"Parsed from the APK once it is cached"`
+	IconURL     string        `json:"iconUrl,omitempty"`
+	CanManage   bool          `json:"canManage" doc:"The caller may change visibility or delete it"`
+	CanDownload bool          `json:"canDownload" doc:"The caller may download the APK"`
+	ExpiresAt   time.Time     `json:"expiresAt,omitzero" doc:"When a temporary build is deleted unless a session uses it before"`
 }
 
 type ArtifactList struct {
@@ -182,6 +188,40 @@ func (s *Server) registerArtifacts(api huma.API) {
 	})
 
 	huma.Register(api, huma.Operation{
+		OperationID: "downloadArtifact", Method: http.MethodGet, Path: "/api/v1/artifacts/{source}/{id}/download", Tags: tags,
+		Description: "The APK file. Admins only when downloads.adminOnly is set.",
+		Responses: map[string]*huma.Response{"200": {
+			Description: "the APK",
+			Content:     map[string]*huma.MediaType{apkContentType: {Schema: &huma.Schema{Type: "string", Format: "binary"}}},
+		}},
+	}, func(ctx context.Context, in *artifactPath) (*fileDownload, error) {
+		ev := audit.Event{Action: audit.ArtifactDownload, Artifact: requested(in.Source, in.ID)}
+		who, _ := auth.FromContext(ctx)
+		var rc io.ReadCloser
+		var size int64
+		src, a, err := s.visibleArtifact(ctx, in.Source, in.ID)
+		if err == nil && !s.canDownload(who) {
+			err = errDownloadsAdmin
+		}
+		if err == nil {
+			rc, size, err = src.Open(ctx, a.ID)
+		}
+		s.emitResult(ctx, ev, err)
+		if err != nil {
+			return nil, httpError(err)
+		}
+		return &fileDownload{
+			ContentType:        apkContentType,
+			ContentLength:      size,
+			ContentDisposition: mime.FormatMediaType("attachment", map[string]string{"filename": path.Base(a.FileName)}),
+			Body: func(hc huma.Context) {
+				defer rc.Close()
+				_, _ = io.Copy(hc.BodyWriter(), rc)
+			},
+		}, nil
+	})
+
+	huma.Register(api, huma.Operation{
 		OperationID: "getArtifactIcon", Method: http.MethodGet, Path: "/api/v1/icons/{key}", Tags: tags,
 		Responses: map[string]*huma.Response{"200": {Description: "PNG icon", Content: map[string]*huma.MediaType{"image/png": {}}}},
 	}, func(ctx context.Context, in *iconInput) (*huma.StreamResponse, error) {
@@ -218,6 +258,10 @@ func (s *Server) registerArtifacts(api huma.API) {
 		}
 		return &out[ArtifactView]{v}, nil
 	})
+}
+
+func (s *Server) canDownload(who auth.Identity) bool {
+	return who.Admin || !s.cfg.Downloads.AdminOnly
 }
 
 func (s *Server) visibleArtifact(ctx context.Context, name, id string) (*source.Source, source.Artifact, error) {
@@ -332,15 +376,16 @@ func (s *Server) listArtifacts(ctx context.Context, only, cursor string, limit i
 func (s *Server) artifactView(ctx context.Context, name string, a source.Artifact) ArtifactView {
 	who, _ := auth.FromContext(ctx)
 	v := ArtifactView{
-		Source:     name,
-		ID:         encodeID(a.ID),
-		Revision:   a.Revision,
-		FileName:   a.FileName,
-		Size:       a.Size,
-		UploadedAt: a.UploadedAt(),
-		Meta:       a.Meta,
-		CanManage:  a.ManageableBy(who.User, who.Admin) && !s.sources[name].ReadOnly(),
-		ExpiresAt:  s.expiresAt(name, a),
+		Source:      name,
+		ID:          encodeID(a.ID),
+		Revision:    a.Revision,
+		FileName:    a.FileName,
+		Size:        a.Size,
+		UploadedAt:  a.UploadedAt(),
+		Meta:        a.Meta,
+		CanManage:   a.ManageableBy(who.User, who.Admin) && !s.sources[name].ReadOnly(),
+		CanDownload: s.canDownload(who),
+		ExpiresAt:   s.expiresAt(name, a),
 	}
 	if e, ok := s.cache.Lookup(ctx, name, a.ID, a.Revision); ok {
 		meta := e.Meta

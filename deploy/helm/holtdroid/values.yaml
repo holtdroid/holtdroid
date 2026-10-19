@@ -28,6 +28,9 @@ config:
     enabled: true
     maxSize: 1GiB
     temporaryTTL: 168h
+  # Download buttons for APKs; true limits them to admins.
+  downloads:
+    adminOnly: false
   sessions:
     idleTimeout: 30m
     maxTTL: 8h

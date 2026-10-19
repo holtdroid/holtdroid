@@ -39,6 +39,10 @@ sidebar:
   admins a root shell on its emulator. `adb.ownerOnly: false` extends them to
   everyone who may open the session, `adb.browser: false` turns them off;
   see [ADB tools](/holtdroid/concepts/adb/).
+- **APK downloads** (on for everyone by default): anyone who can see a
+  build can save it to their computer. Set `downloads.adminOnly: true` when
+  builds must not leave the portal; see
+  [Downloads](/holtdroid/sources/overview/#downloads).
 - **Who can get in.** The default `anonymous` mode lets anyone who reaches the
   URL launch devices. Put it on a private network, or use `password`, `oidc`
   or `header` — see [Authentication](/holtdroid/configuration/authentication/).

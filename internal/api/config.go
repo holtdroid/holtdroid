@@ -42,6 +42,10 @@ type UploadsConfig struct {
 	TemporaryTTL time.Duration
 }
 
+type DownloadsConfig struct {
+	AdminOnly bool
+}
+
 type SSHConfig struct {
 	Enabled                 bool
 	GatewayURL              string
@@ -90,6 +94,7 @@ type Config struct {
 	SSH            SSHConfig
 	ADB            ADBConfig
 	Uploads        UploadsConfig
+	Downloads      DownloadsConfig
 	AppData        AppDataConfig
 	Sources        []source.Config
 	Providers      []Endpoint

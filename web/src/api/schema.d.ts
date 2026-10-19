@@ -155,6 +155,23 @@ export interface paths {
         patch: operations["updateArtifact"];
         trace?: never;
     };
+    "/api/v1/artifacts/{source}/{id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The APK file. Admins only when downloads.adminOnly is set. */
+        get: operations["downloadArtifact"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth": {
         parameters: {
             query?: never;
@@ -609,6 +626,8 @@ export interface components {
         ArtifactView: {
             /** @description Parsed from the APK once it is cached */
             app?: components["schemas"]["Metadata"];
+            /** @description The caller may download the APK */
+            canDownload: boolean;
             /** @description The caller may change visibility or delete it */
             canManage: boolean;
             /**
@@ -1435,6 +1454,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ArtifactView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    downloadArtifact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                source: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description the APK */
+            200: {
+                headers: {
+                    "Content-Disposition"?: string;
+                    "Content-Length"?: number;
+                    "Content-Type"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.android.package-archive": string;
                 };
             };
             /** @description Error */

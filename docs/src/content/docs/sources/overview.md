@@ -169,6 +169,18 @@ persistent: the chart mounts a PersistentVolumeClaim at `/var/lib/holtdroid`
 for the default `local` source. A `ReadWriteOnce` claim limits the api to one
 replica — use an S3 source for uploads to run more.
 
+## Downloads
+
+```yaml
+downloads:
+  adminOnly: false # default: everyone who can see a build can download it
+```
+
+Each build in the list has a **Download** button that saves the APK as it is
+in the source. With `adminOnly: true` only admins see the button; everyone
+else gets 403 from the endpoint and can still launch the build. Every
+download is audited as `artifact.download`.
+
 ## Launch links
 
 `https://holtdroid.example.com/?source={source}&launch={artifact ID}` opens

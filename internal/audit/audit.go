@@ -39,6 +39,7 @@ const (
 	ArtifactUpload   Action = "artifact.upload"
 	ArtifactUpdate   Action = "artifact.update"
 	ArtifactDelete   Action = "artifact.delete"
+	ArtifactDownload Action = "artifact.download"
 	SSHEnroll        Action = "ssh.enroll"
 	SSHConnect       Action = "ssh.connect"
 	SSHDisconnect    Action = "ssh.disconnect"
@@ -53,7 +54,7 @@ const (
 
 var Actions = []Action{
 	SignIn, SignOut, SessionLaunch, SessionStop, SessionReap, SessionExtend, SessionInstall, SessionLocation,
-	SessionClipboard, ArtifactUpload, ArtifactUpdate, ArtifactDelete, SSHEnroll, SSHConnect, SSHDisconnect, SSHTunnel,
+	SessionClipboard, ArtifactUpload, ArtifactUpdate, ArtifactDelete, ArtifactDownload, SSHEnroll, SSHConnect, SSHDisconnect, SSHTunnel,
 	ADBConnect, ADBDisconnect, AuditExport,
 }
 
