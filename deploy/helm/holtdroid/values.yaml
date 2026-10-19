@@ -159,7 +159,8 @@ providers:
       # Defaults to image.tag (CI builds both images for every commit).
       tag: ""
       pullPolicy: IfNotPresent
-    # The node the phones are plugged into: nodeName or nodeSelector.
+    # The node the phones are plugged into: nodeName (becomes a
+    # kubernetes.io/hostname selector) or nodeSelector.
     nodeName: ""
     nodeSelector: {}
     tolerations: []

@@ -1953,7 +1953,10 @@ restarts. adb's key has to survive pod restarts, or every phone asks again
 to allow debugging.
 
 **Decision.** `providers.physical` is one Deployment pinned to the phones'
-node (`nodeName` or `nodeSelector`), `hostNetwork: true` with
+node (a `kubernetes.io/hostname` selector from `nodeName`, or
+`nodeSelector`; never `spec.nodeName`, which skips the scheduler, so a
+rollout's new pod failed on the old pod's ports and stayed behind as a
+failed pod), `hostNetwork: true` with
 `ClusterFirstWithHostNet`, privileged root (USB device nodes), `/dev/bus/usb`
 and a `DirectoryOrCreate` host directory for the state file and `HOME`
 (adb's key). It listens on node ports 18580 (API and agents) and 18581

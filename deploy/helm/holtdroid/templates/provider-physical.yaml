@@ -18,7 +18,11 @@
 {{- $_ := set $telemetry "metrics" (dict "listen" (printf ":%d" (int $p.metricsPort))) -}}
 {{- end }}
 {{- $_ := set $cfg "telemetry" $telemetry -}}
-{{- if not (or $p.nodeName $p.nodeSelector) }}
+{{- $nodeSelector := deepCopy $p.nodeSelector -}}
+{{- with $p.nodeName }}
+{{- $_ := set $nodeSelector "kubernetes.io/hostname" . -}}
+{{- end }}
+{{- if not $nodeSelector }}
 {{- fail "providers.physical needs nodeName or nodeSelector: the node the phones are plugged into" }}
 {{- end }}
 apiVersion: v1
@@ -64,13 +68,10 @@ spec:
       # events, which only reach the host's network namespace.
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
-      {{- with $p.nodeName }}
-      nodeName: {{ . }}
-      {{- end }}
-      {{- with $p.nodeSelector }}
+      # Through the scheduler, not spec.nodeName: a new pod waits in Pending
+      # until the old one frees the node's ports instead of failing on them.
       nodeSelector:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- toYaml $nodeSelector | nindent 8 }}
       {{- with $p.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}

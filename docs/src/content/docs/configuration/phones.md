@@ -50,7 +50,7 @@ providers:
   physical:
     enabled: true
     name: phones
-    nodeName: k3s-1 # or nodeSelector
+    nodeName: k3s-1 # a kubernetes.io/hostname selector; or nodeSelector
     phones:
       - { serial: R92X632WPYV, label: Galaxy A05 }
     vpn: {} # the same locations as providers.emulator.vpn
