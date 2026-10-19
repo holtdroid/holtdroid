@@ -270,13 +270,13 @@ or see anything:
   scrcpy captures the output, Android doesn't play it on the phone, so the
   phone stays silent even when nobody has the session's sound on. Between
   sessions every volume is at zero (alarms at their lowest).
-- **Microphone**: the phone's _Microphone access_ privacy toggle is turned
-  off, so apps record silence. Without the device owner a user can turn it
-  back on from the system prompt; the agent turns it off again on every poll.
-- **Camera**: where the phone has a _Camera access_ toggle it is turned off
-  the same way and apps see a blank picture. Many phones (the Galaxy A05,
-  for one) don't have it. Android without root can't feed apps a fake
-  camera picture; cover the lens, with a sticker of any picture if you like.
+- **Microphone and camera**: the app under test is denied the microphone and
+  camera through appops, so it records silence and sees no picture. The
+  device-wide _Microphone access_ privacy toggle is **not** used: on some
+  phones (the Galaxy A05) that toggle makes the audio server hang and crash
+  the app when it touches audio, so the block is per app instead, re-applied
+  every poll. Android without root can't feed apps a fake camera picture;
+  cover the lens, with a sticker of any picture if you like.
 
 ## Cleaning a phone
 
@@ -417,6 +417,7 @@ undone when the session ends:
         ssid: Starbucks
         password: env:WIFI_PASSWORD
   ```
+
 - **A calls lockdown**: airplane mode (Wi-Fi back on for the tunnel), the
   dialer and emergency apps disabled, and the lock screen off so its
   emergency button is gone.

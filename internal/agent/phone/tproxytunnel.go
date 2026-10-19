@@ -2,6 +2,7 @@ package phone
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -112,9 +113,7 @@ func (t *TproxyTunnel) start(ctx context.Context, adb ADB) error {
 		return fmt.Errorf("start sing-box: %w", err)
 	}
 	for range 10 {
-		if up, err := t.up(ctx, adb); err != nil {
-			return err
-		} else if up {
+		if t.up(ctx, adb) {
 			if _, err := magiskShell(ctx, adb, tproxyRules()); err != nil {
 				return fmt.Errorf("tproxy rules: %w", err)
 			}
@@ -130,20 +129,17 @@ func (t *TproxyTunnel) start(ctx context.Context, adb ADB) error {
 	return fmt.Errorf("the tproxy router did not come up: %s", strings.TrimSpace(out))
 }
 
-// up reports whether sing-box is running.
-func (t *TproxyTunnel) up(ctx context.Context, adb ADB) (bool, error) {
-	out, err := adb.Shell(ctx, "pidof holtdroid-sing-box")
-	if err != nil {
-		return false, nil
-	}
-	return strings.TrimSpace(out) != "", nil
+// up reports whether sing-box is running; pidof exits non-zero when it is
+// not, which is not an error here.
+func (t *TproxyTunnel) up(ctx context.Context, adb ADB) bool {
+	out, _ := adb.Shell(ctx, "pidof holtdroid-sing-box")
+	return strings.TrimSpace(out) != ""
 }
 
 // running keeps the rules in place and reports whether sing-box is up.
 func (t *TproxyTunnel) running(ctx context.Context, adb ADB) (bool, error) {
-	up, err := t.up(ctx, adb)
-	if err != nil || !up {
-		return false, err
+	if !t.up(ctx, adb) {
+		return false, nil
 	}
 	_, _ = magiskShell(ctx, adb, tproxyRules())
 	return true, nil
@@ -157,7 +153,7 @@ func ensureSingBox(ctx context.Context, adb ADB, bin string) error {
 		return nil
 	}
 	if bin == "" {
-		return fmt.Errorf("no sing-box binary configured for the phone")
+		return errors.New("no sing-box binary configured for the phone")
 	}
 	if err := adb.Push(ctx, bin, singBoxRemote); err != nil {
 		return fmt.Errorf("push sing-box: %w", err)
