@@ -68,7 +68,7 @@ FROM --platform=$BUILDPLATFORM ${BUN_IMAGE} AS script
 WORKDIR /opt/holtdroid/script
 COPY frida/package.json frida/bun.lock ./
 RUN bun install --frozen-lockfile --production
-COPY frida/agent.ts frida/system.ts ./
+COPY frida/*.ts ./
 
 FROM --platform=$BUILDPLATFORM ${GO_IMAGE} AS go
 ARG FRIDA_VERSION
