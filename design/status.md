@@ -112,8 +112,8 @@ deployment"):
   and the tunnel APK (decision #70). In the chart as `providers.physical`
   on the phones' node host network (decision #78), deployed on the
   maintainer's cluster with a Galaxy A05 on k3s-1 whose Holtdroid Tunnel is
-  the device owner (decision #77). Not yet: root mode, a check after the
-  cleanup. Tried on a real phone (Samsung Galaxy
+  the device owner (decision #77). Not yet: the layer-3 root hardening, a
+  check after the cleanup. Tried on a real phone (Samsung Galaxy
   A05, Android 14, no SIM) through `holtdroid-physical` in a scratch
   namespace on 2026-10-19: install, screen, DevTools of a debuggable app,
   VPN over USB with location switching on the fly (PL, UA, direct; the
@@ -124,6 +124,23 @@ deployment"):
   capture, verified on the A05) and the microphone is blocked (decision
   #72); the device-owner lockdown and wallpaper in Holtdroid Tunnel wait for
   the maintainer's go-ahead in that session.
+- Root mode for phones (decision #80, through Magisk `su`, `root: true` per
+  phone): Frida so release builds get DevTools, the system language and
+  clock, battery, app data, fake GPS and timezone that follow the VPN
+  location (random point in a per-location radius; a non-persistent override
+  pins a manual one), the app under test hidden from root via the Magisk
+  DenyList, a transparent sing-box tun (the app sees Wi-Fi, not a VpnService;
+  default swung into the tun only while the host egress is healthy, else left
+  on a dead dummy so a down egress fails fast), and a calls lockdown
+  (airplane, dialer and emergency apps disabled, keyguard off). Verified on
+  the A05 on 2026-10-19: root boot, root hidden, lockdown, the tun comes up
+  and the gate keeps the system healthy with the egress down, GPS+timezone
+  follow the location. The full tun egress wasn't reproducible in the scratch
+  pod (the host sing-box there can't resolve cluster DNS). Still to come: the
+  layer-3 hardening (token-auth frida-server, `su` denied to the shell uid,
+  root watchdog) and the network-speed profile (the A05 kernel has no
+  `sch_netem`). Blocking emergency calls outright is impossible on Android,
+  so the real guarantee is SIM-less phones out of cellular range.
 - `provider-fake` (fake devices whose agent streams a recorded screen and serves placeholder
   DevTools pages).
 - Single Go binary + embedded UI, distroless image, Helm chart, CI, release
@@ -133,14 +150,14 @@ deployment"):
 
 - Traffic inspection proxy (Phase 4.7) and MCP server (Phase 4.8).
 - A persistent database: only in-memory SQLite exists (Phase 4.6).
-- The rest of Phase 7 for phones: root mode, the
-  device-owner app, cleanup verification and quarantine (threat model in
+- The rest of Phase 7 for phones: the layer-3 root hardening, cleanup
+  verification and quarantine (threat model in
   architecture.md "Physical devices"); Docker-only provider — "Later".
 
 ## Next steps, in order
 
 1. Phones: try the ADB proxy over SSH on the real phone, a check after the
-   cleanup, then root mode.
+   cleanup, then the layer-3 root hardening.
 2. The conformance suite (`internal/contract/conformance`) for Provider and
    Agent — the last open item of Phases 1 and 3.
 3. Planned, each starting with a decisions.md entry: Phase 4.7 traffic

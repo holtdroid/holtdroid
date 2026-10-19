@@ -2007,3 +2007,61 @@ since the emulator makes them up.
 The page polls; nothing is cached, so a provider's inventory must stay
 cheap. A provider without maintenance support has to implement the two
 operations; returning `ErrInvalid` from `SetMaintenance` is enough.
+
+## 80. Root mode for phones runs through Magisk su (transitional), gated per phone
+
+Extends #67 (which left root mode for later) and #73 (app-language only);
+pairs with the device-owner work of #77.
+
+**Context.** Some apps refuse rooted devices or a visible VpnService, and a
+rooted phone (Magisk) can do what the non-root agent can't: instrument
+release builds with Frida, set the system language and clock, simulate the
+battery, fake GPS, hide root from the app under test and route traffic
+transparently. The threat model (architecture.md "Physical devices", layer 3)
+wants root kept from users via a token-authenticated frida-server and su
+denied to the shell uid, but that needs a Magisk module in the tunnel repo.
+To ship root mode now on the maintainer's own A05, the agent escalates
+through Magisk's `su` directly, designed so the hardening can replace the
+escalation later without touching the call sites.
+
+**Decision.** A phone is marked `root: true` in the provider config. Its
+session gets `cfg.Root`, `cfg.RootShell` and the Frida instrumenter (same as
+the emulator) instead of the Launcher; `host.Agent` falls back to the
+Launcher if the binary has no Frida. The phone agent escalates with
+`su -c`, and for anything that touches netlink (tun, routes, iptables) with
+`su -Z u:r:magisk:s0 -c` — plain `su` runs in the `u:r:shell:s0` SELinux
+domain, which the kernel denies those to. `phone.prepareRoot` pushes and
+starts frida-server (killing a stale one first); device controls, app-data
+export/restore and the system language run as root through an su-wrapping
+device/exec, so the emulator's code works unchanged.
+
+Root mode adds, all reversed on cleanup:
+- **Hide root**: the app under test is added to the Magisk DenyList
+  (retried each poll, since it is installed after boot).
+- **Calls lockdown**: airplane mode (wifi re-enabled for the tunnel), the
+  dialer and emergency apps disabled, keyguard off. Android never lets
+  emergency calls be blocked outright, so the real guarantee is a SIM-less
+  phone out of cellular range; this only removes the on-screen vectors.
+- **Transparent tunnel** (`phone.RootTunnel`): a static arm64 sing-box tun
+  (`auto_route:false`, system stack) started as root; the agent adds the
+  default route into the tun itself and sends everything to a socks outbound
+  that adb reverse maps to the host's per-session sing-box. The app sees
+  Wi-Fi, not a VpnService. The phone needs no network of its own (egress is
+  loopback over USB); a dummy default route gives sing-box an interface. The
+  default is only swung into the tun while an HTTP probe through the host
+  egress succeeds — otherwise it stays on the dead dummy, so a down egress
+  fails fast instead of starving the system in a tun with no way out.
+- **GPS and clock follow the VPN location**: each location carries
+  `geo {lat,lng,radius}` (default 10km) and a `timezone`; on switch the GPS
+  is faked to a random point in the radius (gps and network test providers,
+  so the real position is not exposed) and the timezone is set quietly, not
+  as a user override. A per-session override checkbox pins a manual position
+  (`geoOverride`) and is not persisted.
+
+**Consequences.** `su` is granted to the shell uid, so a user with
+`adb.shell: full` would inherit root; phones default to `allowlist`, and the
+layer-3 hardening (token-auth frida-server, su denied to shell, root
+watchdog) is still to come, as is the network-speed profile (the A05 kernel
+has no `sch_netem`). The physical image is now built with Frida and carries
+the arm64 frida-server, a static arm64 sing-box, the locales dex and the
+Frida bundles.

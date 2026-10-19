@@ -720,9 +720,15 @@ without root, with the session agents inside its own process, a launcher
 instead of Frida, `SlotCapabilities` per phone and a state file. Mitigation
 1, the filtering ADB proxy, exists too (decision #68), and so does VPN over
 the USB cable: Holtdroid Tunnel on the phone, `adb reverse`, a per-session
-sing-box on the host (decision #69). The rest of this
-section is the plan for rooted phones and for the protections every phone
-needs.
+sing-box on the host (decision #69). Root mode per phone exists as well
+(decision #80): through Magisk `su` the agent runs Frida, the system
+language and clock, app data, fake GPS and timezone that follow the VPN
+location, a transparent sing-box tun (the app sees Wi-Fi, not a VpnService)
+with an egress health-gate, root hidden from the app under test (Magisk
+DenyList) and a calls lockdown. That `su` escalation is transitional: it
+grants `su` to the shell uid, so the layer-3 hardening below (token-auth
+frida-server, `su` denied to the shell, a root watchdog) is still the plan,
+as is the rest of this section.
 
 A `provider-physical` service manages an inventory of rooted phones (Magisk)
 plugged into a host over USB. Slots are phones instead of nodes, one
