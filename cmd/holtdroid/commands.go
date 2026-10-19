@@ -20,6 +20,7 @@ import (
 	"github.com/kriakiku/holtdroid/internal/api"
 	"github.com/kriakiku/holtdroid/internal/audit"
 	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/kriakiku/holtdroid/internal/hostinfo"
 	emulatorprovider "github.com/kriakiku/holtdroid/internal/provider/emulator"
 	"github.com/kriakiku/holtdroid/internal/provider/fake"
 	"github.com/kriakiku/holtdroid/internal/provider/physical"
@@ -119,6 +120,27 @@ func providerPhysicalCmd(c *common) *cobra.Command {
 			contract.RegisterProvider(contract.NewAPI(mux, "Holtdroid physical provider"), p)
 			mux.Handle("/agents/", p.AgentHandler())
 			return rt.serve(cmd.Context(), "provider", []listener{{cfg.Listen, mux}, {cfg.TunnelListen, p.TunnelHandler()}}, p.Run)
+		},
+	}
+}
+
+type nodeInfoConfig struct {
+	Listen string
+}
+
+func nodeInfoCmd(c *common) *cobra.Command {
+	return &cobra.Command{
+		Use:   "node-info",
+		Short: "Describe this machine to the emulator provider: CPU, memory, load and temperature sensors",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			cfg := nodeInfoConfig{Listen: ":8090"}
+			rt, err := loadConfig(c.configPath, &cfg)
+			if err != nil {
+				return err
+			}
+			mux := http.NewServeMux()
+			contract.RegisterNode(contract.NewAPI(mux, "Holtdroid node info"), hostinfo.Node{Root: os.DirFS("/")})
+			return rt.serve(cmd.Context(), "node-info", []listener{{cfg.Listen, mux}})
 		},
 	}
 }

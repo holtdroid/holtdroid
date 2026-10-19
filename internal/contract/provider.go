@@ -18,6 +18,8 @@ type Provider interface {
 	Delete(ctx context.Context, id string) error
 	Touch(ctx context.Context, id string, at time.Time) error
 	Install(ctx context.Context, id string, req Install) (Session, error)
+	Inventory(ctx context.Context) (Inventory, error)
+	SetMaintenance(ctx context.Context, req SetMaintenance) error
 }
 
 type createSessionInput struct {
@@ -27,6 +29,10 @@ type createSessionInput struct {
 type touchInput struct {
 	ID   string `path:"id" minLength:"1"`
 	Body Touch
+}
+
+type setMaintenanceInput struct {
+	Body SetMaintenance
 }
 
 type installSessionInput struct {
@@ -118,6 +124,27 @@ func RegisterProvider(api huma.API, p Provider) {
 		return &body[Session]{s}, nil
 	})
 
+	huma.Register(api, huma.Operation{
+		OperationID: "getInventory", Method: http.MethodGet, Path: "/v1/inventory", Tags: tags,
+		Description: "Every slot with what the provider knows about its device or machine.",
+	}, func(ctx context.Context, _ *struct{}) (*body[Inventory], error) {
+		inv, err := p.Inventory(ctx)
+		if err != nil {
+			return nil, toHuma(err)
+		}
+		if inv.Devices == nil {
+			inv.Devices = []InventoryDevice{}
+		}
+		return &body[Inventory]{inv}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "setMaintenance", Method: http.MethodPut, Path: "/v1/maintenance", Tags: tags, DefaultStatus: http.StatusNoContent,
+		Description: "Holds a slot or the whole provider for maintenance, or releases it. Held slots take no new sessions.",
+	}, func(ctx context.Context, in *setMaintenanceInput) (*struct{}, error) {
+		return nil, toHuma(p.SetMaintenance(ctx, in.Body))
+	})
+
 	registerHealth(api, "provider")
 }
 
@@ -169,4 +196,14 @@ func (p *ProviderClient) Install(ctx context.Context, id string, req Install) (S
 	var s Session
 	err := p.c.withTimeout(installTimeout).do(ctx, http.MethodPost, "/v1/sessions/"+url.PathEscape(id)+"/install", req, &s)
 	return s, err
+}
+
+func (p *ProviderClient) Inventory(ctx context.Context) (Inventory, error) {
+	var inv Inventory
+	err := p.c.do(ctx, http.MethodGet, "/v1/inventory", nil, &inv)
+	return inv, err
+}
+
+func (p *ProviderClient) SetMaintenance(ctx context.Context, req SetMaintenance) error {
+	return p.c.do(ctx, http.MethodPut, "/v1/maintenance", req, nil)
 }

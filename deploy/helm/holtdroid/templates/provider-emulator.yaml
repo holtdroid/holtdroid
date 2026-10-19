@@ -33,6 +33,13 @@
 {{- end }}
 {{- $refresh := and $e.prepull.enabled $e.prepull.refresh.enabled -}}
 {{- $_ := set $cfg "prepull" (dict "refresh" $refresh "daemonSet" (ternary (printf "%s-session-prepull" $name) "" $refresh) "interval" $e.prepull.refresh.interval) -}}
+{{- $maintenance := printf "%s-%s-maintenance" $name $component -}}
+{{- $_ := set $cfg "maintenance" $maintenance -}}
+{{- if $e.nodeInfo.enabled }}
+{{- $_ := set $cfg "nodeInfo" (dict
+  "selector" (printf "app.kubernetes.io/name=%s,app.kubernetes.io/instance=%s,app.kubernetes.io/component=node-info" .Chart.Name .Release.Name)
+  "port" 8090) -}}
+{{- end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -63,6 +70,13 @@ rules:
   - apiGroups: [""]
     resources: [secrets]
     verbs: [create]
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [create]
+  - apiGroups: [""]
+    resources: [configmaps]
+    resourceNames: [{{ $maintenance }}]
+    verbs: [get, update]
   {{- if $refresh }}
   - apiGroups: [apps]
     resources: [daemonsets]
@@ -250,5 +264,69 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           resources:
             {{- toYaml $e.prepull.resources | nindent 12 }}
+{{- end }}
+{{- if $e.nodeInfo.enabled }}
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ $name }}-node-info
+  labels:
+    {{- include "holtdroid.labels" . | nindent 4 }}
+    app.kubernetes.io/component: node-info
+spec:
+  selector:
+    matchLabels:
+      {{- include "holtdroid.selector" (dict "root" . "component" "node-info") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "holtdroid.selector" (dict "root" . "component" "node-info") | nindent 8 }}
+    spec:
+      {{- include "holtdroid.pod" (dict "root" .) | nindent 6 }}
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 1
+      {{- with $e.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $e.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: node-info
+          image: {{ include "holtdroid.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: [node-info]
+          ports:
+            - { name: http, containerPort: 8090 }
+          readinessProbe:
+            httpGet: { path: /v1/health, port: http }
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          resources:
+            {{- toYaml $e.nodeInfo.resources | nindent 12 }}
+{{- if $e.networkPolicy.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $name }}-node-info
+  labels:
+    {{- include "holtdroid.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "holtdroid.selector" (dict "root" . "component" "node-info") | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "holtdroid.selector" (dict "root" . "component" $component) | nindent 14 }}
+      ports:
+        - { protocol: TCP, port: 8090 }
+{{- end }}
 {{- end }}
 {{- end }}

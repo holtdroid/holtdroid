@@ -7,7 +7,8 @@ sidebar:
 
 The `provider-emulator` service creates one Pod per session in its own
 namespace. It needs a ServiceAccount allowed to manage Pods and Secrets there,
-and to list Nodes cluster-wide (the Helm chart creates both).
+to create and update its maintenance ConfigMap, and to list Nodes
+cluster-wide (the Helm chart creates all of it).
 
 ```yaml
 listen: ":8080"
@@ -34,6 +35,10 @@ nodes:
 gpu: host # or software
 vpn:
   locations: [] # see below; empty means no VPN sidecar
+maintenance: holtdroid-emulator-maintenance # ConfigMap for maintenance holds; empty turns them off
+nodeInfo:
+  selector: "app.kubernetes.io/component=node-info" # node-info Pods in the namespace; empty: none
+  port: 8090
 ```
 
 | Key                        | Meaning                                                                                                                                                            |
@@ -51,11 +56,30 @@ vpn:
 | `gpu`                      | `host` renders on the node's GPU, `software` with SwiftShader. See below                                                                                           |
 | `vpn`                      | Per-session VPN, see below                                                                                                                                         |
 | `sessionTelemetry`         | Metrics port and tracing settings passed to session agents, see [Monitoring](/holtdroid/operations/monitoring/)                                                    |
+| `maintenance`              | Name of the ConfigMap in `namespace` that keeps maintenance holds. The provider creates it on the first hold. Empty turns holds off                                |
+| `nodeInfo`                 | Label `selector` and `port` of the `holtdroid node-info` Pods that describe session nodes on the Inventory page. Empty selector: Node objects only                 |
 
 Every matching node is one slot, at most one session per node. A session is
 pinned to the first free node, or to the node picked in the launch dialog; nodes that are not Ready or are cordoned show
 as offline. Session state lives on the Pod, so restarting the provider loses
 nothing. Run one provider replica per namespace.
+
+## Inventory and maintenance
+
+Admins see every session node on the **Inventory** page: its OS image,
+kernel, kubelet and container runtime, CPU and memory from the Node object,
+the conditions it reports (`NotReady`, `DiskPressure`, …) and the session on
+it. With `nodeInfo` set, a small `holtdroid node-info` Pod on each node adds
+the CPU model, load, free memory, uptime and every temperature sensor the
+node exposes (thermal zones and hwmon: CPU package and cores, NVMe drives,
+chipsets). It reads `/proc` and `/sys`, which are host-wide inside an
+ordinary container, so it runs unprivileged as non-root.
+
+**Hold for maintenance** keeps new sessions off a node (or, from the
+provider's header, off every node) until an admin releases it; a session
+running there keeps going. Holds live in the `maintenance` ConfigMap, so a
+restart keeps them. Cordoning the node in Kubernetes still works too: it
+shows as offline.
 
 ## Helm chart
 
@@ -81,7 +105,15 @@ providers:
     prepull:
       enabled: true # DaemonSet that pulls the session image onto session nodes
       refresh: { enabled: true, interval: 5m }
+    nodeInfo:
+      enabled: true # DaemonSet of holtdroid node-info for the Inventory page
 ```
+
+The chart names the maintenance ConfigMap
+`<release>-provider-emulator-maintenance` and lets the provider's Role create
+it and update only that one. The node-info DaemonSet runs on the same nodes
+as sessions (`nodeSelector`, `tolerations`) and, with `networkPolicy` on, only
+the provider may reach it.
 
 The session image is several GB. The pre-pull DaemonSet runs on the same
 nodes as sessions and keeps the current tag on disk, so the first launch after

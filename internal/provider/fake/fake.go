@@ -44,8 +44,9 @@ type Provider struct {
 	locations []contract.Location
 	location  string
 
-	mu       sync.Mutex
-	sessions map[string]*device
+	mu          sync.Mutex
+	sessions    map[string]*device
+	maintenance contract.MaintenanceState
 }
 
 type Option func(*Provider)
@@ -110,6 +111,7 @@ func (p *Provider) capacity() contract.Capacity {
 		}
 		c.Slots = append(c.Slots, contract.Slot{ID: id, Label: "Fake device " + strings.TrimPrefix(id, "fake-"), State: state})
 	}
+	p.maintenance.Apply(&c)
 	return c
 }
 

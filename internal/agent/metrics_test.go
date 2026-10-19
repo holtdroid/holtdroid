@@ -145,20 +145,6 @@ func TestReadHost(t *testing.T) {
 	}
 }
 
-func TestReadHostThermal(t *testing.T) {
-	got := readHostThermal(fstest.MapFS{
-		"sys/class/thermal/thermal_zone0/type":   {Data: []byte("x86_pkg_temp\n")},
-		"sys/class/thermal/thermal_zone0/temp":   {Data: []byte("61540\n")},
-		"sys/class/thermal/thermal_zone1/type":   {Data: []byte("acpitz\n")},
-		"sys/class/thermal/thermal_zone1/temp":   {Data: []byte("-1\n")},
-		"sys/class/thermal/cooling_device0/type": {Data: []byte("Processor\n")},
-	})
-	want := []contract.Temperature{{Source: contract.TemperatureHost, Type: "x86_pkg_temp", Name: "thermal_zone0", Celsius: 61.5}}
-	if fmt.Sprint(got) != fmt.Sprint(want) {
-		t.Errorf("got %+v", got)
-	}
-}
-
 type countingDevice struct {
 	fakeDevice
 	mu    sync.Mutex

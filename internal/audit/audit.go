@@ -50,12 +50,13 @@ const (
 	AppDataSave      Action = "appdata.save"
 	AppDataDownload  Action = "appdata.download"
 	AppDataDelete    Action = "appdata.delete"
+	Maintenance      Action = "provider.maintenance"
 )
 
 var Actions = []Action{
 	SignIn, SignOut, SessionLaunch, SessionStop, SessionReap, SessionExtend, SessionInstall, SessionLocation,
 	SessionClipboard, ArtifactUpload, ArtifactUpdate, ArtifactDelete, ArtifactDownload, SSHEnroll, SSHConnect, SSHDisconnect, SSHTunnel,
-	ADBConnect, ADBDisconnect, AuditExport,
+	ADBConnect, ADBDisconnect, AuditExport, Maintenance,
 }
 
 type Result string

@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/kriakiku/holtdroid/internal/hostinfo"
 )
 
 // Metrics samples the device, the app and the container the agent shares
@@ -162,24 +163,13 @@ func (m *Metrics) sample(ctx context.Context) (*sample, error) {
 	s := parseDeviceSample(out)
 	s.at = m.now()
 	s.host = readHost(m.root)
-	s.temps = append(s.temps, readHostThermal(m.root)...)
+	s.temps = append(s.temps, hostinfo.Zones(m.root)...)
 	return s, nil
 }
 
 func parseDeviceSample(out string) *sample {
 	s := &sample{procs: map[int]procSample{}, frames: map[int]frameSample{}}
-	sections := map[string][]string{}
-	section := ""
-	for line := range strings.SplitSeq(out, "\n") {
-		line = strings.TrimSpace(line)
-		if name, ok := strings.CutPrefix(line, "#"); ok && !strings.Contains(name, " ") {
-			section = name
-			continue
-		}
-		if line != "" {
-			sections[section] = append(sections[section], line)
-		}
-	}
+	sections := splitSections(out)
 	for _, line := range sections["stat"] {
 		if f := strings.Fields(line); len(f) >= 9 && f[0] == "cpu" {
 			for i, v := range f[1:9] {
@@ -233,6 +223,23 @@ func parseDeviceSample(out string) *sample {
 	parseGfx(sections["gfx"], s.frames)
 	s.temps = parseThermal(sections["thermal"])
 	return s
+}
+
+// splitSections splits a script's output at its "#name" marker lines.
+func splitSections(out string) map[string][]string {
+	sections := map[string][]string{}
+	section := ""
+	for line := range strings.SplitSeq(out, "\n") {
+		line = strings.TrimSpace(line)
+		if name, ok := strings.CutPrefix(line, "#"); ok && name != "" && !strings.Contains(name, " ") {
+			section = name
+			continue
+		}
+		if line != "" {
+			sections[section] = append(sections[section], line)
+		}
+	}
+	return sections
 }
 
 // parseProc reads "pid name pss /proc/pid/stat"; the comm in the stat line
@@ -370,21 +377,6 @@ func readHost(root fs.FS) *hostSample {
 		}
 	}
 	return h
-}
-
-func readHostThermal(root fs.FS) []contract.Temperature {
-	zones, _ := fs.Glob(root, "sys/class/thermal/thermal_zone*")
-	var out []contract.Temperature
-	for _, z := range zones {
-		milli, err := readInt(root, path.Join(z, "temp"))
-		typ, terr := fs.ReadFile(root, path.Join(z, "type"))
-		if err != nil || terr != nil || milli <= 0 {
-			continue
-		}
-		t := strings.TrimSpace(string(typ))
-		out = append(out, contract.Temperature{Source: contract.TemperatureHost, Type: t, Name: path.Base(z), Celsius: math.Round(float64(milli)/100) / 10})
-	}
-	return out
 }
 
 func readInt(root fs.FS, name string) (int64, error) {

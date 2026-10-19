@@ -4,7 +4,7 @@ Snapshot for whoever continues the work — human or agent. Update the
 "Where things stand" and "Next steps" sections whenever a phase moves; the
 rest changes rarely.
 
-_Last updated: 2026-10-18._
+_Last updated: 2026-10-19._
 
 ## Where things stand
 
@@ -91,6 +91,13 @@ deployment"):
   owner, visibility), change detection by ETag/mtime with polling and an
   `artifacts` SSE event, uploads from the UI (on by default) with
   public/private and delete for the owner and admins.
+- Inventory page for admins (decision #79): every slot of every provider
+  with its session, phones' model, Android, build, battery, memory,
+  storage and sensors over adb, the USB host and emulator nodes (Node
+  object plus `holtdroid node-info` on each node: CPU, load, memory,
+  thermal zones and hwmon); hold a slot or a whole provider for
+  maintenance (ConfigMap for emulators, the state file for phones).
+  Not tried on the cluster yet.
 - In-memory SQLite database in the api (goose + sqlc, `internal/db`); it only
   records session events so far and is empty after a restart (decision #22).
 - Phones without root (Phase 7, decision #67): `provider-physical` on the

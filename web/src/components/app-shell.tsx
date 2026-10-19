@@ -7,6 +7,7 @@ import {
   LogOutIcon,
   MoonIcon,
   ScrollTextIcon,
+  ServerIcon,
   ShieldIcon,
   ShuffleIcon,
   SunIcon,
@@ -93,6 +94,19 @@ export function AppShell({ children }: { children: ReactNode }) {
               <TooltipContent>
                 {online > 0 ? `Computers · ${online} connected` : "Computers: your local ports on the devices"}
               </TooltipContent>
+            </Tooltip>
+          )}
+          {identity?.admin && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" asChild>
+                  <Link to="/inventory" activeProps={{ className: "bg-muted" }}>
+                    <ServerIcon />
+                    <span className="sr-only">Inventory</span>
+                  </Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Inventory</TooltipContent>
             </Tooltip>
           )}
           {identity?.admin && (

@@ -136,6 +136,13 @@ providers:
       resources:
         requests: { cpu: 1m, memory: 4Mi }
         limits: { memory: 16Mi }
+    # DaemonSet on the session nodes that tells the Inventory page their
+    # CPU, load, memory and temperature sensors (/proc and /sys, read-only).
+    nodeInfo:
+      enabled: true
+      resources:
+        requests: { cpu: 1m, memory: 8Mi }
+        limits: { memory: 32Mi }
     resources:
       requests: { cpu: 5m, memory: 32Mi }
       limits: { memory: 128Mi }

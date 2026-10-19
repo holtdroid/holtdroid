@@ -31,7 +31,7 @@ and the OpenAPI document a Go provider serves at `/openapi.json`.
    devices are (Pod annotations, a file next to the phone, your service's
    database), not in memory only.
 2. **`GET /v1/capacity` lists slots.** One slot per device that can run a
-   session, `free`, `busy` or `offline`. The api refuses a launch when no
+   session, `free`, `busy`, `offline` or `maintenance`. The api refuses a launch when no
    slot is free, so keep it honest and cheap: the reaper calls it.
 3. **`POST /v1/sessions` returns quickly.** Answer with the session in
    `provisioning` and do the work in the background. The UI shows `state`
@@ -55,6 +55,18 @@ and the OpenAPI document a Go provider serves at `/openapi.json`.
    from the api (and `tunnelUrl` from the ssh-gateway).
 8. **Errors** follow RFC 9457 problem JSON, like the rest of the API; 404 for
    an unknown session id.
+9. **Maintenance holds belong to the provider.** `PUT /v1/maintenance`
+   holds a slot (or, without `slot`, every slot) or releases it. Keep the
+   holds with your session state so they survive a restart, and report a
+   held slot as `maintenance` once nothing runs on it; a running session
+   keeps going. `contract.MaintenanceState` does the bookkeeping for Go
+   providers. 400 for a slot you don't know.
+10. **`GET /v1/inventory` is for the admins' Inventory page.** Return every
+    slot (as in `capacity`), the session on it, and whatever you can tell
+    about the device (`device`: model, Android, battery, sensors, memory,
+    storage) or the machine (`host`: OS, CPU, load, sensors). Leave out what
+    you don't know and say why in `error`; keep it within a few seconds,
+    the page asks every 10.
 
 `capabilities` tells the UI what to show: VPN locations and the default
 one, whether DevTools and the clipboard work, the display kind (`scrcpy`),

@@ -46,6 +46,10 @@ func (h *fakeHost) Props(_ context.Context, serial string) (contract.SlotCapabil
 	return contract.SlotCapabilities{Model: "Phone " + serial, Android: "15", ABIs: []string{"arm64-v8a"}, DevTools: contract.DevToolsDebuggable}, nil
 }
 
+func (h *fakeHost) Inspect(_ context.Context, serial string) (contract.DeviceInfo, error) {
+	return contract.DeviceInfo{Model: "Phone " + serial, Android: "15", Battery: &contract.Battery{Level: 80, Celsius: 30}}, nil
+}
+
 func (h *fakeHost) Agent(cfg agent.Config, s phone.Session, _ *slog.Logger) Agent {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -406,4 +410,52 @@ func firstAPK(t *testing.T) string {
 		t.Skip("no test APK")
 	}
 	return filepath.Base(m[0])
+}
+
+func TestMaintenance(t *testing.T) {
+	host := &fakeHost{devices: map[string]string{"A1": "device", "B2": "device"}}
+	state := filepath.Join(t.TempDir(), "state.json")
+	_, c := newProvider(t, host, state)
+	ctx := context.Background()
+
+	if err := c.SetMaintenance(ctx, contract.SetMaintenance{Slot: "Z9", Enabled: true}); !errors.Is(err, contract.ErrInvalid) {
+		t.Fatalf("unknown phone: %v", err)
+	}
+	if err := c.SetMaintenance(ctx, contract.SetMaintenance{Slot: "A1", Enabled: true, Reason: "new cable", By: "otter"}); err != nil {
+		t.Fatal(err)
+	}
+	inv, err := c.Inventory(ctx)
+	if err != nil || len(inv.Devices) != 2 || inv.Host == nil {
+		t.Fatalf("inventory %+v, %v", inv, err)
+	}
+	a1, b2 := inv.Devices[0], inv.Devices[1]
+	if a1.Slot.State != contract.SlotMaintenance || a1.Slot.Maintenance.Reason != "new cable" || a1.Device == nil || a1.Device.Model != "Phone A1" {
+		t.Errorf("A1 %+v", a1)
+	}
+	if b2.Slot.State != contract.SlotFree || b2.Device.Battery.Level != 80 {
+		t.Errorf("B2 %+v", b2)
+	}
+	s, err := c.Create(ctx, contract.CreateSession{ArtifactURL: "http://api/x", ArtifactRef: "src/x", Package: "com.example.app", Owner: "otter"})
+	if err != nil || s.Slot != "B2" {
+		t.Fatalf("create %+v, %v", s, err)
+	}
+	if _, err := c.Create(ctx, contract.CreateSession{ArtifactURL: "http://api/x", ArtifactRef: "src/x", Package: "com.example.app", Owner: "otter"}); !errors.Is(err, contract.ErrNoCapacity) {
+		t.Fatalf("create on a held phone: %v", err)
+	}
+
+	if err := c.SetMaintenance(ctx, contract.SetMaintenance{Enabled: true, Reason: "moving"}); err != nil {
+		t.Fatal(err)
+	}
+	p2, _ := newProvider(t, host, state)
+	capacity, _ := p2.Capacity(ctx)
+	if capacity.Maintenance == nil || capacity.Maintenance.Reason != "moving" || capacity.Slots[0].Maintenance.Reason != "new cable" || capacity.Slots[1].State != contract.SlotBusy {
+		t.Fatalf("after a restart %+v", capacity)
+	}
+	if err := p2.SetMaintenance(ctx, contract.SetMaintenance{Enabled: false}); err != nil {
+		t.Fatal(err)
+	}
+	capacity, _ = p2.Capacity(ctx)
+	if capacity.Maintenance != nil || capacity.Slots[0].State != contract.SlotMaintenance || capacity.Slots[1].Maintenance != nil {
+		t.Fatalf("after releasing the provider %+v", capacity)
+	}
 }

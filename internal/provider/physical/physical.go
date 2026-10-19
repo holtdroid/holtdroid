@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"maps"
 	"net"
@@ -142,13 +143,15 @@ type Provider struct {
 	apk  func(string) (apk.Metadata, []byte, error)
 	base context.Context
 	stop context.CancelFunc
+	root fs.FS
 
-	mu        sync.Mutex
-	vpnDir    string
-	inventory map[string]phoneInfo
-	baselines map[string]*phone.Baseline
-	sessions  map[string]*session
-	resets    map[string]string
+	mu          sync.Mutex
+	vpnDir      string
+	inventory   map[string]phoneInfo
+	baselines   map[string]*phone.Baseline
+	sessions    map[string]*session
+	resets      map[string]string
+	maintenance contract.MaintenanceState
 }
 
 type phoneInfo struct {
@@ -173,9 +176,10 @@ type stored struct {
 }
 
 type state struct {
-	Sessions  []stored                   `json:"sessions"`
-	Resets    map[string]string          `json:"resets,omitempty"`
-	Baselines map[string]*phone.Baseline `json:"baselines,omitempty"`
+	Sessions    []stored                   `json:"sessions"`
+	Resets      map[string]string          `json:"resets,omitempty"`
+	Baselines   map[string]*phone.Baseline `json:"baselines,omitempty"`
+	Maintenance contract.MaintenanceState  `json:"maintenance"`
 }
 
 type Option func(*Provider)
@@ -196,7 +200,7 @@ func New(cfg Config, host Host, opts ...Option) (*Provider, error) {
 	}
 	base, stop := context.WithCancel(context.Background())
 	p := &Provider{
-		cfg: cfg, host: host, now: time.Now, log: slog.Default(), apk: apk.Parse, base: base, stop: stop,
+		cfg: cfg, host: host, now: time.Now, log: slog.Default(), apk: apk.Parse, base: base, stop: stop, root: os.DirFS("/"),
 		inventory: map[string]phoneInfo{}, sessions: map[string]*session{}, resets: map[string]string{}, baselines: map[string]*phone.Baseline{},
 	}
 	for _, opt := range opts {
@@ -211,6 +215,7 @@ func New(cfg Config, host Host, opts ...Option) (*Provider, error) {
 		stop()
 		return nil, err
 	}
+	p.maintenance = st.Maintenance
 	for serial, b := range st.Baselines {
 		if p.listed(serial) && b != nil {
 			p.baselines[serial] = b
@@ -362,10 +367,12 @@ func (p *Provider) Capabilities(context.Context) (contract.Capabilities, error) 
 func (p *Provider) Capacity(context.Context) (contract.Capacity, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	return contract.Capacity{Slots: p.slots()}, nil
+	return p.capacityLocked(), nil
 }
 
-func (p *Provider) slots() []contract.Slot {
+func (p *Provider) slots() []contract.Slot { return p.capacityLocked().Slots }
+
+func (p *Provider) capacityLocked() contract.Capacity {
 	busy := map[string]bool{}
 	for _, s := range p.sessions {
 		busy[s.s.Slot] = true
@@ -389,7 +396,9 @@ func (p *Provider) slots() []contract.Slot {
 		}
 		slots = append(slots, contract.Slot{ID: ph.Serial, Label: cmp.Or(label, ph.Serial), State: state, Capabilities: info.caps})
 	}
-	return slots
+	c := contract.Capacity{Slots: slots}
+	p.maintenance.Apply(&c)
+	return c
 }
 
 func (p *Provider) List(ctx context.Context) ([]contract.Session, error) {
@@ -760,7 +769,7 @@ func (p *Provider) load() (state, error) {
 }
 
 func (p *Provider) saveLocked() error {
-	st := state{Sessions: []stored{}, Resets: p.resets, Baselines: p.baselines}
+	st := state{Sessions: []stored{}, Resets: p.resets, Baselines: p.baselines, Maintenance: p.maintenance}
 	for _, s := range p.sessions {
 		st.Sessions = append(st.Sessions, stored{Session: s.s, ArtifactURL: s.artifactURL})
 	}

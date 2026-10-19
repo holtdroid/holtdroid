@@ -13,6 +13,7 @@ import { AppDataPage } from "@/pages/app-data"
 import { AuditPage, validateAuditSearch } from "@/pages/audit"
 import { ComputersPage } from "@/pages/computers"
 import { HomePage } from "@/pages/home"
+import { InventoryPage } from "@/pages/inventory"
 import { LaunchPage, validateLaunchSearch } from "@/pages/launch"
 import { SessionPage } from "@/pages/session"
 
@@ -89,6 +90,8 @@ const auditRoute = createRoute({
   component: AuditPage,
 })
 
+const inventoryRoute = createRoute({ getParentRoute: () => rootRoute, path: "/inventory", component: InventoryPage })
+
 const appDataRoute = createRoute({ getParentRoute: () => rootRoute, path: "/app-data", component: AppDataPage })
 
 const router = createRouter({
@@ -99,6 +102,7 @@ const router = createRouter({
     sessionRoute,
     computersRoute,
     auditRoute,
+    inventoryRoute,
     appDataRoute,
   ]),
 })

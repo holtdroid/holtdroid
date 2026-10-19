@@ -41,16 +41,18 @@ type Capabilities struct {
 type SlotState string
 
 const (
-	SlotFree    SlotState = "free"
-	SlotBusy    SlotState = "busy"
-	SlotOffline SlotState = "offline"
+	SlotFree        SlotState = "free"
+	SlotBusy        SlotState = "busy"
+	SlotOffline     SlotState = "offline"
+	SlotMaintenance SlotState = "maintenance"
 )
 
 type Slot struct {
 	ID           string            `json:"id"`
 	Label        string            `json:"label"`
-	State        SlotState         `json:"state" enum:"free,busy,offline"`
+	State        SlotState         `json:"state" enum:"free,busy,offline,maintenance"`
 	Capabilities *SlotCapabilities `json:"capabilities,omitempty" doc:"what this slot's device can do, when it differs from device to device; empty means the provider's capabilities"`
+	Maintenance  *Maintenance      `json:"maintenance,omitempty" doc:"set while the slot, or its whole provider, is held for maintenance: no new sessions start on it, a running one keeps going"`
 }
 
 type DevToolsScope string
@@ -72,7 +74,8 @@ type SlotCapabilities struct {
 }
 
 type Capacity struct {
-	Slots []Slot `json:"slots"`
+	Slots       []Slot       `json:"slots"`
+	Maintenance *Maintenance `json:"maintenance,omitempty" doc:"the whole provider is held for maintenance"`
 }
 
 func (c Capacity) Free() int {
@@ -416,4 +419,117 @@ type Temperature struct {
 	Type    string            `json:"type" doc:"cpu, gpu, battery, skin, npu, … or the host's thermal zone type"`
 	Name    string            `json:"name" doc:"the sensor, or the host's thermal zone"`
 	Celsius float64           `json:"celsius"`
+}
+
+type Maintenance struct {
+	Reason string    `json:"reason,omitempty"`
+	By     string    `json:"by,omitempty" doc:"the admin who set it"`
+	Since  time.Time `json:"since"`
+}
+
+type SetMaintenance struct {
+	Slot    string `json:"slot,omitempty" doc:"one slot; empty holds or releases the whole provider"`
+	Enabled bool   `json:"enabled"`
+	Reason  string `json:"reason,omitempty" maxLength:"500"`
+	By      string `json:"by,omitempty"`
+}
+
+// MaintenanceState is what a provider keeps of its maintenance holds.
+type MaintenanceState struct {
+	Provider *Maintenance           `json:"provider,omitempty"`
+	Slots    map[string]Maintenance `json:"slots,omitempty"`
+}
+
+func (m *MaintenanceState) Set(req SetMaintenance, now time.Time) {
+	hold := Maintenance{Reason: req.Reason, By: req.By, Since: now.UTC()}
+	switch {
+	case req.Slot == "" && req.Enabled:
+		m.Provider = &hold
+	case req.Slot == "":
+		m.Provider = nil
+	case req.Enabled:
+		if m.Slots == nil {
+			m.Slots = map[string]Maintenance{}
+		}
+		m.Slots[req.Slot] = hold
+	default:
+		delete(m.Slots, req.Slot)
+	}
+}
+
+// Apply marks the held slots: a slot's own hold wins over the provider's,
+// and a busy slot stays busy until its session ends.
+func (m MaintenanceState) Apply(c *Capacity) {
+	c.Maintenance = m.Provider
+	for i := range c.Slots {
+		s := &c.Slots[i]
+		if hold, ok := m.Slots[s.ID]; ok {
+			s.Maintenance = &hold
+		} else {
+			s.Maintenance = m.Provider
+		}
+		if s.Maintenance != nil && s.State != SlotBusy {
+			s.State = SlotMaintenance
+		}
+	}
+}
+
+type Inventory struct {
+	Maintenance *Maintenance      `json:"maintenance,omitempty" doc:"the whole provider is held for maintenance"`
+	Host        *HostInfo         `json:"host,omitempty" doc:"the machine the provider runs on, when its devices hang off it (phones over USB)"`
+	Devices     []InventoryDevice `json:"devices"`
+}
+
+type InventoryDevice struct {
+	Slot    Slot        `json:"slot"`
+	Session string      `json:"session,omitempty" doc:"the session running on it"`
+	Device  *DeviceInfo `json:"device,omitempty" doc:"the Android device, when it can be asked between sessions (phones, fake devices)"`
+	Host    *HostInfo   `json:"host,omitempty" doc:"the machine the slot is (emulator nodes)"`
+	Error   string      `json:"error,omitempty" doc:"why some details are missing"`
+}
+
+type DeviceInfo struct {
+	Manufacturer  string        `json:"manufacturer,omitempty"`
+	Model         string        `json:"model,omitempty"`
+	Device        string        `json:"device,omitempty" doc:"the product's code name"`
+	Android       string        `json:"android,omitempty"`
+	SDK           int           `json:"sdk,omitempty"`
+	Build         string        `json:"build,omitempty"`
+	SecurityPatch string        `json:"securityPatch,omitempty"`
+	ABIs          []string      `json:"abis"`
+	Cores         int           `json:"cores,omitempty"`
+	MemoryTotal   int64         `json:"memoryTotal,omitempty"`
+	StorageUsed   int64         `json:"storageUsed,omitempty" doc:"bytes used on /data"`
+	StorageTotal  int64         `json:"storageTotal,omitempty"`
+	Uptime        float64       `json:"uptime,omitempty" doc:"seconds since boot"`
+	Battery       *Battery      `json:"battery,omitempty"`
+	Thermal       []Temperature `json:"thermal"`
+}
+
+type Battery struct {
+	Level   int     `json:"level" doc:"percent"`
+	Status  string  `json:"status" enum:"unknown,charging,discharging,not-charging,full"`
+	Health  string  `json:"health" enum:"unknown,good,overheat,dead,over-voltage,failure,cold"`
+	Plugged string  `json:"plugged,omitempty" enum:"ac,usb,wireless,dock"`
+	Celsius float64 `json:"celsius"`
+	Voltage float64 `json:"voltage,omitempty" doc:"volts"`
+}
+
+type HostInfo struct {
+	Hostname        string        `json:"hostname,omitempty"`
+	OS              string        `json:"os,omitempty"`
+	Kernel          string        `json:"kernel,omitempty"`
+	Arch            string        `json:"arch,omitempty"`
+	CPU             string        `json:"cpu,omitempty" doc:"the CPU model"`
+	Cores           int           `json:"cores,omitempty"`
+	MemoryTotal     int64         `json:"memoryTotal,omitempty"`
+	MemoryAvailable int64         `json:"memoryAvailable,omitempty"`
+	Load1           float64       `json:"load1"`
+	Load5           float64       `json:"load5"`
+	Load15          float64       `json:"load15"`
+	Uptime          float64       `json:"uptime,omitempty" doc:"seconds since boot"`
+	Runtime         string        `json:"runtime,omitempty" doc:"the container runtime, for Kubernetes nodes"`
+	Kubelet         string        `json:"kubelet,omitempty"`
+	Conditions      []string      `json:"conditions" doc:"problems the node reports: NotReady, MemoryPressure, DiskPressure, PIDPressure, Unschedulable, …"`
+	Thermal         []Temperature `json:"thermal" doc:"thermal zones and hwmon sensors"`
 }

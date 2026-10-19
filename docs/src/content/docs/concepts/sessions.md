@@ -91,13 +91,22 @@ both deadlines as countdowns.
 
 ## Slots
 
-Each provider reports its slots as `free`, `busy` or `offline`. The emulator
+Each provider reports its slots as `free`, `busy`, `offline` or
+`maintenance`. The emulator
 provider runs at most one session per node (required pod anti-affinity) and at
 most `slots` sessions overall. Nodes are chosen with the chart's
 `nodeSelector` and `tolerations`. When nothing is free, a launch waits in
 line on the launch page and starts as soon as a slot frees up, first come
 first served; leaving the page gives up the place. The line lives in the api
 replica's memory, so a restart drops it.
+
+Admins see every slot on the **Inventory** page (the server icon in the
+header): the device's or node's model, system, battery, memory, storage and
+temperature sensors, and the session running on it. **Hold** keeps new
+sessions off a slot, or off a whole provider, while someone works on it; a
+running session keeps going, and the slot shows `maintenance` once it ends
+until an admin releases it. Holds are kept by the provider, so restarts
+don't lose them.
 
 ## Ownership
 

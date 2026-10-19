@@ -71,6 +71,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/inventory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Every provider's slots with their devices or machines and maintenance holds. Admins only. */
+        get: operations["getInventory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/providers/{provider}/maintenance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Holds every slot of a provider for maintenance, or releases the hold. Running sessions keep going. Admins only. */
+        put: operations["setProviderMaintenance"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/providers/{provider}/slots/{slot}/maintenance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Holds one slot for maintenance, or releases it. A running session keeps going. Admins only. */
+        put: operations["setSlotMaintenance"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/app-data": {
         parameters: {
             query?: never;
@@ -711,6 +762,26 @@ export interface components {
             /** @enum {string} */
             mode: "anonymous" | "password" | "oidc" | "header" | "none";
         };
+        Battery: {
+            /** Format: double */
+            celsius: number;
+            /** @enum {string} */
+            health: "unknown" | "good" | "overheat" | "dead" | "over-voltage" | "failure" | "cold";
+            /**
+             * Format: int64
+             * @description percent
+             */
+            level: number;
+            /** @enum {string} */
+            plugged?: "ac" | "usb" | "wireless" | "dock";
+            /** @enum {string} */
+            status: "unknown" | "charging" | "discharging" | "not-charging" | "full";
+            /**
+             * Format: double
+             * @description volts
+             */
+            voltage?: number;
+        };
         Capabilities: {
             abis: string[];
             clipboard: boolean;
@@ -722,6 +793,8 @@ export interface components {
             locations: components["schemas"]["Location"][];
         };
         Capacity: {
+            /** @description the whole provider is held for maintenance */
+            maintenance?: components["schemas"]["Maintenance"];
             slots: components["schemas"]["Slot"][];
         };
         Computer: {
@@ -811,6 +884,36 @@ export interface components {
             refreshToken: string;
             user: string;
         };
+        DeviceInfo: {
+            abis: string[];
+            android?: string;
+            battery?: components["schemas"]["Battery"];
+            build?: string;
+            /** Format: int64 */
+            cores?: number;
+            /** @description the product's code name */
+            device?: string;
+            manufacturer?: string;
+            /** Format: int64 */
+            memoryTotal?: number;
+            model?: string;
+            /** Format: int64 */
+            sdk?: number;
+            securityPatch?: string;
+            /** Format: int64 */
+            storageTotal?: number;
+            /**
+             * Format: int64
+             * @description bytes used on /data
+             */
+            storageUsed?: number;
+            thermal: components["schemas"]["Temperature"][];
+            /**
+             * Format: double
+             * @description seconds since boot
+             */
+            uptime?: number;
+        };
         Enroll: {
             arch: string;
             code: string;
@@ -864,6 +967,38 @@ export interface components {
             /** @description The user interacted with the session page since the last heartbeat */
             active: boolean;
         };
+        HostInfo: {
+            arch?: string;
+            /** @description problems the node reports: NotReady, MemoryPressure, DiskPressure, PIDPressure, Unschedulable, … */
+            conditions: string[];
+            /** Format: int64 */
+            cores?: number;
+            /** @description the CPU model */
+            cpu?: string;
+            hostname?: string;
+            kernel?: string;
+            kubelet?: string;
+            /** Format: double */
+            load1: number;
+            /** Format: double */
+            load15: number;
+            /** Format: double */
+            load5: number;
+            /** Format: int64 */
+            memoryAvailable?: number;
+            /** Format: int64 */
+            memoryTotal?: number;
+            os?: string;
+            /** @description the container runtime, for Kubernetes nodes */
+            runtime?: string;
+            /** @description thermal zones and hwmon sensors */
+            thermal: components["schemas"]["Temperature"][];
+            /**
+             * Format: double
+             * @description seconds since boot
+             */
+            uptime?: number;
+        };
         Identity: {
             admin: boolean;
             email?: string;
@@ -879,6 +1014,20 @@ export interface components {
             keepData: boolean;
             source: string;
         };
+        InventoryDevice: {
+            /** @description the Android device, when it can be asked between sessions (phones, fake devices) */
+            device?: components["schemas"]["DeviceInfo"];
+            /** @description why some details are missing */
+            error?: string;
+            /** @description the machine the slot is (emulator nodes) */
+            host?: components["schemas"]["HostInfo"];
+            /** @description the session running on it */
+            session?: string;
+            slot: components["schemas"]["Slot"];
+        };
+        InventoryView: {
+            providers: components["schemas"]["ProviderInventory"][];
+        };
         LocalPort: {
             /** Format: int64 */
             port: number;
@@ -890,6 +1039,17 @@ export interface components {
         };
         LoginInputBody: {
             password: string;
+        };
+        Maintenance: {
+            /** @description the admin who set it */
+            by?: string;
+            reason?: string;
+            /** Format: date-time */
+            since: string;
+        };
+        MaintenanceBody: {
+            enabled: boolean;
+            reason?: string;
         };
         Meta: {
             /** @description What changed in this build, plain text or Markdown */
@@ -944,6 +1104,16 @@ export interface components {
             temporary?: boolean;
             /** @enum {string} */
             visibility?: "public" | "private";
+        };
+        ProviderInventory: {
+            devices: components["schemas"]["InventoryDevice"][];
+            error?: string;
+            /** @description the machine the provider's devices hang off */
+            host?: components["schemas"]["HostInfo"];
+            kind?: string;
+            /** @description the whole provider is held for maintenance */
+            maintenance?: components["schemas"]["Maintenance"];
+            name: string;
         };
         ProviderView: {
             capabilities: components["schemas"]["Capabilities"];
@@ -1048,8 +1218,10 @@ export interface components {
             capabilities?: components["schemas"]["SlotCapabilities"];
             id: string;
             label: string;
+            /** @description set while the slot, or its whole provider, is held for maintenance: no new sessions start on it, a running one keeps going */
+            maintenance?: components["schemas"]["Maintenance"];
             /** @enum {string} */
-            state: "free" | "busy" | "offline";
+            state: "free" | "busy" | "offline" | "maintenance";
         };
         SlotCapabilities: {
             abis: string[];
@@ -1075,6 +1247,16 @@ export interface components {
         SourceView: {
             name: string;
             readOnly: boolean;
+        };
+        Temperature: {
+            /** Format: double */
+            celsius: number;
+            /** @description the sensor, or the host's thermal zone */
+            name: string;
+            /** @enum {string} */
+            source: "device" | "host";
+            /** @description cpu, gpu, battery, skin, npu, … or the host's thermal zone type */
+            type: string;
         };
         UploadsInfo: {
             enabled: boolean;
@@ -1226,6 +1408,102 @@ export interface operations {
                 content: {
                     "application/x-ndjson": unknown;
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getInventory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    setProviderMaintenance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MaintenanceBody"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    setSlotMaintenance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+                slot: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MaintenanceBody"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

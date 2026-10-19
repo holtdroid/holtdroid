@@ -120,13 +120,15 @@ Implemented by `provider-*` services. Consumed only by the api.
 | Method | Path | Body / Response |
 |--------|------|-----------------|
 | `GET` | `/v1/capabilities` | `Capabilities` |
-| `GET` | `/v1/capacity` | `{slots: Slot[]}` |
+| `GET` | `/v1/capacity` | `{slots: Slot[], maintenance?}` |
 | `GET` | `/v1/sessions` | `{items: Session[]}` |
 | `POST` | `/v1/sessions` | `CreateSession` → `Session` |
 | `GET` | `/v1/sessions/{id}` | `Session` |
 | `DELETE` | `/v1/sessions/{id}` | 204 |
 | `POST` | `/v1/sessions/{id}/touch` | `{lastActivity}` → 204 |
 | `POST` | `/v1/sessions/{id}/install` | `Install` `{artifactUrl, artifactRef, keepData}` → `Session`; only for a `ready` session (400 otherwise); hands the build to the agent's `/v1/install` and, once it runs, records `artifactRef` as the session's artifact. A failed install (400 with the adb message) keeps the recorded one |
+| `GET` | `/v1/inventory` | `Inventory`: every slot with its session and what the provider knows about the device or machine behind it |
+| `PUT` | `/v1/maintenance` | `SetMaintenance` → 204; holds a slot (or, without `slot`, the whole provider) for maintenance or releases it; 400 for an unknown slot |
 | `GET` | `/v1/health` | `{ok: true}` |
 
 ```go
@@ -148,8 +150,69 @@ type Location struct {
 type Slot struct {
 	ID           string // node name for emulators, device serial for phones
 	Label        string
-	State        string // "free" | "busy" | "offline"
+	State        string // "free" | "busy" | "offline" | "maintenance"
 	Capabilities *SlotCapabilities // optional: set by providers whose devices differ (phones)
+	Maintenance  *Maintenance      // set while the slot or its whole provider is held
+}
+
+type Capacity struct {
+	Slots       []Slot
+	Maintenance *Maintenance // the whole provider is held
+}
+
+// A held slot takes no new sessions; a busy one stays "busy" until its
+// session ends and then reads "maintenance". A slot's own hold wins over
+// the provider's. Providers keep holds where their sessions live (emulator:
+// a ConfigMap, phones: the state file) and apply them with
+// contract.MaintenanceState.Apply.
+type Maintenance struct {
+	Reason string
+	By     string    // the admin, filled by the api
+	Since  time.Time
+}
+
+type SetMaintenance struct {
+	Slot    string // empty: the whole provider
+	Enabled bool
+	Reason  string // ≤ 500 characters
+	By      string
+}
+
+type Inventory struct {
+	Maintenance *Maintenance
+	Host        *HostInfo // the machine the devices hang off (phones over USB)
+	Devices     []InventoryDevice
+}
+
+type InventoryDevice struct {
+	Slot    Slot
+	Session string      // the session running on it
+	Device  *DeviceInfo // the Android device, when the provider can ask it (phones, fake devices)
+	Host    *HostInfo   // the machine the slot is (emulator nodes)
+	Error   string      // why details are missing (adb state, node-info unreachable)
+}
+
+type DeviceInfo struct {
+	Manufacturer, Model, Device, Android, Build, SecurityPatch string
+	SDK                       int
+	ABIs                      []string
+	Cores                     int
+	MemoryTotal               int64
+	StorageUsed, StorageTotal int64   // /data
+	Uptime                    float64 // seconds
+	Battery                   *Battery // {level, status, health, plugged, celsius, voltage}
+	Thermal                   []Temperature
+}
+
+type HostInfo struct {
+	Hostname, OS, Kernel, Arch, CPU string
+	Cores                          int
+	MemoryTotal, MemoryAvailable   int64
+	Load1, Load5, Load15           float64
+	Uptime                         float64
+	Runtime, Kubelet               string   // Kubernetes nodes
+	Conditions                     []string // NotReady, MemoryPressure, DiskPressure, PIDPressure, Unschedulable
+	Thermal                        []Temperature // thermal zones and hwmon sensors
 }
 
 // What one device can do, where the provider-wide Capabilities can't say it.
@@ -199,6 +262,21 @@ type Session struct {
 	LastActivity time.Time
 }
 ```
+
+## Node API
+
+Served by `holtdroid node-info` on every machine a provider runs devices on
+(the chart's DaemonSet on emulator nodes, port 8090). Consumed only by
+providers; `contract.RegisterNode` and `contract.NewNodeClient`.
+
+| Method | Path | Body / Response |
+|--------|------|-----------------|
+| `GET` | `/v1/host` | `HostInfo` read from `/proc` and `/sys` (CPU model, cores, memory, load, uptime, kernel, thermal zones, hwmon temperatures); both are host-wide inside an ordinary container |
+| `GET` | `/v1/health` | `{ok: true}` |
+
+The emulator provider finds the node-info Pods by `nodeInfo.selector` in its
+namespace and merges what they say into the `HostInfo` it builds from the
+Node object (OS image, kubelet, runtime, conditions).
 
 ## Agent API
 
@@ -346,6 +424,9 @@ keeping the provider in the path is what lets the api stay stateless.
 | `GET` | `/api/v1/admin/audit` | admins only (403 otherwise): `{enabled, events, oldest?, maxEvents, maxAge (s), persistent, actors, actions}` of the api's audit store |
 | `GET` | `/api/v1/admin/audit/events?action=&result=&service=&actor=&session=&q=&since=&until=&before=&limit=` | admins only: `{items, next?}` newest first; `action`, `result`, `service` take comma-separated lists, an action matches exactly or by group (`session` = `session.*`), `q` searches every field case-insensitively, `before` is the `next` of the previous page, `limit` ≤ 500 (default 100); 404 when the store is off |
 | `GET` | `/api/v1/admin/audit/export?…` | admins only: every event matching the same filters as `application/x-ndjson`, newest first; emits `audit.export` |
+| `GET` | `/api/v1/admin/inventory` | admins only: `{providers: [{name, kind?, error?, maintenance?, host?, devices: InventoryDevice[]}]}`, one entry per provider in config order |
+| `PUT` | `/api/v1/admin/providers/{provider}/maintenance` | admins only: `{enabled, reason?}` → 204; holds or releases the whole provider; emits `provider.maintenance` |
+| `PUT` | `/api/v1/admin/providers/{provider}/slots/{slot}/maintenance` | admins only: the same for one slot; 422 for an unknown slot |
 | `GET` | `/api/v1/events` | SSE `event: sessions`, the full `{items, errors}` whenever it changes; `event: artifacts` `{revision}` whenever any source changes |
 | `*` | `/s/{provider}/{id}/…` | proxy to the session's agent (HTTP + WS); any authenticated user may use it; non-GET requests count as activity |
 | `GET` | `/internal/artifacts/{key}` | APK download for agents by cache key, **internal port only** |

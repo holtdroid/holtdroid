@@ -50,6 +50,15 @@ type Config struct {
 	VPN              vpn.Config
 	Prepull          Prepull
 	SessionTelemetry SessionTelemetry
+	Maintenance      string
+	NodeInfo         NodeInfo
+}
+
+// NodeInfo finds the node-info Pods that describe session nodes: a label
+// selector in the provider's namespace and their port.
+type NodeInfo struct {
+	Selector string
+	Port     int
 }
 
 // SessionTelemetry is what session agents get of the telemetry settings.
@@ -90,9 +99,11 @@ func DefaultConfig() Config {
 			Requests: map[string]string{"cpu": "3", "memory": "5Gi"},
 			Limits:   map[string]string{"memory": "7Gi"},
 		},
-		GPU:     "host",
-		VPN:     vpn.DefaultConfig(),
-		Prepull: Prepull{Refresh: true, Interval: 5 * time.Minute},
+		GPU:         "host",
+		VPN:         vpn.DefaultConfig(),
+		Prepull:     Prepull{Refresh: true, Interval: 5 * time.Minute},
+		Maintenance: "holtdroid-emulator-maintenance",
+		NodeInfo:    NodeInfo{Port: 8090},
 	}
 }
 
@@ -126,6 +137,12 @@ func (c Config) Validate() error {
 	}
 	if _, err := labels.Parse(c.NodeSelector); err != nil {
 		errs = append(errs, fmt.Errorf("nodeSelector: %w", err))
+	}
+	if _, err := labels.Parse(c.NodeInfo.Selector); err != nil {
+		errs = append(errs, fmt.Errorf("nodeInfo.selector: %w", err))
+	}
+	if c.NodeInfo.Selector != "" && (c.NodeInfo.Port <= 0 || c.NodeInfo.Port > 65535) {
+		errs = append(errs, fmt.Errorf("nodeInfo.port %d is not a port", c.NodeInfo.Port))
 	}
 	if _, err := c.Resources.requirements(); err != nil {
 		errs = append(errs, err)
@@ -195,6 +212,7 @@ type Provider struct {
 	resources corev1.ResourceRequirements
 	nodeRes   map[string]corev1.ResourceRequirements
 	selector  labels.Selector
+	nodeInfo  labels.Selector
 	agents    *http.Client
 	registry  *registry
 	log       *slog.Logger
@@ -218,7 +236,8 @@ func New(cfg Config, kube kubernetes.Interface, sec vpn.Secrets, opts ...Option)
 		}
 	}
 	sel, _ := labels.Parse(cfg.NodeSelector)
-	p := &Provider{cfg: cfg, kube: kube, secrets: sec, now: time.Now, resources: res, nodeRes: nodeRes, selector: sel, agents: &http.Client{Timeout: 2 * time.Second}, registry: newRegistry(), log: slog.Default()}
+	nodeInfo, _ := labels.Parse(cfg.NodeInfo.Selector)
+	p := &Provider{cfg: cfg, kube: kube, secrets: sec, now: time.Now, resources: res, nodeRes: nodeRes, selector: sel, nodeInfo: nodeInfo, agents: &http.Client{Timeout: 2 * time.Second}, registry: newRegistry(), log: slog.Default()}
 	for _, opt := range opts {
 		opt(p)
 	}
@@ -238,18 +257,28 @@ func (p *Provider) Capabilities(context.Context) (contract.Capabilities, error) 
 }
 
 func (p *Provider) Capacity(ctx context.Context) (contract.Capacity, error) {
-	c, _, err := p.capacity(ctx)
-	return c, err
+	c, err := p.capacity(ctx)
+	return c.Capacity, err
 }
 
-func (p *Provider) capacity(ctx context.Context) (contract.Capacity, []corev1.Pod, error) {
+type snapshot struct {
+	contract.Capacity
+	pods  []corev1.Pod
+	nodes []corev1.Node
+}
+
+func (p *Provider) capacity(ctx context.Context) (snapshot, error) {
 	nodes, err := p.kube.CoreV1().Nodes().List(ctx, metav1.ListOptions{LabelSelector: p.selector.String()})
 	if err != nil {
-		return contract.Capacity{}, nil, fmt.Errorf("list nodes: %w", err)
+		return snapshot{}, fmt.Errorf("list nodes: %w", err)
 	}
 	pods, err := p.pods(ctx)
 	if err != nil {
-		return contract.Capacity{}, nil, err
+		return snapshot{}, err
+	}
+	held, err := p.maintenance(ctx)
+	if err != nil {
+		return snapshot{}, err
 	}
 	busy := map[string]bool{}
 	for _, pod := range pods {
@@ -271,7 +300,8 @@ func (p *Provider) capacity(ctx context.Context) (contract.Capacity, []corev1.Po
 		}
 		c.Slots = append(c.Slots, contract.Slot{ID: n.Name, Label: n.Name, State: state})
 	}
-	return c, pods, nil
+	held.Apply(&c)
+	return snapshot{c, pods, eligible}, nil
 }
 
 func (p *Provider) tolerates(n corev1.Node) bool {
@@ -337,7 +367,7 @@ func (p *Provider) Create(ctx context.Context, req contract.CreateSession) (cont
 
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	c, _, err := p.capacity(ctx)
+	c, err := p.capacity(ctx)
 	if err != nil {
 		return contract.Session{}, err
 	}

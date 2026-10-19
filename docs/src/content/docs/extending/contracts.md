@@ -29,17 +29,28 @@ principles a sync job should follow.
 
 ## Device provider
 
-| Method         | Path                        | Returns                                                                           |
-| -------------- | --------------------------- | --------------------------------------------------------------------------------- |
-| `GET`          | `/v1/capabilities`          | display kind, DevTools/clipboard support, VPN locations and the default one, ABIs |
-| `GET`          | `/v1/capacity`              | slots with `free`/`busy`/`offline`                                                |
-| `GET`/`POST`   | `/v1/sessions`              | list / create                                                                     |
-| `GET`/`DELETE` | `/v1/sessions/{id}`         | get / stop                                                                        |
-| `POST`         | `/v1/sessions/{id}/touch`   | record activity                                                                   |
-| `POST`         | `/v1/sessions/{id}/install` | install another build of the session's package through the agent and record it    |
+| Method         | Path                        | Returns                                                                                   |
+| -------------- | --------------------------- | ----------------------------------------------------------------------------------------- |
+| `GET`          | `/v1/capabilities`          | display kind, DevTools/clipboard support, VPN locations and the default one, ABIs         |
+| `GET`          | `/v1/capacity`              | slots with `free`/`busy`/`offline`/`maintenance` and the provider's maintenance hold      |
+| `GET`/`POST`   | `/v1/sessions`              | list / create                                                                             |
+| `GET`/`DELETE` | `/v1/sessions/{id}`         | get / stop                                                                                |
+| `POST`         | `/v1/sessions/{id}/touch`   | record activity                                                                           |
+| `POST`         | `/v1/sessions/{id}/install` | install another build of the session's package through the agent and record it            |
+| `GET`          | `/v1/inventory`             | every slot with its session, device (model, Android, battery, sensors) or machine details |
+| `PUT`          | `/v1/maintenance`           | hold a slot, or the whole provider, for maintenance, or release it                        |
 
 The provider is the **source of truth** for its sessions; the api keeps no
 state of its own.
+
+## Node info
+
+`holtdroid node-info` answers `GET /v1/host` with what `/proc` and `/sys`
+say about the machine it runs on: CPU model and cores, memory, load,
+uptime, kernel, thermal zones and hwmon temperature sensors. The chart runs
+it as a DaemonSet on emulator nodes, and the emulator provider adds its
+answers to the inventory. Another provider may use it the same way or
+ignore it.
 
 ## Device agent
 

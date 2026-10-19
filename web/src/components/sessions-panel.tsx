@@ -45,11 +45,15 @@ export function SessionsPanel() {
                           slot.state === "free" && "bg-emerald-500/70",
                           slot.state === "busy" && "bg-amber-500",
                           slot.state === "offline" && "bg-muted-foreground/30",
+                          slot.state === "maintenance" && "bg-sky-500/70",
+                          slot.state === "busy" && slot.maintenance && "ring-2 ring-sky-500/70",
                         )}
                       />
                     </TooltipTrigger>
                     <TooltipContent>
                       {slot.label}: {slot.state}
+                      {slot.maintenance &&
+                        `${slot.state === "busy" ? ", held for maintenance" : ""}${slot.maintenance.reason ? ` · ${slot.maintenance.reason}` : ""}`}
                     </TooltipContent>
                   </Tooltip>
                 ))}

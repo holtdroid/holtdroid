@@ -20,6 +20,7 @@ import (
 type Host interface {
 	Devices(ctx context.Context) (map[string]string, error)
 	Props(ctx context.Context, serial string) (contract.SlotCapabilities, error)
+	Inspect(ctx context.Context, serial string) (contract.DeviceInfo, error)
 	Agent(cfg agent.Config, s phone.Session, log *slog.Logger) Agent
 	Capture(ctx context.Context, serial string) (*phone.Baseline, error)
 	Clean(ctx context.Context, serial string, c phone.Cleanup) error
@@ -66,6 +67,10 @@ func (h ADBHost) Props(ctx context.Context, serial string) (contract.SlotCapabil
 		return contract.SlotCapabilities{}, err
 	}
 	return parseProps(out), nil
+}
+
+func (h ADBHost) Inspect(ctx context.Context, serial string) (contract.DeviceInfo, error) {
+	return agent.Inspect(ctx, agent.ADB{Bin: h.Bin, Serial: serial})
 }
 
 var propLine = regexp.MustCompile(`^\[([^\]]+)\]: \[(.*)\]$`)

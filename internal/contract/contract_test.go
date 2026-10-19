@@ -63,6 +63,20 @@ func TestProviderRoundTrip(t *testing.T) {
 		t.Fatalf("install before ready: %v", err)
 	}
 
+	inv, err := c.Inventory(ctx)
+	if err != nil || len(inv.Devices) != 1 || inv.Devices[0].Session != s.ID || inv.Devices[0].Device == nil {
+		t.Fatalf("inventory %+v, %v", inv, err)
+	}
+	if err := c.SetMaintenance(ctx, contract.SetMaintenance{Slot: "nope", Enabled: true}); !errors.Is(err, contract.ErrInvalid) {
+		t.Fatalf("maintenance of an unknown slot: %v", err)
+	}
+	if err := c.SetMaintenance(ctx, contract.SetMaintenance{Enabled: true, Reason: "upgrade", By: "root"}); err != nil {
+		t.Fatal(err)
+	}
+	if capacity, err := c.Capacity(ctx); err != nil || capacity.Maintenance == nil || capacity.Slots[0].State != contract.SlotBusy || capacity.Slots[0].Maintenance.By != "root" {
+		t.Fatalf("held capacity %+v, %v", capacity, err)
+	}
+
 	list, err := c.List(ctx)
 	if err != nil || len(list) != 1 {
 		t.Fatalf("list %+v, %v", list, err)
@@ -72,5 +86,17 @@ func TestProviderRoundTrip(t *testing.T) {
 	}
 	if _, err := c.Get(ctx, s.ID); !errors.Is(err, contract.ErrNotFound) {
 		t.Fatalf("get after delete: %v", err)
+	}
+}
+
+type node contract.HostInfo
+
+func (n node) Host(context.Context) (contract.HostInfo, error) { return contract.HostInfo(n), nil }
+
+func TestNodeRoundTrip(t *testing.T) {
+	c := contract.NewNodeClient(serve(t, func(api huma.API) { contract.RegisterNode(api, node{CPU: "i5", Load1: 0.5}) }), nil)
+	h, err := c.Host(context.Background())
+	if err != nil || h.CPU != "i5" || h.Load1 != 0.5 || h.Thermal == nil || h.Conditions == nil {
+		t.Fatalf("host %+v, %v", h, err)
 	}
 }

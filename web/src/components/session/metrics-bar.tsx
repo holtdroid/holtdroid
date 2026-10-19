@@ -13,39 +13,27 @@ import {
   TriangleAlertIcon,
 } from "lucide-react"
 import { type ReactNode, useEffect, useState, useSyncExternalStore } from "react"
-import { type Metrics, type Network, sessionBase, type Temperature } from "@/api/client"
+import { type Metrics, type Network, sessionBase } from "@/api/client"
 import type { LiveScreen } from "@/components/session/live-screen"
 import { useNetwork } from "@/components/session/use-device"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useEventSource } from "@/hooks/use-event-source"
 import { countryFlag, formatBytes } from "@/lib/format"
 import type { ScreenConnection, StreamStats } from "@/lib/scrcpy"
+import {
+  celsius,
+  hottest,
+  type Level,
+  level,
+  levelFill,
+  levelText,
+  sensorLabel,
+  temperatureLevel,
+  worst,
+} from "@/lib/thermal"
 import { cn } from "@/lib/utils"
 
 const historySize = 30
-
-type Level = "ok" | "warn" | "crit"
-
-const levels: Level[] = ["ok", "warn", "crit"]
-const levelText: Record<Level, string> = {
-  ok: "text-muted-foreground",
-  warn: "text-amber-500",
-  crit: "text-destructive",
-}
-const levelFill: Record<Level, string> = {
-  ok: "bg-muted-foreground/60",
-  warn: "bg-amber-500",
-  crit: "bg-destructive",
-}
-
-function level(value: number, warn: number, crit: number): Level {
-  if (value >= crit) return "crit"
-  return value >= warn ? "warn" : "ok"
-}
-
-function worst(...ls: Level[]): Level {
-  return levels[Math.max(...ls.map((l) => levels.indexOf(l)))] ?? "ok"
-}
 
 export function MetricsBar({
   provider,
@@ -461,19 +449,6 @@ function useStreamRate(live: LiveScreen) {
   return rate
 }
 
-function hottest(ts: Temperature[]) {
-  return ts.reduce<Temperature | undefined>((a, t) => (a && a.celsius >= t.celsius ? a : t), undefined)
-}
-
-function temperatureLevel(t: Temperature): Level {
-  if (t.source === "device" && (t.type === "battery" || t.type === "skin")) return level(t.celsius, 40, 45)
-  return level(t.celsius, 75, 90)
-}
-
-function sensorLabel(t: Temperature) {
-  return t.name === t.type ? t.name : `${t.name} (${t.type})`
-}
-
 function processLabel(name: string) {
   if (name.includes(":sandboxed_process")) return "WebView renderer"
   const i = name.indexOf(":")
@@ -486,10 +461,6 @@ function sum(values: number[]) {
 
 function percent(v: number) {
   return `${Math.round(v)}%`
-}
-
-function celsius(v: number) {
-  return `${Math.round(v)} °C`
 }
 
 const gib = 1024 ** 3

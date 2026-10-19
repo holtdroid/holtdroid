@@ -59,6 +59,7 @@ image and Frida on top of the agent.
 |---------|----------------|----------|
 | `api` | UI REST API and static web UI, artifact sources (list, watch, uploads), APK cache, provider registry, session proxy `/s/{provider}/{id}/*` (HTTP + WebSocket), activity tracking, idle/TTL reaper, auth | source stores, providers, agents |
 | `provider-emulator` | Owns emulator sessions: slot accounting, creates/deletes session Pods and their per-session Secrets (rendered sing-box config), reports capabilities | Kubernetes API |
+| `node-info` | DaemonSet on session nodes: CPU, memory, load and temperature sensors of its node from `/proc` and `/sys`, for the Inventory page (Node API) | nothing; the emulator provider asks it |
 | `agent` | Runs inside a session: boots the device, installs and launches the APK under Frida, serves the screen, DevTools proxy, clipboard, network control, status events | ADB, Frida, sing-box clash API |
 
 The **api is stateless**. Providers are the source of truth for sessions; the
@@ -178,6 +179,24 @@ uploads/3f9a1c02b7d4/my.apk.meta.json
   Pod is pinned there with required node affinity, plus required pod
   anti-affinity as a safety net (decisions.md #29). When no slot is free,
   launching is disabled in the UI.
+- **Maintenance** (decisions.md #79): admins hold a slot, or a whole
+  provider, from the Inventory page. A held slot reports `maintenance` and
+  takes no new sessions; a running session keeps going and the slot reads
+  `maintenance` once it ends. Holds are provider state like sessions: the
+  emulator provider keeps them in a ConfigMap, the phone provider in its
+  state file, the fake one in memory.
+
+## Inventory
+
+`GET /api/v1/admin/inventory` asks every provider's `GET /v1/inventory` in
+parallel. Each answer lists the slots as in `capacity`, the session on each
+and what the provider can tell about it: phones answer from adb without root
+(`agent.Inspect`: getprop, `dumpsys battery`, `dumpsys thermalservice`,
+`/proc`, `df /data`) plus the USB host itself (`internal/hostinfo`); the
+emulator provider builds a `HostInfo` per node from the Node object and asks
+the node-info Pod on that node (Node API) for the CPU model, load, free
+memory and sensors. Emulator guests aren't asked: their sensors are made up.
+Nothing is cached; the page polls every 10 s.
 
 ## Emulator session internals
 

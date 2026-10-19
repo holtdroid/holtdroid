@@ -197,6 +197,7 @@ ones for the admin page.
 - [x] `session_events` (Phase 4.6) fed from the same audit events instead of a parallel path
 - [x] Tests: audit event per action in `internal/api/api_test.go`, schema golden file; docs page "Monitoring and audit"
 - [x] Audit log page for admins: bounded `audit.store` in the api (memory, optional JSON lines file; chart: data volume, tmpfs or none), ssh-gateway events forwarded to it, filters, live mode, JSON lines export (decision #48)
+- [x] Inventory page for admins: every provider's slots with model, Android, battery, memory, storage and sensors (phones over adb, emulator nodes from the Node object plus a `node-info` DaemonSet reading `/proc` and `/sys`), maintenance holds per slot and per provider kept by the providers, `provider.maintenance` audit event (decision #79)
 
 ## Phase 4.10 — App data
 

@@ -1967,3 +1967,40 @@ cluster (on the maintainer's nodes only `cni0` and `flannel.1` are
 trusted). One provider per node, and nothing else may run an adb server
 there. The state and key live on that node; moving the phones to another
 node means copying the directory.
+
+## 79. An Inventory page for admins, with maintenance holds kept by providers
+
+**Context.** The maintainer wants one page listing every device of every
+provider with its model, system and component temperatures, and a way to
+take a device, or a whole provider, out of rotation while working on it.
+Cordoning a node only works for emulators and needs kubectl; phones had no
+such switch. The api is stateless and its database is in-memory only, so a
+hold kept there would vanish on restart.
+
+**Decision.** Two Provider API operations: `GET /v1/inventory` (slots with
+their session, a `DeviceInfo` for Android devices the provider can ask, a
+`HostInfo` for machines) and `PUT /v1/maintenance` (hold or release one slot,
+or the whole provider without a slot). Holds are provider state, next to the
+sessions: a ConfigMap for the emulator provider (created on the first hold;
+its Role may create ConfigMaps and update only that one), the state file for
+phones, memory for the fake provider. `contract.MaintenanceState` applies
+them to capacity the same way everywhere: a held slot is `maintenance`, a
+busy one stays `busy` with `maintenance` set until its session ends, a
+slot's own hold wins over the provider's. Launches need a `free` slot, so
+nothing else in the api changes. The api adds the admin-only
+`/api/v1/admin/inventory` and two `PUT …/maintenance` endpoints, fills `by`
+with the admin and emits `provider.maintenance`.
+
+Kubernetes doesn't report temperatures, so the chart runs `holtdroid
+node-info` as a DaemonSet on the session nodes: an unprivileged container
+that reads the host-wide `/proc` and `/sys` (thermal zones and hwmon) and
+serves them over a small Node API. The emulator provider finds those Pods by
+label and merges their answers into what the Node object says. Phones are
+inspected over adb without root; the emulators' own sensors are not shown,
+since the emulator makes them up.
+
+**Consequences.** One more DaemonSet per emulator deployment (a few MiB,
+`nodeInfo.enabled: false` turns it off and the page shows Node data only).
+The page polls; nothing is cached, so a provider's inventory must stay
+cheap. A provider without maintenance support has to implement the two
+operations; returning `ErrInvalid` from `SetMaintenance` is enough.

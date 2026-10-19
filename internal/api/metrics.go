@@ -18,7 +18,7 @@ var (
 	}, []string{"provider", "state"})
 	slotsGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "holtdroid_slots",
-		Help: "Device slots by provider: total and free.",
+		Help: "Device slots by provider: total, free and held for maintenance.",
 	}, []string{"provider", "kind"})
 	launchesTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "holtdroid_session_launches_total",
@@ -113,6 +113,13 @@ func (s *Server) observeSessions(ctx context.Context, all map[string][]contract.
 		if c, err := s.providers[provider].Capacity(ctx); err == nil {
 			slotsGauge.WithLabelValues(provider, "total").Set(float64(len(c.Slots)))
 			slotsGauge.WithLabelValues(provider, "free").Set(float64(c.Free()))
+			held := 0
+			for _, sl := range c.Slots {
+				if sl.Maintenance != nil {
+					held++
+				}
+			}
+			slotsGauge.WithLabelValues(provider, "maintenance").Set(float64(held))
 		}
 	}
 }

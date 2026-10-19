@@ -140,7 +140,7 @@ providers:
 | `adb.server`        | `127.0.0.1:5037`          | The host adb server user ADB goes through; the one `adb.bin` uses                            |
 | `adb.shell`         | `allowlist`               | Shell commands users may run over ADB: `full`, `allowlist` or `off` (see below)              |
 | `phones[]`          | `[]`                      | The inventory: `serial` from `adb devices` and an optional `label`. Other phones are ignored |
-| `stateFile`         | `holtdroid-physical.json` | Sessions and pending resets; a restart picks them up again without reinstalling the app      |
+| `stateFile`         | `holtdroid-physical.json` | Sessions, pending resets, baselines and maintenance holds; a restart picks them up again     |
 | `refresh`           | `5s`                      | How often the provider checks which phones are connected                                     |
 | `resetTimeout`      | `5m`                      | How long cleaning a phone after a session may take                                           |
 | `phone.bootTimeout` | `2m`                      | How long a session waits for its phone to show up                                            |
@@ -156,6 +156,20 @@ providers:
 
 A phone is `offline` in the launch dialog while adb doesn't list it as
 `device` (unplugged, `unauthorized`, booting).
+
+## Inventory and maintenance
+
+The admins' **Inventory** page lists every phone of `phones[]` with what adb
+tells about it without root: maker, model and code name, Android version and
+API level, build and security patch, ABIs, cores, memory, storage on
+`/data`, uptime, the battery (level, charging, health, temperature, voltage)
+and every sensor `dumpsys thermalservice` reports. A phone that isn't
+connected or authorized shows its adb state instead. The host the phones
+hang off is shown above them (CPU, memory, load, its sensors).
+
+**Hold** a phone to keep sessions off it while you swap a cable, update it
+or let it cool down; a session already running finishes normally. Holds are
+kept in the state file.
 
 ## ADB on phones
 
