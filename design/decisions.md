@@ -2047,11 +2047,14 @@ Root mode adds, all reversed on cleanup:
   adb reverse to the host's per-session sing-box), because only a registered
   network agent gives Android working DNS and routing on a phone with no SIM
   and no Wi-Fi. Android registers that agent with the VPN transport, which
-  apps can see and some refuse, so the Frida agent relabels the active
-  network's transport from VPN to Wi-Fi for the app under test (flipping
-  `hasTransport`, the `NOT_VPN` capability and `NetworkInfo.getType`): the app
-  sees ordinary Wi-Fi while the real VPN network keeps carrying its data and
-  DNS. A kernel-route transparent tun (`phone.RootTunnel`, a static arm64
+  apps can see and some refuse (or fall back to the wrong domains), so the
+  Frida agent makes the app see an ordinary Wi-Fi connection: it relabels the
+  active network's transport from VPN to Wi-Fi (flipping `hasTransport`, the
+  `NOT_VPN` capability and `NetworkInfo.getType`), reports `WifiManager` as
+  enabled with an associated `WifiInfo` (the farm phone has no real Wi-Fi, so
+  its own is "disconnected"), and renames the `tun` interface to `wlan0` so
+  VPN detection that enumerates `NetworkInterface` does not see it — while the
+  real VPN network keeps carrying the app's data and DNS. A kernel-route transparent tun (`phone.RootTunnel`, a static arm64
   sing-box tun, default route added by the agent, egress health-gated) hides
   the VPN more completely but registers no network agent, so
   `ConnectivityManager` reports nothing and DNS cannot resolve (Android 14

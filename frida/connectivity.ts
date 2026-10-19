@@ -18,6 +18,7 @@ const TYPE_VPN = 17
 const TRANSPORT_WIFI = 1
 const TRANSPORT_VPN = 4
 const NET_CAPABILITY_NOT_VPN = 15
+const WIFI_STATE_ENABLED = 3
 
 const CAPABILITIES = [
   11, // NOT_METERED
@@ -98,8 +99,89 @@ function relabelVpn() {
   })
 }
 
+// spoofWifi makes the app see a connected Wi-Fi: some apps (anti-VPN betting
+// apps among them) check WifiManager directly and refuse, or pick fallback
+// domains, when Wi-Fi is not connected. The farm phone has no real Wi-Fi, so
+// its WifiInfo is "disconnected, ssid <unknown>, netId -1"; this reports an
+// enabled, associated network instead. Fields that already hold a real value
+// are left alone, so it is a no-op where Wi-Fi is genuinely connected.
+function spoofWifi() {
+  const WM = Java.use("android.net.wifi.WifiManager")
+  tryHook("isWifiEnabled", () => {
+    WM.isWifiEnabled.implementation = () => true
+  })
+  tryHook("getWifiState", () => {
+    WM.getWifiState.implementation = () => WIFI_STATE_ENABLED
+  })
+
+  const WI = Java.use("android.net.wifi.WifiInfo")
+  const completed = Java.use("android.net.wifi.SupplicantState").COMPLETED.value
+  tryHook("WifiInfo.getSSID", () => {
+    WI.getSSID.implementation = function () {
+      const s = this.getSSID()
+      return s === null || s === "<unknown ssid>" || s === "" ? '"AndroidWifi"' : s
+    }
+  })
+  tryHook("WifiInfo.getBSSID", () => {
+    WI.getBSSID.implementation = function () {
+      const b = this.getBSSID()
+      return b === null || b === "02:00:00:00:00:00" ? "02:1a:11:a0:b0:c0" : b
+    }
+  })
+  tryHook("WifiInfo.getNetworkId", () => {
+    WI.getNetworkId.implementation = function () {
+      const n = this.getNetworkId()
+      return n === -1 ? 1 : n
+    }
+  })
+  tryHook("WifiInfo.getSupplicantState", () => {
+    WI.getSupplicantState.implementation = function () {
+      const s = this.getSupplicantState()
+      return s !== null && s.toString() === "COMPLETED" ? s : completed
+    }
+  })
+  tryHook("WifiInfo.getRssi", () => {
+    WI.getRssi.implementation = function () {
+      const r = this.getRssi()
+      return r <= -127 ? -55 : r
+    }
+  })
+  tryHook("WifiInfo.getLinkSpeed", () => {
+    WI.getLinkSpeed.implementation = function () {
+      const r = this.getLinkSpeed()
+      return r < 0 ? 150 : r
+    }
+  })
+  tryHook("WifiInfo.getFrequency", () => {
+    WI.getFrequency.implementation = function () {
+      const r = this.getFrequency()
+      return r < 0 ? 2412 : r
+    }
+  })
+}
+
+// hideVpnInterface renames the tunnel interface (tun0/ppp/tap) to wlan0 for
+// the app, so VPN detection that enumerates NetworkInterface by name does not
+// see it.
+function hideVpnInterface() {
+  const mask = (n: string | null) => (n !== null && /^(tun|ppp|tap)/.test(n) ? "wlan0" : n)
+  const NetworkInterface = Java.use("java.net.NetworkInterface")
+  tryHook("NetworkInterface.getName", () => {
+    NetworkInterface.getName.implementation = function () {
+      return mask(this.getName())
+    }
+  })
+  tryHook("NetworkInterface.getDisplayName", () => {
+    NetworkInterface.getDisplayName.implementation = function () {
+      return mask(this.getDisplayName())
+    }
+  })
+}
+
 export function spoofConnectivity() {
   relabelVpn()
+  spoofWifi()
+  hideVpnInterface()
 
   let fake: { network: Java.Wrapper; info: Java.Wrapper; caps: Java.Wrapper }
   try {

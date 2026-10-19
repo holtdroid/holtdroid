@@ -401,13 +401,15 @@ undone when the session ends:
 - **A tunnel that looks like Wi-Fi**: a rooted session reaches the internet
   through the same VpnService tunnel as a non-root one (so Android gives it a
   real network with working DNS, which a phone with no SIM and no Wi-Fi
-  otherwise lacks), but Frida relabels that network's transport from VPN to
-  Wi-Fi for the app under test, so it sees an ordinary Wi-Fi connection, not a
-  VPN. Traffic still leaves through the host's per-session sing-box over the
-  USB cable, and the phone itself needs no Wi-Fi or SIM. (A fully transparent
-  kernel-route tun is available behind the off-by-default `transparentTunnel`
-  flag; it hides the VPN completely but has no DNS yet, so apps cannot resolve
-  host names through it.)
+  otherwise lacks), but Frida makes the app under test see an ordinary Wi-Fi
+  connection instead of a VPN: it relabels the active network's transport from
+  VPN to Wi-Fi, reports `WifiManager` as connected, and hides the `tun`
+  interface from `NetworkInterface`, so apps that refuse a VPN (or fall back
+  to the wrong domains) work. Traffic still leaves through the host's
+  per-session sing-box over the USB cable, and the phone itself needs no
+  Wi-Fi or SIM. (A fully transparent kernel-route tun is available behind the
+  off-by-default `transparentTunnel` flag; it hides the VPN completely but has
+  no DNS yet, so apps cannot resolve host names through it.)
 - **A calls lockdown**: airplane mode (Wi-Fi back on for the tunnel), the
   dialer and emergency apps disabled, and the lock screen off so its
   emergency button is gone.
