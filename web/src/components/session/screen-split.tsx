@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils"
 
 const minShare = 0.2
 const maxShare = 0.7
+const placeholderRatio = 320 / 640
 
 export function ScreenSplit({ children: [screen, rail, tools] }: { children: [ReactNode, ReactNode, ReactNode] }) {
   const { autoFit } = useScreenPrefs()
@@ -33,8 +34,11 @@ export function ScreenSplit({ children: [screen, rail, tools] }: { children: [Re
     if (!autoFit || !box || !line || !view) return undefined
     const fit = () => {
       const canvas = view.querySelector("canvas")
-      if (!canvas?.width || !canvas.height) return
-      const want = (view.clientHeight * canvas.width) / canvas.height + line.clientWidth - view.clientWidth
+      const ratio =
+        canvas?.hasAttribute("width") && canvas.width > 0 && canvas.height > 0
+          ? canvas.width / canvas.height
+          : placeholderRatio
+      const want = view.clientHeight * ratio + line.clientWidth - view.clientWidth
       const width = Math.round(Math.min(Math.max(want, box.clientWidth * minShare), box.clientWidth * maxShare))
       if (Math.abs(width - line.clientWidth) > 1) panel.current?.resize(`${width}px`)
     }
