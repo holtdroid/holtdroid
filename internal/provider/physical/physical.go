@@ -202,11 +202,9 @@ func New(cfg Config, host Host, opts ...Option) (*Provider, error) {
 	for _, opt := range opts {
 		opt(p)
 	}
-	if cfg.VPN.Enabled() {
-		if err := p.checkTunnel(); err != nil {
-			stop()
-			return nil, err
-		}
+	if err := p.checkTunnel(); err != nil {
+		stop()
+		return nil, err
 	}
 	st, err := p.load()
 	if err != nil {
@@ -506,12 +504,12 @@ func (p *Provider) start(s contract.Session, artifactURL string, resume bool, v 
 		cfg.Location = s.Location
 		cfg.ClashAPI = "http://" + v.clash
 		cfg.IPInfoProxy = "http://" + v.mixed.String()
-		tunnel = &phone.Tunnel{APK: p.cfg.Tunnel.APK, Version: p.cfg.Tunnel.Version, Port: p.cfg.Tunnel.Port, HostPort: int(v.mixed.Port()), IPv6: p.cfg.Tunnel.IPv6}
+		tunnel = &phone.Tunnel{Port: p.cfg.Tunnel.Port, HostPort: int(v.mixed.Port()), IPv6: p.cfg.Tunnel.IPv6}
 	}
 	log := p.log.With("session", s.ID, "serial", s.Slot)
 	ctx, cancel := context.WithCancel(p.base)
 	sess := &session{s: s, artifactURL: artifactURL, cancel: cancel, done: make(chan struct{})}
-	sess.agent = p.host.Agent(cfg, phone.Session{Package: s.Package, Tunnel: tunnel, Baseline: p.baselines[s.Slot], Resume: resume}, log)
+	sess.agent = p.host.Agent(cfg, phone.Session{Package: s.Package, App: phone.App{APK: p.cfg.Tunnel.APK, Version: p.cfg.Tunnel.Version}, Tunnel: tunnel, Baseline: p.baselines[s.Slot], Resume: resume}, log)
 	sess.handler, sess.tunnel = sess.agent.Handler(), sess.agent.TunnelHandler()
 	p.sessions[s.ID] = sess
 	go func() {
@@ -528,9 +526,18 @@ func (p *Provider) start(s contract.Session, artifactURL string, resume bool, v 
 }
 
 // checkTunnel makes sure tunnel.apk is Holtdroid Tunnel and takes its
-// version from the APK when tunnel.version is empty.
+// version from the APK when tunnel.version is empty. Without VPN locations
+// a missing APK only costs the wallpaper and the device owner.
 func (p *Provider) checkTunnel() error {
+	if p.cfg.Tunnel.APK == "" {
+		return nil
+	}
 	meta, _, err := p.apk(p.cfg.Tunnel.APK)
+	if errors.Is(err, os.ErrNotExist) && !p.cfg.VPN.Enabled() {
+		p.log.Warn("no Holtdroid Tunnel apk: phones get no wallpaper and no device owner", "apk", p.cfg.Tunnel.APK)
+		p.cfg.Tunnel.APK = ""
+		return nil
+	}
 	if err != nil {
 		return fmt.Errorf("tunnel.apk: %w", err)
 	}

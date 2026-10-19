@@ -2,6 +2,7 @@ package phone
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"strings"
 	"testing"
@@ -68,8 +69,9 @@ func (f *tunnelADB) Install(ctx context.Context, apk string) error {
 func TestTunnel(t *testing.T) {
 	adb := &tunnelADB{}
 	adb.states = []string{"device", "device"}
-	tun := &Tunnel{APK: "/opt/tunnel.apk", Port: 29180, HostPort: 41234, IPv6: true}
-	p := New(Config{BootTimeout: time.Second, Poll: time.Millisecond, Misses: 1}, adb, Session{Tunnel: tun, Resume: true}, slog.New(slog.DiscardHandler))
+	tun := &Tunnel{Port: 29180, HostPort: 41234, IPv6: true}
+	app := App{APK: "/opt/tunnel.apk", Version: "0.2.1"}
+	p := New(Config{BootTimeout: time.Second, Poll: time.Millisecond, Misses: 1}, adb, Session{App: app, Tunnel: tun, Resume: true}, slog.New(slog.DiscardHandler))
 	booted := false
 	_ = p.Run(context.Background(), func() { booted = true })
 	if !booted {
@@ -85,5 +87,61 @@ func TestTunnel(t *testing.T) {
 		if !strings.Contains(calls, want) {
 			t.Errorf("missing %q in\n%s", want, calls)
 		}
+	}
+}
+
+type appADB struct {
+	fakeADB
+	status  string
+	install []error
+}
+
+func (f *appADB) Shell(ctx context.Context, cmd string) (string, error) {
+	_, _ = f.fakeADB.Shell(ctx, cmd)
+	if strings.Contains(cmd, ".STATUS") {
+		return f.status, nil
+	}
+	return "", nil
+}
+
+func (f *appADB) Install(ctx context.Context, apk string) error {
+	_ = f.fakeADB.Install(ctx, apk)
+	err := f.install[0]
+	f.install = f.install[1:]
+	return err
+}
+
+func TestAppEnsure(t *testing.T) {
+	ctx := context.Background()
+	incompatible := errors.New("adb install: Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE: signatures do not match]")
+	for _, tc := range []struct {
+		name, status string
+		install      []error
+		want         []string
+		err          bool
+	}{
+		{"current", `Broadcast completed: result=-1, data="{"version":"0.2.1"}"`, nil, nil, false},
+		{"missing", "Broadcast completed: result=0", []error{nil}, []string{"install /a.apk"}, false},
+		{
+			"debug build", `Broadcast completed: result=-1, data="{"version":"0.1.0","owner":{"device_owner":false}}"`,
+			[]error{incompatible, nil},
+			[]string{"install /a.apk", "pm uninstall " + TunnelPackage, "install /a.apk"},
+			false,
+		},
+		{"owner with another key", `Broadcast completed: result=-1, data="{"version":"0.2.0","owner":{"device_owner":true}}"`, []error{incompatible}, []string{"install /a.apk"}, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			adb := &appADB{status: tc.status, install: tc.install}
+			err := App{APK: "/a.apk", Version: "0.2.1"}.Ensure(ctx, adb)
+			var calls []string
+			for _, c := range adb.calls {
+				if !strings.Contains(c, "am broadcast") {
+					calls = append(calls, c)
+				}
+			}
+			if (err != nil) != tc.err || strings.Join(calls, "|") != strings.Join(tc.want, "|") {
+				t.Fatalf("err %v, calls %q", err, calls)
+			}
+		})
 	}
 }

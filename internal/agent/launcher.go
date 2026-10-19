@@ -2,12 +2,15 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"slices"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/kriakiku/holtdroid/internal/agent/phone"
 )
 
 type shellDevice interface {
@@ -16,6 +19,8 @@ type shellDevice interface {
 
 // Launcher starts apps through the launcher intent, without instrumentation:
 // WebView debugging is then up to the app, which debuggable builds turn on.
+// On a phone whose Holtdroid Tunnel is the device owner the app starts in
+// its soft kiosk instead.
 type Launcher struct {
 	dev      shellDevice
 	interval time.Duration
@@ -60,12 +65,18 @@ func (l *Launcher) Spawn(ctx context.Context, pkg string) (App, error) {
 		l.mu.Unlock()
 	}()
 
-	out, err := l.dev.Shell(ctx, "monkey -p "+pkg+" -c android.intent.category.LAUNCHER 1")
-	if err != nil {
-		return nil, err
-	}
-	if strings.Contains(out, "No activities found") || strings.Contains(out, "monkey aborted") {
-		return nil, fmt.Errorf("%s has no launcher activity", pkg)
+	if phone.Owner(ctx, l.dev) {
+		if err := phone.StartSession(ctx, l.dev, pkg); err != nil {
+			return nil, err
+		}
+	} else {
+		out, err := l.dev.Shell(ctx, "monkey -p "+pkg+" -c android.intent.category.LAUNCHER 1")
+		if err != nil {
+			return nil, err
+		}
+		if strings.Contains(out, "No activities found") || strings.Contains(out, "monkey aborted") {
+			return nil, fmt.Errorf("%s has no launcher activity", pkg)
+		}
 	}
 	ctx, cancel := context.WithTimeout(ctx, l.timeout)
 	defer cancel()
@@ -96,7 +107,14 @@ func (l *Launcher) Watch(ctx context.Context, pkg string, launched func(App)) er
 	return nil
 }
 
-func (l *Launcher) SetWallpaper(context.Context, Wallpaper) error { return nil }
+// SetWallpaper has Holtdroid Tunnel draw the wallpaper.
+func (l *Launcher) SetWallpaper(ctx context.Context, w Wallpaper) error {
+	raw, err := json.Marshal(w)
+	if err != nil {
+		return err
+	}
+	return phone.SetWallpaper(ctx, l.dev, raw)
+}
 
 func (l *Launcher) add(pkg string, pid int) *launchedApp {
 	app := &launchedApp{dev: l.dev, pkg: pkg, pid: pid, done: make(chan struct{})}

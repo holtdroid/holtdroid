@@ -20,8 +20,6 @@ const tunnelReceiver = TunnelPackage + "/.ControlReceiver"
 // app to Port on the phone, which adb reverse maps to HostPort, a sing-box
 // mixed inbound on the host.
 type Tunnel struct {
-	APK      string
-	Version  string
 	Port     int
 	HostPort int
 	IPv6     bool
@@ -35,26 +33,17 @@ type TunnelADB interface {
 }
 
 type tunnelStatus struct {
-	State   string `json:"state"`
-	Version string `json:"version"`
-	Consent bool   `json:"consent"`
-	Error   string `json:"error"`
-	Proxy   string `json:"proxy"`
+	State   string      `json:"state"`
+	Version string      `json:"version"`
+	Consent bool        `json:"consent"`
+	Error   string      `json:"error"`
+	Proxy   string      `json:"proxy"`
+	Owner   ownerStatus `json:"owner"`
 }
 
-// start installs the app when it is missing or another version, turns the
-// radios off so nothing leaves the phone except through the host, maps the
-// port and starts the VPN.
+// start turns the radios off so nothing leaves the phone except through
+// the host, maps the port and starts the VPN; App.Ensure installs the app.
 func (t *Tunnel) start(ctx context.Context, adb TunnelADB) error {
-	st, _, err := broadcast(ctx, adb, "STATUS", "")
-	if err != nil || t.Version != "" && st.Version != t.Version {
-		if t.APK == "" {
-			return errors.New("the tunnel app is not installed and no apk is configured")
-		}
-		if err := adb.Install(ctx, t.APK); err != nil {
-			return fmt.Errorf("install the tunnel app: %w", err)
-		}
-	}
 	if _, err := adb.Shell(ctx, "appops set "+TunnelPackage+" ACTIVATE_VPN allow; svc wifi disable; svc data disable"); err != nil {
 		return err
 	}
@@ -86,7 +75,12 @@ const stopTunnel = "am broadcast -n " + tunnelReceiver + " -a " + TunnelPackage 
 
 var broadcastResult = regexp.MustCompile(`Broadcast completed: result=(-?\d+)(?:, data="(.*)")?\s*$`)
 
-func broadcast(ctx context.Context, adb TunnelADB, action, extras string) (tunnelStatus, int, error) {
+// Shell runs a command on the phone.
+type Shell interface {
+	Shell(ctx context.Context, cmd string) (string, error)
+}
+
+func broadcast(ctx context.Context, adb Shell, action, extras string) (tunnelStatus, int, error) {
 	cmd := "am broadcast -n " + tunnelReceiver + " -a " + TunnelPackage + "." + action
 	if extras != "" {
 		cmd += " " + extras

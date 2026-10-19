@@ -280,11 +280,44 @@ What the cleanup can't do without the device-owner part of Holtdroid
 Tunnel: clear a lock screen PIN set before Settings was suspended, block
 the power menu, disable the camera hardware for every app.
 
+## Device owner
+
+Every phone gets [Holtdroid Tunnel](https://github.com/kriakiku/holtdroid-tunnel)
+(also without VPN locations): it draws the session's wallpaper, the same
+one an emulator shows. Made the phone's **device owner**, it also locks the
+phone down:
+
+- no accounts, factory reset, safe mode, network reset, new users or work
+  profiles, outgoing calls or SMS, Wi-Fi/Bluetooth/tethering/mobile network
+  or VPN/private DNS changes, APKs from the browser, USB file transfer;
+- the microphone and camera toggles frozen and the camera disabled for
+  every app;
+- no lock screen, and a PIN someone set is removed after every session;
+- the tunnel is the always-on VPN with lockdown: no traffic leaves the phone
+  outside it;
+- system updates postponed;
+- every session runs in a **soft kiosk** (lock task): the user goes home and
+  switches between the apps on the launcher, but Settings, stores, account
+  apps and the power menu are out of reach. Emergency calls always work.
+
+The agent finds out by itself whether the app is the device owner. To make
+it one (once per phone; the phone must have no accounts and one user;
+block the microphone and camera before, which the provider's cleanup
+does):
+
+```sh
+adb shell dpm set-device-owner io.github.kriakiku.holtdroid.tunnel/.AdminReceiver
+```
+
+Only provision with a release-signed APK (v0.2.1 and later, certificate
+SHA-256 `FB:A4:C1:7B:…:3C:80`): a device owner can only be updated by an APK
+signed with the same key. The image ships one. To undo it:
+
+```sh
+adb shell am broadcast -n io.github.kriakiku.holtdroid.tunnel/.ControlReceiver -a io.github.kriakiku.holtdroid.tunnel.RELEASE
+```
+
 ## What is still missing
 
-Phones are not disposable like emulators, so a phone needs protection that
-the provider doesn't have yet: a device-owner app
-that forbids accounts, factory reset and new users, root kept from users,
-a deeper cleanup with a check before the phone is offered again, and power
-cycling through the USB hub. Root mode with Frida, which gives DevTools for
-release builds, comes together with those.
+A check after the cleanup before a phone is offered again, power cycling
+through the USB hub, and root mode with Frida (DevTools for release builds).

@@ -1904,3 +1904,28 @@ location's id or label.
 **Consequences.** There is no global fairness between lines: an **Any**
 launch and a launch for one provider can both wait for the same slot, and
 whichever polls first gets it.
+
+## 77. Holtdroid Tunnel is installed on every phone and drives the kiosk as device owner
+
+**Context.** Holtdroid Tunnel v0.2 can be a phone's device owner (restrictions,
+always-on VPN with lockdown, keyguard off and PIN reset, update postponing,
+a lock-task kiosk per session) and draw the emulator's wallpaper. A device
+owner can only be updated by an APK with the same signature.
+
+**Decision.** The tunnel's releases are signed with a release key kept in
+OpenBao (`secret/holtdroid-tunnel-signing`) and in the tunnel repository's
+`SIGNING_*` secrets; v0.2.1 is the first signed one, and the physical image
+pins it. `phone.App.Ensure` installs the app on every phone, also without
+VPN locations, and replaces an older build signed with another key unless
+the app is the device owner. The agent learns ownership from the app's
+`STATUS`: as owner, the `Launcher` starts the app under test with
+`SESSION_START` (features `system_info,notifications,home,overview`, so no
+power menu) instead of `monkey`, and every cleanup ends with `SESSION_END`,
+`CLEAR_PASSWORD` and `LOCKDOWN`. The wallpaper goes through `WALLPAPER`
+(`rows_b64`) whether or not the app is the owner. Provisioning stays a
+manual `dpm set-device-owner` by the operator.
+
+**Consequences.** Losing the signing key means a phone's device owner can't
+be updated without `RELEASE` or a factory reset. Under the VPN lockdown a
+phone between sessions has no network at all. The kiosk on One UI's
+launcher is to be verified on the real phone.

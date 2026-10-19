@@ -51,6 +51,7 @@ type ADB interface {
 // against Baseline first.
 type Session struct {
 	Package  string
+	App      App
 	Tunnel   *Tunnel
 	Baseline *Baseline
 	Resume   bool
@@ -86,6 +87,9 @@ func (p *Phone) Run(ctx context.Context, booted func()) error {
 		if err := Clean(ctx, p.adb, Cleanup{Package: p.s.Package, Baseline: p.s.Baseline, Offline: p.s.Tunnel != nil, Suspend: p.cfg.Suspend}); err != nil {
 			p.log.Warn("clean the phone before the session", "err", err)
 		}
+	}
+	if err := p.s.App.Ensure(ctx, p.adb); err != nil {
+		return err
 	}
 	if _, err := p.adb.Shell(ctx, wake); err != nil {
 		p.log.Warn("could not wake the phone", "err", err)
