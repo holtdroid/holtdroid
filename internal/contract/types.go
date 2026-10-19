@@ -230,6 +230,11 @@ type Vibration struct {
 	DurationMS int64  `json:"durationMs" doc:"0 when the length isn't known yet (a running or repeating pattern)"`
 }
 
+type Screen struct {
+	On     bool `json:"on" doc:"the display is awake; false while it is off or dozing"`
+	Locked bool `json:"locked" doc:"the keyguard is showing"`
+}
+
 type Network struct {
 	Location   string `json:"location"`
 	ExternalIP string `json:"externalIp,omitempty"`

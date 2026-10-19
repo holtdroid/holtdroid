@@ -52,6 +52,13 @@ running device:
 
 If the install fails, the previous build keeps running.
 
+## The screen
+
+While the device's display is off or its lock screen is showing, a
+translucent badge in the middle of the screen says so. Right-click the
+screen to wake it, or use **Wake and unlock** in the side rail. The badge
+fades away under the mouse and lets clicks through to the device.
+
 ## Metrics
 
 A bar at the bottom of the session page shows the load every two seconds:

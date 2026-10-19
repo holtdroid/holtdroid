@@ -20,6 +20,7 @@ type Agent interface {
 	SetClipboard(ctx context.Context, text string) error
 	WatchClipboard(ctx context.Context, send func(Clipboard) error) error
 	WatchVibrations(ctx context.Context, send func(Vibration) error) error
+	WatchScreen(ctx context.Context, send func(Screen) error) error
 	Network(ctx context.Context) (Network, error)
 	SetLocation(ctx context.Context, location string) (Network, error)
 	App(ctx context.Context, action AppAction) error
@@ -146,6 +147,14 @@ func RegisterAgent(api huma.API, a Agent) {
 	}, map[string]any{"vibration": Vibration{}},
 		func(ctx context.Context, _ *struct{}, send sse.Sender) {
 			_ = a.WatchVibrations(ctx, func(v Vibration) error { return send.Data(v) })
+		})
+
+	sse.Register(api, huma.Operation{
+		OperationID: "watchScreen", Method: http.MethodGet, Path: "/v1/screen", Tags: tags,
+		Description: "Whether the display is on and locked; the first event is the current state, then one per change. The device is only polled while someone listens.",
+	}, map[string]any{"screen": Screen{}},
+		func(ctx context.Context, _ *struct{}, send sse.Sender) {
+			_ = a.WatchScreen(ctx, func(s Screen) error { return send.Data(s) })
 		})
 
 	huma.Register(api, huma.Operation{

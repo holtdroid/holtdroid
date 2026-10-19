@@ -63,7 +63,8 @@ func splitH264(stream []byte) []screenPacket {
 
 // serveScreen speaks the agent's /display/scrcpy protocol with a looping
 // H.264 recording instead of a device. Control messages are dropped except
-// the recents key, which closes the app like the agent action does.
+// the recents key, which closes the app like the agent action does, and
+// back-or-screen-on (a right-click), which wakes the screen.
 func (d *device) serveScreen(w http.ResponseWriter, r *http.Request) {
 	ws, err := websocket.Accept(w, r, &websocket.AcceptOptions{InsecureSkipVerify: true})
 	if err != nil {
@@ -83,8 +84,11 @@ func (d *device) serveScreen(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				return
 			}
-			if isRecentsKey(msg) {
+			switch {
+			case isRecentsKey(msg):
 				d.update(func() { d.appClosed = true })
+			case isWake(msg):
+				d.update(func() { d.screen.On = true })
 			}
 		}
 	}()
@@ -122,6 +126,11 @@ func (d *device) serveScreen(w http.ResponseWriter, r *http.Request) {
 // KEYCODE_APP_SWITCH.
 func isRecentsKey(msg []byte) bool {
 	return len(msg) == 14 && msg[0] == 0 && msg[1] == 1 && binary.BigEndian.Uint32(msg[2:]) == 187
+}
+
+// isWake matches a back-or-screen-on control message.
+func isWake(msg []byte) bool {
+	return len(msg) == 2 && msg[0] == 4
 }
 
 // serveAudio answers /display/audio like a device that can't capture audio.

@@ -28,6 +28,7 @@ type device struct {
 	clip      string
 	targetGen int
 	appClosed bool
+	screen    contract.Screen
 	settings  contract.DeviceState
 	subs      map[chan struct{}]struct{}
 	done      chan struct{}
@@ -41,7 +42,7 @@ type device struct {
 }
 
 func newDevice(s contract.Session, step time.Duration, offers func(string) bool, appData *contract.AppDataRestore) *device {
-	d := &device{s: s, settings: defaultSettings(), subs: map[chan struct{}]struct{}{}, done: make(chan struct{}), offers: offers, appData: appData}
+	d := &device{s: s, settings: defaultSettings(), screen: contract.Screen{On: true}, subs: map[chan struct{}]struct{}{}, done: make(chan struct{}), offers: offers, appData: appData}
 	d.ports = &fakePorts{adbd: d.serveADB}
 	d.tunnels = agent.NewTunnels(d.ports, slog.Default().With("component", "fake-agent", "session", s.ID))
 	d.handler = d.buildHandler()

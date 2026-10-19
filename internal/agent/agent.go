@@ -111,6 +111,7 @@ type Agent struct {
 	tunnels  *Tunnels
 	metrics  *Metrics
 	vibes    *Vibrations
+	display  *ScreenState
 	actions  chan appRequest
 	launches chan App
 	busy     atomic.Bool
@@ -144,6 +145,7 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 		tunnels:  NewTunnels(newADBTunnels(cfg, dev, log), log),
 		metrics:  NewMetrics(dev, cfg.Package, host, log),
 		vibes:    NewVibrations(dev, log),
+		display:  NewScreenState(dev, log),
 		actions:  make(chan appRequest, 1),
 		launches: make(chan App),
 		status:   contract.StatusEvent{State: contract.StateProvisioning},
@@ -688,6 +690,10 @@ func (a *Agent) WatchTunnels(ctx context.Context, probe bool, send func(contract
 
 func (a *Agent) WatchVibrations(ctx context.Context, send func(contract.Vibration) error) error {
 	return a.vibes.Watch(ctx, send)
+}
+
+func (a *Agent) WatchScreen(ctx context.Context, send func(contract.Screen) error) error {
+	return a.display.Watch(ctx, send)
 }
 
 func (a *Agent) WatchMetrics(ctx context.Context, send func(contract.Metrics) error) error {

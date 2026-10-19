@@ -1,7 +1,10 @@
-import { useEffect, useRef, useState } from "react"
+import { LockIcon, PowerIcon } from "lucide-react"
+import { type ReactNode, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
+import { type Screen, sessionBase } from "@/api/client"
 import { displayURL, type LiveScreen, useDecodableCodecs } from "@/components/session/live-screen"
 import { Spinner } from "@/components/ui/spinner"
+import { useEventSource } from "@/hooks/use-event-source"
 import { openScreen, screenSupported, UnsupportedCodecError } from "@/lib/scrcpy"
 import { setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
 
@@ -17,6 +20,14 @@ export function DeviceScreen({ provider, id, live }: { provider: string; id: str
   const stream = `${provider}/${id}/${codec}/${maxSize}/${maxFps}/${bitRate}`
   const [state, setState] = useState<{ stream: string; status: Status }>({ stream, status: "connecting" })
   const status = state.stream === stream ? state.status : "connecting"
+  const [screen, setScreen] = useState<{ key: string; value: Screen } | null>(null)
+  const display = screen?.key === `${provider}/${id}` ? screen.value : null
+  const noticeRef = useRef<HTMLDivElement>(null)
+  const [noticeHovered, setNoticeHovered] = useState(false)
+
+  useEventSource<{ screen: Screen }>(supported ? `${sessionBase(provider, id)}/v1/screen` : null, {
+    screen: (value) => setScreen({ key: `${provider}/${id}`, value }),
+  })
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -112,6 +123,25 @@ export function DeviceScreen({ provider, id, live }: { provider: string; id: str
     if (c.key(e.nativeEvent, down, prefs.keyboard)) e.preventDefault()
   }
 
+  const trackNotice = (e: React.PointerEvent) => {
+    const r = noticeRef.current?.getBoundingClientRect()
+    const inside = !!r && e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom
+    if (inside !== noticeHovered) setNoticeHovered(inside)
+  }
+
+  const notice: { icon: ReactNode; title: string; hint?: string } | null =
+    status !== "live"
+      ? {
+          icon: <Spinner />,
+          title: status === "connecting" ? "Connecting to the screen…" : "Screen disconnected",
+          hint: status === "retrying" ? "Reconnecting…" : undefined,
+        }
+      : display && !display.on
+        ? { icon: <PowerIcon />, title: "Screen is off", hint: "Right-click to wake it" }
+        : display?.locked
+          ? { icon: <LockIcon />, title: "Screen is locked", hint: "Swipe up to unlock" }
+          : null
+
   if (!supported) {
     return (
       <div className="text-muted-foreground grid size-full place-items-center bg-neutral-950 p-6 text-center text-sm">
@@ -122,7 +152,11 @@ export function DeviceScreen({ provider, id, live }: { provider: string; id: str
   }
 
   return (
-    <div className="relative size-full bg-neutral-950">
+    <div
+      className="relative size-full bg-neutral-950"
+      onPointerMove={trackNotice}
+      onPointerLeave={() => setNoticeHovered(false)}
+    >
       <canvas
         ref={canvasRef}
         tabIndex={0}
@@ -137,12 +171,18 @@ export function DeviceScreen({ provider, id, live }: { provider: string; id: str
         onBlur={() => live.connection?.control.releaseKeys()}
         onContextMenu={(e) => e.preventDefault()}
       />
-      {status !== "live" && (
-        <div className="text-muted-foreground absolute inset-0 grid place-items-center text-sm">
-          <span className="flex items-center gap-2">
-            <Spinner />
-            {status === "connecting" ? "Connecting to the screen…" : "Screen disconnected, reconnecting…"}
-          </span>
+      {notice && (
+        <div className="pointer-events-none absolute inset-0 grid place-items-center p-4">
+          <div
+            ref={noticeRef}
+            role="status"
+            className="flex max-w-full flex-col items-center gap-2 rounded-[2rem] border border-white/10 bg-neutral-900/60 px-6 py-5 text-center text-white shadow-lg backdrop-blur-md transition-opacity duration-200 [corner-shape:squircle] supports-[corner-shape:squircle]:rounded-[3rem] data-[hovered=true]:opacity-0 [&_svg]:size-6 [&_svg]:text-white/80"
+            data-hovered={noticeHovered}
+          >
+            {notice.icon}
+            <span className="text-sm font-medium">{notice.title}</span>
+            {notice.hint && <span className="text-xs text-white/60">{notice.hint}</span>}
+          </div>
         </div>
       )}
     </div>

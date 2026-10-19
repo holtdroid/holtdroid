@@ -216,6 +216,7 @@ static assets and WebSockets.
 | `POST` | `/v1/clipboard` | `{text}` → 204 | `SetClipboard` |
 | `GET` | `/v1/clipboard/events` | SSE, `event: clip` with `{text}` on every device-side change | `WatchClipboard` |
 | `GET` | `/v1/vibrations` | SSE, `event: vibration` with `{usage, package?, durationMs}` for each vibration that starts after the stream opens; touch feedback (`TOUCH`, `HARDWARE_FEEDBACK`, `PHYSICAL_EMULATION`) is left out, `durationMs` is 0 when the length isn't known yet. The device is only polled while someone listens (decision #54) | `WatchVibrations` |
+| `GET` | `/v1/screen` | SSE, `event: screen` with `{on, locked}`: the current state first, then one event per change. `on` is false while the display is off or dozing, `locked` while the keyguard shows. The device is only polled while someone listens | `WatchScreen` |
 | `GET` | `/v1/network` | `{location, externalIp, country}` | `Network` |
 | `PUT` | `/v1/network/location` | `{location}` → `network` | `SetLocation` |
 | `POST` | `/v1/app/{restart\|reinstall}` | 202; `restart` also starts a closed app, `reinstall` uninstalls first (clears data) and installs the current build | `App` |

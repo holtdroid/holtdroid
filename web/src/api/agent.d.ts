@@ -215,6 +215,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/screen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Whether the display is on and locked; the first event is the current state, then one per change. The device is only polled while someone listens. */
+        get: operations["watchScreen"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/state": {
         parameters: {
             query?: never;
@@ -605,6 +622,12 @@ export interface components {
              */
             state: "unknown" | "up" | "down";
             user: string;
+        };
+        Screen: {
+            /** @description the keyguard is showing */
+            locked: boolean;
+            /** @description the display is awake; false while it is off or dozing */
+            on: boolean;
         };
         SetLocation: {
             location: string;
@@ -1116,6 +1139,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Network"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    watchScreen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": {
+                        data: components["schemas"]["Screen"];
+                        /**
+                         * @description The event name.
+                         * @constant
+                         */
+                        event: "screen";
+                        /** @description The event ID. */
+                        id?: number;
+                        /** @description The retry time in milliseconds. */
+                        retry?: number;
+                    }[];
                 };
             };
             /** @description Error */

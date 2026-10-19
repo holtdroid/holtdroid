@@ -313,7 +313,13 @@ Vibrations come from `/v1/vibrations`: the agent polls `dumpsys
 vibrator_manager` every second while someone listens and reports entries
 that are new in its current vibration or recent history; the page shows a
 toast and, with the audio switch on, plays a synthesized motor buzz of the
-vibration's length (`web/src/lib/vibration.ts`). A rotated device streams a rotated picture. The fake provider
+vibration's length (`web/src/lib/vibration.ts`). `/v1/screen` reports
+whether the display is awake (`dumpsys power` wakefulness) and the
+keyguard is up (`dumpsys window` / `dumpsys activity`), polled every second
+while someone listens; the page draws a blurred badge over the canvas while
+it is off or locked, which fades under the mouse and lets clicks through.
+The fake agent tracks the screen-off, lock and unlock actions and wakes on
+back-or-screen-on. A rotated device streams a rotated picture. The fake provider
 replays a short H.264 recording over the same protocol, refuses other
 codecs and reports that it can't capture audio.
 
