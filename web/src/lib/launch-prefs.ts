@@ -1,5 +1,5 @@
 const providerKey = "holtdroid:provider"
-const locationKey = (provider: string) => `holtdroid:location:${provider}`
+const locationKey = (provider: string) => `holtdroid:location:${provider || "*"}`
 
 function read(key: string): string | null {
   try {

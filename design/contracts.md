@@ -167,6 +167,7 @@ type CreateSession struct {
 	Package     string
 	Owner       string
 	Location    string // optional
+	Slot        string // optional: run on this slot; 422 if unknown, 409 if not free; empty takes any free one (decision #76)
 	AppData     *AppDataRestore // optional: {url, cache}, decision #49
 }
 
@@ -329,7 +330,7 @@ keeping the provider in the path is what lets the api stay stateless.
 | `POST` | `/api/v1/uploads` | multipart `file` (+ `visibility`, `title`, `note`, `changelog`) → 201 artifact; 403 when disabled, 422 when not an APK, body capped at `maxSize` |
 | `GET` | `/api/v1/providers` | `{name, capabilities, capacity, error?}` per provider |
 | `GET` | `/api/v1/sessions` | `{items, errors}`, each item with `idleDeadline` and `ttlDeadline` |
-| `POST` | `/api/v1/sessions` | `{source, artifactId, provider, location?, appData?: {id, cache}, queue?}`; 404 for artifacts the caller can't see or app data that isn't the caller's for that package, 403 for `appData` while app data is off, 409 when no slot is free (or others are queued for that provider) and `queue` is false, 422 for an invalid APK or unknown location. With `queue: true` it waits in the provider's line until a slot frees up; cancelling the request leaves the line (decision #57) |
+| `POST` | `/api/v1/sessions` | `{source, artifactId, provider?, slot?, location?, appData?: {id, cache}, queue?}`. Without `provider` the api takes the first provider in `providers[]` order that offers the location and has a free slot (for app data, one that can restore it); `slot` needs `provider` (decision #76). 404 for artifacts the caller can't see or app data that isn't the caller's for that package, 403 for `appData` while app data is off, 409 when no slot is free (or others are queued for that provider) and `queue` is false, 422 for an invalid APK or unknown location. With `queue: true` it waits in line (one per target: any provider, a provider, or one slot) until a slot frees up; cancelling the request leaves the line (decision #57) |
 | `GET` | `/api/v1/sessions/{provider}/{id}` | one session |
 | `DELETE` | `/api/v1/sessions/{provider}/{id}` | owner or admin only; with app data on, a `ready` session's app data is saved into the owner's first (a failed save is logged and audited, the session is stopped anyway) |
 | `POST` | `/api/v1/sessions/{provider}/{id}/app-data` | owner or admin; saves the app data now into the session owner's saves and restarts the app → `AppDataView`; 403 when off, 404 when the app has no data, 413 over `appData.maxSize`, 423 while another app action runs |

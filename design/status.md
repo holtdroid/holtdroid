@@ -27,7 +27,8 @@ deployment"):
   GPS position, date and time; decisions #31, #58), screen over scrcpy with multi-touch
   (decision #34); clipboard through scrcpy, device audio, codec and quality
   settings and a virtual USB keyboard (decision #36); a launch queue when
-  every slot is busy (decision #57).
+  every slot is busy (decision #57); launches go to any provider by default
+  or to a chosen provider and device (decision #76).
 - Computers over SSH (Phase 4.11, decision #64; replaced the key-based
   Phase 4.5 flow): `curl {portal}/tunnel.sh | sh -s -- {code}` downloads
   the `holtdroid` client, which enrolls the computer with a one-time code,

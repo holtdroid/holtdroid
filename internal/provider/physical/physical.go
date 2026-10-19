@@ -442,10 +442,10 @@ func (p *Provider) Create(ctx context.Context, req contract.CreateSession) (cont
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	slots := p.slots()
-	i := slices.IndexFunc(slots, func(s contract.Slot) bool { return s.State == contract.SlotFree })
-	if i < 0 {
+	i, err := contract.Capacity{Slots: slots}.Pick(req.Slot)
+	if err != nil {
 		v.remove()
-		return contract.Session{}, contract.ErrNoCapacity
+		return contract.Session{}, err
 	}
 	now := p.now().UTC()
 	s := contract.Session{

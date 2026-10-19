@@ -265,6 +265,44 @@ func TestCreateSessionErrors(t *testing.T) {
 	}
 }
 
+func TestLaunchTarget(t *testing.T) {
+	h := newHarness(t, 2)
+	h.srv.providers["spare"] = fake.New(fake.Config{Slots: 1, StepDelay: time.Hour, PublicURL: "http://agents", NoDirect: true})
+	h.srv.provOrder = append(h.srv.provOrder, "spare")
+	hello := encodeID("hello.apk")
+
+	steps := []struct {
+		name     string
+		body     map[string]string
+		code     int
+		provider string
+		slot     string
+	}{
+		{"a device of the provider", map[string]string{"provider": "fake", "slot": "fake-2"}, http.StatusCreated, "fake", "fake-2"},
+		{"a busy device", map[string]string{"provider": "fake", "slot": "fake-2"}, http.StatusConflict, "", ""},
+		{"an unknown device", map[string]string{"provider": "fake", "slot": "nope"}, http.StatusUnprocessableEntity, "", ""},
+		{"a device without a provider", map[string]string{"slot": "fake-1"}, http.StatusUnprocessableEntity, "", ""},
+		{"any provider, in order", map[string]string{}, http.StatusCreated, "fake", "fake-1"},
+		{"a location the free provider lacks", map[string]string{"location": "direct"}, http.StatusConflict, "", ""},
+		{"an unknown location", map[string]string{"location": "nowhere"}, http.StatusUnprocessableEntity, "", ""},
+		{"any provider, the next one", map[string]string{"location": "pl"}, http.StatusCreated, "spare", "fake-1"},
+		{"every device busy", map[string]string{}, http.StatusConflict, "", ""},
+	}
+	for _, st := range steps {
+		st.body["source"], st.body["artifactId"] = "local", hello
+		rec := h.do(http.MethodPost, "/api/v1/sessions", "otter", "", st.body)
+		if rec.Code != st.code {
+			t.Fatalf("%s: code = %d %s", st.name, rec.Code, rec.Body.String())
+		}
+		if st.code != http.StatusCreated {
+			continue
+		}
+		if v := decode[SessionView](t, rec); v.Provider != st.provider || v.Slot != st.slot {
+			t.Fatalf("%s: got %s/%s", st.name, v.Provider, v.Slot)
+		}
+	}
+}
+
 func TestLaunchQueue(t *testing.T) {
 	h := newHarness(t, 1)
 	h.srv.queue.poll = time.Millisecond

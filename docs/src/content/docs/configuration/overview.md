@@ -87,24 +87,24 @@ providers:
     url: http://holtdroid-provider-emulator:8080
 ```
 
-| Key                     | Default     | Meaning                                                                               |
-| ----------------------- | ----------- | ------------------------------------------------------------------------------------- |
-| `listen`                | `:8080`     | Address for the UI, REST API and session proxy                                        |
-| `internalListen`        | `:8081`     | Address for endpoints only agents use; never expose it through the ingress            |
-| `publicURL`             | –           | External URL of the portal, used to build DevTools WebSocket URLs                     |
-| `internalURL`           | –           | URL agents use to reach `internalListen`                                              |
-| `auth.*`                | `anonymous` | See [Authentication](/holtdroid/configuration/authentication/)                        |
-| `secrets.openbao`       | –           | Enables `openbao:` references, see [Secrets](/holtdroid/configuration/secrets/)       |
-| `sessions.idleTimeout`  | `30m`       | Delete a session after this long without activity                                     |
-| `sessions.maxTTL`       | `8h`        | Delete a session after this long regardless of activity                               |
-| `sessions.reapInterval` | `30s`       | How often the reaper runs                                                             |
-| `storage.*`             | filesystem  | See [Artifact storage](/holtdroid/configuration/storage/)                             |
-| `cache.maxSize`         | `20GiB`     | Least recently used APKs are evicted beyond this                                      |
-| `cache.warm`            | `10`        | Newest uncached APKs per listing to download and parse in the background              |
-| `database.type`         | `memory`    | Only `memory` for now: SQLite in RAM, empty after every restart                       |
-| `sources[]`             | `local`     | Folders or S3 buckets with APKs, see [Artifact sources](/holtdroid/sources/overview/) |
-| `uploads.*`             | enabled     | Uploads from the UI, see [Artifact sources](/holtdroid/sources/overview/#uploads)     |
-| `appData.*`             | off         | Save app data between sessions, see [App data](/holtdroid/concepts/app-data/)         |
-| `adb.browser`           | `true`      | ADB tools on the session page, see [ADB tools](/holtdroid/concepts/adb/)              |
-| `adb.ownerOnly`         | `true`      | Only a session's owner and admins may use its ADB tools                               |
-| `providers[]`           | `[]`        | Device providers: unique `name` and base `url`                                        |
+| Key                     | Default     | Meaning                                                                                               |
+| ----------------------- | ----------- | ----------------------------------------------------------------------------------------------------- |
+| `listen`                | `:8080`     | Address for the UI, REST API and session proxy                                                        |
+| `internalListen`        | `:8081`     | Address for endpoints only agents use; never expose it through the ingress                            |
+| `publicURL`             | –           | External URL of the portal, used to build DevTools WebSocket URLs                                     |
+| `internalURL`           | –           | URL agents use to reach `internalListen`                                                              |
+| `auth.*`                | `anonymous` | See [Authentication](/holtdroid/configuration/authentication/)                                        |
+| `secrets.openbao`       | –           | Enables `openbao:` references, see [Secrets](/holtdroid/configuration/secrets/)                       |
+| `sessions.idleTimeout`  | `30m`       | Delete a session after this long without activity                                                     |
+| `sessions.maxTTL`       | `8h`        | Delete a session after this long regardless of activity                                               |
+| `sessions.reapInterval` | `30s`       | How often the reaper runs                                                                             |
+| `storage.*`             | filesystem  | See [Artifact storage](/holtdroid/configuration/storage/)                                             |
+| `cache.maxSize`         | `20GiB`     | Least recently used APKs are evicted beyond this                                                      |
+| `cache.warm`            | `10`        | Newest uncached APKs per listing to download and parse in the background                              |
+| `database.type`         | `memory`    | Only `memory` for now: SQLite in RAM, empty after every restart                                       |
+| `sources[]`             | `local`     | Folders or S3 buckets with APKs, see [Artifact sources](/holtdroid/sources/overview/)                 |
+| `uploads.*`             | enabled     | Uploads from the UI, see [Artifact sources](/holtdroid/sources/overview/#uploads)                     |
+| `appData.*`             | off         | Save app data between sessions, see [App data](/holtdroid/concepts/app-data/)                         |
+| `adb.browser`           | `true`      | ADB tools on the session page, see [ADB tools](/holtdroid/concepts/adb/)                              |
+| `adb.ownerOnly`         | `true`      | Only a session's owner and admins may use its ADB tools                                               |
+| `providers[]`           | `[]`        | Device providers: unique `name` and base `url`; **Any** in the launch dialog tries them in this order |

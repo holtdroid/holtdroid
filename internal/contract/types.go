@@ -2,6 +2,8 @@ package contract
 
 import (
 	"errors"
+	"fmt"
+	"slices"
 	"time"
 )
 
@@ -83,6 +85,25 @@ func (c Capacity) Free() int {
 	return n
 }
 
+// Pick returns the index of the free slot a session goes to: the slot with
+// the given ID, or the first free one when id is empty.
+func (c Capacity) Pick(id string) (int, error) {
+	if id == "" {
+		if i := slices.IndexFunc(c.Slots, func(s Slot) bool { return s.State == SlotFree }); i >= 0 {
+			return i, nil
+		}
+		return -1, ErrNoCapacity
+	}
+	i := slices.IndexFunc(c.Slots, func(s Slot) bool { return s.ID == id })
+	switch {
+	case i < 0:
+		return -1, fmt.Errorf("%w: unknown slot %q", ErrInvalid, id)
+	case c.Slots[i].State != SlotFree:
+		return -1, ErrNoCapacity
+	}
+	return i, nil
+}
+
 type SessionState string
 
 const (
@@ -102,6 +123,7 @@ type CreateSession struct {
 	Package     string          `json:"package" minLength:"1"`
 	Owner       string          `json:"owner" minLength:"1"`
 	Location    string          `json:"location,omitempty"`
+	Slot        string          `json:"slot,omitempty" doc:"run on this slot; empty picks any free one"`
 	AppData     *AppDataRestore `json:"appData,omitempty" doc:"app data to put back after installing the app and before it first starts"`
 }
 

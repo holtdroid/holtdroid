@@ -763,9 +763,12 @@ export interface components {
             appData?: components["schemas"]["AppDataChoice"];
             artifactId: string;
             location?: string;
-            provider: string;
+            /** @description empty picks the first provider in the configured order with a free device */
+            provider?: string;
             /** @description when every slot is busy, wait in line for one instead of failing; cancelling the request gives up the place */
             queue?: boolean;
+            /** @description a device of the provider; empty picks any free one */
+            slot?: string;
             source: string;
         };
         Credentials: {

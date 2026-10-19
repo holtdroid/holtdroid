@@ -1860,3 +1860,26 @@ mode only offers a toast, because `getDisplayMedia` needs a click.
 recording works wherever `getDisplayMedia` does. The tool panel is shown
 at the size the user sees it. A phone that rotates after the start is drawn
 smaller, because the encoder keeps one size per file.
+
+## 76. Launches pick any provider by default, or one device
+
+Extends #57.
+
+**Context.** The launch dialog asked for a provider and the provider picked
+its first free slot. With an emulator pool and phones side by side people
+want either "whatever is free" or one specific phone or node.
+
+**Decision.** `provider` is optional on `POST /api/v1/sessions`. Without it
+the api walks `providers[]` in config order and takes the first free slot of
+a provider that offers the requested location; restoring app data skips
+slots whose capabilities say they can't. The api always resolves the slot
+itself and passes it in `CreateSession.slot`; providers honour it (422 for
+an unknown slot, 409 if busy). A chosen slot may be busy or offline: the
+launch waits in line for that slot. Lines are per target (any, a provider,
+a slot) and the front of a line keeps its place if another line takes the
+slot first. VPN locations show a flag from `country-emoji`, matched on the
+location's id or label.
+
+**Consequences.** There is no global fairness between lines: an **Any**
+launch and a launch for one provider can both wait for the same slot, and
+whichever polls first gets it.

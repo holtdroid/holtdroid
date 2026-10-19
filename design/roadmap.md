@@ -206,6 +206,7 @@ of the same app from it (decision #49).
 - [x] Tests: api end to end with the fake provider, agent export/restore with a fake device, archive filter, pod golden
 - [x] `restoring` session state with `Session.appData`, shown as its own step while the device starts
 - [x] Launch queue: `queue: true` waits in a per-provider line while every slot is busy, the launch page shows it and leaving the page gives up the place (decision #57)
+- [x] Launch target: **Any** provider by default (first free in `providers[]` order), or a provider and optionally one of its devices, busy ones included (they wait in line); `CreateSession.slot`; flags next to VPN locations (decision #76)
 - [ ] Android Keystore keys of the app (keystore2), so apps that encrypt with them survive a restore
 - [ ] External app storage (`/sdcard/Android/data/{pkg}`)
 

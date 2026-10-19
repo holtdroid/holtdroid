@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"sync"
@@ -10,8 +11,8 @@ import (
 	"github.com/kriakiku/holtdroid/internal/contract"
 )
 
-// launchQueue lines up launches per provider, so that a freed slot goes to
-// whoever has waited longest. It lives in one replica's memory only.
+// launchQueue lines up launches per target (any device, a provider, or one
+// of its slots), so that a freed slot goes to whoever has waited longest. It lives in one replica's memory only.
 type launchQueue struct {
 	poll  time.Duration
 	mu    sync.Mutex
@@ -22,71 +23,61 @@ func newLaunchQueue(poll time.Duration) *launchQueue {
 	return &launchQueue{poll: poll, lines: map[string][]chan struct{}{}}
 }
 
-func (q *launchQueue) join(provider string) (front <-chan struct{}, leave func()) {
+func (q *launchQueue) join(line string) (front <-chan struct{}, leave func()) {
 	ch := make(chan struct{})
 	q.mu.Lock()
-	if len(q.lines[provider]) == 0 {
+	if len(q.lines[line]) == 0 {
 		close(ch)
 	}
-	q.lines[provider] = append(q.lines[provider], ch)
+	q.lines[line] = append(q.lines[line], ch)
 	q.mu.Unlock()
 	return ch, func() {
 		q.mu.Lock()
 		defer q.mu.Unlock()
-		line := q.lines[provider]
-		i := slices.Index(line, ch)
+		waiting := q.lines[line]
+		i := slices.Index(waiting, ch)
 		if i < 0 {
 			return
 		}
-		line = slices.Delete(line, i, i+1)
-		if i == 0 && len(line) > 0 {
-			close(line[0])
+		waiting = slices.Delete(waiting, i, i+1)
+		if i == 0 && len(waiting) > 0 {
+			close(waiting[0])
 		}
-		if len(line) == 0 {
-			delete(q.lines, provider)
+		if len(waiting) == 0 {
+			delete(q.lines, line)
 		} else {
-			q.lines[provider] = line
+			q.lines[line] = waiting
 		}
 	}
 }
 
-// acquire waits for the caller's turn and a free slot. Without wait it fails
-// with ErrNoCapacity instead of waiting. The returned release must be called
-// once the session is created, or right away on error.
-func (q *launchQueue) acquire(ctx context.Context, provider string, p contract.Provider, wait bool) (release func(), err error) {
-	front, leave := q.join(provider)
-	defer func() {
-		if err != nil {
-			leave()
-		}
-	}()
+// run waits for the caller's turn in line, then calls try until it stops
+// failing with ErrNoCapacity, keeping the place in line in between. Without
+// wait it fails with ErrNoCapacity instead of waiting.
+func (q *launchQueue) run(ctx context.Context, line string, wait bool, try func() error) error {
+	front, leave := q.join(line)
+	defer leave()
 	select {
 	case <-front:
 	default:
 		if !wait {
-			return nil, contract.ErrNoCapacity
+			return contract.ErrNoCapacity
 		}
 		select {
 		case <-front:
 		case <-ctx.Done():
-			return nil, fmt.Errorf("left the queue: %w", ctx.Err())
+			return fmt.Errorf("left the queue: %w", ctx.Err())
 		}
 	}
 	for {
-		c, cerr := p.Capacity(ctx)
-		if cerr != nil {
-			return nil, cerr
-		}
-		if c.Free() > 0 {
-			return leave, nil
-		}
-		if !wait {
-			return nil, contract.ErrNoCapacity
+		err := try()
+		if !wait || !errors.Is(err, contract.ErrNoCapacity) {
+			return err
 		}
 		select {
 		case <-time.After(q.poll):
 		case <-ctx.Done():
-			return nil, fmt.Errorf("left the queue: %w", ctx.Err())
+			return fmt.Errorf("left the queue: %w", ctx.Err())
 		}
 	}
 }

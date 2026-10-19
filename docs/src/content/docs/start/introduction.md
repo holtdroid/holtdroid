@@ -18,11 +18,14 @@ hybrid apps, support engineers reproducing a customer bug.
    versions there are and which sources they come from. **Launch** on a card
    starts the latest build; click the card to see every build of the app with
    its version, who posted it, its note and changelog.
-2. Pick a build, choose a VPN location if you need one, press **Launch**. A free
-   slot is assigned and a fresh Android device boots (about a minute). The
-   ⚡ button next to it skips the dialog and launches with the device and
-   location you used last time (or the defaults). When every device is busy,
-   the launch waits in line and starts as soon as one frees up.
+2. Pick a build, choose a VPN location if you need one, press **Launch**. The
+   provider is **Any** by default: the first provider with a free device, in
+   the order of `providers` in the config. Pick a provider to choose one of
+   its devices, busy ones included. A fresh Android device boots (about a
+   minute). The ⚡ button next to it skips the dialog and launches with the
+   provider and location you used last time (or the defaults). When every
+   device is busy, or the one you picked, the launch waits in line and starts
+   as soon as one frees up.
 3. The APK is installed as-is and started with WebView debugging enabled at
    runtime.
 4. The session page shows the device screen on the left and Chrome DevTools on

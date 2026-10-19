@@ -52,6 +52,7 @@ import { CITIES, defaultGeo, LOCALES } from "@/lib/device-presets"
 import { browserTimeZone, formatClockOffset } from "@/lib/format"
 import { baseLayout, desiredLocales, detectLayouts, sameLocales } from "@/lib/keyboard-layouts"
 import { rememberLocation } from "@/lib/launch-prefs"
+import { locationLabel } from "@/lib/location"
 import { setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
 
 const defaultBattery = 65
@@ -221,7 +222,7 @@ function VPNLocation({ provider, id, locations }: { provider: string; id: string
           <SelectContent>
             {locations.map((l) => (
               <SelectItem key={l.id} value={l.id}>
-                {l.label}
+                {locationLabel(l)}
               </SelectItem>
             ))}
           </SelectContent>

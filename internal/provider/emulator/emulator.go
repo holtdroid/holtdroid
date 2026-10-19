@@ -341,9 +341,9 @@ func (p *Provider) Create(ctx context.Context, req contract.CreateSession) (cont
 	if err != nil {
 		return contract.Session{}, err
 	}
-	i := slices.IndexFunc(c.Slots, func(s contract.Slot) bool { return s.State == contract.SlotFree })
-	if i < 0 {
-		return contract.Session{}, contract.ErrNoCapacity
+	i, err := c.Pick(req.Slot)
+	if err != nil {
+		return contract.Session{}, err
 	}
 
 	pod := p.renderPod(randomID(), c.Slots[i].ID, req, location, p.now())

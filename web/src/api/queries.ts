@@ -167,7 +167,8 @@ export function useSession(provider: string, id: string) {
 export type LaunchInput = {
   source: string
   artifactId: string
-  provider: string
+  provider?: string
+  slot?: string
   location?: string
   appData?: AppDataChoice
   queue?: boolean

@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button"
 export type LaunchSearch = {
   source: string
   artifact: string
-  provider: string
+  provider?: string
+  slot?: string
   location?: string
   data?: string
   cache?: boolean
@@ -19,14 +20,15 @@ export function validateLaunchSearch(search: Record<string, unknown>): LaunchSea
   return {
     source: str(search.source) ?? "",
     artifact: str(search.artifact) ?? "",
-    provider: str(search.provider) ?? "",
+    provider: str(search.provider),
+    slot: str(search.slot),
     location: str(search.location),
     data: str(search.data),
     cache: search.cache === true || search.cache === "true" || undefined,
   }
 }
 
-export function LaunchPage({ source, artifact, provider, location, data, cache }: LaunchSearch) {
+export function LaunchPage({ source, artifact, provider, slot, location, data, cache }: LaunchSearch) {
   const launch = useLaunch()
   const navigate = useNavigate()
   const providers = useProviders()
@@ -39,6 +41,7 @@ export function LaunchPage({ source, artifact, provider, location, data, cache }
         source,
         artifactId: artifact,
         provider,
+        slot,
         location,
         appData: data ? { id: data, cache: !!cache } : undefined,
         queue: true,
@@ -66,9 +69,19 @@ export function LaunchPage({ source, artifact, provider, location, data, cache }
     }
   }, [])
 
-  const capacity = providers.data?.find((p) => p.name === provider)?.capacity
-  const total = capacity?.slots.length ?? 0
-  const queued = !error && !!capacity && total > 0 && capacity.slots.every((s) => s.state !== "free")
+  const pool = (providers.data ?? []).filter(
+    (p) =>
+      !p.error &&
+      (provider ? p.name === provider : !location || p.capabilities.locations.some((l) => l.id === location)),
+  )
+  const slots = pool.flatMap((p) => p.capacity.slots).filter((s) => !slot || s.id === slot)
+  const total = slots.length
+  const queued = !error && total > 0 && slots.every((s) => s.state !== "free")
+  const busy = slot
+    ? `“${slots[0]?.label ?? slot}” is busy`
+    : provider
+      ? `All ${total} devices of “${provider}” are busy`
+      : `All ${total} devices are busy`
   if (queued && !wasQueued) setWasQueued(true)
   const appData = data ? (cache ? "cache" : "data") : undefined
 
@@ -78,7 +91,7 @@ export function LaunchPage({ source, artifact, provider, location, data, cache }
       reason={error ?? undefined}
       detail={
         queued
-          ? `All ${total} devices of “${provider}” are busy. You're in line: the device starts as soon as one frees up. Leaving this page gives up your place.`
+          ? `${busy}. You're in line: the device starts as soon as ${slot ? "it" : "one"} frees up. Leaving this page gives up your place.`
           : undefined
       }
       appData={appData}

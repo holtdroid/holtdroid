@@ -53,7 +53,7 @@ vpn:
 | `sessionTelemetry`         | Metrics port and tracing settings passed to session agents, see [Monitoring](/holtdroid/operations/monitoring/)                                                    |
 
 Every matching node is one slot, at most one session per node. A session is
-pinned to the first free node; nodes that are not Ready or are cordoned show
+pinned to the first free node, or to the node picked in the launch dialog; nodes that are not Ready or are cordoned show
 as offline. Session state lives on the Pod, so restarting the provider loses
 nothing. Run one provider replica per namespace.
 

@@ -25,8 +25,9 @@ in the Pod's network namespace:
 - those lookups return IPv4 addresses only (`AAAA` answers are empty), so
   the device never tries IPv6 through a location that can't carry it.
 
-The launch dialog and the quick-launch button use the location you used last
-time with that provider (remembered in the browser's `localStorage`, also when you switch
+The launch dialog shows a location's flag when its `id` or `label` is a
+country code or name. It and the quick-launch button use the location you
+used last time with that provider, or with **Any** (remembered in the browser's `localStorage`, also when you switch
 during a session). If there is none, or it is no longer offered, it falls
 back to the configured default (`vpn.default`). With `vpn.direct: false`
 there is no VPN-less option at all.

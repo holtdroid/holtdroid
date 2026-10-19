@@ -36,7 +36,9 @@ and the OpenAPI document a Go provider serves at `/openapi.json`.
 3. **`POST /v1/sessions` returns quickly.** Answer with the session in
    `provisioning` and do the work in the background. The UI shows `state`
    and `detail` while it waits for `ready`. Return 409 when there is no free
-   slot, 400 for a bad request.
+   slot, 400 for a bad request. When `CreateSession.slot` is set, use that
+   slot: 422 if you don't know it, 409 if it isn't free. The api always
+   sends the slot it picked from your capacity.
 4. **The agent downloads the build.** `CreateSession.artifactUrl` points at
    the api's internal port and serves the exact cached revision. The device
    side must be able to reach it; the browser never does. When

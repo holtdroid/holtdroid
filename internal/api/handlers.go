@@ -73,7 +73,8 @@ type createSessionInput struct {
 	Body struct {
 		Source     string         `json:"source" minLength:"1"`
 		ArtifactID string         `json:"artifactId" minLength:"1"`
-		Provider   string         `json:"provider" minLength:"1"`
+		Provider   string         `json:"provider,omitempty" doc:"empty picks the first provider in the configured order with a free device"`
+		Slot       string         `json:"slot,omitempty" doc:"a device of the provider; empty picks any free one"`
 		Location   string         `json:"location,omitempty"`
 		AppData    *AppDataChoice `json:"appData,omitempty" doc:"start the app with saved app data instead of a fresh install"`
 		Queue      bool           `json:"queue,omitempty" doc:"when every slot is busy, wait in line for one instead of failing; cancelling the request gives up the place"`
@@ -122,9 +123,12 @@ func (s *Server) register(api huma.API) {
 		OperationID: "createSession", Method: http.MethodPost, Path: "/api/v1/sessions", Tags: tags, DefaultStatus: http.StatusCreated,
 	}, func(ctx context.Context, in *createSessionInput) (*out[SessionView], error) {
 		id, _ := auth.FromContext(ctx)
-		v, err := s.createSession(ctx, id, in.Body.Source, in.Body.ArtifactID, in.Body.Provider, in.Body.Location, in.Body.AppData, in.Body.Queue)
+		v, err := s.createSession(ctx, id, launchRequest{
+			source: in.Body.Source, artifactID: in.Body.ArtifactID, provider: in.Body.Provider, slot: in.Body.Slot,
+			location: in.Body.Location, appData: in.Body.AppData, queue: in.Body.Queue,
+		})
 		result, _ := outcome(err)
-		launchesTotal.WithLabelValues(in.Body.Provider, string(result)).Inc()
+		launchesTotal.WithLabelValues(cmp.Or(v.Provider, in.Body.Provider, "any"), string(result)).Inc()
 		if err != nil {
 			s.emitResult(ctx, audit.Event{
 				Action: audit.SessionLaunch, Provider: in.Body.Provider,
@@ -377,16 +381,32 @@ func (s *Server) view(ctx context.Context, provider string, sess contract.Sessio
 	return v
 }
 
-func (s *Server) createSession(ctx context.Context, who auth.Identity, srcName, artifactID, providerName, location string, choice *AppDataChoice, queue bool) (SessionView, error) {
-	p, err := s.provider(providerName)
+type launchRequest struct {
+	source, artifactID, provider, slot, location string
+	appData                                      *AppDataChoice
+	queue                                        bool
+}
+
+type launchTarget struct {
+	provider, slot string
+}
+
+func (s *Server) createSession(ctx context.Context, who auth.Identity, req launchRequest) (SessionView, error) {
+	if req.slot != "" && req.provider == "" {
+		return SessionView{}, fmt.Errorf("%w: a slot needs a provider", contract.ErrInvalid)
+	}
+	candidates := s.provOrder
+	if req.provider != "" {
+		if _, err := s.provider(req.provider); err != nil {
+			return SessionView{}, err
+		}
+		candidates = []string{req.provider}
+	}
+	src, err := s.source(req.source)
 	if err != nil {
 		return SessionView{}, err
 	}
-	src, err := s.source(srcName)
-	if err != nil {
-		return SessionView{}, err
-	}
-	key, err := decodeID(artifactID)
+	key, err := decodeID(req.artifactID)
 	if err != nil {
 		return SessionView{}, err
 	}
@@ -395,55 +415,110 @@ func (s *Server) createSession(ctx context.Context, who auth.Identity, srcName, 
 		return SessionView{}, err
 	}
 	if !artifact.VisibleTo(who.User, who.Admin) {
-		return SessionView{}, fmt.Errorf("%w: %s", contract.ErrNotFound, artifactID)
+		return SessionView{}, fmt.Errorf("%w: %s", contract.ErrNotFound, req.artifactID)
 	}
-	if location != "" {
-		caps, err := p.Capabilities(ctx)
-		if err != nil {
-			return SessionView{}, err
-		}
-		if !slices.ContainsFunc(caps.Locations, func(l contract.Location) bool { return l.ID == location }) {
-			return SessionView{}, fmt.Errorf("%w: unknown location %q", contract.ErrInvalid, location)
+	if req.location != "" {
+		if candidates = s.offering(ctx, candidates, req.location); len(candidates) == 0 {
+			return SessionView{}, fmt.Errorf("%w: unknown location %q", contract.ErrInvalid, req.location)
 		}
 	}
-	release, err := s.queue.acquire(ctx, providerName, p, queue)
-	if err != nil {
-		return SessionView{}, err
-	}
-	defer release()
-	ctx = context.WithoutCancel(ctx)
 
-	entry, err := s.cache.Ensure(ctx, srcName, artifact)
+	entry, err := s.cache.Ensure(ctx, req.source, artifact)
 	if err != nil {
 		return SessionView{}, err
 	}
-	restore, snapshot, err := s.restoreFor(ctx, who.User, entry.Meta.Package, choice)
+	restore, snapshot, err := s.restoreFor(ctx, who.User, entry.Meta.Package, req.appData)
 	if err != nil {
 		return SessionView{}, err
 	}
-	ref := artifactRef(srcName, artifact.ID, artifact.Revision)
-	sess, err := p.Create(ctx, contract.CreateSession{
-		ArtifactURL: s.artifactURL(entry.Key),
-		ArtifactRef: ref,
-		Package:     entry.Meta.Package,
-		Owner:       who.User,
-		Location:    location,
-		AppData:     restore,
+	ref := artifactRef(req.source, artifact.ID, artifact.Revision)
+	line := req.provider
+	if req.slot != "" {
+		line += "/" + req.slot
+	}
+	var target launchTarget
+	var sess contract.Session
+	err = s.queue.run(ctx, line, req.queue, func() error {
+		var err error
+		if target, err = s.pickSlot(ctx, candidates, req.slot, restore != nil); err != nil {
+			return err
+		}
+		sess, err = s.providers[target.provider].Create(context.WithoutCancel(ctx), contract.CreateSession{
+			ArtifactURL: s.artifactURL(entry.Key),
+			ArtifactRef: ref,
+			Package:     entry.Meta.Package,
+			Owner:       who.User,
+			Location:    req.location,
+			Slot:        target.slot,
+			AppData:     restore,
+		})
+		return err
 	})
 	if err != nil {
 		return SessionView{}, err
 	}
-	details := map[string]string{"package": entry.Meta.Package, "location": location}
+	ctx = context.WithoutCancel(ctx)
+	details := map[string]string{"package": entry.Meta.Package, "location": req.location, "slot": sess.Slot}
 	if restore != nil {
 		s.markAppDataUsed(ctx, snapshot)
 		details["appData"], details["appDataCache"] = snapshot.ID, strconv.FormatBool(restore.Cache)
 	}
-	s.activity.Mark(sessionKey{providerName, sess.ID})
-	s.launches.add(sessionKey{providerName, sess.ID}, s.now())
-	s.markUsed(ctx, srcName, artifact)
-	s.emit(ctx, audit.Event{Action: audit.SessionLaunch, Provider: providerName, Session: sess.ID, Artifact: ref, Details: details})
-	s.log.Info("session created", "provider", providerName, "session", sess.ID, "owner", who.User, "package", entry.Meta.Package)
-	return s.view(ctx, providerName, sess), nil
+	k := sessionKey{target.provider, sess.ID}
+	s.activity.Mark(k)
+	s.launches.add(k, s.now())
+	s.markUsed(ctx, req.source, artifact)
+	s.emit(ctx, audit.Event{Action: audit.SessionLaunch, Provider: target.provider, Session: sess.ID, Artifact: ref, Details: details})
+	s.log.Info("session created", "provider", target.provider, "session", sess.ID, "slot", sess.Slot, "owner", who.User, "package", entry.Meta.Package)
+	return s.view(ctx, target.provider, sess), nil
+}
+
+func (s *Server) offering(ctx context.Context, names []string, location string) []string {
+	var out []string
+	for _, name := range names {
+		caps, err := s.providers[name].Capabilities(ctx)
+		if err == nil && slices.ContainsFunc(caps.Locations, func(l contract.Location) bool { return l.ID == location }) {
+			out = append(out, name)
+		}
+	}
+	return out
+}
+
+// pickSlot finds a free slot among the providers in order. Given a slot, only
+// that one counts. Restoring app data prefers devices that can do it, and
+// skips the others unless only one provider was asked for.
+func (s *Server) pickSlot(ctx context.Context, names []string, slot string, appData bool) (launchTarget, error) {
+	fits := func(sl contract.Slot) bool {
+		return sl.State == contract.SlotFree && (!appData || sl.Capabilities == nil || sl.Capabilities.AppData)
+	}
+	var fallback *launchTarget
+	var lastErr error
+	for _, name := range names {
+		c, err := s.providers[name].Capacity(ctx)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		if slot != "" {
+			i, err := c.Pick(slot)
+			if err != nil {
+				return launchTarget{}, err
+			}
+			return launchTarget{name, c.Slots[i].ID}, nil
+		}
+		if i := slices.IndexFunc(c.Slots, fits); i >= 0 {
+			return launchTarget{name, c.Slots[i].ID}, nil
+		}
+		if i, err := c.Pick(""); err == nil && len(names) == 1 {
+			fallback = &launchTarget{name, c.Slots[i].ID}
+		}
+	}
+	switch {
+	case fallback != nil:
+		return *fallback, nil
+	case lastErr != nil && len(names) == 1:
+		return launchTarget{}, lastErr
+	}
+	return launchTarget{}, contract.ErrNoCapacity
 }
 
 func (s *Server) installArtifact(ctx context.Context, providerName, id, srcName, artifactID string, keepData bool) (SessionView, error) {

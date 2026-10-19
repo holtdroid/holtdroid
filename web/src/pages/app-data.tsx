@@ -76,7 +76,7 @@ export function AppDataPage() {
         </div>
 
         {rules?.enabled && (
-          <aside className="grid content-start gap-2 rounded-xl border p-4 text-sm">
+          <aside className="grid content-start gap-2 self-start rounded-xl border p-4 text-sm">
             <h2 className="font-semibold">How long saves are kept</h2>
             <ul className="text-muted-foreground grid list-disc gap-1 pl-4">
               <li>{rules.keep > 0 ? `The ${rules.keep} most recently used per app` : "Every save, no count limit"}</li>

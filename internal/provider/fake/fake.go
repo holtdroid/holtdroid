@@ -94,6 +94,10 @@ func (p *Provider) slotIDs() []string {
 func (p *Provider) Capacity(context.Context) (contract.Capacity, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	return p.capacity(), nil
+}
+
+func (p *Provider) capacity() contract.Capacity {
 	busy := map[string]bool{}
 	for _, d := range p.sessions {
 		busy[d.session().Slot] = true
@@ -106,7 +110,7 @@ func (p *Provider) Capacity(context.Context) (contract.Capacity, error) {
 		}
 		c.Slots = append(c.Slots, contract.Slot{ID: id, Label: "Fake device " + strings.TrimPrefix(id, "fake-"), State: state})
 	}
-	return c, nil
+	return c
 }
 
 func (p *Provider) List(context.Context) ([]contract.Session, error) {
@@ -127,20 +131,12 @@ func (p *Provider) Create(_ context.Context, req contract.CreateSession) (contra
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	busy := map[string]bool{}
-	for _, d := range p.sessions {
-		busy[d.session().Slot] = true
+	c := p.capacity()
+	i, err := c.Pick(req.Slot)
+	if err != nil {
+		return contract.Session{}, err
 	}
-	slot := ""
-	for _, id := range p.slotIDs() {
-		if !busy[id] {
-			slot = id
-			break
-		}
-	}
-	if slot == "" {
-		return contract.Session{}, contract.ErrNoCapacity
-	}
+	slot := c.Slots[i].ID
 
 	id := randomID()
 	location := cmp.Or(req.Location, p.location)

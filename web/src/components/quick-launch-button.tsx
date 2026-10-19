@@ -8,10 +8,11 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { quickAppData, useLaunchTarget, useStartSession } from "@/hooks/use-launch-target"
 import { formatRelative } from "@/lib/format"
 import { type QuickLaunchMode, quickLaunchMode, rememberQuickLaunchMode } from "@/lib/launch-prefs"
+import { locationLabel } from "@/lib/location"
 import { cn } from "@/lib/utils"
 
 export function QuickLaunchButton({ artifact }: { artifact: ArtifactView }) {
-  const { provider, locations, location, free } = useLaunchTarget()
+  const { usable, provider, target, locations, location, free } = useLaunchTarget()
   const launch = useStartSession()
   const appData = useAppData()
   const [mode, setMode] = useState<QuickLaunchMode>(quickLaunchMode)
@@ -21,23 +22,23 @@ export function QuickLaunchButton({ artifact }: { artifact: ArtifactView }) {
   const pkg = artifact.app?.package
   const rules = appData.data
   const latest = rules?.items.find((d) => d.package === pkg)
-  const disabled = !provider
-  const locationLabel = locations.find((l) => l.id === location)?.label
-  const where = provider ? `${provider.name}${locationLabel ? ` · ${locationLabel}` : ""}` : ""
-  const hint = !provider
+  const disabled = usable.length === 0
+  const place = locations.find((l) => l.id === location)
+  const where = `${provider?.name ?? "any device"}${place ? ` · ${locationLabel(place)}` : ""}`
+  const hint = disabled
     ? "No providers available"
     : free === 0
-      ? `All slots of “${provider.name}” are busy, launching waits in line`
+      ? `${provider ? `All slots of “${provider.name}”` : "All devices"} are busy, launching waits in line`
       : `Quick launch on ${where}`
 
   const fire = (m: QuickLaunchMode) => {
-    if (!provider) return
+    if (disabled) return
     setOpen(false)
     if (m !== mode) {
       setMode(m)
       rememberQuickLaunchMode(m)
     }
-    launch(artifact, provider.name, location, quickAppData(m, rules, pkg))
+    launch(artifact, { provider: target, location }, quickAppData(m, rules, pkg))
   }
 
   const button = (
