@@ -12,7 +12,7 @@ import {
   type Target,
 } from "mediabunny"
 
-export type RecordMode = "screen" | "full"
+export type RecordMode = "screen" | "tab"
 
 export const recordFps = 30
 
@@ -20,23 +20,11 @@ export function recordingSupported() {
   return typeof VideoEncoder !== "undefined" && "captureStream" in HTMLCanvasElement.prototype
 }
 
-type ElementTarget = { fromElement: (element: Element) => Promise<unknown> }
-type RegionTrack = MediaStreamTrack & {
-  restrictTo?: (target: unknown) => Promise<void>
-  cropTo?: (target: unknown) => Promise<void>
+export function tabCaptureSupported() {
+  return typeof navigator.mediaDevices?.getDisplayMedia === "function"
 }
 
-function elementTargets() {
-  const g = globalThis as { RestrictionTarget?: ElementTarget; CropTarget?: ElementTarget }
-  return { restrict: g.RestrictionTarget, crop: g.CropTarget }
-}
-
-export function panelCaptureSupported() {
-  const { restrict, crop } = elementTargets()
-  return typeof navigator.mediaDevices?.getDisplayMedia === "function" && (restrict ?? crop) !== undefined
-}
-
-export async function capturePanel(element: HTMLElement) {
+export function captureTab() {
   const options: DisplayMediaStreamOptions & {
     preferCurrentTab: boolean
     selfBrowserSurface: "include" | "exclude"
@@ -48,18 +36,7 @@ export async function capturePanel(element: HTMLElement) {
     selfBrowserSurface: "include",
     surfaceSwitching: "exclude",
   }
-  const stream = await navigator.mediaDevices.getDisplayMedia(options)
-  try {
-    const track = stream.getVideoTracks()[0] as RegionTrack | undefined
-    const { restrict, crop } = elementTargets()
-    if (track && restrict && track.restrictTo) await track.restrictTo(await restrict.fromElement(element))
-    else if (track && crop && track.cropTo) await track.cropTo(await crop.fromElement(element))
-    else throw new Error("This browser can't capture a part of the page")
-  } catch (e) {
-    for (const t of stream.getTracks()) t.stop()
-    throw e
-  }
-  return stream
+  return navigator.mediaDevices.getDisplayMedia(options)
 }
 
 const folder = "recordings"
@@ -122,7 +99,7 @@ export async function discardRecordings(names: string[]) {
   }
 }
 
-export type Recording = { stop: () => void; done: Promise<Blob>; extension: string }
+export type Recording = { stop: () => void; done: Promise<Blob>; extension: string; started: number }
 
 async function continuousAudio(track: MediaStreamTrack) {
   try {
@@ -216,5 +193,5 @@ export async function startRecording(canvas: HTMLCanvasElement, name: string, ta
       void output.cancel()
     })
   })
-  return { stop: () => stop?.(), done, extension: "mp4" } satisfies Recording
+  return { stop: () => stop?.(), done, extension: "mp4", started: Date.now() } satisfies Recording
 }

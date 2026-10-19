@@ -29,7 +29,7 @@ import type { AdbSession } from "@/components/session/adb-session"
 import { ClipboardButton } from "@/components/session/clipboard-button"
 import { DeviceControls } from "@/components/session/device-controls"
 import { displayURL, type LiveScreen, useScreenLive } from "@/components/session/live-screen"
-import { RecordButton, type RecordPanel } from "@/components/session/record-button"
+import { RecordButton } from "@/components/session/record-button"
 import { ScreenSettings } from "@/components/session/screen-settings"
 import { useDeviceAction } from "@/components/session/use-device"
 import { Button } from "@/components/ui/button"
@@ -90,7 +90,6 @@ export function DeviceRail({
   session,
   live,
   adb,
-  panel,
   clipboard,
   locations,
 }: {
@@ -99,7 +98,6 @@ export function DeviceRail({
   session: SessionView
   live: LiveScreen
   adb: AdbSession | null
-  panel: RecordPanel
   clipboard: boolean
   locations: Location[]
 }) {
@@ -162,7 +160,7 @@ export function DeviceRail({
       <RailButton label="Screenshot" disabled={shooting} onClick={() => void screenshot()}>
         <CameraIcon />
       </RailButton>
-      <RecordButton provider={provider} id={id} session={session} live={live} adb={adb} panel={panel} />
+      <RecordButton provider={provider} id={id} session={session} live={live} adb={adb} />
       <RailSection title="Stream" separator={false} />
       <AudioButton provider={provider} id={id} live={live} />
       {clipboard && <ClipboardButton provider={provider} id={id} />}

@@ -15,27 +15,25 @@ import { Separator } from "@/components/ui/separator"
 import { useNow } from "@/hooks/use-now"
 import { download, run, stamp } from "@/lib/adb"
 import { parseProps } from "@/lib/android"
-import { Composer, type RecordInfo } from "@/lib/composer"
+import { PhoneScene, type RecordInfo, type Scene, TabScene } from "@/lib/composer"
 import { formatDuration } from "@/lib/format"
 import {
-  capturePanel,
+  captureTab,
   discardRecordings,
   leftoverRecordings,
-  panelCaptureSupported,
   type RecordMode,
   type Recording,
   recordingSupported,
   startRecording,
+  tabCaptureSupported,
 } from "@/lib/recorder"
 import { setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
 
-export type RecordPanel = { element: HTMLElement | null; title: string }
-
 const recordModes: Record<RecordMode, { label: string; hint: string; icon: ReactNode }> = {
-  screen: { label: "Device screen", hint: "The framed screen after a short intro", icon: <VideoIcon /> },
-  full: {
-    label: "Screen and details",
-    hint: "Device and app details with the open DevTools or Logcat tab",
+  screen: { label: "Device screen", hint: "The screen in a phone frame after a short intro", icon: <VideoIcon /> },
+  tab: {
+    label: "Whole tab",
+    hint: "This tab under a strip with the app and device details",
     icon: <AppWindowIcon />,
   },
 }
@@ -85,95 +83,83 @@ export function RecordButton({
   session,
   live,
   adb,
-  panel,
 }: {
   provider: string
   id: string
   session: SessionView
   live: LiveScreen
   adb: AdbSession | null
-  panel: RecordPanel
 }) {
   const screenLive = useScreenLive(live)
   const { recordMode, recordAuto } = useScreenPrefs()
   const mode = recordModes[recordMode] ? recordMode : "screen"
-  const [recording, setRecording] = useState<{ rec: Recording; started: number } | null>(null)
+  const [recording, setRecording] = useState<Recording | null>(null)
   const now = useNow()
   const info = useRecordInfo(provider, id, session, adb)
-  const latest = useRef({ info, panel })
-  const active = useRef<{ rec: Recording | null; composer: Composer } | null>(null)
+  const latest = useRef(info)
+  const active = useRef<{ rec: Recording | null } | null>(null)
   const autoDone = useRef(false)
   const unmounted = useRef(false)
   const supported = recordingSupported()
 
   useEffect(() => {
-    latest.current = { info, panel }
+    latest.current = info
   })
 
-  const sharePanel = async (composer: Composer) => {
-    const element = latest.current.panel.element
-    if (!element) throw new Error("The tool panel isn't on the page")
-    const stream = await capturePanel(element)
-    if (active.current?.composer === composer) composer.setPanel(stream)
-    else for (const t of stream.getTracks()) t.stop()
-    return stream
+  const offerTab = () => {
+    toast("Record this tab?", {
+      id: "record-tab",
+      description: "The browser asks before it shares a tab, so recording starts after a click.",
+      duration: Infinity,
+      action: { label: "Record", onClick: () => void start("tab", false) },
+    })
   }
 
-  const askForPanel = (composer: Composer) => {
-    toast("Recording without the tool panel", {
-      id: "record-panel",
-      description: "The browser asks before it shares a part of this tab.",
-      duration: Infinity,
-      action: {
-        label: "Include it",
-        onClick: () =>
-          void sharePanel(composer).catch((e: unknown) => {
-            if (e instanceof DOMException && e.name === "NotAllowedError") return
-            toast.error("Could not capture the tool panel", { description: errorText(e) })
-          }),
-      },
-    })
+  const scene = async (m: RecordMode): Promise<{ scene: Scene; tab?: MediaStream } | null> => {
+    if (m === "screen")
+      return {
+        scene: new PhoneScene(
+          () => live.connection?.canvas ?? null,
+          () => latest.current,
+        ),
+      }
+    try {
+      const tab = await captureTab()
+      return { scene: new TabScene(tab, () => latest.current), tab }
+    } catch (e) {
+      if (!(e instanceof DOMException && e.name === "NotAllowedError")) {
+        toast.error("Could not capture this tab", { description: errorText(e) })
+      }
+      return null
+    }
   }
 
   const start = async (m: RecordMode, auto: boolean) => {
     if (active.current || !supported) return
-    const composer = new Composer({
-      mode: m,
-      screen: () => live.connection?.canvas ?? null,
-      info: () => latest.current.info,
-      panelTitle: () => latest.current.panel.title,
-    })
-    active.current = { rec: null, composer }
-    const wantPanel = m === "full" && panelCaptureSupported()
-    let audio: MediaStreamTrack | undefined
+    if (m === "tab" && auto) {
+      offerTab()
+      return
+    }
+    toast.dismiss("record-tab")
+    active.current = { rec: null }
+    const made = await scene(m)
+    if (!made) {
+      active.current = null
+      return
+    }
     try {
-      if (wantPanel && !auto) {
-        try {
-          audio = (await sharePanel(composer)).getAudioTracks()[0]
-        } catch (e) {
-          if (e instanceof DOMException && e.name === "NotAllowedError") {
-            active.current = null
-            return
-          }
-          toast.warning("Recording without the tool panel", { description: errorText(e) })
-        }
-      }
-      composer.start()
+      made.scene.start()
       const name = `${session.package}-${stamp()}`
-      const rec = await startRecording(composer.canvas, name, audio)
-      active.current = { rec, composer }
+      const rec = await startRecording(made.scene.canvas, name, made.tab?.getAudioTracks()[0])
+      active.current = { rec }
       if (unmounted.current) rec.stop()
-      setRecording({ rec, started: Date.now() })
-      if (wantPanel && auto) askForPanel(composer)
-      try {
-        download(await rec.done, `${name}.${rec.extension}`)
-      } finally {
-        toast.dismiss("record-panel")
-      }
+      made.tab?.getVideoTracks()[0]?.addEventListener("ended", () => rec.stop(), { once: true })
+      setRecording(rec)
+      download(await rec.done, `${name}.${rec.extension}`)
     } catch (e) {
       toast.error("Recording failed", { description: errorText(e) })
     } finally {
-      composer.stop()
+      made.scene.stop()
       active.current = null
       setRecording(null)
     }
@@ -219,7 +205,7 @@ export function RecordButton({
       <RailButton
         text="Stop recording"
         label={`Stop recording (${formatDuration(now - recording.started)})`}
-        onClick={() => recording.rec.stop()}
+        onClick={() => recording.stop()}
         className="text-red-600 dark:text-red-400"
       >
         <CircleStopIcon className="animate-pulse" />
@@ -245,7 +231,7 @@ export function RecordButton({
             key={m}
             variant="ghost"
             className="h-auto justify-start gap-2 px-2 py-1.5 text-left whitespace-normal"
-            disabled={!supported || !screenLive}
+            disabled={!supported || !screenLive || (m === "tab" && !tabCaptureSupported())}
             onClick={() => {
               setScreenPrefs({ recordMode: m })
               void start(m, false)
@@ -257,8 +243,8 @@ export function RecordButton({
               <span className="text-muted-foreground text-xs font-normal">
                 {!supported
                   ? "Not supported in this browser"
-                  : m === "full" && !panelCaptureSupported()
-                    ? "Device and app details; this browser can't capture the tool panel"
+                  : m === "tab" && !tabCaptureSupported()
+                    ? "This browser can't capture a tab"
                     : item.hint}
               </span>
             </span>

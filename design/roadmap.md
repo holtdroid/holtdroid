@@ -109,7 +109,7 @@ Design: decision #51, architecture.md "ADB in the browser".
 - [x] Agent `WS /adb` on the main port (fake agent too); api proxy rule with `adb.browser` / `adb.ownerOnly`, `X-Holtdroid-User` from the identity, `GET /api/v1/adb`, audit `adb.connect` / `adb.disconnect`
 - [x] adb packet relay in the agent for `/adb` and `/tunnel/adb` that refuses `reboot:`, `unroot:`, `remount:`, `tcpip:`, `usb:`, `sideload:`, `*-verity:`; `/v1/tunnels` tells browser and SSH clients apart
 - [x] Fake adbd in the fake provider: shell v1/v2 with a pty, exec, sync v1, binary logcat with a generator and `am crash`, `pm`/`am`/`dumpsys`/`settings`/`cmd`/`bugreportz`, a small file system
-- [x] UI: one Tango connection per session page; tabs next to DevTools: Logcat, Files, Terminal, App, Device; crash toast; screen recording from the rail (framed canvas scene with app, device and tool panel, MP4 streamed to disk, auto-record — decision #66)
+- [x] UI: one Tango connection per session page; tabs next to DevTools: Logcat, Files, Terminal, App, Device; crash toast; screen recording from the rail (framed phone or the whole tab under a details strip, MP4 streamed to disk, auto-record — decisions #66, #74)
 - [x] Tests: `internal/adbproto`, the relay's filter, the fake adbd, the proxy end to end with audit; `bun test` for the dumpsys parsers
 - [x] Device audio on by default; vibrations (`/v1/vibrations` from `dumpsys vibrator_manager`, fake agent every 45 s) as a toast plus a synthesized buzz (decision #54)
 - [x] Verify on the real emulator (2026-10-17, by the maintainer on the live deployment): several adbd connections at once (agent, SSH, tabs), logcat under load, pushes over 1 MiB, bugreportz streaming, the WebView provider switch

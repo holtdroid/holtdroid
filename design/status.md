@@ -54,7 +54,7 @@ deployment"):
   Files, Terminal, App (deep links, permissions, force stop, clear data,
   doze, standby bucket) and Device (props, WebView provider, demo mode,
   bug report zip and bugreportz), plus screen recording in the rail
-  (canvas scene, MP4 streamed to OPFS, decision #66). The
+  (framed phone or whole tab with a details strip, MP4 streamed to OPFS, decisions #66, #74). The
   agent's adb relays refuse `reboot:`/`unroot:`/`remount:`/`tcpip:`/`usb:`.
   The fake provider has a small adbd. Works on the real emulator.
 - Holtdroid WebView (decision #62), a separate app in

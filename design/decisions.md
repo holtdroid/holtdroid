@@ -1834,3 +1834,29 @@ refused, since `battery set` or `deviceidle force-idle` change the device.
 phone until it is unsuspended by adb. The device owner is still needed to
 block the power menu and the camera hardware, and to undo a PIN set before
 the phone was first cleaned.
+
+## 74. Recordings are the framed phone or the whole tab under a strip
+
+Supersedes the scene layout of #66; the encoding and the OPFS file stay.
+
+**Context.** The *Screen and details* scene rebuilt a dashboard on the
+canvas and cut the tool panel out of the tab with `RestrictionTarget`. It
+only worked in Chromium, needed a share prompt anyway, and the panel was
+squeezed next to the phone. The phone frame drew a camera, buttons and
+glare, and the fixed 1080×1920 canvas left a lot of empty space around a
+phone of another shape.
+
+**Decision.** Two scenes in `web/src/lib/composer.ts`. `PhoneScene` draws
+a plain rounded frame around the scrcpy canvas; the video size follows the
+framed phone in the orientation it had when recording started (long side
+1920), and later rotations turn the frame inside it. `TabScene` draws the
+current tab from `getDisplayMedia`, uncropped, under a 56-unit strip with
+the logo, app, device details and timer; the video size is the tab's size
+at the start (width clamped to 1280–2560) plus the strip, and the tab is
+fitted without stretching when the window is resized. Auto-record in tab
+mode only offers a toast, because `getDisplayMedia` needs a click.
+
+**Consequences.** Element and region capture are no longer needed, so tab
+recording works wherever `getDisplayMedia` does. The tool panel is shown
+at the size the user sees it. A phone that rotates after the start is drawn
+smaller, because the encoder keeps one size per file.
