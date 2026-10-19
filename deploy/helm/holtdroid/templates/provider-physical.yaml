@@ -1,0 +1,129 @@
+{{- $p := .Values.providers.physical -}}
+{{- if $p.enabled }}
+{{- $name := include "holtdroid.fullname" . -}}
+{{- $component := "provider-physical" -}}
+{{- $image := printf "%s:%s" $p.image.repository ($p.image.tag | default (include "holtdroid.tag" .)) -}}
+{{- $cfg := deepCopy $p.config -}}
+{{- $_ := set $cfg "listen" (printf ":%d" (int $p.port)) -}}
+{{- $_ := set $cfg "tunnelListen" (printf ":%d" (int $p.tunnelPort)) -}}
+{{- $_ := set $cfg "publicURL" (printf "http://%s-%s:%d" $name $component (int $p.port)) -}}
+{{- $_ := set $cfg "tunnelURL" (printf "http://%s-%s:%d" $name $component (int $p.tunnelPort)) -}}
+{{- $_ := set $cfg "stateFile" "/var/lib/holtdroid/physical.json" -}}
+{{- $_ := set $cfg "phones" $p.phones -}}
+{{- with $p.vpn }}
+{{- $_ := set $cfg "vpn" . -}}
+{{- end }}
+{{- $telemetry := include "holtdroid.telemetry" . | fromYaml -}}
+{{- if .Values.telemetry.metrics.enabled }}
+{{- $_ := set $telemetry "metrics" (dict "listen" (printf ":%d" (int $p.metricsPort))) -}}
+{{- end }}
+{{- $_ := set $cfg "telemetry" $telemetry -}}
+{{- if not (or $p.nodeName $p.nodeSelector) }}
+{{- fail "providers.physical needs nodeName or nodeSelector: the node the phones are plugged into" }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}-{{ $component }}
+  labels:
+    {{- include "holtdroid.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    {{- toYaml $cfg | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}-{{ $component }}
+  labels:
+    {{- include "holtdroid.labels" . | nindent 4 }}
+    app.kubernetes.io/component: {{ $component }}
+spec:
+  replicas: 1
+  # One adb server per host and the host's ports: the old pod goes first.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 0, maxUnavailable: 1 }
+  selector:
+    matchLabels:
+      {{- include "holtdroid.selector" (dict "root" . "component" $component) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "holtdroid.selector" (dict "root" . "component" $component) | nindent 8 }}
+      annotations:
+        checksum/config: {{ toYaml $cfg | sha256sum }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      enableServiceLinks: false
+      automountServiceAccountToken: false
+      # adb learns about phones reconnecting on USB from kernel hotplug
+      # events, which only reach the host's network namespace.
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      {{- with $p.nodeName }}
+      nodeName: {{ . }}
+      {{- end }}
+      {{- with $p.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $p.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ $component }}
+          image: {{ $image }}
+          imagePullPolicy: {{ $p.image.pullPolicy }}
+          {{- with .Values.existingSecret }}
+          envFrom:
+            - secretRef:
+                name: {{ . }}
+          {{- end }}
+          args: [provider-physical, --config, /etc/holtdroid/config.yaml]
+          # Opening USB device nodes needs root unless the host grants a
+          # group access to them (see the phone provider docs).
+          securityContext:
+            {{- toYaml $p.securityContext | nindent 12 }}
+          ports:
+            - { name: http, containerPort: {{ $p.port }} }
+            - { name: tunnel, containerPort: {{ $p.tunnelPort }} }
+            {{- if .Values.telemetry.metrics.enabled }}
+            - { name: metrics, containerPort: {{ $p.metricsPort }} }
+            {{- end }}
+          readinessProbe:
+            httpGet: { path: /v1/health, port: http }
+          resources:
+            {{- toYaml $p.resources | nindent 12 }}
+          volumeMounts:
+            - { name: config, mountPath: /etc/holtdroid, readOnly: true }
+            - { name: usb, mountPath: /dev/bus/usb }
+            - { name: state, mountPath: /var/lib/holtdroid }
+      volumes:
+        - name: config
+          configMap:
+            name: {{ $name }}-{{ $component }}
+        - name: usb
+          hostPath: { path: /dev/bus/usb, type: Directory }
+        # The state file and adb's key: a new key makes every phone ask
+        # again to allow USB debugging.
+        - name: state
+          hostPath: { path: {{ $p.stateDir }}, type: DirectoryOrCreate }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}-{{ $component }}
+  labels:
+    {{- include "holtdroid.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "holtdroid.selector" (dict "root" . "component" $component) | nindent 4 }}
+  ports:
+    - { name: http, port: {{ $p.port }}, targetPort: http }
+    - { name: tunnel, port: {{ $p.tunnelPort }}, targetPort: tunnel }
+{{- end }}

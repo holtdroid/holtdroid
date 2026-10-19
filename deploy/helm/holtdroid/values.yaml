@@ -140,6 +140,43 @@ providers:
       requests: { cpu: 5m, memory: 32Mi }
       limits: { memory: 128Mi }
 
+  # Real phones on USB, on one node (see the phone provider docs). The pod
+  # runs on that node's host network as root with the USB devices, so adb
+  # sees phones reconnect; its ports are open on the node's interfaces and
+  # need the host firewall to keep them to the cluster.
+  physical:
+    enabled: false
+    name: phones
+    image:
+      repository: ghcr.io/kriakiku/holtdroid-physical
+      # Defaults to image.tag (CI builds both images for every commit).
+      tag: ""
+      pullPolicy: IfNotPresent
+    # The node the phones are plugged into: nodeName or nodeSelector.
+    nodeName: ""
+    nodeSelector: {}
+    tolerations: []
+    # The inventory: [{ serial: R92X632WPYV, label: "Galaxy A05" }].
+    phones: []
+    # Ports on the node.
+    port: 18580
+    tunnelPort: 18581
+    metricsPort: 18590
+    # The state file and adb's key, on the node.
+    stateDir: /var/lib/holtdroid-physical
+    # VPN locations, exactly as for the emulator provider. Empty: phones use
+    # their own Wi-Fi or mobile data.
+    vpn: {}
+    # More provider config: adb, phone, tunnel, agent, resetTimeout, …
+    config: {}
+    securityContext:
+      privileged: true
+      runAsUser: 0
+      runAsGroup: 0
+    resources:
+      requests: { cpu: 20m, memory: 64Mi }
+      limits: { memory: 512Mi }
+
 # SSH access for the holtdroid client: users run the command from the portal's
 # Computers page once per computer; the client publishes their local ports on
 # all of their devices and forwards each device's ADB. Only tunnels, never a

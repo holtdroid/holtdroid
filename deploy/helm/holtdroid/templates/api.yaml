@@ -14,6 +14,9 @@
 {{- if .Values.providers.emulator.enabled -}}
 {{- $providers = append $providers (dict "name" .Values.providers.emulator.name "url" (printf "http://%s-provider-emulator:8080" $name)) -}}
 {{- end -}}
+{{- if .Values.providers.physical.enabled -}}
+{{- $providers = append $providers (dict "name" .Values.providers.physical.name "url" (printf "http://%s-provider-physical:%d" $name (int .Values.providers.physical.port))) -}}
+{{- end -}}
 {{- $providers = concat $providers .Values.extraProviders -}}
 {{- $_ := set $cfg "providers" $providers -}}
 {{- $g := .Values.sshGateway -}}

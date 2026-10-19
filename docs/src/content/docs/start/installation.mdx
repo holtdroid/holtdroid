@@ -124,6 +124,7 @@ pod may wait in `ImagePullBackOff` for a few minutes until that commit's image i
 | `api.persistence.*`        | RWO PVC, 10Gi                | Mounted at `/var/lib/holtdroid`: the default `local` source and uploads                   |
 | `providers.fake.enabled`   | `false`                      | Simulated devices                                                                         |
 | `providers.emulator.*`     | disabled                     | Emulator sessions, see [Emulator provider](/holtdroid/configuration/emulator/#helm-chart) |
+| `providers.physical.*`     | disabled                     | Phones on USB, see [Phone provider](/holtdroid/configuration/phones/#helm-chart)          |
 | `extraProviders`           | `[]`                         | Out-of-tree providers: `[{name, url}]`                                                    |
 | `ingress.*`                | disabled                     | Standard Ingress                                                                          |
 | `telemetry.*`              | off                          | Prometheus metrics and tracing, see [Monitoring](/holtdroid/operations/monitoring/)       |

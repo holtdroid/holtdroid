@@ -40,6 +40,35 @@ session) and hides what isn't there.
 3. Remove the lock screen PIN, or the session starts on the lock screen.
 4. Note the serial from `adb devices`.
 
+## Helm chart
+
+On Kubernetes, plug the phones into one node and enable the provider in the
+chart; the api gets it as a provider by itself:
+
+```yaml
+providers:
+  physical:
+    enabled: true
+    name: phones
+    nodeName: k3s-1 # or nodeSelector
+    phones:
+      - { serial: R92X632WPYV, label: Galaxy A05 }
+    vpn: {} # the same locations as providers.emulator.vpn
+    config: # anything else of the provider's config
+      adb: { shell: allowlist }
+```
+
+The pod runs on that node's **host network** (adb only notices a phone
+reconnecting on USB through hotplug events, which reach the host's network
+namespace), as root and privileged so it can open the USB devices, with
+`/dev/bus/usb` and a host directory `stateDir`
+(`/var/lib/holtdroid-physical`) for the state file and adb's key. It
+listens on the node's `port` (18580) and `tunnelPort` (18581), without
+authentication: keep them closed to the outside with the host firewall
+(pods reach them over the cluster interfaces). Secrets referenced in `vpn`
+come from `existingSecret` like the other components'. Only one adb server
+may run on that node.
+
 ## Running it
 
 The host needs `adb` (platform-tools) and the scrcpy server the agent pushes

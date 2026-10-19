@@ -1939,3 +1939,27 @@ manual `dpm set-device-owner` by the operator.
 be updated without `RELEASE` or a factory reset. Under the VPN lockdown a
 phone between sessions has no network at all. The kiosk on One UI's
 launcher is to be verified on the real phone.
+
+## 78. The chart runs provider-physical on its node's host network
+
+**Context.** In a pod network adb (libusb) never learns that a phone
+re-enumerated on USB, which happens on every reboot, on Samsung around lock
+task and on some device-owner policies, so the phone stays gone until adb
+restarts. adb's key has to survive pod restarts, or every phone asks again
+to allow debugging.
+
+**Decision.** `providers.physical` is one Deployment pinned to the phones'
+node (`nodeName` or `nodeSelector`), `hostNetwork: true` with
+`ClusterFirstWithHostNet`, privileged root (USB device nodes), `/dev/bus/usb`
+and a `DirectoryOrCreate` host directory for the state file and `HOME`
+(adb's key). It listens on node ports 18580 (API and agents) and 18581
+(tunnels); a Service with both ports gives the api and the ssh-gateway
+stable URLs, and the api's `providers` list gets it by itself. No
+ServiceAccount token, no RBAC: the provider never talks to Kubernetes.
+
+**Consequences.** The ports are open on the node's interfaces with no
+authentication of their own, so the node's firewall must keep them to the
+cluster (on the maintainer's nodes only `cni0` and `flannel.1` are
+trusted). One provider per node, and nothing else may run an adb server
+there. The state and key live on that node; moving the phones to another
+node means copying the directory.
