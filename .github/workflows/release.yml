@@ -28,7 +28,7 @@ jobs:
             type=sha,format=long,prefix=
             type=ref,event=branch
             type=semver,pattern={{version}}
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: .
           file: images/Dockerfile
@@ -59,7 +59,7 @@ jobs:
             type=sha,format=long,prefix=
             type=ref,event=branch
             type=semver,pattern={{version}}
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: .
           file: images/session.Dockerfile
@@ -89,7 +89,7 @@ jobs:
             type=sha,format=long,prefix=
             type=ref,event=branch
             type=semver,pattern={{version}}
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: .
           file: images/physical.Dockerfile
