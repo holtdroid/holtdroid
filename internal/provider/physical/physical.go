@@ -51,6 +51,12 @@ type Config struct {
 	VPN          vpn.Config
 	SingBox      string
 	Tunnel       TunnelConfig
+	// TransparentTunnel routes a rooted phone through the kernel-route
+	// sing-box tun instead of the VpnService. It is off by default: the tun
+	// hides the VPN but leaves Android without a network agent, so DNS does
+	// not resolve (see decision #80). The default gives rooted phones the
+	// VpnService tunnel with a Frida Wi-Fi relabel instead.
+	TransparentTunnel bool
 }
 
 // TunnelConfig is the Holtdroid Tunnel app that carries a phone's traffic
@@ -569,7 +575,7 @@ func (p *Provider) start(s contract.Session, artifactURL string, resume bool, v 
 		cfg.USBNetwork = true
 		cfg.ClashAPI = "http://" + v.clash
 		cfg.IPInfoProxy = "http://" + v.mixed.String()
-		if root {
+		if root && p.cfg.TransparentTunnel {
 			ps.Tunnel = &phone.RootTunnel{SingBox: p.cfg.Phone.SingBox, Port: p.cfg.Tunnel.Port, HostPort: int(v.mixed.Port())}
 		} else {
 			ps.Tunnel = &phone.Tunnel{Port: p.cfg.Tunnel.Port, HostPort: int(v.mixed.Port()), IPv6: p.cfg.Tunnel.IPv6}

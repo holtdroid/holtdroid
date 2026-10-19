@@ -2042,20 +2042,25 @@ Root mode adds, all reversed on cleanup:
   dialer and emergency apps disabled, keyguard off. Android never lets
   emergency calls be blocked outright, so the real guarantee is a SIM-less
   phone out of cellular range; this only removes the on-screen vectors.
-- **Transparent tunnel** (`phone.RootTunnel`): a static arm64 sing-box tun
-  (`auto_route:false`, system stack) started as root; the agent adds the
-  default route into the tun itself and sends everything to a socks outbound
-  that adb reverse maps to the host's per-session sing-box. The phone needs
-  no network of its own (egress is loopback over USB); a dummy default route
-  gives sing-box an interface. The default is only swung into the tun while
-  an HTTP probe through the host egress succeeds — otherwise it stays on the
-  dead dummy, so a down egress fails fast instead of starving the system in a
-  tun with no way out. A kernel route is invisible to `ConnectivityManager`,
-  which registers no agent for it, so the app would see no network at all
-  (and some crash in a network callback); the Frida agent therefore presents
-  the app a synthetic validated Wi-Fi network whenever the system has none,
-  so it sees Wi-Fi, not a VpnService and not an outage. Sockets stay on the
-  default route because the fake network is never bound.
+- **Tunnel that looks like Wi-Fi**: a rooted session reaches the internet
+  through the same VpnService tunnel as a non-root one (Holtdroid Tunnel over
+  adb reverse to the host's per-session sing-box), because only a registered
+  network agent gives Android working DNS and routing on a phone with no SIM
+  and no Wi-Fi. Android registers that agent with the VPN transport, which
+  apps can see and some refuse, so the Frida agent relabels the active
+  network's transport from VPN to Wi-Fi for the app under test (flipping
+  `hasTransport`, the `NOT_VPN` capability and `NetworkInfo.getType`): the app
+  sees ordinary Wi-Fi while the real VPN network keeps carrying its data and
+  DNS. A kernel-route transparent tun (`phone.RootTunnel`, a static arm64
+  sing-box tun, default route added by the agent, egress health-gated) hides
+  the VPN more completely but registers no network agent, so
+  `ConnectivityManager` reports nothing and DNS cannot resolve (Android 14
+  dropped the `ndc resolver` seed and gives root no other way to configure a
+  resolver without a network); the Frida agent can still present a synthetic
+  validated Wi-Fi network so the app does not crash, but real traffic only
+  works by IP. It is therefore left behind the off-by-default
+  `transparentTunnel` config flag until the DNS gap is closed, and the
+  VpnService tunnel is the default.
 - **GPS and clock follow the VPN location**: each location carries
   `geo {lat,lng,radius}` (default 10km) and a `timezone`; on switch the GPS
   is faked to a random point in the radius (gps and network test providers,

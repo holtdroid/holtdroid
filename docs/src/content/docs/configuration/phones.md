@@ -398,15 +398,16 @@ undone when the session ends:
   overridden). A per-session **Override** toggle on the session page pins a
   manual position; it is not kept after the session.
 - **Root hidden** from the app under test (added to the Magisk DenyList).
-- **A transparent tunnel** instead of the VpnService one: a sing-box `tun`
-  started as root takes the phone's default route, so the app sees an
-  ordinary Wi-Fi connection, not a VPN. Traffic still leaves through the
-  host's per-session sing-box over the USB cable, and the default route is
-  swung into the tun only while that egress is healthy, so a dead proxy
-  fails fast instead of hanging the phone. A raw route carries no
-  `ConnectivityManager` network, so Frida shows the app a synthetic
-  validated Wi-Fi network when the system has none — otherwise it would
-  report no connection at all. The phone itself needs no Wi-Fi or SIM.
+- **A tunnel that looks like Wi-Fi**: a rooted session reaches the internet
+  through the same VpnService tunnel as a non-root one (so Android gives it a
+  real network with working DNS, which a phone with no SIM and no Wi-Fi
+  otherwise lacks), but Frida relabels that network's transport from VPN to
+  Wi-Fi for the app under test, so it sees an ordinary Wi-Fi connection, not a
+  VPN. Traffic still leaves through the host's per-session sing-box over the
+  USB cable, and the phone itself needs no Wi-Fi or SIM. (A fully transparent
+  kernel-route tun is available behind the off-by-default `transparentTunnel`
+  flag; it hides the VPN completely but has no DNS yet, so apps cannot resolve
+  host names through it.)
 - **A calls lockdown**: airplane mode (Wi-Fi back on for the tunnel), the
   dialer and emergency apps disabled, and the lock screen off so its
   emergency button is gone.

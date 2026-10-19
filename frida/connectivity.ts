@@ -1,17 +1,23 @@
 import Java from "frida-java-bridge"
 
-// The rooted transparent tunnel carries packets at the kernel level (a manual
-// default route into a sing-box tun), so ConnectivityManager has no registered
-// network and getActiveNetwork() returns null — apps then believe they are
-// offline, and some crash in a network callback. This presents a synthetic
-// validated Wi-Fi network to the app under test whenever the system genuinely
-// has none, so the app proceeds while its sockets keep using the default route.
-// Every hook calls through to the real method first and only substitutes when
-// the device is truly offline, so it is a no-op on the emulator and on a phone
-// with a real network.
+// A rooted session reaches the internet through the VpnService tunnel, which
+// Android registers with the VPN transport — apps can see that and some refuse
+// a VPN. relabelVpn() rewrites the active network's transport from VPN to
+// Wi-Fi for the app under test, so it sees an ordinary Wi-Fi connection while
+// the real VPN network keeps carrying its data and DNS.
+//
+// A kernel-route tunnel (the experimental transparent path) instead registers
+// no network at all, so getActiveNetwork() returns null and some apps crash in
+// a network callback; fillWhenOffline() presents a synthetic validated Wi-Fi
+// network whenever the system genuinely has none. Every hook calls through to
+// the real method first, so both are a no-op on the emulator and on a phone
+// with an ordinary network.
 
 const TYPE_WIFI = 1
+const TYPE_VPN = 17
 const TRANSPORT_WIFI = 1
+const TRANSPORT_VPN = 4
+const NET_CAPABILITY_NOT_VPN = 15
 
 const CAPABILITIES = [
   11, // NOT_METERED
@@ -55,7 +61,46 @@ function offline(cm: Java.Wrapper): boolean {
   }
 }
 
+// relabelVpn rewrites a VPN-transport network as Wi-Fi: the active network
+// keeps carrying data and DNS, but the app under test sees Wi-Fi instead of a
+// VPN. It flips the transport and the NOT_VPN capability on any VPN
+// NetworkCapabilities, and the type on any VPN NetworkInfo, so every path the
+// app inspects (getActiveNetworkInfo, getNetworkCapabilities, network
+// callbacks) agrees. Non-VPN networks pass through untouched.
+function relabelVpn() {
+  const NC = Java.use("android.net.NetworkCapabilities")
+  tryHook("hasTransport", () => {
+    NC.hasTransport.implementation = function (t: number) {
+      if (!this.hasTransport(TRANSPORT_VPN)) return this.hasTransport(t)
+      if (t === TRANSPORT_VPN) return false
+      if (t === TRANSPORT_WIFI) return true
+      return this.hasTransport(t)
+    }
+  })
+  tryHook("hasCapability", () => {
+    NC.hasCapability.implementation = function (c: number) {
+      const real = this.hasCapability(c)
+      return c === NET_CAPABILITY_NOT_VPN && !real ? true : real
+    }
+  })
+  const NI = Java.use("android.net.NetworkInfo")
+  tryHook("getType", () => {
+    NI.getType.implementation = function () {
+      const t = this.getType()
+      return t === TYPE_VPN ? TYPE_WIFI : t
+    }
+  })
+  tryHook("getTypeName", () => {
+    NI.getTypeName.implementation = function () {
+      const n = this.getTypeName()
+      return n === "VPN" ? "WIFI" : n
+    }
+  })
+}
+
 export function spoofConnectivity() {
+  relabelVpn()
+
   let fake: { network: Java.Wrapper; info: Java.Wrapper; caps: Java.Wrapper }
   try {
     fake = fabricate()
