@@ -19,7 +19,7 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
-	"github.com/kriakiku/holtdroid/internal/contract/control"
+	"github.com/holtdroid/holtdroid/internal/contract/control"
 )
 
 // state is what a computer keeps per portal between runs.

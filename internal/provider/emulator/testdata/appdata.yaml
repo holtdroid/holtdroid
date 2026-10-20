@@ -58,7 +58,7 @@ spec:
       value: http://holtdroid-api-internal:8081/internal/app-data/x.tar.zst
     - name: HOLTDROID_APPDATA__CACHE
       value: "true"
-    image: ghcr.io/kriakiku/holtdroid-session:0123abc
+    image: ghcr.io/holtdroid/holtdroid-session:0123abc
     imagePullPolicy: IfNotPresent
     name: emulator
     ports:

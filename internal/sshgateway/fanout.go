@@ -12,8 +12,8 @@ import (
 
 	"github.com/hashicorp/yamux"
 
-	"github.com/kriakiku/holtdroid/internal/contract"
-	"github.com/kriakiku/holtdroid/internal/contract/control"
+	"github.com/holtdroid/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/contract/control"
 )
 
 func isHandle(name string) bool { return strings.HasPrefix(name, contract.HandlePrefix) }

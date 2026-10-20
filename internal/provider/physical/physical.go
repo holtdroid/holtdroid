@@ -29,12 +29,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kriakiku/holtdroid/internal/agent"
-	"github.com/kriakiku/holtdroid/internal/agent/phone"
-	"github.com/kriakiku/holtdroid/internal/apk"
-	"github.com/kriakiku/holtdroid/internal/contract"
-	"github.com/kriakiku/holtdroid/internal/secrets"
-	"github.com/kriakiku/holtdroid/internal/vpn"
+	"github.com/holtdroid/holtdroid/internal/agent"
+	"github.com/holtdroid/holtdroid/internal/agent/phone"
+	"github.com/holtdroid/holtdroid/internal/apk"
+	"github.com/holtdroid/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/secrets"
+	"github.com/holtdroid/holtdroid/internal/vpn"
 )
 
 type Config struct {

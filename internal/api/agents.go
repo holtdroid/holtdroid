@@ -9,7 +9,7 @@ import (
 
 	"golang.org/x/sync/singleflight"
 
-	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/contract"
 )
 
 var errNoAgent = errors.New("session has no agent yet")

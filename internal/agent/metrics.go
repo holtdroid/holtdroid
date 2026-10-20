@@ -16,8 +16,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kriakiku/holtdroid/internal/contract"
-	"github.com/kriakiku/holtdroid/internal/hostinfo"
+	"github.com/holtdroid/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/hostinfo"
 )
 
 // Metrics samples the device, the app and the container the agent shares

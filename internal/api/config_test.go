@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/kriakiku/holtdroid/internal/config"
+	"github.com/holtdroid/holtdroid/internal/config"
 )
 
 func TestLoadSources(t *testing.T) {

@@ -10,7 +10,7 @@ import (
 	gnet "github.com/shirou/gopsutil/v4/net"
 	"github.com/shirou/gopsutil/v4/process"
 
-	"github.com/kriakiku/holtdroid/internal/contract/control"
+	"github.com/holtdroid/holtdroid/internal/contract/control"
 )
 
 // listening lists TCP ports a device could reach through the loopback:

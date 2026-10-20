@@ -11,8 +11,8 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
 
-	"github.com/kriakiku/holtdroid/internal/contract"
-	"github.com/kriakiku/holtdroid/internal/provider/fake"
+	"github.com/holtdroid/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/provider/fake"
 )
 
 func serve(t *testing.T, register func(huma.API)) string {

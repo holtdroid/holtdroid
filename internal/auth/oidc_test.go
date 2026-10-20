@@ -15,7 +15,7 @@ import (
 	"github.com/go-jose/go-jose/v4"
 	"github.com/golang-jwt/jwt/v5"
 
-	"github.com/kriakiku/holtdroid/internal/secrets"
+	"github.com/holtdroid/holtdroid/internal/secrets"
 )
 
 type fakeIdP struct {

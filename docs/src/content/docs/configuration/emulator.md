@@ -18,7 +18,7 @@ slots: 4
 nodeSelector: "holtdroid/kvm=true" # a label selector
 tolerations:
   - { key: dedicated, operator: Equal, value: nas, effect: NoSchedule }
-image: ghcr.io/kriakiku/holtdroid-session:0.1.0
+image: ghcr.io/holtdroid/holtdroid-session:0.1.0
 imagePullPolicy: IfNotPresent
 imagePullSecrets: []
 agentPort: 8080
@@ -96,7 +96,7 @@ providers:
     nodeSelector: { holtdroid/kvm: "true" } # a map here; the chart turns it into a selector
     tolerations: []
     session:
-      image: { repository: ghcr.io/kriakiku/holtdroid-session, tag: "" } # tag defaults to image.tag
+      image: { repository: ghcr.io/holtdroid/holtdroid-session, tag: "" } # tag defaults to image.tag
       resources: { requests: { cpu: "3", memory: 5Gi }, limits: { memory: 7Gi } }
       gpu: host
     nodes: {} # per-node overrides, as above

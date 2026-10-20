@@ -26,8 +26,8 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
-	"github.com/kriakiku/holtdroid/internal/contract/control"
-	"github.com/kriakiku/holtdroid/internal/sshkey"
+	"github.com/holtdroid/holtdroid/internal/contract/control"
+	"github.com/holtdroid/holtdroid/internal/sshkey"
 )
 
 type Options struct {

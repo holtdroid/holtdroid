@@ -52,6 +52,6 @@ Frontend tooling runs on Bun. Type checking uses TypeScript 7 (the native
 compiler); linting and formatting use oxlint and oxfmt.
 
 Contributor-facing design notes live in
-[`design/`](https://github.com/kriakiku/holtdroid/tree/main/design), and the
+[`design/`](https://github.com/holtdroid/holtdroid/tree/main/design), and the
 rules for humans and coding agents in
-[`AGENTS.md`](https://github.com/kriakiku/holtdroid/blob/main/AGENTS.md).
+[`AGENTS.md`](https://github.com/holtdroid/holtdroid/blob/main/AGENTS.md).

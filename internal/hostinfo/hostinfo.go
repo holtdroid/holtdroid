@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/contract"
 )
 
 func Read(root fs.FS) contract.HostInfo {

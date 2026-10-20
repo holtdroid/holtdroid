@@ -12,7 +12,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/kriakiku/holtdroid/internal/telemetry"
+	"github.com/holtdroid/holtdroid/internal/telemetry"
 )
 
 func TestTraceContextPropagates(t *testing.T) {

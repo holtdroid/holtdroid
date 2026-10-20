@@ -6,7 +6,7 @@ import (
 	"math"
 	"slices"
 
-	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/contract"
 )
 
 func (p *Provider) Inventory(context.Context) (contract.Inventory, error) {

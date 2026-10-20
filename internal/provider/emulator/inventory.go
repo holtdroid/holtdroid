@@ -14,7 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
 
-	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/contract"
 )
 
 const maintenanceKey = "maintenance.json"

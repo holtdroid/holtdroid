@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kriakiku/holtdroid/internal/contract"
-	"github.com/kriakiku/holtdroid/internal/hostinfo"
+	"github.com/holtdroid/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/hostinfo"
 )
 
 const inspectTimeout = 5 * time.Second

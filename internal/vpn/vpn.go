@@ -14,8 +14,8 @@ import (
 	"regexp"
 	"slices"
 
-	"github.com/kriakiku/holtdroid/internal/contract"
-	"github.com/kriakiku/holtdroid/internal/secrets"
+	"github.com/holtdroid/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/secrets"
 )
 
 const (

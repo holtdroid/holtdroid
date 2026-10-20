@@ -17,9 +17,9 @@ import (
 
 	"golang.org/x/term"
 
-	"github.com/kriakiku/holtdroid/internal/connect"
-	"github.com/kriakiku/holtdroid/internal/connect/tui"
-	"github.com/kriakiku/holtdroid/internal/contract/control"
+	"github.com/holtdroid/holtdroid/internal/connect"
+	"github.com/holtdroid/holtdroid/internal/connect/tui"
+	"github.com/holtdroid/holtdroid/internal/contract/control"
 )
 
 func main() {

@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/contract"
 )
 
 type Config struct {

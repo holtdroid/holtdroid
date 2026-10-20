@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kriakiku/holtdroid/internal/apk"
+	"github.com/holtdroid/holtdroid/internal/apk"
 )
 
 // Session describes the session the agent runs in; the provider sets it.

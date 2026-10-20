@@ -57,7 +57,7 @@ spec:
       value: "8"
     - name: HOLTDROID_EMULATOR__RAM
       value: "8192"
-    image: ghcr.io/kriakiku/holtdroid-session:0123abc
+    image: ghcr.io/holtdroid/holtdroid-session:0123abc
     imagePullPolicy: IfNotPresent
     name: emulator
     ports:

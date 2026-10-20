@@ -16,15 +16,15 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
 
-	"github.com/kriakiku/holtdroid/internal/audit"
-	"github.com/kriakiku/holtdroid/internal/auth"
-	"github.com/kriakiku/holtdroid/internal/contract"
-	"github.com/kriakiku/holtdroid/internal/db"
-	"github.com/kriakiku/holtdroid/internal/rules"
-	"github.com/kriakiku/holtdroid/internal/secrets"
-	"github.com/kriakiku/holtdroid/internal/source"
-	"github.com/kriakiku/holtdroid/internal/storage"
-	"github.com/kriakiku/holtdroid/internal/telemetry"
+	"github.com/holtdroid/holtdroid/internal/audit"
+	"github.com/holtdroid/holtdroid/internal/auth"
+	"github.com/holtdroid/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/db"
+	"github.com/holtdroid/holtdroid/internal/rules"
+	"github.com/holtdroid/holtdroid/internal/secrets"
+	"github.com/holtdroid/holtdroid/internal/source"
+	"github.com/holtdroid/holtdroid/internal/storage"
+	"github.com/holtdroid/holtdroid/internal/telemetry"
 )
 
 type Server struct {

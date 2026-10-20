@@ -59,7 +59,7 @@ spec:
       value: http://127.0.0.1:9090
     - name: HOLTDROID_EMULATOR__DNSSERVER
       value: 1.1.1.1
-    image: ghcr.io/kriakiku/holtdroid-session:0123abc
+    image: ghcr.io/holtdroid/holtdroid-session:0123abc
     imagePullPolicy: IfNotPresent
     name: emulator
     ports:

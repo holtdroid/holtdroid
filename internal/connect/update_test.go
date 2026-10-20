@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/kriakiku/holtdroid/internal/contract/control"
+	"github.com/holtdroid/holtdroid/internal/contract/control"
 )
 
 func TestUpdate(t *testing.T) {

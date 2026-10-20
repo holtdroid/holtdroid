@@ -9,7 +9,7 @@ import { Code } from "@astrojs/starlight/components"
 import manifest from "../../../assets/slack-app-manifest.yaml?raw"
 
 Holtdroid doesn't talk to Slack itself.
-[holtdroid-slack-sync](https://github.com/kriakiku/holtdroid-sync/blob/main/docs/slack.md) is a
+[holtdroid-slack-sync](https://github.com/holtdroid/holtdroid-sync/blob/main/docs/slack.md) is a
 separate, stateless job that polls channels and writes every `.apk` it finds,
 with a [`.meta.json` sidecar](/holtdroid/sources/overview/#the-metajson-sidecar),
 into a folder or S3 prefix that the api lists as a read-only source.
@@ -52,7 +52,7 @@ The quickest way is to create it from the manifest:
 
 Manifests can't set the app icon, so upload it under **Basic Information**
 if you want one, e.g.
-[`assets/holtdroid-icon.png`](https://github.com/kriakiku/holtdroid-sync/blob/main/assets/holtdroid-icon.png).
+[`assets/holtdroid-icon.png`](https://github.com/holtdroid/holtdroid-sync/blob/main/assets/holtdroid-icon.png).
 
 Then invite the bot to every channel: `/invite @Holtdroid`. Channels are
 configured by ID, e.g. `C0123ABCD`: open the channel details and find the ID
@@ -61,7 +61,7 @@ at the bottom of **About**.
 ## 2. Deploy the job
 
 The chart is in the sync repository (`deploy/helm/holtdroid-sync`, and
-`oci://ghcr.io/kriakiku/charts/holtdroid-sync` for tagged releases); `job`
+`oci://ghcr.io/holtdroid/charts/holtdroid-sync` for tagged releases); `job`
 picks the Slack sync:
 
 ```yaml
@@ -93,7 +93,7 @@ default) aren't announced, so the first pass over `lookback` stays quiet.
 Every key can also come from `HOLTDROID_SLACK_SYNC_*` environment variables,
 e.g. `HOLTDROID_SLACK_SYNC_SLACK__CHANNELS=C1,C2`. The full reference is in
 the job's
-[docs](https://github.com/kriakiku/holtdroid-sync/blob/main/docs/slack.md#configuration).
+[docs](https://github.com/holtdroid/holtdroid-sync/blob/main/docs/slack.md#configuration).
 
 ## 3. Add the source to Holtdroid
 

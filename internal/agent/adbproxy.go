@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kriakiku/holtdroid/internal/adbproto"
+	"github.com/holtdroid/holtdroid/internal/adbproto"
 )
 
 // ShellPolicy says which shell commands users may run through the ADB proxy.

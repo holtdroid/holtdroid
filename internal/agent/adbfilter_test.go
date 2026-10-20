@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kriakiku/holtdroid/internal/adbproto"
+	"github.com/holtdroid/holtdroid/internal/adbproto"
 )
 
 func TestRefusedService(t *testing.T) {

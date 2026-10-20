@@ -16,7 +16,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/kriakiku/holtdroid/internal/contract/control"
+	"github.com/holtdroid/holtdroid/internal/contract/control"
 )
 
 // Update says whether the portal serves a different build of this client

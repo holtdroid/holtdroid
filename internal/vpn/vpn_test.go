@@ -12,9 +12,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kriakiku/holtdroid/internal/config"
-	"github.com/kriakiku/holtdroid/internal/contract"
-	"github.com/kriakiku/holtdroid/internal/secrets"
+	"github.com/holtdroid/holtdroid/internal/config"
+	"github.com/holtdroid/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/secrets"
 )
 
 var update = flag.Bool("update", false, "rewrite golden files")

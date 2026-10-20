@@ -10,8 +10,8 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/kriakiku/holtdroid/internal/contract"
-	"github.com/kriakiku/holtdroid/internal/contract/control"
+	"github.com/holtdroid/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/contract/control"
 )
 
 const maxControlLine = 1 << 20

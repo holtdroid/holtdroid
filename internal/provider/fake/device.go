@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kriakiku/holtdroid/internal/agent"
-	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/agent"
+	"github.com/holtdroid/holtdroid/internal/contract"
 )
 
 var progression = []contract.SessionState{

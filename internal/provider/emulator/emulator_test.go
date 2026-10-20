@@ -21,10 +21,10 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"sigs.k8s.io/yaml"
 
-	"github.com/kriakiku/holtdroid/internal/contract"
-	"github.com/kriakiku/holtdroid/internal/secrets"
-	"github.com/kriakiku/holtdroid/internal/telemetry"
-	"github.com/kriakiku/holtdroid/internal/vpn"
+	"github.com/holtdroid/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/secrets"
+	"github.com/holtdroid/holtdroid/internal/telemetry"
+	"github.com/holtdroid/holtdroid/internal/vpn"
 )
 
 var update = flag.Bool("update", false, "rewrite golden files")
@@ -91,7 +91,7 @@ func TestRender(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := DefaultConfig()
-			cfg.Image = "ghcr.io/kriakiku/holtdroid-session:0123abc"
+			cfg.Image = "ghcr.io/holtdroid/holtdroid-session:0123abc"
 			tt.cfg(&cfg)
 			p, err := New(cfg, fake.NewClientset(), sec)
 			if err != nil {

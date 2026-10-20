@@ -17,9 +17,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kriakiku/holtdroid/internal/adbproto"
-	"github.com/kriakiku/holtdroid/internal/agent"
-	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/adbproto"
+	"github.com/holtdroid/holtdroid/internal/agent"
+	"github.com/holtdroid/holtdroid/internal/contract"
 )
 
 const proxySerial = "FAKE0001"

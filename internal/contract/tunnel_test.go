@@ -6,7 +6,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/contract"
 )
 
 func tcpPair(t *testing.T) (*net.TCPConn, *net.TCPConn) {

@@ -14,8 +14,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
 
-	"github.com/kriakiku/holtdroid/internal/connect"
-	"github.com/kriakiku/holtdroid/internal/contract/control"
+	"github.com/holtdroid/holtdroid/internal/connect"
+	"github.com/holtdroid/holtdroid/internal/contract/control"
 )
 
 var update = flag.Bool("update", false, "rewrite golden files")

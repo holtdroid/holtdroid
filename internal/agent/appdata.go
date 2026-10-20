@@ -15,7 +15,7 @@ import (
 
 	"github.com/klauspost/compress/zstd"
 
-	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/contract"
 )
 
 // appDataDevice streams a command's output from the device and copies

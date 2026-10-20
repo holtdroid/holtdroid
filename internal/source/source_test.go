@@ -14,10 +14,10 @@ import (
 	"github.com/johannesboyne/gofakes3"
 	"github.com/johannesboyne/gofakes3/backend/s3mem"
 
-	"github.com/kriakiku/holtdroid/internal/contract"
-	"github.com/kriakiku/holtdroid/internal/rules"
-	"github.com/kriakiku/holtdroid/internal/secrets"
-	"github.com/kriakiku/holtdroid/internal/storage"
+	"github.com/holtdroid/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/rules"
+	"github.com/holtdroid/holtdroid/internal/secrets"
+	"github.com/holtdroid/holtdroid/internal/storage"
 )
 
 func TestMain(m *testing.M) {

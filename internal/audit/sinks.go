@@ -16,8 +16,8 @@ import (
 	otellog "go.opentelemetry.io/otel/log"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 
-	"github.com/kriakiku/holtdroid/internal/secrets"
-	"github.com/kriakiku/holtdroid/internal/telemetry"
+	"github.com/holtdroid/holtdroid/internal/secrets"
+	"github.com/holtdroid/holtdroid/internal/telemetry"
 )
 
 type otlpSink struct {

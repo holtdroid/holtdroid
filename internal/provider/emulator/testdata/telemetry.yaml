@@ -63,7 +63,7 @@ spec:
       value: "true"
     - name: HOLTDROID_TELEMETRY__TRACING__SAMPLERATIO
       value: "0.25"
-    image: ghcr.io/kriakiku/holtdroid-session:0123abc
+    image: ghcr.io/holtdroid/holtdroid-session:0123abc
     imagePullPolicy: IfNotPresent
     name: emulator
     ports:

@@ -15,19 +15,19 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/kriakiku/holtdroid/internal/agent"
-	"github.com/kriakiku/holtdroid/internal/agent/emulator"
-	"github.com/kriakiku/holtdroid/internal/api"
-	"github.com/kriakiku/holtdroid/internal/audit"
-	"github.com/kriakiku/holtdroid/internal/contract"
-	"github.com/kriakiku/holtdroid/internal/hostinfo"
-	emulatorprovider "github.com/kriakiku/holtdroid/internal/provider/emulator"
-	"github.com/kriakiku/holtdroid/internal/provider/fake"
-	"github.com/kriakiku/holtdroid/internal/provider/physical"
-	"github.com/kriakiku/holtdroid/internal/source"
-	"github.com/kriakiku/holtdroid/internal/sshgateway"
-	"github.com/kriakiku/holtdroid/internal/storage"
-	"github.com/kriakiku/holtdroid/web"
+	"github.com/holtdroid/holtdroid/internal/agent"
+	"github.com/holtdroid/holtdroid/internal/agent/emulator"
+	"github.com/holtdroid/holtdroid/internal/api"
+	"github.com/holtdroid/holtdroid/internal/audit"
+	"github.com/holtdroid/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/hostinfo"
+	emulatorprovider "github.com/holtdroid/holtdroid/internal/provider/emulator"
+	"github.com/holtdroid/holtdroid/internal/provider/fake"
+	"github.com/holtdroid/holtdroid/internal/provider/physical"
+	"github.com/holtdroid/holtdroid/internal/source"
+	"github.com/holtdroid/holtdroid/internal/sshgateway"
+	"github.com/holtdroid/holtdroid/internal/storage"
+	"github.com/holtdroid/holtdroid/web"
 )
 
 func apiCmd(c *common) *cobra.Command {

@@ -3,7 +3,7 @@
 ## Reporting a vulnerability
 
 Please report vulnerabilities privately through GitHub:
-[**Report a vulnerability**](https://github.com/kriakiku/holtdroid/security/advisories/new)
+[**Report a vulnerability**](https://github.com/holtdroid/holtdroid/security/advisories/new)
 on the repository's Security tab. Don't open a public issue or pull request
 for it.
 
@@ -30,7 +30,7 @@ Out of scope:
 - What the threat model already accepts: session Pods are privileged, an
   APK runs as an untrusted app in a rooted emulator, and ADB through the
   ssh-gateway is a root shell on the device. See the docs'
-  [Security](https://kriakiku.github.io/holtdroid/operations/security/) page.
+  [Security](https://holtdroid.github.io/holtdroid/operations/security/) page.
 - Deployments that don't follow it, such as exposing the api around a
   forward-auth proxy in `header` mode.
 - Vulnerabilities in dependencies without a way to exploit them through

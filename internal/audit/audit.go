@@ -19,7 +19,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	"github.com/kriakiku/holtdroid/internal/secrets"
+	"github.com/holtdroid/holtdroid/internal/secrets"
 )
 
 const Schema = 1

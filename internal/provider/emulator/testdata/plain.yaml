@@ -53,7 +53,7 @@ spec:
       value: "2026-10-17T12:00:00Z"
     - name: HOLTDROID_EMULATOR__GPU
       value: host
-    image: ghcr.io/kriakiku/holtdroid-session:0123abc
+    image: ghcr.io/holtdroid/holtdroid-session:0123abc
     imagePullPolicy: IfNotPresent
     name: emulator
     ports:

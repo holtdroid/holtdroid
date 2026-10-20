@@ -16,8 +16,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/kriakiku/holtdroid/internal/agent/emulator"
-	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/agent/emulator"
+	"github.com/holtdroid/holtdroid/internal/contract"
 )
 
 type Config struct {

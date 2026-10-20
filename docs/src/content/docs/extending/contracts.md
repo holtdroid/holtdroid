@@ -10,9 +10,9 @@ in any language, can plug in: add its URL to the api's `providers` list.
 Builds come in through files, not an API.
 
 The Go types and OpenAPI definitions live in
-[`internal/contract`](https://github.com/kriakiku/holtdroid/tree/main/internal/contract);
+[`internal/contract`](https://github.com/holtdroid/holtdroid/tree/main/internal/contract);
 the authoritative description is
-[`design/contracts.md`](https://github.com/kriakiku/holtdroid/blob/main/design/contracts.md).
+[`design/contracts.md`](https://github.com/holtdroid/holtdroid/blob/main/design/contracts.md).
 Each contract is a Go interface plus a `Register…` function that mounts it on
 an HTTP server, so a Go implementation only has to satisfy the interface.
 

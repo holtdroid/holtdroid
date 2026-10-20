@@ -1,4 +1,4 @@
-module github.com/kriakiku/holtdroid
+module github.com/holtdroid/holtdroid
 
 go 1.27.2
 

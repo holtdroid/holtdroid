@@ -20,9 +20,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kriakiku/holtdroid/internal/contract"
-	"github.com/kriakiku/holtdroid/internal/rules"
-	"github.com/kriakiku/holtdroid/internal/storage"
+	"github.com/holtdroid/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/rules"
+	"github.com/holtdroid/holtdroid/internal/storage"
 )
 
 const (

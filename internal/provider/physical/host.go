@@ -11,9 +11,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/kriakiku/holtdroid/internal/agent"
-	"github.com/kriakiku/holtdroid/internal/agent/phone"
-	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/agent"
+	"github.com/holtdroid/holtdroid/internal/agent/phone"
+	"github.com/holtdroid/holtdroid/internal/contract"
 )
 
 // Host is the machine the phones are plugged into.

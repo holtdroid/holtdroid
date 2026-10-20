@@ -22,10 +22,10 @@ imports it. Read it fully before changing anything.
 
 Sync jobs that publish builds live in their own repositories and only share
 the source layout and launch links with this one (decisions.md #30, #43):
-[kriakiku/holtdroid-sync](https://github.com/kriakiku/holtdroid-sync) holds
+[holtdroid/holtdroid-sync](https://github.com/holtdroid/holtdroid-sync) holds
 the Slack, S3 and GitHub release jobs. The WebView test browser is an
 independent Android app in
-[kriakiku/holtdroid-webview](https://github.com/kriakiku/holtdroid-webview)
+[holtdroid/holtdroid-webview](https://github.com/holtdroid/holtdroid-webview)
 (decision #62); its user docs live here in `docs/src/content/docs/tools/`.
 
 If an `AGENTS.local.md` exists next to this file, read it too: it holds
@@ -137,8 +137,8 @@ Directories that do not exist yet are planned — create them exactly there.
   impure calls during render — derive state during render or use
   `useEffectEvent`.
 - **Docs site:** Astro Starlight in `docs/`.
-- **Deployment:** Helm chart; images on `ghcr.io/kriakiku/holtdroid`,
-  `ghcr.io/kriakiku/holtdroid-session` and `ghcr.io/kriakiku/holtdroid-physical`.
+- **Deployment:** Helm chart; images on `ghcr.io/holtdroid/holtdroid`,
+  `ghcr.io/holtdroid/holtdroid-session` and `ghcr.io/holtdroid/holtdroid-physical`.
 
 ## Hard rules
 
@@ -236,13 +236,13 @@ is ticked.
 
 ## Releases and the live deployment
 
-Every push to `main` builds `ghcr.io/kriakiku/holtdroid:<full commit sha>`
+Every push to `main` builds `ghcr.io/holtdroid/holtdroid:<full commit sha>`
 (`.github/workflows/release.yml`) plus the session image, and then moves
 the `deploy` branch to that commit. The maintainer's cluster runs an Argo CD Application that tracks
 `deploy` and uses the synced commit as the image tag, so **every commit to
 `main` is deployed** to https://android.homelab.example once its image is built (OIDC via Authelia, directory source, emulator provider). Keep `main`
 green: run `make check` before pushing. Tags `vX.Y.Z` also publish the chart
-to `oci://ghcr.io/kriakiku/charts/holtdroid`.
+to `oci://ghcr.io/holtdroid/charts/holtdroid`.
 
 ## Git
 

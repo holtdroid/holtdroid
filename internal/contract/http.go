@@ -13,7 +13,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
 
-	"github.com/kriakiku/holtdroid/internal/telemetry"
+	"github.com/holtdroid/holtdroid/internal/telemetry"
 )
 
 func toHuma(err error) error {

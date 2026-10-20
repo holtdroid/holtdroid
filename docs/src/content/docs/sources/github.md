@@ -5,7 +5,7 @@ sidebar:
   order: 4
 ---
 
-[holtdroid-github-sync](https://github.com/kriakiku/holtdroid-sync/blob/main/docs/github.md) is
+[holtdroid-github-sync](https://github.com/holtdroid/holtdroid-sync/blob/main/docs/github.md) is
 a separate job (`job: github` in the chart `deploy/helm/holtdroid-sync`). It polls the releases of one or
 more repositories and copies their `.apk` assets into a folder or S3 prefix,
 which Holtdroid lists as a read-only source.
@@ -88,4 +88,4 @@ sources:
 ```
 
 Every option is in the job's
-[docs](https://github.com/kriakiku/holtdroid-sync/blob/main/docs/github.md#configuration).
+[docs](https://github.com/holtdroid/holtdroid-sync/blob/main/docs/github.md#configuration).

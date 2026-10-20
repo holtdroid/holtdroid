@@ -3,7 +3,7 @@ package fake
 import (
 	"context"
 
-	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/contract"
 )
 
 func (d *device) WatchScreen(ctx context.Context, send func(contract.Screen) error) error {

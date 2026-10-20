@@ -18,7 +18,7 @@ type tunnel interface {
 	running(ctx context.Context, adb ADB) (bool, error)
 }
 
-// TunnelPackage is Holtdroid Tunnel (github.com/kriakiku/holtdroid-tunnel),
+// TunnelPackage is Holtdroid Tunnel (github.com/holtdroid/holtdroid-tunnel),
 // the VpnService that sends the phone's traffic over adb reverse to the host.
 const TunnelPackage = "io.github.kriakiku.holtdroid.tunnel"
 

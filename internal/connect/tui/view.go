@@ -13,8 +13,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/kriakiku/holtdroid/internal/connect"
-	"github.com/kriakiku/holtdroid/internal/contract/control"
+	"github.com/holtdroid/holtdroid/internal/connect"
+	"github.com/holtdroid/holtdroid/internal/contract/control"
 )
 
 var (

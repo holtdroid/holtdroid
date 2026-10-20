@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kriakiku/holtdroid/internal/agent/phone"
+	"github.com/holtdroid/holtdroid/internal/agent/phone"
 )
 
 type shellDevice interface {

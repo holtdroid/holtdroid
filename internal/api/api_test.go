@@ -16,13 +16,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kriakiku/holtdroid/internal/audit"
-	"github.com/kriakiku/holtdroid/internal/auth"
-	"github.com/kriakiku/holtdroid/internal/contract"
-	"github.com/kriakiku/holtdroid/internal/db"
-	"github.com/kriakiku/holtdroid/internal/provider/fake"
-	"github.com/kriakiku/holtdroid/internal/source"
-	"github.com/kriakiku/holtdroid/internal/storage"
+	"github.com/holtdroid/holtdroid/internal/audit"
+	"github.com/holtdroid/holtdroid/internal/auth"
+	"github.com/holtdroid/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/db"
+	"github.com/holtdroid/holtdroid/internal/provider/fake"
+	"github.com/holtdroid/holtdroid/internal/source"
+	"github.com/holtdroid/holtdroid/internal/storage"
 )
 
 type clock struct {

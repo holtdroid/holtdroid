@@ -12,10 +12,10 @@ clipboard sync and a VPN location switcher. Idle devices shut themselves down.
 > **Status:** pre-alpha. The portal (api + web UI) runs locally against
 > simulated devices with `make dev`; the Android emulator provider is being
 > tried on a real cluster. Builds from Slack, S3 buckets and GitHub releases
-> come in through [holtdroid-sync](https://github.com/kriakiku/holtdroid-sync); pages are tested in
-> [Holtdroid WebView](https://github.com/kriakiku/holtdroid-webview), a WebView browser with
+> come in through [holtdroid-sync](https://github.com/holtdroid/holtdroid-sync); pages are tested in
+> [Holtdroid WebView](https://github.com/holtdroid/holtdroid-webview), a WebView browser with
 > DevTools unlocked. The plan lives in [`design/`](design/README.md),
-> the docs at [kriakiku.github.io/holtdroid](https://kriakiku.github.io/holtdroid/).
+> the docs at [holtdroid.github.io/holtdroid](https://holtdroid.github.io/holtdroid/).
 
 ## Try it
 

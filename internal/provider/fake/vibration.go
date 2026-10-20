@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/contract"
 )
 
 const vibrationInterval = 45 * time.Second

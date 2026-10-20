@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/contract"
 )
 
 type scriptedDevice struct {

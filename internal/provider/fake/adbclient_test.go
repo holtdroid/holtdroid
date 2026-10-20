@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kriakiku/holtdroid/internal/adbproto"
-	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/adbproto"
+	"github.com/holtdroid/holtdroid/internal/contract"
 )
 
 func TestHostClient(t *testing.T) {

@@ -14,8 +14,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/kriakiku/holtdroid/internal/connect"
-	"github.com/kriakiku/holtdroid/internal/contract/control"
+	"github.com/holtdroid/holtdroid/internal/connect"
+	"github.com/holtdroid/holtdroid/internal/contract/control"
 )
 
 type section int

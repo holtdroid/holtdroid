@@ -3,7 +3,7 @@ package agent
 import (
 	"testing"
 
-	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/contract"
 )
 
 func TestParseScreenState(t *testing.T) {

@@ -220,7 +220,7 @@ with the filesystem backend an `emptyDir` is fine because it's only a cache.
 
 ## 19. Continuous deployment by commit SHA
 
-**Decision.** CI pushes `ghcr.io/kriakiku/holtdroid:<full sha>` for every
+**Decision.** CI pushes `ghcr.io/holtdroid/holtdroid:<full sha>` for every
 commit to `main`; deployments that follow `main` set `image.tag` to Argo CD's
 `$ARGOCD_APP_REVISION`. The chart lives in this repo and accepts extra
 manifests via `extraObjects`, so such an Application can stay single-source.
@@ -859,10 +859,10 @@ config, include rules, the sidecar writing order, pruning, announcements,
 the main boilerplate, the chart and CI. Fixes had to be ported by hand.
 
 **Decision.** All sync jobs live in
-[kriakiku/holtdroid-sync](https://github.com/kriakiku/holtdroid-sync): one
+[holtdroid/holtdroid-sync](https://github.com/holtdroid/holtdroid-sync): one
 Go module with a binary per job (`holtdroid-{slack,s3,github}-sync`), shared
 packages for the source layout (`layout`), announcements and the main loop,
-one image `ghcr.io/kriakiku/holtdroid-sync` with every binary, and one chart
+one image `ghcr.io/holtdroid/holtdroid-sync` with every binary, and one chart
 where `job` picks the binary. The rest of #30 stands: the jobs don't import
 Holtdroid's module and talk to it only through the source layout and launch
 links. A separate base module imported by per-job repositories was rejected:
@@ -1439,7 +1439,7 @@ embeds one, and every such app picks its own WebView settings (TLS, user
 agent, viewport, permissions) with no way to change them or to see the page
 under a different setup.
 
-**Decision.** [kriakiku/holtdroid-webview](https://github.com/kriakiku/holtdroid-webview)
+**Decision.** [holtdroid/holtdroid-webview](https://github.com/holtdroid/holtdroid-webview)
 is a separate Android app (Kotlin, Compose), released on its own: a start
 screen with presets of WebView settings, remote debugging on by default, a
 GeckoView build next to the plain one, and live control through
@@ -1704,7 +1704,7 @@ emulators do and to get both ADB and the internet through the USB cable.
 Stock Android can't take a network from a host over USB without root.
 
 **Decision.** A separate app,
-[Holtdroid Tunnel](https://github.com/kriakiku/holtdroid-tunnel), is a
+[Holtdroid Tunnel](https://github.com/holtdroid/holtdroid-tunnel), is a
 VpnService that sends every app's traffic to a SOCKS5 proxy on the phone's
 loopback, with UDP as sing's UDP-over-TCP; `adb reverse` maps that port to
 the host. `provider-physical` runs one sing-box per session with a `mixed`
@@ -1736,7 +1736,7 @@ api image is distroless static and multi-arch; the session image carries
 an emulator. Neither fits.
 
 **Decision.** `images/physical.Dockerfile` builds
-`ghcr.io/kriakiku/holtdroid-physical` for linux/amd64 only (platform-tools
+`ghcr.io/holtdroid/holtdroid-physical` for linux/amd64 only (platform-tools
 for Linux is x86_64): the holtdroid binary without the UI, `adb` from the
 same platform-tools zip as the session image, scrcpy-server, sing-box and
 the tunnel APK, each pinned by version and checksum, on distroless `cc`
@@ -2101,3 +2101,24 @@ restart the provider pod, the instrumenter now drops the handle on a
 gone-error, re-resolves it via `frida.DeviceByID` and retries the op once (at
 `Spawn`, `Watch` and `callSystem`); the match is narrow so other errors still
 propagate.
+
+
+## 81. The project lives in the `holtdroid` GitHub organization
+
+**Context.** Holtdroid had grown to four repositories under a personal
+account (`holtdroid`, `holtdroid-sync`, `holtdroid-webview`,
+`holtdroid-tunnel`), with more coming (a modified redroid image). Images,
+the chart and the docs site carried the personal account's name, and
+adding maintainers meant sharing a personal namespace.
+
+**Decision.** All repositories moved to `github.com/holtdroid`. The Go
+module is `github.com/holtdroid/holtdroid`, images and the chart are
+published to `ghcr.io/holtdroid/*` (CI derives them from
+`github.repository`), and the docs site is
+`https://holtdroid.github.io/holtdroid/`. Android package names
+(`io.github.kriakiku.holtdroid.*`) stay: changing an `applicationId` makes a
+different app, and the tunnel app is a device owner on the phones.
+
+**Consequences.** Old `ghcr.io/kriakiku/*` images and the old Pages URL get
+no redirects; deployments switch to the new image paths. Git and web URLs
+of the repositories redirect from the old owner.

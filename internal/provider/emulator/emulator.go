@@ -27,9 +27,9 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/kriakiku/holtdroid/internal/contract"
-	"github.com/kriakiku/holtdroid/internal/telemetry"
-	"github.com/kriakiku/holtdroid/internal/vpn"
+	"github.com/holtdroid/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/telemetry"
+	"github.com/holtdroid/holtdroid/internal/vpn"
 )
 
 type Config struct {
@@ -91,7 +91,7 @@ func DefaultConfig() Config {
 		Listen:          ":8080",
 		Namespace:       "holtdroid",
 		Slots:           4,
-		Image:           "ghcr.io/kriakiku/holtdroid-session:main",
+		Image:           "ghcr.io/holtdroid/holtdroid-session:main",
 		ImagePullPolicy: string(corev1.PullIfNotPresent),
 		AgentPort:       8080,
 		TunnelPort:      8081,

@@ -8,9 +8,9 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"github.com/kriakiku/holtdroid/internal/audit"
-	"github.com/kriakiku/holtdroid/internal/auth"
-	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/audit"
+	"github.com/holtdroid/holtdroid/internal/auth"
+	"github.com/holtdroid/holtdroid/internal/contract"
 )
 
 type ProviderInventory struct {

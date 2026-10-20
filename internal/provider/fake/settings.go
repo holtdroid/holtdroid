@@ -9,7 +9,7 @@ import (
 	"image/png"
 	"slices"
 
-	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/contract"
 )
 
 func defaultSettings() contract.DeviceState {

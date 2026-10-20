@@ -24,10 +24,10 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
-	"github.com/kriakiku/holtdroid/internal/auth"
-	"github.com/kriakiku/holtdroid/internal/contract"
-	"github.com/kriakiku/holtdroid/internal/contract/control"
-	"github.com/kriakiku/holtdroid/internal/provider/fake"
+	"github.com/holtdroid/holtdroid/internal/auth"
+	"github.com/holtdroid/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/contract/control"
+	"github.com/holtdroid/holtdroid/internal/provider/fake"
 )
 
 type sshHarness struct {

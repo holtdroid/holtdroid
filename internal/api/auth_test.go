@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kriakiku/holtdroid/internal/auth"
+	"github.com/holtdroid/holtdroid/internal/auth"
 )
 
 func cookieServer(t *testing.T, mode string) http.Handler {

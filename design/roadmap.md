@@ -11,7 +11,7 @@ silently drop any.
 
 ## Phase 1 — Scaffold
 
-- [x] Go module `github.com/kriakiku/holtdroid`, `cmd/holtdroid` with cobra subcommands (`api`, `provider-fake`, `agent`, `dev`, `openapi`; `source-dir` was removed by decision #27)
+- [x] Go module `github.com/holtdroid/holtdroid`, `cmd/holtdroid` with cobra subcommands (`api`, `provider-fake`, `agent`, `dev`, `openapi`; `source-dir` was removed by decision #27)
 - [x] `internal/contract`: Provider/Agent interfaces (Source removed by decision #27), huma registration, Go clients, round-trip tests
 - [ ] `internal/contract/conformance`: reusable suite for third-party implementations
 - [x] `internal/secrets` (env, file, openbao) with tests
@@ -30,7 +30,7 @@ silently drop any.
 - [x] Sign-in modes: anonymous (random animal names), shared password, OIDC (PKCE + userinfo), header, none — signed JWT cookie, stateless
 - [x] Login screen, user menu, sign-out / new name in the UI
 - [x] `internal/storage`: filesystem and S3 (minio-go) backends; APK cache on top of it
-- [x] `images/Dockerfile` (distroless, multi-arch) and release workflow: `ghcr.io/kriakiku/holtdroid:<sha>` on every push to `main`, chart to OCI on tags
+- [x] `images/Dockerfile` (distroless, multi-arch) and release workflow: `ghcr.io/holtdroid/holtdroid:<sha>` on every push to `main`, chart to OCI on tags
 - [x] Helm chart `deploy/helm/holtdroid` (api with a data PVC for the `local` source and uploads, provider-fake, ingress, extraObjects)
 - [x] Live deployment tracking `main` (Argo CD, android.homelab.example)
 - [x] Session image pre-pull and emulator provider values in the chart (with Phase 3)
@@ -56,10 +56,10 @@ Goal: one hand-written Pod on a KVM node proves the device side end to end.
 - [x] `internal/vpn` (decision #28): locations as sing-box outbounds/endpoints (inline or secret ref), optional `direct`, selector + clash API, tun with `bypassCIDRs`, device DNS hijacked through the tunnel (`vpn.dns`, emulator `-dns-server`), `vpn.resolver` for `*.cluster.local`; golden tests checked with `sing-box check` 1.14.2; docs page "Shared VPN gateway" (one sing-box with a tunnel per location, SOCKS user = location)
 - [x] `provider-emulator`: capacity from nodes + config, Pod/Secret rendering (golden tests), create/list/delete, state from annotations, `touch`; `vpn` config → capabilities `Offered()`, `vpn.Render` into the per-session Secret, `HOLTDROID_CLASHAPI` + `HOLTDROID_EMULATOR__DNSSERVER` when enabled, `Validate()` at startup
 - [x] Artifact sources in the api (decision #27): filesystem/S3 stores, `.meta.json` sidecars, revisions keyed into the cache and `ArtifactRef`, polling + `event: artifacts`, uploads (`uploads.*`), public/private, delete by owner/admin, `readOnly` sources; UI upload dialog, drag & drop, changelog/tags, manage menu; temporary uploads deleted `uploads.temporaryTTL` after their last use (decision #42)
-- [x] Slack sync job, independent of the api (decision #30, [kriakiku/holtdroid-sync](https://github.com/kriakiku/holtdroid-sync), job `slack`): channels, thread replies and forwards → `{channel}/{file id}/{name}.apk` + sidecar in an S3/folder source; optional reaction and thread reply with APK info and a launch link; fake Slack server in tests
+- [x] Slack sync job, independent of the api (decision #30, [holtdroid/holtdroid-sync](https://github.com/holtdroid/holtdroid-sync), job `slack`): channels, thread replies and forwards → `{channel}/{file id}/{name}.apk` + sidecar in an S3/folder source; optional reaction and thread reply with APK info and a launch link; fake Slack server in tests
 - [x] Launch links `/?source=…&launch=…` open the launch dialog (`GET /api/v1/artifacts/{source}/{id}`)
-- [x] Builds from S3 buckets ([kriakiku/holtdroid-sync](https://github.com/kriakiku/holtdroid-sync), job `s3`): copy mode and credentials broker, AWS IAM Identity Center device login with refresh and notifications through shoutrrr; `include` rules on sources and `s3.credentialsURL` in the api
-- [x] Builds from GitHub releases ([kriakiku/holtdroid-sync](https://github.com/kriakiku/holtdroid-sync), job `github`): `.apk` assets of the newest releases → `{owner}/{repo}/{tag}/{asset}` with the release notes as changelog, `include` rules, announcements through shoutrrr
+- [x] Builds from S3 buckets ([holtdroid/holtdroid-sync](https://github.com/holtdroid/holtdroid-sync), job `s3`): copy mode and credentials broker, AWS IAM Identity Center device login with refresh and notifications through shoutrrr; `include` rules on sources and `s3.credentialsURL` in the api
+- [x] Builds from GitHub releases ([holtdroid/holtdroid-sync](https://github.com/holtdroid/holtdroid-sync), job `github`): `.apk` assets of the newest releases → `{owner}/{repo}/{tag}/{asset}` with the release notes as changelog, `include` rules, announcements through shoutrrr
 - [x] `internal/apk`: metadata + icon (densest bitmap or composed adaptive icon, re-rendered at 256 px, untrusted-input limits) + ABIs with a fixture; `x.apk.icon.png` sidecars override the extracted icon
 - [x] `api`: registries, artifact merge, APK cache (LRU on disk, background warm-up), session create flow, `/s/{provider}/{id}` proxy, input-based activity + flush, reaper, UI API, SSE events, internal artifact endpoint
 - [x] `provider/fake` (+ fake agent) for `holtdroid dev` and tests
@@ -220,7 +220,7 @@ of the same app from it (decision #49).
 - [x] Release workflow: amd64 session image
 - [x] Docs site content: install with Helm, Slack app setup, VPN providers, secrets backends, forward-auth examples (Authelia, oauth2-proxy), architecture, publishing builds into a source, writing a provider, troubleshooting (KVM, ARM translation, Frida)
 - [x] Docs deployed to GitHub Pages
-- [x] WebView test browser with presets, unlocked DevTools and adb control ([kriakiku/holtdroid-webview](https://github.com/kriakiku/holtdroid-webview), decision #62), documented under Tools
+- [x] WebView test browser with presets, unlocked DevTools and adb control ([holtdroid/holtdroid-webview](https://github.com/holtdroid/holtdroid-webview), decision #62), documented under Tools
 
 ## Phase 6 — First deployment
 
@@ -238,7 +238,7 @@ feature, not a follow-up. Record the final choices in decisions.md.
 
 - [x] `provider-physical` without root (decision #67): inventory of USB phones from the config (serial, label, model from `getprop`), slots = phones with `SlotCapabilities`, one in-process agent per session, sessions and pending resets in a state file and resumed after a restart, reset after a session (uninstall, device settings, adb forwards)
 - [x] Phone agent without root: scrcpy screen, audio and clipboard, install and other builds, DevTools for debuggable builds, launcher instead of Frida, phone boot that follows `adb get-state`; the session page reads `session.capabilities` (DevTools hint, no ADB, no app data save)
-- [x] `images/physical.Dockerfile`: `ghcr.io/kriakiku/holtdroid-physical:<sha>` with adb (platform-tools), scrcpy-server, sing-box and the Holtdroid Tunnel APK pinned by checksum, distroless, non-root, `HOME` (adb keys) and the state file in `/var/lib/holtdroid` (decision #70)
+- [x] `images/physical.Dockerfile`: `ghcr.io/holtdroid/holtdroid-physical:<sha>` with adb (platform-tools), scrcpy-server, sing-box and the Holtdroid Tunnel APK pinned by checksum, distroless, non-root, `HOME` (adb keys) and the state file in `/var/lib/holtdroid` (decision #70)
 - [x] Helm chart (decision #78): `providers.physical` pinned to the phones' node on its host network, privileged with `/dev/bus/usb`, a host directory for the state and adb's key, one Service for agents and tunnels, the api's `providers` entry
 - [ ] `quarantined` state for phones that failed verification
 - [x] Root mode per phone (decision #80, through Magisk `su`): Frida (DevTools for release builds), system language and clock, battery, app data, fake GPS and timezone that follow the VPN location, hide root from the app (Magisk DenyList), a transparent sing-box tun with an egress health-gate, and a calls lockdown; chosen by a `root` flag. Still open: the network-speed profile (the A05 kernel has no `sch_netem`)

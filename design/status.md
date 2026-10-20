@@ -17,7 +17,7 @@ deployment"):
   gateway, Slack, S3 and GitHub syncs filling sources. Sessions use
   `holtdroid-session:main` (`pullPolicy: Always`) so a push doesn't leave
   them waiting for the per-commit build; the session image build caches
-  layers in `ghcr.io/kriakiku/holtdroid-session:buildcache`.
+  layers in `ghcr.io/holtdroid/holtdroid-session:buildcache`.
 - The portal: APK list with parsed
   metadata/icons, launch dialog, sessions panel with slots and idle countdown,
   session page with screen/DevTools split, target switcher, clipboard, VPN
@@ -58,7 +58,7 @@ deployment"):
   agent's adb relays refuse `reboot:`/`unroot:`/`remount:`/`tcpip:`/`usb:`.
   The fake provider has a small adbd. Works on the real emulator.
 - Holtdroid WebView (decision #62), a separate app in
-  kriakiku/holtdroid-webview: presets of WebView settings, display modes,
+  holtdroid/holtdroid-webview: presets of WebView settings, display modes,
   viewport framing, freeze, clear data, TLS/proxy/user agent, console and
   Eruda, GeckoView build, control over `am start`/`am broadcast`; releases
   from Conventional Commits, Renovate for dependencies. Docs under Tools.
@@ -108,7 +108,7 @@ deployment"):
   logcat, tunnels) through the filtering proxy with `adb.shell` (decision
   #68). VPN locations over the USB cable through Holtdroid Tunnel and a
   per-session sing-box on the host (decision #69). Image
-  `ghcr.io/kriakiku/holtdroid-physical` with adb, scrcpy-server, sing-box
+  `ghcr.io/holtdroid/holtdroid-physical` with adb, scrcpy-server, sing-box
   and the tunnel APK (decision #70). In the chart as `providers.physical`
   on the phones' node host network (decision #78), deployed on the
   maintainer's cluster with a Galaxy A05 on k3s-1 whose Holtdroid Tunnel is
@@ -146,7 +146,7 @@ deployment"):
 - `provider-fake` (fake devices whose agent streams a recorded screen and serves placeholder
   DevTools pages).
 - Single Go binary + embedded UI, distroless image, Helm chart, CI, release
-  (`ghcr.io/kriakiku/holtdroid:<sha>` per commit), docs site on GitHub Pages.
+  (`ghcr.io/holtdroid/holtdroid:<sha>` per commit), docs site on GitHub Pages.
 
 **Not built yet**:
 
@@ -268,14 +268,14 @@ in-repo work; ask the maintainer for anything cluster-side.
 | Argo CD Application | `homelab.k8s/argocd/holtdroid.yaml` — chart from this repo's `deploy` branch (moved to each `main` commit by the release workflow once its image is pushed), `image.tag=$ARGOCD_APP_REVISION`, values inline |
 | Current setup | `auth.mode: oidc` (Authelia client `holtdroid`, groups `admins`/`users`), sources `uploads` (writable, uploads go there) and `slack` (read-only) as prefixes of the bucket `holtdroid` on the homelab S3 gateway `https://s3.homelab.example` (versitygw, region `eu-north-1`, path style); `api.persistence` is off (the old PVC's one upload was copied to S3), `providers.emulator` on `core` (tolerating `dedicated=nas`) and `k3s-1..3`, locations `direct` + the six gateway ones (password via `VPN_GATEWAY_PASSWORD` from `secret/vpn` in the `ExternalSecret`; the `no` id must stay quoted in the values) |
 | Secrets (OpenBao KV, mount `secret/`) | `holtdroid` → `session_key`, `s3_access_key`/`s3_secret_key` (versitygw IAM user `holtdroid`, inline policy on bucket `holtdroid`, issued by hand on the gateway's IAM server); `oidc/holtdroid` → `client_secret` (+ digest for Authelia); both seeded by `nixos/scripts/openbao-bootstrap.sh`; delivered by an `ExternalSecret` in `extraObjects` |
-| Slack sync | Argo CD Application `homelab.k8s/argocd/holtdroid-slack-sync.yaml` (chart `deploy/helm/holtdroid-sync` from kriakiku/holtdroid-sync `main`, `job: slack`, image `ghcr.io/kriakiku/holtdroid-sync`), writes `slack/` in the bucket and announces new builds with launch links to android.homelab.example in `test-chanel-jonas` through shoutrrr. `secret/holtdroid-slack-sync` → `s3_access_key`/`s3_secret_key` (IAM user `holtdroid-slack-sync`), `slack_bot_token`, `slack_channels` (comma-separated IDs, mapped to `HOLTDROID_SLACK_SYNC_SLACK__CHANNELS`) and `notify_url` (the shoutrrr Slack URL, same as the S3 sync's) |
-| S3 sync | Argo CD Application `homelab.k8s/argocd/holtdroid-s3-sync.yaml` (chart `deploy/helm/holtdroid-sync` from kriakiku/holtdroid-sync `main`, `job: s3`, image `ghcr.io/kriakiku/holtdroid-sync`), copy mode: `s3://wnf-common-preprod/wnf3/crr-17/web-view/builds/` (work AWS, eu-central-1) → `holtdroid/wnf-preprod/` → source `wnf-preprod`. AWS access is the maintainer's IAM Identity Center permission set `VideoFrontend` (account 418337671376, start URL `https://winfinity.awsapps.com/start#/`, SSO region eu-west-1); device-code login, refresh tokens on the job's longhorn PVC. The login link and new-build announcements go to `test-chanel-jonas` through shoutrrr (`notify_url` in `secret/holtdroid-s3-sync`, built from the Slack bot token; plus `s3_access_key`/`s3_secret_key` of IAM user `holtdroid-s3-sync`). First copy: 12 APKs on 2026-10-17 |
-| GitHub sync | Argo CD Application `homelab.k8s/argocd/holtdroid-github-sync.yaml` (chart `deploy/helm/holtdroid-sync` from kriakiku/holtdroid-sync `main`, `job: github`, image `ghcr.io/kriakiku/holtdroid-sync`): the newest 3 releases of `kriakiku/holtdroid-webview` (CanIAndroidWebView dropped on 2026-10-19) → `holtdroid/github/` → source `github`, every 15 minutes, unauthenticated GitHub API. New builds are announced in `test-chanel-jonas` (`notify_url` in `secret/holtdroid-github-sync`, plus `s3_access_key`/`s3_secret_key` of IAM user `holtdroid-github-sync`). First copy: 3 APKs on 2026-10-17 |
+| Slack sync | Argo CD Application `homelab.k8s/argocd/holtdroid-slack-sync.yaml` (chart `deploy/helm/holtdroid-sync` from holtdroid/holtdroid-sync `main`, `job: slack`, image `ghcr.io/holtdroid/holtdroid-sync`), writes `slack/` in the bucket and announces new builds with launch links to android.homelab.example in `test-chanel-jonas` through shoutrrr. `secret/holtdroid-slack-sync` → `s3_access_key`/`s3_secret_key` (IAM user `holtdroid-slack-sync`), `slack_bot_token`, `slack_channels` (comma-separated IDs, mapped to `HOLTDROID_SLACK_SYNC_SLACK__CHANNELS`) and `notify_url` (the shoutrrr Slack URL, same as the S3 sync's) |
+| S3 sync | Argo CD Application `homelab.k8s/argocd/holtdroid-s3-sync.yaml` (chart `deploy/helm/holtdroid-sync` from holtdroid/holtdroid-sync `main`, `job: s3`, image `ghcr.io/holtdroid/holtdroid-sync`), copy mode: `s3://wnf-common-preprod/wnf3/crr-17/web-view/builds/` (work AWS, eu-central-1) → `holtdroid/wnf-preprod/` → source `wnf-preprod`. AWS access is the maintainer's IAM Identity Center permission set `VideoFrontend` (account 418337671376, start URL `https://winfinity.awsapps.com/start#/`, SSO region eu-west-1); device-code login, refresh tokens on the job's longhorn PVC. The login link and new-build announcements go to `test-chanel-jonas` through shoutrrr (`notify_url` in `secret/holtdroid-s3-sync`, built from the Slack bot token; plus `s3_access_key`/`s3_secret_key` of IAM user `holtdroid-s3-sync`). First copy: 12 APKs on 2026-10-17 |
+| GitHub sync | Argo CD Application `homelab.k8s/argocd/holtdroid-github-sync.yaml` (chart `deploy/helm/holtdroid-sync` from holtdroid/holtdroid-sync `main`, `job: github`, image `ghcr.io/holtdroid/holtdroid-sync`): the newest 3 releases of `holtdroid/holtdroid-webview` (CanIAndroidWebView dropped on 2026-10-19) → `holtdroid/github/` → source `github`, every 15 minutes, unauthenticated GitHub API. New builds are announced in `test-chanel-jonas` (`notify_url` in `secret/holtdroid-github-sync`, plus `s3_access_key`/`s3_secret_key` of IAM user `holtdroid-github-sync`). First copy: 3 APKs on 2026-10-17 |
 | VPN gateway | The homelab's existing `vpn-gateway` in namespace `downloads` (`homelab.k8s/infrastructure/downloads`, image built from there into zot) is the shared gateway of decision #28. Service `vpn-socks.downloads.svc.cluster.local:1080`; SOCKS users `holtdroid-<cc>` for every NordVPN endpoint of the gateway (`bd`, `kz`, `lv`, `no`, `pl`, `ua`) route to `nord-<cc>`; AirVPN is not offered (its failover moves between NL and LV); one password for all of them in OpenBao `secret/vpn` → `socks_holtdroid_password` (seeded by `openbao-bootstrap.sh`). The provider config needs `vpn.resolver: 10.43.0.10` and `udp_over_tcp: true`. NordVPN account: 6 of 10 connections used by the gateway (ua, pl, kz, no, lv, bd); Finland was tried and dropped: with seven tunnels open one of them (Finland or Bangladesh) kept failing, likely the account limit together with the maintainer's own devices. Bangladesh and Kazakhstan egress IPs are placed elsewhere by ipinfo.io (the agent's default `ipInfoURL`: SG and DE) while ip-api/ipwho.is say BD and KZ; Bangladesh is a Nord virtual location |
 | Nodes for sessions | 4 × x86_64 with `/dev/kvm`: `core` (16 cores, 30 GiB, taint `dedicated=nas:NoSchedule`), `k3s-1..3` (6 cores, 31 GiB each). One session per node |
 | Storage classes | `longhorn`, `local-path`, `nas-hdd` |
 | Ingress / DNS | Traefik; Ingress annotation `external-dns.alpha.kubernetes.io/target: "10.10.4.25"` creates the DNS record |
-| Registries | `ghcr.io/kriakiku/*` (public, from CI); the cluster also has `registry.homelab.example` (zot, needs the `zot-pull-secret` pattern from `homelab.k8s/infrastructure/downloads/secrets.yaml`) |
+| Registries | `ghcr.io/holtdroid/*` (public, from CI); the cluster also has `registry.homelab.example` (zot, needs the `zot-pull-secret` pattern from `homelab.k8s/infrastructure/downloads/secrets.yaml`) |
 | SSH gateway | `sshGateway.enabled` in the Application, host key `secret/holtdroid` → `ssh_host_key` (seeded by `openbao-bootstrap.sh`, `SSH_HOST_KEY` in the `ExternalSecret`), `IngressRouteTCP holtdroid-ssh` on Traefik's `ssh` entrypoint (a non-default port on purpose, see AGENTS.local.md; `sshGateway.publicPort`, the Service stays on 2222); that port allowed on the ingress VIP by the node firewall (`homelab.nixos/modules/k3s/default.nix`), and the UniFi WAN port forward `homelab-holtdroid-ssh` (the same port to 10.10.4.25, created through the Network API with `secret/unifi` `api_key`, not declared in any repo) |
 
 Verifying a deploy (needs the maintainer's kubeconfig):

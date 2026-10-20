@@ -20,11 +20,11 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
-	"github.com/kriakiku/holtdroid/internal/adbproto"
-	"github.com/kriakiku/holtdroid/internal/audit"
-	"github.com/kriakiku/holtdroid/internal/contract"
-	"github.com/kriakiku/holtdroid/internal/contract/control"
-	"github.com/kriakiku/holtdroid/internal/provider/fake"
+	"github.com/holtdroid/holtdroid/internal/adbproto"
+	"github.com/holtdroid/holtdroid/internal/audit"
+	"github.com/holtdroid/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/contract/control"
+	"github.com/holtdroid/holtdroid/internal/provider/fake"
 )
 
 type stubSessions struct {

@@ -27,7 +27,7 @@ RUN set -eux; \
     curl -fsSLo platform-tools.zip "https://dl.google.com/android/repository/$PLATFORM_TOOLS_ZIP"; \
     curl -fsSLo scrcpy-server "https://github.com/Genymobile/scrcpy/releases/download/v$SCRCPY_VERSION/scrcpy-server-v$SCRCPY_VERSION"; \
     curl -fsSLo sing-box.tar.gz "https://github.com/SagerNet/sing-box/releases/download/v$SING_BOX_VERSION/sing-box-$SING_BOX_VERSION-linux-amd64.tar.gz"; \
-    curl -fsSLo tunnel.apk "https://github.com/kriakiku/holtdroid-tunnel/releases/download/v$TUNNEL_VERSION/holtdroid-tunnel-$TUNNEL_VERSION.apk"; \
+    curl -fsSLo tunnel.apk "https://github.com/holtdroid/holtdroid-tunnel/releases/download/v$TUNNEL_VERSION/holtdroid-tunnel-$TUNNEL_VERSION.apk"; \
     curl -fsSLo frida-server.xz "https://github.com/frida/frida/releases/download/$FRIDA_VERSION/frida-server-$FRIDA_VERSION-android-arm64.xz"; \
     echo "$PLATFORM_TOOLS_SHA1  platform-tools.zip" | sha1sum -c -; \
     printf '%s  %s\n' "$SCRCPY_SERVER_SHA256" scrcpy-server "$SING_BOX_SHA256" sing-box.tar.gz "$TUNNEL_SHA256" tunnel.apk "$FRIDA_SERVER_ARM64_SHA256" frida-server.xz | sha256sum -c -; \

@@ -1,5 +1,5 @@
 image:
-  repository: ghcr.io/kriakiku/holtdroid
+  repository: ghcr.io/holtdroid/holtdroid
   # Defaults to the chart's appVersion.
   tag: ""
   pullPolicy: IfNotPresent
@@ -101,7 +101,7 @@ providers:
     tolerations: []
     session:
       image:
-        repository: ghcr.io/kriakiku/holtdroid-session
+        repository: ghcr.io/holtdroid/holtdroid-session
         # Defaults to image.tag (CI builds both images for every commit).
         tag: ""
         pullPolicy: IfNotPresent
@@ -155,7 +155,7 @@ providers:
     enabled: false
     name: phones
     image:
-      repository: ghcr.io/kriakiku/holtdroid-physical
+      repository: ghcr.io/holtdroid/holtdroid-physical
       # Defaults to image.tag (CI builds both images for every commit).
       tag: ""
       pullPolicy: IfNotPresent

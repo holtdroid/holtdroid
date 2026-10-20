@@ -8,7 +8,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/kriakiku/holtdroid/internal/contract/control"
+	"github.com/holtdroid/holtdroid/internal/contract/control"
 )
 
 // SessionURL is the session's page in the portal.

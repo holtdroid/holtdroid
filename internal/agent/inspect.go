@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/contract"
 )
 
 const inspectScript = `echo '#props'; getprop | grep -E '^\[(ro\.product\.(manufacturer|model|device|cpu\.abilist)|ro\.build\.(version\.(release|sdk|security_patch)|display\.id))\]'

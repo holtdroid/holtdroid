@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kriakiku/holtdroid/internal/secrets"
+	"github.com/holtdroid/holtdroid/internal/secrets"
 )
 
 func TestEmit(t *testing.T) {

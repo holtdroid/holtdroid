@@ -22,7 +22,7 @@ providers:
 
 The endpoints are listed in [Contracts](/holtdroid/extending/contracts/#device-provider);
 the request and response shapes are the Go types in
-[`internal/contract/types.go`](https://github.com/kriakiku/holtdroid/blob/main/internal/contract/types.go)
+[`internal/contract/types.go`](https://github.com/holtdroid/holtdroid/blob/main/internal/contract/types.go)
 and the OpenAPI document a Go provider serves at `/openapi.json`.
 
 1. **The provider is the source of truth.** The api is stateless: it asks
@@ -84,7 +84,7 @@ scrcpy screen stream, DevTools targets and their WebSockets, clipboard,
 network and device controls. The browser talks to it directly through the
 api's proxy, so whatever your device is, the UI works the same.
 `holtdroid agent` starts and drives an emulator itself; its pieces in
-[`internal/agent`](https://github.com/kriakiku/holtdroid/tree/main/internal/agent)
+[`internal/agent`](https://github.com/holtdroid/holtdroid/tree/main/internal/agent)
 (adb, Frida, scrcpy bridge, DevTools proxy) are the starting point for an
 agent that drives some other device.
 

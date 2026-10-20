@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/contract"
 )
 
 // launchQueue lines up launches per target (any device, a provider, or one

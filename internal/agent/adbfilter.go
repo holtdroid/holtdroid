@@ -5,7 +5,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/kriakiku/holtdroid/internal/adbproto"
+	"github.com/holtdroid/holtdroid/internal/adbproto"
 )
 
 // refusedServices restart adbd or the device, or move adb off this port;

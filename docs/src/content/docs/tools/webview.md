@@ -5,7 +5,7 @@ sidebar:
   order: 1
 ---
 
-[Holtdroid WebView](https://github.com/kriakiku/holtdroid-webview) is a small
+[Holtdroid WebView](https://github.com/holtdroid/holtdroid-webview) is a small
 Android app for testing web pages inside a WebView. It is made for Holtdroid
 sessions but works on any phone or emulator on its own.
 
@@ -18,7 +18,7 @@ actions like resize or freeze — can be driven from adb while the page is open.
 ## Install
 
 Releases are on
-[GitHub](https://github.com/kriakiku/holtdroid-webview/releases):
+[GitHub](https://github.com/holtdroid/holtdroid-webview/releases):
 
 | File                                              | What                                               |
 | ------------------------------------------------- | -------------------------------------------------- |

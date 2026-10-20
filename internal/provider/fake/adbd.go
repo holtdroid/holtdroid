@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/kriakiku/holtdroid/internal/adbproto"
+	"github.com/holtdroid/holtdroid/internal/adbproto"
 )
 
 const (

@@ -11,9 +11,9 @@ import (
 
 	"github.com/coder/websocket"
 
-	"github.com/kriakiku/holtdroid/internal/adbproto"
-	"github.com/kriakiku/holtdroid/internal/audit"
-	"github.com/kriakiku/holtdroid/internal/provider/fake"
+	"github.com/holtdroid/holtdroid/internal/adbproto"
+	"github.com/holtdroid/holtdroid/internal/audit"
+	"github.com/holtdroid/holtdroid/internal/provider/fake"
 )
 
 func (h *harness) dialADB(srv *httptest.Server, id, user, groups string) (*websocket.Conn, int) {

@@ -17,8 +17,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kriakiku/holtdroid/internal/apk"
-	"github.com/kriakiku/holtdroid/internal/source"
+	"github.com/holtdroid/holtdroid/internal/apk"
+	"github.com/holtdroid/holtdroid/internal/source"
 )
 
 func (h *harness) upload(user, groups, name string, content []byte, fields map[string]string) *httptest.ResponseRecorder {

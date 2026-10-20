@@ -4,7 +4,7 @@ import starlight from '@astrojs/starlight';
 import mermaid from 'astro-mermaid';
 
 export default defineConfig({
-	site: 'https://kriakiku.github.io',
+	site: 'https://holtdroid.github.io',
 	base: '/holtdroid',
 	integrations: [
 		mermaid({ autoTheme: true }),
@@ -13,8 +13,8 @@ export default defineConfig({
 			description: 'A cozy holt for your test Androids — self-hosted, browser-based Android sandboxes for APK testing.',
 			logo: { src: './src/assets/logo.svg' },
 			favicon: '/favicon.svg',
-			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/kriakiku/holtdroid' }],
-			editLink: { baseUrl: 'https://github.com/kriakiku/holtdroid/edit/main/docs/' },
+			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/holtdroid/holtdroid' }],
+			editLink: { baseUrl: 'https://github.com/holtdroid/holtdroid/edit/main/docs/' },
 			lastUpdated: true,
 			sidebar: [
 				{ label: 'Start here', items: [{ autogenerate: { directory: 'start' } }] },

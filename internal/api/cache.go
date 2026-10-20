@@ -19,10 +19,10 @@ import (
 
 	"golang.org/x/sync/singleflight"
 
-	"github.com/kriakiku/holtdroid/internal/apk"
-	"github.com/kriakiku/holtdroid/internal/contract"
-	src "github.com/kriakiku/holtdroid/internal/source"
-	"github.com/kriakiku/holtdroid/internal/storage"
+	"github.com/holtdroid/holtdroid/internal/apk"
+	"github.com/holtdroid/holtdroid/internal/contract"
+	src "github.com/holtdroid/holtdroid/internal/source"
+	"github.com/holtdroid/holtdroid/internal/storage"
 )
 
 type CacheEntry struct {

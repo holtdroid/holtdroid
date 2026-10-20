@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/contract"
 )
 
 const screenStateScript = `dumpsys power | grep -m1 'mWakefulness='

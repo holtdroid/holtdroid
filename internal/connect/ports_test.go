@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/kriakiku/holtdroid/internal/contract/control"
+	"github.com/holtdroid/holtdroid/internal/contract/control"
 )
 
 func TestAutoPublished(t *testing.T) {

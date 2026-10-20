@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/contract"
 )
 
 func TestInventory(t *testing.T) {

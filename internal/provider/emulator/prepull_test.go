@@ -19,13 +19,13 @@ func TestSplitImage(t *testing.T) {
 		image, host, manifest string
 		ok                    bool
 	}{
-		{"ghcr.io/kriakiku/holtdroid-session:main", "ghcr.io", "kriakiku/holtdroid-session/manifests/main", true},
+		{"ghcr.io/holtdroid/holtdroid-session:main", "ghcr.io", "holtdroid/holtdroid-session/manifests/main", true},
 		{"registry.local:5000/team/session", "registry.local:5000", "team/session/manifests/latest", true},
 		{"localhost/session:dev", "localhost", "session/manifests/dev", true},
 		{"ubuntu:24.04", "registry-1.docker.io", "library/ubuntu/manifests/24.04", true},
 		{"kriakiku/session:main", "registry-1.docker.io", "kriakiku/session/manifests/main", true},
 		{"docker.io/kriakiku/session:main", "registry-1.docker.io", "kriakiku/session/manifests/main", true},
-		{"ghcr.io/kriakiku/holtdroid-session@sha256:abc", "", "", false},
+		{"ghcr.io/holtdroid/holtdroid-session@sha256:abc", "", "", false},
 	} {
 		host, manifest, ok := splitImage(tc.image)
 		if host != tc.host || manifest != tc.manifest || ok != tc.ok {
@@ -54,18 +54,18 @@ func (f *fakeRegistry) serve(t *testing.T) *httptest.Server {
 	var srv *httptest.Server
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /token", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("scope") != "repository:kriakiku/holtdroid-session:pull" || r.URL.Query().Get("service") != "registry" {
+		if r.URL.Query().Get("scope") != "repository:holtdroid/holtdroid-session:pull" || r.URL.Query().Get("service") != "registry" {
 			http.Error(w, "bad scope", http.StatusBadRequest)
 			return
 		}
 		_ = json.NewEncoder(w).Encode(map[string]string{"token": "anon"})
 	})
-	mux.HandleFunc("HEAD /v2/kriakiku/holtdroid-session/manifests/main", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("HEAD /v2/holtdroid/holtdroid-session/manifests/main", func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		defer f.mu.Unlock()
 		f.heads++
 		if r.Header.Get("Authorization") != "Bearer anon" {
-			w.Header().Set("WWW-Authenticate", `Bearer realm="`+srv.URL+`/token",service="registry",scope="repository:kriakiku/holtdroid-session:pull"`)
+			w.Header().Set("WWW-Authenticate", `Bearer realm="`+srv.URL+`/token",service="registry",scope="repository:holtdroid/holtdroid-session:pull"`)
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}

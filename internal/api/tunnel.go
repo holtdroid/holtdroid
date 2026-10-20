@@ -15,7 +15,7 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/kriakiku/holtdroid/internal/contract/control"
+	"github.com/holtdroid/holtdroid/internal/contract/control"
 )
 
 var clientName = regexp.MustCompile(`^holtdroid-(darwin|linux)-(amd64|arm64)$`)

@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/contract"
 )
 
 // DevTools discovers DevTools sockets on the device, keeps an adb forward per

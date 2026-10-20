@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/contract"
 )
 
 // TunnelHandler serves the fake agents' tunnel endpoints under

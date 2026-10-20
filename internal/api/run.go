@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/kriakiku/holtdroid/internal/audit"
-	"github.com/kriakiku/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/audit"
+	"github.com/holtdroid/holtdroid/internal/contract"
 )
 
 // Run drives background work until ctx is cancelled: reaping idle and expired

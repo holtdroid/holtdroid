@@ -85,7 +85,7 @@ Holtdroid Tunnel APK, see [VPN on phones](#vpn-on-phones).
 holtdroid provider-physical --config physical.yaml
 ```
 
-Or run the image `ghcr.io/kriakiku/holtdroid-physical` (linux/amd64), which
+Or run the image `ghcr.io/holtdroid/holtdroid-physical` (linux/amd64), which
 has all of that pinned: adb, scrcpy-server, sing-box and the Holtdroid
 Tunnel APK (`tunnel.apk` already points at it, and its version is read from
 the APK). It runs as uid 65532 and keeps its state and adb's key in
@@ -104,7 +104,7 @@ as a supplementary group of the container, or root in the container.
 docker run -d --name phones --network host \
   --device /dev/bus/usb --group-add "$(getent group adbusers | cut -d: -f3)" \
   -v phones:/var/lib/holtdroid -v "$PWD/physical.yaml:/etc/holtdroid/physical.yaml:ro" \
-  ghcr.io/kriakiku/holtdroid-physical:main provider-physical -c /etc/holtdroid/physical.yaml
+  ghcr.io/holtdroid/holtdroid-physical:main provider-physical -c /etc/holtdroid/physical.yaml
 ```
 
 Only one adb server may own a phone: stop any other `adb` on that host.
@@ -227,7 +227,7 @@ For every session the provider starts its own `sing-box` with a `mixed`
 inbound and the clash API on random loopback ports and the locations from
 `vpn` (secret references are resolved into a config file that only the
 provider can read and that is deleted with the session). When the phone is
-up, the agent installs [Holtdroid Tunnel](https://github.com/kriakiku/holtdroid-tunnel)
+up, the agent installs [Holtdroid Tunnel](https://github.com/holtdroid/holtdroid-tunnel)
 if needed, grants it the VPN consent with `appops`, turns Wi-Fi and mobile
 data off, maps the port with `adb reverse` and starts the tunnel. It checks
 the tunnel on every poll and starts it again when it is down. The location
@@ -248,7 +248,7 @@ vpn:
 ```
 
 Download the APK from the
-[tunnel's releases](https://github.com/kriakiku/holtdroid-tunnel/releases).
+[tunnel's releases](https://github.com/holtdroid/holtdroid-tunnel/releases).
 Without `vpn.locations` nothing changes: the phone uses its own Wi-Fi or
 mobile data and the session has no location switcher.
 
@@ -341,7 +341,7 @@ the power menu, disable the camera hardware for every app.
 
 ## Device owner
 
-Every phone gets [Holtdroid Tunnel](https://github.com/kriakiku/holtdroid-tunnel)
+Every phone gets [Holtdroid Tunnel](https://github.com/holtdroid/holtdroid-tunnel)
 (also without VPN locations): it draws the session's wallpaper, the same
 one an emulator shows. Made the phone's **device owner**, it also locks the
 phone down:

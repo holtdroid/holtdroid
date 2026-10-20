@@ -22,11 +22,11 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"github.com/kriakiku/holtdroid/internal/apk"
-	"github.com/kriakiku/holtdroid/internal/audit"
-	"github.com/kriakiku/holtdroid/internal/auth"
-	"github.com/kriakiku/holtdroid/internal/contract"
-	"github.com/kriakiku/holtdroid/internal/source"
+	"github.com/holtdroid/holtdroid/internal/apk"
+	"github.com/holtdroid/holtdroid/internal/audit"
+	"github.com/holtdroid/holtdroid/internal/auth"
+	"github.com/holtdroid/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/source"
 )
 
 const (
