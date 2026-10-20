@@ -17,45 +17,33 @@ import (
 	"github.com/holtdroid/holtdroid/internal/contract"
 )
 
-// console is implemented by devices that have an emulator console.
-type console interface {
-	Emu(ctx context.Context, cmd string) (string, error)
-}
-
 // Controls reads and changes device settings through adb shell.
 type Controls struct {
 	dev        Device
 	localesDex string
 	appLocales string
 	usbNetwork bool
-	noConsole  bool
-	rooted     bool
+	root       bool
+	su         bool
 	now        func() time.Time
 
 	mu          sync.Mutex
-	network     contract.NetworkProfile
 	geo         *contract.GeoPoint
 	geoOverride bool
 }
 
 // NewControls changes the system language by running localesDex, a dex
 // file on the agent's disk, with app_process; empty disables it.
-// NewControls uses the emulator console for network conditions, the GPS and
-// the battery when emulator is set and the device has one.
-func NewControls(dev Device, localesDex string, emulator, rooted bool) *Controls {
-	return &Controls{dev: dev, localesDex: localesDex, noConsole: !emulator, rooted: rooted, now: time.Now, network: contract.NetworkFull}
+// NewControls fakes the GPS and simulates the battery when root is set;
+// su runs setting changes through su (a rooted phone), otherwise the shell is
+// already root (redroid) or the change needs none.
+func NewControls(dev Device, localesDex string, root, su bool) *Controls {
+	return &Controls{dev: dev, localesDex: localesDex, root: root || su, su: su, now: time.Now}
 }
 
-// console is the emulator console, unless the device is a phone.
-func (c *Controls) console() (console, bool) {
-	con, ok := c.dev.(console)
-	return con, ok && !c.noConsole
-}
-
-// exec runs a setting-changing command, as root through su on a rooted phone
-// (the emulator's adbd is already root and needs no su).
+// exec runs a setting-changing command, as root through su on a rooted phone.
 func (c *Controls) exec(ctx context.Context, cmd string) (string, error) {
-	if c.rooted {
+	if c.su {
 		cmd = suWrap(cmd)
 	}
 	return c.dev.Shell(ctx, cmd)
@@ -137,15 +125,7 @@ func (c *Controls) State(ctx context.Context) (contract.DeviceState, error) {
 	if r, err := strconv.Atoi(v["rotation"]); err == nil && r >= 0 && r <= 3 {
 		s.Rotation = r
 	}
-	if _, ok := c.console(); ok {
-		c.mu.Lock()
-		s.NetworkProfile = c.network
-		s.Geo = c.geo
-		s.GeoOverride = c.geoOverride
-		s.CanFakeGeo = true
-		s.CanSimulateBattery = true
-		c.mu.Unlock()
-	} else if c.rooted {
+	if c.root {
 		c.mu.Lock()
 		s.Geo = c.geo
 		s.GeoOverride = c.geoOverride
@@ -211,7 +191,7 @@ func (c *Controls) Update(ctx context.Context, in contract.DeviceSettings) (cont
 	if in.MobileData != nil {
 		add("svc data " + pick(*in.MobileData, "enable", "disable"))
 	}
-	if _, ok := c.console(); !ok && !c.rooted && (in.Charging != nil || in.BatteryLevel != nil) {
+	if !c.root && (in.Charging != nil || in.BatteryLevel != nil) {
 		return contract.DeviceState{}, fmt.Errorf("%w: this device's battery can't be simulated", contract.ErrInvalid)
 	}
 	charging := in.Charging
@@ -339,44 +319,19 @@ func (c *Controls) setTime(ctx context.Context, offset int64, auto bool) error {
 	return err
 }
 
-func (c *Controls) setNetwork(ctx context.Context, p contract.NetworkProfile) error {
-	con, ok := c.console()
-	if !ok {
-		return fmt.Errorf("%w: this device can't emulate network conditions", contract.ErrInvalid)
+func (c *Controls) setNetwork(_ context.Context, p contract.NetworkProfile) error {
+	if p == contract.NetworkFull {
+		return nil
 	}
-	delay := string(p)
-	switch p {
-	case contract.NetworkFull, contract.NetworkLTE, contract.NetworkHSDPA:
-		delay = "none"
-	}
-	if _, err := con.Emu(ctx, "network speed "+string(p)); err != nil {
-		return err
-	}
-	if _, err := con.Emu(ctx, "network delay "+delay); err != nil {
-		return err
-	}
-	c.mu.Lock()
-	c.network = p
-	c.mu.Unlock()
-	return nil
+	return fmt.Errorf("%w: this device can't emulate network conditions", contract.ErrInvalid)
 }
 
-// defaultGeo is where the emulator puts its GPS until told otherwise.
-var defaultGeo = contract.GeoPoint{Latitude: 37.4219983, Longitude: -122.084}
-
 func (c *Controls) setGeo(ctx context.Context, geo *contract.GeoPoint) error {
-	switch con, ok := c.console(); {
-	case ok:
-		at := cmp.Or(geo, &defaultGeo)
-		if _, err := con.Emu(ctx, fmt.Sprintf("geo fix %s %s", strconv.FormatFloat(at.Longitude, 'f', -1, 64), strconv.FormatFloat(at.Latitude, 'f', -1, 64))); err != nil {
-			return err
-		}
-	case c.rooted:
-		if err := c.setGeoRoot(ctx, geo); err != nil {
-			return err
-		}
-	default:
+	if !c.root {
 		return fmt.Errorf("%w: this device can't fake its location", contract.ErrInvalid)
+	}
+	if err := c.setGeoRoot(ctx, geo); err != nil {
+		return err
 	}
 	c.mu.Lock()
 	c.geo = geo
@@ -384,7 +339,7 @@ func (c *Controls) setGeo(ctx context.Context, geo *contract.GeoPoint) error {
 	return nil
 }
 
-// mockProviders are the location providers a rooted phone fakes. Test
+// mockProviders are the location providers a rooted device fakes. Test
 // providers replace the real ones of the same name, so faking gps and network
 // (what fused aggregates) also keeps apps from seeing the real position.
 var mockProviders = []string{"gps", "network"}

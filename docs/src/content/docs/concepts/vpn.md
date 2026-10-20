@@ -12,11 +12,14 @@ toolbar at any time.
 ## How it works
 
 The session Pod has a `vpn` sidecar running [sing-box](https://sing-box.sagernet.org/)
-in the Pod's network namespace:
+in the Pod's network namespace, which Android shares:
 
-- a `tun` inbound with `auto_route` captures all egress from the emulator;
-- cluster and LAN ranges (`vpn.bypassCIDRs`) are excluded, so the portal can
-  still reach the agent;
+- sing-box opens a `tun` interface, and the agent adds policy routing
+  inside Android that sends every app's traffic into it (Android's own
+  network daemon manages the routing there, so sing-box can't);
+- cluster and LAN ranges (`vpn.bypassCIDRs`) are excluded, and so is
+  everything running as root (the agent, sing-box itself, Android's root
+  daemons), so the portal can still reach the agent;
 - each location is a sing-box outbound, plus `direct`, behind a selector;
 - switching location changes the selector through sing-box's local API, so
   the switch is instant and needs no restart;

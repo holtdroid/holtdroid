@@ -46,8 +46,9 @@ config:
     enabled: false
   database:
     type: memory
-  # ADB tools on the session page (logcat, files, terminal). On emulators
-  # that is a root shell for everyone who may open the session.
+  # ADB tools on the session page (logcat, files, terminal). On redroid
+  # sessions that is a root shell on the session node's kernel for everyone
+  # who may open the session.
   adb:
     browser: true
     ownerOnly: true
@@ -89,32 +90,52 @@ providers:
       requests: { cpu: 5m, memory: 16Mi }
       limits: { memory: 128Mi }
 
-  # Android emulators as Pods on KVM nodes (one session per node). The
-  # provider lists Nodes cluster-wide, so the chart adds a ClusterRole.
+  # Android sessions as Pods with a redroid container (Android on the node's
+  # kernel) and the agent, several per node. The provider lists Nodes
+  # cluster-wide, so the chart adds a ClusterRole.
   emulator:
     enabled: false
     name: emulator
-    # Maximum concurrent sessions; 0 means one per matching node.
-    slots: 4
-    # Nodes that may run sessions; they need /dev/kvm.
+    # Maximum concurrent sessions over all nodes; 0 means no cap.
+    slots: 0
+    # Sessions per node, unless nodes.<name>.slots says otherwise.
+    slotsPerNode: 1
+    # Nodes that may run sessions; they need binder (CONFIG_ANDROID_BINDERFS)
+    # and a GPU with a Mesa driver (/dev/dri/renderD128).
     nodeSelector: {}
     tolerations: []
     session:
+      # The agent's image; Android runs from redroid.image.
       image:
         repository: ghcr.io/holtdroid/holtdroid-session
         # Defaults to image.tag (CI builds both images for every commit).
         tag: ""
         pullPolicy: IfNotPresent
+      # The agent container: adb, Frida, the screen and DevTools proxies.
       resources:
-        requests: { cpu: "3", memory: 5Gi }
-        # No CPU limit: CFS throttling makes the software GPU drop frames.
-        limits: { memory: 7Gi }
-      # host: render on the node's GPU (/dev/dri) through VirtualGL, falling
-      # back to software when the node has none. software: SwiftShader.
-      gpu: host
-    # Per-node overrides by node name: guest cores, guest RAM in MiB (the
-    # image defaults to 4 and 4096) and container resources, e.g.
-    # core: { cores: 8, ram: 8192, resources: { requests: { cpu: "3", memory: 10Gi }, limits: { memory: 12Gi } } }
+        requests: { cpu: 100m, memory: 256Mi }
+        limits: { memory: 1Gi }
+    redroid:
+      image:
+        repository: ghcr.io/holtdroid/holtdroid-redroid
+        # The redroid image has its own repository and releases.
+        tag: main
+      # Fixed at boot; the density can still be changed in a session.
+      width: 720
+      height: 1600
+      dpi: 320
+      fps: 60
+      gpu: /dev/dri/renderD128
+      # emptyDir for Android's /data.
+      dataSize: 8Gi
+      # Idle Android takes about 1 GB and 0.05 of a core; streaming a
+      # changing 720p screen adds about a core. No CPU limit, so a busy
+      # session may borrow idle cores.
+      resources:
+        requests: { cpu: "1", memory: 1536Mi }
+        limits: { memory: 3Gi }
+    # Per-node overrides by node name: session count and Android resources,
+    # e.g. core: { slots: 6, resources: { requests: { cpu: "1", memory: 1536Mi }, limits: { memory: 3Gi } } }
     nodes: {}
     # Per-session VPN sidecar, see the emulator provider docs. Empty: no VPN.
     vpn: {}
@@ -122,8 +143,9 @@ providers:
     # session agents.
     networkPolicy:
       enabled: true
-    # Pulls the session image onto every session node ahead of the first
-    # launch (it is several GB).
+    # Pulls the session and redroid images onto every session node ahead of
+    # the first launch. The redroid image is pulled as an image volume
+    # (Kubernetes 1.35+, or the ImageVolume feature gate).
     prepull:
       enabled: true
       # With a moving tag (e.g. main) and pullPolicy Always, the provider

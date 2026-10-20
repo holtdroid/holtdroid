@@ -2122,3 +2122,86 @@ different app, and the tunnel app is a device owner on the phones.
 **Consequences.** Old `ghcr.io/kriakiku/*` images and the old Pages URL get
 no redirects; deployments switch to the new image paths. Git and web URLs
 of the repositories redirect from the old owner.
+
+## 82. Sessions run redroid containers instead of emulators, several per node
+
+**Context.** Emulator sessions (#2, #25, #41) need a whole node each: about
+7 GB of RSS and most of a core even idle, a multi-GB session image and
+VirtualGL for the GPU. Only `core` was fast enough; the three k3s nodes were
+dropped. [redroid](https://github.com/remote-android/redroid-doc) runs
+Android as a container on the node's kernel. The image
+`ghcr.io/holtdroid/holtdroid-redroid` (own repository) adds software video
+encoders without DMA heaps, `libndk_translation` from the Android 15
+emulator image and a cgroup wrapper for privileged pods. Measured on `core`
+(Ryzen 7 5825U, Vega): boot in about 30 s, about 1 GB of memory and 0.05 of
+a core per idle instance, a 720x1600 scrcpy stream at about 57 fps for about
+one more core while the screen changes, WebGL through ANGLE on radeonsi, the
+GPU shared evenly (about 220 fps of a heavy shader across the node).
+
+**Decision.** Supersedes #2, #25 (the system image), #39 (one session per
+node) and #41, and the slot model of #29. AVD support is removed: before the
+first release one runtime is enough.
+
+- `provider-emulator` keeps its name, contract and Kind (`emulator`, a
+  virtual device) and starts redroid Pods. A Pod has three containers: `android`
+  (the redroid image, privileged, `runAsUser`/`runAsGroup` 0, Pod
+  `supplementalGroupsPolicy: Strict`, an `emptyDir` on `/data`, the node's
+  `/dev/dri` with boot arguments for the render node, screen size, density
+  and fps); `agent` (the session image, now only the agent with adb,
+  frida-server, scrcpy-server and the Frida scripts) reaching Android's adbd
+  on `127.0.0.1:5555` in the shared network namespace; and the VPN sidecar.
+- Slots are per node: `slotsPerNode` (default 1) with a per-node override
+  (`nodes.<name>.slots`); a slot id is `<node>-<n>`, the Pod gets labels for
+  both and node affinity to its node; Pod anti-affinity is gone. `slots`
+  still caps the total. Sessions request 1 core and 1.5 GiB with a 3 GiB
+  memory limit and no CPU limit; `core` runs 6.
+- The agent boots by connecting adb over TCP, waiting for
+  `sys.boot_completed`, `adb root` (redroid is a userdebug build) and
+  frida-server, which it reaches at `127.0.0.1:27042` in the shared network
+  namespace rather than through adb. Frida's spawn gating is off: frida-server
+  runs as root on the node's own kernel, and with gating enabled every new
+  process of the node — runc, sshd, probes — stops with SIGSTOP until the
+  node is rebooted (found on `core` and reproduced on a k3s node). Apps the
+  user starts from the launcher are found by polling the process list every
+  second and attached to instead. The session wallpaper is off as on rooted
+  phones: the agent's attach to `system_server` right after the install fails
+  ("unexpected crash while trying to allocate memory") and leaves
+  frida-server unable to attach anything until it restarts. There is no
+  emulator console: GPS goes through the location
+  service's test providers and the battery through `dumpsys battery`, as on
+  rooted phones (#80), but without `su`. Network speed profiles are not
+  offered (they need `tc netem` on the tunnel interface, a follow-up).
+- VPN: Android's netd owns the Pod's policy routing and flushes foreign
+  `ip rule`s when it starts, so sing-box can't use `auto_route`. The sidecar
+  runs its tun without it (`default_interface: eth0`), and the agent adds,
+  as root inside Android, a table that sends everything into the tun except
+  cluster and private ranges, a rule for every uid but 0 (sing-box itself,
+  the agent and Android's root daemons stay direct) and a rule for the tun's
+  own /30 so the system stack's replies come back. It re-applies them on
+  every poll in case netd rewrote them.
+- adbd listens on every address of the Pod: the session NetworkPolicy
+  (only the api and provider on the agent port, the ssh-gateway on the
+  tunnel port) is what keeps it private. The node kernel has no legacy
+  iptables, so nothing inside Android can filter it.
+- The agent container is privileged too, so the metrics bar reads the Pod's
+  cgroup (Android, agent and VPN together) from the node's hierarchy.
+- Root inside a session is root on the node. The Android container is
+  privileged and shares the node's kernel, so anything running as root in
+  Android — frida-server, the agent's adb shell, and the root ADB shell users
+  get in the browser and over SSH — can stop or signal the node's processes
+  through kernel interfaces that aren't namespaced, write the node's sysctls,
+  load BPF programs and reach the node's devices. On the emulator the same
+  root stayed inside the guest kernel. Until sessions run in user namespaces,
+  session nodes must be dedicated to sessions and everyone who may open a
+  session is trusted with them.
+
+**Consequences.** Several sessions share a node's CPU, memory and iGPU;
+heavy WebGL in one session slows the others. Android 15 only (16 needs
+ashmem, which mainline kernels dropped); no WebGPU in WebView (`Vulkan not
+supported with in process gpu`, as on the emulator); ARM code runs only as
+`.so` libraries inside app processes (no ARM executables: registering
+binfmt_misc would change the host); no hardware video encoder; the screen
+size is fixed at boot (density can change); no network speed profiles; no
+session wallpaper. Nodes need binder
+(`CONFIG_ANDROID_BINDERFS`) and, for the GPU, a Mesa-supported `/dev/dri`
+render node. The k3s nodes become usable again.

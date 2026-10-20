@@ -253,6 +253,21 @@ feature, not a follow-up. Record the final choices in decisions.md.
 - [ ] Host: USB hub with per-port power (`uhubctl`) for remote power-cycling, `fastboot reboot` for phones stuck in the bootloader; no wireless ADB in production
 - [ ] Docs: phone preparation (OEM unlock off, Magisk, DPC provisioning, FRP account), `adb.shell` policy and residual risks for operators
 
+## Phase 8 — Redroid sessions (decision #82)
+
+Goal: several Android devices per node instead of one emulator per node.
+
+- [x] Image `ghcr.io/holtdroid/holtdroid-redroid` (own repository): redroid 15 with Codec2 software encoders on gralloc BLOBs, `libndk_translation`, a cgroup init wrapper for privileged pods
+- [x] `provider-emulator` renders redroid Pods (`android` + `agent` + `vpn`), `slotsPerNode` and per-node `slots`, slot ids `<node>-<n>`, Android and agent resources; AVD, VirtualGL and the emulator console removed
+- [x] Agent: adb over TCP with reconnects, `adb root`, frida-server reached at `127.0.0.1:27042`, launches from the device found by polling instead of spawn gating (gating stops every process of the node), GPS and battery without a console, the Pod's cgroup in the metrics bar, GPS and time zone that follow the VPN location
+- [x] VPN without `auto_route`: policy routing added by the agent inside Android, root traffic direct, the agent's IP check through the sidecar's mixed inbound
+- [x] Session image slimmed to the agent, adb, frida-server and scrcpy-server; the pre-pull DaemonSet pulls the redroid image as an image volume
+- [x] Verified on a k3s node in a scratch namespace: boot in about 6 s, install, the app under Frida, VPN egress through the gateway
+- [ ] Verify end to end on the live deployment (screen, DevTools, clipboard, audio, location switch, app data, ADB tools)
+- [ ] Network speed profiles through `tc netem` on the tun (`sch_netem`, `ifb` for downloads)
+- [ ] The session wallpaper on redroid: find why attaching to `system_server` after the install breaks frida-server
+- [ ] Root that stays in the session: run the Android container in a user namespace (`hostUsers: false`) instead of privileged, so a session's root isn't the node's
+
 ## Later
 
 - [ ] Docker-only deployment: `provider-docker` (Docker Engine API, session state in container labels, VPN sidecar via `network_mode: container:`), `compose.yaml` with api + sources + provider-docker, docs page. Session container spec shared with `provider-emulator` (see architecture.md "Future: Docker-only deployment")

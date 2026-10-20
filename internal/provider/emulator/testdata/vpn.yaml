@@ -9,8 +9,9 @@ metadata:
   labels:
     app.kubernetes.io/managed-by: holtdroid-provider-emulator
     app.kubernetes.io/name: holtdroid-session
+    holtdroid/node: k3s-1
     holtdroid/session: 0a1b2c3d4e
-    holtdroid/slot: k3s-1
+    holtdroid/slot: k3s-1-2
   name: holtdroid-session-0a1b2c3d4e
   namespace: holtdroid
 spec:
@@ -23,15 +24,34 @@ spec:
             operator: In
             values:
             - k3s-1
-    podAntiAffinity:
-      requiredDuringSchedulingIgnoredDuringExecution:
-      - labelSelector:
-          matchLabels:
-            app.kubernetes.io/managed-by: holtdroid-provider-emulator
-            app.kubernetes.io/name: holtdroid-session
-        topologyKey: kubernetes.io/hostname
   automountServiceAccountToken: false
   containers:
+  - args:
+    - qemu=1
+    - androidboot.hardware=redroid
+    - androidboot.use_memfd=true
+    - androidboot.redroid_gpu_mode=host
+    - androidboot.redroid_gpu_node=/dev/dri/renderD128
+    - androidboot.redroid_width=1080
+    - androidboot.redroid_height=2400
+    - androidboot.redroid_dpi=420
+    - androidboot.redroid_fps=60
+    image: ghcr.io/holtdroid/holtdroid-redroid:4567def
+    imagePullPolicy: IfNotPresent
+    name: android
+    resources:
+      limits:
+        memory: 3Gi
+      requests:
+        cpu: "1"
+        memory: 1536Mi
+    securityContext:
+      privileged: true
+      runAsGroup: 0
+      runAsUser: 0
+    volumeMounts:
+    - mountPath: /data
+      name: data
   - env:
     - name: HOLTDROID_LISTEN
       value: :8080
@@ -48,20 +68,30 @@ spec:
     - name: HOLTDROID_SESSION__ARTIFACTREF
       value: slack/C1/F1/app.apk@1f2e
     - name: HOLTDROID_SESSION__SLOT
-      value: k3s-1
+      value: k3s-1-2
     - name: HOLTDROID_SESSION__CREATEDAT
       value: "2026-10-17T12:00:00Z"
-    - name: HOLTDROID_EMULATOR__GPU
-      value: software
     - name: HOLTDROID_LOCATION
       value: nl
     - name: HOLTDROID_CLASHAPI
       value: http://127.0.0.1:9090
-    - name: HOLTDROID_EMULATOR__DNSSERVER
-      value: 1.1.1.1
+    - name: HOLTDROID_IPINFOPROXY
+      value: http://127.0.0.1:7890
+    - name: HOLTDROID_REDROID__VPN
+      value: "true"
+    - name: HOLTDROID_REDROID__BYPASS
+      value: 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7
+    - name: HOLTDROID_GEO__PL__TIMEZONE
+      value: Europe/Warsaw
+    - name: HOLTDROID_GEO__PL__LAT
+      value: "52.2297"
+    - name: HOLTDROID_GEO__PL__LNG
+      value: "21.0122"
+    - name: HOLTDROID_GEO__PL__RADIUS
+      value: "5000"
     image: ghcr.io/holtdroid/holtdroid-session:0123abc
     imagePullPolicy: IfNotPresent
-    name: emulator
+    name: agent
     ports:
     - containerPort: 8080
       name: agent
@@ -74,17 +104,12 @@ spec:
       periodSeconds: 2
     resources:
       limits:
-        memory: 7Gi
+        memory: 1Gi
       requests:
-        cpu: "3"
-        memory: 5Gi
+        cpu: 100m
+        memory: 256Mi
     securityContext:
       privileged: true
-    volumeMounts:
-    - mountPath: /dev/kvm
-      name: kvm
-    - mountPath: /dev/shm
-      name: shm
   - args:
     - run
     - -c
@@ -106,6 +131,8 @@ spec:
   imagePullSecrets:
   - name: ghcr
   restartPolicy: Never
+  securityContext:
+    supplementalGroupsPolicy: Strict
   terminationGracePeriodSeconds: 5
   tolerations:
   - effect: NoSchedule
@@ -113,13 +140,9 @@ spec:
     operator: Equal
     value: nas
   volumes:
-  - hostPath:
-      path: /dev/kvm
-      type: CharDevice
-    name: kvm
   - emptyDir:
-      medium: Memory
-    name: shm
+      sizeLimit: 8Gi
+    name: data
   - hostPath:
       path: /dev/net/tun
       type: CharDevice
@@ -133,8 +156,9 @@ metadata:
   labels:
     app.kubernetes.io/managed-by: holtdroid-provider-emulator
     app.kubernetes.io/name: holtdroid-session
+    holtdroid/node: k3s-1
     holtdroid/session: 0a1b2c3d4e
-    holtdroid/slot: k3s-1
+    holtdroid/slot: k3s-1-2
   name: holtdroid-session-0a1b2c3d4e
   namespace: holtdroid
   ownerReferences:
@@ -169,18 +193,18 @@ stringData:
       "inbounds": [
         {
           "address": [
-            "198.18.0.1/30",
-            "fdfe:dcba:9876::1/126"
+            "198.18.0.1/30"
           ],
-          "auto_route": true,
-          "route_exclude_address": [
-            "10.0.0.0/8",
-            "172.16.0.0/12",
-            "192.168.0.0/16",
-            "fc00::/7"
-          ],
+          "auto_route": false,
+          "interface_name": "holtdroid0",
           "tag": "tun",
           "type": "tun"
+        },
+        {
+          "listen": "127.0.0.1",
+          "listen_port": 7890,
+          "tag": "agent",
+          "type": "mixed"
         }
       ],
       "outbounds": [
@@ -216,8 +240,8 @@ stringData:
         }
       ],
       "route": {
-        "auto_detect_interface": true,
         "default_domain_resolver": "local",
+        "default_interface": "eth0",
         "final": "select",
         "rules": [
           {

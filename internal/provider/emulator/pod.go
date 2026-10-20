@@ -6,9 +6,11 @@ import (
 	"maps"
 	"net"
 	"strconv"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -19,6 +21,7 @@ import (
 const (
 	labelSession = "holtdroid/session"
 	labelSlot    = "holtdroid/slot"
+	labelNode    = "holtdroid/node"
 
 	annotationOwner        = "holtdroid/owner"
 	annotationPackage      = "holtdroid/package"
@@ -28,10 +31,11 @@ const (
 	annotationCreatedAt    = "holtdroid/created-at"
 	annotationLastActivity = "holtdroid/last-activity"
 
-	containerEmulator = "emulator"
-	containerVPN      = "vpn"
-	vpnConfigKey      = "config.json"
-	hostnameLabel     = "kubernetes.io/hostname"
+	containerAndroid = "android"
+	containerAgent   = "agent"
+	containerVPN     = "vpn"
+	vpnConfigKey     = "config.json"
+	hostnameLabel    = "kubernetes.io/hostname"
 )
 
 var podSelector = map[string]string{
@@ -41,8 +45,8 @@ var podSelector = map[string]string{
 
 func podName(id string) string { return "holtdroid-session-" + id }
 
-func sessionLabels(id, slot string) map[string]string {
-	l := map[string]string{labelSession: id, labelSlot: slot}
+func sessionLabels(id, slot, node string) map[string]string {
+	l := map[string]string{labelSession: id, labelSlot: slot, labelNode: node}
 	maps.Copy(l, podSelector)
 	return l
 }
@@ -60,12 +64,9 @@ func (p *Provider) tolerations() []corev1.Toleration {
 	return out
 }
 
-func (p *Provider) renderPod(id, slot string, req contract.CreateSession, location string, now time.Time) *corev1.Pod {
+func (p *Provider) renderPod(id, slot, node string, req contract.CreateSession, location string, now time.Time) *corev1.Pod {
 	name := podName(id)
 	at := now.UTC().Format(time.RFC3339Nano)
-	hostPath := func(path string) corev1.VolumeSource {
-		return corev1.VolumeSource{HostPath: &corev1.HostPathVolumeSource{Path: path, Type: new(corev1.HostPathCharDev)}}
-	}
 
 	env := []corev1.EnvVar{
 		{Name: "HOLTDROID_LISTEN", Value: ":" + strconv.Itoa(p.cfg.AgentPort)},
@@ -77,7 +78,6 @@ func (p *Provider) renderPod(id, slot string, req contract.CreateSession, locati
 		{Name: "HOLTDROID_SESSION__ARTIFACTREF", Value: req.ArtifactRef},
 		{Name: "HOLTDROID_SESSION__SLOT", Value: slot},
 		{Name: "HOLTDROID_SESSION__CREATEDAT", Value: at},
-		{Name: "HOLTDROID_EMULATOR__GPU", Value: p.cfg.GPU},
 	}
 	if location != "" {
 		env = append(env, corev1.EnvVar{Name: "HOLTDROID_LOCATION", Value: location})
@@ -88,14 +88,7 @@ func (p *Provider) renderPod(id, slot string, req contract.CreateSession, locati
 			corev1.EnvVar{Name: "HOLTDROID_APPDATA__CACHE", Value: strconv.FormatBool(req.AppData.Cache)},
 		)
 	}
-	node := p.cfg.Nodes[slot]
-	if node.Cores > 0 {
-		env = append(env, corev1.EnvVar{Name: "HOLTDROID_EMULATOR__CORES", Value: strconv.Itoa(node.Cores)})
-	}
-	if node.RAM > 0 {
-		env = append(env, corev1.EnvVar{Name: "HOLTDROID_EMULATOR__RAM", Value: strconv.Itoa(node.RAM)})
-	}
-	resources, ok := p.nodeRes[slot]
+	resources, ok := p.nodeRes[node]
 	if !ok {
 		resources = p.resources
 	}
@@ -115,38 +108,49 @@ func (p *Provider) renderPod(id, slot string, req contract.CreateSession, locati
 			corev1.EnvVar{Name: "HOLTDROID_TELEMETRY__TRACING__SAMPLERATIO", Value: strconv.FormatFloat(tr.SampleRatio, 'g', -1, 64)},
 		)
 	}
-	volumes := []corev1.Volume{
-		{Name: "kvm", VolumeSource: hostPath("/dev/kvm")},
-		{Name: "shm", EmptyDir: &corev1.EmptyDirVolumeSource{Medium: corev1.StorageMediumMemory}},
+	data := &corev1.EmptyDirVolumeSource{}
+	if q, err := resource.ParseQuantity(p.cfg.Redroid.DataSize); p.cfg.Redroid.DataSize != "" && err == nil {
+		data.SizeLimit = &q
 	}
+	volumes := []corev1.Volume{{Name: "data", EmptyDir: data}}
 	if p.cfg.VPN.Enabled() {
 		env = append(env,
 			corev1.EnvVar{Name: "HOLTDROID_CLASHAPI", Value: "http://" + vpn.ClashAPI},
-			corev1.EnvVar{Name: "HOLTDROID_EMULATOR__DNSSERVER", Value: p.cfg.VPN.DNS},
+			corev1.EnvVar{Name: "HOLTDROID_IPINFOPROXY", Value: "http://" + vpn.Proxy},
+			corev1.EnvVar{Name: "HOLTDROID_REDROID__VPN", Value: "true"},
+			corev1.EnvVar{Name: "HOLTDROID_REDROID__BYPASS", Value: strings.Join(p.cfg.VPN.BypassCIDRs, ",")},
 		)
+		env = append(env, geoEnv(p.cfg.VPN)...)
 		volumes = append(volumes,
-			corev1.Volume{Name: "tun", VolumeSource: hostPath("/dev/net/tun")},
+			corev1.Volume{Name: "tun", HostPath: &corev1.HostPathVolumeSource{Path: "/dev/net/tun", Type: new(corev1.HostPathCharDev)}},
 			corev1.Volume{Name: "vpn-config", Secret: &corev1.SecretVolumeSource{SecretName: name}},
 		)
 	}
 
-	containers := []corev1.Container{{
-		Name:            containerEmulator,
-		Image:           p.cfg.Image,
-		ImagePullPolicy: corev1.PullPolicy(p.cfg.ImagePullPolicy),
-		Env:             env,
-		Ports:           ports,
-		Resources:       resources,
-		SecurityContext: &corev1.SecurityContext{Privileged: new(true)},
-		VolumeMounts: []corev1.VolumeMount{
-			{Name: "kvm", MountPath: "/dev/kvm"},
-			{Name: "shm", MountPath: "/dev/shm"},
+	containers := []corev1.Container{
+		{
+			Name:            containerAndroid,
+			Image:           p.cfg.Redroid.Image,
+			ImagePullPolicy: corev1.PullPolicy(p.cfg.ImagePullPolicy),
+			Args:            p.bootArgs(),
+			Resources:       resources,
+			SecurityContext: &corev1.SecurityContext{Privileged: new(true), RunAsUser: new(int64(0)), RunAsGroup: new(int64(0))},
+			VolumeMounts:    []corev1.VolumeMount{{Name: "data", MountPath: "/data"}},
 		},
-		ReadinessProbe: &corev1.Probe{
-			HTTPGet:       &corev1.HTTPGetAction{Path: "/v1/health", Port: intstr.FromString("agent")},
-			PeriodSeconds: 2,
+		{
+			Name:            containerAgent,
+			Image:           p.cfg.Image,
+			ImagePullPolicy: corev1.PullPolicy(p.cfg.ImagePullPolicy),
+			Env:             env,
+			Ports:           ports,
+			Resources:       p.agentRes,
+			SecurityContext: &corev1.SecurityContext{Privileged: new(true)},
+			ReadinessProbe: &corev1.Probe{
+				HTTPGet:       &corev1.HTTPGetAction{Path: "/v1/health", Port: intstr.FromString("agent")},
+				PeriodSeconds: 2,
+			},
 		},
-	}}
+	}
 	if p.cfg.VPN.Enabled() {
 		containers = append(containers, corev1.Container{
 			Name:  containerVPN,
@@ -182,7 +186,7 @@ func (p *Provider) renderPod(id, slot string, req contract.CreateSession, locati
 	return &corev1.Pod{
 		Name:        name,
 		Namespace:   p.cfg.Namespace,
-		Labels:      sessionLabels(id, slot),
+		Labels:      sessionLabels(id, slot, node),
 		Annotations: annotations,
 		Spec: corev1.PodSpec{
 			RestartPolicy:                 corev1.RestartPolicyNever,
@@ -191,25 +195,59 @@ func (p *Provider) renderPod(id, slot string, req contract.CreateSession, locati
 			TerminationGracePeriodSeconds: new(int64(5)),
 			ImagePullSecrets:              pullSecrets,
 			Tolerations:                   p.tolerations(),
+			SecurityContext:               &corev1.PodSecurityContext{SupplementalGroupsPolicy: new(corev1.SupplementalGroupsPolicyStrict)},
 			Affinity: &corev1.Affinity{
 				NodeAffinity: &corev1.NodeAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
 						NodeSelectorTerms: []corev1.NodeSelectorTerm{{
-							MatchExpressions: []corev1.NodeSelectorRequirement{{Key: hostnameLabel, Operator: corev1.NodeSelectorOpIn, Values: []string{slot}}},
+							MatchExpressions: []corev1.NodeSelectorRequirement{{Key: hostnameLabel, Operator: corev1.NodeSelectorOpIn, Values: []string{node}}},
 						}},
 					},
-				},
-				PodAntiAffinity: &corev1.PodAntiAffinity{
-					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{{
-						LabelSelector: &metav1.LabelSelector{MatchLabels: podSelector},
-						TopologyKey:   hostnameLabel,
-					}},
 				},
 			},
 			Containers: containers,
 			Volumes:    volumes,
 		},
 	}
+}
+
+// bootArgs are redroid's kernel-style boot arguments: the GPU, the screen
+// and memfd instead of ashmem, which mainline kernels no longer have.
+func (p *Provider) bootArgs() []string {
+	r := p.cfg.Redroid
+	args := []string{
+		"qemu=1",
+		"androidboot.hardware=redroid",
+		"androidboot.use_memfd=true",
+		"androidboot.redroid_gpu_mode=host",
+		"androidboot.redroid_gpu_node=" + r.GPU,
+		"androidboot.redroid_width=" + strconv.Itoa(r.Width),
+		"androidboot.redroid_height=" + strconv.Itoa(r.Height),
+		"androidboot.redroid_dpi=" + strconv.Itoa(r.DPI),
+		"androidboot.redroid_fps=" + strconv.Itoa(r.FPS),
+	}
+	return append(args, r.Args...)
+}
+
+// geoEnv hands the agent where each location is, so the GPS and the time
+// zone follow a location switch.
+func geoEnv(v vpn.Config) []corev1.EnvVar {
+	var env []corev1.EnvVar
+	for _, l := range v.Locations {
+		key := "HOLTDROID_GEO__" + strings.ToUpper(l.ID) + "__"
+		if l.Timezone != "" {
+			env = append(env, corev1.EnvVar{Name: key + "TIMEZONE", Value: l.Timezone})
+		}
+		if g := l.Geo; g != nil {
+			f := func(v float64) string { return strconv.FormatFloat(v, 'f', -1, 64) }
+			env = append(env,
+				corev1.EnvVar{Name: key + "LAT", Value: f(g.Lat)},
+				corev1.EnvVar{Name: key + "LNG", Value: f(g.Lng)},
+				corev1.EnvVar{Name: key + "RADIUS", Value: f(g.Radius)},
+			)
+		}
+	}
+	return env
 }
 
 func renderSecret(pod *corev1.Pod, config []byte) *corev1.Secret {
@@ -289,12 +327,15 @@ func podState(pod corev1.Pod) (contract.SessionState, string) {
 		return contract.StateFailed, cmp.Or(pod.Status.Message, pod.Status.Reason, terminated(pod), "pod "+string(pod.Status.Phase))
 	}
 	for _, cs := range pod.Status.ContainerStatuses {
-		if cs.Name != containerEmulator {
+		if cs.Name != containerVPN && cs.State.Terminated != nil {
+			return contract.StateFailed, terminated(pod)
+		}
+	}
+	for _, cs := range pod.Status.ContainerStatuses {
+		if cs.Name != containerAgent {
 			continue
 		}
 		switch {
-		case cs.State.Terminated != nil:
-			return contract.StateFailed, terminated(pod)
 		case cs.Ready:
 			return contract.StateReady, ""
 		case cs.State.Running != nil:
@@ -304,7 +345,7 @@ func podState(pod corev1.Pod) (contract.SessionState, string) {
 	return contract.StateProvisioning, ""
 }
 
-// pending explains what a Pod that hasn't started its emulator waits for.
+// pending explains what a Pod that hasn't started its device waits for.
 func pending(pod corev1.Pod) string {
 	for _, c := range pod.Status.Conditions {
 		if c.Type == corev1.PodScheduled && c.Status == corev1.ConditionFalse {
@@ -313,16 +354,19 @@ func pending(pod corev1.Pod) string {
 	}
 	for _, cs := range pod.Status.ContainerStatuses {
 		w := cs.State.Waiting
-		if cs.Name != containerEmulator || w == nil {
+		if cs.Name == containerVPN || w == nil {
 			continue
 		}
 		switch w.Reason {
 		case "ContainerCreating", "PodInitializing", "":
-			return "Starting the device container"
+			continue
 		case "ErrImagePull", "ImagePullBackOff":
-			return "The session image " + cs.Image + " can't be pulled yet, retrying (a new build may still be publishing it)"
+			return "The image " + cs.Image + " can't be pulled yet, retrying (a new build may still be publishing it)"
 		}
 		return w.Reason + ": " + w.Message
+	}
+	if len(pod.Status.ContainerStatuses) > 0 {
+		return "Starting the device containers"
 	}
 	return ""
 }

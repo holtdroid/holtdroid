@@ -33,8 +33,9 @@ flowchart LR
   subgraph holtdroid namespace
     api["api<br/>(BFF + embedded web UI)"]
     prov["provider-emulator"]
-    subgraph session["Session Pod (one per device)"]
-      agent["agent + emulator"]
+    subgraph session["Session Pod (one per device, several per node)"]
+      android["android (redroid)"]
+      agent["agent"]
       vpn["vpn (sing-box)"]
     end
   end
@@ -46,14 +47,16 @@ flowchart LR
   sync -->|Web API| slack[(Slack)]
   prov -->|client-go| k8s[(Kubernetes API)]
   agent -->|artifact download| api
-  agent -. shares netns .- vpn
+  agent -- "adb, frida (localhost)" --> android
+  android -. shares netns .- vpn
   vpn --> gw[("VPN gateway<br/>(operator's, optional)")]
   vpn --> internet[(Internet)]
 ```
 
 All services are the same Go binary (`holtdroid <subcommand>`) and the same
-image, except the session image, which adds the Android emulator, system
-image and Frida on top of the agent.
+image, except the session image, which adds adb, frida-server and
+scrcpy-server to an agent built with Frida, and Android itself, which runs
+from the `holtdroid-redroid` image (own repository, decision #82).
 
 | Service | Responsibility | Talks to |
 |---------|----------------|----------|
@@ -172,12 +175,13 @@ uploads/3f9a1c02b7d4/my.apk.meta.json
   UI's launch request waits in that provider's line in the api until a slot
   frees up. `queued` is not a session state: no session exists yet, and
   closing the tab cancels the request and gives up the place.
-- **Slots**: each provider reports capacity. The emulator provider's slots
-  are the nodes matching its `nodeSelector` (a label selector) whose taints
-  its `tolerations` cover, sorted by name and capped at `slots`; not-Ready or
-  cordoned nodes are `offline`. A session takes the first free node and its
-  Pod is pinned there with required node affinity, plus required pod
-  anti-affinity as a safety net (decisions.md #29). When no slot is free,
+- **Slots**: each provider reports capacity. The emulator provider gives
+  every node matching its `nodeSelector` (a label selector) whose taints its
+  `tolerations` cover `slotsPerNode` slots (or `nodes.<name>.slots`), named
+  `<node>-<n>`, sorted by node name and capped at `slots`; slots of not-Ready
+  or cordoned nodes are `offline`. A session takes the first free slot and
+  its Pod is pinned to the slot's node with required node affinity and
+  labelled with both (decisions.md #29, #82). When no slot is free,
   launching is disabled in the UI.
 - **Maintenance** (decisions.md #79): admins hold a slot, or a whole
   provider, from the Inventory page. A held slot reports `maintenance` and
@@ -195,54 +199,51 @@ and what the provider can tell about it: phones answer from adb without root
 `/proc`, `df /data`) plus the USB host itself (`internal/hostinfo`); the
 emulator provider builds a `HostInfo` per node from the Node object and asks
 the node-info Pod on that node (Node API) for the CPU model, load, free
-memory and sensors. Emulator guests aren't asked: their sensors are made up.
+memory and sensors, once per slot of that node. Android isn't asked: in
+redroid it reads the node's kernel anyway.
 Nothing is cached; the page polls every 10 s.
 
 ## Emulator session internals
 
-Session Pod (rendered by `provider-emulator`, golden-tested):
+Session Pod (rendered by `provider-emulator`, golden-tested; decision #82):
 
 | Container | Image | Notes |
 |-----------|-------|-------|
-| `emulator` | `holtdroid-session` | privileged, `/dev/kvm` hostPath, `/dev/shm` memory emptyDir, ~3–4 CPU / 5–7 GiB. Runs `holtdroid agent` as PID 1 supervisor |
+| `android` | `holtdroid-redroid` | privileged, `runAsUser`/`runAsGroup` 0 (Pod `supplementalGroupsPolicy: Strict`), `emptyDir` on `/data`, ~1 CPU / 1.5–3 GiB. Boot arguments: GPU render node, screen size, density, fps, memfd |
+| `agent` | `holtdroid-session` | privileged (reads the Pod's cgroup for metrics). Runs `holtdroid agent` |
 | `vpn` | upstream `sing-box` | `NET_ADMIN`, `/dev/net/tun`. Config from the per-session Secret |
 
-Plus a Secret (sing-box config, may contain VPN credentials) with an
-ownerReference to the Pod, so it is garbage-collected with it. The Pod is
-named `holtdroid-session-<id>`, has `restartPolicy: Never`, and carries the
-session in labels (`holtdroid/session`, `holtdroid/slot`) and annotations
+All three share the Pod's network namespace. Plus a Secret (sing-box config,
+may contain VPN credentials) with an ownerReference to the Pod, so it is
+garbage-collected with it. The Pod is named `holtdroid-session-<id>`, has
+`restartPolicy: Never`, and carries the session in labels
+(`holtdroid/session`, `holtdroid/slot`, `holtdroid/node`) and annotations
 (`holtdroid/owner`, `package`, `artifact-ref`, `location`, `created-at`,
 `last-activity`; `touch` patches the last one). The provider derives the
-session state from the Pod: pending → `provisioning`, the `emulator`
-container running → `booting`, its readiness probe (`GET /v1/health`, 200
-only once the app runs) passing → `ready`, the container or Pod terminated →
-`failed`, deletion requested → `stopping`. While the Pod is running but not
-ready, the provider asks the agent for its stage (`GET /v1/state`), so
-`installing`, `instrumenting` and failures after boot are visible too. `agentUrl` is `http://<pod IP>:<agentPort>`; until the Pod
+session state from the Pod: pending → `provisioning`, the `agent` container
+running → `booting`, its readiness probe (`GET /v1/health`, 200 only once
+the app runs) passing → `ready`, the `android` or `agent` container or the
+Pod terminated → `failed`, deletion requested → `stopping`. While the Pod is
+running but not ready, the provider asks the agent for its stage
+(`GET /v1/state`), so `installing`, `instrumenting` and failures after boot
+are visible too. `agentUrl` is `http://<pod IP>:<agentPort>`; until the Pod
 has an IP it is empty and the UI does not open the agent's status stream.
 
-Inside `emulator`, the agent starts and supervises:
+The agent (`internal/agent/redroid`):
 
-1. `emulator`, headless (`-no-window -no-snapshot -no-audio -no-boot-anim`,
-   x86_64 `google_apis` API 35 image, the `holtdroid` AVD baked into the
-   image; `internal/agent/emulator`). With `HOLTDROID_EMULATOR__GPU=host`
-   (the default) and a `/dev/dri/card*` in the container it runs under
-   VirtualGL on an Xvfb display with `-gpu host`; otherwise with
-   `-gpu swiftshader_indirect` (decision #41).
-   Its exit fails the session; a later failure (the first install,
-   instrumentation) leaves the device running for inspection.
-2. Waits for `sys.boot_completed`, runs `adb root`, pushes and starts
-   `frida-server` (same pinned version as the agent's devkit, decision #23).
-3. Downloads the APK from the api, `adb install -r -d -g` (`-d` lets later
-   builds downgrade), and in the background sets generated wallpapers: the
-   Holtdroid logo over a debug grid on the home screen, and on the lock
-   screen the same logo with the session ID, user, start time (UTC), app and build, artifact, node,
-   Holtdroid version and the device's Android, ABIs and display.
-   `system.js` (`frida/system.ts`) draws it with Android's `Canvas` inside
-   `system_server` and calls `WallpaperManager.setBitmap`, so no image or
-   font ships with the agent. It is redrawn after `POST /install`; a
-   failure is only logged.
-4. Spawns the package under `agent.js`, which the session image build
+1. Connects adb to `127.0.0.1:5555` (redroid's adbd), waits for
+   `sys.boot_completed`, runs `adb root` (reconnecting, adbd drops the
+   connection when it restarts), adds the VPN routes when a sidecar runs
+   (see "VPN"), sets the battery, pushes and starts `frida-server` (same
+   pinned version as the agent's devkit, decision #23). The agent reaches it
+   directly at `127.0.0.1:27042`. Android's container ending fails the
+   session; a later failure (the first install, instrumentation) leaves the
+   device running for inspection.
+2. Downloads the APK from the api and runs `adb install -r -d -g` (`-d`
+   lets later builds downgrade). The generated session wallpaper (`system.js`
+   drawing with `Canvas` inside `system_server`) is off on redroid
+   (`noWallpaper`): attaching to `system_server` there breaks frida-server.
+3. Spawns the package under `agent.js`, which the session image build
    bundles from `frida/agent.ts`:
    - forces `WebView.setWebContentsDebuggingEnabled(true)`: the setter is
      hooked to always pass `true`, and it is called from
@@ -251,29 +252,40 @@ Inside `emulator`, the agent starts and supervises:
    - lets `NetworkSecurityPolicy.isCleartextTrafficPermitted(host)` return
      `true` for `localhost`, `127.0.0.1` and `::1` (decision #45).
    Only the app's main process is instrumented.
-5. Turns on Frida spawn gating: when the device starts the app by itself
-   (the launcher, a broadcast) the main process is instrumented the
-   same way before it resumes; every other process resumes straight away.
-6. Does not restart the app when it exits or crashes (decision #35): the
+4. Polls the process list every second: when the device starts the app by
+   itself (the launcher, a broadcast) the agent attaches to its main process
+   and loads the same script. Frida's spawn gating is never used on redroid:
+   frida-server runs as root on the node's kernel and gating stops every new
+   process of the node (decision #82). Rooted phones still use it.
+5. Does not restart the app when it exits or crashes (decision #35): the
    device stays `ready` with `appRunning: false` until the user starts it
    from the UI (`POST /app/restart`) or the launcher. `POST /app/reinstall`
    uninstalls first so app data is cleared. `POST /install` replaces the
    build with another one of the same package, over the current one
    (upgrade or downgrade, data kept) or after uninstalling it.
 
+Device controls have no emulator console: the GPS goes through the location
+service's test providers and the battery through `dumpsys battery`, as on
+rooted phones but without `su`; network speed profiles are not offered. With
+VPN locations that carry `geo`/`timezone`, the provider hands them to the
+agent (`HOLTDROID_GEO__<ID>__…`), so the GPS and time zone follow the
+location as on rooted phones.
+
 The provider configures the agent through environment variables
 (`HOLTDROID_ARTIFACTURL`, `HOLTDROID_PACKAGE`, `HOLTDROID_LOCATION`,
-`HOLTDROID_SESSION__{ID,OWNER,ARTIFACTREF,SLOT,CREATEDAT}` for the
-wallpaper, `HOLTDROID_EMULATOR__GPU`, `HOLTDROID_CLASHAPI` and `HOLTDROID_EMULATOR__DNSSERVER` when a VPN sidecar
-runs; see `agent.Config` for the
-rest, all with defaults matching the session image).
+`HOLTDROID_SESSION__{ID,OWNER,ARTIFACTREF,SLOT,CREATEDAT}`, and with a VPN
+sidecar `HOLTDROID_CLASHAPI`, `HOLTDROID_IPINFOPROXY`,
+`HOLTDROID_REDROID__{VPN,BYPASS}` and `HOLTDROID_GEO__…`; see `agent.Config`
+for the rest, all with defaults matching the session Pod).
 
 The pipeline only depends on two interfaces, `agent.Device` (adb) and
 `agent.Instrumenter` (Frida), so it is unit-tested without a device.
 
-Why the system image works for ARM-only APKs: Google's x86_64 images for
-API 30 and 34+ (not 31–33, decision #25) ship `libndk_translation`, so ARM native libraries run translated while
-ART itself stays x86_64 (Frida's Java hooks are unaffected).
+Why ARM-only APKs work: the redroid image carries `libndk_translation` from
+Google's Android 15 x86_64 emulator image, so ARM native libraries run
+translated inside app processes while ART itself stays x86_64 (Frida's Java
+hooks are unaffected). Separate ARM executables don't run: that would need
+`binfmt_misc`, which isn't namespaced.
 
 ### Screen
 
@@ -292,12 +304,14 @@ written to the control socket as is; device messages on it are dropped.
 Closing the WebSocket ends the `adb shell`, which hangs the server up.
 
 Every scrcpy server runs as the shell user (`su 2000` when adbd is root, as
-on the emulator): the clipboard service refuses root calling as
+on redroid): the clipboard service refuses root calling as
 `com.android.shell` and clears the clipboard instead. Before starting an
 H.265 or AV1 stream the agent checks the device's encoders once
 (`list_encoders=true`) and closes the WebSocket with code 4001
 (`contract.DisplayUnsupportedCodec`) when there is none; the UI then falls
-back to H.264. The emulator has software encoders for all three.
+back to H.264. Redroid has software encoders for all three (Codec2 with
+gralloc BLOB buffers, set up by the redroid image); a changing 720p screen
+costs about a core to encode.
 
 `/display/audio` works the same way with an audio-only server
 (`video=false audio=true control=false audio_codec=opus
@@ -397,21 +411,27 @@ codecs and reports that it can't capture audio.
 
 ### VPN
 
-- The `vpn` sidecar shares the Pod network namespace. sing-box runs a `tun`
-  inbound with `auto_route` and `route_exclude_address` for the cluster and
-  LAN CIDRs (`vpn.bypassCIDRs`). Pod-to-api traffic and replies to proxied
-  requests therefore bypass the tunnel, while all emulator egress (TCP, UDP,
-  DNS) goes through it with no configuration inside Android. Loopback is
-  never routed, so `adb reverse` and the SSH tunnels are unaffected.
+- The `vpn` sidecar shares the Pod network namespace with Android and the
+  agent. sing-box runs a `tun` inbound (`holtdroid0`) without `auto_route`:
+  Android's netd owns the namespace's policy routing and flushes foreign
+  rules when it starts (decision #82). The agent adds them as root inside
+  Android and re-applies them every 10 s: table 2022 with a default route
+  into the tun and `throw` routes for `vpn.bypassCIDRs`, a rule sending every
+  uid but 0 there, and a rule for the tun's own /30 so the system stack's
+  replies return. Root traffic (the agent, sing-box, Android's root daemons)
+  stays direct; the agent checks its egress IP through the sidecar's mixed
+  inbound on `127.0.0.1:7890`. sing-box binds its outbounds to `eth0`.
+  Loopback is never routed, so `adb reverse` and the SSH tunnels are
+  unaffected.
 - A location is `{id, label, outbound}` where `outbound` is any sing-box
   outbound or endpoint object, inline or as a secret reference resolving to
   its JSON (decision #28). `internal/vpn` renders them, tagged with the
   location id, plus `direct` (unless `vpn.direct: false`) behind a
   `selector` (`interrupt_exist_connections`). Holtdroid has no VPN vendor
   code.
-- DNS: the emulator is started with `-dns-server <vpn.dns>`, so its queries
-  enter the tun; the sidecar hijacks them and answers through a resolver
-  that dials `vpn.dns` via the selector. Server names inside outbounds are
+- DNS: apps' queries (to Android's resolver, plain or DNS-over-TLS) enter
+  the tun with the app's uid; the sidecar hijacks plain DNS and answers
+  through a resolver that dials `vpn.dns` via the selector. Server names inside outbounds are
   resolved by the Pod's resolver (`local`), or by `vpn.resolver` when set —
   needed for `*.cluster.local` names, which sing-box's `local` sends to mDNS.
 - The clash API listens on `127.0.0.1:9090`. `PUT /network/location` on
@@ -435,7 +455,7 @@ codecs and reports that it can't capture audio.
 ```mermaid
 flowchart LR
   subgraph pod["Session Pod"]
-    emu["emulator"] --> tun["sing-box sidecar<br/>tun + selector"]
+    emu["android (redroid)"] --> tun["sing-box sidecar<br/>tun + selector"]
   end
   tun -- "socks user=de" --> gw["VPN gateway<br/>(operator's sing-box)"]
   tun -. direct .-> internet[(Internet)]
@@ -572,7 +592,7 @@ does, through a tunnel endpoint on a **separate agent port**
 (`tunnelListen`, default `:8081`) that the api's browser proxy cannot reach:
 
 - **ADB** — per SSH channel the gateway opens `WS /tunnel/adb` on the agent
-  and splices bytes. The agent connects it to the emulator's adbd
+  and splices bytes. The agent connects it to Android's adbd
   (`adbAddr`, default `127.0.0.1:5555` inside the pod), next to the agent's
   own adb server connection.
 - **Published ports** — per port and device the gateway opens
@@ -583,7 +603,7 @@ does, through a tunnel endpoint on a **separate agent port**
   channel to the client. Closing the forward or the connection runs
   `adb reverse --remove`.
 
-Using `adb reverse` instead of the emulator's `10.0.2.2` alias keeps this
+Using `adb reverse` instead of a host alias inside the device keeps this
 provider-agnostic: physical phones get the same feature for free.
 
 Both endpoints carry the login in `X-Holtdroid-User`; the agent keeps the
@@ -680,8 +700,10 @@ as long as the page, so logcat survives app restarts.
   signed JWT cookie (decisions.md #17). `/api/v1/auth*` and the static UI are
   public; everything else under `/api/` and `/s/` requires an identity.
   `allowedGroups` restricts `oidc`/`header`.
-- Session pods are **privileged** (KVM, the emulator's networking). Run them in
-  a dedicated namespace on nodes you are fine dedicating to this.
+- Session pods are **privileged** and Android shares the node's kernel, so
+  root in a session (the agent's adbd, the browser's ADB shell) is root on
+  the node (decision #82). Run them in a dedicated namespace on nodes
+  dedicated to sessions, for users you trust with those nodes.
 - Agents are reachable only from the api, their provider (status, installs)
   and the ssh-gateway (NetworkPolicy in the chart); every browser request goes through the api's proxy and auth.
   The agent's tunnel port is never proxied to browsers.
@@ -743,7 +765,8 @@ keep meeting.
 
 ### Threat model
 
-An emulator is disposable: whatever a user does to it dies with the Pod. A
+A redroid device is disposable: whatever a user does to Android dies with
+the Pod (its root reaches the node, see "Security model" above). A
 phone is not, and anyone with `adb shell` runs as the `shell` uid, which can
 do a lot without root:
 
@@ -828,8 +851,8 @@ the Docker Engine API on one host:
 | Concern | Kubernetes (`provider-emulator`) | Docker (`provider-docker`) |
 |---------|-----------------------------------|----------------------------|
 | Session state | Pod labels/annotations | Container labels (`holtdroid.session=…`) |
-| Slots | Nodes with KVM, anti-affinity | Fixed `slots` per host (CPU/RAM budget) |
-| VPN | `vpn` container in the Pod | sing-box container, emulator joins it with `network_mode: container:<vpn>` |
+| Slots | `slotsPerNode` on matching nodes | Fixed `slots` per host (CPU/RAM budget) |
+| VPN | `vpn` container in the Pod | sing-box container, redroid and the agent join it with `network_mode: container:<vpn>` |
 | Per-session secret | Secret with ownerReference | Config written to a per-session volume, removed with the session |
 | Agent reachability | Pod IP | Container IP on a dedicated bridge network the api is attached to |
 | Cleanup | Owner references | Delete everything carrying the session label |

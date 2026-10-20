@@ -181,8 +181,8 @@ adb -s 127.0.0.1:15555 shell
 
 The **Computers** page and the session page's **SSH** button show which port
 belongs to which device. On emulators `adb connect` needs no authorization
-prompt and `adb shell` is root (the session image runs adbd insecure and the
-agent restarts it as root). `adb reboot`, `adb unroot`, `adb remount`,
+prompt and `adb shell` is root (redroid is a userdebug build and the agent
+restarts adbd as root), with the node's kernel underneath. `adb reboot`, `adb unroot`, `adb remount`,
 `adb tcpip` and `adb usb` are refused: they would cut the session off from
 its device. For logcat, files and a shell without any of this, use the
 [ADB tools](/holtdroid/concepts/adb/) on the session page.

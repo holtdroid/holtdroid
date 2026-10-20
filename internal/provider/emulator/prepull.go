@@ -18,9 +18,9 @@ import (
 
 const annotationImageDigest = "holtdroid/session-image-digest"
 
-// Prepull keeps the session image cached on the nodes: when the image's tag
-// moves to a new digest, the prepull DaemonSet is restarted so its pods pull
-// it before the next session needs it.
+// Prepull keeps the session and redroid images cached on the nodes: when a
+// tag moves to a new digest, the prepull DaemonSet is restarted so its pods
+// pull it before the next session needs it.
 type Prepull struct {
 	Refresh   bool
 	DaemonSet string
@@ -31,20 +31,31 @@ func (c Prepull) active(pullPolicy string) bool {
 	return c.Refresh && c.DaemonSet != "" && corev1.PullPolicy(pullPolicy) == corev1.PullAlways
 }
 
-// RefreshPrepull watches the session image until ctx ends.
+// tagged are the session images referenced by a tag, which can move.
+func (p *Provider) tagged() []string {
+	var out []string
+	for _, image := range []string{p.cfg.Image, p.cfg.Redroid.Image} {
+		if _, _, ok := splitImage(image); ok {
+			out = append(out, image)
+		}
+	}
+	return out
+}
+
+// RefreshPrepull watches the session images until ctx ends.
 func (p *Provider) RefreshPrepull(ctx context.Context) {
 	if !p.cfg.Prepull.active(p.cfg.ImagePullPolicy) {
 		return
 	}
-	if _, _, ok := splitImage(p.cfg.Image); !ok {
-		p.log.Info("prepull refresh is off: the session image is pinned by digest", "image", p.cfg.Image)
+	if len(p.tagged()) == 0 {
+		p.log.Info("prepull refresh is off: the session images are pinned by digest")
 		return
 	}
 	t := time.NewTicker(p.cfg.Prepull.Interval)
 	defer t.Stop()
 	for {
 		if err := p.refreshPrepull(ctx); err != nil && ctx.Err() == nil {
-			p.log.Warn("prepull refresh", "image", p.cfg.Image, "err", err)
+			p.log.Warn("prepull refresh", "err", err)
 		}
 		select {
 		case <-ctx.Done():
@@ -55,10 +66,15 @@ func (p *Provider) RefreshPrepull(ctx context.Context) {
 }
 
 func (p *Provider) refreshPrepull(ctx context.Context) error {
-	digest, err := p.registry.digest(ctx, p.cfg.Image)
-	if err != nil {
-		return err
+	var digests []string
+	for _, image := range p.tagged() {
+		d, err := p.registry.digest(ctx, image)
+		if err != nil {
+			return err
+		}
+		digests = append(digests, d)
 	}
+	digest := strings.Join(digests, ",")
 	ds, err := p.kube.AppsV1().DaemonSets(p.cfg.Namespace).Get(ctx, p.cfg.Prepull.DaemonSet, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("get daemonset: %w", err)
@@ -70,7 +86,7 @@ func (p *Provider) refreshPrepull(ctx context.Context) error {
 	if _, err := p.kube.AppsV1().DaemonSets(p.cfg.Namespace).Patch(ctx, ds.Name, types.MergePatchType, patch, metav1.PatchOptions{}); err != nil {
 		return fmt.Errorf("patch daemonset: %w", err)
 	}
-	p.log.Info("session image changed, pulling it onto the nodes", "image", p.cfg.Image, "digest", digest)
+	p.log.Info("a session image changed, pulling it onto the nodes", "digests", digest)
 	return nil
 }
 

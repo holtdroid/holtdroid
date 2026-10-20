@@ -54,18 +54,18 @@ func (f *fakeRegistry) serve(t *testing.T) *httptest.Server {
 	var srv *httptest.Server
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /token", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("scope") != "repository:holtdroid/holtdroid-session:pull" || r.URL.Query().Get("service") != "registry" {
+		if r.URL.Query().Get("scope") != "repository:holtdroid/holtdroid-session:pull" && r.URL.Query().Get("scope") != "repository:holtdroid/holtdroid-redroid:pull" || r.URL.Query().Get("service") != "registry" {
 			http.Error(w, "bad scope", http.StatusBadRequest)
 			return
 		}
 		_ = json.NewEncoder(w).Encode(map[string]string{"token": "anon"})
 	})
-	mux.HandleFunc("HEAD /v2/holtdroid/holtdroid-session/manifests/main", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("HEAD /v2/holtdroid/{repo}/manifests/main", func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		defer f.mu.Unlock()
 		f.heads++
 		if r.Header.Get("Authorization") != "Bearer anon" {
-			w.Header().Set("WWW-Authenticate", `Bearer realm="`+srv.URL+`/token",service="registry",scope="repository:holtdroid/holtdroid-session:pull"`)
+			w.Header().Set("WWW-Authenticate", `Bearer realm="`+srv.URL+`/token",service="registry",scope="repository:holtdroid/`+r.PathValue("repo")+`:pull"`)
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -132,8 +132,8 @@ func TestRefreshPrepull(t *testing.T) {
 		if err := p.refreshPrepull(ctx); err != nil {
 			t.Fatal(err)
 		}
-		if got := annotation(); got != step.digest {
-			t.Fatalf("annotation %q, want %q", got, step.digest)
+		if got, want := annotation(), step.digest+","+step.digest; got != want {
+			t.Fatalf("annotation %q, want %q", got, want)
 		}
 		if got := patches(); got != step.patches {
 			t.Fatalf("after %s: %d patches, want %d", step.digest, got, step.patches)

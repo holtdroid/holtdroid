@@ -17,11 +17,10 @@ import (
 
 type scriptedDevice struct {
 	fakeDevice
-	mu     sync.Mutex
-	state  string
-	clock  string
-	cmds   []string
-	consol []string
+	mu    sync.Mutex
+	state string
+	clock string
+	cmds  []string
 }
 
 func (d *scriptedDevice) Shell(_ context.Context, cmd string) (string, error) {
@@ -39,13 +38,6 @@ func (d *scriptedDevice) Shell(_ context.Context, cmd string) (string, error) {
 	}
 	d.cmds = append(d.cmds, cmd)
 	return "", nil
-}
-
-func (d *scriptedDevice) Emu(_ context.Context, cmd string) (string, error) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	d.consol = append(d.consol, cmd)
-	return "OK", nil
 }
 
 func TestControlsState(t *testing.T) {
@@ -78,7 +70,7 @@ autotime=0
 	}
 	want := contract.DeviceState{
 		WiFi: true, MobileData: true, BatterySaver: true, BatteryLevel: 42, DarkMode: true,
-		FontScale: 1.3, Density: 400, DefaultDensity: 320, Rotation: 1, NetworkProfile: contract.NetworkFull,
+		FontScale: 1.3, Density: 400, DefaultDensity: 320, Rotation: 1,
 		TimeZone: "Europe/Warsaw", Locale: "en-US", Locales: []string{"en-US", "ru-RU"}, CanFakeGeo: true, CanSimulateBattery: true, LanguageScope: contract.LanguageSystem, TimeOffset: 3_600_000,
 	}
 	if !reflect.DeepEqual(got, want) {
@@ -107,24 +99,24 @@ func TestParseDeviceClock(t *testing.T) {
 func TestControlsUpdate(t *testing.T) {
 	now := time.UnixMilli(1_760_000_000_000)
 	for _, tc := range []struct {
-		name    string
-		in      contract.DeviceSettings
-		cmds    []string
-		console []string
+		name string
+		in   contract.DeviceSettings
+		cmds []string
 	}{
-		{"airplane", contract.DeviceSettings{AirplaneMode: new(true)}, []string{"cmd connectivity airplane-mode enable"}, nil},
-		{"radios", contract.DeviceSettings{WiFi: new(false), MobileData: new(true)}, []string{"svc wifi disable && svc data enable"}, nil},
-		{"battery saver unplugs", contract.DeviceSettings{BatterySaver: new(true)}, []string{"dumpsys battery unplug && dumpsys battery set status 3 && cmd power set-mode 1"}, nil},
-		{"charging and level", contract.DeviceSettings{Charging: new(true), BatteryLevel: new(15)}, []string{"dumpsys battery set ac 1 && dumpsys battery set status 2 && dumpsys battery set level 15"}, nil},
-		{"display", contract.DeviceSettings{DarkMode: new(true), FontScale: new(1.15), Density: new(0)}, []string{"cmd uimode night yes && settings put system font_scale 1.15 && wm density reset"}, nil},
-		{"rotation", contract.DeviceSettings{Rotation: new(2)}, []string{"settings put system accelerometer_rotation 0 && settings put system user_rotation 2"}, nil},
-		{"time zone", contract.DeviceSettings{TimeZone: new("Asia/Tokyo")}, []string{"settings put global auto_time_zone 0 && cmd alarm set-timezone Asia/Tokyo"}, nil},
-		{"time offset", contract.DeviceSettings{TimeOffset: new(int64(-5000))}, []string{"settings put global auto_time 0 && cmd alarm set-time 1759999995000"}, nil},
-		{"auto time", contract.DeviceSettings{AutoTime: new(true)}, []string{"settings put global auto_time 1 && cmd alarm set-time 1760000000000"}, nil},
-		{"network", contract.DeviceSettings{NetworkProfile: new(contract.NetworkEDGE)}, nil, []string{"network speed edge", "network delay edge"}},
-		{"fast network", contract.DeviceSettings{NetworkProfile: new(contract.NetworkLTE)}, nil, []string{"network speed lte", "network delay none"}},
-		{"geo", contract.DeviceSettings{Geo: &contract.GeoPoint{Latitude: 52.2297, Longitude: 21.0122}}, nil, []string{"geo fix 21.0122 52.2297"}},
-		{"reset geo", contract.DeviceSettings{ResetGeo: true}, nil, []string{"geo fix -122.084 37.4219983"}},
+		{"airplane", contract.DeviceSettings{AirplaneMode: new(true)}, []string{"cmd connectivity airplane-mode enable"}},
+		{"radios", contract.DeviceSettings{WiFi: new(false), MobileData: new(true)}, []string{"svc wifi disable && svc data enable"}},
+		{"battery saver unplugs", contract.DeviceSettings{BatterySaver: new(true)}, []string{"dumpsys battery unplug && dumpsys battery set status 3 && cmd power set-mode 1"}},
+		{"charging and level", contract.DeviceSettings{Charging: new(true), BatteryLevel: new(15)}, []string{"dumpsys battery set ac 1 && dumpsys battery set status 2 && dumpsys battery set level 15"}},
+		{"display", contract.DeviceSettings{DarkMode: new(true), FontScale: new(1.15), Density: new(0)}, []string{"cmd uimode night yes && settings put system font_scale 1.15 && wm density reset"}},
+		{"rotation", contract.DeviceSettings{Rotation: new(2)}, []string{"settings put system accelerometer_rotation 0 && settings put system user_rotation 2"}},
+		{"time zone", contract.DeviceSettings{TimeZone: new("Asia/Tokyo")}, []string{"settings put global auto_time_zone 0 && cmd alarm set-timezone Asia/Tokyo"}},
+		{"time offset", contract.DeviceSettings{TimeOffset: new(int64(-5000))}, []string{"settings put global auto_time 0 && cmd alarm set-time 1759999995000"}},
+		{"auto time", contract.DeviceSettings{AutoTime: new(true)}, []string{"settings put global auto_time 1 && cmd alarm set-time 1760000000000"}},
+		{"full network", contract.DeviceSettings{NetworkProfile: new(contract.NetworkFull)}, nil},
+		{"geo", contract.DeviceSettings{Geo: &contract.GeoPoint{Latitude: 52.2297, Longitude: 21.0122}}, []string{"appops set 2000 android:mock_location allow\n" +
+			"cmd location providers add-test-provider gps >/dev/null 2>&1\ncmd location providers set-test-provider-enabled gps true\ncmd location providers set-test-provider-location gps --location 52.2297,21.0122\n" +
+			"cmd location providers add-test-provider network >/dev/null 2>&1\ncmd location providers set-test-provider-enabled network true\ncmd location providers set-test-provider-location network --location 52.2297,21.0122"}},
+		{"reset geo", contract.DeviceSettings{ResetGeo: true}, []string{"cmd location providers remove-test-provider gps >/dev/null 2>&1; cmd location providers remove-test-provider network >/dev/null 2>&1; true"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dev := &scriptedDevice{clock: "1760000000"}
@@ -135,9 +127,6 @@ func TestControlsUpdate(t *testing.T) {
 			}
 			if strings.Join(dev.cmds, "\n") != strings.Join(tc.cmds, "\n") {
 				t.Errorf("shell\n got %q\nwant %q", dev.cmds, tc.cmds)
-			}
-			if strings.Join(dev.consol, "\n") != strings.Join(tc.console, "\n") {
-				t.Errorf("console\n got %q\nwant %q", dev.consol, tc.console)
 			}
 		})
 	}

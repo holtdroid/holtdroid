@@ -7,12 +7,18 @@ sidebar:
 
 ## What you are running
 
-- **Privileged session Pods.** The emulator needs `/dev/kvm` and the VPN
-  sidecar needs `NET_ADMIN` and a TUN device. Treat nodes that host
-  sessions as dedicated: use `nodeSelector`/`tolerations`, and run Holtdroid in
-  its own namespace.
+- **Privileged session Pods on the node's kernel.** Android runs in a
+  privileged redroid container on the node's own kernel, and the VPN
+  sidecar needs `NET_ADMIN` and a TUN device. Root inside a session is root
+  on the node: the agent's adbd runs as root, and so does the ADB shell users
+  get in the browser and over SSH. From there a user can signal the node's
+  processes, change its sysctls and reach its devices. Dedicate nodes to
+  sessions (`nodeSelector`/`tolerations`), run Holtdroid in its own
+  namespace, and let only people you trust with those nodes open sessions
+  (`allowedGroups`), or turn the ADB tools off (`adb.browser: false`, no
+  SSH gateway).
 - **Untrusted code.** APKs are third-party binaries running in a rooted
-  Android. They are contained by the emulator, but their network traffic is
+  Android. Apps don't get root themselves, but their network traffic is
   real: without a VPN (or on the `direct` location) it leaves from your
   nodes' network. Keep `vpn.bypassCIDRs` minimal, set `vpn.direct: false` if
   devices must never egress directly, and consider a NetworkPolicy that
@@ -22,8 +28,8 @@ sidebar:
   inside the cluster. Only session Pods should reach it; see
   [Shared VPN gateway](/holtdroid/operations/vpn-gateway/).
 - **The SSH gateway** (optional) lets a user's connected computers reach
-  their own devices' ADB, which on emulators is a root shell without an
-  authorization prompt, and publish ports on their loopback. It never runs
+  their own devices' ADB, which on redroid is a root shell on the node's
+  kernel without an authorization prompt, and publish ports on their loopback. It never runs
   commands or forwards anywhere else, and accepts only short-lived
   certificates the api signs with `sshGateway.caKey`. Anyone who runs a
   user's connect command within its 10 minutes enrolls a computer as that
@@ -58,7 +64,7 @@ sidebar:
   ingress.
 - Session agents accept connections only from the api, and on their tunnel
   port only from the SSH gateway (NetworkPolicy).
-- Every service except the session's emulator container runs as non-root
+- Every service except the session's `android` and `agent` containers runs as non-root
   with a read-only root filesystem.
 - Secrets are only referenced in config and resolved in memory; they are
   never logged.

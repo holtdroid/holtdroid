@@ -1,6 +1,6 @@
-# Session image: Android emulator (headless), system image, frida-server,
-# scrcpy-server and the agent built with Frida. linux/amd64 only (KVM, x86_64 system image).
-# Only API 30 and 34+ x86_64 images translate ARM (decision #25).
+# Session image: the agent built with Frida, adb, frida-server and
+# scrcpy-server. Android itself runs from holtdroid-redroid in the same Pod
+# (decision #82). linux/amd64 only, like redroid.
 
 ARG GO_IMAGE=docker.io/library/golang:1.27.2-bookworm@sha256:5cf287a799e6b94384bad13d16b14904c531f51ba65792237e122ce42b392f61
 ARG BUN_IMAGE=docker.io/oven/bun:1.4.3@sha256:ec06c3b6cea04192ae6770c434f668ca41d343ad19fa6472216c7b48be39c598
@@ -9,30 +9,18 @@ ARG UBUNTU_IMAGE=docker.io/library/ubuntu:24.04@sha256:68ee22004a9109b44973313b0
 ARG JDK_IMAGE=docker.io/library/eclipse-temurin:21-jdk-noble@sha256:107215954359f1ab0be058a247d7c64ed6e69c71c1682d471d38ef751ec8e964
 
 FROM --platform=$BUILDPLATFORM ${GO_IMAGE} AS sdk
-ARG FRIDA_VERSION
-ARG EMULATOR_ZIP=emulator-linux_x64-16428233.zip
-ARG EMULATOR_SHA1=cd7362ea55dfb86a418958138dc396e74165dd01
 ARG PLATFORM_TOOLS_ZIP=platform-tools_r37.0.1-linux.zip
 ARG PLATFORM_TOOLS_SHA1=477254aa5f903c15cf51001717bdf347fb6b53e0
-ARG SYSTEM_IMAGE_ZIP=x86_64-35_r09.zip
-ARG SYSTEM_IMAGE_SHA1=0103e6dab21290c4b9d16550a3ce99476f884eef
-RUN apt-get update && apt-get install -y --no-install-recommends unzip xz-utils && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends unzip && rm -rf /var/lib/apt/lists/*
 WORKDIR /dl
 RUN set -eux; \
-    repo=https://dl.google.com/android/repository; \
-    curl -fsSLo emulator.zip "$repo/$EMULATOR_ZIP"; \
-    curl -fsSLo platform-tools.zip "$repo/$PLATFORM_TOOLS_ZIP"; \
-    curl -fsSLo system-image.zip "$repo/sys-img/google_apis/$SYSTEM_IMAGE_ZIP"; \
-    printf '%s  %s\n' "$EMULATOR_SHA1" emulator.zip "$PLATFORM_TOOLS_SHA1" platform-tools.zip "$SYSTEM_IMAGE_SHA1" system-image.zip | sha1sum -c -; \
-    sdk=/out/opt/android-sdk; \
-    mkdir -p "$sdk/system-images/android-35/google_apis" "$sdk/platforms"; \
-    unzip -q emulator.zip -d "$sdk"; \
-    unzip -q platform-tools.zip -d "$sdk"; \
-    unzip -q system-image.zip -d "$sdk/system-images/android-35/google_apis"; \
-    rm -f *.zip
+    curl -fsSLo platform-tools.zip "https://dl.google.com/android/repository/$PLATFORM_TOOLS_ZIP"; \
+    echo "$PLATFORM_TOOLS_SHA1  platform-tools.zip" | sha1sum -c -; \
+    mkdir -p /out/opt/android-sdk; \
+    unzip -q platform-tools.zip -d /out/opt/android-sdk; \
+    rm platform-tools.zip
 
-# Small device-side tools get their own layer so bumping them doesn't change
-# the multi-GB SDK layer.
+# Device-side tools get their own layer.
 FROM --platform=$BUILDPLATFORM ${GO_IMAGE} AS tools
 ARG FRIDA_VERSION
 ARG FRIDA_SERVER_SHA256=400cb5b3b08cb897472692636179e44edbc78f9b481651371c8ff8b552a2210e
@@ -116,48 +104,12 @@ RUN mkdir -p web/dist && touch web/dist/.keep && \
 COPY --from=script /opt/holtdroid/script /script
 RUN holtdroid agent compile-scripts /script && mkdir /out && cp /script/agent.js /script/system.js /out/
 
-# VirtualGL renders the emulator's GLX on the node's GPU through EGL, with
-# Xvfb as the X display (decision #41). The patch fixes the EGL back end's
-# glXGetFBConfigAttrib for the max pbuffer attributes, without which the
-# emulator finds no usable config.
-FROM ${UBUNTU_IMAGE} AS virtualgl
-ARG VIRTUALGL_VERSION=3.1.5
-ARG VIRTUALGL_SHA256=e7fb0f4266219d614de89530c7eea686dd9362897000ed0e541891ea817f2072
-RUN apt-get update && apt-get install -y --no-install-recommends \
-      ca-certificates cmake curl g++ make libegl-dev libglu1-mesa-dev libturbojpeg0-dev libx11-dev libx11-xcb-dev \
-      libxcb-glx0-dev libxcb-keysyms1-dev libxext-dev libxtst-dev patch \
-    && rm -rf /var/lib/apt/lists/*
-WORKDIR /src
-COPY images/session/virtualgl-egl-pbuffer-attrib.patch /tmp/
-RUN set -eux; \
-    curl -fsSLo vgl.tar.gz "https://github.com/VirtualGL/virtualgl/archive/refs/tags/$VIRTUALGL_VERSION.tar.gz"; \
-    echo "$VIRTUALGL_SHA256  vgl.tar.gz" | sha256sum -c -; \
-    tar -xzf vgl.tar.gz --strip-components=1; \
-    patch -p1 < /tmp/virtualgl-egl-pbuffer-attrib.patch; \
-    cmake -B build -DCMAKE_INSTALL_PREFIX=/opt/VirtualGL -DCMAKE_INSTALL_LIBDIR=/usr/lib/x86_64-linux-gnu \
-      -DVGL_FAKEOPENCL=OFF -DVGL_USEXV=OFF; \
-    make -C build -j"$(nproc)"; \
-    make -C build install DESTDIR=/out; \
-    rm -rf /out/opt/VirtualGL/doc /out/opt/VirtualGL/include
-
 FROM ${UBUNTU_IMAGE}
-RUN apt-get update && apt-get install -y --no-install-recommends \
-      ca-certificates \
-      libasound2t64 libbsd0 libdbus-1-3 libdrm2 libegl1 libfontconfig1 libgbm1 libgl1 libnspr4 libnss3 libpulse0 \
-      libx11-xcb1 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 \
-      libxcb-shape0 libxcb-xfixes0 libxcb-xinerama0 libxcb-xkb1 libxcomposite1 libxcursor1 libxdamage1 libxi6 \
-      libxkbcommon-x11-0 libxkbcommon0 libxkbfile1 libxrandr2 libxtst6 \
-      libegl-mesa0 libgl1-mesa-dri libglx-mesa0 libturbojpeg libxcb-glx0 mesa-vulkan-drivers xvfb \
-    && rm -rf /var/lib/apt/lists/*
-ENV ANDROID_HOME=/opt/android-sdk \
-    ANDROID_SDK_ROOT=/opt/android-sdk \
-    ANDROID_AVD_HOME=/root/.android/avd \
-    PATH=/opt/android-sdk/emulator:/opt/android-sdk/platform-tools:$PATH
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
+ENV PATH=/opt/android-sdk/platform-tools:$PATH
 COPY --from=sdk /out/ /
 COPY --from=tools /out/ /
 COPY --from=dex /out/ /
-COPY --from=virtualgl /out/ /
-COPY images/session/avd /root/.android/avd
 COPY --from=bundle /out/ /opt/holtdroid/script/
 COPY --from=go /out/holtdroid /usr/local/bin/holtdroid
 EXPOSE 8080

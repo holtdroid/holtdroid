@@ -3,6 +3,7 @@
 {{- $name := include "holtdroid.fullname" . -}}
 {{- $component := "provider-emulator" -}}
 {{- $sessionImage := printf "%s:%s" $e.session.image.repository ($e.session.image.tag | default (include "holtdroid.tag" .)) -}}
+{{- $redroidImage := printf "%s:%s" $e.redroid.image.repository $e.redroid.image.tag -}}
 {{- $selector := list -}}
 {{- range $k, $v := $e.nodeSelector }}
 {{- $selector = append $selector (printf "%s=%s" $k $v) -}}
@@ -15,14 +16,23 @@
   "listen" ":8080"
   "namespace" .Release.Namespace
   "slots" $e.slots
+  "slotsPerNode" $e.slotsPerNode
   "nodeSelector" (join "," $selector)
   "tolerations" $e.tolerations
   "image" $sessionImage
   "imagePullPolicy" $e.session.image.pullPolicy
   "imagePullSecrets" $pullSecrets
-  "resources" $e.session.resources
+  "agentResources" $e.session.resources
+  "resources" $e.redroid.resources
+  "redroid" (dict
+    "image" $redroidImage
+    "width" $e.redroid.width
+    "height" $e.redroid.height
+    "dpi" $e.redroid.dpi
+    "fps" $e.redroid.fps
+    "gpu" $e.redroid.gpu
+    "dataSize" $e.redroid.dataSize)
   "nodes" $e.nodes
-  "gpu" $e.session.gpu
 -}}
 {{- $_ := set $cfg "telemetry" (include "holtdroid.telemetry" . | fromYaml) -}}
 {{- $_ := set $cfg "sessionTelemetry" (dict
@@ -264,6 +274,13 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           resources:
             {{- toYaml $e.prepull.resources | nindent 12 }}
+          volumeMounts:
+            - { name: redroid, mountPath: /redroid, readOnly: true }
+      volumes:
+        - name: redroid
+          image:
+            reference: {{ $redroidImage }}
+            pullPolicy: {{ $e.session.image.pullPolicy }}
 {{- end }}
 {{- if $e.nodeInfo.enabled }}
 ---

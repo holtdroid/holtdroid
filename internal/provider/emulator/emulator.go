@@ -1,6 +1,6 @@
-// Package emulator is the device provider that runs every session as an
-// Android emulator Pod on a KVM-capable Kubernetes node. Session state lives
-// in the Pod's labels and annotations.
+// Package emulator is the device provider that runs every session as a Pod
+// with a redroid container (Android on the node's kernel) and the agent, a
+// few to a node. Session state lives in the Pod's labels and annotations.
 package emulator
 
 import (
@@ -13,6 +13,7 @@ import (
 	"log/slog"
 	"net/http"
 	"slices"
+	"strconv"
 	"sync"
 	"time"
 
@@ -33,20 +34,23 @@ import (
 )
 
 type Config struct {
-	Listen           string
-	Kubeconfig       string
-	Namespace        string
-	Slots            int
-	NodeSelector     string
-	Tolerations      []Toleration
+	Listen       string
+	Kubeconfig   string
+	Namespace    string
+	Slots        int
+	SlotsPerNode int
+	NodeSelector string
+	Tolerations  []Toleration
+	// Image is the session image with the agent; Android runs from Redroid.
 	Image            string
 	ImagePullPolicy  string
 	ImagePullSecrets []string
 	AgentPort        int
 	TunnelPort       int
+	Redroid          Redroid
 	Resources        Resources
+	AgentResources   Resources
 	Nodes            map[string]Node
-	GPU              string
 	VPN              vpn.Config
 	Prepull          Prepull
 	SessionTelemetry SessionTelemetry
@@ -76,9 +80,21 @@ type Toleration struct {
 
 // Node overrides the session settings on one node, by name.
 type Node struct {
-	Cores     int
-	RAM       int
+	Slots     int
 	Resources Resources
+}
+
+// Redroid is the Android container: its image and boot settings. The screen
+// size is fixed at boot; GPU is the node's DRI render node.
+type Redroid struct {
+	Image    string
+	Width    int
+	Height   int
+	DPI      int
+	FPS      int
+	GPU      string
+	DataSize string
+	Args     []string
 }
 
 type Resources struct {
@@ -90,16 +106,28 @@ func DefaultConfig() Config {
 	return Config{
 		Listen:          ":8080",
 		Namespace:       "holtdroid",
-		Slots:           4,
+		SlotsPerNode:    1,
 		Image:           "ghcr.io/holtdroid/holtdroid-session:main",
 		ImagePullPolicy: string(corev1.PullIfNotPresent),
 		AgentPort:       8080,
 		TunnelPort:      8081,
-		Resources: Resources{
-			Requests: map[string]string{"cpu": "3", "memory": "5Gi"},
-			Limits:   map[string]string{"memory": "7Gi"},
+		Redroid: Redroid{
+			Image:    "ghcr.io/holtdroid/holtdroid-redroid:main",
+			Width:    720,
+			Height:   1600,
+			DPI:      320,
+			FPS:      60,
+			GPU:      "/dev/dri/renderD128",
+			DataSize: "8Gi",
 		},
-		GPU:         "host",
+		Resources: Resources{
+			Requests: map[string]string{"cpu": "1", "memory": "1536Mi"},
+			Limits:   map[string]string{"memory": "3Gi"},
+		},
+		AgentResources: Resources{
+			Requests: map[string]string{"cpu": "100m", "memory": "256Mi"},
+			Limits:   map[string]string{"memory": "1Gi"},
+		},
 		VPN:         vpn.DefaultConfig(),
 		Prepull:     Prepull{Refresh: true, Interval: 5 * time.Minute},
 		Maintenance: "holtdroid-emulator-maintenance",
@@ -112,11 +140,19 @@ func (c Config) Validate() error {
 	if c.Namespace == "" {
 		errs = append(errs, errors.New("namespace is required"))
 	}
-	if c.Image == "" {
-		errs = append(errs, errors.New("image is required"))
+	if c.Image == "" || c.Redroid.Image == "" {
+		errs = append(errs, errors.New("image and redroid.image are required"))
 	}
-	if c.Slots < 0 {
-		errs = append(errs, errors.New("slots must not be negative"))
+	if c.Slots < 0 || c.SlotsPerNode < 0 {
+		errs = append(errs, errors.New("slots and slotsPerNode must not be negative"))
+	}
+	if r := c.Redroid; r.Width <= 0 || r.Height <= 0 || r.DPI <= 0 || r.FPS <= 0 {
+		errs = append(errs, errors.New("redroid: width, height, dpi and fps must be positive"))
+	}
+	if c.Redroid.DataSize != "" {
+		if _, err := resource.ParseQuantity(c.Redroid.DataSize); err != nil {
+			errs = append(errs, fmt.Errorf("redroid.dataSize: %w", err))
+		}
 	}
 	if c.AgentPort <= 0 || c.AgentPort > 65535 {
 		errs = append(errs, fmt.Errorf("agentPort %d is not a port", c.AgentPort))
@@ -126,9 +162,6 @@ func (c Config) Validate() error {
 	}
 	if p := c.SessionTelemetry.MetricsPort; p < 0 || p > 65535 || (p != 0 && (p == c.AgentPort || p == c.TunnelPort)) {
 		errs = append(errs, fmt.Errorf("sessionTelemetry.metricsPort %d is not a free port", p))
-	}
-	if c.GPU != "host" && c.GPU != "software" {
-		errs = append(errs, fmt.Errorf("gpu %q must be host or software", c.GPU))
 	}
 	switch corev1.PullPolicy(c.ImagePullPolicy) {
 	case corev1.PullAlways, corev1.PullIfNotPresent, corev1.PullNever:
@@ -147,9 +180,12 @@ func (c Config) Validate() error {
 	if _, err := c.Resources.requirements(); err != nil {
 		errs = append(errs, err)
 	}
+	if _, err := c.AgentResources.requirements(); err != nil {
+		errs = append(errs, fmt.Errorf("agentResources: %w", err))
+	}
 	for name, n := range c.Nodes {
-		if n.Cores < 0 || n.RAM < 0 {
-			errs = append(errs, fmt.Errorf("nodes.%s: cores and ram must not be negative", name))
+		if n.Slots < 0 {
+			errs = append(errs, fmt.Errorf("nodes.%s: slots must not be negative", name))
 		}
 		if _, err := n.Resources.requirements(); err != nil {
 			errs = append(errs, fmt.Errorf("nodes.%s: %w", name, err))
@@ -210,6 +246,7 @@ type Provider struct {
 	secrets   vpn.Secrets
 	now       func() time.Time
 	resources corev1.ResourceRequirements
+	agentRes  corev1.ResourceRequirements
 	nodeRes   map[string]corev1.ResourceRequirements
 	selector  labels.Selector
 	nodeInfo  labels.Selector
@@ -229,6 +266,7 @@ func New(cfg Config, kube kubernetes.Interface, sec vpn.Secrets, opts ...Option)
 		return nil, err
 	}
 	res, _ := cfg.Resources.requirements()
+	agentRes, _ := cfg.AgentResources.requirements()
 	nodeRes := map[string]corev1.ResourceRequirements{}
 	for name, n := range cfg.Nodes {
 		if len(n.Resources.Requests)+len(n.Resources.Limits) > 0 {
@@ -237,7 +275,7 @@ func New(cfg Config, kube kubernetes.Interface, sec vpn.Secrets, opts ...Option)
 	}
 	sel, _ := labels.Parse(cfg.NodeSelector)
 	nodeInfo, _ := labels.Parse(cfg.NodeInfo.Selector)
-	p := &Provider{cfg: cfg, kube: kube, secrets: sec, now: time.Now, resources: res, nodeRes: nodeRes, selector: sel, nodeInfo: nodeInfo, agents: &http.Client{Timeout: 2 * time.Second}, registry: newRegistry(), log: slog.Default()}
+	p := &Provider{cfg: cfg, kube: kube, secrets: sec, now: time.Now, resources: res, agentRes: agentRes, nodeRes: nodeRes, selector: sel, nodeInfo: nodeInfo, agents: &http.Client{Timeout: 2 * time.Second}, registry: newRegistry(), log: slog.Default()}
 	for _, opt := range opts {
 		opt(p)
 	}
@@ -263,7 +301,8 @@ func (p *Provider) Capacity(ctx context.Context) (contract.Capacity, error) {
 
 type snapshot struct {
 	contract.Capacity
-	pods  []corev1.Pod
+	pods []corev1.Pod
+	// nodes holds the node of each slot, in the order of Slots.
 	nodes []corev1.Node
 }
 
@@ -286,23 +325,37 @@ func (p *Provider) capacity(ctx context.Context) (snapshot, error) {
 	}
 	eligible := slices.DeleteFunc(nodes.Items, func(n corev1.Node) bool { return !p.tolerates(n) })
 	slices.SortFunc(eligible, func(a, b corev1.Node) int { return cmp.Compare(a.Name, b.Name) })
-	if p.cfg.Slots > 0 && len(eligible) > p.cfg.Slots {
-		eligible = eligible[:p.cfg.Slots]
-	}
 	c := contract.Capacity{Slots: []contract.Slot{}}
+	var slotNodes []corev1.Node
 	for _, n := range eligible {
-		state := contract.SlotFree
-		switch {
-		case busy[n.Name]:
-			state = contract.SlotBusy
-		case n.Spec.Unschedulable || !nodeReady(n):
-			state = contract.SlotOffline
+		for i := range p.slotsOn(n.Name) {
+			if p.cfg.Slots > 0 && len(c.Slots) == p.cfg.Slots {
+				break
+			}
+			id := slotID(n.Name, i+1)
+			state := contract.SlotFree
+			switch {
+			case busy[id]:
+				state = contract.SlotBusy
+			case n.Spec.Unschedulable || !nodeReady(n):
+				state = contract.SlotOffline
+			}
+			c.Slots = append(c.Slots, contract.Slot{ID: id, Label: id, State: state})
+			slotNodes = append(slotNodes, n)
 		}
-		c.Slots = append(c.Slots, contract.Slot{ID: n.Name, Label: n.Name, State: state})
 	}
 	held.Apply(&c)
-	return snapshot{c, pods, eligible}, nil
+	return snapshot{c, pods, slotNodes}, nil
 }
+
+func (p *Provider) slotsOn(node string) int {
+	if n := p.cfg.Nodes[node].Slots; n > 0 {
+		return n
+	}
+	return p.cfg.SlotsPerNode
+}
+
+func slotID(node string, i int) string { return node + "-" + strconv.Itoa(i) }
 
 func (p *Provider) tolerates(n corev1.Node) bool {
 	tolerations := p.tolerations()
@@ -376,7 +429,7 @@ func (p *Provider) Create(ctx context.Context, req contract.CreateSession) (cont
 		return contract.Session{}, err
 	}
 
-	pod := p.renderPod(randomID(), c.Slots[i].ID, req, location, p.now())
+	pod := p.renderPod(randomID(), c.Slots[i].ID, c.nodes[i].Name, req, location, p.now())
 	created, err := p.kube.CoreV1().Pods(p.cfg.Namespace).Create(ctx, pod, metav1.CreateOptions{})
 	if err != nil {
 		return contract.Session{}, fmt.Errorf("create session pod: %w", err)

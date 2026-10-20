@@ -18,20 +18,20 @@ import (
 )
 
 // Frida spawns apps through frida-server on the device with the bundles in
-// dir: agent.js for the app, system.js for system_server (CompileScripts).
+// Dir: agent.js for the app, system.js for system_server (CompileScripts).
 type Frida struct {
-	serial string
-	dir    string
-	log    *slog.Logger
+	FridaConfig
+	log *slog.Logger
 
-	mu     sync.Mutex
-	dev    *frida.Device
-	bundle string
-	system string
+	mu      sync.Mutex
+	dev     *frida.Device
+	bundle  string
+	system  string
+	tracked map[int]bool
 }
 
-func NewFrida(serial, dir string, log *slog.Logger) (Instrumenter, error) {
-	return &Frida{serial: serial, dir: dir, log: log}, nil
+func NewFrida(cfg FridaConfig, log *slog.Logger) (Instrumenter, error) {
+	return &Frida{FridaConfig: cfg, log: log, tracked: map[int]bool{}}, nil
 }
 
 func (f *Frida) prepare() error {
@@ -40,17 +40,27 @@ func (f *Frida) prepare() error {
 	if f.dev != nil {
 		return nil
 	}
-	bundle, err := os.ReadFile(filepath.Join(f.dir, "agent.js"))
+	bundle, err := os.ReadFile(filepath.Join(f.Dir, "agent.js"))
 	if err != nil {
 		return fmt.Errorf("frida script: %w", err)
 	}
-	system, err := os.ReadFile(filepath.Join(f.dir, "system.js"))
+	system, err := os.ReadFile(filepath.Join(f.Dir, "system.js"))
 	if err != nil {
 		return fmt.Errorf("frida system script: %w", err)
 	}
-	dev, err := frida.DeviceByID(f.serial)
-	if err != nil {
-		return fmt.Errorf("frida device %s: %w", f.serial, err)
+	var dev *frida.Device
+	if f.Host != "" {
+		d, err := frida.NewDeviceManager().AddRemoteDevice(f.Host, frida.NewRemoteDeviceOptions())
+		if err != nil {
+			return fmt.Errorf("frida-server at %s: %w", f.Host, err)
+		}
+		dev = d.(*frida.Device)
+	} else {
+		d, err := frida.DeviceByID(f.Serial)
+		if err != nil {
+			return fmt.Errorf("frida device %s: %w", f.Serial, err)
+		}
+		dev = d
 	}
 	f.dev, f.bundle, f.system = dev, string(bundle), string(system)
 	return nil
@@ -77,7 +87,7 @@ func (f *Frida) withDevice(op func(dev *frida.Device) error) error {
 	if !deviceGone(err) {
 		return err
 	}
-	f.log.Warn("frida device gone, re-resolving", "serial", f.serial, "err", err)
+	f.log.Warn("frida device gone, re-resolving", "serial", f.Serial, "err", err)
 	f.mu.Lock()
 	if f.dev == dev {
 		f.dev = nil
@@ -149,15 +159,17 @@ func (f *Frida) Spawn(_ context.Context, pkg string) (App, error) {
 		if err != nil {
 			return fmt.Errorf("spawn: %w", err)
 		}
-		app, err = f.instrument(pid)
+		app, err = f.instrument(pid, true)
 		return err
 	})
 	return app, err
 }
 
-// Watch gates every process the device starts, instruments the app's main
-// process and resumes all others straight away.
+// Watch instruments the app whenever the device starts it by itself.
 func (f *Frida) Watch(ctx context.Context, pkg string, launched func(App)) error {
+	if !f.Gating {
+		return f.poll(ctx, pkg, launched)
+	}
 	return f.withDevice(func(dev *frida.Device) error {
 		dev.On("spawn_added", func(spawn *frida.Spawn) {
 			pid, id := spawn.PID(), spawn.Identifier()
@@ -168,7 +180,7 @@ func (f *Frida) Watch(ctx context.Context, pkg string, launched func(App)) error
 					}
 					return
 				}
-				app, err := f.instrument(pid)
+				app, err := f.instrument(pid, true)
 				if err != nil {
 					f.log.Warn("instrument app started on the device", "pid", pid, "err", err)
 					_ = dev.Resume(pid)
@@ -188,9 +200,58 @@ func (f *Frida) Watch(ctx context.Context, pkg string, launched func(App)) error
 	})
 }
 
-// instrument loads the script into a suspended process and resumes it.
-func (f *Frida) instrument(pid int) (App, error) {
+// poll attaches to the app's main process whenever one appears that wasn't
+// instrumented yet, a second or so after it starts.
+func (f *Frida) poll(ctx context.Context, pkg string, launched func(App)) error {
+	if err := f.prepare(); err != nil {
+		return err
+	}
+	go func() {
+		t := time.NewTicker(time.Second)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+			}
+			f.mu.Lock()
+			dev := f.dev
+			f.mu.Unlock()
+			if dev == nil {
+				continue
+			}
+			procs, err := dev.EnumerateProcesses(frida.ScopeMinimal)
+			if err != nil {
+				continue
+			}
+			for _, p := range procs {
+				pid := p.PID()
+				f.mu.Lock()
+				seen := f.tracked[pid]
+				f.mu.Unlock()
+				if p.Name() != pkg || seen {
+					continue
+				}
+				app, err := f.instrument(pid, false)
+				if err != nil {
+					f.log.Warn("instrument app started on the device", "pid", pid, "err", err)
+					continue
+				}
+				launched(app)
+			}
+		}
+	}()
+	return nil
+}
+
+// instrument loads the script into the process and resumes it when it was
+// spawned suspended.
+func (f *Frida) instrument(pid int, suspended bool) (App, error) {
+	f.mu.Lock()
 	dev, bundle := f.dev, f.bundle
+	f.tracked[pid] = true
+	f.mu.Unlock()
 	app := &fridaApp{dev: dev, pid: pid, done: make(chan struct{})}
 	sess, err := dev.Attach(pid, nil)
 	if err != nil {
@@ -225,9 +286,11 @@ func (f *Frida) instrument(pid int) (App, error) {
 		_ = dev.Kill(pid)
 		return nil, fmt.Errorf("load script: %w", err)
 	}
-	if err := dev.Resume(pid); err != nil {
-		_ = dev.Kill(pid)
-		return nil, fmt.Errorf("resume: %w", err)
+	if suspended {
+		if err := dev.Resume(pid); err != nil {
+			_ = dev.Kill(pid)
+			return nil, fmt.Errorf("resume: %w", err)
+		}
 	}
 	app.script = script
 	return app, nil

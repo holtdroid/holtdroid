@@ -100,8 +100,8 @@ func (s snapshot) slot(id string) (contract.Slot, bool) {
 	return contract.Slot{}, false
 }
 
-// Inventory describes every session node from its Node object and, where a
-// node-info Pod runs on it, from the node itself: CPU, load and sensors.
+// Inventory describes every slot by its node's Node object and, where a
+// node-info Pod runs on it, by the node itself: CPU, load and sensors.
 func (p *Provider) Inventory(ctx context.Context) (contract.Inventory, error) {
 	c, err := p.capacity(ctx)
 	if err != nil {
@@ -119,7 +119,7 @@ func (p *Provider) Inventory(ctx context.Context) (contract.Inventory, error) {
 		d.Slot, d.Session = slot, sessions[slot.ID]
 		host := nodeHost(c.nodes[i])
 		d.Host = &host
-		switch url, ok := urls[slot.ID]; {
+		switch url, ok := urls[c.nodes[i].Name]; {
 		case p.cfg.NodeInfo.Selector == "":
 		case urlErr != nil:
 			d.Error = urlErr.Error()

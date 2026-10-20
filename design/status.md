@@ -4,15 +4,20 @@ Snapshot for whoever continues the work — human or agent. Update the
 "Where things stand" and "Next steps" sections whenever a phase moves; the
 rest changes rarely.
 
-_Last updated: 2026-10-19._
+_Last updated: 2026-10-20._
 
 ## Where things stand
 
 **Works today** (deployed at https://android.homelab.example, see "Maintainer's
 deployment"):
 
-- Real emulator sessions end to end on the maintainer's cluster
-  (`provider-emulator`, decisions #25, #26): ARM-only APKs under Frida,
+- Sessions run redroid instead of the Android emulator (decision #82,
+  Phase 8): `provider-emulator` starts Pods with an `android` container from
+  `ghcr.io/holtdroid/holtdroid-redroid` next to the agent and the VPN
+  sidecar, `slotsPerNode` per node. Verified in a scratch namespace on a
+  k3s node; the live end-to-end check is the next step. Before that, the
+  emulator ran end to end on the maintainer's cluster
+  (decisions #25, #26): ARM-only APKs under Frida,
   DevTools on the app's WebView, location switching through the shared VPN
   gateway, Slack, S3 and GitHub syncs filling sources. Sessions use
   `holtdroid-session:main` (`pullPolicy: Always`) so a push doesn't leave
@@ -64,7 +69,7 @@ deployment"):
   from Conventional Commits, Renovate for dependencies. Docs under Tools.
 - A metrics bar at the bottom of the session page (decision #40): device,
   app (fps, jank, CPU/PSS per process), network, storage, temperatures,
-  the emulator container's CPU/memory/throttling and the stream.
+  the session Pod's CPU/memory/throttling and the stream.
 - Audit log and telemetry (Phase 4.9, decision #44): audit events (schema 1)
   from the api and the ssh-gateway as JSON lines on stdout, optionally OTLP
   logs and a batched webhook; `session_events` fed from the same call;
@@ -158,16 +163,20 @@ deployment"):
 
 ## Next steps, in order
 
-1. Phones: try the ADB proxy over SSH on the real phone, a check after the
+1. Redroid (Phase 8): verify a live session end to end, then keep a
+   session's root inside it (user namespaces instead of privileged; until
+   then root in a session is root on the node), network speed profiles with
+   `tc netem`, and the wallpaper.
+2. Phones: try the ADB proxy over SSH on the real phone, a check after the
    cleanup, then the layer-3 root hardening.
-2. The conformance suite (`internal/contract/conformance`) for Provider and
+3. The conformance suite (`internal/contract/conformance`) for Provider and
    Agent — the last open item of Phases 1 and 3.
-3. Planned, each starting with a decisions.md entry: Phase 4.7 traffic
+4. Planned, each starting with a decisions.md entry: Phase 4.7 traffic
    inspection proxy, Phase 4.8 MCP server. Both optional and off by
    default; each adds its own audit events and metrics (decision #44).
-4. The rest of Phase 4.11 (decision #64): the SYN-driven automatic port mode,
+5. The rest of Phase 4.11 (decision #64): the SYN-driven automatic port mode,
    Windows, and revocation once the database persists.
-5. Whatever more use of real sessions turns up (Phase 6).
+6. Whatever more use of real sessions turns up (Phase 6).
 
 ## Requirements from the maintainer
 
@@ -187,7 +196,8 @@ Collected from the design conversation; each is reflected in the docs listed.
 - One page per session with **clipboard sync**, **DevTools target
   switching**, **VPN location switching**. (architecture.md)
 - Home page with **active sessions, owners and remaining lifetime**; idle
-  sessions are shut down; up to **4 parallel devices**, one per node.
+  sessions are shut down; a bounded number of parallel devices (first 4,
+  one per node; since decision #82 several per node).
   (architecture.md "Session lifecycle")
 - **Extensible**: other artifact sources, physical rooted phones later, Docker
   without Kubernetes later, secrets not tied to OpenBao. (contracts.md,
@@ -223,6 +233,21 @@ Collected from the design conversation; each is reflected in the docs listed.
 - Write almost no code comments; reasons go to `decisions.md`.
 
 ## Gotchas already paid for
+
+- **Redroid shares the node's kernel**: Frida spawn gating there stopped
+  every new process of the node (sshd, runc, probes) until a power cycle,
+  twice on `core` and on `k3s-3`. Never enable spawn gating, and treat
+  anything that runs as root in Android as root on the node. For risky
+  redroid experiments use a k3s node with a watchdog that dumps stacks and
+  reboots through sysrq (see the side-session notes of 2026-10-20), never
+  `core`.
+- **`adb root` races**: right after `adb root` the next `adb shell` may still
+  land on the old non-root adbd, so frida-server started then runs as shell
+  with no capabilities and can't attach. The agent's `Root` waits for
+  `id -u` to be 0.
+- **The node kernel has no legacy iptables**: Android's `iptables` (legacy)
+  finds no tables, so nothing inside redroid can filter the Pod's traffic;
+  policy routing (`ip rule`) works.
 
 - **The agent can't run under Rosetta** on a Mac: Frida needs `eventfd`.
   Use `holtdroid dev` with the fake provider locally.
@@ -272,7 +297,7 @@ in-repo work; ask the maintainer for anything cluster-side.
 | S3 sync | Argo CD Application `homelab.k8s/argocd/holtdroid-s3-sync.yaml` (chart `deploy/helm/holtdroid-sync` from holtdroid/holtdroid-sync `main`, `job: s3`, image `ghcr.io/holtdroid/holtdroid-sync`), copy mode: `s3://wnf-common-preprod/wnf3/crr-17/web-view/builds/` (work AWS, eu-central-1) → `holtdroid/wnf-preprod/` → source `wnf-preprod`. AWS access is the maintainer's IAM Identity Center permission set `VideoFrontend` (account 418337671376, start URL `https://winfinity.awsapps.com/start#/`, SSO region eu-west-1); device-code login, refresh tokens on the job's longhorn PVC. The login link and new-build announcements go to `test-chanel-jonas` through shoutrrr (`notify_url` in `secret/holtdroid-s3-sync`, built from the Slack bot token; plus `s3_access_key`/`s3_secret_key` of IAM user `holtdroid-s3-sync`). First copy: 12 APKs on 2026-10-17 |
 | GitHub sync | Argo CD Application `homelab.k8s/argocd/holtdroid-github-sync.yaml` (chart `deploy/helm/holtdroid-sync` from holtdroid/holtdroid-sync `main`, `job: github`, image `ghcr.io/holtdroid/holtdroid-sync`): the newest 3 releases of `holtdroid/holtdroid-webview` (CanIAndroidWebView dropped on 2026-10-19) → `holtdroid/github/` → source `github`, every 15 minutes, unauthenticated GitHub API. New builds are announced in `test-chanel-jonas` (`notify_url` in `secret/holtdroid-github-sync`, plus `s3_access_key`/`s3_secret_key` of IAM user `holtdroid-github-sync`). First copy: 3 APKs on 2026-10-17 |
 | VPN gateway | The homelab's existing `vpn-gateway` in namespace `downloads` (`homelab.k8s/infrastructure/downloads`, image built from there into zot) is the shared gateway of decision #28. Service `vpn-socks.downloads.svc.cluster.local:1080`; SOCKS users `holtdroid-<cc>` for every NordVPN endpoint of the gateway (`bd`, `kz`, `lv`, `no`, `pl`, `ua`) route to `nord-<cc>`; AirVPN is not offered (its failover moves between NL and LV); one password for all of them in OpenBao `secret/vpn` → `socks_holtdroid_password` (seeded by `openbao-bootstrap.sh`). The provider config needs `vpn.resolver: 10.43.0.10` and `udp_over_tcp: true`. NordVPN account: 6 of 10 connections used by the gateway (ua, pl, kz, no, lv, bd); Finland was tried and dropped: with seven tunnels open one of them (Finland or Bangladesh) kept failing, likely the account limit together with the maintainer's own devices. Bangladesh and Kazakhstan egress IPs are placed elsewhere by ipinfo.io (the agent's default `ipInfoURL`: SG and DE) while ip-api/ipwho.is say BD and KZ; Bangladesh is a Nord virtual location |
-| Nodes for sessions | 4 × x86_64 with `/dev/kvm`: `core` (16 cores, 30 GiB, taint `dedicated=nas:NoSchedule`), `k3s-1..3` (6 cores, 31 GiB each). One session per node |
+| Nodes for sessions | `core` (Ryzen 7 5825U, 16 threads, 30 GiB, Radeon Vega, taint `dedicated=nas:NoSchedule`) with 6 redroid slots. `k3s-1..3` (i5-8500T, 6 cores, 31 GiB, UHD 630) run redroid too but were not given slots |
 | Storage classes | `longhorn`, `local-path`, `nas-hdd` |
 | Ingress / DNS | Traefik; Ingress annotation `external-dns.alpha.kubernetes.io/target: "10.10.4.25"` creates the DNS record |
 | Registries | `ghcr.io/holtdroid/*` (public, from CI); the cluster also has `registry.homelab.example` (zot, needs the `zot-pull-secret` pattern from `homelab.k8s/infrastructure/downloads/secrets.yaml`) |

@@ -75,7 +75,9 @@ adb:
 ```
 
 On emulators ADB is a root shell without an authorization prompt, so anyone
-with the tools can run anything on that device. With `ownerOnly` (the
+with the tools can run anything on that device, and because redroid shares
+the node's kernel, root there reaches the node too (see
+[Security](/holtdroid/operations/security/)). With `ownerOnly` (the
 default) other users get only the screen and DevTools of sessions that aren't
 theirs; set it to `false` to give everyone the tools, or `browser: false` to
 turn them off. Each connection is

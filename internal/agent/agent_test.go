@@ -124,6 +124,7 @@ func newHarnessWith(t *testing.T, boot BootFunc, configure func(*Config)) *harne
 	cfg.Package = "com.example.shop"
 	cfg.IPInfoURL = ""
 	cfg.CacheDir = t.TempDir()
+	cfg.NoWallpaper = false
 	if configure != nil {
 		configure(&cfg)
 	}

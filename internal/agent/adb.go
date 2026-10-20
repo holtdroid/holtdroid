@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -65,15 +66,6 @@ func (a ADB) ExecOut(ctx context.Context, cmd string, w io.Writer) error {
 	return nil
 }
 
-// Emu sends a command to the emulator console.
-func (a ADB) Emu(ctx context.Context, cmd string) (string, error) {
-	out, err := a.run(ctx, append([]string{"emu"}, strings.Fields(cmd)...)...)
-	if err == nil && strings.HasPrefix(strings.TrimSpace(out), "KO") {
-		err = fmt.Errorf("adb emu %s: %s", cmd, strings.TrimSpace(out))
-	}
-	return out, err
-}
-
 func (a ADB) Install(ctx context.Context, apk string) error {
 	_, err := a.run(ctx, "install", "-r", "-d", "-g", apk)
 	return err
@@ -129,10 +121,55 @@ func (a ADB) RemoveReverse(ctx context.Context, port int) error {
 	return err
 }
 
+// Connect asks the adb server to connect to a device on the network
+// (Serial is host:port); devices on USB need nothing.
+func (a ADB) Connect(ctx context.Context) error {
+	if !a.network() {
+		return nil
+	}
+	out, err := exec.CommandContext(ctx, a.Bin, "connect", a.Serial).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("adb connect %s: %w: %s", a.Serial, err, bytes.TrimSpace(out))
+	}
+	if !bytes.Contains(out, []byte("connected to")) {
+		return fmt.Errorf("adb connect %s: %s", a.Serial, bytes.TrimSpace(out))
+	}
+	return nil
+}
+
+func (a ADB) network() bool {
+	_, port, err := net.SplitHostPort(a.Serial)
+	return err == nil && port != ""
+}
+
+// waitDevice waits for the device to show up; a network device is
+// connected again first, since adbd drops the connection when it restarts.
+func (a ADB) waitDevice(ctx context.Context) error {
+	if a.network() {
+		if err := a.Connect(ctx); err != nil {
+			return err
+		}
+		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+		_, err := a.run(ctx, "wait-for-device")
+		return err
+	}
+	_, err := a.run(ctx, "wait-for-device")
+	return err
+}
+
 // WaitBoot blocks until the device reports sys.boot_completed.
 func (a ADB) WaitBoot(ctx context.Context) error {
-	if _, err := a.run(ctx, "wait-for-device"); err != nil {
-		return err
+	for {
+		err := a.waitDevice(ctx)
+		if err == nil {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return errors.Join(ctx.Err(), err)
+		case <-time.After(time.Second):
+		}
 	}
 	for {
 		out, err := a.Shell(ctx, "getprop sys.boot_completed")
@@ -153,7 +190,7 @@ func (a ADB) Root(ctx context.Context) error {
 		return err
 	}
 	for {
-		_, _ = a.run(ctx, "wait-for-device")
+		_ = a.waitDevice(ctx)
 		out, err := a.Shell(ctx, "id -u")
 		if err == nil && strings.TrimSpace(out) == "0" {
 			return nil

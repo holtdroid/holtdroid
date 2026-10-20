@@ -74,7 +74,9 @@ func TestRender(t *testing.T) {
 		{"vpn", func(c *Config) {
 			c.VPN = vpnConfig()
 			c.ImagePullSecrets = []string{"ghcr"}
-			c.GPU = "software"
+			c.Redroid.Width, c.Redroid.Height, c.Redroid.DPI = 1080, 2400, 420
+			c.VPN.Locations[0].Timezone = "Europe/Warsaw"
+			c.VPN.Locations[0].Geo = &vpn.GeoArea{Lat: 52.2297, Lng: 21.0122, Radius: 5000}
 			c.Tolerations = []Toleration{{Key: "dedicated", Operator: "Equal", Value: "nas", Effect: "NoSchedule"}}
 		}, "nl", nil},
 		{"telemetry", func(c *Config) {
@@ -82,8 +84,8 @@ func TestRender(t *testing.T) {
 		}, "", nil},
 		{"node", func(c *Config) {
 			c.Nodes = map[string]Node{
-				"k3s-1": {Cores: 8, RAM: 8192, Resources: Resources{Requests: map[string]string{"cpu": "3", "memory": "10Gi"}, Limits: map[string]string{"memory": "12Gi"}}},
-				"core":  {Cores: 12},
+				"k3s-1": {Slots: 3, Resources: Resources{Requests: map[string]string{"cpu": "2", "memory": "2Gi"}, Limits: map[string]string{"memory": "4Gi"}}},
+				"core":  {Slots: 6},
 			}
 		}, "", nil},
 		{"appdata", func(c *Config) {}, "", &contract.AppDataRestore{URL: "http://holtdroid-api-internal:8081/internal/app-data/x.tar.zst", Cache: true}},
@@ -92,6 +94,7 @@ func TestRender(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := DefaultConfig()
 			cfg.Image = "ghcr.io/holtdroid/holtdroid-session:0123abc"
+			cfg.Redroid.Image = "ghcr.io/holtdroid/holtdroid-redroid:4567def"
 			tt.cfg(&cfg)
 			p, err := New(cfg, fake.NewClientset(), sec)
 			if err != nil {
@@ -99,7 +102,7 @@ func TestRender(t *testing.T) {
 			}
 			r := req
 			r.AppData = tt.appData
-			pod := p.renderPod("0a1b2c3d4e", "k3s-1", r, tt.location, epoch)
+			pod := p.renderPod("0a1b2c3d4e", "k3s-1-2", "k3s-1", r, tt.location, epoch)
 			got, err := yaml.Marshal(pod)
 			if err != nil {
 				t.Fatal(err)
@@ -196,11 +199,16 @@ func TestCapacity(t *testing.T) {
 		edit func(*Config)
 		want map[string]contract.SlotState
 	}{
-		{"selector", nil, map[string]contract.SlotState{"k3s-1": "free", "k3s-2": "free", "k3s-3": "offline"}},
+		{"selector", nil, map[string]contract.SlotState{"k3s-1-1": "free", "k3s-2-1": "free", "k3s-3-1": "offline"}},
 		{"tolerations", func(c *Config) {
 			c.Tolerations = []Toleration{{Key: "dedicated", Operator: "Exists"}}
-		}, map[string]contract.SlotState{"core": "free", "k3s-1": "free", "k3s-2": "free", "k3s-3": "offline"}},
-		{"slots cap", func(c *Config) { c.Slots = 1 }, map[string]contract.SlotState{"k3s-1": "free"}},
+		}, map[string]contract.SlotState{"core-1": "free", "k3s-1-1": "free", "k3s-2-1": "free", "k3s-3-1": "offline"}},
+		{"slots cap", func(c *Config) { c.Slots = 1 }, map[string]contract.SlotState{"k3s-1-1": "free"}},
+		{"slots per node", func(c *Config) {
+			c.SlotsPerNode = 2
+			c.Slots = 5
+			c.Nodes = map[string]Node{"k3s-2": {Slots: 1}}
+		}, map[string]contract.SlotState{"k3s-1-1": "free", "k3s-1-2": "free", "k3s-2-1": "free", "k3s-3-1": "offline", "k3s-3-2": "offline"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -225,12 +233,14 @@ func TestValidate(t *testing.T) {
 		{"namespace", func(c *Config) { c.Namespace = "" }},
 		{"selector", func(c *Config) { c.NodeSelector = "a in (" }},
 		{"resources", func(c *Config) { c.Resources.Limits = map[string]string{"cpu": "lots"} }},
-		{"node cores", func(c *Config) { c.Nodes = map[string]Node{"core": {Cores: -1}} }},
+		{"node slots", func(c *Config) { c.Nodes = map[string]Node{"core": {Slots: -1}} }},
+		{"screen", func(c *Config) { c.Redroid.Width = 0 }},
+		{"data size", func(c *Config) { c.Redroid.DataSize = "lots" }},
+		{"agent resources", func(c *Config) { c.AgentResources.Requests = map[string]string{"cpu": "x"} }},
 		{"node resources", func(c *Config) {
 			c.Nodes = map[string]Node{"core": {Resources: Resources{Requests: map[string]string{"memory": "much"}}}}
 		}},
 		{"pull policy", func(c *Config) { c.ImagePullPolicy = "Sometimes" }},
-		{"gpu", func(c *Config) { c.GPU = "vulkan" }},
 		{"vpn", func(c *Config) {
 			c.VPN.Locations = []vpn.Location{{ID: "direct", Outbound: map[string]any{"type": "direct"}}}
 		}},
@@ -281,7 +291,7 @@ func TestRoundTrip(t *testing.T) {
 	}
 
 	first, err := c.Create(ctx, req)
-	if err != nil || first.Slot != "k3s-1" || first.State != contract.StateProvisioning || first.Location != "direct" || first.AgentURL != "" || !first.CreatedAt.Equal(epoch) {
+	if err != nil || first.Slot != "k3s-1-1" || first.State != contract.StateProvisioning || first.Location != "direct" || first.AgentURL != "" || !first.CreatedAt.Equal(epoch) {
 		t.Fatalf("create %+v, %v", first, err)
 	}
 	secret, err := kube.CoreV1().Secrets("holtdroid").Get(ctx, podName(first.ID), metav1.GetOptions{})
@@ -292,13 +302,13 @@ func TestRoundTrip(t *testing.T) {
 	withPL := req
 	withPL.Location = "pl"
 	second, err := c.Create(ctx, withPL)
-	if err != nil || second.Slot != "k3s-2" || second.Location != "pl" {
+	if err != nil || second.Slot != "k3s-2-1" || second.Location != "pl" {
 		t.Fatalf("second create %+v, %v", second, err)
 	}
 	if _, err := c.Create(ctx, req); !errors.Is(err, contract.ErrNoCapacity) {
 		t.Fatalf("third create: %v", err)
 	}
-	if got := slotStates(t, c); got["k3s-1"] != "busy" || got["k3s-2"] != "busy" || got["k3s-3"] != "offline" {
+	if got := slotStates(t, c); got["k3s-1-1"] != "busy" || got["k3s-2-1"] != "busy" || got["k3s-3-1"] != "offline" {
 		t.Fatalf("capacity %v", got)
 	}
 
@@ -309,13 +319,14 @@ func TestRoundTrip(t *testing.T) {
 	}{
 		{corev1.PodStatus{Phase: corev1.PodPending}, contract.StateProvisioning, ""},
 		{corev1.PodStatus{Phase: corev1.PodRunning, PodIP: "10.42.1.7", ContainerStatuses: []corev1.ContainerStatus{
-			{Name: "emulator", State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}}},
+			{Name: "agent", State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}}},
 		}}, contract.StateBooting, "http://10.42.1.7:8080"},
 		{corev1.PodStatus{Phase: corev1.PodRunning, PodIP: "10.42.1.7", ContainerStatuses: []corev1.ContainerStatus{
-			{Name: "emulator", Ready: true, State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}}},
+			{Name: "agent", Ready: true, State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}}},
 		}}, contract.StateReady, "http://10.42.1.7:8080"},
 		{corev1.PodStatus{Phase: corev1.PodRunning, PodIP: "10.42.1.7", ContainerStatuses: []corev1.ContainerStatus{
-			{Name: "emulator", State: corev1.ContainerState{Terminated: &corev1.ContainerStateTerminated{ExitCode: 1, Reason: "Error"}}},
+			{Name: "android", State: corev1.ContainerState{Terminated: &corev1.ContainerStateTerminated{ExitCode: 1, Reason: "Error"}}},
+			{Name: "agent", Ready: true, State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}}},
 			{Name: "vpn", Ready: true, State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}}},
 		}}, contract.StateFailed, "http://10.42.1.7:8080"},
 	}
@@ -328,7 +339,7 @@ func TestRoundTrip(t *testing.T) {
 		if wantTunnel := strings.Replace(s.wantAgent, ":8080", ":8081", 1); got.TunnelURL != wantTunnel {
 			t.Fatalf("tunnel url %q, want %q", got.TunnelURL, wantTunnel)
 		}
-		if s.want == contract.StateFailed && got.Reason != "emulator exited with code 1: Error" {
+		if s.want == contract.StateFailed && got.Reason != "android exited with code 1: Error" {
 			t.Fatalf("reason %q", got.Reason)
 		}
 	}
@@ -356,7 +367,7 @@ func TestRoundTrip(t *testing.T) {
 	if _, err := c.Get(ctx, "nope"); !errors.Is(err, contract.ErrNotFound) {
 		t.Fatalf("get unknown: %v", err)
 	}
-	if got := slotStates(t, c); got["k3s-1"] != "free" {
+	if got := slotStates(t, c); got["k3s-1-1"] != "free" {
 		t.Fatalf("capacity after delete %v", got)
 	}
 }
@@ -403,7 +414,7 @@ func TestAgentStatus(t *testing.T) {
 		t.Fatal(err)
 	}
 	running := corev1.PodStatus{Phase: corev1.PodRunning, PodIP: "127.0.0.1", ContainerStatuses: []corev1.ContainerStatus{
-		{Name: "emulator", State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}}},
+		{Name: "agent", State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}}},
 	}}
 	setStatus(t, kube, s.ID, running)
 
@@ -432,7 +443,8 @@ func TestAgentStatus(t *testing.T) {
 func TestPendingDetail(t *testing.T) {
 	waiting := func(reason string) corev1.PodStatus {
 		return corev1.PodStatus{Phase: corev1.PodPending, ContainerStatuses: []corev1.ContainerStatus{
-			{Name: "emulator", Image: "session:abc", State: corev1.ContainerState{Waiting: &corev1.ContainerStateWaiting{Reason: reason, Message: "boom"}}},
+			{Name: "android", Image: "redroid:abc", State: corev1.ContainerState{Waiting: &corev1.ContainerStateWaiting{Reason: "ContainerCreating"}}},
+			{Name: "agent", Image: "session:abc", State: corev1.ContainerState{Waiting: &corev1.ContainerStateWaiting{Reason: reason, Message: "boom"}}},
 		}}
 	}
 	tests := []struct {
@@ -443,8 +455,8 @@ func TestPendingDetail(t *testing.T) {
 		{corev1.PodStatus{Phase: corev1.PodPending, Conditions: []corev1.PodCondition{
 			{Type: corev1.PodScheduled, Status: corev1.ConditionFalse, Message: "0/4 nodes are available"},
 		}}, "Waiting for the node: 0/4 nodes are available"},
-		{waiting("ContainerCreating"), "Starting the device container"},
-		{waiting("ImagePullBackOff"), "The session image session:abc can't be pulled yet, retrying (a new build may still be publishing it)"},
+		{waiting("ContainerCreating"), "Starting the device containers"},
+		{waiting("ImagePullBackOff"), "The image session:abc can't be pulled yet, retrying (a new build may still be publishing it)"},
 		{waiting("CreateContainerConfigError"), "CreateContainerConfigError: boom"},
 	}
 	for _, tt := range tests {
@@ -463,9 +475,9 @@ func TestGracePeriod(t *testing.T) {
 		force    bool
 	}{
 		{"scheduled", nil, true},
-		{"pulling the image", []corev1.ContainerStatus{{Name: "emulator", State: pulling}, {Name: "vpn", State: pulling}}, true},
-		{"sidecar running", []corev1.ContainerStatus{{Name: "emulator", State: pulling}, {Name: "vpn", State: running}}, false},
-		{"emulator running", []corev1.ContainerStatus{{Name: "emulator", State: running}}, false},
+		{"pulling the image", []corev1.ContainerStatus{{Name: "android", State: pulling}, {Name: "vpn", State: pulling}}, true},
+		{"sidecar running", []corev1.ContainerStatus{{Name: "android", State: pulling}, {Name: "vpn", State: running}}, false},
+		{"android running", []corev1.ContainerStatus{{Name: "android", State: running}}, false},
 	} {
 		got := gracePeriod(corev1.Pod{Status: corev1.PodStatus{ContainerStatuses: tc.statuses}})
 		if force := got != nil && *got == 0; force != tc.force {
@@ -508,7 +520,7 @@ func TestInstall(t *testing.T) {
 	}
 
 	setStatus(t, kube, s.ID, corev1.PodStatus{Phase: corev1.PodRunning, PodIP: "127.0.0.1", ContainerStatuses: []corev1.ContainerStatus{
-		{Name: "emulator", Ready: true, State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}}},
+		{Name: "agent", Ready: true, State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}}},
 		{Name: "vpn", Ready: true, State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}}},
 	}})
 	updated, err := p.Install(t.Context(), s.ID, next)

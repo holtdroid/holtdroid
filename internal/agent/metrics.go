@@ -20,8 +20,8 @@ import (
 	"github.com/holtdroid/holtdroid/internal/hostinfo"
 )
 
-// Metrics samples the device, the app and the container the agent shares
-// with the emulator, but only while someone watches.
+// Metrics samples the device, the app and the session Pod, but only while
+// someone watches.
 type Metrics struct {
 	dev      Device
 	pkg      string
@@ -334,13 +334,14 @@ func parseThermal(lines []string) []contract.Temperature {
 	return bySection[false]
 }
 
-// cgroupDir finds the container's own cgroup: privileged containers see
-// the node's whole hierarchy at /sys/fs/cgroup.
+// cgroupDir finds the session Pod's cgroup, the parent of the container's
+// own: privileged containers see the node's whole hierarchy at
+// /sys/fs/cgroup.
 func cgroupDir(root fs.FS) string {
 	if b, err := fs.ReadFile(root, "proc/self/cgroup"); err == nil {
 		for line := range strings.SplitSeq(string(b), "\n") {
 			if p, ok := strings.CutPrefix(strings.TrimSpace(line), "0::"); ok {
-				return path.Join("sys/fs/cgroup", p)
+				return path.Join("sys/fs/cgroup", path.Dir(p))
 			}
 		}
 	}

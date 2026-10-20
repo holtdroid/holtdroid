@@ -16,7 +16,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/holtdroid/holtdroid/internal/agent/emulator"
+	"github.com/holtdroid/holtdroid/internal/agent/redroid"
 	"github.com/holtdroid/holtdroid/internal/contract"
 )
 
@@ -40,22 +40,29 @@ type Config struct {
 	IPInfoProxy      string
 	DevToolsFrontend string
 	CacheDir         string
-	Emulator         emulator.Config
+	Redroid          redroid.Config
 	Session          Session
 	Version          string
 	Resume           bool
-	Root             bool
-	RootShell        bool
+	// Root means the agent can act as root on the device (redroid's adbd, or
+	// su with RootShell): app data, fake GPS and the battery.
+	Root      bool
+	RootShell bool
 	// Geo maps a VPN location id to where it is, so the GPS and timezone
 	// follow the active location (a rooted phone fakes them).
-	Geo             map[string]LocationGeo
-	EmulatorConsole bool
-	AppLanguage     bool
-	USBNetwork      bool
-	HostMetrics     bool
+	Geo         map[string]LocationGeo
+	AppLanguage bool
+	USBNetwork  bool
+	// HostMetrics reads the session Pod's cgroup: Android, the agent and
+	// the VPN sidecar together.
+	HostMetrics bool
+	// FridaHost is frida-server's address when the agent shares the
+	// device's network namespace (redroid); empty goes through adb.
+	FridaHost   string
+	SpawnGating bool
 	// NoWallpaper skips the session wallpaper. The Frida wallpaper attaches to
-	// system_server, whose detach crashes it on some phones (Samsung A05), so
-	// rooted phones turn it off.
+	// system_server, whose detach crashes it on some phones (Samsung A05);
+	// on redroid that attach breaks frida-server for the app (decision #82).
 	NoWallpaper bool
 }
 
@@ -66,17 +73,18 @@ func DefaultConfig() Config {
 		ADBAddr:          "127.0.0.1:5555",
 		ADBShell:         ShellFull,
 		ADB:              "adb",
-		Serial:           "emulator-5554",
+		Serial:           "127.0.0.1:5555",
+		FridaHost:        "127.0.0.1:27042",
 		Script:           "/opt/holtdroid/script",
 		LocalesDex:       "/opt/holtdroid/locales.dex",
 		Scrcpy:           DefaultScrcpyConfig(),
 		IPInfoURL:        "https://ipinfo.io/json",
 		DevToolsFrontend: "https://chrome-devtools-frontend.appspot.com/serve_rev/",
 		CacheDir:         filepath.Join(os.TempDir(), "holtdroid"),
-		Emulator:         emulator.DefaultConfig(),
+		Redroid:          redroid.DefaultConfig(),
 		Root:             true,
-		EmulatorConsole:  true,
 		HostMetrics:      true,
+		NoWallpaper:      true,
 	}
 }
 
@@ -87,6 +95,17 @@ type LocationGeo struct {
 	Lng      float64
 	Radius   float64
 	Timezone string
+}
+
+// FridaConfig says how the agent reaches frida-server: through adb by the
+// device's Serial, or directly at Host. Gating catches app launches from the
+// device through spawn gating instead of polling; never on redroid, where it
+// stops every new process of the node (decision #82).
+type FridaConfig struct {
+	Serial string
+	Host   string
+	Dir    string
+	Gating bool
 }
 
 // Instrumenter starts an app with WebView debugging. Watch instruments the
@@ -172,7 +191,7 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 }
 
 func newControls(cfg Config, dev Device) *Controls {
-	c := NewControls(dev, cfg.LocalesDex, cfg.EmulatorConsole, cfg.RootShell)
+	c := NewControls(dev, cfg.LocalesDex, cfg.Root, cfg.RootShell)
 	c.usbNetwork = cfg.USBNetwork
 	if cfg.AppLanguage && packageName.MatchString(cfg.Package) {
 		c.appLocales = cfg.Package

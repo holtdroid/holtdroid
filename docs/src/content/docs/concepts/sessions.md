@@ -6,7 +6,8 @@ sidebar:
 ---
 
 A **session** is one device running one APK for one user. A **slot** is a
-place a session can run: for the emulator provider, a Kubernetes node; for the
+place a session can run: for the emulator provider, one of a node's
+`slotsPerNode` places; for the
 [phone provider](/holtdroid/configuration/phones/), a phone.
 
 ## States
@@ -65,9 +66,10 @@ A bar at the bottom of the session page shows the load every two seconds:
 device CPU and memory, the app's own CPU and memory per process (WebView
 renderers included), the frames it renders and how many of them are janky,
 network traffic, free space on `/data`, temperatures, the decoded screen
-stream and, for emulators, the CPU, memory and throttling of the container
-the emulator runs in. Hover an item for details. An emulator invents its
-sensor readings; the node's own thermal zones are listed next to them.
+stream and, for emulators, the CPU, memory and throttling of the session
+Pod (Android, the agent and the VPN sidecar together). Hover an item for
+details. Android in redroid runs on the node's kernel, so its sensor
+readings are the node's.
 
 The device is only measured while a session page is open and visible.
 
@@ -93,7 +95,7 @@ both deadlines as countdowns.
 
 Each provider reports its slots as `free`, `busy`, `offline` or
 `maintenance`. The emulator
-provider runs at most one session per node (required pod anti-affinity) and at
+provider runs `slotsPerNode` sessions per node (or a per-node count) and at
 most `slots` sessions overall. Nodes are chosen with the chart's
 `nodeSelector` and `tolerations`. When nothing is free, a launch waits in
 line on the launch page and starts as soon as a slot frees up, first come

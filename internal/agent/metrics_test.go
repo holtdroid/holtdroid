@@ -112,13 +112,13 @@ func TestReadHost(t *testing.T) {
 			"sys/fs/cgroup/memory.stat":    {Data: []byte("anon 3000\ninactive_file 1000\n")},
 			"sys/fs/cgroup/memory.max":     {Data: []byte("7000\n")},
 		}, &hostSample{usage: 1500, throttled: 300, limit: 4, working: 4000, memMax: 7000}},
-		{"privileged container", fstest.MapFS{
-			"proc/self/cgroup":       {Data: []byte("0::/kubepods.slice/pod1.slice/cri-1.scope\n")},
-			"sys/fs/cgroup/cpu.stat": {Data: []byte("usage_usec 999999\n")},
-			"sys/fs/cgroup/kubepods.slice/pod1.slice/cri-1.scope/cpu.stat":       {Data: []byte("usage_usec 1500\nthrottled_usec 0\n")},
-			"sys/fs/cgroup/kubepods.slice/pod1.slice/cri-1.scope/cpu.max":        {Data: []byte("200000 100000\n")},
-			"sys/fs/cgroup/kubepods.slice/pod1.slice/cri-1.scope/memory.current": {Data: []byte("5000\n")},
-			"sys/fs/cgroup/kubepods.slice/pod1.slice/cri-1.scope/memory.max":     {Data: []byte("7000\n")},
+		{"session pod", fstest.MapFS{
+			"proc/self/cgroup":                                       {Data: []byte("0::/kubepods.slice/pod1.slice/cri-1.scope\n")},
+			"sys/fs/cgroup/cpu.stat":                                 {Data: []byte("usage_usec 999999\n")},
+			"sys/fs/cgroup/kubepods.slice/pod1.slice/cpu.stat":       {Data: []byte("usage_usec 1500\nthrottled_usec 0\n")},
+			"sys/fs/cgroup/kubepods.slice/pod1.slice/cpu.max":        {Data: []byte("200000 100000\n")},
+			"sys/fs/cgroup/kubepods.slice/pod1.slice/memory.current": {Data: []byte("5000\n")},
+			"sys/fs/cgroup/kubepods.slice/pod1.slice/memory.max":     {Data: []byte("7000\n")},
 		}, &hostSample{usage: 1500, limit: 2, working: 5000, memMax: 7000}},
 		{"unlimited", fstest.MapFS{
 			"proc/self/cgroup":             {Data: []byte("0::/\n")},

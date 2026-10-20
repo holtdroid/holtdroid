@@ -60,7 +60,7 @@ internal/
   api/                    BFF: UI REST API, registries, APK cache, session proxy, activity, reaper
   source/                 artifact sources: *.apk + .meta.json sidecars in a storage.Store (folder or S3), listed by the api
   provider/               provider implementations: provider/fake (simulated devices for dev/tests), provider/emulator, provider/physical (USB phones)
-  agent/                  device agent: adb, frida or a launcher, devtools proxy, clipboard, scrcpy screen bridge, ssh tunnels; agent/emulator, agent/phone
+  agent/                  device agent: adb, frida or a launcher, devtools proxy, clipboard, scrcpy screen bridge, ssh tunnels; agent/redroid, agent/phone
   sshgateway/             SSH gateway for connect clients: certificates from the api's CA, ADB and published ports, no shells
   hostinfo/               a machine's CPU, memory, load and temperature sensors from /proc and /sys (node-info, phones' host)
   vpn/                    sing-box sidecar config: locations as sing-box outbounds, no vendor code
@@ -77,7 +77,7 @@ frida/                    Frida scripts (TypeScript, own bun.lock), bundled into
 docs/                     public documentation site (Astro Starlight)
 design/                   internal design docs for contributors and agents (this is not the public site)
 deploy/helm/holtdroid/    Helm chart
-images/                   Dockerfile (distroless holtdroid), session.Dockerfile (emulator + agent), physical.Dockerfile (provider-physical + adb, sing-box, tunnel)
+images/                   Dockerfile (distroless holtdroid), session.Dockerfile (agent + adb, frida-server, scrcpy-server; Android runs from holtdroid-redroid), physical.Dockerfile (provider-physical + adb, sing-box, tunnel)
 .github/workflows/        CI, release, docs
 ```
 

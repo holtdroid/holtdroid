@@ -23,16 +23,18 @@
   "inbounds": [
     {
       "address": [
-        "198.18.0.1/30",
-        "fdfe:dcba:9876::1/126"
+        "198.18.0.1/30"
       ],
-      "auto_route": true,
-      "route_exclude_address": [
-        "10.42.0.0/16",
-        "10.43.0.0/16"
-      ],
+      "auto_route": false,
+      "interface_name": "holtdroid0",
       "tag": "tun",
       "type": "tun"
+    },
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 7890,
+      "tag": "agent",
+      "type": "mixed"
     }
   ],
   "outbounds": [
@@ -78,8 +80,8 @@
     }
   ],
   "route": {
-    "auto_detect_interface": true,
     "default_domain_resolver": "local",
+    "default_interface": "eth0",
     "final": "select",
     "rules": [
       {

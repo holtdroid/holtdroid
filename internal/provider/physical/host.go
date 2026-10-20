@@ -106,7 +106,7 @@ func (h ADBHost) Agent(cfg agent.Config, s phone.Session, log *slog.Logger) Agen
 	adb := agent.ADB{Bin: h.Bin, Serial: cfg.Serial}
 	var inst agent.Instrumenter
 	if cfg.Root {
-		if f, err := agent.NewFrida(cfg.Serial, cfg.Script, log); err != nil {
+		if f, err := agent.NewFrida(agent.FridaConfig{Serial: cfg.Serial, Dir: cfg.Script, Gating: true}, log); err != nil {
 			log.Warn("root mode wants Frida but this binary has none; the session runs without root", "err", err)
 			s.Root, cfg.Root = false, false
 		} else {

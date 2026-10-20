@@ -9,7 +9,7 @@ import { Steps, Aside } from "@astrojs/starlight/components"
 
 <Aside type="caution">
   Pre-alpha: the emulator provider is new and not yet released. Simulated devices (`providers.fake`) are enough to try
-  the UI, uploads, sign-in and storage setups without KVM nodes.
+  the UI, uploads, sign-in and storage setups without session nodes.
 </Aside>
 
 <Steps>
@@ -41,7 +41,8 @@ import { Steps, Aside } from "@astrojs/starlight/components"
    providers:
      emulator:
        enabled: true
-       nodeSelector: { holtdroid/kvm: "true" } # nodes with /dev/kvm
+       nodeSelector: { holtdroid/sessions: "true" } # nodes with binder and a GPU, dedicated to sessions
+       slotsPerNode: 4
        # vpn: { locations: [...] }            # see the emulator provider page
 
    ingress:

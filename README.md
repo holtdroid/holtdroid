@@ -32,8 +32,9 @@ make build && ./bin/holtdroid dev --apks ~/Downloads
 - **Everything in the browser.** scrcpy screen (multi-touch, H.264 over WebCodecs) and Chrome DevTools side by
   side, same origin, behind your existing forward-auth (Authelia,
   oauth2-proxy, …).
-- **ARM APKs on x86 hosts.** Uses Google's x86_64 system images with built-in
-  ARM translation and KVM acceleration.
+- **Dense, ARM-capable devices.** Android 15 runs in redroid containers on
+  the node's kernel, several per node, with ARM translation from Google's
+  x86_64 images for ARM-only builds.
 - **Per-session VPN.** Each device egresses through its own sing-box sidecar;
   switch country from the UI.
 - **Sign-in your way.** Anonymous animal names, one shared password, OIDC,
@@ -57,7 +58,8 @@ frontend is embedded in `api`, and a Helm chart ties it together. See
 
 ## Requirements
 
-- Kubernetes nodes with `/dev/kvm` (x86_64) for emulator sessions.
+- x86_64 Kubernetes nodes with binder and a Mesa GPU for sessions,
+  dedicated to them (root in a session is root on the node).
 - Privileged pods allowed in the Holtdroid namespace.
 - Optionally an OIDC provider, an S3 bucket for the APK cache, or a
   forward-auth proxy.

@@ -1,33 +1,35 @@
 ---
 title: Troubleshooting
-description: Common problems with KVM, ARM translation, Frida, DevTools and VPN.
+description: Common problems with redroid nodes, ARM translation, Frida, DevTools and VPN.
 sidebar:
   order: 2
 ---
 
 ## Session stuck in `provisioning`
 
-- `kubectl -n holtdroid describe pod <session>`: usually the session image is
-  still being pulled (several GB) or no node matches `nodeSelector`/
+- `kubectl -n holtdroid describe pod <session>`: usually the redroid image is
+  still being pulled (about 1.5 GB) or no node matches `nodeSelector`/
   `tolerations` with a free slot.
 - Enable the pre-pull DaemonSet to avoid the pull on first use.
 
 ## Session fails in `booting`
 
-- `ls -l /dev/kvm` on the node. Without KVM the emulator refuses to start.
-  `grep -cE 'vmx|svm' /proc/cpuinfo` must be non-zero, and the `kvm_intel`
-  or `kvm_amd` module loaded.
-- Nested virtualization (a VM as node) needs it enabled on the hypervisor
-  (Proxmox: CPU type `host`; VMware: "Expose hardware assisted
-  virtualization").
-- Check the emulator logs: `kubectl -n holtdroid logs <session> -c emulator`.
-  The emulator and the agent share that container; agent lines are JSON.
-- Images built for one architecture: the session image is `linux/amd64`
-  only. arm64 nodes can't run it.
+- `CreateContainerError: … path escapes from parent`: the cluster doesn't
+  honour `supplementalGroupsPolicy: Strict` (Kubernetes 1.31+, containerd
+  2.x).
+- Android never boots: the node's kernel needs binder
+  (`CONFIG_ANDROID_BINDERFS`). The `android` container's log is Android's
+  own (`kubectl -n holtdroid logs <session> -c android`); Android also
+  writes to the node's kernel log.
+- No screen, or a black one: the node needs a GPU with a Mesa driver at
+  `redroid.gpu` (`/dev/dri/renderD128`).
+- The agent's log: `kubectl -n holtdroid logs <session> -c agent`.
+- Images built for one architecture: the session and redroid images are
+  `linux/amd64` only. arm64 nodes can't run them.
 
 ## Install fails with `INSTALL_FAILED_NO_MATCHING_ABIS`
 
-The session image is Android 15 x86_64 with ARM translation
+The redroid image is Android 15 x86_64 with ARM translation
 (`libndk_translation`), which runs `arm64-v8a` libraries. APKs that ship only
 32-bit ARM libraries (`armeabi-v7a` without `arm64-v8a`) can't be installed:
 no Android 12–15 x86_64 image translates 32-bit ARM. Ask for a build that
@@ -50,12 +52,13 @@ in the APK changes.
 
 - The session fails with `adb root: …` or `start frida-server: …`: after
   boot the agent runs `adb root`, pushes `frida-server` and starts it.
-  Images without `adb root` (Google Play images) can't do that, which is why
-  sessions use `google_apis` images.
+  The redroid image is a userdebug build, so `adb root` works; a different
+  `redroid.image` must be one too.
 - Only the app's main process is instrumented. A WebView in another
   process of the app may show up without debugging enabled.
-- Apps started from the launcher are instrumented too: the agent gates
-  spawns and attaches before the app resumes.
+- Apps started from the launcher are instrumented too: the agent notices the
+  new process within about a second and attaches to it. A WebView created in
+  that first second gets debugging once the script loads.
 - Upgrading Frida means bumping `frida-go` and `FRIDA_VERSION` in
   `images/session.Dockerfile` together: the agent's devkit and the device's
   `frida-server` must be the same version.

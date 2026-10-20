@@ -1,38 +1,51 @@
 ---
 title: Emulator provider
-description: Run sessions as Android emulator Pods on KVM-capable Kubernetes nodes.
+description: Run sessions as redroid Pods (Android on the node's kernel) on Kubernetes, several per node.
 sidebar:
   order: 5
 ---
 
-The `provider-emulator` service creates one Pod per session in its own
-namespace. It needs a ServiceAccount allowed to manage Pods and Secrets there,
-to create and update its maintenance ConfigMap, and to list Nodes
-cluster-wide (the Helm chart creates all of it).
+The `provider-emulator` service runs every session as a Pod with
+[redroid](https://github.com/remote-android/redroid-doc), Android 15 in a
+container on the node's own kernel, so several sessions share a node. It
+creates the Pods in its own namespace and needs a ServiceAccount allowed to
+manage Pods and Secrets there, to create and update its maintenance
+ConfigMap, and to list Nodes cluster-wide (the Helm chart creates all of it).
 
 ```yaml
 listen: ":8080"
 kubeconfig: "" # empty: the Pod's service account
 namespace: holtdroid
-slots: 4
-nodeSelector: "holtdroid/kvm=true" # a label selector
+slots: 0 # cap over all nodes; 0: no cap
+slotsPerNode: 1
+nodeSelector: "holtdroid/sessions=true" # a label selector
 tolerations:
   - { key: dedicated, operator: Equal, value: nas, effect: NoSchedule }
-image: ghcr.io/holtdroid/holtdroid-session:0.1.0
+image: ghcr.io/holtdroid/holtdroid-session:0.1.0 # the agent
 imagePullPolicy: IfNotPresent
 imagePullSecrets: []
 agentPort: 8080
-resources:
-  requests: { cpu: "3", memory: 5Gi }
-  limits: { memory: 7Gi }
+redroid:
+  image: ghcr.io/holtdroid/holtdroid-redroid:main
+  width: 720
+  height: 1600
+  dpi: 320
+  fps: 60
+  gpu: /dev/dri/renderD128
+  dataSize: 8Gi
+  args: [] # more redroid boot arguments
+resources: # the Android container
+  requests: { cpu: "1", memory: 1536Mi }
+  limits: { memory: 3Gi }
+agentResources:
+  requests: { cpu: 100m, memory: 256Mi }
+  limits: { memory: 1Gi }
 nodes:
   big-node: # a node name
-    cores: 8 # guest vCPUs; the image defaults to 4
-    ram: 8192 # guest RAM in MiB; the image defaults to 4096
+    slots: 6
     resources: # replaces resources above on this node
-      requests: { cpu: "3", memory: 10Gi }
-      limits: { memory: 12Gi }
-gpu: host # or software
+      requests: { cpu: "1", memory: 2Gi }
+      limits: { memory: 4Gi }
 vpn:
   locations: [] # see below; empty means no VPN sidecar
 maintenance: holtdroid-emulator-maintenance # ConfigMap for maintenance holds; empty turns them off
@@ -41,32 +54,85 @@ nodeInfo:
   port: 8090
 ```
 
-| Key                        | Meaning                                                                                                                                                            |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `kubeconfig`               | Path to a kubeconfig. Empty uses the in-cluster service account                                                                                                    |
-| `namespace`                | Where session Pods and their Secrets are created                                                                                                                   |
-| `nodeSelector`             | [Label selector](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors) for nodes that may run sessions. Nodes need `/dev/kvm` |
-| `tolerations`              | Taints session Pods tolerate. Nodes with other `NoSchedule`/`NoExecute` taints are not used                                                                        |
-| `slots`                    | Maximum concurrent sessions; `0` means one per matching node                                                                                                       |
-| `image`, `imagePullPolicy` | Session image (emulator + agent)                                                                                                                                   |
-| `imagePullSecrets`         | Secret names for pulling the session image                                                                                                                         |
-| `agentPort`                | Port the agent listens on inside the Pod; the api reaches it at the Pod IP                                                                                         |
-| `resources`                | Per-session emulator container resources. Leave out a CPU limit: throttling makes the software-rendered screen stutter                                             |
-| `nodes`                    | Per-node overrides by node name: guest `cores`, guest `ram` in MiB, and `resources`. Raise the memory limit together with `ram`                                    |
-| `gpu`                      | `host` renders on the node's GPU, `software` with SwiftShader. See below                                                                                           |
-| `vpn`                      | Per-session VPN, see below                                                                                                                                         |
-| `sessionTelemetry`         | Metrics port and tracing settings passed to session agents, see [Monitoring](/holtdroid/operations/monitoring/)                                                    |
-| `maintenance`              | Name of the ConfigMap in `namespace` that keeps maintenance holds. The provider creates it on the first hold. Empty turns holds off                                |
-| `nodeInfo`                 | Label `selector` and `port` of the `holtdroid node-info` Pods that describe session nodes on the Inventory page. Empty selector: Node objects only                 |
+| Key                                     | Meaning                                                                                                                                                                                  |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `kubeconfig`                            | Path to a kubeconfig. Empty uses the in-cluster service account                                                                                                                          |
+| `namespace`                             | Where session Pods and their Secrets are created                                                                                                                                         |
+| `nodeSelector`                          | [Label selector](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors) for nodes that may run sessions. See [Node requirements](#node-requirements) |
+| `tolerations`                           | Taints session Pods tolerate. Nodes with other `NoSchedule`/`NoExecute` taints are not used                                                                                              |
+| `slots`                                 | Maximum concurrent sessions over all nodes; `0` means no cap                                                                                                                             |
+| `slotsPerNode`                          | Sessions per node, unless `nodes.<name>.slots` says otherwise                                                                                                                            |
+| `image`, `imagePullPolicy`              | Session image: the agent with adb, Frida and scrcpy-server. The pull policy applies to the redroid image too                                                                             |
+| `imagePullSecrets`                      | Secret names for pulling the images                                                                                                                                                      |
+| `agentPort`                             | Port the agent listens on inside the Pod; the api reaches it at the Pod IP                                                                                                               |
+| `redroid.image`                         | The Android image, [holtdroid-redroid](https://github.com/holtdroid/holtdroid-redroid): redroid 15 with software video encoders and ARM64 translation                                    |
+| `redroid.width`, `height`, `dpi`, `fps` | The screen. Size and refresh rate are fixed at boot; the density can still be changed in a session                                                                                       |
+| `redroid.gpu`                           | DRI render node Android renders on                                                                                                                                                       |
+| `redroid.dataSize`                      | Size limit of the `emptyDir` holding Android's `/data`                                                                                                                                   |
+| `resources`                             | Android container resources. Leave out a CPU limit: a busy session may borrow idle cores                                                                                                 |
+| `agentResources`                        | Agent container resources                                                                                                                                                                |
+| `nodes`                                 | Per-node overrides by node name: `slots` and `resources`                                                                                                                                 |
+| `vpn`                                   | Per-session VPN, see below                                                                                                                                                               |
+| `sessionTelemetry`                      | Metrics port and tracing settings passed to session agents, see [Monitoring](/holtdroid/operations/monitoring/)                                                                          |
+| `maintenance`                           | Name of the ConfigMap in `namespace` that keeps maintenance holds. The provider creates it on the first hold. Empty turns holds off                                                      |
+| `nodeInfo`                              | Label `selector` and `port` of the `holtdroid node-info` Pods that describe session nodes on the Inventory page. Empty selector: Node objects only                                       |
 
-Every matching node is one slot, at most one session per node. A session is
-pinned to the first free node, or to the node picked in the launch dialog; nodes that are not Ready or are cordoned show
-as offline. Session state lives on the Pod, so restarting the provider loses
-nothing. Run one provider replica per namespace.
+Every matching node has `slotsPerNode` slots, named `<node>-1`, `<node>-2`,
+…. A session takes the first free slot, or the one picked in the launch
+dialog, and its Pod is pinned to that slot's node; slots of nodes that are
+not Ready or are cordoned show as offline. Session state lives on the Pod,
+so restarting the provider loses nothing. Run one provider replica per
+namespace.
+
+## Sizing
+
+An idle session takes about 1 GB of memory and 0.05 of a core. Streaming a
+screen that keeps changing costs about one core per 720p stream (video is
+encoded in software inside Android), and WebGL in all sessions of a node
+shares its GPU evenly. Measured on a Ryzen 7 5825U with Radeon graphics: six
+sessions run side by side. Count on 1 core and 1.5 GB per slot, plus room for
+whatever else the node runs.
+
+## Node requirements
+
+- Linux with binder (`CONFIG_ANDROID_BINDERFS`); ashmem is not needed.
+- A GPU with a Mesa driver and a render node (`/dev/dri/renderD128`): Intel
+  and AMD integrated graphics work. WebGL runs on it; WebGPU is not
+  available in WebView.
+- containerd and Kubernetes that support
+  `securityContext.supplementalGroupsPolicy` (1.31 or newer); the pre-pull
+  DaemonSet also uses an image volume (1.35, or the `ImageVolume` feature
+  gate).
+- **Nodes dedicated to sessions.** The Android container is privileged and
+  shares the node's kernel, so root inside a session — which users get in
+  the browser's ADB shell — is root on the node. See
+  [Security](/holtdroid/operations/security/).
+
+Apps with only `arm64-v8a` native code run through `libndk_translation`;
+separate ARM executables don't (that would need `binfmt_misc` on the node).
+
+## Pod layout
+
+Each session Pod has three containers sharing one network namespace:
+
+- `android`: the redroid image, privileged, as root, with an `emptyDir` on
+  `/data`. Its boot arguments set the GPU and the screen.
+- `agent`: the session image. It reaches Android's adbd at
+  `127.0.0.1:5555` and frida-server at `127.0.0.1:27042`, roots adbd,
+  installs and instruments the app and serves the Agent API. It is
+  privileged so the metrics bar can read the Pod's cgroup.
+- `vpn`: the sing-box sidecar, when locations are configured.
+
+adbd listens on every address of the Pod; keep `networkPolicy` on so only
+the api and the ssh-gateway reach the Pod.
+
+Without an emulator console, the GPS goes through Android's test location
+providers and the battery through `dumpsys battery`; network speed profiles
+are not offered.
 
 ## Inventory and maintenance
 
-Admins see every session node on the **Inventory** page: its OS image,
+Admins see every slot on the **Inventory** page with its node: its OS image,
 kernel, kubelet and container runtime, CPU and memory from the Node object,
 the conditions it reports (`NotReady`, `DiskPressure`, …) and the session on
 it. With `nodeInfo` set, a small `holtdroid node-info` Pod on each node adds
@@ -75,8 +141,8 @@ node exposes (thermal zones and hwmon: CPU package and cores, NVMe drives,
 chipsets). It reads `/proc` and `/sys`, which are host-wide inside an
 ordinary container, so it runs unprivileged as non-root.
 
-**Hold for maintenance** keeps new sessions off a node (or, from the
-provider's header, off every node) until an admin releases it; a session
+**Hold for maintenance** keeps new sessions off a slot (or, from the
+provider's header, off every slot) until an admin releases it; a session
 running there keeps going. Holds live in the `maintenance` ConfigMap, so a
 restart keeps them. Cordoning the node in Kubernetes still works too: it
 shows as offline.
@@ -92,18 +158,27 @@ ClusterRole to list Nodes. The chart fills `namespace`, `image` and
 providers:
   emulator:
     enabled: true
-    slots: 4
-    nodeSelector: { holtdroid/kvm: "true" } # a map here; the chart turns it into a selector
+    slots: 0
+    slotsPerNode: 1
+    nodeSelector: { holtdroid/sessions: "true" } # a map here; the chart turns it into a selector
     tolerations: []
-    session:
+    session: # the agent
       image: { repository: ghcr.io/holtdroid/holtdroid-session, tag: "" } # tag defaults to image.tag
-      resources: { requests: { cpu: "3", memory: 5Gi }, limits: { memory: 7Gi } }
-      gpu: host
+      resources: { requests: { cpu: 100m, memory: 256Mi }, limits: { memory: 1Gi } }
+    redroid:
+      image: { repository: ghcr.io/holtdroid/holtdroid-redroid, tag: main }
+      width: 720
+      height: 1600
+      dpi: 320
+      fps: 60
+      gpu: /dev/dri/renderD128
+      dataSize: 8Gi
+      resources: { requests: { cpu: "1", memory: 1536Mi }, limits: { memory: 3Gi } }
     nodes: {} # per-node overrides, as above
     vpn: {} # the vpn section below
     networkPolicy: { enabled: true } # only the api and the provider reach session agents
     prepull:
-      enabled: true # DaemonSet that pulls the session image onto session nodes
+      enabled: true # DaemonSet that pulls the session and redroid images onto session nodes
       refresh: { enabled: true, interval: 5m }
     nodeInfo:
       enabled: true # DaemonSet of holtdroid node-info for the Inventory page
@@ -115,29 +190,18 @@ it and update only that one. The node-info DaemonSet runs on the same nodes
 as sessions (`nodeSelector`, `tolerations`) and, with `networkPolicy` on, only
 the provider may reach it.
 
-The session image is several GB. The pre-pull DaemonSet runs on the same
-nodes as sessions and keeps the current tag on disk, so the first launch after
-an upgrade doesn't wait for the download.
+The redroid image is about 1.5 GB. The pre-pull DaemonSet runs on the same
+nodes as sessions and keeps the current tags of both images on disk (the
+redroid one as an image volume), so the first launch after an upgrade
+doesn't wait for the download.
 
 With a moving tag (`tag: main`) and `pullPolicy: Always`, an upgrade of the
 image doesn't change the chart, so the DaemonSet wouldn't notice it. With
 `prepull.refresh` on (the default), the provider asks the registry for the
-tag's digest every `interval` and, when it moves, restarts the DaemonSet:
+tags' digests every `interval` and, when one moves, restarts the DaemonSet:
 the nodes pull the new layers in the background, before the next session
 needs them. The registry is queried anonymously, which works for public
 images; with a pinned tag or `IfNotPresent` the refresh does nothing.
-
-## GPU
-
-With `gpu: host` (the default) the emulator renders on the node's GPU: the
-agent starts Xvfb and runs the emulator under VirtualGL, which draws its
-OpenGL on the first `/dev/dri/card*` through Mesa. Any GPU with a Mesa driver
-works, integrated ones included (Intel, AMD). Session Pods are privileged, so
-they see the node's devices without extra configuration. A node without
-`/dev/dri` falls back to software rendering and the agent logs a warning.
-
-`gpu: software` always renders with SwiftShader on the CPU. Frames are less
-smooth and the emulator needs about twice the CPU.
 
 ## VPN
 

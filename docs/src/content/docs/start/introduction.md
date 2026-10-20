@@ -52,8 +52,8 @@ hybrid apps, support engineers reproducing a customer bug.
    with the layout set on the device. Below them come the device controls,
    one button per section. Clicking a button does the common thing, hovering
    it opens the rest:
-   - **Network**: click for airplane mode; Wi-Fi, mobile data, emulated
-     network speed and the VPN location.
+   - **Network**: click for airplane mode; Wi-Fi, mobile data and the VPN
+     location.
    - **Battery** (65%, on battery, at start): click for battery saver; charging and the
      charge level.
    - **Display**: click to cycle light, dark and matching the portal's theme;
@@ -77,13 +77,14 @@ hybrid apps, support engineers reproducing a customer bug.
   but the first goal is interactive debugging.
 - Not a way to modify or re-sign APKs. Anything that needs repackaging is out
   of scope on purpose.
-- Not a Play Store environment: images are rooted `google_apis` builds without
-  Google sign-in.
+- Not a Play Store environment: sessions run redroid, a rooted AOSP
+  userdebug build without Google services.
 
 ## Requirements
 
-- A Kubernetes cluster with **x86_64 nodes exposing `/dev/kvm`** for emulator
-  sessions. Each session takes roughly 3–4 CPU cores and 5–7 GiB of memory.
+- A Kubernetes cluster (1.31+) with **x86_64 nodes with binder and a Mesa
+  GPU** for sessions, dedicated to them. Each session takes about 1 GB of
+  memory idle and a core while its screen streams.
 - Permission to run **privileged pods** in Holtdroid's namespace.
 - A forward-auth proxy in front of the ingress (Authelia, oauth2-proxy, …),
   unless you run it locally with authentication disabled.

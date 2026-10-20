@@ -575,7 +575,6 @@ func (p *Provider) start(s contract.Session, artifactURL string, resume bool, v 
 	cfg.DevToolsFrontend = p.cfg.Agent.DevToolsFrontend
 	cfg.CacheDir = p.cfg.Agent.CacheDir
 	cfg.HostMetrics = false
-	cfg.EmulatorConsole = false
 	root := p.phoneRoot(s.Slot)
 	cfg.Root = root
 	cfg.RootShell = root

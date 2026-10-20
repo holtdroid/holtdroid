@@ -12,7 +12,7 @@ change that.
 
 ## Enabling debugging at runtime
 
-Session images are rooted `google_apis` builds. After the device boots, the
+Sessions run redroid, a rooted userdebug build. After the device boots, the
 agent starts `frida-server`, installs the APK unmodified and **spawns** the
 app under Frida with a small script that enables WebView debugging on the
 main thread before the first WebView is created. The clipboard doesn't need

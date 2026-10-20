@@ -24,22 +24,22 @@ func TestMaintenance(t *testing.T) {
 	if err := p.SetMaintenance(ctx, contract.SetMaintenance{Slot: "arm-1", Enabled: true}); !errors.Is(err, contract.ErrInvalid) {
 		t.Fatalf("unknown slot: %v", err)
 	}
-	if err := p.SetMaintenance(ctx, contract.SetMaintenance{Slot: "k3s-1", Enabled: true, Reason: "new fan", By: "otter"}); err != nil {
+	if err := p.SetMaintenance(ctx, contract.SetMaintenance{Slot: "k3s-1-1", Enabled: true, Reason: "new fan", By: "otter"}); err != nil {
 		t.Fatal(err)
 	}
 	c, err := p.Capacity(ctx)
-	if err != nil || c.Slots[0].ID != "k3s-1" || c.Slots[0].State != contract.SlotMaintenance || c.Slots[0].Maintenance.Reason != "new fan" || !c.Slots[0].Maintenance.Since.Equal(epoch) {
+	if err != nil || c.Slots[0].ID != "k3s-1-1" || c.Slots[0].State != contract.SlotMaintenance || c.Slots[0].Maintenance.Reason != "new fan" || !c.Slots[0].Maintenance.Since.Equal(epoch) {
 		t.Fatalf("capacity %+v, %v", c, err)
 	}
 	s, err := p.Create(ctx, req)
-	if err != nil || s.Slot != "k3s-2" {
+	if err != nil || s.Slot != "k3s-2-1" {
 		t.Fatalf("create %+v, %v", s, err)
 	}
 
 	if err := p.SetMaintenance(ctx, contract.SetMaintenance{Enabled: true, Reason: "upgrade"}); err != nil {
 		t.Fatal(err)
 	}
-	if got := slotStates(t, p); got["k3s-1"] != "maintenance" || got["k3s-2"] != "busy" || got["k3s-3"] != "maintenance" {
+	if got := slotStates(t, p); got["k3s-1-1"] != "maintenance" || got["k3s-2-1"] != "busy" || got["k3s-3-1"] != "maintenance" {
 		t.Fatalf("held provider %v", got)
 	}
 	if _, err := p.Create(ctx, req); !errors.Is(err, contract.ErrNoCapacity) {
@@ -49,10 +49,10 @@ func TestMaintenance(t *testing.T) {
 	if err := p.SetMaintenance(ctx, contract.SetMaintenance{Enabled: false}); err != nil {
 		t.Fatal(err)
 	}
-	if err := p.SetMaintenance(ctx, contract.SetMaintenance{Slot: "k3s-1", Enabled: false}); err != nil {
+	if err := p.SetMaintenance(ctx, contract.SetMaintenance{Slot: "k3s-1-1", Enabled: false}); err != nil {
 		t.Fatal(err)
 	}
-	if got := slotStates(t, p); got["k3s-1"] != "free" || got["k3s-3"] != "offline" {
+	if got := slotStates(t, p); got["k3s-1-1"] != "free" || got["k3s-3-1"] != "offline" {
 		t.Fatalf("released %v", got)
 	}
 
@@ -110,7 +110,7 @@ func TestInventory(t *testing.T) {
 		t.Fatalf("inventory %+v, %v", inv, err)
 	}
 	k := inv.Devices[0]
-	if k.Slot.ID != "k3s-1" || k.Session != s.ID || k.Error != "" || k.Host == nil {
+	if k.Slot.ID != "k3s-1-1" || k.Session != s.ID || k.Error != "" || k.Host == nil {
 		t.Fatalf("k3s-1 %+v", k)
 	}
 	h := k.Host

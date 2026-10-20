@@ -16,7 +16,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/holtdroid/holtdroid/internal/agent"
-	"github.com/holtdroid/holtdroid/internal/agent/emulator"
+	"github.com/holtdroid/holtdroid/internal/agent/redroid"
 	"github.com/holtdroid/holtdroid/internal/api"
 	"github.com/holtdroid/holtdroid/internal/audit"
 	"github.com/holtdroid/holtdroid/internal/contract"
@@ -148,7 +148,7 @@ func nodeInfoCmd(c *common) *cobra.Command {
 func agentCmd(c *common) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "agent",
-		Short: "Run the device agent inside a session: emulator, app under Frida, screen and DevTools",
+		Short: "Run the device agent inside a session: redroid over adb, app under Frida, screen and DevTools",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg := agent.DefaultConfig()
 			rt, err := loadConfig(c.configPath, &cfg)
@@ -160,12 +160,12 @@ func agentCmd(c *common) *cobra.Command {
 			}
 			cfg.Version = version
 			log := slog.Default()
-			inst, err := agent.NewFrida(cfg.Serial, cfg.Script, log)
+			inst, err := agent.NewFrida(agent.FridaConfig{Serial: cfg.Serial, Host: cfg.FridaHost, Dir: cfg.Script, Gating: cfg.SpawnGating}, log)
 			if err != nil {
 				return err
 			}
 			adb := agent.ADB{Bin: cfg.ADB, Serial: cfg.Serial}
-			a := agent.New(cfg, adb, inst, emulator.New(cfg.Emulator, adb, log).Run, log)
+			a := agent.New(cfg, adb, inst, redroid.New(cfg.Redroid, adb, log).Run, log)
 			return rt.serve(cmd.Context(), "agent", []listener{{cfg.Listen, a.Handler()}, {cfg.TunnelListen, a.TunnelHandler()}}, a.Run)
 		},
 	}
