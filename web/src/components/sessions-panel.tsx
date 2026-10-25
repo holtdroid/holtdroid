@@ -112,7 +112,7 @@ export function SessionsPanel({ className }: { className?: string }) {
             No devices running. Pick an APK to launch one.
           </p>
         ) : (
-          <ul className="grid gap-2">
+          <ul className="grid grid-cols-[minmax(0,1fr)] gap-2">
             {sessions.data?.items.map((s) => (
               <SessionCard key={`${s.provider}/${s.id}`} session={s} now={now} />
             ))}
@@ -140,8 +140,8 @@ function SessionCard({ session: s, now }: { session: SessionView; now: number })
       <div className="flex items-start gap-3">
         <AppIcon src={s.iconUrl} className="size-10" />
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="truncate font-medium">{s.label || s.package}</span>
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="min-w-0 truncate font-medium">{s.label || s.package}</span>
             <SessionStateBadge state={s.state} />
           </div>
           <div className="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-3 text-xs">
@@ -162,7 +162,7 @@ function SessionCard({ session: s, now }: { session: SessionView; now: number })
               </span>
             )}
           </div>
-          {s.reason && <p className="text-destructive mt-1 text-xs">{s.reason}</p>}
+          {s.reason && <p className="text-destructive mt-1 text-xs break-all">{s.reason}</p>}
         </div>
       </div>
 
