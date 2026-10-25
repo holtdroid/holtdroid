@@ -63,6 +63,7 @@ productLocale=en-US
 locales=en-US,ru-RU
 autotime=0
 volume=[V] volume is 4 in range [0..15]
+fps=fps=60.000004 fps=120.00001 fps=60.0 
 musicMuted=   Muted: true
 `,
 		clock: "1760003600000000000",
@@ -75,7 +76,7 @@ musicMuted=   Muted: true
 	}
 	want := contract.DeviceState{
 		WiFi: true, MobileData: true, BatterySaver: true, BatteryLevel: 42, DarkMode: true,
-		FontScale: 1.3, Density: 400, DefaultDensity: 320, Rotation: 1, Volume: 4, VolumeMax: 15, Muted: true,
+		FontScale: 1.3, Density: 400, DefaultDensity: 320, Rotation: 1, RefreshRate: 120, Volume: 4, VolumeMax: 15, Muted: true,
 		TimeZone: "Europe/Warsaw", Locale: "en-US", Locales: []string{"en-US", "ru-RU"}, CanFakeGeo: true, CanSimulateBattery: true, LanguageScope: contract.LanguageSystem, TimeOffset: 3_600_000,
 	}
 	if !reflect.DeepEqual(got, want) {

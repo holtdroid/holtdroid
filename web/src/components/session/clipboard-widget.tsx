@@ -1,76 +1,86 @@
 import { useMutation } from "@tanstack/react-query"
 import {
   ArrowLeftRightIcon,
-  CheckIcon,
+  ClipboardCheckIcon,
   ClipboardCopyIcon,
   ClipboardIcon,
   ClipboardPasteIcon,
   ClipboardXIcon,
+  type LucideIcon,
 } from "lucide-react"
-import { type ReactNode, useEffect, useEffectEvent, useMemo, useRef, useState } from "react"
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import { agentClient, type Clipboard, sessionBase, unwrap } from "@/api/client"
-import { RailItem } from "@/components/session/rail-item"
-import { Button } from "@/components/ui/button"
-import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
+import { CardLine, Note, Row, Section, ShadeCard, ShadeHeader, ShadePanel, Tile } from "@/components/session/shade"
+import { HoverCard, HoverCardTrigger } from "@/components/ui/hover-card"
 import { useEventSource } from "@/hooks/use-event-source"
 import { onCopied } from "@/lib/clipboard"
 import { type ClipboardSync, setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
 
-const modes: Record<ClipboardSync, { label: string; hint: string; icon: ReactNode }> = {
-  both: { label: "Both ways", hint: "Copy on either side, paste on the other", icon: <ArrowLeftRightIcon /> },
-  "to-device": { label: "To the device", hint: "What you copy here reaches the device", icon: <ClipboardPasteIcon /> },
+const modes: Record<ClipboardSync, { label: string; hint: string; icon: LucideIcon }> = {
+  both: { label: "Both ways", hint: "Copy on either side, paste on the other", icon: ArrowLeftRightIcon },
+  "to-device": { label: "To the device", hint: "What you copy here reaches the device", icon: ClipboardPasteIcon },
   "from-device": {
     label: "From the device",
     hint: "What the device copies lands in your clipboard",
-    icon: <ClipboardCopyIcon />,
+    icon: ClipboardCopyIcon,
   },
 }
 
-export function ClipboardButton({ provider, id }: { provider: string; id: string }) {
+export function ClipboardWidget({ provider, id }: { provider: string; id: string }) {
   const { clipboard: on, clipboardSync } = useScreenPrefs()
   const mode = modes[clipboardSync] ? clipboardSync : "both"
   const blocked = useClipboardSync(provider, id, on ? mode : null)
+  const summary = on ? modes[mode].label : "Off"
 
   return (
-    <HoverCard openDelay={150} closeDelay={150}>
+    <HoverCard openDelay={150} closeDelay={200}>
       <HoverCardTrigger asChild>
-        <RailItem
-          label={on ? "Turn clipboard sync off" : "Turn clipboard sync on"}
-          text="Clipboard sync"
+        <ShadeCard
+          aria-label={on ? "Turn clipboard sync off" : "Turn clipboard sync on"}
+          changed={!on || mode !== "both"}
+          className="cursor-pointer"
           onClick={() => setScreenPrefs({ clipboard: !on })}
         >
-          {!on ? <ClipboardXIcon /> : mode === "both" ? <ClipboardIcon /> : modes[mode].icon}
-        </RailItem>
-      </HoverCardTrigger>
-      <HoverCardContent side="left" align="start" className="flex w-64 flex-col gap-0.5 p-1">
-        <div className="grid gap-0.5 px-2 py-1.5">
-          <span className="text-sm font-medium">Clipboard sync {on ? "on" : "off"}</span>
-          <span className="text-muted-foreground text-xs">
-            Click the button to turn it {on ? "off" : "on"}. Ctrl/Cmd+V on the screen always pastes.
+          <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
+            <ClipboardIcon className="size-4 shrink-0 text-neutral-400" />
+            <span className="truncate">Clipboard</span>
           </span>
-        </div>
-        {(Object.entries(modes) as [ClipboardSync, (typeof modes)[ClipboardSync]][]).map(([m, info]) => (
-          <Button
-            key={m}
-            variant="ghost"
-            className="h-auto justify-start gap-2 px-2 py-1.5 text-left"
-            onClick={() => setScreenPrefs({ clipboard: true, clipboardSync: m })}
-          >
-            {info.icon}
-            <span className="flex flex-1 flex-col">
-              <span>{info.label}</span>
-              <span className="text-muted-foreground text-xs font-normal whitespace-normal">{info.hint}</span>
-            </span>
-            {on && m === mode && <CheckIcon className="text-muted-foreground" />}
-          </Button>
-        ))}
+          <CardLine icon={on ? modes[mode].icon : ClipboardXIcon}>{summary}</CardLine>
+        </ShadeCard>
+      </HoverCardTrigger>
+      <ShadePanel>
+        <ShadeHeader
+          title="Clipboard sync"
+          summary={on ? `${summary} · click the card to turn it off` : "Click the card to turn it on"}
+        />
+        <Tile
+          icon={on ? ClipboardCheckIcon : ClipboardXIcon}
+          label="Sync"
+          on={on}
+          wide
+          onClick={() => setScreenPrefs({ clipboard: !on })}
+        />
+        <Section title="Direction">
+          {(Object.entries(modes) as [ClipboardSync, (typeof modes)[ClipboardSync]][]).map(([m, info]) => (
+            <Row
+              key={m}
+              selected={on && m === mode}
+              icon={info.icon}
+              title={info.label}
+              onClick={() => setScreenPrefs({ clipboard: true, clipboardSync: m })}
+            >
+              {info.hint}
+            </Row>
+          ))}
+        </Section>
         {on && blocked && mode !== "from-device" && (
-          <p className="text-muted-foreground px-2 py-1.5 text-xs">
-            The browser doesn't let the page read your clipboard, so nothing goes to the device on its own.
-          </p>
+          <Note>
+            The browser doesn&apos;t let the page read your clipboard, so nothing goes to the device on its own.
+          </Note>
         )}
-      </HoverCardContent>
+        <Note>Ctrl/Cmd+V on the screen always pastes, with sync on or off.</Note>
+      </ShadePanel>
     </HoverCard>
   )
 }

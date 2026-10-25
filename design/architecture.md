@@ -341,8 +341,14 @@ release), and a lone Meta on Android opens system UI. The side and
 corner keys, notifications and quick settings go over the control socket while
 the screen is connected and through `/v1/device/actions` otherwise; the
 screenshot button saves the last decoded frame. Returning to the tab asks
-the server for a key frame (`reset video`). Stream settings and the
-keyboard mode are kept in `localStorage`; codecs the browser can't decode are not offered. Device
+the server for a key frame (`reset video`). The codec, bitrate and
+keyboard mode are kept in `localStorage`; resolution and frame rate belong to
+one session (`streamFor`) and start at the original size and `maxFps=0`,
+scrcpy's "no limit", so the device's own refresh rate (`refreshRate` in
+`DeviceState`, the fastest `fps=` mode in `dumpsys display`) caps it and the
+UI offers nothing above it. Codecs the browser can't decode are not offered;
+when the saved one is missing, the cheapest to encode that is decodable
+(H.264, then H.265, then AV1) is used. Device
 audio (`web/src/lib/audio.ts`) is decoded with WebCodecs `AudioDecoder` and
 played through `@yume-chan/pcm-player`. It is on by default (`audio` in
 the stream settings): it connects once the screen is live and the page has
@@ -410,7 +416,7 @@ codecs and reports that it can't capture audio.
   reconnecting with backoff). Autosync reports every change of the device
   clipboard as a device message; the agent caches the text, so the clipboard
   works whether or not the app runs and needs no Frida.
-- One button in the device rail controls sync: click turns it on or off,
+- The clipboard card next to the phone controls sync: click turns it on or off,
   hovering picks the direction (both ways by default, to the device, from
   the device). Both settings live in `localStorage` with the screen prefs.
 - Browser → device: when the tab gains focus or something is copied in the

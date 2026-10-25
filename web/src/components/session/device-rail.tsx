@@ -3,11 +3,9 @@ import { useState } from "react"
 import { toast } from "sonner"
 import { type Location, type SessionView, sessionBase, type Vibration } from "@/api/client"
 import type { AdbSession } from "@/components/session/adb-session"
-import { ClipboardButton } from "@/components/session/clipboard-button"
 import { DeviceControls } from "@/components/session/device-controls"
 import type { LiveScreen } from "@/components/session/live-screen"
 import { RecordButton } from "@/components/session/record-button"
-import { ScreenSettings } from "@/components/session/screen-settings"
 import { RailButton, RailSection } from "@/components/session/rail-item"
 import { useEventSource } from "@/hooks/use-event-source"
 import { useUserActivation } from "@/hooks/use-user-activation"
@@ -22,7 +20,6 @@ export function DeviceRail({
   session,
   live,
   adb,
-  clipboard,
   locations,
 }: {
   provider: string
@@ -30,7 +27,6 @@ export function DeviceRail({
   session: SessionView
   live: LiveScreen
   adb: AdbSession | null
-  clipboard: boolean
   locations: Location[]
 }) {
   const [shooting, setShooting] = useState(false)
@@ -74,9 +70,6 @@ export function DeviceRail({
         <CameraIcon />
       </RailButton>
       <RecordButton provider={provider} id={id} session={session} live={live} adb={adb} />
-      <RailSection title="Stream" separator={false} />
-      {clipboard && <ClipboardButton provider={provider} id={id} />}
-      <ScreenSettings live={live} />
       <RailSection title="Device" />
       <DeviceControls provider={provider} id={id} locations={locations} />
     </div>

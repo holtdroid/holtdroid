@@ -167,6 +167,7 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
               live={live}
               display={session.capabilities?.screen}
               locations={caps?.locations ?? []}
+              clipboard={caps?.clipboard ?? false}
             />
             <DeviceRail
               provider={provider}
@@ -174,7 +175,6 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
               session={session}
               live={live}
               adb={adbAllowed ? adb : null}
-              clipboard={caps?.clipboard ?? false}
               locations={caps?.locations ?? []}
             />
             <ToolTabs tab={tab} onTab={setTab} adb={adbAllowed ? adb : null} session={session}>

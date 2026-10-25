@@ -84,6 +84,7 @@ echo "productLocale=$(getprop ro.product.locale)"
 echo "locales=$(settings get system system_locales)"
 echo "autotime=$(settings get global auto_time)"
 echo "volume=$(cmd media_session volume --stream 3 --get 2>/dev/null | grep 'volume is')"
+echo "fps=$(dumpsys display | grep -o 'fps=[0-9.]*' | tr '\n' ' ')"
 echo "musicMuted=$(dumpsys audio | grep -A1 -- '- STREAM_MUSIC:' | grep Muted)"`
 
 var (
@@ -161,6 +162,11 @@ func (c *Controls) State(ctx context.Context) (contract.DeviceState, error) {
 	}
 	if r, err := strconv.Atoi(v["rotation"]); err == nil && r >= 0 && r <= 3 {
 		s.Rotation = r
+	}
+	for f := range strings.FieldsSeq(v["fps"]) {
+		if hz, err := strconv.ParseFloat(strings.TrimPrefix(f, "fps="), 64); err == nil {
+			s.RefreshRate = max(s.RefreshRate, int(math.Round(hz)))
+		}
 	}
 	if volume, low, high, ok := parseVolume(v["volume"]); ok {
 		s.Volume, s.VolumeMax = volume, high

@@ -11,6 +11,7 @@ export type ScreenPrefs = {
   codec: VideoCodec
   maxSize: number
   maxFps: number
+  streamFor: string
   bitRate: number
   keyboard: KeyboardMode
   audio: boolean
@@ -29,7 +30,8 @@ export type ScreenPrefs = {
 export const defaultScreenPrefs: ScreenPrefs = {
   codec: "h264",
   maxSize: 0,
-  maxFps: 60,
+  maxFps: 0,
+  streamFor: "",
   bitRate: 4_000_000,
   keyboard: "text",
   audio: true,
@@ -46,11 +48,14 @@ export const defaultScreenPrefs: ScreenPrefs = {
 }
 
 const key = "holtdroid:screen"
+const perSession = ["maxSize", "maxFps", "streamFor"] as const
 const listeners = new Set<() => void>()
 
 function load(): ScreenPrefs {
   try {
-    return { ...defaultScreenPrefs, ...(JSON.parse(localStorage.getItem(key) ?? "{}") as Partial<ScreenPrefs>) }
+    const saved = JSON.parse(localStorage.getItem(key) ?? "{}") as Partial<ScreenPrefs>
+    for (const k of perSession) delete saved[k]
+    return { ...defaultScreenPrefs, ...saved }
   } catch {
     return defaultScreenPrefs
   }
@@ -60,7 +65,9 @@ let current = load()
 
 function save(prefs: ScreenPrefs) {
   try {
-    localStorage.setItem(key, JSON.stringify(prefs))
+    const saved: Partial<ScreenPrefs> = { ...prefs }
+    for (const k of perSession) delete saved[k]
+    localStorage.setItem(key, JSON.stringify(saved))
   } catch {
     return
   }
@@ -83,4 +90,17 @@ export function getScreenPrefs() {
 
 export function useScreenPrefs() {
   return useSyncExternalStore(subscribe, () => current)
+}
+
+export const codecCost: VideoCodec[] = ["h264", "h265", "av1"]
+
+export function pickCodec(preferred: VideoCodec, decodable?: VideoCodec[]) {
+  if (!decodable || decodable.includes(preferred)) return preferred
+  return codecCost.find((c) => decodable.includes(c)) ?? "h264"
+}
+
+export function streamLimits(prefs: ScreenPrefs, session: string) {
+  return prefs.streamFor === session
+    ? { maxSize: prefs.maxSize, maxFps: prefs.maxFps }
+    : { maxSize: defaultScreenPrefs.maxSize, maxFps: defaultScreenPrefs.maxFps }
 }

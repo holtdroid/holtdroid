@@ -1,18 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import {
-  ActivityIcon,
-  CheckIcon,
-  GlobeIcon,
-  Loader2Icon,
-  PlaneIcon,
-  RotateCcwIcon,
-  SignalIcon,
-  UsbIcon,
-  WifiIcon,
-  WifiOffIcon,
-  type LucideIcon,
-} from "lucide-react"
-import { type ReactNode, useMemo } from "react"
+import { ActivityIcon, GlobeIcon, PlaneIcon, SignalIcon, UsbIcon, WifiIcon, WifiOffIcon } from "lucide-react"
+import { useMemo } from "react"
 import { toast } from "sonner"
 import {
   agentClient,
@@ -23,12 +11,10 @@ import {
   unwrap,
 } from "@/api/client"
 import { networkKey, useDevice, useNetwork, useUpdateDevice } from "@/components/session/use-device"
-import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
+import { Note, Row, Section, ShadeCard, ShadeHeader, ShadePanel, Tile } from "@/components/session/shade"
+import { HoverCard, HoverCardTrigger } from "@/components/ui/hover-card"
 import { rememberLocation } from "@/lib/launch-prefs"
 import { locationFlag } from "@/lib/location"
-import { cn } from "@/lib/utils"
-
-export const networkWidgetWidth = 128
 
 export function NetworkWidget({ provider, id, locations }: { provider: string; id: string; locations: Location[] }) {
   const device = useDevice(provider, id)
@@ -49,13 +35,7 @@ export function NetworkWidget({ provider, id, locations }: { provider: string; i
   return (
     <HoverCard openDelay={150} closeDelay={200}>
       <HoverCardTrigger asChild>
-        <button
-          type="button"
-          aria-label="Network"
-          className="relative grid cursor-default gap-1.5 rounded-2xl bg-neutral-900 p-3 text-left text-neutral-100 shadow-lg ring-1 ring-black/50 transition-colors outline-none hover:bg-neutral-800 focus-visible:ring-2 focus-visible:ring-sky-300 dark:ring-white/15"
-          style={{ width: networkWidgetWidth }}
-        >
-          {changed && <span className="absolute top-2.5 right-2.5 size-2 rounded-full bg-amber-500" />}
+        <ShadeCard aria-label="Network" changed={changed}>
           <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
             {location ? (
               <span className="text-base leading-none">
@@ -71,13 +51,9 @@ export function NetworkWidget({ provider, id, locations }: { provider: string; i
             <LinkIcon s={s} className="size-3.5 shrink-0" />
             <span className="truncate">{s?.airplaneMode ? "Airplane mode" : (profile?.name ?? linkSummary(s))}</span>
           </span>
-        </button>
+        </ShadeCard>
       </HoverCardTrigger>
-      <HoverCardContent
-        side="right"
-        align="start"
-        className="flex max-h-(--radix-hover-card-content-available-height) w-96 flex-col gap-4 overflow-y-auto rounded-[28px] border-0 bg-neutral-900 p-4 text-neutral-100 shadow-2xl ring-1 ring-white/10"
-      >
+      <ShadePanel>
         {s ? (
           <Shade
             s={s}
@@ -92,9 +68,9 @@ export function NetworkWidget({ provider, id, locations }: { provider: string; i
             ip={n?.externalIp}
           />
         ) : (
-          <p className="text-sm text-neutral-400">Loading the device…</p>
+          <Note>Loading the device…</Note>
         )}
-      </HoverCardContent>
+      </ShadePanel>
     </HoverCard>
   )
 }
@@ -141,30 +117,22 @@ function Shade({
   const radios = !s.usbNetwork
   return (
     <>
-      <div className="flex items-center justify-between gap-2 px-1">
-        <div className="grid">
-          <span className="text-base font-medium">Network</span>
-          <span className="text-xs text-neutral-400">{linkSummary(s)}</span>
-        </div>
-        {changed && (
-          <button
-            type="button"
-            disabled={busy}
-            className="flex items-center gap-1.5 rounded-full bg-neutral-800 px-3 py-1.5 text-xs text-neutral-200 transition-colors hover:bg-neutral-700 disabled:opacity-50"
-            onClick={() =>
-              set({
-                airplaneMode: false,
-                wifi: radios,
-                mobileData: radios,
-                ...(s.networkProfile && { networkProfile: "full" }),
-              })
-            }
-          >
-            <RotateCcwIcon className="size-3.5" />
-            Reset
-          </button>
-        )}
-      </div>
+      <ShadeHeader
+        title="Network"
+        summary={linkSummary(s)}
+        busy={busy}
+        onReset={
+          changed
+            ? () =>
+                set({
+                  airplaneMode: false,
+                  wifi: radios,
+                  mobileData: radios,
+                  ...(s.networkProfile && { networkProfile: "full" }),
+                })
+            : undefined
+        }
+      />
 
       <div className="grid grid-cols-2 gap-2">
         <Tile icon={WifiIcon} label="Wi-Fi" on={s.wifi} disabled={busy} onClick={() => set({ wifi: !s.wifi })} />
@@ -185,9 +153,9 @@ function Shade({
         />
       </div>
       {s.usbNetwork && (
-        <p className="px-1 text-xs text-neutral-400">
+        <Note>
           This phone reaches the internet over USB through the session&apos;s VPN, so Wi-Fi and mobile data stay off.
-        </p>
+        </Note>
       )}
 
       {locations.length > 0 && (
@@ -203,97 +171,6 @@ function Shade({
         />
       )}
     </>
-  )
-}
-
-function Tile({
-  icon: Icon,
-  label,
-  on,
-  disabled,
-  wide,
-  onClick,
-}: {
-  icon: LucideIcon
-  label: string
-  on: boolean
-  disabled: boolean
-  wide?: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={on}
-      disabled={disabled}
-      className={cn(
-        "flex h-16 items-center gap-3 rounded-full px-4 text-left transition-colors disabled:opacity-60",
-        on ? "bg-sky-200 text-sky-950 hover:bg-sky-100" : "bg-neutral-800 text-neutral-100 hover:bg-neutral-700",
-        wide && "col-span-2",
-      )}
-      onClick={onClick}
-    >
-      <Icon className="size-5 shrink-0" />
-      <span className="grid min-w-0">
-        <span className="truncate text-sm font-medium">{label}</span>
-        <span className={cn("text-xs", on ? "text-sky-900" : "text-neutral-400")}>{on ? "On" : "Off"}</span>
-      </span>
-    </button>
-  )
-}
-
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="grid gap-1.5">
-      <h4 className="px-1 text-xs font-medium text-neutral-400">{title}</h4>
-      <div className="grid gap-1 overflow-hidden rounded-3xl">{children}</div>
-    </section>
-  )
-}
-
-function Row({
-  selected,
-  busy = false,
-  disabled,
-  flag,
-  icon: Icon = GlobeIcon,
-  title,
-  children,
-  onClick,
-}: {
-  selected: boolean
-  busy?: boolean
-  disabled?: boolean
-  flag?: string
-  icon?: LucideIcon
-  title: string
-  children?: ReactNode
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={selected}
-      disabled={disabled}
-      className={cn(
-        "flex w-full items-center gap-3 rounded-md px-4 py-2.5 text-left transition-colors first:rounded-t-3xl last:rounded-b-3xl disabled:cursor-default",
-        selected ? "bg-sky-200 text-sky-950" : "bg-neutral-800 text-neutral-100 hover:bg-neutral-700",
-      )}
-      onClick={onClick}
-    >
-      <span className="grid size-6 shrink-0 place-items-center text-lg leading-none">
-        {flag ?? <Icon className="size-4" />}
-      </span>
-      <span className="grid min-w-0 flex-1 gap-0.5">
-        <span className="text-sm font-medium">{title}</span>
-        {children && <span className={cn("text-xs", selected ? "text-sky-900" : "text-neutral-400")}>{children}</span>}
-      </span>
-      {busy ? (
-        <Loader2Icon className="size-4 shrink-0 animate-spin" />
-      ) : (
-        selected && <CheckIcon className="size-4 shrink-0" />
-      )}
-    </button>
   )
 }
 

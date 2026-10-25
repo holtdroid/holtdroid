@@ -344,6 +344,7 @@ type DeviceState struct {
 	Density            int                  `json:"density"`
 	DefaultDensity     int                  `json:"defaultDensity"`
 	Rotation           int                  `json:"rotation" minimum:"0" maximum:"3"`
+	RefreshRate        int                  `json:"refreshRate" doc:"the display's highest refresh rate in Hz; 0 when the device doesn't report it"`
 	Volume             int                  `json:"volume" doc:"the media volume step, 0 while muted"`
 	VolumeMax          int                  `json:"volumeMax" doc:"the highest media volume step; 0 when the device doesn't report its volume"`
 	Muted              bool                 `json:"muted" doc:"the media stream is muted"`

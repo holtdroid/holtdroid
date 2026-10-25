@@ -484,6 +484,11 @@ export interface components {
             networkProfile?: string;
             /** @description the profiles networkProfile may be set to */
             networkProfiles?: components["schemas"]["NetworkProfileInfo"][];
+            /**
+             * Format: int64
+             * @description the display's highest refresh rate in Hz; 0 when the device doesn't report it
+             */
+            refreshRate: number;
             /** Format: int64 */
             rotation: number;
             /**

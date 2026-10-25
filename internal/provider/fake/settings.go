@@ -22,6 +22,7 @@ func defaultSettings() contract.DeviceState {
 		FontScale:          1,
 		Density:            320,
 		DefaultDensity:     320,
+		RefreshRate:        60,
 		Volume:             5,
 		VolumeMax:          15,
 		NetworkProfile:     contract.NetworkFull,

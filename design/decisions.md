@@ -2688,6 +2688,14 @@ phone that shows the location, the external IP and the conditions; hovering
 it opens a panel drawn like Android's quick settings shade, where every
 location and condition is a row with its description instead of a select.
 
-**Consequences.** The rail keeps capture, stream and the other device
-controls. Small + and − marks and the power key's current action sit next to the keys, which widen on hover and sink on a press. The frame and the network card take 198 px of width and 40 px of height from
+The stream and keyboard settings and clipboard sync became cards under the
+network card with the same kind of shade (`shade.tsx` holds the shared
+pieces). Only the codec and bitrate are remembered across sessions:
+resolution and frame rate start from the device's own in every session, and
+the frame rate can't go above the device's refresh rate, which the agent
+now reports. H.264 stays the default because it is the cheapest to encode on
+emulators without hardware encoders; the saved codec falls back to the
+cheapest decodable one.
+
+**Consequences.** The rail keeps capture and the other device controls. Small + and − marks and the power key's current action sit next to the keys, which widen on hover and sink on a press. The frame and the cards take 198 px of width and 40 px of height from
 the screen panel, which the auto-fit accounts for.

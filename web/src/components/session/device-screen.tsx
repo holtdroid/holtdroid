@@ -4,13 +4,16 @@ import { toast } from "sonner"
 import { type Display, type Location, type Screen, sessionBase } from "@/api/client"
 import { CutoutOverlay } from "@/components/session/cutout-overlay"
 import { displayURL, type LiveScreen, useDecodableCodecs } from "@/components/session/live-screen"
-import { NetworkWidget, networkWidgetWidth } from "@/components/session/network-widget"
+import { ClipboardWidget } from "@/components/session/clipboard-widget"
+import { NetworkWidget } from "@/components/session/network-widget"
+import { widgetWidth } from "@/components/session/shade"
+import { StreamWidget } from "@/components/session/stream-widget"
 import { PhoneButtons } from "@/components/session/phone-buttons"
 import { Spinner } from "@/components/ui/spinner"
 import { useEventSource } from "@/hooks/use-event-source"
 import { screenDp } from "@/lib/cutout"
 import { openScreen, screenSupported, UnsupportedCodecError } from "@/lib/scrcpy"
-import { setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
+import { pickCodec, setScreenPrefs, streamLimits, useScreenPrefs } from "@/lib/screen-prefs"
 
 type Status = "connecting" | "live" | "retrying"
 
@@ -20,7 +23,7 @@ const keyArea = 4 + 18
 const widgetGap = 8
 
 export const frameInset = {
-  x: 2 * (gap + bezel) + keyArea + widgetGap + networkWidgetWidth,
+  x: 2 * (gap + bezel) + keyArea + widgetGap + widgetWidth,
   y: 2 * (gap + bezel),
 }
 
@@ -41,19 +44,22 @@ export function DeviceScreen({
   live,
   display: shape,
   locations,
+  clipboard,
 }: {
   provider: string
   id: string
   live: LiveScreen
   display?: Display
   locations: Location[]
+  clipboard: boolean
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const supported = screenSupported()
   const prefs = useScreenPrefs()
   const codecs = useDecodableCodecs()
-  const { maxSize, maxFps, bitRate } = prefs
-  const codec = !codecs || codecs.includes(prefs.codec) ? prefs.codec : "h264"
+  const { bitRate } = prefs
+  const { maxSize, maxFps } = streamLimits(prefs, `${provider}/${id}`)
+  const codec = pickCodec(prefs.codec, codecs)
   const stream = `${provider}/${id}/${codec}/${maxSize}/${maxFps}/${bitRate}`
   const [state, setState] = useState<{ stream: string; status: Status }>({ stream, status: "connecting" })
   const status = state.stream === stream ? state.status : "connecting"
@@ -248,7 +254,11 @@ export function DeviceScreen({
           </div>
           <PhoneButtons provider={provider} id={id} live={live} />
         </div>
-        <NetworkWidget provider={provider} id={id} locations={locations} />
+        <div className="flex flex-col gap-2">
+          <NetworkWidget provider={provider} id={id} locations={locations} />
+          <StreamWidget provider={provider} id={id} live={live} />
+          {clipboard && <ClipboardWidget provider={provider} id={id} />}
+        </div>
       </div>
     </div>
   )
