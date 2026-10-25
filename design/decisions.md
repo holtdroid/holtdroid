@@ -2898,3 +2898,27 @@ add them later. Routes follow straight lines, not roads: road routing
 through a routing service proxied by the api is the next step. The route is
 in the agent's memory only, like the rest of the session's GPS override.
 
+## 99. GPS routes along roads come from Valhalla through the api
+
+**Context.** Straight lines between clicked points (decision #98) cut
+through buildings and rivers; apps that snap to roads or check the route
+see a device that walks through walls.
+
+**Decision.** `POST /api/v1/map/route` asks a
+[Valhalla](https://github.com/valhalla/valhalla) server for a path through
+the points: `pedestrian` costing for walking and running, `auto` for
+driving. The default `routing.url` is the public FOSSGIS instance
+(`valhalla1.openstreetmap.de`), free and keyless under fair use; Valhalla's
+API is the same when self-hosted, and an empty `routing.url` turns it off.
+The api decodes the legs' polyline6 shapes into one path, thins it to the
+5000 points a route may have and returns its length; the UI shows it on the
+map while planning ("Follow roads", on when routing is available) and sends
+it as an ordinary `route`, so the agent and the contract don't change.
+The api sends only the points and its own User-Agent. Up to 20 points per
+request, the usual limit of public Valhalla servers.
+
+**Consequences.** The device still moves at a constant speed, not at each
+road's speed, and turns are as sharp as the shape. The public server limits
+the path length (1500 km for driving) and the rate; heavy users should run
+their own. The api needs outbound HTTPS to it, like the map tiles.
+

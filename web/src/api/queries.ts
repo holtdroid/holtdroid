@@ -167,6 +167,20 @@ export function useMap() {
   })
 }
 
+export function useRoadRoute(
+  points: { latitude: number; longitude: number }[],
+  mode: "walk" | "run" | "drive",
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: ["map-route", mode, points],
+    queryFn: () => unwrap(api.POST("/api/v1/map/route", { body: { points, mode } })),
+    enabled: enabled && points.length >= 2,
+    staleTime: Infinity,
+    retry: false,
+  })
+}
+
 export function useSessions() {
   return useQuery({
     queryKey: keys.sessions,

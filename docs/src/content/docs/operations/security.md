@@ -56,7 +56,9 @@ sidebar:
 - **The GPS map** makes the api fetch tiles from `map.url` (OpenFreeMap by
   default) for signed-in users. Only the path is forwarded, with the api's
   own User-Agent and no cookies; set `map.url: ""` if the api must not reach
-  the internet.
+  the internet. GPS routes along roads send the clicked points to
+  `routing.url` (the public FOSSGIS Valhalla by default) the same way; set
+  `routing.url: ""` to keep them in.
 - **Who can get in.** The default `anonymous` mode lets anyone who reaches the
   URL launch devices. Put it on a private network, or use `password`, `oidc`
   or `header` — see [Authentication](/holtdroid/configuration/authentication/).

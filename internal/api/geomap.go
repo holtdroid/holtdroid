@@ -27,6 +27,7 @@ const maxMapResponse = 16 << 20
 
 type MapView struct {
 	Enabled   bool   `json:"enabled"`
+	Routing   bool   `json:"routing" doc:"POST /api/v1/map/route can follow roads"`
 	Style     string `json:"style,omitempty" doc:"MapLibre style URL, proxied through the portal"`
 	DarkStyle string `json:"darkStyle,omitempty" doc:"the style for the dark theme"`
 }
@@ -35,7 +36,7 @@ func (s *Server) registerMap(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "getMap", Method: http.MethodGet, Path: "/api/v1/map", Tags: []string{"ui"}},
 		func(context.Context, *struct{}) (*out[MapView], error) {
 			if s.cfg.Map.URL == "" {
-				return &out[MapView]{MapView{}}, nil
+				return &out[MapView]{MapView{Routing: s.cfg.Routing.URL != ""}}, nil
 			}
 			dark := s.cfg.Map.DarkStyle
 			if dark == "" {
@@ -43,10 +44,12 @@ func (s *Server) registerMap(api huma.API) {
 			}
 			return &out[MapView]{MapView{
 				Enabled:   true,
+				Routing:   s.cfg.Routing.URL != "",
 				Style:     mapTilesPath + strings.TrimLeft(s.cfg.Map.Style, "/"),
 				DarkStyle: mapTilesPath + strings.TrimLeft(dark, "/"),
 			}}, nil
 		})
+	s.registerRouting(api)
 }
 
 var mapClient = &http.Client{Timeout: 30 * time.Second}

@@ -4,7 +4,7 @@ import { toast } from "sonner"
 import { type DeviceSettings, type DeviceState, type Location } from "@/api/client"
 import { useMap } from "@/api/queries"
 import { Combobox } from "@/components/combobox"
-import { RouteControl, routeLine } from "@/components/session/geo-route"
+import { maxRoadPoints, type Plan, RouteControl, routeLine, usePlannedPath } from "@/components/session/geo-route"
 import { ControlGroup, RailControl } from "@/components/session/rail-control"
 import { RailSection } from "@/components/session/rail-item"
 import { useDevice, useNetwork, useUpdateDevice } from "@/components/session/use-device"
@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { CITIES, defaultGeo } from "@/lib/device-presets"
-import type { Point } from "@/lib/geo"
 
 const GeoMap = lazy(() => import("@/components/session/geo-map"))
 
@@ -81,13 +80,15 @@ function GeoControl({ s, set, busy, vpnCountry }: Props & { vpnCountry?: string 
   const valid = !!point && Math.abs(point.latitude) <= 90 && Math.abs(point.longitude) <= 180
   const goTo = (latitude: number, longitude: number) => set({ geo: { latitude, longitude } })
   const map = useMap().data
-  const [plan, setPlan] = useState<Point[] | null>(null)
+  const [plan, setPlan] = useState<Plan | null>(null)
   const here = s.geo ?? defaultGeo
   const route = s.route
+  const routing = !!map?.routing
+  const planned = usePlannedPath(here, plan, routing)
   const line = useMemo(() => {
-    if (plan) return [s.geo ?? defaultGeo, ...plan]
+    if (plan) return planned.path
     return route ? routeLine(route) : undefined
-  }, [plan, route, s.geo])
+  }, [plan, planned.path, route])
 
   const locate = () => {
     setLocating(true)
@@ -119,7 +120,11 @@ function GeoControl({ s, set, busy, vpnCountry }: Props & { vpnCountry?: string 
             disabled={busy}
             onPick={(p) => {
               if (plan) {
-                setPlan([...plan, p])
+                if (planned.onRoads && plan.points.length >= maxRoadPoints) {
+                  toast.error(`At most ${maxRoadPoints} points along roads`)
+                  return
+                }
+                setPlan({ ...plan, points: [...plan.points, p] })
                 return
               }
               setOverride(true)
@@ -128,7 +133,9 @@ function GeoControl({ s, set, busy, vpnCountry }: Props & { vpnCountry?: string 
           />
         </Suspense>
       )}
-      {map?.enabled && <RouteControl s={s} set={set} busy={busy} here={here} plan={plan} setPlan={setPlan} />}
+      {map?.enabled && (
+        <RouteControl s={s} set={set} busy={busy} routing={routing} plan={plan} setPlan={setPlan} planned={planned} />
+      )}
       <label className="flex items-center justify-between gap-2 text-sm">
         <span>Override for this session</span>
         <Switch

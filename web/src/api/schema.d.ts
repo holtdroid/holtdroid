@@ -373,6 +373,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/map/route": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["routeOnRoads"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me": {
         parameters: {
             query?: never;
@@ -1478,6 +1494,8 @@ export interface components {
             /** @description the style for the dark theme */
             darkStyle?: string;
             enabled: boolean;
+            /** @description POST /api/v1/map/route can follow roads */
+            routing: boolean;
             /** @description MapLibre style URL, proxied through the portal */
             style?: string;
         };
@@ -1804,6 +1822,21 @@ export interface components {
              */
             state: "unknown" | "up" | "down";
             user: string;
+        };
+        RoadRoute: {
+            /**
+             * Format: double
+             * @description metres
+             */
+            length: number;
+            /** @description the path along roads, at most 5000 points */
+            points: components["schemas"]["GeoPoint"][];
+        };
+        RoadRouteInputBody: {
+            /** @enum {string} */
+            mode: "walk" | "run" | "drive";
+            /** @description the start and the points to pass, in order */
+            points: components["schemas"]["GeoPoint"][];
         };
         SSHInfo: {
             allowADB: boolean;
@@ -2760,6 +2793,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MapView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    routeOnRoads: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoadRouteInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoadRoute"];
                 };
             };
             /** @description Error */

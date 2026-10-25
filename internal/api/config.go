@@ -111,6 +111,7 @@ type Config struct {
 	Recordings     RecordingsConfig
 	WebView        WebViewConfig
 	Map            MapConfig
+	Routing        RoutingConfig
 	Sources        []source.Config
 	Providers      []Endpoint
 }
@@ -143,7 +144,8 @@ func DefaultConfig() Config {
 		Recordings: RecordingsConfig{
 			Auto: true, MaxAge: 7 * 24 * time.Hour, Share: true, MaxFileSize: 64 << 20, SweepInterval: 10 * time.Minute,
 		},
-		Map: MapConfig{URL: "https://tiles.openfreemap.org", Style: "styles/liberty", DarkStyle: "styles/dark"},
+		Map:     MapConfig{URL: "https://tiles.openfreemap.org", Style: "styles/liberty", DarkStyle: "styles/dark"},
+		Routing: RoutingConfig{URL: "https://valhalla1.openstreetmap.de"},
 		Sources: []source.Config{{
 			Name:       "local",
 			Type:       "filesystem",
@@ -242,6 +244,11 @@ func (c Config) Validate() error {
 		}
 		if c.Recordings.MaxFileSize == 0 || c.Recordings.SweepInterval <= 0 {
 			errs = append(errs, errors.New("recordings.maxFileSize and recordings.sweepInterval must be positive"))
+		}
+	}
+	if c.Routing.URL != "" {
+		if u, err := url.Parse(c.Routing.URL); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			errs = append(errs, errors.New("routing.url must be an absolute http(s) URL"))
 		}
 	}
 	seen := map[string]bool{}

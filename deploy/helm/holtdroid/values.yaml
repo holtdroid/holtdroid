@@ -58,6 +58,9 @@ config:
   # Overview → GPS map). Empty url turns the map off.
   # map:
   #   url: https://tiles.openfreemap.org
+  # Valhalla server for GPS routes along roads; empty draws straight lines.
+  # routing:
+  #   url: https://valhalla1.openstreetmap.de
   database:
     type: memory
   # ADB tools on the session page (logcat, files, terminal). On redroid
