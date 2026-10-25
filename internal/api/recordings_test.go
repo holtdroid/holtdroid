@@ -88,7 +88,13 @@ func TestRecordingOfASession(t *testing.T) {
 		t.Fatalf("logcat: %d %v", rec.Code, rec.Header())
 	}
 
+	if r.Keep || r.ExpiresAt == nil {
+		t.Fatalf("a fresh recording is kept: %+v", r)
+	}
 	shared := decode[RecordingView](t, h.do(http.MethodPost, "/api/v1/recordings/"+r.ID+"/share", "alice", "", nil))
+	if !shared.Keep || shared.ExpiresAt != nil {
+		t.Fatalf("sharing should keep the recording: %+v", shared)
+	}
 	if shared.Share == nil || shared.Share.URL != "https://android.example.com/r/"+shared.Share.Token {
 		t.Fatalf("share: %+v", shared.Share)
 	}
@@ -104,7 +110,9 @@ func TestRecordingOfASession(t *testing.T) {
 	if rec := h.do(http.MethodGet, sd.Recording.FilesURL+seg, "", "", nil); rec.Code != http.StatusOK {
 		t.Fatalf("shared segment: %d", rec.Code)
 	}
-	h.do(http.MethodDelete, "/api/v1/recordings/"+r.ID+"/share", "alice", "", nil)
+	if un := decode[RecordingView](t, h.do(http.MethodDelete, "/api/v1/recordings/"+r.ID+"/share", "alice", "", nil)); !un.Keep {
+		t.Fatal("turning sharing off dropped the keep")
+	}
 	if rec := h.do(http.MethodGet, "/api/v1/shared/"+shared.Share.Token, "", "", nil); rec.Code != http.StatusNotFound {
 		t.Fatalf("unshared link still opens: %d", rec.Code)
 	}

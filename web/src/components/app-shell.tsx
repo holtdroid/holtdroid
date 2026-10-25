@@ -14,9 +14,10 @@ import {
   SunIcon,
 } from "lucide-react"
 import { useTheme } from "next-themes"
-import type { ReactNode } from "react"
+import { type ReactNode, useState } from "react"
 import { useAppData, useAuth, useLogout, useRecordings, useSessionEvents } from "@/api/queries"
 import { useComputers, useSSHInfo } from "@/api/ssh"
+import { HeaderSlotProvider } from "@/components/header-slot"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -40,6 +41,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const recordings = useRecordings()
   const logout = useLogout()
   const matchRoute = useMatchRoute()
+  const [slot, setSlot] = useState<HTMLElement | null>(null)
+  const onRecording = Boolean(matchRoute({ to: "/recordings/$id" }))
   const onApps = Boolean(matchRoute({ to: "/" }) || matchRoute({ to: "/apps/$pkg", fuzzy: true }))
   const { resolvedTheme, setTheme } = useTheme()
   const identity = auth.data?.identity
@@ -49,10 +52,14 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-dvh flex-col">
       <header className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
-        <Link to="/" className="flex items-center gap-2 font-semibold tracking-tight">
-          <img src={logo} alt="" className="size-7" />
-          Holtdroid
-        </Link>
+        {onRecording ? (
+          <div ref={setSlot} className="flex min-w-0 flex-1 items-center" />
+        ) : (
+          <Link to="/" className="flex items-center gap-2 font-semibold tracking-tight">
+            <img src={logo} alt="" className="size-7" />
+            Holtdroid
+          </Link>
+        )}
         <div className="ml-auto flex items-center gap-1">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -190,7 +197,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           )}
         </div>
       </header>
-      <main className="min-h-0 flex-1 overflow-hidden">{children}</main>
+      <main className="min-h-0 flex-1 overflow-hidden">
+        <HeaderSlotProvider value={onRecording ? slot : null}>{children}</HeaderSlotProvider>
+      </main>
     </div>
   )
 }

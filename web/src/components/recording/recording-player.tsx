@@ -1,8 +1,11 @@
 import {
   ClapperboardIcon,
   FileTextIcon,
+  Link2OffIcon,
+  LinkIcon,
   MaximizeIcon,
   PauseIcon,
+  PinIcon,
   PlayIcon,
   PointerIcon,
   SkipBackIcon,
@@ -10,6 +13,7 @@ import {
 } from "lucide-react"
 import {
   type ComponentProps,
+  type CSSProperties,
   type KeyboardEvent,
   type PointerEvent,
   useCallback,
@@ -19,8 +23,9 @@ import {
   useState,
   useSyncExternalStore,
 } from "react"
+import { toast } from "sonner"
 import type { RecordingDetail, RecordingManifest } from "@/api/client"
-import { type RecordingSource, useRecordingEvents } from "@/api/queries"
+import { type RecordingSource, useKeepRecording, useRecordingEvents, useShareRecording } from "@/api/queries"
 import { BakeDialog } from "@/components/recording/bake-dialog"
 import { InfoView } from "@/components/recording/info-view"
 import { LogcatView } from "@/components/recording/logcat-view"
@@ -82,6 +87,10 @@ export function RecordingPlayer({
   const [baking, setBaking] = useState(false)
   const [showTouches, setShowTouches] = useState(true)
   const box = useRef<HTMLDivElement>(null)
+  const grid = useRef<HTMLDivElement>(null)
+  const [gridHeight, setGridHeight] = useState(0)
+  const keep = useKeepRecording()
+  const share = useShareRecording()
   const attach = useCallback(
     (c: HTMLCanvasElement | null) => {
       player.attach(c)
@@ -94,6 +103,25 @@ export function RecordingPlayer({
   useEffect(() => player.setTouches(telemetry.touches), [player, telemetry])
   useEffect(() => player.setShowTouches(showTouches), [player, showTouches])
   useEffect(() => () => player.dispose(), [player])
+  useEffect(() => {
+    const el = grid.current
+    const observer = new ResizeObserver(([entry]) => setGridHeight(Math.round(entry?.contentRect.height ?? 0)))
+    if (el) observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  const copyLink = async () => {
+    try {
+      const v = r.share ? r : await share.mutateAsync({ id: r.id, share: true })
+      if (!v.share) return
+      await navigator.clipboard.writeText(v.share.url)
+      toast.success("Link copied", {
+        description: "Anyone with it can watch. The recording is kept while it is shared.",
+      })
+    } catch (e) {
+      toast.error("Could not share", { description: e instanceof Error ? e.message : String(e) })
+    }
+  }
 
   const onKey = (e: KeyboardEvent) => {
     const tag = (e.target as HTMLElement).tagName
@@ -118,9 +146,13 @@ export function RecordingPlayer({
       ref={box}
       tabIndex={-1}
       onKeyDown={onKey}
-      className="android-stage grid gap-3 rounded-[32px] p-3 outline-none lg:p-4"
+      className="android-stage flex flex-col gap-3 rounded-[32px] p-3 outline-none lg:h-full lg:p-4"
     >
-      <div className="grid gap-3 [--stage-h:68dvh] lg:h-(--stage-h) lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:[--stage-h:min(80dvh,900px)]">
+      <div
+        ref={grid}
+        style={{ "--stage-h-lg": `${gridHeight}px` } as CSSProperties}
+        className="grid gap-3 [--stage-h:68dvh] lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)] lg:[--stage-h:var(--stage-h-lg,60dvh)]"
+      >
         <div className="order-3 flex h-[60dvh] min-h-0 flex-col lg:order-1 lg:h-auto [&>section]:flex-1">
           <LogcatView player={player} time={state.time} />
         </div>
@@ -199,6 +231,44 @@ export function RecordingPlayer({
             ))}
           </div>
           <div className="ml-auto flex flex-wrap items-center gap-2">
+            {source.kind === "own" && (
+              <>
+                <Tonal
+                  aria-pressed={r.keep}
+                  disabled={!!r.share || keep.isPending}
+                  title={
+                    r.share
+                      ? "Kept while it is shared"
+                      : r.keep
+                        ? "Let retention delete it when its time is up"
+                        : "Keep it past the retention period"
+                  }
+                  className={cn(r.keep && "bg-[#0a5230] text-[#94f7b5] hover:bg-[#0d6139] disabled:opacity-100")}
+                  onClick={() => keep.mutate({ id: r.id, keep: !r.keep })}
+                >
+                  <PinIcon className={cn(r.keep && "fill-current")} />
+                  {r.keep ? "Kept" : "Keep"}
+                </Tonal>
+                <Tonal
+                  disabled={share.isPending}
+                  title={r.share ? "Copy the share link" : "Make a link anyone can open, and keep the recording"}
+                  onClick={() => void copyLink()}
+                >
+                  <LinkIcon />
+                  {r.share ? "Copy link" : "Share"}
+                </Tonal>
+                {r.share && (
+                  <IconButton
+                    aria-label="Stop sharing"
+                    title="Stop sharing: the link stops working"
+                    disabled={share.isPending}
+                    onClick={() => share.mutate({ id: r.id, share: false })}
+                  >
+                    <Link2OffIcon />
+                  </IconButton>
+                )}
+              </>
+            )}
             <a
               href={r.logcatUrl}
               download

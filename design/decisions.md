@@ -2851,7 +2851,9 @@ pass a recording to someone without an account.
   into an MP4 in OPFS, because a video can't hold page text. Segments are
   decoded with WebCodecs through mediabunny, one `init + segment` run at a
   time, so a seek fetches only the segment it needs. Share links open the
-  player without sign-in and don't offer the download.
+  player without sign-in and don't offer the download. Sharing also keeps
+  the recording, since a link that dies after a week surprises whoever got
+  it; turning sharing off leaves it kept.
 
 **Consequences.** The server spends no CPU on video; an hour of an app in
 use is 0.2–2 GB in storage (the viewer's quality decides), events and

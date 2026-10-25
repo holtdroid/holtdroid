@@ -12,7 +12,7 @@ describe("TouchTrack", () => {
     touch(1200, "move", 0.5, 0.4),
     touch(1250, "up", 0.5, 0.3),
     touch(5000, "down", 0.2, 0.2),
-    { t: 6000, type: "key", key: "back" } as RecordingEvent,
+    { t: 6000, type: "key", key: "back" },
   ])
 
   test("nothing is shown before the first touch", () => {

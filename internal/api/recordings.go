@@ -892,7 +892,7 @@ func (s *Server) registerRecordings(api huma.API) {
 
 	huma.Register(api, huma.Operation{
 		OperationID: "shareRecording", Method: http.MethodPost, Path: "/api/v1/recordings/{id}/share", Tags: tags,
-		Description: "Makes a link that opens the recording without signing in; asking again returns the same link.",
+		Description: "Makes a link that opens the recording without signing in; asking again returns the same link. A shared recording is kept, so the link outlives recordings.maxAge.",
 	}, func(ctx context.Context, in *recordingPath) (*out[RecordingView], error) {
 		ev := audit.Event{Action: audit.RecordingShare, Details: map[string]string{"recording": in.ID}}
 		e, err := s.ownRecording(ctx, in.ID)
@@ -904,6 +904,11 @@ func (s *Server) registerRecordings(api huma.API) {
 			err = writeJSON(ctx, s.recordings.store, s.recordings.shareKey(e.share), shareIndex{User: e.ref.user, ID: e.ref.id})
 			if err == nil {
 				err = s.recordings.store.Put(ctx, s.recordings.metaKey(e.ref, ".share"), strings.NewReader(e.share), int64(len(e.share)))
+			}
+		}
+		if err == nil && !e.keep {
+			if err = s.recordings.store.Put(ctx, s.recordings.metaKey(e.ref, ".keep"), strings.NewReader("1"), 1); err == nil {
+				e.keep = true
 			}
 		}
 		if e != nil {

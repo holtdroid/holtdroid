@@ -497,7 +497,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Makes a link that opens the recording without signing in; asking again returns the same link. */
+        /** @description Makes a link that opens the recording without signing in; asking again returns the same link. A shared recording is kept, so the link outlives recordings.maxAge. */
         post: operations["shareRecording"];
         /** @description Turns the recording's share link off. */
         delete: operations["unshareRecording"];

@@ -1,8 +1,9 @@
 import { Link } from "@tanstack/react-router"
-import { ArrowLeftIcon, LinkIcon, PinIcon, PinOffIcon } from "lucide-react"
-import { toast } from "sonner"
-import { type RecordingSource, useKeepRecording, useRecordingDetail, useShareRecording } from "@/api/queries"
+import { ArrowLeftIcon } from "lucide-react"
+import { type RecordingSource, useRecordingDetail } from "@/api/queries"
+import type { RecordingView } from "@/api/client"
 import { AppIcon } from "@/components/app-icon"
+import { HeaderSlot } from "@/components/header-slot"
 import { RecordingPlayer } from "@/components/recording/recording-player"
 import { RecordingState } from "@/components/recording/recording-state"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -11,86 +12,56 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { formatBytes } from "@/lib/format"
 import logo from "@/logo.svg"
 
+function Title({ r, back }: { r: RecordingView; back: boolean }) {
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      {back && (
+        <Button variant="ghost" size="icon-sm" asChild>
+          <Link to="/recordings" aria-label="Back to recordings">
+            <ArrowLeftIcon />
+          </Link>
+        </Button>
+      )}
+      <AppIcon src={r.iconUrl} className="size-9" />
+      <div className="grid min-w-0">
+        <span className="flex items-center gap-2">
+          <span className="truncate font-medium">{r.label || r.package}</span>
+          <RecordingState state={r.state} />
+        </span>
+        <span className="text-muted-foreground truncate font-mono text-xs">
+          {r.package}
+          {r.versionName ? ` · ${r.versionName}` : ""} · {new Date(r.createdAt).toLocaleString()}
+          {r.owner ? ` · ${r.owner}` : ""} · {formatBytes(r.size)}
+          {r.reason && <span className="text-destructive"> · {r.reason}</span>}
+        </span>
+      </div>
+    </div>
+  )
+}
+
 export function RecordingPage({ source }: { source: RecordingSource }) {
   const detail = useRecordingDetail(source)
-  const keep = useKeepRecording()
-  const share = useShareRecording()
   const d = detail.data
   const r = d?.recording
-
-  const copyShare = async () => {
-    if (!r) return
-    try {
-      const v = r.share ? r : await share.mutateAsync({ id: r.id, share: true })
-      if (!v.share) return
-      await navigator.clipboard.writeText(v.share.url)
-      toast.success("Share link copied", { description: "Anyone with the link can watch this recording." })
-      void detail.refetch()
-    } catch (e) {
-      toast.error("Could not share", { description: e instanceof Error ? e.message : String(e) })
-    }
-  }
+  const own = source.kind === "own"
 
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="mx-auto grid max-w-[1600px] gap-4 p-4 lg:p-6">
-        <div className="flex flex-wrap items-center gap-3">
-          {source.kind === "own" ? (
-            <Button variant="ghost" size="icon-sm" asChild>
-              <Link to="/recordings" aria-label="Back">
-                <ArrowLeftIcon />
-              </Link>
-            </Button>
-          ) : (
-            <span className="flex items-center gap-2 font-semibold tracking-tight">
-              <img src={logo} alt="" className="size-7" />
-              Holtdroid
-            </span>
-          )}
-          {r && (
-            <div className="flex min-w-0 items-center gap-2">
-              <AppIcon src={r.iconUrl} className="size-8" />
-              <div className="grid min-w-0">
-                <span className="flex items-center gap-2">
-                  <span className="truncate font-medium">{r.label || r.package}</span>
-                  <RecordingState state={r.state} />
-                </span>
-                <span className="text-muted-foreground truncate font-mono text-xs">
-                  {r.package}
-                  {r.versionName ? ` · ${r.versionName}` : ""} · {new Date(r.createdAt).toLocaleString()}
-                  {r.owner ? ` · ${r.owner}` : ""} · {formatBytes(r.size)}
-                </span>
-              </div>
-            </div>
-          )}
-          {r && source.kind === "own" && (
-            <div className="ml-auto flex flex-wrap items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={keep.isPending}
-                onClick={() => keep.mutate({ id: r.id, keep: !r.keep }, { onSuccess: () => void detail.refetch() })}
-              >
-                {r.keep ? <PinOffIcon /> : <PinIcon />}
-                {r.keep ? "Kept" : "Keep"}
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => void copyShare()}>
-                <LinkIcon />
-                {r.share ? "Copy link" : "Share"}
-              </Button>
-              {r.share && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => share.mutate({ id: r.id, share: false }, { onSuccess: () => void detail.refetch() })}
-                >
-                  Stop sharing
-                </Button>
-              )}
-            </div>
-          )}
-        </div>
-
+    <div className="flex h-full flex-col overflow-y-auto lg:overflow-hidden">
+      {own && r && (
+        <HeaderSlot>
+          <Title r={r} back />
+        </HeaderSlot>
+      )}
+      {!own && (
+        <header className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
+          {r && <Title r={r} back={false} />}
+          <span className="ml-auto flex shrink-0 items-center gap-2 font-semibold tracking-tight">
+            <img src={logo} alt="" className="size-6" />
+            Holtdroid
+          </span>
+        </header>
+      )}
+      <div className="min-h-0 flex-1 p-2 lg:p-3">
         {detail.isPending ? (
           <Skeleton className="aspect-video rounded-xl" />
         ) : detail.isError ? (
@@ -108,7 +79,6 @@ export function RecordingPage({ source }: { source: RecordingSource }) {
             Nothing recorded yet: the session is still starting.
           </div>
         )}
-        {r?.reason && <p className="text-destructive text-sm">{r.reason}</p>}
       </div>
     </div>
   )

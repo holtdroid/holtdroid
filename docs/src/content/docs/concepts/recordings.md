@@ -95,7 +95,9 @@ the memory, and downloaded when done. It needs a browser with WebCodecs
 
 **Share** (or the link button on a card) makes a link that opens the
 recording without signing in, and copies it. Asking again gives the same
-link; **Stop sharing** turns it off. People with the link can watch and
+link; **Stop sharing** turns it off. A shared recording is kept, so the link
+doesn't die after `recordings.maxAge`; it stays kept when you stop sharing,
+until you let it expire yourself. People with the link can watch and
 download the logcat, but the page has no video download.
 
 ## Keeping and space
