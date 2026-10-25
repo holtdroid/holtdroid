@@ -337,8 +337,8 @@ keyboard layout so shortcuts and any alphabet work; a button opens the
 device's layout settings. Ctrl/Cmd+V pastes the browser clipboard into the
 focused field. Cmd/Win and anything pressed with it stay with the browser
 and the OS: the host takes those shortcuts (Cmd+Tab never delivers its
-release), and a lone Meta on Android opens system UI. The rail's key
-buttons, notifications and quick settings go over the control socket while
+release), and a lone Meta on Android opens system UI. The side and
+corner keys, notifications and quick settings go over the control socket while
 the screen is connected and through `/v1/device/actions` otherwise; the
 screenshot button saves the last decoded frame. Returning to the tab asks
 the server for a key frame (`reset video`). Stream settings and the

@@ -1,16 +1,23 @@
 import { useQueryClient } from "@tanstack/react-query"
 import {
+  BellIcon,
   CheckIcon,
+  ChevronLeftIcon,
+  CircleIcon,
   LockIcon,
   LockOpenIcon,
   MinusIcon,
   PlusIcon,
   PowerIcon,
+  RotateCcwSquareIcon,
+  RotateCwSquareIcon,
+  SquareIcon,
+  ToggleRightIcon,
   Volume2Icon,
   VolumeXIcon,
   type LucideIcon,
 } from "lucide-react"
-import { useState } from "react"
+import { type CSSProperties, useState } from "react"
 import type { DeviceAction } from "@/api/client"
 import { useDeviceAudio } from "@/components/session/device-audio"
 import type { LiveScreen } from "@/components/session/live-screen"
@@ -37,7 +44,122 @@ export function PhoneButtons({ provider, id, live }: { provider: string; id: str
     <>
       <VolumeRocker provider={provider} id={id} live={live} run={run} />
       <PowerKey run={run} />
+      {corners.map((c) => (
+        <CornerMenu key={c.name} corner={c} run={run} />
+      ))}
     </>
+  )
+}
+
+const inset = 3.5
+
+type Corner = { name: string; arc: string; place: CSSProperties; side: "left" | "right"; align: "start" | "end" }
+
+const corners: Corner[] = [
+  {
+    name: "top-left",
+    arc: "M0 100A100 100 0 0 1 100 0",
+    place: { top: inset, left: inset },
+    side: "left",
+    align: "start",
+  },
+  {
+    name: "top-right",
+    arc: "M0 0A100 100 0 0 1 100 100",
+    place: { top: inset, right: inset },
+    side: "right",
+    align: "start",
+  },
+  {
+    name: "bottom-right",
+    arc: "M100 0A100 100 0 0 1 0 100",
+    place: { bottom: inset, right: inset },
+    side: "right",
+    align: "end",
+  },
+  {
+    name: "bottom-left",
+    arc: "M100 100A100 100 0 0 1 0 0",
+    place: { bottom: inset, left: inset },
+    side: "left",
+    align: "end",
+  },
+]
+
+const cornerGroups: { title: string; keys: { action: DeviceAction; label: string; icon: LucideIcon }[] }[] = [
+  {
+    title: "Navigation",
+    keys: [
+      { action: "back", label: "Back", icon: ChevronLeftIcon },
+      { action: "home", label: "Home", icon: CircleIcon },
+      { action: "recents", label: "Recent apps", icon: SquareIcon },
+    ],
+  },
+  {
+    title: "System",
+    keys: [
+      { action: "notifications", label: "Notifications", icon: BellIcon },
+      { action: "quick-settings", label: "Quick settings", icon: ToggleRightIcon },
+    ],
+  },
+  {
+    title: "Rotation",
+    keys: [
+      { action: "rotate-left", label: "Rotate left", icon: RotateCcwSquareIcon },
+      { action: "rotate-right", label: "Rotate right", icon: RotateCwSquareIcon },
+    ],
+  },
+]
+
+function CornerMenu({ corner, run }: { corner: Corner; run: Run }) {
+  const size = `calc(var(--sr) + var(--bz) - ${inset}px)`
+  return (
+    <HoverCard openDelay={150} closeDelay={200}>
+      <HoverCardTrigger asChild>
+        <svg
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          aria-label="Navigation and rotation"
+          className="group/corner pointer-events-none absolute overflow-visible"
+          style={{ ...corner.place, width: size, height: size }}
+        >
+          <path
+            d={corner.arc}
+            fill="none"
+            vectorEffect="non-scaling-stroke"
+            strokeLinecap="round"
+            className="stroke-neutral-600 stroke-[3px] transition-all duration-150 group-hover/corner:stroke-neutral-400 group-hover/corner:stroke-[4px]"
+          />
+          <path
+            d={corner.arc}
+            fill="none"
+            vectorEffect="non-scaling-stroke"
+            pointerEvents="stroke"
+            className="cursor-pointer stroke-transparent stroke-[9px]"
+          />
+        </svg>
+      </HoverCardTrigger>
+      <HoverCardContent side={corner.side} align={corner.align} className="flex w-60 flex-col gap-2.5 p-2.5">
+        {cornerGroups.map((g) => (
+          <section key={g.title} className="grid gap-1">
+            <h4 className="text-muted-foreground px-0.5 text-[11px] font-medium tracking-wide uppercase">{g.title}</h4>
+            <div className="grid grid-cols-3 gap-1">
+              {g.keys.map((k) => (
+                <Button
+                  key={k.action}
+                  variant="ghost"
+                  className="h-auto flex-col gap-1 px-1 py-1.5 text-[11px] font-normal whitespace-normal"
+                  onClick={() => run(k.action)}
+                >
+                  <k.icon />
+                  {k.label}
+                </Button>
+              ))}
+            </div>
+          </section>
+        ))}
+      </HoverCardContent>
+    </HoverCard>
   )
 }
 

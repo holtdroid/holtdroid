@@ -25,6 +25,7 @@ function frameStyle(ratio: number, corner: number): CSSProperties {
     "--r": ratio,
     "--sw": `max(0px, min(calc((100cqh - ${frameInset.y}px) * var(--r)), calc(100cqw - ${frameInset.x}px)))`,
     "--sr": `calc(min(var(--sw), var(--sw) / var(--r)) * ${corner})`,
+    "--bz": `${bezel}px`,
     padding: bezel,
     borderRadius: `calc(var(--sr) + ${bezel}px)`,
   } as CSSProperties

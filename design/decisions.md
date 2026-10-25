@@ -2677,6 +2677,10 @@ turns amber, the colour of a changed device control, while the device is
 muted or its audio is off. The keys stay on
 the right in landscape too.
 
-**Consequences.** The rail keeps rotation, navigation, capture, stream and
-device controls. Small + and − marks and the power key's current action sit next to the keys, which widen on hover and sink on a press. The frame takes 84 px of width and 40 px of height from
+Back, home, recent apps, notifications, quick settings and rotation open
+from a thin arc in each corner of the bezel, drawn concentric with the
+screen's corner and hit-tested on its stroke only, so the screen's corners
+stay touchable.
+
+**Consequences.** The rail keeps capture, stream and device controls. Small + and − marks and the power key's current action sit next to the keys, which widen on hover and sink on a press. The frame takes 84 px of width and 40 px of height from
 the screen panel, which the auto-fit accounts for.

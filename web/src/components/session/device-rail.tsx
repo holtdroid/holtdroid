@@ -1,26 +1,13 @@
-import {
-  BellIcon,
-  CameraIcon,
-  ChevronLeftIcon,
-  ChevronsLeftIcon,
-  ChevronsRightIcon,
-  CircleIcon,
-  RotateCcwSquareIcon,
-  RotateCwSquareIcon,
-  SquareIcon,
-  ToggleRightIcon,
-  VibrateIcon,
-} from "lucide-react"
-import { type ReactNode, useState } from "react"
+import { CameraIcon, ChevronsLeftIcon, ChevronsRightIcon, VibrateIcon } from "lucide-react"
+import { useState } from "react"
 import { toast } from "sonner"
-import { type DeviceAction, type Location, type SessionView, sessionBase, type Vibration } from "@/api/client"
+import { type Location, type SessionView, sessionBase, type Vibration } from "@/api/client"
 import type { AdbSession } from "@/components/session/adb-session"
 import { ClipboardButton } from "@/components/session/clipboard-button"
 import { DeviceControls } from "@/components/session/device-controls"
 import type { LiveScreen } from "@/components/session/live-screen"
 import { RecordButton } from "@/components/session/record-button"
 import { ScreenSettings } from "@/components/session/screen-settings"
-import { useRunDeviceAction } from "@/components/session/use-device"
 import { RailButton, RailSection } from "@/components/session/rail-item"
 import { useEventSource } from "@/hooks/use-event-source"
 import { useUserActivation } from "@/hooks/use-user-activation"
@@ -28,26 +15,6 @@ import { download, stamp } from "@/lib/adb"
 import { getScreenPrefs, setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
 import { cn } from "@/lib/utils"
 import { buzz } from "@/lib/vibration"
-
-const groups: { title: string; buttons: { action: DeviceAction; label: string; icon: ReactNode }[] }[] = [
-  {
-    title: "Rotation",
-    buttons: [
-      { action: "rotate-left", label: "Rotate left", icon: <RotateCcwSquareIcon /> },
-      { action: "rotate-right", label: "Rotate right", icon: <RotateCwSquareIcon /> },
-    ],
-  },
-  {
-    title: "Navigation",
-    buttons: [
-      { action: "back", label: "Back", icon: <ChevronLeftIcon /> },
-      { action: "home", label: "Home", icon: <CircleIcon /> },
-      { action: "recents", label: "Recent apps", icon: <SquareIcon /> },
-      { action: "notifications", label: "Notifications", icon: <BellIcon /> },
-      { action: "quick-settings", label: "Quick settings", icon: <ToggleRightIcon /> },
-    ],
-  },
-]
 
 export function DeviceRail({
   provider,
@@ -66,7 +33,6 @@ export function DeviceRail({
   clipboard: boolean
   locations: Location[]
 }) {
-  const run = useRunDeviceAction(provider, id, live)
   const [shooting, setShooting] = useState(false)
   const { audio, railLabels } = useScreenPrefs()
   const activated = useUserActivation()
@@ -103,16 +69,6 @@ export function DeviceRail({
       >
         {railLabels ? <ChevronsRightIcon /> : <ChevronsLeftIcon />}
       </RailButton>
-      {groups.map((group) => (
-        <div key={group.title} className="contents">
-          <RailSection title={group.title} />
-          {group.buttons.map((b) => (
-            <RailButton key={b.action} label={b.label} onClick={() => run(b.action)}>
-              {b.icon}
-            </RailButton>
-          ))}
-        </div>
-      ))}
       <RailSection title="Capture" />
       <RailButton label="Screenshot" disabled={shooting} onClick={() => void screenshot()}>
         <CameraIcon />

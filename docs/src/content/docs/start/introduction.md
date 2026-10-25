@@ -48,9 +48,10 @@ hybrid apps, support engineers reproducing a customer bug.
    your browser by default and can be switched off. The rocker turns amber
    while the device is muted or its audio is off.
    Hovering the power key picks what a click does and has **Wake and
-   unlock**. A rail next to the screen has the other hardware buttons
-   (rotate, back/home/recents, notifications, quick settings), a screenshot
-   button and clipboard sync (both ways by default; hover to pick one
+   unlock**. Each corner of the phone has a thin arc in its bezel: hovering
+   one opens back, home, recent apps, notifications, quick settings and
+   rotation. A rail next to the screen has a screenshot button and
+   clipboard sync (both ways by default; hover to pick one
    direction). When the device vibrates, the page shows a notification and
    plays a buzz. The arrow at the top of the rail widens it into a menu with
    section titles and a label next to every icon, and back. Its
