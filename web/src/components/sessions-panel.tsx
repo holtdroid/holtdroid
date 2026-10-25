@@ -33,7 +33,7 @@ function SlotPills({ slots }: { slots: Slot[] }) {
           <TooltipTrigger asChild>
             <span
               className={cn(
-                "h-2.5 w-6 shrink rounded-full",
+                "h-2.5 max-w-6 min-w-1 flex-1 rounded-full",
                 slot.state === "free" && "bg-emerald-500/70",
                 slot.state === "busy" && "bg-amber-500",
                 slot.state === "offline" && "bg-muted-foreground/30",
@@ -76,17 +76,17 @@ export function SessionsPanel() {
   const now = useNow()
 
   return (
-    <section className="flex min-h-0 flex-col gap-3">
+    <section className="flex min-h-0 min-w-0 flex-col gap-3">
       <div className="flex items-baseline justify-between">
         <h2 className="font-semibold">Active sessions</h2>
         <span className="text-muted-foreground text-xs">{sessions.data?.items.length ?? 0} running</span>
       </div>
 
-      <div className="grid gap-2">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-2">
         {providers.data?.map((p) => (
-          <div key={p.name} className="flex items-center gap-2 text-xs">
-            <MonitorSmartphoneIcon className="text-muted-foreground size-4" />
-            <span className="w-24 truncate font-medium">{p.name}</span>
+          <div key={p.name} className="flex min-w-0 items-center gap-2 text-xs">
+            <MonitorSmartphoneIcon className="text-muted-foreground size-4 shrink-0" />
+            <span className="w-24 shrink-0 truncate font-medium">{p.name}</span>
             {p.error ? (
               <span className="text-destructive truncate">{p.error}</span>
             ) : (
