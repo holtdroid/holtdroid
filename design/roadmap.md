@@ -82,7 +82,7 @@ Goal: one hand-written Pod on a KVM node proves the device side end to end.
 - [x] Metrics bar at the bottom of the session page (decision #40): device CPU and memory, app CPU/PSS per process (WebView renderers included), app fps and jank from `gfxinfo`, network, `/data`, device and node temperatures, the emulator container's CPU/memory/throttling from cgroup v2, and the browser's stream fps/bitrate; `GET /v1/metrics` in the Agent API, sampled only while watched
 - [x] GPS map (decision #97): MapLibre map of keyless OpenFreeMap tiles in the GPS panel, proxied by the api (`map.*`, `/api/v1/map/tiles/…`); clicking or dragging the marker overrides the position
 - [x] GPS routes (decision #98): walk, run or drive along points clicked on the map, in straight lines, optionally in a loop; the agent moves the test providers every second (`PATCH /v1/device` `route`, `stopRoute`)
-- [x] GPS routes along roads (decision #99): "Follow roads" asks Valhalla through the api (`routing.url`, `POST /api/v1/map/route`) and sends its path as the route
+- [x] GPS routes along roads (decision #99): the "Roads" tile asks Valhalla through the api (`routing.url`, `POST /api/v1/map/route`) and sends its path as the route
 - [x] Realistic GPS route speed (decision #100): speeding up and slowing down, slower turns, a slow drift around the cruising speed, the current speed in the panel
 
 ## Phase 4.5 — SSH access (ADB and published ports)

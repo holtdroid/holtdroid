@@ -97,10 +97,10 @@ hybrid apps, support engineers reproducing a customer bug.
    menu with section titles and a label next to every icon, and back.
 
    On devices that can fake it, the **GPS location** card follows the VPN
-   location unless you override it with a click on the map, coordinates or
-   your own position. **Move along a route** walks, runs or drives the
-   device through points you click on the map, along roads (or in straight
-   lines) and optionally in a loop, speeding up, slowing for turns and
+   location until you tap the map, drag the dot, paste coordinates or use the
+   locate button on the map for your own position. Under the map, **Route**
+   walks, runs or drives the device through stops you tap on the map, along
+   roads (or in straight lines) and optionally in a loop, speeding up, slowing for turns and
    drifting around the chosen pace; it keeps going until you stop it, even
    with the tab closed. Apps see the position move but no speed or bearing.
 

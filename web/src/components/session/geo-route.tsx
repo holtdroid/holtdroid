@@ -6,6 +6,8 @@ import { Chips, ShadeButton, Tile } from "@/components/session/shade"
 import { cn } from "@/lib/utils"
 import { formatDistance, pathLength, type Point, type TravelMode, travelMode, travelModes } from "@/lib/geo"
 
+type GeoRoute = NonNullable<DeviceSettings["route"]>
+
 export type Plan = { points: Point[]; mode: TravelMode; loop: boolean; roads: boolean }
 
 export const maxRoadPoints = 18
@@ -25,71 +27,67 @@ export function usePlannedPath(here: Point, plan: Plan | null, routing: boolean)
   return { path, onRoads, roads }
 }
 
-export function RouteControl({
-  s,
-  set,
+export function RouteStatus({
+  route,
+  busy,
+  onStop,
+}: {
+  route: NonNullable<DeviceState["route"]>
+  busy: boolean
+  onStop: () => void
+}) {
+  const m = travelModes[travelMode(route.speed)]
+  return (
+    <div className="flex items-center gap-3 rounded-full bg-neutral-800 py-2 pr-2 pl-4">
+      <RouteIcon className="size-5 shrink-0 text-sky-200" />
+      <span className="grid min-w-0 flex-1 text-sm">
+        <span className="truncate font-medium">
+          {route.moving ? `${m.label} · ${Math.round(route.currentSpeed * 3.6)} km/h` : "Arrived"}
+        </span>
+        <span className="truncate text-xs text-neutral-400">
+          {formatDistance(route.travelled)} of {formatDistance(route.length)}
+          {route.loop && ", in a loop"}
+        </span>
+      </span>
+      <ShadeButton primary={route.moving} disabled={busy} onClick={onStop}>
+        <SquareIcon />
+        {route.moving ? "Stop" : "Done"}
+      </ShadeButton>
+    </div>
+  )
+}
+
+export function RoutePlanner({
   busy,
   routing,
   plan,
   setPlan,
   planned,
+  onGo,
 }: {
-  s: DeviceState
-  set: (patch: DeviceSettings) => void
   busy: boolean
   routing: boolean
-  plan: Plan | null
-  setPlan: (plan: Plan | null) => void
+  plan: Plan
+  setPlan: (plan: Plan) => void
   planned: ReturnType<typeof usePlannedPath>
+  onGo: (route: GeoRoute) => void
 }) {
-  const route = s.route
-
-  if (route) {
-    const m = travelModes[travelMode(route.speed)]
-    return (
-      <div className="flex items-center gap-3 rounded-3xl bg-neutral-800 py-2 pr-2 pl-4">
-        <RouteIcon className="size-4 shrink-0 text-sky-200" />
-        <span className="grid min-w-0 flex-1 text-sm">
-          <span className="truncate font-medium">
-            {route.moving ? `${m.label} · ${Math.round(route.currentSpeed * 3.6)} km/h` : "Arrived"}
-          </span>
-          <span className="truncate text-xs text-neutral-400">
-            {formatDistance(route.travelled)} of {formatDistance(route.length)}
-            {route.loop && ", in a loop"}
-          </span>
-        </span>
-        <ShadeButton disabled={busy} onClick={() => set({ stopRoute: true })}>
-          <SquareIcon />
-          {route.moving ? "Stop" : "Done"}
-        </ShadeButton>
-      </div>
-    )
-  }
-
-  if (!plan) {
-    return (
-      <ShadeButton disabled={busy} onClick={() => setPlan({ points: [], mode: "walk", loop: false, roads: routing })}>
-        <RouteIcon />
-        Move along a route
-      </ShadeButton>
-    )
-  }
-
   const { path, onRoads, roads } = planned
-  const waiting = onRoads && plan.points.length > 0 && !roads.data
-  const hint =
-    plan.points.length === 0
-      ? `Click the map to add points; the device goes there ${onRoads ? "along roads" : "in straight lines"}.`
+  const stops = plan.points.length
+  const waiting = onRoads && stops > 0 && !roads.data
+  const failed = onRoads && !!roads.error
+  const note =
+    stops === 0
+      ? "Tap the map to add stops."
       : onRoads && roads.isFetching
         ? "Finding the way…"
-        : onRoads && roads.error
-          ? `No route along roads: ${roads.error.message}`
-          : `${plan.points.length} ${plan.points.length === 1 ? "point" : "points"}, ${formatDistance(roads.data && onRoads ? roads.data.length : pathLength(path))}`
+        : failed
+          ? `No way along roads: ${roads.error.message}`
+          : `${stops} ${stops === 1 ? "stop" : "stops"} · ${formatDistance(onRoads && roads.data ? roads.data.length : pathLength(path))}`
   return (
-    <section className="grid gap-2">
-      <p className={cn("px-1 text-xs", onRoads && roads.error ? "text-red-300" : "text-neutral-400")}>{hint}</p>
+    <>
       <Chips
-        title="Speed"
+        title="Pace"
         options={(Object.entries(travelModes) as [TravelMode, (typeof travelModes)[TravelMode]][]).map(([k, m]) => ({
           value: k,
           label: `${m.label} · ${Math.round(m.speed * 3.6)} km/h`,
@@ -101,7 +99,8 @@ export function RouteControl({
         {routing && (
           <Tile
             icon={MapIcon}
-            label="Follow roads"
+            label="Roads"
+            status={plan.roads ? "Follow them" : "Straight lines"}
             on={plan.roads}
             onClick={() =>
               setPlan({
@@ -114,33 +113,32 @@ export function RouteControl({
         )}
         <Tile
           icon={RepeatIcon}
-          label="Loop back"
+          label="Loop"
+          status={plan.loop ? "Back to the start" : "Stop at the end"}
           on={plan.loop}
           onClick={() => setPlan({ ...plan, loop: !plan.loop })}
         />
       </div>
+      <p className={cn("px-1 text-xs", failed ? "text-red-300" : "text-neutral-400")}>{note}</p>
       <div className="flex gap-2">
         <ShadeButton
           primary
           className="flex-1"
-          disabled={busy || plan.points.length === 0 || waiting}
-          onClick={() => {
-            set({ route: { points: path, speed: travelModes[plan.mode].speed, loop: plan.loop } })
-            setPlan(null)
-          }}
+          disabled={busy || stops === 0 || waiting}
+          onClick={() => onGo({ points: path, speed: travelModes[plan.mode].speed, loop: plan.loop })}
         >
           <PlayIcon />
           Go
         </ShadeButton>
         <ShadeButton
-          disabled={plan.points.length === 0}
+          aria-label="Remove the last stop"
+          title="Remove the last stop"
+          disabled={stops === 0}
           onClick={() => setPlan({ ...plan, points: plan.points.slice(0, -1) })}
         >
           <Undo2Icon />
-          Undo
         </ShadeButton>
-        <ShadeButton onClick={() => setPlan(null)}>Cancel</ShadeButton>
       </div>
-    </section>
+    </>
   )
 }
