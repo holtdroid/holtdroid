@@ -26,7 +26,7 @@ Releases are on
 | `holtdroid-webview-gecko-<version>-x86_64.apk`    | plus GeckoView, for emulators (Holtdroid sessions) |
 | `holtdroid-webview-gecko-<version>-arm64-v8a.apk` | plus GeckoView, for phones                         |
 
-Both builds use the package name `io.github.kriakiku.holtdroid.webview`, so
+Both builds use the package name `io.github.holtdroid.webview`, so
 installing one replaces the other. In Holtdroid, upload the APK or publish it
 into a source (for example with the [GitHub sync](/holtdroid/sources/github/))
 and launch it like any other app; through [ADB](/holtdroid/concepts/adb/)
@@ -113,7 +113,7 @@ the system still hides it, the app shows two fixes:
 adb shell settings put secure show_ime_with_hard_keyboard 1
 
 # or let the app switch that setting on by itself when you press the button
-adb shell pm grant io.github.kriakiku.holtdroid.webview android.permission.WRITE_SECURE_SETTINGS
+adb shell pm grant io.github.holtdroid.webview android.permission.WRITE_SECURE_SETTINGS
 ```
 
 The same setting is **Use on-screen keyboard** in the system's physical
@@ -209,7 +209,7 @@ Every command is also logged under the `HoltdroidWebView` tag
 (`adb logcat -s HoltdroidWebView`).
 
 ```sh
-P=io.github.kriakiku.holtdroid.webview
+P=io.github.holtdroid.webview
 
 # open with the default preset
 adb shell am start -n $P/.MainActivity -d https://example.com
@@ -269,7 +269,7 @@ DevTools target list like any other app's WebView (see
 [WebView DevTools](/holtdroid/concepts/devtools/)). On your own computer:
 
 ```sh
-adb forward tcp:9222 localabstract:webview_devtools_remote_$(adb shell pidof io.github.kriakiku.holtdroid.webview)
+adb forward tcp:9222 localabstract:webview_devtools_remote_$(adb shell pidof io.github.holtdroid.webview)
 ```
 
 then open `chrome://inspect`, or `http://localhost:9222/json`. The control

@@ -2336,13 +2336,14 @@ more ~1.5 GB image on every session node.
 
 **Context.** #83 kept sessions off `core` because a privileged redroid is
 root on its node and `core` is the NAS. The maintainer then chose to use
-every node: `core` for 6 sessions, each k3s node for 3.
+every node: `core` for 4 sessions (first 6, cut back so each can keep the
+default 3 GiB memory limit next to the NAS), each k3s node for 3.
 
 **Decision.** `fillOrder` (provider config, chart `providers.emulator.fillOrder`)
 lists node names, one per slot, in the order free slots are handed out; the
 provider returns its slots in that order and both the api and the provider
 pick the first free one. The maintainer's deployment fills two slots on
-`core`, then one on each k3s node, then the other four on `core`, then the
+`core`, then one on each k3s node, then the other two on `core`, then the
 k3s nodes' remaining slots. Nodes need no label: with an empty
 `nodeSelector` every node the provider tolerates is used, `core` through the
 `dedicated=nas` toleration, and a node's slots come from `nodes.<name>.slots`
@@ -2350,9 +2351,38 @@ or `slotsPerNode`.
 
 **Consequences.** `core` now runs privileged Android next to the NAS. What
 reduces the risk is #83 (egress policy, the sysctl guard in the image,
-no Terminal by default, spawn gating off) and a lower memory limit for
-sessions on `core` (2.5 GiB instead of 3, so six of them can't take the
-node's memory from the NAS); it does not remove it: a vulnerability in an
+no Terminal by default, spawn gating off) and a slot count on `core`
+small enough that its sessions' memory limits (4 × 3 GiB) leave the NAS
+room; it does not remove it: a vulnerability in an
 app under test that reaches root in Android reaches `core`. A new node
 joins the pool with `slotsPerNode` slots, ordered by name after the
 `fillOrder` entries.
+
+## 86. The WebView app moves to `io.github.holtdroid.webview`; the work S3 mirror and the Gecko copy go
+
+**Context.** #81 moved the repositories to the `holtdroid` organization and
+left the Android package names (`io.github.kriakiku.holtdroid.*`) alone,
+because changing an `applicationId` makes a different app and the tunnel app
+is a device owner on the phones. The WebView test browser is not a device
+owner, so only it can follow. Separately, the copies of the work bucket's
+builds (`holtdroid-s3-sync`, source `wnf-preprod`) and the 250 MB Gecko
+build of the WebView app were no longer wanted.
+
+**Decision.**
+
+- The Holtdroid WebView app (holtdroid/holtdroid-webview) is renamed from
+  `io.github.kriakiku.holtdroid.webview` to `io.github.holtdroid.webview`
+  (namespace, applicationId, sources, docs). It installs next to the old
+  app and does not inherit its presets; the first release with the new name
+  is a minor version. The tunnel app keeps `io.github.kriakiku.holtdroid.tunnel`
+  because it is the phones' device owner.
+- The GitHub sync of the maintainer's deployment skips Gecko assets
+  (`include: ["!*gecko*"]`), and its prune removes the copies it made.
+- `holtdroid-s3-sync` is removed from the deployment together with the
+  `wnf-preprod` source; the builds it copied are deleted from the bucket.
+  The job itself stays in holtdroid-sync for other deployments.
+
+**Consequences.** Old WebView releases in the GitHub source keep the old
+package until three newer releases push them out. The Gecko build is still
+published by the WebView repository's releases, only not mirrored.
+
