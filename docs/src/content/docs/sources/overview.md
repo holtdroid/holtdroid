@@ -10,7 +10,9 @@ files. The api lists it directly — there is no separate source service. How
 the files get there is up to you: copy them by hand, let CI publish them, run
 a sync job such as [holtdroid-slack-sync](/holtdroid/sources/slack/) that
 pulls builds out of Slack or [holtdroid-github-sync](/holtdroid/sources/github/)
-that copies GitHub release assets, [write your own](/holtdroid/sources/custom/), or
+that copies GitHub release assets, keep
+[Chromium builds of many milestones](/holtdroid/sources/chromium/) with
+holtdroid-chromium-sync, [write your own](/holtdroid/sources/custom/), or
 upload them in the UI.
 
 ```yaml

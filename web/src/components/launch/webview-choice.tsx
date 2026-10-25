@@ -21,10 +21,13 @@ export function WebViewChoice({
   const [expanded, setExpanded] = useState(false)
   const index = webviews.findIndex((w) => w.id === selected)
   const pinned = webviews[index]
+  const collapsible = webviews.length - (COLLAPSED - 1) > COLLAPSED
   const shown =
-    expanded || !pinned || index < COLLAPSED - 1
-      ? webviews.slice(0, expanded ? undefined : COLLAPSED - 1)
-      : [pinned, ...webviews.slice(0, COLLAPSED - 2)]
+    expanded || !collapsible
+      ? webviews
+      : pinned && index >= COLLAPSED - 1
+        ? [pinned, ...webviews.slice(0, COLLAPSED - 2)]
+        : webviews.slice(0, COLLAPSED - 1)
   const hidden = webviews.length - shown.length
   return (
     <Section
@@ -64,7 +67,7 @@ export function WebViewChoice({
           </ChoiceCard>
         ))}
       </ChoiceGroup>
-      {(hidden > 0 || expanded) && (
+      {collapsible && (
         <Button
           type="button"
           variant="ghost"

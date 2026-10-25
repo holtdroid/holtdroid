@@ -2559,3 +2559,26 @@ caches) and Argo CD's poll (two minutes, one more of jitter).
 it is back, which is the point. The first release after the change builds
 without a cache.
 
+
+## 91. Chromium browser builds from the snapshot bucket, thinned with age
+
+**Context.** Reproducing a web bug often needs the browser version it was
+reported on. Google Chrome APKs only come from Google Play (an account, an
+unofficial API, split APKs plus the TrichromeLibrary static library) or
+from mirrors that forbid scraping. Chromium's x86_64 snapshots, already used
+for the WebView catalog (decision #88), also hold `ChromePublic.apk`: one
+APK, `org.chromium.chrome`, back to Chromium 129. All 30 milestones are
+about 12 GB and grow by about 5 GB a year.
+
+**Decision.** A new job, `holtdroid-chromium-sync`, in holtdroid-sync
+shares the WebView job's code (`internal/snapshotsync`, parametrized by the
+APK inside the zip) and writes an ordinary read-only source. Selection
+counts available milestones newest first: channels, the newest 10, every
+2nd, and past the newest 24 every 5th instead (`milestones.older`, also
+available to the WebView job, off there). Builds that fall out of the
+selection are pruned after a complete pass.
+
+**Consequences.** It is Chromium, not Chrome: no Google services. The
+catalog stays around 18 to 22 builds (7 to 9 GB) for years. DevTools for the
+browser's own tabs lack a frontend revision until the api passes a source
+build's `frontend` tag to the session like the WebView catalog does.

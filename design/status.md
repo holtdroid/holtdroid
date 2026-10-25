@@ -41,6 +41,11 @@ deployment"):
   2 s over the re-signed built-in 128 on Android 15, rendered pages, and
   DevTools listed the page. Snapshots report an all-zero frontend revision,
   so the catalog carries the Canary commit's.
+- Chromium browser builds (decision #91): `holtdroid-chromium-sync` in
+  holtdroid-sync writes `ChromePublic.apk` per milestone (channels, newest
+  10, every 2nd, every 5th past the newest 24) into an ordinary source. A
+  local pass on 2026-10-25 copied 156–158 (about 420 MB each). Not deployed
+  yet; DevTools for these builds still lack the frontend fallback.
 - The portal: APK list with parsed
   metadata/icons, launch dialog, sessions panel with slots and idle countdown,
   session page with screen/DevTools split, target switcher, clipboard, VPN
