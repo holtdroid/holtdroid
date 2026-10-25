@@ -474,6 +474,7 @@ func (s *Server) createSession(ctx context.Context, who auth.Identity, req launc
 			Android:     req.android,
 			AppData:     restore,
 			WebView:     webview,
+			Frontend:    validFrontend(artifact.Meta.Tags["frontend"]),
 		})
 		return err
 	})

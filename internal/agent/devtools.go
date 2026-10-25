@@ -22,11 +22,10 @@ import (
 // DevTools discovers DevTools sockets on the device, keeps an adb forward per
 // socket and proxies CDP WebSockets to them.
 type DevTools struct {
-	dev Device
-	log *slog.Logger
-	hc  *http.Client
-	// rev is the frontend revision for WebViews that report none.
-	rev string
+	dev      Device
+	log      *slog.Logger
+	hc       *http.Client
+	fallback Frontends
 
 	mu      sync.Mutex
 	sockets map[string]*devtoolsSocket
@@ -40,8 +39,24 @@ type devtoolsSocket struct {
 	targets []contract.DevToolsTarget
 }
 
-func NewDevTools(dev Device, rev string, log *slog.Logger) *DevTools {
-	return &DevTools{dev: dev, rev: frontendRev("@" + rev), log: log, hc: &http.Client{Timeout: 3 * time.Second}, sockets: map[string]*devtoolsSocket{}}
+// Frontends are the frontend revisions for builds that report none: the
+// app's own, for a Chromium browser build, and the installed WebView's.
+type Frontends struct {
+	Package string
+	App     string
+	WebView string
+}
+
+func (f Frontends) For(pkg string) string {
+	app, webview := frontendRev("@"+f.App), frontendRev("@"+f.WebView)
+	if pkg != "" && pkg == f.Package {
+		return cmp.Or(app, webview)
+	}
+	return cmp.Or(webview, app)
+}
+
+func NewDevTools(dev Device, fallback Frontends, log *slog.Logger) *DevTools {
+	return &DevTools{dev: dev, fallback: fallback, log: log, hc: &http.Client{Timeout: 3 * time.Second}, sockets: map[string]*devtoolsSocket{}}
 }
 
 // Run rescans the device's sockets every interval until ctx ends.
@@ -98,7 +113,7 @@ func (d *DevTools) scan(ctx context.Context) error {
 			WebKit  string `json:"WebKit-Version"`
 		}
 		if err := d.getJSON(ctx, port, "/json/version", &v); err == nil {
-			s.process, s.rev = v.Package, cmp.Or(frontendRev(v.WebKit), d.rev)
+			s.process, s.rev = v.Package, cmp.Or(frontendRev(v.WebKit), d.fallback.For(v.Package))
 		}
 		d.mu.Lock()
 		d.sockets[name] = s

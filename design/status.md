@@ -45,8 +45,9 @@ deployment"):
   holtdroid-sync writes `ChromePublic.apk` per milestone (channels, newest
   10, every 2nd, every 5th past the newest 24) into an ordinary source.
   Live since 2026-10-25 as source `chromium` (18 builds: 130, even 136–148,
-  149–158; 290–420 MB each). DevTools for these builds still lack the
-  frontend fallback.
+  149–158; 290–420 MB each). The api passes a build's `frontend` tag to
+  the session (`CreateSession.Frontend`), so DevTools open the browser's
+  tabs with the Canary commit's frontend.
 - The portal: APK list with parsed
   metadata/icons, launch dialog, sessions panel with slots and idle countdown,
   session page with screen/DevTools split, target switcher, clipboard, VPN

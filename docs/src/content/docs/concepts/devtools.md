@@ -38,7 +38,10 @@ named `webview_devtools_remote_<pid>`. The agent:
 4. proxies the DevTools WebSocket, rewriting the `Host` header to
    `localhost`, since the DevTools server rejects any other host;
 5. serves the DevTools frontend matching the WebView's revision from a local
-   cache, fetching it from Google's frontend host on first use.
+   cache, fetching it from Google's frontend host on first use. Chromium
+   snapshot builds report no revision, so the agent uses the `frontend` tag
+   of the [WebView build](/holtdroid/concepts/webview-versions/) or of the
+   [Chromium build](/holtdroid/sources/chromium/) the session started with.
 
 All of this sits under the session's path on the portal's own origin, so your
 auth cookie covers it and nothing has to be installed on your machine. When

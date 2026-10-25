@@ -85,11 +85,11 @@ The job needs outbound HTTPS to `chromiumdash.appspot.com` and
 `storage.googleapis.com`. Every option is in the job's
 [docs](https://github.com/holtdroid/holtdroid-sync/blob/main/docs/chromium.md#configuration).
 
-## Known limits
+## Notes
 
-- DevTools for the browser's own tabs need a frontend revision, and
-  snapshot builds report an all-zero one. The WebView catalog passes its
-  `frontend` tag to the session, but builds from a source don't pass theirs
-  yet, so the DevTools panel can't open the browser's tabs.
+- Snapshot builds report no DevTools frontend of their own. Holtdroid
+  passes the build's `frontend` tag (the milestone's Canary commit) to the
+  session, so the DevTools panel opens the browser's tabs with that
+  frontend. It can differ from the build by a few commits.
 - Two builds of the same package can't be installed side by side: to
   compare milestones, start one session per milestone.

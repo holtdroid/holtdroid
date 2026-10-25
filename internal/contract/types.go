@@ -163,6 +163,7 @@ type CreateSession struct {
 	Android     string          `json:"android,omitempty" doc:"one of the provider's Android versions; empty takes the newest"`
 	AppData     *AppDataRestore `json:"appData,omitempty" doc:"app data to put back after installing the app and before it first starts"`
 	WebView     *WebViewInstall `json:"webview,omitempty" doc:"a WebView build to install over the built-in one before the app; needs the provider's webview capability"`
+	Frontend    string          `json:"frontend,omitempty" pattern:"^[0-9a-f]{40}$" doc:"the Chromium commit whose DevTools frontend fits the app itself, from the build's frontend tag; for Chromium builds that report none of their own"`
 }
 
 // WebViewInstall is a build of com.android.webview that replaces the

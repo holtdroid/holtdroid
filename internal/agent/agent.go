@@ -29,6 +29,7 @@ type Config struct {
 	ArtifactURL      string
 	AppData          contract.AppDataRestore
 	WebView          contract.WebViewInstall
+	Frontend         string
 	Package          string
 	Location         string
 	ADB              string
@@ -175,7 +176,7 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 		boot:     boot,
 		log:      log,
 		hc:       &http.Client{Timeout: 10 * time.Minute},
-		devtools: NewDevTools(dev, cfg.WebView.Frontend, log),
+		devtools: NewDevTools(dev, Frontends{Package: cfg.Package, App: cfg.Frontend, WebView: cfg.WebView.Frontend}, log),
 		network:  NewNetwork(cfg.ClashAPI, cfg.IPInfoURL, cfg.IPInfoProxy),
 		screen:   screen,
 		clip:     NewClipboard(screen, log),

@@ -264,6 +264,7 @@ type CreateSession struct {
 	Android     string // optional: one of Capabilities.Versions; 422 if unknown; empty takes the newest
 	AppData     *AppDataRestore // optional: {url, cache}, decision #49
 	WebView     *WebViewInstall // optional: needs Capabilities.WebView, decision #88
+	Frontend    string          // optional, 40 hex digits: the build's `frontend` tag, the DevTools frontend for the app's own sockets when they report an all-zero revision (Chromium browser builds, decision #91)
 }
 
 // The agent installs url (a com.android.webview build) over the built-in

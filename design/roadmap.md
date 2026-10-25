@@ -61,7 +61,7 @@ Goal: one hand-written Pod on a KVM node proves the device side end to end.
 - [x] Builds from S3 buckets ([holtdroid/holtdroid-sync](https://github.com/holtdroid/holtdroid-sync), job `s3`): copy mode and credentials broker, AWS IAM Identity Center device login with refresh and notifications through shoutrrr; `include` rules on sources and `s3.credentialsURL` in the api
 - [x] Builds from GitHub releases ([holtdroid/holtdroid-sync](https://github.com/holtdroid/holtdroid-sync), job `github`): `.apk` assets of the newest releases → `{owner}/{repo}/{tag}/{asset}` with the release notes as changelog, `include` rules, announcements through shoutrrr
 - [x] Chromium browser builds per milestone ([holtdroid/holtdroid-sync](https://github.com/holtdroid/holtdroid-sync), job `chromium`, decision #91): `ChromePublic.apk` from the x86_64 snapshots, channels + newest 10 + every 2nd, every 5th past the newest 24, pruned as they fall out
-- [ ] DevTools for Chromium browser builds from a source: pass the build's `frontend` tag to the session as the frontend fallback
+- [x] DevTools for Chromium browser builds from a source: the build's `frontend` tag reaches the agent as `CreateSession.Frontend`, the fallback for the app's own sockets
 - [x] `internal/apk`: metadata + icon (densest bitmap or composed adaptive icon, re-rendered at 256 px, untrusted-input limits) + ABIs with a fixture; `x.apk.icon.png` sidecars override the extracted icon
 - [x] `api`: registries, artifact merge, APK cache (LRU on disk, background warm-up), session create flow, `/s/{provider}/{id}` proxy, input-based activity + flush, reaper, UI API, SSE events, internal artifact endpoint
 - [x] `provider/fake` (+ fake agent) for `holtdroid dev` and tests

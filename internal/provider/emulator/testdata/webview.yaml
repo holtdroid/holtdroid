@@ -92,6 +92,8 @@ spec:
       value: 158.0.8123.0
     - name: HOLTDROID_WEBVIEW__FRONTEND
       value: 7d74334854bbfcbaf1c955e86589d8b7cc9acc31
+    - name: HOLTDROID_FRONTEND
+      value: 8d486529e60e7be71049111bc75420a018caf6f1
     image: ghcr.io/holtdroid/holtdroid-session:0123abc
     imagePullPolicy: IfNotPresent
     name: agent

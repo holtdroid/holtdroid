@@ -2579,6 +2579,8 @@ available to the WebView job, off there). Builds that fall out of the
 selection are pruned after a complete pass.
 
 **Consequences.** It is Chromium, not Chrome: no Google services. The
-catalog stays around 18 to 22 builds (7 to 9 GB) for years. DevTools for the
-browser's own tabs lack a frontend revision until the api passes a source
-build's `frontend` tag to the session like the WebView catalog does.
+catalog stays around 18 to 22 builds (7 to 9 GB) for years. Snapshot builds
+report an all-zero frontend revision, so the api passes any source build's
+valid `frontend` tag as `CreateSession.Frontend`; the agent uses it for the
+app's own DevTools sockets and the WebView catalog's for the rest. Phones
+ignore it: the builds are x86_64.

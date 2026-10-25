@@ -633,6 +633,38 @@ func (p noWebView) Capabilities(ctx context.Context) (contract.Capabilities, err
 	return c, err
 }
 
+type recordCreate struct {
+	contract.Provider
+	last *contract.CreateSession
+}
+
+func (p recordCreate) Create(ctx context.Context, req contract.CreateSession) (contract.Session, error) {
+	*p.last = req
+	return p.Provider.Create(ctx, req)
+}
+
+func TestAppFrontend(t *testing.T) {
+	h := newHarness(t, 3)
+	var last contract.CreateSession
+	h.srv.providers["fake"] = recordCreate{h.srv.providers["fake"], &last}
+	apks := h.srv.cfg.Sources[0].Filesystem.Dir
+	for name, meta := range map[string]string{
+		"chromium-158.apk": `{"tags":{"frontend":"8d486529e60e7be71049111bc75420a018caf6f1"}}`,
+		"odd.apk":          `{"tags":{"frontend":"not-a-commit"}}`,
+	} {
+		copyFile(t, "../apk/testdata/helloworld.apk", filepath.Join(apks, name))
+		if err := os.WriteFile(filepath.Join(apks, name+".meta.json"), []byte(meta), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for name, want := range map[string]string{"chromium-158.apk": "8d486529e60e7be71049111bc75420a018caf6f1", "odd.apk": "", "hello.apk": ""} {
+		rec := h.do(http.MethodPost, "/api/v1/sessions", "otter", "", map[string]string{"source": "local", "artifactId": encodeID(name)})
+		if rec.Code != http.StatusCreated || last.Frontend != want {
+			t.Fatalf("%s: %d %s, frontend %q", name, rec.Code, rec.Body.String(), last.Frontend)
+		}
+	}
+}
+
 func TestWebViewCatalog(t *testing.T) {
 	dir := t.TempDir()
 	write := func(name, body, meta string) {

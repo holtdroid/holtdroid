@@ -111,6 +111,9 @@ func TestRender(t *testing.T) {
 			r := req
 			r.AppData = tt.appData
 			r.WebView = tt.webview
+			if tt.webview != nil {
+				r.Frontend = "8d486529e60e7be71049111bc75420a018caf6f1"
+			}
 			screen, err := p.cfg.Redroid.screen(tt.screen)
 			if err != nil {
 				t.Fatal(err)

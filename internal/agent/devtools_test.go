@@ -228,7 +228,7 @@ func webviewDevTools(t *testing.T) (*httptest.Server, int) {
 func TestDevToolsTargetsAndCDPProxy(t *testing.T) {
 	_, port := webviewDevTools(t)
 	dev := &fakeDevice{unix: procNetUnix, ports: map[string]int{"webview_devtools_remote_4242": port, "chrome_devtools_remote": 1}}
-	d := NewDevTools(dev, "", slog.New(slog.DiscardHandler))
+	d := NewDevTools(dev, Frontends{}, slog.New(slog.DiscardHandler))
 	ctx := context.Background()
 	if err := d.scan(ctx); err != nil {
 		t.Fatal(err)
@@ -353,7 +353,7 @@ func TestDevToolsTargetsSurviveABusyWebView(t *testing.T) {
 	port := srv.Listener.Addr().(*net.TCPAddr).Port
 
 	dev := &fakeDevice{unix: procNetUnix, ports: map[string]int{"webview_devtools_remote_4242": port, "chrome_devtools_remote": 1}}
-	d := NewDevTools(dev, "", slog.New(slog.DiscardHandler))
+	d := NewDevTools(dev, Frontends{}, slog.New(slog.DiscardHandler))
 	ctx := context.Background()
 	if err := d.scan(ctx); err != nil {
 		t.Fatal(err)
@@ -379,9 +379,21 @@ func TestDevToolsFallbackRev(t *testing.T) {
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 	port := srv.Listener.Addr().(*net.TCPAddr).Port
-	for _, tc := range []struct{ rev, want string }{{fallback, fallback}, {"", ""}, {"not-a-rev", ""}} {
+	const app = "8d486529e60e7be71049111bc75420a018caf6f1"
+	for _, tc := range []struct {
+		fallback Frontends
+		want     string
+	}{
+		{Frontends{WebView: fallback}, fallback},
+		{Frontends{}, ""},
+		{Frontends{WebView: "not-a-rev"}, ""},
+		{Frontends{Package: "com.example.shop", App: app, WebView: fallback}, app},
+		{Frontends{Package: "org.chromium.chrome", App: app, WebView: fallback}, fallback},
+		{Frontends{Package: "org.chromium.chrome", App: app}, app},
+		{Frontends{Package: "com.example.shop", App: "not-a-rev", WebView: fallback}, fallback},
+	} {
 		dev := &fakeDevice{unix: procNetUnix, ports: map[string]int{"webview_devtools_remote_4242": port, "chrome_devtools_remote": port}}
-		d := NewDevTools(dev, tc.rev, slog.New(slog.DiscardHandler))
+		d := NewDevTools(dev, tc.fallback, slog.New(slog.DiscardHandler))
 		if err := d.scan(context.Background()); err != nil {
 			t.Fatal(err)
 		}
@@ -390,7 +402,7 @@ func TestDevToolsFallbackRev(t *testing.T) {
 			t.Fatalf("targets %+v, %v", targets, err)
 		}
 		if got := targets[0].FrontendRev; got != tc.want {
-			t.Errorf("fallback %q: frontend rev %q, want %q", tc.rev, got, tc.want)
+			t.Errorf("fallback %+v: frontend rev %q, want %q", tc.fallback, got, tc.want)
 		}
 	}
 }
