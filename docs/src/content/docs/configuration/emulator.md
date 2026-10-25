@@ -168,8 +168,9 @@ HD+. Density can still be changed in a session's Display controls.
 
 Android versions are the keys of `redroid.images` (the chart: `versions`,
 each pulled from `<repository>:<version>`). holtdroid-redroid publishes one
-tag per Android major version it supports; Android 16 can't run on
-mainline kernels (it needs ashmem).
+tag per Android major version it supports (11 to 15). Android 16 boots
+but its netd aborts on a mainline kernel (Android's BPF loader accepts only
+LTS kernels), so it is not offered.
 
 ## Users' ADB inside Android
 

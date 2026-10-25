@@ -2196,8 +2196,7 @@ first release one runtime is enough.
   session is trusted with them.
 
 **Consequences.** Several sessions share a node's CPU, memory and iGPU;
-heavy WebGL in one session slows the others. Android 15 only (16 needs
-ashmem, which mainline kernels dropped); no WebGPU in WebView (`Vulkan not
+heavy WebGL in one session slows the others. Android 11 to 15 (16: see #84); no WebGPU in WebView (`Vulkan not
 supported with in process gpu`, as on the emulator); ARM code runs only as
 `.so` libraries inside app processes (no ARM executables: registering
 binfmt_misc would change the host); no hardware video encoder; the screen
@@ -2312,8 +2311,15 @@ images exist per Android major version.
   from `redroid.image.repository` and `redroid.versions`, so holtdroid-redroid
   publishes one tag per Android major version (`15`, `14`, …) and the
   pre-pull DaemonSet pulls each as an image volume. The newest is the
-  default. Android 16 is not offered: it needs ashmem, which mainline
-  kernels dropped.
+  default. Android 16 is not offered. Tried on k3s-3 (kernel 6.18) on
+  2026-10-25 with `redroid:16.0.0_64only` and the same patches: it boots
+  without ashmem (memfd works) and has network and BPF maps, but netd
+  aborts in `libnetd_updatable_init` (BpfHandler init fails; its message
+  never reaches logd) and restarts every 5 s, so system_server never
+  reaches `boot_completed`. netbpfload v0.47 logs "Android V+ only supports
+  LTS kernels. Unsupported kernel version" on 6.18; a 6.12 LTS kernel on the
+  session node is the first thing to try. The earlier claim that 16 needs
+  ashmem was not verified.
 - The agent's adb server listens on 5038 (`ANDROID_ADB_SERVER_PORT`): in
   the shared network namespace, Android 11's adbd (`ro.kernel.qemu=1`) also
   binds 127.0.0.1:5037 and aborts when the agent's server holds it.
