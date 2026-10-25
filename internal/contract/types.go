@@ -357,6 +357,8 @@ type DeviceState struct {
 	Locales            []string             `json:"locales" doc:"the system languages in order: the first is locale, the rest add their keyboard layouts"`
 	LanguageScope      LanguageScope        `json:"languageScope" enum:"system,app" doc:"system: locales are the system languages; app: only the app under test's language can be set (phones without root)"`
 	Geo                *GeoPoint            `json:"geo,omitempty" doc:"the faked GPS position; empty while the device reports its default one"`
+	TimeZoneOverride   bool                 `json:"timeZoneOverride" doc:"the time zone is a session override set by the user; otherwise it follows the VPN location"`
+	VPNTimeZone        string               `json:"vpnTimeZone,omitempty" doc:"the active VPN location's time zone; empty when it has none"`
 	GeoOverride        bool                 `json:"geoOverride" doc:"the GPS is a session override set by the user; otherwise it follows the VPN location"`
 	CanFakeGeo         bool                 `json:"canFakeGeo"`
 	CanSimulateBattery bool                 `json:"canSimulateBattery" doc:"the battery level and charging can be set; battery saver works everywhere"`
@@ -396,6 +398,7 @@ type DeviceSettings struct {
 	Locales        []string        `json:"locales,omitempty" minItems:"1" maxItems:"8" doc:"the system languages in order: the first sets the UI language, the rest add their keyboard layouts"`
 	Geo            *GeoPoint       `json:"geo,omitempty" doc:"fakes the GPS position"`
 	ResetGeo       bool            `json:"resetGeo,omitempty" doc:"puts the default GPS position back"`
+	ResetTimeZone  bool            `json:"resetTimeZone,omitempty" doc:"goes back to the VPN location's time zone"`
 	AutoTime       *bool           `json:"autoTime,omitempty" doc:"true syncs the clock with real time and keeps it synced"`
 	TimeOffset     *int64          `json:"timeOffset,omitempty" minimum:"-3155760000000" maximum:"3155760000000" doc:"sets the device clock to real time plus this many milliseconds and turns autoTime off"`
 }

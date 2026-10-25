@@ -82,6 +82,13 @@ func (d *device) UpdateDevice(_ context.Context, in contract.DeviceSettings) (co
 		}
 		set(&s.NetworkProfile, in.NetworkProfile)
 		set(&s.TimeZone, in.TimeZone)
+		switch {
+		case in.TimeZone != nil:
+			s.TimeZoneOverride = true
+		case in.ResetTimeZone:
+			s.TimeZoneOverride = false
+			s.TimeZone = cmp.Or(s.VPNTimeZone, "UTC")
+		}
 		if len(in.Locales) > 0 {
 			s.Locales = slices.Clone(in.Locales)
 			s.Locale = s.Locales[0]

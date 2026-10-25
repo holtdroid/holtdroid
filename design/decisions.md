@@ -2703,5 +2703,12 @@ card keeps the last 10 synced texts to copy again or save. H.264 stays the defau
 emulators without hardware encoders; the saved codec falls back to the
 cheapest decodable one.
 
+Date and time moved into a card as well, with the time zone, which left
+Language and region. The time zone follows the VPN location like the GPS:
+the agent applies the location's zone at start and on every switch unless
+the user picked one for the session, and the card can go back to the
+location's. The card is marked while the clock is shifted, out of real
+time or in a zone picked by hand.
+
 **Consequences.** The rail keeps capture and the other device controls. Small + and − marks and the power key's current action sit next to the keys, which widen on hover and sink on a press. The frame and the cards take 198 px of width and 40 px of height from
 the screen panel, which the auto-fit accounts for.

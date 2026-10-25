@@ -33,6 +33,8 @@ type Controls struct {
 	mu          sync.Mutex
 	geo         *contract.GeoPoint
 	geoOverride bool
+	tzOverride  bool
+	vpnTZ       string
 	unmuteTo    int
 }
 
@@ -139,6 +141,9 @@ func (c *Controls) State(ctx context.Context) (contract.DeviceState, error) {
 		}
 	}
 	s.USBNetwork = c.usbNetwork
+	c.mu.Lock()
+	s.TimeZoneOverride, s.VPNTimeZone = c.tzOverride, c.vpnTZ
+	c.mu.Unlock()
 	if c.shaper != nil {
 		s.NetworkProfile, s.NetworkProfiles = c.shaper.Current(), netem.Catalog()
 	}
@@ -316,6 +321,22 @@ func (c *Controls) Update(ctx context.Context, in contract.DeviceSettings) (cont
 			return contract.DeviceState{}, err
 		}
 	}
+	if in.TimeZone != nil {
+		c.mu.Lock()
+		c.tzOverride = true
+		c.mu.Unlock()
+	}
+	if in.ResetTimeZone && in.TimeZone == nil {
+		c.mu.Lock()
+		c.tzOverride = false
+		tz := c.vpnTZ
+		c.mu.Unlock()
+		if tz != "" {
+			if err := c.setTimezone(ctx, tz); err != nil {
+				return contract.DeviceState{}, err
+			}
+		}
+	}
 	if in.Geo != nil || in.ResetGeo {
 		if err := c.setGeo(ctx, in.Geo); err != nil {
 			return contract.DeviceState{}, err
@@ -468,19 +489,23 @@ func (c *Controls) setGeoRoot(ctx context.Context, geo *contract.GeoPoint) error
 	return err
 }
 
-// FollowLocation sets the timezone for the active VPN location (always) and
+// FollowLocation sets the timezone for the active VPN location (unless the
+// user has picked one for the session) and
 // fakes the GPS to pt (unless the user has overridden it for the session). It
 // is applied quietly on a location switch, not as a user setting.
 func (c *Controls) FollowLocation(ctx context.Context, pt *contract.GeoPoint, tz string) error {
+	c.mu.Lock()
 	if tz != "" {
+		c.vpnTZ = tz
+	}
+	tzOverride, override := c.tzOverride, c.geoOverride
+	c.mu.Unlock()
+	if tz != "" && !tzOverride {
 		if err := c.setTimezone(ctx, tz); err != nil {
 			return err
 		}
 	}
-	c.mu.Lock()
-	override := c.geoOverride
-	c.mu.Unlock()
-	if override {
+	if override || !c.root || pt == nil {
 		return nil
 	}
 	return c.setGeo(ctx, pt)

@@ -8,6 +8,7 @@ import { ClipboardWidget } from "@/components/session/clipboard-widget"
 import { NetworkWidget } from "@/components/session/network-widget"
 import { widgetWidth } from "@/components/session/shade"
 import { StreamWidget } from "@/components/session/stream-widget"
+import { TimeWidget } from "@/components/session/time-widget"
 import { PhoneButtons } from "@/components/session/phone-buttons"
 import { useDevice } from "@/components/session/use-device"
 import { Spinner } from "@/components/ui/spinner"
@@ -262,6 +263,7 @@ export function DeviceScreen({
           <NetworkWidget provider={provider} id={id} locations={locations} />
           <StreamWidget provider={provider} id={id} live={live} />
           {clipboard && <ClipboardWidget provider={provider} id={id} />}
+          <TimeWidget provider={provider} id={id} />
         </div>
       </div>
     </div>

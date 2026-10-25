@@ -4,16 +4,12 @@ import {
   BatteryFullIcon,
   BatteryLowIcon,
   BatteryMediumIcon,
-  ClockIcon,
-  EarthIcon,
   GlobeIcon,
   KeyboardIcon,
   LanguagesIcon,
   LocateFixedIcon,
   MapPinIcon,
-  MinusIcon,
   MoonIcon,
-  PlusIcon,
   SunIcon,
   SunMoonIcon,
   XIcon,
@@ -26,7 +22,6 @@ import { type DeviceSettings, type DeviceState, type Location } from "@/api/clie
 import { Combobox, type ComboboxOption } from "@/components/combobox"
 import { ControlGroup, RailControl } from "@/components/session/rail-control"
 import { RailItem } from "@/components/session/rail-item"
-import { TimeDialog } from "@/components/session/time-dialog"
 import { useDevice, useNetwork, useUpdateDevice } from "@/components/session/use-device"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -35,9 +30,7 @@ import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { useNow } from "@/hooks/use-now"
 import { CITIES, defaultGeo, LOCALES } from "@/lib/device-presets"
-import { browserTimeZone, formatClockOffset } from "@/lib/format"
 import { baseLayout, desiredLocales, detectLayouts, sameLocales } from "@/lib/keyboard-layouts"
 import { setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
 
@@ -62,21 +55,10 @@ const themes: Record<ThemeMode, { label: string; icon: LucideIcon; next: ThemeMo
   sync: { label: "Match the portal", icon: SunMoonIcon, next: "light" },
 }
 
-const units: { id: string; short: string; one: string; many: string; apply: (d: Date, n: number) => void }[] = [
-  { id: "s", short: "s", one: "second", many: "seconds", apply: (d, n) => d.setSeconds(d.getSeconds() + n) },
-  { id: "min", short: "min", one: "minute", many: "minutes", apply: (d, n) => d.setMinutes(d.getMinutes() + n) },
-  { id: "h", short: "h", one: "hour", many: "hours", apply: (d, n) => d.setHours(d.getHours() + n) },
-  { id: "d", short: "d", one: "day", many: "days", apply: (d, n) => d.setDate(d.getDate() + n) },
-  { id: "w", short: "wk", one: "week", many: "weeks", apply: (d, n) => d.setDate(d.getDate() + 7 * n) },
-  { id: "mo", short: "mo", one: "month", many: "months", apply: (d, n) => d.setMonth(d.getMonth() + n) },
-  { id: "y", short: "yr", one: "year", many: "years", apply: (d, n) => d.setFullYear(d.getFullYear() + n) },
-]
-
 const placeholders: [string, LucideIcon][] = [
   ["Battery", BatteryFullIcon],
   ["Display", SunIcon],
   ["Language and region", LanguagesIcon],
-  ["Date and time", ClockIcon],
 ]
 
 type Props = { s: DeviceState; set: (patch: DeviceSettings) => void; busy: boolean }
@@ -102,7 +84,6 @@ export function DeviceControls({ provider, id, locations }: { provider: string; 
       <BatteryControl {...props} />
       <DisplayControl {...props} />
       <LanguageControl {...props} provider={provider} id={id} vpn={locations.length > 0} />
-      <TimeControl {...props} onSubmit={(patch) => update.mutateAsync(patch)} />
     </>
   )
 }
@@ -322,21 +303,6 @@ function localeOptions(tags: string[]): ComboboxOption[] {
   return tags.map((tag) => ({ value: tag, label: languageName(tag, tag), hint: `${languageName(tag)} · ${tag}` }))
 }
 
-function timeZoneOptions(current: string): ComboboxOption[] {
-  const zones = new Set(["UTC", ...Intl.supportedValuesOf("timeZone")])
-  zones.add(current)
-  return [...zones].map((zone) => {
-    const offset = new Intl.DateTimeFormat("en-US", { timeZone: zone, timeZoneName: "longOffset" })
-      .formatToParts()
-      .find((p) => p.type === "timeZoneName")?.value
-    return {
-      value: zone,
-      label: zone.replaceAll("_", " "),
-      hint: offset === "GMT" ? "UTC" : offset?.replace("GMT", "UTC"),
-    }
-  })
-}
-
 function geoName(geo: DeviceState["geo"]) {
   if (!geo) return defaultGeo.name
   const city = CITIES.find(
@@ -378,8 +344,6 @@ function LanguageControl({ s, set, busy, provider, id, vpn }: Props & { provider
     () => localeOptions(LOCALES.includes(s.locale) ? LOCALES : [s.locale, ...LOCALES]),
     [s.locale],
   )
-  const zones = useMemo(() => timeZoneOptions(s.timeZone), [s.timeZone])
-  const mine = browserTimeZone()
   const relabeled = s.locale !== baseLayout
 
   return (
@@ -387,9 +351,7 @@ function LanguageControl({ s, set, busy, provider, id, vpn }: Props & { provider
       label="Language and region"
       icon={LanguagesIcon}
       changed={relabeled || s.geoOverride}
-      summary={[languageName(s.locale, s.locale), s.timeZone.replaceAll("_", " "), s.geo && `GPS ${geoName(s.geo)}`]
-        .filter(Boolean)
-        .join(" · ")}
+      summary={[languageName(s.locale, s.locale), s.geo && `GPS ${geoName(s.geo)}`].filter(Boolean).join(" · ")}
       onReset={() =>
         set({
           ...(relabeled && { locales: appOnly ? [baseLayout] : desiredLocales(baseLayout, current) }),
@@ -409,28 +371,6 @@ function LanguageControl({ s, set, busy, provider, id, vpn }: Props & { provider
             onChange={(tag) => set({ locales: appOnly ? [tag] : desiredLocales(tag, current) })}
           />
         </Row>
-        <Row label="Time zone">
-          <Combobox
-            className="w-44"
-            icon={EarthIcon}
-            placeholder="Search time zones…"
-            options={zones}
-            value={s.timeZone}
-            disabled={busy}
-            onChange={(timeZone) => set({ timeZone })}
-          />
-        </Row>
-        {mine && mine !== s.timeZone && (
-          <Button
-            size="xs"
-            variant="link"
-            className="justify-self-end"
-            disabled={busy}
-            onClick={() => set({ timeZone: mine })}
-          >
-            Use mine ({mine.replaceAll("_", " ")})
-          </Button>
-        )}
       </ControlGroup>
       {appOnly ? (
         <p className="text-muted-foreground text-xs">
@@ -604,106 +544,6 @@ function GeoControl({ s, set, busy, vpnCountry }: Props & { vpnCountry?: string 
   )
 }
 
-function TimeControl({ s, set, busy, onSubmit }: Props & { onSubmit: (patch: DeviceSettings) => Promise<unknown> }) {
-  const shifted = Math.abs(s.timeOffset) >= 1500
-  return (
-    <RailControl
-      label="Date and time"
-      icon={ClockIcon}
-      changed={!s.autoTime || shifted}
-      summary={shifted ? formatClockOffset(s.timeOffset) : s.autoTime ? "Real time" : "Real time, not kept in sync"}
-      onReset={() => set({ autoTime: true })}
-    >
-      <DeviceClock state={s} />
-      <Toggle
-        label="Real time"
-        hint="Keep the clock in sync with the actual time"
-        checked={s.autoTime}
-        disabled={busy}
-        onChange={(v) => set({ autoTime: v })}
-      />
-      <TimeShift offset={s.timeOffset} disabled={busy} onShift={(timeOffset) => set({ timeOffset })} />
-      <TimeDialog state={s} disabled={busy} onSubmit={onSubmit} />
-    </RailControl>
-  )
-}
-
-function TimeShift({
-  offset,
-  disabled,
-  onShift,
-}: {
-  offset: number
-  disabled: boolean
-  onShift: (offset: number) => void
-}) {
-  const [unitId, setUnitId] = useState("d")
-  const [amount, setAmount] = useState(1)
-  const unit = units.find((u) => u.id === unitId) ?? units[3]!
-  const what = `${amount} ${amount === 1 ? unit.one : unit.many}`
-
-  const shift = (sign: number) => {
-    const now = Date.now()
-    const d = new Date(now + offset)
-    unit.apply(d, sign * amount)
-    onShift(d.getTime() - now)
-  }
-
-  return (
-    <ControlGroup title="Shift the clock">
-      <ToggleGroup
-        type="single"
-        variant="outline"
-        size="sm"
-        spacing={0}
-        value={unitId}
-        onValueChange={(v) => v && setUnitId(v)}
-        className="w-full"
-      >
-        {units.map((u) => (
-          <ToggleGroupItem key={u.id} value={u.id} className="flex-1 px-0 text-xs" aria-label={u.many}>
-            {u.short}
-          </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
-      <div className="flex items-center gap-1.5">
-        <Button
-          size="sm"
-          variant="outline"
-          className="flex-1"
-          disabled={disabled}
-          aria-label={`Back ${what}`}
-          onClick={() => shift(-1)}
-        >
-          <MinusIcon />
-          Back
-        </Button>
-        <Input
-          type="number"
-          min={1}
-          max={999}
-          value={amount}
-          onChange={(e) => setAmount(Math.min(999, Math.max(1, Math.round(Number(e.target.value)) || 1)))}
-          aria-label={`How many ${unit.many}`}
-          className="h-8 w-16 text-center tabular-nums"
-        />
-        <Button
-          size="sm"
-          variant="outline"
-          className="flex-1"
-          disabled={disabled}
-          aria-label={`Forward ${what}`}
-          onClick={() => shift(1)}
-        >
-          Forward
-          <PlusIcon />
-        </Button>
-      </div>
-      <p className="text-muted-foreground text-center text-xs">Each press moves the device clock by {what}</p>
-    </ControlGroup>
-  )
-}
-
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-3">
@@ -734,30 +574,5 @@ function Toggle({
       </span>
       <Switch checked={checked} disabled={disabled} onCheckedChange={onChange} />
     </Label>
-  )
-}
-
-function DeviceClock({ state }: { state: DeviceState }) {
-  const now = useNow()
-  const format = useMemo(() => {
-    try {
-      return new Intl.DateTimeFormat(state.locale, {
-        timeZone: state.timeZone,
-        dateStyle: "medium",
-        timeStyle: "medium",
-      })
-    } catch {
-      return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "medium" })
-    }
-  }, [state.locale, state.timeZone])
-  const synced = Math.abs(state.timeOffset) < 1500
-  return (
-    <div className="bg-muted/50 grid gap-1 rounded-lg border p-3">
-      <span className="font-mono text-lg tabular-nums">{format.format(now + state.timeOffset)}</span>
-      <span className="flex items-center gap-2 text-xs">
-        <span className="text-muted-foreground">{state.timeZone.replaceAll("_", " ")}</span>
-        <Badge variant={synced ? "outline" : "secondary"}>{formatClockOffset(state.timeOffset)}</Badge>
-      </span>
-    </div>
   )
 }

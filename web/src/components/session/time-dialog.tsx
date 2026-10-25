@@ -1,4 +1,3 @@
-import { CalendarClockIcon } from "lucide-react"
 import { useState } from "react"
 import type { DeviceSettings, DeviceState } from "@/api/client"
 import { Button } from "@/components/ui/button"
@@ -9,7 +8,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -31,26 +29,17 @@ function toLocalInput(ms: number) {
 
 export function TimeDialog({
   state,
-  disabled,
+  onClose,
   onSubmit,
 }: {
   state: DeviceState
-  disabled: boolean
+  onClose: () => void
   onSubmit: (patch: DeviceSettings) => Promise<unknown>
 }) {
   const mine = browserTimeZone()
-  const [open, setOpen] = useState(false)
-  const [value, setValue] = useState("")
+  const [value, setValue] = useState(() => toLocalInput(Date.now() + state.timeOffset))
   const [useMyZone, setUseMyZone] = useState(false)
   const [saving, setSaving] = useState(false)
-
-  const onOpenChange = (next: boolean) => {
-    if (next) {
-      setValue(toLocalInput(Date.now() + state.timeOffset))
-      setUseMyZone(false)
-    }
-    setOpen(next)
-  }
 
   const submit = async () => {
     const at = new Date(value).getTime()
@@ -63,17 +52,11 @@ export function TimeDialog({
       () => false,
     )
     setSaving(false)
-    if (ok) setOpen(false)
+    if (ok) onClose()
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogTrigger asChild>
-        <Button size="sm" variant="secondary" disabled={disabled}>
-          <CalendarClockIcon />
-          Set date and time…
-        </Button>
-      </DialogTrigger>
+    <Dialog open onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="sm:max-w-sm">
         <form
           className="grid gap-4"

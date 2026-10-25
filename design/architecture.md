@@ -274,7 +274,10 @@ rooted phones but without `su`. Network conditions (decision #93) are
 Pod's network namespace when VPN locations are configured). With
 VPN locations that carry `geo`/`timezone`, the provider hands them to the
 agent (`HOLTDROID_GEO__<ID>__…`), so the GPS and time zone follow the
-location as on rooted phones.
+location as on rooted phones. A time zone the user picks
+(`PATCH /v1/device` with `timeZone`) stays for the session across location
+switches (`timeZoneOverride`) until `resetTimeZone` puts the location's
+back; the date and time card next to the phone drives all of it.
 
 The provider configures the agent through environment variables
 (`HOLTDROID_ARTIFACTURL`, `HOLTDROID_PACKAGE`, `HOLTDROID_LOCATION`,

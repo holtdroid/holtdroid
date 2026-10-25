@@ -1,6 +1,7 @@
 package fake
 
 import (
+	"cmp"
 	"context"
 	"log/slog"
 	"net/http"
@@ -44,6 +45,8 @@ type device struct {
 
 func newDevice(s contract.Session, step time.Duration, offers func(string) bool, appData *contract.AppDataRestore) *device {
 	d := &device{s: s, settings: defaultSettings(), screen: contract.Screen{On: true}, subs: map[chan struct{}]struct{}{}, done: make(chan struct{}), offers: offers, appData: appData}
+	d.settings.VPNTimeZone = timeZones[s.Location]
+	d.settings.TimeZone = cmp.Or(d.settings.VPNTimeZone, d.settings.TimeZone)
 	d.ports = &fakePorts{adbd: d.serveADB}
 	d.tunnels = agent.NewTunnels(d.ports, agent.ShellFull, slog.Default().With("component", "fake-agent", "session", s.ID))
 	d.handler = d.buildHandler()

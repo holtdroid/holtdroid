@@ -433,6 +433,8 @@ export interface components {
             networkProfile?: string;
             /** @description puts the default GPS position back */
             resetGeo?: boolean;
+            /** @description goes back to the VPN location's time zone */
+            resetTimeZone?: boolean;
             /** Format: int64 */
             rotation?: number;
             /**
@@ -504,6 +506,8 @@ export interface components {
              */
             timeOffset: number;
             timeZone: string;
+            /** @description the time zone is a session override set by the user; otherwise it follows the VPN location */
+            timeZoneOverride: boolean;
             /** @description the device reaches the internet over USB through the host, so Wi-Fi and mobile data are off on purpose */
             usbNetwork: boolean;
             /**
@@ -516,6 +520,8 @@ export interface components {
              * @description the highest media volume step; 0 when the device doesn't report its volume
              */
             volumeMax: number;
+            /** @description the active VPN location's time zone; empty when it has none */
+            vpnTimeZone?: string;
             wifi: boolean;
         };
         ErrorDetail: {

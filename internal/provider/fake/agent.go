@@ -1,6 +1,7 @@
 package fake
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"html/template"
@@ -105,7 +106,13 @@ func (d *device) SetLocation(_ context.Context, location string) (contract.Netwo
 	if !d.offers(location) {
 		return contract.Network{}, fmt.Errorf("%w: unknown location %q", contract.ErrInvalid, location)
 	}
-	d.update(func() { d.s.Location = location })
+	d.update(func() {
+		d.s.Location = location
+		d.settings.VPNTimeZone = timeZones[location]
+		if !d.settings.TimeZoneOverride {
+			d.settings.TimeZone = cmp.Or(d.settings.VPNTimeZone, "UTC")
+		}
+	})
 	return network(location), nil
 }
 
@@ -141,6 +148,8 @@ func fakeTargets(s contract.Session, gen int) []contract.DevToolsTarget {
 		{Socket: "webview_devtools_remote_4300", PID: 4300, Process: s.Package + ":sandbox", ID: "sw-1", Type: "service_worker", Title: "sw.js", URL: "https://example.com/sw.js", FrontendRev: "fake"},
 	}
 }
+
+var timeZones = map[string]string{"direct": "Europe/Vilnius", "pl": "Europe/Warsaw", "de": "Europe/Berlin", "us": "America/New_York"}
 
 func network(location string) contract.Network {
 	ips := map[string][2]string{"direct": {"203.0.113.10", "LT"}, "pl": {"198.51.100.7", "PL"}, "de": {"198.51.100.23", "DE"}, "us": {"192.0.2.44", "US"}}

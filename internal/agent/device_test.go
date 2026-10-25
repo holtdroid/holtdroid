@@ -139,6 +139,36 @@ func TestControlsUpdate(t *testing.T) {
 	}
 }
 
+func TestTimeZoneOverride(t *testing.T) {
+	ctx := context.Background()
+	dev := &scriptedDevice{clock: "1760000000"}
+	c := NewControls(dev, "", false, false)
+	if err := c.FollowLocation(ctx, nil, "Europe/Kyiv"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Update(ctx, contract.DeviceSettings{TimeZone: new("Asia/Tokyo")}); err != nil {
+		t.Fatal(err)
+	}
+	dev.cmds = nil
+	if err := c.FollowLocation(ctx, nil, "Europe/Riga"); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(strings.Join(dev.cmds, "\n"), "set-timezone") {
+		t.Fatalf("a picked time zone should survive a location switch: %q", dev.cmds)
+	}
+	dev.cmds = nil
+	got, err := c.Update(ctx, contract.DeviceSettings{ResetTimeZone: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "settings put global auto_time_zone 0 && cmd alarm set-timezone Europe/Riga"; strings.Join(dev.cmds, "\n") != want {
+		t.Errorf("reset: %q", dev.cmds)
+	}
+	if got.TimeZoneOverride || got.VPNTimeZone != "Europe/Riga" {
+		t.Errorf("state after reset: override %v, vpn %q", got.TimeZoneOverride, got.VPNTimeZone)
+	}
+}
+
 func TestControlsVolume(t *testing.T) {
 	ctx := context.Background()
 	dev := &scriptedDevice{clock: "1760000000", volume: "[V] will get volume\n[V] volume is 7 in range [0..15]\n"}

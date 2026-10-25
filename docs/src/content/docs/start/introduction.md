@@ -69,7 +69,12 @@ hybrid apps, support engineers reproducing a customer bug.
    The clipboard card turns sync on or off with a click (both ways by
    default; hover to pick one direction) and keeps the last 10 synced
    texts, shown with · for spaces and ↵ for line breaks, each with buttons
-   to copy it or save it as a text file. When the device vibrates, the page
+   to copy it or save it as a text file. The date and time card shows the
+   device's clock and is marked while the clock is shifted, not in real time
+   or in a time zone picked by hand; hovering it opens real-time sync,
+   shifting the clock back or forward by any amount, an exact moment entered
+   in your own time zone, and the time zone, which follows the VPN location
+   unless you pick another one for the session. When the device vibrates, the page
    shows a notification and plays a buzz. A rail next to the screen has the
    screenshot and recording buttons; the arrow at its top widens it into a
    menu with section titles and a label next to every icon, and back. Below
@@ -80,11 +85,9 @@ hybrid apps, support engineers reproducing a customer bug.
      charge level.
    - **Display**: click to cycle light, dark and matching the portal's theme;
      font and display size.
-   - **Language and region**: system language, time zone, extra keyboard
+   - **Language and region**: system language, extra keyboard
      layouts (remembered in your browser, guessed from your keyboard where
      the browser allows) and a faked GPS position.
-   - **Date and time**: real-time sync, shifting the clock back or forward by
-     any amount, or an exact moment entered in your own time zone.
 
    An amber dot marks a section whose settings differ from the defaults, and
    its popup has a reset button.
