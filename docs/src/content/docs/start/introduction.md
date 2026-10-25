@@ -47,8 +47,9 @@ hybrid apps, support engineers reproducing a customer bug.
    tile that mutes Android itself; the rocker turns amber while the device is
    muted. Hovering the power key offers **Wake and unlock**, locking and
    turning the screen off right away, and picks what a click on the key
-   does. The device cards sit on the left of the screen panel, in as many
-   columns as the height needs, and the phone takes the rest; only one
+   does. The device cards sit in a column on the left of the screen panel,
+   which scrolls (fading at the edge that has more) when they don't fit,
+   and the phone takes the rest; only one
    card's panel shows at a time. The volume and power keys move with the
    device's rotation, to the top or bottom edge in landscape. The network card shows the VPN
    location, the external IP and the network conditions; hovering it opens

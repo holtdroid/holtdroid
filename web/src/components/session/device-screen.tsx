@@ -28,8 +28,8 @@ type Status = "connecting" | "live" | "retrying"
 const gap = 12
 const bezel = 8
 const keyArea = 4 + 18
-const widgetGap = 8
-const cardHeight = 92
+const columnWidth = widgetWidth + 2 * gap
+const fade = 24
 
 function phoneInset(edge: KeyEdge) {
   const across = edge === "top" || edge === "bottom"
@@ -44,11 +44,39 @@ function keyEdge(ratio: number, rotation: number): KeyEdge {
   return rotation === 2 ? "left" : "right"
 }
 
-function widgetGrid(height: number | undefined, cards: number) {
-  const fit = height ? Math.floor((height - 2 * gap + widgetGap) / (cardHeight + widgetGap)) : cards
-  const rows = Math.min(Math.max(1, fit), cards)
-  const columns = Math.ceil(cards / rows)
-  return { rows, width: columns * widgetWidth + (columns - 1) * widgetGap + 2 * gap }
+function WidgetColumn({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [edges, setEdges] = useState({ top: false, bottom: false })
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return undefined
+    const measure = () => {
+      const top = el.scrollTop > 1
+      const bottom = el.scrollTop + el.clientHeight < el.scrollHeight - 1
+      setEdges((e) => (e.top === top && e.bottom === bottom ? e : { top, bottom }))
+    }
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    for (const child of Array.from(el.children)) observer.observe(child)
+    el.addEventListener("scroll", measure, { passive: true })
+    measure()
+    return () => {
+      observer.disconnect()
+      el.removeEventListener("scroll", measure)
+    }
+  }, [])
+
+  const mask = `linear-gradient(to bottom, ${edges.top ? "transparent" : "black"}, black ${fade}px, black calc(100% - ${fade}px), ${edges.bottom ? "transparent" : "black"})`
+  return (
+    <div
+      ref={ref}
+      className="flex min-h-0 flex-col gap-2 overflow-y-auto p-3 [scrollbar-width:thin]"
+      style={{ maskImage: mask, WebkitMaskImage: mask }}
+    >
+      {children}
+    </div>
+  )
 }
 
 function frameStyle(ratio: number, corner: number, inset: { x: number; y: number }): CSSProperties {
@@ -96,18 +124,6 @@ export function DeviceScreen({
   const noticeRef = useRef<HTMLDivElement>(null)
   const [noticeHovered, setNoticeHovered] = useState(false)
   const [videoRatio, setVideoRatio] = useState<number | null>(null)
-  const rootRef = useRef<HTMLDivElement>(null)
-  const [box, setBox] = useState<{ w: number; h: number } | null>(null)
-
-  useEffect(() => {
-    const root = rootRef.current
-    if (!root) return undefined
-    const observer = new ResizeObserver(([e]) => {
-      if (e) setBox({ w: e.contentRect.width, h: e.contentRect.height })
-    })
-    observer.observe(root)
-    return () => observer.disconnect()
-  }, [])
 
   useEventSource<{ screen: Screen }>(supported ? `${sessionBase(provider, id)}/v1/screen` : null, {
     screen: (value) => setScreen({ key: `${provider}/${id}`, value }),
@@ -249,23 +265,17 @@ export function DeviceScreen({
   const ratio = videoRatio ?? (portrait ? portrait.width / portrait.height : 9 / 19.5)
   const corner = portrait?.radius ? portrait.radius / Math.min(screenDp(portrait).w, screenDp(portrait).h) : 0.07
 
-  const cards = 7 + (clipboard ? 1 : 0) + (device.data?.canFakeGeo ? 1 : 0)
-  const grid = widgetGrid(box?.h, cards)
   const edge = keyEdge(ratio, device.data?.rotation ?? 0)
   const inset = phoneInset(edge)
 
   return (
     <div
-      ref={rootRef}
       className="bg-muted/40 grid size-full overflow-hidden"
-      style={{ gridTemplateColumns: `${grid.width}px minmax(0, 1fr)` }}
-      data-inset-x={grid.width + inset.x}
+      style={{ gridTemplateColumns: `${columnWidth}px minmax(0, 1fr)` }}
+      data-inset-x={columnWidth + inset.x}
       data-inset-y={inset.y}
     >
-      <div
-        className="grid min-h-0 grid-flow-col content-start justify-start gap-2 overflow-y-auto p-3"
-        style={{ gridTemplateRows: `repeat(${grid.rows}, max-content)` }}
-      >
+      <WidgetColumn>
         <NetworkWidget provider={provider} id={id} locations={locations} metrics={metrics} />
         <GpsWidget provider={provider} id={id} vpn={locations.length > 0} />
         <StreamWidget provider={provider} id={id} live={live} />
@@ -275,7 +285,7 @@ export function DeviceScreen({
         <LanguageWidget provider={provider} id={id} />
         <TimeWidget provider={provider} id={id} />
         <SSHWidget provider={provider} id={id} />
-      </div>
+      </WidgetColumn>
       <div className="grid min-h-0 min-w-0 place-items-center" style={{ containerType: "size" }}>
         <div
           className="relative bg-neutral-900 shadow-lg ring-1 ring-black/50 dark:ring-white/15"
