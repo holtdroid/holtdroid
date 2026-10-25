@@ -1,7 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { AndroidKeyCode } from "@yume-chan/scrcpy"
 import { useMemo } from "react"
 import { toast } from "sonner"
 import { agentClient, type DeviceAction, type DeviceSettings, unwrap } from "@/api/client"
+import type { LiveScreen } from "@/components/session/live-screen"
+import type { ScreenControl } from "@/lib/scrcpy"
+
+const viaScreen: Partial<Record<DeviceAction, (c: ScreenControl) => void>> = {
+  "volume-up": (c) => c.press(AndroidKeyCode.VolumeUp),
+  "volume-down": (c) => c.press(AndroidKeyCode.VolumeDown),
+  mute: (c) => c.press(AndroidKeyCode.VolumeMute),
+  back: (c) => c.press(AndroidKeyCode.AndroidBack),
+  home: (c) => c.press(AndroidKeyCode.AndroidHome),
+  recents: (c) => c.press(AndroidKeyCode.AndroidAppSwitch),
+  notifications: (c) => c.notifications(),
+  "quick-settings": (c) => c.quickSettings(),
+}
 
 function deviceKey(provider: string, id: string) {
   return ["device", provider, id]
@@ -42,6 +56,16 @@ export function useDeviceAction(provider: string, id: string) {
     },
     onError: (e) => toast.error("Device action failed", { description: e.message }),
   })
+}
+
+export function useRunDeviceAction(provider: string, id: string, live: LiveScreen) {
+  const action = useDeviceAction(provider, id)
+  return (a: DeviceAction) => {
+    const control = live.connection?.control
+    const send = viaScreen[a]
+    if (control && send) send(control)
+    else action.mutate(a)
+  }
 }
 
 export function networkKey(provider: string, id: string) {

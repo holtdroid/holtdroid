@@ -1,6 +1,7 @@
 import { MoveHorizontalIcon } from "lucide-react"
 import { type ReactNode, useEffect, useRef, useState } from "react"
 import { usePanelRef } from "react-resizable-panels"
+import { frameInset } from "@/components/session/device-screen"
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
@@ -38,7 +39,7 @@ export function ScreenSplit({ children: [screen, rail, tools] }: { children: [Re
         canvas?.hasAttribute("width") && canvas.width > 0 && canvas.height > 0
           ? canvas.width / canvas.height
           : placeholderRatio
-      const want = view.clientHeight * ratio + line.clientWidth - view.clientWidth
+      const want = (view.clientHeight - frameInset.y) * ratio + frameInset.x + line.clientWidth - view.clientWidth
       const width = Math.round(Math.min(Math.max(want, box.clientWidth * minShare), box.clientWidth * maxShare))
       if (Math.abs(width - line.clientWidth) > 1) panel.current?.resize(`${width}px`)
     }

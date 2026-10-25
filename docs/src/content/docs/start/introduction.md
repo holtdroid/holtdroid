@@ -39,11 +39,17 @@ hybrid apps, support engineers reproducing a customer bug.
    70% of the page, also when the device rotates. Dragging the divider sizes
    it by hand; the button on the divider turns following back on.
 
-   A rail next to the screen has the hardware buttons (lock or screen off,
-   wake, volume, rotate, back/home/recents, notifications, quick settings),
-   a screenshot button, clipboard sync (both ways by default; hover to pick
-   one direction) and a switch for the device's audio, which plays in your browser
-   by default. When the device vibrates, the page shows a notification and
+   The screen sits in a phone body with keys on its right edge, like a
+   real phone: the volume rocker turns the volume up (upper half) or down
+   (lower half), and the power key locks the device or turns its screen off.
+   Hovering the rocker opens the device audio, which plays in your browser
+   by default: switch it off, or mute it in this tab while it stays
+   connected; the rocker turns amber while the audio is off or muted.
+   Hovering the power key picks what a click does and has **Wake and
+   unlock**. A rail next to the screen has the other hardware buttons
+   (rotate, back/home/recents, notifications, quick settings), a screenshot
+   button and clipboard sync (both ways by default; hover to pick one
+   direction). When the device vibrates, the page shows a notification and
    plays a buzz. The arrow at the top of the rail widens it into a menu with
    section titles and a label next to every icon, and back. Its
    **Stream and keyboard** popover picks the video codec (H.264, H.265 or

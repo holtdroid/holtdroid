@@ -57,7 +57,8 @@ If the install fails, the previous build keeps running.
 
 While the device's display is off or its lock screen is showing, a
 translucent badge in the middle of the screen says so. Right-click the
-screen to wake it, or use **Wake and unlock** in the side rail. The badge
+screen to wake it, or use **Wake and unlock** under the power key on the
+side of the phone. The badge
 fades away under the mouse and lets clicks through to the device.
 
 ## Metrics

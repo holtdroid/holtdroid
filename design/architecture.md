@@ -347,6 +347,13 @@ audio (`web/src/lib/audio.ts`) is decoded with WebCodecs `AudioDecoder` and
 played through `@yume-chan/pcm-player`. It is on by default (`audio` in
 the stream settings): it connects once the screen is live and the page has
 had a click or key press, as browsers require, and reconnects after a drop.
+`audioMuted` keeps the stream connected and drops the decoded samples, so
+unmuting is instant. The canvas sits in a drawn phone body
+(`device-screen.tsx`, sized with container query units from the video's
+aspect ratio, corners from the display's radius) whose side keys
+(`phone-buttons.tsx`) are the volume rocker, with the audio switches on
+hover, and the power key, with the lock modes and wake-and-unlock on hover;
+the split's auto-fit adds the frame's inset.
 Vibrations come from `/v1/vibrations`: the agent polls `dumpsys
 vibrator_manager` every second while someone listens and reports entries
 that are new in its current vibration or recent history; the page shows a

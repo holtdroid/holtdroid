@@ -31,7 +31,7 @@ export async function audioSupported() {
 
 // Call from a user gesture: the player's AudioContext is created right away
 // so the browser lets it play.
-export async function openAudio(url: string): Promise<AudioConnection> {
+export async function openAudio(url: string, muted: () => boolean): Promise<AudioConnection> {
   const player = new Float32PlanerPcmPlayer(config.sampleRate, config.numberOfChannels)
   const { ws, opened } = openSocket(url)
   try {
@@ -47,7 +47,7 @@ export async function openAudio(url: string): Promise<AudioConnection> {
           return plane
         })
         data.close()
-        player.feed(planes)
+        if (!muted()) player.feed(planes)
       },
       error: () => ws.close(),
     })

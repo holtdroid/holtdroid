@@ -2656,3 +2656,22 @@ contract enum: the agent validates them against its catalog. Phones still
 offer none (the A05 has no `sch_netem`); they would need shaping on the host
 of their sing-box.
 
+## 94. The hardware keys live on a drawn phone body, Mute is per tab
+
+**Context.** Lock, wake, volume and the device audio switch were rail
+buttons among a dozen others, and nothing on the screen said whether the
+sound was off.
+
+**Decision.** The screen is drawn inside a phone body with a volume rocker
+and a power key on its right edge. A click on the rocker's halves presses
+volume up or down, a click on the power key does the chosen lock mode;
+hovering opens the rest (Android's mute key, the device audio switch and
+Mute; wake and unlock, the lock modes). Mute silences the audio in this tab
+and keeps it connected, because Android's own mute state isn't reported by
+the agent and couldn't be shown. The rocker turns amber, the colour of a
+changed device control, while the audio is off or muted. The keys stay on
+the right in landscape too.
+
+**Consequences.** The rail keeps rotation, navigation, capture, stream and
+device controls. The frame takes 48 px of width and 40 px of height from
+the screen panel, which the auto-fit accounts for.

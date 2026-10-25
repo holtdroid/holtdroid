@@ -1,15 +1,33 @@
 import { LockIcon, PowerIcon } from "lucide-react"
-import { type ReactNode, useEffect, useRef, useState } from "react"
+import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import { type Display, type Screen, sessionBase } from "@/api/client"
 import { CutoutOverlay } from "@/components/session/cutout-overlay"
 import { displayURL, type LiveScreen, useDecodableCodecs } from "@/components/session/live-screen"
+import { PhoneButtons } from "@/components/session/phone-buttons"
 import { Spinner } from "@/components/ui/spinner"
 import { useEventSource } from "@/hooks/use-event-source"
+import { screenDp } from "@/lib/cutout"
 import { openScreen, screenSupported, UnsupportedCodecError } from "@/lib/scrcpy"
 import { setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
 
 type Status = "connecting" | "live" | "retrying"
+
+const gap = 12
+const bezel = 8
+const key = 4
+
+export const frameInset = { x: 2 * (gap + bezel + key), y: 2 * (gap + bezel) }
+
+function frameStyle(ratio: number, corner: number): CSSProperties {
+  return {
+    "--r": ratio,
+    "--sw": `max(0px, min(calc((100cqh - ${frameInset.y}px) * var(--r)), calc(100cqw - ${frameInset.x}px)))`,
+    "--sr": `calc(min(var(--sw), var(--sw) / var(--r)) * ${corner})`,
+    padding: bezel,
+    borderRadius: `calc(var(--sr) + ${bezel}px)`,
+  } as CSSProperties
+}
 
 export function DeviceScreen({
   provider,
@@ -35,6 +53,7 @@ export function DeviceScreen({
   const display = screen?.key === `${provider}/${id}` ? screen.value : null
   const noticeRef = useRef<HTMLDivElement>(null)
   const [noticeHovered, setNoticeHovered] = useState(false)
+  const [videoRatio, setVideoRatio] = useState<number | null>(null)
 
   useEventSource<{ screen: Screen }>(supported ? `${sessionBase(provider, id)}/v1/screen` : null, {
     screen: (value) => setScreen({ key: `${provider}/${id}`, value }),
@@ -89,6 +108,16 @@ export function DeviceScreen({
     canvas.addEventListener("wheel", onWheel, { passive: false })
     return () => canvas.removeEventListener("wheel", onWheel)
   }, [live])
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return undefined
+    const observer = new MutationObserver(() =>
+      setVideoRatio(canvas.width > 0 && canvas.height > 0 ? canvas.width / canvas.height : null),
+    )
+    observer.observe(canvas, { attributes: true, attributeFilter: ["width", "height"] })
+    return () => observer.disconnect()
+  }, [])
 
   useEffect(() => {
     const onVisible = () => {
@@ -162,41 +191,54 @@ export function DeviceScreen({
     )
   }
 
+  const portrait = shape && shape.width > 0 && shape.height > 0 ? shape : null
+  const ratio = videoRatio ?? (portrait ? portrait.width / portrait.height : 9 / 19.5)
+  const corner = portrait?.radius ? portrait.radius / Math.min(screenDp(portrait).w, screenDp(portrait).h) : 0.07
+
   return (
-    <div
-      className="relative size-full bg-neutral-950"
-      onPointerMove={trackNotice}
-      onPointerLeave={() => setNoticeHovered(false)}
-    >
-      <canvas
-        ref={canvasRef}
-        tabIndex={0}
-        aria-label="Device screen"
-        className="size-full touch-none object-contain outline-none select-none"
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
-        onKeyDown={(e) => onKey(e, true)}
-        onKeyUp={(e) => onKey(e, false)}
-        onBlur={() => live.connection?.control.releaseKeys()}
-        onContextMenu={(e) => e.preventDefault()}
-      />
-      {shape?.cutout && shape.cutout !== "none" && <CutoutOverlay canvasRef={canvasRef} screen={shape} />}
-      {notice && (
-        <div className="pointer-events-none absolute inset-0 grid place-items-center p-4">
-          <div
-            ref={noticeRef}
-            role="status"
-            className="flex max-w-full flex-col items-center gap-2 rounded-[2rem] border border-white/10 bg-neutral-900/60 px-6 py-5 text-center text-white shadow-lg backdrop-blur-md transition-opacity duration-200 [corner-shape:squircle] supports-[corner-shape:squircle]:rounded-[3rem] data-[hovered=true]:opacity-0 [&_svg]:size-6 [&_svg]:text-white/80"
-            data-hovered={noticeHovered}
-          >
-            {notice.icon}
-            <span className="text-sm font-medium">{notice.title}</span>
-            {notice.hint && <span className="text-xs text-white/60">{notice.hint}</span>}
-          </div>
+    <div className="bg-muted/40 grid size-full place-items-center overflow-hidden" style={{ containerType: "size" }}>
+      <div
+        className="relative bg-neutral-900 shadow-lg ring-1 ring-black/50 dark:ring-white/15"
+        style={frameStyle(ratio, corner)}
+      >
+        <div
+          className="relative overflow-hidden bg-neutral-950"
+          style={{ width: "var(--sw)", height: "calc(var(--sw) / var(--r))", borderRadius: "var(--sr)" }}
+          onPointerMove={trackNotice}
+          onPointerLeave={() => setNoticeHovered(false)}
+        >
+          <canvas
+            ref={canvasRef}
+            tabIndex={0}
+            aria-label="Device screen"
+            className="size-full touch-none object-contain outline-none select-none"
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerUp}
+            onKeyDown={(e) => onKey(e, true)}
+            onKeyUp={(e) => onKey(e, false)}
+            onBlur={() => live.connection?.control.releaseKeys()}
+            onContextMenu={(e) => e.preventDefault()}
+          />
+          {shape?.cutout && shape.cutout !== "none" && <CutoutOverlay canvasRef={canvasRef} screen={shape} />}
+          {notice && (
+            <div className="pointer-events-none absolute inset-0 grid place-items-center p-4">
+              <div
+                ref={noticeRef}
+                role="status"
+                className="flex max-w-full flex-col items-center gap-2 rounded-[2rem] border border-white/10 bg-neutral-900/60 px-6 py-5 text-center text-white shadow-lg backdrop-blur-md transition-opacity duration-200 [corner-shape:squircle] supports-[corner-shape:squircle]:rounded-[3rem] data-[hovered=true]:opacity-0 [&_svg]:size-6 [&_svg]:text-white/80"
+                data-hovered={noticeHovered}
+              >
+                {notice.icon}
+                <span className="text-sm font-medium">{notice.title}</span>
+                {notice.hint && <span className="text-xs text-white/60">{notice.hint}</span>}
+              </div>
+            </div>
+          )}
         </div>
-      )}
+        <PhoneButtons provider={provider} id={id} live={live} />
+      </div>
     </div>
   )
 }

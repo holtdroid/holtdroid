@@ -14,6 +14,7 @@ export type ScreenPrefs = {
   bitRate: number
   keyboard: KeyboardMode
   audio: boolean
+  audioMuted: boolean
   vibrationSound: boolean
   lockMode: LockMode
   recordMode: RecordMode
@@ -33,6 +34,7 @@ export const defaultScreenPrefs: ScreenPrefs = {
   bitRate: 4_000_000,
   keyboard: "text",
   audio: true,
+  audioMuted: false,
   vibrationSound: true,
   lockMode: "lock",
   recordMode: "screen",
