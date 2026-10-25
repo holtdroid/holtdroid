@@ -782,13 +782,27 @@ nothing about the guest or the app.
 can reach itself: the guest through one `adb shell` script per sample
 (`/proc/stat`, `/proc/meminfo`, `df /data`, `/proc/net/dev`, the app's and
 WebView renderers' `/proc/<pid>/stat` and `smaps_rollup`, frame counters
-from `dumpsys gfxinfo`, `dumpsys thermalservice`) and its own container
-through cgroup v2 and `/sys/class/thermal`, since it shares the container
-with the emulator. Rates come from the difference between two samples.
+from `dumpsys gfxinfo`, `dumpsys thermalservice`) and the session Pod
+through the node's cgroup v2 tree (mounted read-only, the Pod found by its
+uid) and `/sys/class/thermal`. Rates come from the difference between two
+samples.
 Sampling runs every 2 s while at least one browser listens and stops with
 the last one; the UI unsubscribes in hidden tabs. Stream fps and bitrate
 are counted in the browser. Fields a device can't measure are absent, so a
 physical phone later reports the same shape without `host`.
+
+Since redroid (decision #82) Android shares the node's kernel, and
+`/proc/stat`, `/proc/cpuinfo` and `/proc/meminfo` aren't namespaced: the
+guest sees the whole node. Whenever the Pod's cgroup is readable, the
+device's cores, CPU and memory therefore come from the Pod instead: cores
+are its CPU limit rounded up, CPU is its usage as a percent of that limit,
+memory is its working set of its memory limit (the node's memory without
+one), and the app's per-process CPU is rescaled from the node's cores to
+the limit. The Pod also holds the agent and the VPN sidecar, which is
+accepted: they are small next to Android, and lxcfs or matching the
+`android` container's own cgroup would need either a node dependency or the
+container id, which the Pod can't see. `/data` is still `df` of the
+emptyDir, so its total is the node's disk.
 
 **Consequences.** A watched session spends one adb round trip and two
 `dumpsys` calls every 2 s. An emulator's temperatures are made up by its

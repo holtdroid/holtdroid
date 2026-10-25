@@ -491,8 +491,27 @@ func diff(prev, cur *sample) contract.Metrics {
 			MemoryUsed:  cur.host.working,
 			MemoryLimit: cur.host.memMax,
 		}
+		podDevice(&out, cur.cores)
 	}
 	return out
+}
+
+// podDevice describes a device that shares the node's kernel (redroid) by its
+// Pod: the guest's /proc shows the whole node.
+func podDevice(m *contract.Metrics, nodeCores int) {
+	h := m.Host
+	if h.CPULimit <= 0 {
+		return
+	}
+	m.Device.Cores = int(math.Ceil(h.CPULimit))
+	m.Device.CPU = min(100, percent(h.CPU, h.CPULimit))
+	m.Device.MemoryUsed, m.Device.MemoryTotal = h.MemoryUsed, h.MemoryLimit
+	if m.App != nil && nodeCores > 0 {
+		for i := range m.App.Processes {
+			p := &m.App.Processes[i]
+			p.CPU = min(100, math.Round(p.CPU*float64(nodeCores)/h.CPULimit*10)/10)
+		}
+	}
 }
 
 func rate(prev, cur uint64, secs float64) float64 {

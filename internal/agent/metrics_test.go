@@ -51,10 +51,8 @@ func TestMetricsDiff(t *testing.T) {
 	at := time.Unix(1_760_000_000, 0)
 	prev := parseDeviceSample(deviceOutput(1000, 3000, 1000, 500, 100, 1000, 10))
 	prev.at = at
-	prev.host = &hostSample{usage: 1_000_000, throttled: 0, limit: 4, working: 3 << 30, memMax: 7 << 30}
 	cur := parseDeviceSample(deviceOutput(1300, 3500, 5000, 1500, 180, 1120, 16))
 	cur.at = at.Add(2 * time.Second)
-	cur.host = &hostSample{usage: 6_000_000, throttled: 500_000, limit: 4, working: 3 << 30, memMax: 7 << 30}
 
 	m := diff(prev, cur)
 	if got := m.Device; got.CPU != 37.5 || got.Cores != 4 || got.MemoryUsed != 3_000_000<<10 || got.MemoryTotal != 4_000_000<<10 ||
@@ -71,8 +69,8 @@ func TestMetricsDiff(t *testing.T) {
 	if m.App.FPS != 60 || m.App.Jank != 5 {
 		t.Errorf("fps %v jank %v", m.App.FPS, m.App.Jank)
 	}
-	if m.Host == nil || *m.Host != (contract.HostLoad{CPU: 2.5, CPULimit: 4, Throttled: 25, MemoryUsed: 3 << 30, MemoryLimit: 7 << 30}) {
-		t.Errorf("host = %+v", m.Host)
+	if m.Host != nil {
+		t.Errorf("host without a cgroup = %+v", m.Host)
 	}
 	want := []contract.Temperature{
 		{Source: contract.TemperatureDevice, Type: "cpu", Name: "cpu0", Celsius: 50.3},
@@ -80,6 +78,20 @@ func TestMetricsDiff(t *testing.T) {
 	}
 	if fmt.Sprint(m.Thermal) != fmt.Sprint(want) {
 		t.Errorf("thermal = %+v", m.Thermal)
+	}
+
+	prev.host = &hostSample{usage: 1_000_000, throttled: 0, limit: 2, working: 3 << 30, memMax: 7 << 30}
+	cur.host = &hostSample{usage: 4_000_000, throttled: 500_000, limit: 2, working: 3 << 30, memMax: 7 << 30}
+	m = diff(prev, cur)
+	if m.Host == nil || *m.Host != (contract.HostLoad{CPU: 1.5, CPULimit: 2, Throttled: 25, MemoryUsed: 3 << 30, MemoryLimit: 7 << 30}) {
+		t.Errorf("host = %+v", m.Host)
+	}
+	if got := m.Device; got.CPU != 75 || got.Cores != 2 || got.MemoryUsed != 3<<30 || got.MemoryTotal != 7<<30 ||
+		got.StorageTotal != 6_000_000<<10 || got.RxRate != 2000 {
+		t.Errorf("device in a pod = %+v", got)
+	}
+	if p := m.App.Processes[0]; p.CPU != 20 {
+		t.Errorf("app cpu in a pod = %v, want 20", p.CPU)
 	}
 }
 
