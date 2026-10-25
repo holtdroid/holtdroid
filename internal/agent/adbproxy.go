@@ -66,6 +66,16 @@ func (p ShellPolicy) allows(service string) bool {
 	return slices.ContainsFunc(passiveServices, func(prefix string) bool { return strings.HasPrefix(service, prefix) })
 }
 
+// allowsDirect is the policy for a client speaking to adbd itself (redroid):
+// with the full policy only the refused services are off, as the agent's own
+// adb needs nothing else; otherwise commands follow the proxy's rules.
+func (p ShellPolicy) allowsDirect(service string) bool {
+	if p == ShellFull {
+		return !refusedService(service)
+	}
+	return p.allows(service)
+}
+
 func shellCommand(service string) (string, bool) {
 	if cmd, ok := strings.CutPrefix(service, "exec:"); ok {
 		return cmd, true

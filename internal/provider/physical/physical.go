@@ -352,6 +352,7 @@ func (p *Provider) refresh(ctx context.Context) {
 					caps.DevTools = contract.DevToolsAll
 					caps.AppData = true
 				}
+				caps.Shell = p.cfg.ADB.Shell == agent.ShellFull
 				info.caps = &caps
 			}
 		}
@@ -574,7 +575,6 @@ func (p *Provider) start(s contract.Session, artifactURL string, resume bool, v 
 	cfg.Scrcpy.KeepAudio = true
 	cfg.DevToolsFrontend = p.cfg.Agent.DevToolsFrontend
 	cfg.CacheDir = p.cfg.Agent.CacheDir
-	cfg.HostMetrics = false
 	root := p.phoneRoot(s.Slot)
 	cfg.Root = root
 	cfg.RootShell = root

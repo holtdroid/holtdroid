@@ -34,7 +34,11 @@ func (c Prepull) active(pullPolicy string) bool {
 // tagged are the session images referenced by a tag, which can move.
 func (p *Provider) tagged() []string {
 	var out []string
-	for _, image := range []string{p.cfg.Image, p.cfg.Redroid.Image} {
+	images := []string{p.cfg.Image}
+	for _, v := range p.cfg.Redroid.versions() {
+		images = append(images, p.cfg.Redroid.Images[v])
+	}
+	for _, image := range images {
 		if _, _, ok := splitImage(image); ok {
 			out = append(out, image)
 		}

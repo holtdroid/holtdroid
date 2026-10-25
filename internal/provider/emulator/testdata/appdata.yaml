@@ -1,5 +1,6 @@
 metadata:
   annotations:
+    holtdroid/android: "15"
     holtdroid/app-data: cache
     holtdroid/artifact-ref: slack/C1/F1/app.apk@1f2e
     holtdroid/created-at: "2026-10-17T12:00:00Z"
@@ -7,6 +8,7 @@ metadata:
     holtdroid/location: ""
     holtdroid/owner: otter
     holtdroid/package: com.example.app
+    holtdroid/screen: hd
   labels:
     app.kubernetes.io/managed-by: holtdroid-provider-emulator
     app.kubernetes.io/name: holtdroid-session
@@ -35,16 +37,16 @@ spec:
     - androidboot.redroid_gpu_node=/dev/dri/renderD128
     - androidboot.redroid_width=720
     - androidboot.redroid_height=1600
-    - androidboot.redroid_dpi=320
+    - androidboot.redroid_dpi=280
     - androidboot.redroid_fps=60
-    image: ghcr.io/holtdroid/holtdroid-redroid:4567def
+    image: ghcr.io/holtdroid/holtdroid-redroid:15
     imagePullPolicy: IfNotPresent
     name: android
     resources:
       limits:
         memory: 3Gi
       requests:
-        cpu: "1"
+        cpu: 500m
         memory: 1536Mi
     securityContext:
       privileged: true
@@ -72,6 +74,16 @@ spec:
       value: k3s-1-2
     - name: HOLTDROID_SESSION__CREATEDAT
       value: "2026-10-17T12:00:00Z"
+    - name: HOLTDROID_ADBSHELL
+      value: allowlist
+    - name: HOLTDROID_HOSTCGROUP
+      value: /host/cgroup
+    - name: HOLTDROID_PODUID
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.uid
+    - name: HOLTDROID_REDROID__CUTOUT
+      value: tall
     - name: HOLTDROID_APPDATA__URL
       value: http://holtdroid-api-internal:8081/internal/app-data/x.tar.zst
     - name: HOLTDROID_APPDATA__CACHE
@@ -96,7 +108,14 @@ spec:
         cpu: 100m
         memory: 256Mi
     securityContext:
-      privileged: true
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+    volumeMounts:
+    - mountPath: /host/cgroup
+      name: cgroup
+      readOnly: true
   enableServiceLinks: false
   restartPolicy: Never
   securityContext:
@@ -106,4 +125,8 @@ spec:
   - emptyDir:
       sizeLimit: 8Gi
     name: data
+  - hostPath:
+      path: /sys/fs/cgroup
+      type: Directory
+    name: cgroup
 status: {}

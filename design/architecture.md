@@ -209,8 +209,8 @@ Session Pod (rendered by `provider-emulator`, golden-tested; decision #82):
 
 | Container | Image | Notes |
 |-----------|-------|-------|
-| `android` | `holtdroid-redroid` | privileged, `runAsUser`/`runAsGroup` 0 (Pod `supplementalGroupsPolicy: Strict`), `emptyDir` on `/data`, ~1 CPU / 1.5–3 GiB. Boot arguments: GPU render node, screen size, density, fps, memfd |
-| `agent` | `holtdroid-session` | privileged (reads the Pod's cgroup for metrics). Runs `holtdroid agent` |
+| `android` | `holtdroid-redroid:<version>` | privileged, `runAsUser`/`runAsGroup` 0 (Pod `supplementalGroupsPolicy: Strict`), `emptyDir` on `/data`, 0.5 CPU requested / 1.5–3 GiB. Boot arguments: GPU render node, the launch's screen (size, density), fps, memfd. The image is the launch's Android version (decision #83) |
+| `agent` | `holtdroid-session` | not privileged, all capabilities dropped; the node's `/sys/fs/cgroup` mounted read-only at `/host/cgroup` and the Pod uid in the environment, so the metrics bar finds the Pod's cgroup. Runs `holtdroid agent`, which enables the screen's cutout overlay and relays users' ADB under `redroid.shell` |
 | `vpn` | upstream `sing-box` | `NET_ADMIN`, `/dev/net/tun`. Config from the per-session Secret |
 
 All three share the Pod's network namespace. Plus a Secret (sing-box config,

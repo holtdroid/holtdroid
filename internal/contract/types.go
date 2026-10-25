@@ -36,7 +36,22 @@ type Capabilities struct {
 	Locations       []Location  `json:"locations"`
 	DefaultLocation string      `json:"defaultLocation,omitempty"`
 	ABIs            []string    `json:"abis"`
+	Screens         []Display   `json:"screens,omitempty" doc:"screens a session can be launched with (virtual devices); the first is the default"`
+	Versions        []string    `json:"versions,omitempty" doc:"Android versions a session can be launched with (virtual devices), newest first"`
 }
+
+// Display is a virtual device's screen: size, density and the emulated
+// cutout (none, or one of Android's DisplayCutoutEmulation overlays).
+type Display struct {
+	ID     string `json:"id" minLength:"1"`
+	Label  string `json:"label"`
+	Width  int    `json:"width" minimum:"1"`
+	Height int    `json:"height" minimum:"1"`
+	DPI    int    `json:"dpi" minimum:"1"`
+	Cutout string `json:"cutout,omitempty" enum:"none,corner,double,hole,tall,waterfall"`
+}
+
+var Cutouts = []string{"none", "corner", "double", "hole", "tall", "waterfall"}
 
 type SlotState string
 
@@ -70,6 +85,7 @@ type SlotCapabilities struct {
 	Root     bool          `json:"root" doc:"the agent has root on the device"`
 	DevTools DevToolsScope `json:"devtools" enum:"all,debuggable" doc:"all WebViews, or only those of debuggable builds"`
 	ADB      bool          `json:"adb" doc:"ADB tunnels (browser and holtdroid client) are available"`
+	Shell    bool          `json:"shell" doc:"ADB runs any shell command, so the Terminal tab is offered; otherwise only the allowlisted commands behind the other tabs"`
 	AppData  bool          `json:"appData" doc:"app data can be saved and restored"`
 }
 
@@ -127,6 +143,8 @@ type CreateSession struct {
 	Owner       string          `json:"owner" minLength:"1"`
 	Location    string          `json:"location,omitempty"`
 	Slot        string          `json:"slot,omitempty" doc:"run on this slot; empty picks any free one"`
+	Screen      string          `json:"screen,omitempty" doc:"one of the provider's screens; empty takes the first"`
+	Android     string          `json:"android,omitempty" doc:"one of the provider's Android versions; empty takes the newest"`
 	AppData     *AppDataRestore `json:"appData,omitempty" doc:"app data to put back after installing the app and before it first starts"`
 }
 

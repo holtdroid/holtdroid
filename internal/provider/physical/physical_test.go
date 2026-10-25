@@ -189,7 +189,7 @@ func TestProviderRoundTrip(t *testing.T) {
 		t.Fatalf("create %+v, %v", s, err)
 	}
 	cfg := host.agent(0).cfg
-	if cfg.Serial != "A1" || cfg.Package != "com.x" || cfg.ArtifactURL != "http://api/x" || cfg.Root || cfg.HostMetrics || cfg.Resume || cfg.ADBAddr != "" ||
+	if cfg.Serial != "A1" || cfg.Package != "com.x" || cfg.ArtifactURL != "http://api/x" || cfg.Root || cfg.HostCgroup != "" || cfg.Resume || cfg.ADBAddr != "" ||
 		cfg.ADBServer != "127.0.0.1:5037" || cfg.ADBShell != agent.ShellAllowlist {
 		t.Fatalf("agent config %+v", cfg)
 	}

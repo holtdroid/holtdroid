@@ -33,11 +33,23 @@ export function LaunchDialog({ artifact, onClose }: { artifact: ArtifactView | n
   const [chosenProvider, setChosenProvider] = useState<string | null>(null)
   const [chosenLocation, setChosenLocation] = useState<string | null>(null)
   const [chosenSlot, setChosenSlot] = useState<string | null>(null)
-  const { usable, provider, slot, target, locations, defaultLocation, location, free, total } = useLaunchTarget(
-    chosenProvider,
-    chosenLocation,
-    chosenSlot,
-  )
+  const [chosenScreen, setChosenScreen] = useState<string | null>(null)
+  const [chosenAndroid, setChosenAndroid] = useState<string | null>(null)
+  const {
+    usable,
+    provider,
+    slot,
+    target,
+    locations,
+    defaultLocation,
+    location,
+    screens,
+    screen,
+    versions,
+    android,
+    free,
+    total,
+  } = useLaunchTarget(chosenProvider, chosenLocation, chosenSlot, chosenScreen, chosenAndroid)
   const launch = useStartSession()
   const appData = useAppDataFor(artifact?.app?.package)
   const [chosenData, setChosenData] = useState(FRESH)
@@ -49,6 +61,8 @@ export function LaunchDialog({ artifact, onClose }: { artifact: ArtifactView | n
     setChosenProvider(name === ANY ? "" : name)
     setChosenLocation(null)
     setChosenSlot(null)
+    setChosenScreen(null)
+    setChosenAndroid(null)
   }
   const abis = slot?.capabilities?.abis ?? provider?.capabilities.abis
   const missingABI =
@@ -60,7 +74,7 @@ export function LaunchDialog({ artifact, onClose }: { artifact: ArtifactView | n
   const submit = () => {
     if (!artifact || usable.length === 0) return
     const choice = snapshot && { id: snapshot.id, cache: withCache && snapshot.cache }
-    launch(artifact, { provider: target, slot: slot?.id, location }, choice)
+    launch(artifact, { provider: target, slot: slot?.id, location, screen, android }, choice)
   }
 
   const title = artifact ? artifactTitle(artifact) : ""
@@ -131,6 +145,45 @@ export function LaunchDialog({ artifact, onClose }: { artifact: ArtifactView | n
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          )}
+
+          {versions.length > 1 && (
+            <div className="grid gap-2">
+              <Label>Android</Label>
+              <Select value={android ?? ""} onValueChange={setChosenAndroid}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {versions.map((v) => (
+                    <SelectItem key={v} value={v}>
+                      Android {v}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {screens.length > 1 && (
+            <div className="grid gap-2">
+              <Label>Screen</Label>
+              <Select value={screen ?? ""} onValueChange={setChosenScreen}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {screens.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.label || `${s.width}×${s.height} · ${s.dpi} dpi`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-muted-foreground text-xs">
+                The size is fixed for the session; the density can still be changed in the Display controls.
+              </p>
             </div>
           )}
 

@@ -21,6 +21,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"sigs.k8s.io/yaml"
 
+	"github.com/holtdroid/holtdroid/internal/agent"
 	"github.com/holtdroid/holtdroid/internal/contract"
 	"github.com/holtdroid/holtdroid/internal/secrets"
 	"github.com/holtdroid/holtdroid/internal/telemetry"
@@ -69,32 +70,34 @@ func TestRender(t *testing.T) {
 		cfg      func(*Config)
 		location string
 		appData  *contract.AppDataRestore
+		screen   string
+		android  string
 	}{
-		{"plain", func(c *Config) {}, "", nil},
+		{"plain", func(c *Config) {}, "", nil, "", ""},
 		{"vpn", func(c *Config) {
+			c.Redroid.Shell = agent.ShellFull
 			c.VPN = vpnConfig()
 			c.ImagePullSecrets = []string{"ghcr"}
-			c.Redroid.Width, c.Redroid.Height, c.Redroid.DPI = 1080, 2400, 420
 			c.VPN.Locations[0].Timezone = "Europe/Warsaw"
 			c.VPN.Locations[0].Geo = &vpn.GeoArea{Lat: 52.2297, Lng: 21.0122, Radius: 5000}
 			c.Tolerations = []Toleration{{Key: "dedicated", Operator: "Equal", Value: "nas", Effect: "NoSchedule"}}
-		}, "nl", nil},
+		}, "nl", nil, "fhd", "14"},
 		{"telemetry", func(c *Config) {
 			c.SessionTelemetry = SessionTelemetry{MetricsPort: 9090, Tracing: telemetry.TracingConfig{Enabled: true, Endpoint: "http://otel-collector:4318", Insecure: true, SampleRatio: 0.25}}
-		}, "", nil},
+		}, "", nil, "", ""},
 		{"node", func(c *Config) {
 			c.Nodes = map[string]Node{
 				"k3s-1": {Slots: 3, Resources: Resources{Requests: map[string]string{"cpu": "2", "memory": "2Gi"}, Limits: map[string]string{"memory": "4Gi"}}},
 				"core":  {Slots: 6},
 			}
-		}, "", nil},
-		{"appdata", func(c *Config) {}, "", &contract.AppDataRestore{URL: "http://holtdroid-api-internal:8081/internal/app-data/x.tar.zst", Cache: true}},
+		}, "", nil, "tablet", ""},
+		{"appdata", func(c *Config) {}, "", &contract.AppDataRestore{URL: "http://holtdroid-api-internal:8081/internal/app-data/x.tar.zst", Cache: true}, "", ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := DefaultConfig()
 			cfg.Image = "ghcr.io/holtdroid/holtdroid-session:0123abc"
-			cfg.Redroid.Image = "ghcr.io/holtdroid/holtdroid-redroid:4567def"
+			cfg.Redroid.Images = map[string]string{"15": "ghcr.io/holtdroid/holtdroid-redroid:15", "14": "ghcr.io/holtdroid/holtdroid-redroid:14"}
 			tt.cfg(&cfg)
 			p, err := New(cfg, fake.NewClientset(), sec)
 			if err != nil {
@@ -102,7 +105,15 @@ func TestRender(t *testing.T) {
 			}
 			r := req
 			r.AppData = tt.appData
-			pod := p.renderPod("0a1b2c3d4e", "k3s-1-2", "k3s-1", r, tt.location, epoch)
+			screen, err := cfg.Redroid.screen(tt.screen)
+			if err != nil {
+				t.Fatal(err)
+			}
+			version, image, err := cfg.Redroid.image(tt.android)
+			if err != nil {
+				t.Fatal(err)
+			}
+			pod := p.renderPod("0a1b2c3d4e", "k3s-1-2", "k3s-1", r, device{screen, version, image, tt.location}, epoch)
 			got, err := yaml.Marshal(pod)
 			if err != nil {
 				t.Fatal(err)
@@ -234,7 +245,11 @@ func TestValidate(t *testing.T) {
 		{"selector", func(c *Config) { c.NodeSelector = "a in (" }},
 		{"resources", func(c *Config) { c.Resources.Limits = map[string]string{"cpu": "lots"} }},
 		{"node slots", func(c *Config) { c.Nodes = map[string]Node{"core": {Slots: -1}} }},
-		{"screen", func(c *Config) { c.Redroid.Width = 0 }},
+		{"screen", func(c *Config) { c.Redroid.Screens[0].Width = 0 }},
+		{"screen id", func(c *Config) { c.Redroid.Screens[1].ID = c.Redroid.Screens[0].ID }},
+		{"cutout", func(c *Config) { c.Redroid.Screens[0].Cutout = "bezel" }},
+		{"images", func(c *Config) { c.Redroid.Images = map[string]string{"": "x"} }},
+		{"shell", func(c *Config) { c.Redroid.Shell = "root" }},
 		{"data size", func(c *Config) { c.Redroid.DataSize = "lots" }},
 		{"agent resources", func(c *Config) { c.AgentResources.Requests = map[string]string{"cpu": "x"} }},
 		{"node resources", func(c *Config) {

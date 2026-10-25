@@ -14,6 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"github.com/holtdroid/holtdroid/internal/agent"
 	"github.com/holtdroid/holtdroid/internal/contract"
 	"github.com/holtdroid/holtdroid/internal/vpn"
 )
@@ -27,6 +28,8 @@ const (
 	annotationPackage      = "holtdroid/package"
 	annotationArtifactRef  = "holtdroid/artifact-ref"
 	annotationLocation     = "holtdroid/location"
+	annotationScreen       = "holtdroid/screen"
+	annotationAndroid      = "holtdroid/android"
 	annotationAppData      = "holtdroid/app-data"
 	annotationCreatedAt    = "holtdroid/created-at"
 	annotationLastActivity = "holtdroid/last-activity"
@@ -36,7 +39,16 @@ const (
 	containerVPN     = "vpn"
 	vpnConfigKey     = "config.json"
 	hostnameLabel    = "kubernetes.io/hostname"
+	hostCgroup       = "/host/cgroup"
 )
+
+// device is what a launch picked for its Android container.
+type device struct {
+	screen   contract.Display
+	version  string
+	image    string
+	location string
+}
 
 var podSelector = map[string]string{
 	"app.kubernetes.io/name":       "holtdroid-session",
@@ -64,9 +76,10 @@ func (p *Provider) tolerations() []corev1.Toleration {
 	return out
 }
 
-func (p *Provider) renderPod(id, slot, node string, req contract.CreateSession, location string, now time.Time) *corev1.Pod {
+func (p *Provider) renderPod(id, slot, node string, req contract.CreateSession, dev device, now time.Time) *corev1.Pod {
 	name := podName(id)
 	at := now.UTC().Format(time.RFC3339Nano)
+	location := dev.location
 
 	env := []corev1.EnvVar{
 		{Name: "HOLTDROID_LISTEN", Value: ":" + strconv.Itoa(p.cfg.AgentPort)},
@@ -78,6 +91,12 @@ func (p *Provider) renderPod(id, slot, node string, req contract.CreateSession, 
 		{Name: "HOLTDROID_SESSION__ARTIFACTREF", Value: req.ArtifactRef},
 		{Name: "HOLTDROID_SESSION__SLOT", Value: slot},
 		{Name: "HOLTDROID_SESSION__CREATEDAT", Value: at},
+		{Name: "HOLTDROID_ADBSHELL", Value: string(p.cfg.Redroid.Shell)},
+		{Name: "HOLTDROID_HOSTCGROUP", Value: hostCgroup},
+		{Name: "HOLTDROID_PODUID", ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.uid"}}},
+	}
+	if c := dev.screen.Cutout; c != "" && c != "none" {
+		env = append(env, corev1.EnvVar{Name: "HOLTDROID_REDROID__CUTOUT", Value: c})
 	}
 	if location != "" {
 		env = append(env, corev1.EnvVar{Name: "HOLTDROID_LOCATION", Value: location})
@@ -112,7 +131,10 @@ func (p *Provider) renderPod(id, slot, node string, req contract.CreateSession, 
 	if q, err := resource.ParseQuantity(p.cfg.Redroid.DataSize); p.cfg.Redroid.DataSize != "" && err == nil {
 		data.SizeLimit = &q
 	}
-	volumes := []corev1.Volume{{Name: "data", EmptyDir: data}}
+	volumes := []corev1.Volume{
+		{Name: "data", EmptyDir: data},
+		{Name: "cgroup", HostPath: &corev1.HostPathVolumeSource{Path: "/sys/fs/cgroup", Type: new(corev1.HostPathDirectory)}},
+	}
 	if p.cfg.VPN.Enabled() {
 		env = append(env,
 			corev1.EnvVar{Name: "HOLTDROID_CLASHAPI", Value: "http://" + vpn.ClashAPI},
@@ -130,9 +152,9 @@ func (p *Provider) renderPod(id, slot, node string, req contract.CreateSession, 
 	containers := []corev1.Container{
 		{
 			Name:            containerAndroid,
-			Image:           p.cfg.Redroid.Image,
+			Image:           dev.image,
 			ImagePullPolicy: corev1.PullPolicy(p.cfg.ImagePullPolicy),
-			Args:            p.bootArgs(),
+			Args:            p.bootArgs(dev.screen),
 			Resources:       resources,
 			SecurityContext: &corev1.SecurityContext{Privileged: new(true), RunAsUser: new(int64(0)), RunAsGroup: new(int64(0))},
 			VolumeMounts:    []corev1.VolumeMount{{Name: "data", MountPath: "/data"}},
@@ -144,7 +166,11 @@ func (p *Provider) renderPod(id, slot, node string, req contract.CreateSession, 
 			Env:             env,
 			Ports:           ports,
 			Resources:       p.agentRes,
-			SecurityContext: &corev1.SecurityContext{Privileged: new(true)},
+			SecurityContext: &corev1.SecurityContext{
+				AllowPrivilegeEscalation: new(false),
+				Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
+			},
+			VolumeMounts: []corev1.VolumeMount{{Name: "cgroup", MountPath: hostCgroup, ReadOnly: true}},
 			ReadinessProbe: &corev1.Probe{
 				HTTPGet:       &corev1.HTTPGetAction{Path: "/v1/health", Port: intstr.FromString("agent")},
 				PeriodSeconds: 2,
@@ -176,6 +202,8 @@ func (p *Provider) renderPod(id, slot, node string, req contract.CreateSession, 
 		annotationPackage:      req.Package,
 		annotationArtifactRef:  req.ArtifactRef,
 		annotationLocation:     location,
+		annotationScreen:       dev.screen.ID,
+		annotationAndroid:      dev.version,
 		annotationCreatedAt:    at,
 		annotationLastActivity: at,
 	}
@@ -213,7 +241,7 @@ func (p *Provider) renderPod(id, slot, node string, req contract.CreateSession, 
 
 // bootArgs are redroid's kernel-style boot arguments: the GPU, the screen
 // and memfd instead of ashmem, which mainline kernels no longer have.
-func (p *Provider) bootArgs() []string {
+func (p *Provider) bootArgs(screen contract.Display) []string {
 	r := p.cfg.Redroid
 	args := []string{
 		"qemu=1",
@@ -221,9 +249,9 @@ func (p *Provider) bootArgs() []string {
 		"androidboot.use_memfd=true",
 		"androidboot.redroid_gpu_mode=host",
 		"androidboot.redroid_gpu_node=" + r.GPU,
-		"androidboot.redroid_width=" + strconv.Itoa(r.Width),
-		"androidboot.redroid_height=" + strconv.Itoa(r.Height),
-		"androidboot.redroid_dpi=" + strconv.Itoa(r.DPI),
+		"androidboot.redroid_width=" + strconv.Itoa(screen.Width),
+		"androidboot.redroid_height=" + strconv.Itoa(screen.Height),
+		"androidboot.redroid_dpi=" + strconv.Itoa(screen.DPI),
 		"androidboot.redroid_fps=" + strconv.Itoa(r.FPS),
 	}
 	return append(args, r.Args...)
@@ -279,6 +307,18 @@ func (p *Provider) podSession(pod corev1.Pod) contract.Session {
 		agentURL = "http://" + net.JoinHostPort(pod.Status.PodIP, strconv.Itoa(p.cfg.AgentPort))
 		tunnelURL = "http://" + net.JoinHostPort(pod.Status.PodIP, strconv.Itoa(p.cfg.TunnelPort))
 	}
+	caps := &contract.SlotCapabilities{
+		Android:  a[annotationAndroid],
+		ABIs:     []string{"x86_64", "arm64-v8a"},
+		Root:     true,
+		DevTools: contract.DevToolsAll,
+		ADB:      true,
+		Shell:    p.cfg.Redroid.Shell == agent.ShellFull,
+		AppData:  true,
+	}
+	if screen, err := p.cfg.Redroid.screen(a[annotationScreen]); err == nil {
+		caps.Model = screen.Label
+	}
 	return contract.Session{
 		ID:           pod.Labels[labelSession],
 		Slot:         pod.Labels[labelSlot],
@@ -290,6 +330,7 @@ func (p *Provider) podSession(pod corev1.Pod) contract.Session {
 		State:        state,
 		Reason:       reason,
 		Detail:       detail,
+		Capabilities: caps,
 		AgentURL:     agentURL,
 		TunnelURL:    tunnelURL,
 		CreatedAt:    created,

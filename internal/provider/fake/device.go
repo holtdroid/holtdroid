@@ -44,7 +44,7 @@ type device struct {
 func newDevice(s contract.Session, step time.Duration, offers func(string) bool, appData *contract.AppDataRestore) *device {
 	d := &device{s: s, settings: defaultSettings(), screen: contract.Screen{On: true}, subs: map[chan struct{}]struct{}{}, done: make(chan struct{}), offers: offers, appData: appData}
 	d.ports = &fakePorts{adbd: d.serveADB}
-	d.tunnels = agent.NewTunnels(d.ports, slog.Default().With("component", "fake-agent", "session", s.ID))
+	d.tunnels = agent.NewTunnels(d.ports, agent.ShellFull, slog.Default().With("component", "fake-agent", "session", s.ID))
 	d.handler = d.buildHandler()
 	go d.run(step)
 	go d.generateLogs()

@@ -21,6 +21,9 @@ type Config struct {
 	// the destinations that stay on the Pod network.
 	VPN    bool
 	Bypass []string
+	// Cutout is the display cutout to emulate: one of Android's
+	// DisplayCutoutEmulation overlays (corner, double, hole, tall, waterfall).
+	Cutout string
 }
 
 func DefaultConfig() Config {
@@ -104,6 +107,11 @@ func (r *Redroid) prepare(ctx context.Context) error {
 	}
 	if err := r.route(ctx); err != nil {
 		return fmt.Errorf("vpn routes: %w", err)
+	}
+	if c := r.cfg.Cutout; c != "" && c != "none" {
+		if _, err := r.adb.Shell(ctx, "cmd overlay enable --user 0 com.android.internal.display.cutout.emulation."+c); err != nil {
+			r.log.Warn("could not enable the display cutout", "cutout", c, "err", err)
+		}
 	}
 	if _, err := r.adb.Shell(ctx, allowHomeRotation); err != nil {
 		r.log.Warn("could not allow home screen rotation", "err", err)

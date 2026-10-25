@@ -30,11 +30,12 @@ type TunnelDevice interface {
 // Tunnels serves the tunnel endpoints the ssh-gateway opens on the agent's
 // second port and keeps track of what is open for the UI.
 type Tunnels struct {
-	dev  TunnelDevice
-	log  *slog.Logger
-	now  func() time.Time
-	ctx  context.Context
-	stop context.CancelFunc
+	dev   TunnelDevice
+	shell ShellPolicy
+	log   *slog.Logger
+	now   func() time.Time
+	ctx   context.Context
+	stop  context.CancelFunc
 
 	mu       sync.Mutex
 	nextID   int
@@ -50,10 +51,10 @@ type Tunnels struct {
 	probeWait  time.Duration
 }
 
-func NewTunnels(dev TunnelDevice, log *slog.Logger) *Tunnels {
+func NewTunnels(dev TunnelDevice, shell ShellPolicy, log *slog.Logger) *Tunnels {
 	ctx, stop := context.WithCancel(context.Background())
 	return &Tunnels{
-		dev: dev, log: log, now: time.Now, ctx: ctx, stop: stop,
+		dev: dev, shell: shell, log: log, now: time.Now, ctx: ctx, stop: stop,
 		adb: map[int]contract.ADBTunnel{}, reverse: map[int]*contract.ReverseTunnel{}, sessions: map[int]*yamux.Session{},
 		subs: map[chan struct{}]struct{}{}, backoff: map[int]probeBackoff{}, probeEvery: 5 * time.Second, probeWait: 2 * time.Second,
 	}
@@ -114,7 +115,7 @@ func (t *Tunnels) serveADB(w http.ResponseWriter, r *http.Request, client string
 		t.log.Info("adb tunnel closed", "user", user, "client", client)
 	}()
 
-	filterADB(conn, dev)
+	filterADB(conn, dev, t.shell)
 }
 
 func (t *Tunnels) serveReverse(w http.ResponseWriter, r *http.Request) {

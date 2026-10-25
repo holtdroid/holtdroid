@@ -2205,3 +2205,120 @@ size is fixed at boot (density can change); no network speed profiles; no
 session wallpaper. Nodes need binder
 (`CONFIG_ANDROID_BINDERFS`) and, for the GPU, a Mesa-supported `/dev/dri`
 render node. The k3s nodes become usable again.
+
+## 83. Sessions stay privileged on dedicated nodes; the rest of the cluster is kept out of their reach
+
+**Context.** #82 left "root in a session is root on the node" as a known
+hole and user namespaces as the planned fix. Two weeks of prototyping showed
+what `hostUsers: false` costs for Android 15: init's `setpriority` needs a
+seccomp shim, APEX activation (loop devices + dm-verity) has to be replaced
+by a custom `apexservice`, and netd refuses to start without eBPF, which a
+user namespace cannot load while the node keeps `unprivileged_bpf_disabled=2`
+— and the stock loader rejects non-LTS kernels on top. Every piece is a patch
+on Android internals that an Android or kernel bump can undo. Meanwhile the
+maintainer is adding a node that runs nothing but sessions.
+
+Replacing `privileged: true` with explicit capabilities was tried too: a Pod
+with every capability, `seccomp`/AppArmor unconfined and the render node
+and `/dev/fuse` as hostPath char devices mounts binderfs fine but cannot
+open its binder nodes — the devices cgroup (runc's eBPF program) only admits
+the default device list plus devices the CRI was told about, and binder's
+major number is dynamic and per-mount. Kubernetes has no way to allow "any
+char device" short of `privileged`, and a device plugin can only hand out
+fixed host nodes, not a binderfs each session mounts for itself. VM
+runtimes (Kata, KubeVirt) would give a kernel boundary but cannot share the
+node's iGPU between VMs, which WebGL and the stream need; gVisor has no
+binder at all.
+
+A privileged redroid also rewrote the node's sysctls at boot:
+`kernel.modprobe` (to an empty string), `kernel.sysrq`,
+`kernel.unprivileged_bpf_disabled` (to 0, by netbpfload),
+`kernel.kptr_restrict`, `kernel.perf_event_paranoid`,
+`kernel.sched_schedstats`, the hung-task settings, `vm.mmap_min_addr` and
+the watermark factors — measured on k3s-3 by diffing `sysctl -a` around a
+boot. Privileged redroid booted with working networking (netd's BPF maps
+present) on the node's mainline 6.18 kernel, so the LTS-kernel requirement
+of the user-namespace path does not apply here.
+
+**Decision.** The Android container stays privileged, and session nodes are
+dedicated to sessions (tainted, selected with `nodeSelector`/`tolerations`;
+the NAS node runs none). Everything else that keeps a compromised session
+from reaching further is in place:
+
+- **Egress NetworkPolicy** on session Pods (`networkPolicy.egress`, on by
+  default): cluster DNS, the api (APK and app-data downloads) and the
+  internet with the private ranges carved out (10/8, 172.16/12, 192.168/16,
+  100.64/10, 169.254/16, configurable). Verified on kube-router from a root
+  shell inside Android: the LAN router, node IPs (ssh, kubelet, the API
+  server VIP and ClusterIP), the api Pod of another namespace and the VPN
+  gateway were unreachable while public hosts and DNS worked. Anything
+  in-cluster a sidecar must reach is added in `extraEgress`; the VPN gateway
+  needs a `namespaceSelector`+`podSelector` rule (an `ipBlock` with the
+  Service CIDR doesn't match because the policy is evaluated after DNAT).
+- **The agent container is not privileged** (all capabilities dropped,
+  `allowPrivilegeEscalation: false`). It kept the Pod-wide metrics by
+  mounting the node's `/sys/fs/cgroup` read-only at `/host/cgroup` and
+  finding the Pod's cgroup by uid (`HOLTDROID_HOSTCGROUP`,
+  `HOLTDROID_PODUID`), instead of a host cgroup namespace.
+- **Users' ADB is restricted** (`redroid.shell`, default `allowlist`): the
+  relay in front of adbd applies the phones' shell policy (#68) to the
+  browser tabs and the `holtdroid` client, so only the commands behind
+  Logcat, Files, App and Device run, and the Terminal tab is not offered
+  (`SlotCapabilities.Shell`). `full` restores the root Terminal for clusters
+  that accept it. The agent's own adb is untouched.
+- **Android init can't rewrite the node's sysctls**: holtdroid-redroid's
+  init wrapper remounts `/proc/sys` read-only except `/proc/sys/net`, which
+  is per network namespace and netd's.
+- **Prototyping privileged redroid only on a k3s node under a hardware
+  watchdog**, never on the NAS node (status.md "Gotchas").
+
+What remains true: frida-server and Android's own daemons run as root on the
+node's kernel, so a vulnerability in the app under test that reaches root
+in Android reaches the session node. Candidates for narrowing that further
+without user namespaces: a node helper that pre-creates each slot's binder
+devices so the container can drop `privileged`, a token on frida-server, a
+non-root adbd for users while the agent keeps root. They are on the roadmap,
+not in this change.
+
+**Consequences.** Session nodes are a hard boundary and must stay dedicated.
+The shared VPN gateway needs an `extraEgress` rule in every deployment.
+Users lose the root Terminal by default; admins who want it back accept that
+it is a root shell on the node. The user-namespace branch of
+holtdroid-redroid was deleted; its findings are in the maintainer's notes.
+
+## 84. Screens and Android versions are picked at launch
+
+**Context.** #82 fixed one screen (720×1600 at 320 dpi) and one Android
+version per provider. Testers want to see an app on the kinds of phones
+their users have — a cheap 720p phone with a notch, a 1080p phone with a
+punch hole — and sometimes on an older Android. redroid takes the screen as
+boot arguments and ships Android's `DisplayCutoutEmulation` overlays
+(`corner`, `double`, `hole`, `tall`, `waterfall`); several redroid base
+images exist per Android major version.
+
+**Decision.**
+
+- `Capabilities` gains `Screens` (`Display`: id, label, width, height, dpi,
+  cutout) and `Versions`; `CreateSession` gains `Screen` and `Android`; the
+  launch dialog offers both when a provider has more than one, remembers
+  the choice per provider like the location, and quick launch reuses it.
+- The emulator provider's `redroid.screens` are presets of popular budget
+  phones of 2023–2024 by default (HD+ 720×1600 at 280 dpi with a notch,
+  the cheapest to stream, first; FHD+ variants at 420 dpi with a notch or a
+  punch hole; 1.5K at 480 dpi; an 11″ tablet), overridable in config. The
+  agent enables the screen's cutout overlay after boot with `cmd overlay`.
+  The chosen screen's label is the session's `SlotCapabilities.Model`.
+- `redroid.images` maps Android versions to images; the chart renders it
+  from `redroid.image.repository` and `redroid.versions`, so holtdroid-redroid
+  publishes one tag per Android major version (`15`, `14`, …) and the
+  pre-pull DaemonSet pulls each as an image volume. The newest is the
+  default. Android 16 is not offered: it needs ashmem, which mainline
+  kernels dropped.
+- The Android container's CPU request drops from 1 to 0.5 core: idle
+  sessions use 0.05, there is no CPU limit, and a smaller request fits more
+  slots on a node without changing what a busy session may use.
+
+**Consequences.** Bigger screens cost more CPU for the stream and more
+bandwidth; the default stays HD+. A screen is fixed for the session (density
+still changes in the Display controls). Each extra Android version is one
+more ~1.5 GB image on every session node.

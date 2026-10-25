@@ -34,7 +34,8 @@ export function ToolTabs({
 }) {
   const [opened, setOpened] = useState(() => new Set([tab]))
   if (!opened.has(tab)) setOpened(new Set([...opened, tab]))
-  const current = adb || tab === "devtools" ? tab : "devtools"
+  const tabs = adbTabs.filter((t) => t.value !== "terminal" || session.capabilities?.shell !== false)
+  const current = adb && tabs.some((t) => t.value === tab) ? tab : tab === "devtools" ? tab : "devtools"
 
   const panel = (value: string, adbSession: AdbSession) => {
     if (value === "logcat") return <LogcatPanel store={adbSession.logcat} />
@@ -62,7 +63,7 @@ export function ToolTabs({
           <TabsTrigger value="devtools" className="flex-none">
             DevTools
           </TabsTrigger>
-          {adbTabs.map((t) => (
+          {tabs.map((t) => (
             <TabsTrigger key={t.value} value={t.value} className="flex-none">
               {t.label}
             </TabsTrigger>
@@ -73,7 +74,7 @@ export function ToolTabs({
         {children}
       </TabsContent>
       {adb &&
-        adbTabs.map((t) =>
+        tabs.map((t) =>
           opened.has(t.value) ? (
             <TabsContent key={t.value} value={t.value} forceMount className="min-h-0 data-[state=inactive]:hidden">
               {panel(t.value, adb)}

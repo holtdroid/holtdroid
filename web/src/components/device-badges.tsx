@@ -70,6 +70,14 @@ export function DeviceBadges({ provider, slot, appABIs }: { provider: ProviderVi
         />
       ))}
       <Item icon={TerminalIcon} label="ADB" on={caps?.adb ?? true} />
+      {caps && (
+        <Item
+          icon={TerminalIcon}
+          label="Terminal"
+          on={caps.shell}
+          hint={caps.shell ? undefined : "Only the commands behind the ADB tabs run; no interactive shell"}
+        />
+      )}
       <Item
         icon={BugIcon}
         label={devtools === "debuggable" ? "DevTools: debuggable builds" : "DevTools"}

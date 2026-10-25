@@ -52,8 +52,8 @@ in the APK changes.
 
 - The session fails with `adb root: …` or `start frida-server: …`: after
   boot the agent runs `adb root`, pushes `frida-server` and starts it.
-  The redroid image is a userdebug build, so `adb root` works; a different
-  `redroid.image` must be one too.
+  The redroid images are userdebug builds, so `adb root` works; a different
+  image in `redroid.images` must be one too.
 - Only the app's main process is instrumented. A WebView in another
   process of the app may show up without debugging enabled.
 - Apps started from the launcher are instrumented too: the agent notices the

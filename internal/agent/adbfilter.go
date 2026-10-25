@@ -27,9 +27,9 @@ func refusedService(service string) bool {
 const wsChunk = 64 << 10
 
 // filterADB relays adb packets between a client and adbd and answers OPENs
-// of refused services with CLSE itself. Anything that isn't a well-formed
-// packet ends the connection.
-func filterADB(client, device io.ReadWriteCloser) {
+// of refused services, and of shell commands the policy doesn't allow, with
+// CLSE itself. Anything that isn't a well-formed packet ends the connection.
+func filterADB(client, device io.ReadWriteCloser, shell ShellPolicy) {
 	var mu sync.Mutex
 	toClient := func(p adbproto.Packet) error {
 		mu.Lock()
@@ -53,7 +53,7 @@ func filterADB(client, device io.ReadWriteCloser) {
 			if err != nil {
 				return
 			}
-			if p.Command == adbproto.OPEN && refusedService(p.Service()) {
+			if p.Command == adbproto.OPEN && !shell.allowsDirect(p.Service()) {
 				if toClient(adbproto.Packet{Command: adbproto.CLSE, Arg1: p.Arg0}) != nil {
 					return
 				}

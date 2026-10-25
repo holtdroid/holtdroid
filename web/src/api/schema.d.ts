@@ -791,6 +791,10 @@ export interface components {
             display: "scrcpy";
             kind: string;
             locations: components["schemas"]["Location"][];
+            /** @description screens a session can be launched with (virtual devices); the first is the default */
+            screens?: components["schemas"]["Display"][];
+            /** @description Android versions a session can be launched with (virtual devices), newest first */
+            versions?: string[];
         };
         Capacity: {
             /** @description the whole provider is held for maintenance */
@@ -851,6 +855,8 @@ export interface components {
             Value: string;
         };
         CreateSessionInputBody: {
+            /** @description an Android version of the provider (virtual devices); empty takes its newest */
+            android?: string;
             /** @description start the app with saved app data instead of a fresh install */
             appData?: components["schemas"]["AppDataChoice"];
             artifactId: string;
@@ -859,6 +865,8 @@ export interface components {
             provider?: string;
             /** @description when every slot is busy, wait in line for one instead of failing; cancelling the request gives up the place */
             queue?: boolean;
+            /** @description a screen of the provider (virtual devices); empty takes its first */
+            screen?: string;
             /** @description a device of the provider; empty picks any free one */
             slot?: string;
             source: string;
@@ -913,6 +921,18 @@ export interface components {
              * @description seconds since boot
              */
             uptime?: number;
+        };
+        Display: {
+            /** @enum {string} */
+            cutout?: "none" | "corner" | "double" | "hole" | "tall" | "waterfall";
+            /** Format: int64 */
+            dpi: number;
+            /** Format: int64 */
+            height: number;
+            id: string;
+            label: string;
+            /** Format: int64 */
+            width: number;
         };
         Enroll: {
             arch: string;
@@ -1239,6 +1259,8 @@ export interface components {
             model?: string;
             /** @description the agent has root on the device */
             root: boolean;
+            /** @description ADB runs any shell command, so the Terminal tab is offered; otherwise only the allowlisted commands behind the other tabs */
+            shell: boolean;
         };
         SourceError: {
             message: string;

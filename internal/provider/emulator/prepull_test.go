@@ -60,7 +60,7 @@ func (f *fakeRegistry) serve(t *testing.T) *httptest.Server {
 		}
 		_ = json.NewEncoder(w).Encode(map[string]string{"token": "anon"})
 	})
-	mux.HandleFunc("HEAD /v2/holtdroid/{repo}/manifests/main", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("HEAD /v2/holtdroid/{repo}/manifests/{tag}", func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		defer f.mu.Unlock()
 		f.heads++

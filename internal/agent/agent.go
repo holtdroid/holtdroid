@@ -53,9 +53,11 @@ type Config struct {
 	Geo         map[string]LocationGeo
 	AppLanguage bool
 	USBNetwork  bool
-	// HostMetrics reads the session Pod's cgroup: Android, the agent and
-	// the VPN sidecar together.
-	HostMetrics bool
+	// HostCgroup is where the node's cgroup tree is mounted read-only, so the
+	// metrics bar reads the whole session Pod (Android, the agent and the
+	// VPN sidecar) found by PodUID; empty leaves the Pod out of the metrics.
+	HostCgroup string
+	PodUID     string
 	// FridaHost is frida-server's address when the agent shares the
 	// device's network namespace (redroid); empty goes through adb.
 	FridaHost   string
@@ -83,7 +85,6 @@ func DefaultConfig() Config {
 		CacheDir:         filepath.Join(os.TempDir(), "holtdroid"),
 		Redroid:          redroid.DefaultConfig(),
 		Root:             true,
-		HostMetrics:      true,
 		NoWallpaper:      true,
 	}
 }
@@ -162,9 +163,9 @@ type Agent struct {
 
 func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Logger) *Agent {
 	screen := NewScrcpy(cfg.Scrcpy, dev, log)
-	var host fs.FS = noFS{}
-	if cfg.HostMetrics {
-		host = os.DirFS("/")
+	var host, cgroup fs.FS = noFS{}, noFS{}
+	if cfg.HostCgroup != "" {
+		host, cgroup = os.DirFS("/"), os.DirFS(cfg.HostCgroup)
 	}
 	return &Agent{
 		cfg:      cfg,
@@ -179,8 +180,8 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 		clip:     NewClipboard(screen, log),
 		frontend: NewFrontend(cfg.DevToolsFrontend, filepath.Join(cfg.CacheDir, "devtools-frontend")),
 		controls: newControls(cfg, dev),
-		tunnels:  NewTunnels(newADBTunnels(cfg, dev, log), log),
-		metrics:  NewMetrics(dev, cfg.Package, host, log),
+		tunnels:  NewTunnels(newADBTunnels(cfg, dev, log), cfg.ADBShell, log),
+		metrics:  NewMetrics(dev, cfg.Package, host, cgroup, cfg.PodUID, log),
 		vibes:    NewVibrations(dev, log),
 		display:  NewScreenState(dev, log),
 		actions:  make(chan appRequest, 1),

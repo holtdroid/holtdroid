@@ -42,9 +42,13 @@ sidebar:
   portal has a self-signed certificate. See
   [Connecting your computer](/holtdroid/concepts/ssh/).
 - **ADB tools in the browser** (on by default) give a session's owner and
-  admins a root shell on its emulator. `adb.ownerOnly: false` extends them to
-  everyone who may open the session, `adb.browser: false` turns them off;
-  see [ADB tools](/holtdroid/concepts/adb/).
+  admins ADB on its device. On emulators that ADB is root on the node's
+  kernel, so by default it only runs the commands behind the Logcat, Files,
+  App and Device tabs (`redroid.shell: allowlist`); `redroid.shell: full`
+  adds a root Terminal and should stay off unless the session nodes hold
+  nothing else. `adb.ownerOnly: false` extends the tools to everyone who may
+  open the session, `adb.browser: false` turns them off; see
+  [ADB tools](/holtdroid/concepts/adb/).
 - **APK downloads** (on for everyone by default): anyone who can see a
   build can save it to their computer. Set `downloads.adminOnly: true` when
   builds must not leave the portal; see

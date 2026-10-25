@@ -2,17 +2,29 @@ import { useNavigate, useSearch } from "@tanstack/react-router"
 import { useMemo } from "react"
 import type { AppDataChoice, AppDataList, ArtifactView, ProviderView } from "@/api/client"
 import { useProviders } from "@/api/queries"
-import { lastLocation, lastProvider, type QuickLaunchMode, rememberLaunch } from "@/lib/launch-prefs"
+import {
+  lastAndroid,
+  lastLocation,
+  lastProvider,
+  lastScreen,
+  type QuickLaunchMode,
+  rememberLaunch,
+} from "@/lib/launch-prefs"
 
 const freeSlots = (p: ProviderView) => p.capacity.slots.filter((s) => s.state === "free").length
 
 const offers = (p: ProviderView, location: string | undefined) =>
   !location || p.capabilities.locations.some((l) => l.id === location)
 
+const distinct = <T extends { id: string }>(items: T[]) =>
+  items.filter((x, i, all) => all.findIndex((o) => o.id === x.id) === i)
+
 export function useLaunchTarget(
   chosenProvider: string | null = null,
   chosenLocation: string | null = null,
   chosenSlot: string | null = null,
+  chosenScreen: string | null = null,
+  chosenAndroid: string | null = null,
 ) {
   const providers = useProviders()
   const usable = useMemo(() => (providers.data ?? []).filter((p) => !p.error), [providers.data])
@@ -28,6 +40,14 @@ export function useLaunchTarget(
   )
   const slot = provider?.capacity.slots.find((s) => s.id === chosenSlot)
   const candidates = pool.filter((p) => offers(p, location))
+  const screens = distinct(pool.flatMap((p) => p.capabilities.screens ?? []))
+  const screen = [chosenScreen, lastScreen(provider?.name ?? ""), screens[0]?.id].find(
+    (id): id is string => !!id && screens.some((s) => s.id === id),
+  )
+  const versions = [...new Set(pool.flatMap((p) => p.capabilities.versions ?? []))]
+  const android = [chosenAndroid, lastAndroid(provider?.name ?? ""), versions[0]].find(
+    (v): v is string => !!v && versions.includes(v),
+  )
 
   return {
     loaded: providers.isSuccess,
@@ -38,6 +58,10 @@ export function useLaunchTarget(
     locations,
     defaultLocation,
     location,
+    screens,
+    screen,
+    versions,
+    android,
     free: slot ? Number(slot.state === "free") : candidates.reduce((n, p) => n + freeSlots(p), 0),
     total: slot ? 1 : candidates.reduce((n, p) => n + p.capacity.slots.length, 0),
   }
@@ -48,10 +72,10 @@ export function useStartSession() {
   const linked = useSearch({ strict: false }).launch !== undefined
   return (
     artifact: ArtifactView,
-    target: { provider: string; slot?: string; location?: string },
+    target: { provider: string; slot?: string; location?: string; screen?: string; android?: string },
     appData?: AppDataChoice,
   ) => {
-    rememberLaunch(target.provider, target.location)
+    rememberLaunch(target.provider, target.location, target.screen, target.android)
     void navigate({
       to: "/launch",
       search: {
@@ -59,6 +83,8 @@ export function useStartSession() {
         artifact: artifact.id,
         provider: target.provider || undefined,
         slot: target.slot,
+        screen: target.screen,
+        android: target.android,
         location: target.location,
         data: appData?.id,
         cache: appData?.cache || undefined,

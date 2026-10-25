@@ -117,22 +117,30 @@ providers:
         limits: { memory: 1Gi }
     redroid:
       image:
+        # The redroid image has its own repository and releases; its tags are
+        # Android versions.
         repository: ghcr.io/holtdroid/holtdroid-redroid
-        # The redroid image has its own repository and releases.
-        tag: main
-      # Fixed at boot; the density can still be changed in a session.
-      width: 720
-      height: 1600
-      dpi: 320
+      # Android versions offered in the launch dialog, each pulled from
+      # <repository>:<version>; the newest is the default.
+      versions: ["15"]
+      # Screens offered in the launch dialog (id, label, width, height, dpi,
+      # cutout: none|corner|double|hole|tall|waterfall); the first is the
+      # default. Empty takes the built-in presets of popular budget phones.
+      screens: []
       fps: 60
       gpu: /dev/dri/renderD128
       # emptyDir for Android's /data.
       dataSize: 8Gi
+      # What users' ADB (the browser tabs and the holtdroid client) may run
+      # inside Android, which is root on the node's kernel: allowlist (the
+      # commands behind the Logcat, Files, App and Device tabs; no Terminal
+      # tab), full (any command, the Terminal tab appears) or off.
+      shell: allowlist
       # Idle Android takes about 1 GB and 0.05 of a core; streaming a
       # changing 720p screen adds about a core. No CPU limit, so a busy
-      # session may borrow idle cores.
+      # session borrows idle cores; the request only reserves a share.
       resources:
-        requests: { cpu: "1", memory: 1536Mi }
+        requests: { cpu: 500m, memory: 1536Mi }
         limits: { memory: 3Gi }
     # Per-node overrides by node name: session count and Android resources,
     # e.g. core: { slots: 6, resources: { requests: { cpu: "1", memory: 1536Mi }, limits: { memory: 3Gi } } }
@@ -143,6 +151,23 @@ providers:
     # session agents.
     networkPolicy:
       enabled: true
+      # Egress from session Pods. Cluster DNS and the api (APK and app-data
+      # downloads) are always allowed; the internet is allowed except the
+      # private ranges below, so the LAN, node IPs and other Pods stay
+      # unreachable from inside Android even as root. Anything in-cluster a
+      # sidecar must reach (e.g. the VPN gateway service) goes in extraEgress,
+      # since it sits in one of the blocked private ranges.
+      egress:
+        enabled: true
+        privateRanges:
+          - 10.0.0.0/8
+          - 172.16.0.0/12
+          - 192.168.0.0/16
+          - 100.64.0.0/10
+          - 169.254.0.0/16
+        # Extra egress rules appended verbatim to the NetworkPolicy, e.g. the
+        # VPN gateway: [{ to: [{ ipBlock: { cidr: 10.43.0.0/16 } }], ports: [...] }]
+        extraEgress: []
     # Pulls the session and redroid images onto every session node ahead of
     # the first launch. The redroid image is pulled as an image volume
     # (Kubernetes 1.35+, or the ImageVolume feature gate).

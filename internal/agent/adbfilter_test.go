@@ -37,7 +37,7 @@ func TestFilterADB(t *testing.T) {
 	device, deviceEnd := net.Pipe()
 	done := make(chan struct{})
 	go func() {
-		filterADB(clientEnd, deviceEnd)
+		filterADB(clientEnd, deviceEnd, ShellFull)
 		close(done)
 	}()
 	_ = client.SetDeadline(time.Now().Add(5 * time.Second))
@@ -148,6 +148,13 @@ func TestShellPolicy(t *testing.T) {
 		for policy, want := range map[ShellPolicy]bool{ShellFull: tc.full, ShellAllowlist: tc.allowlist, ShellOff: tc.denied} {
 			if got := policy.allows(tc.service); got != want {
 				t.Errorf("%s %q: allowed %v, want %v", policy, tc.service, got, want)
+			}
+			direct := want
+			if policy == ShellFull {
+				direct = !refusedService(tc.service)
+			}
+			if got := policy.allowsDirect(tc.service); got != direct {
+				t.Errorf("%s direct %q: allowed %v, want %v", policy, tc.service, got, direct)
 			}
 		}
 	}

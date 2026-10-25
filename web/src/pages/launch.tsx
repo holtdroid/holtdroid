@@ -9,6 +9,8 @@ export type LaunchSearch = {
   artifact: string
   provider?: string
   slot?: string
+  screen?: string
+  android?: string
   location?: string
   data?: string
   cache?: boolean
@@ -22,13 +24,15 @@ export function validateLaunchSearch(search: Record<string, unknown>): LaunchSea
     artifact: str(search.artifact) ?? "",
     provider: str(search.provider),
     slot: str(search.slot),
+    screen: str(search.screen),
+    android: str(search.android),
     location: str(search.location),
     data: str(search.data),
     cache: search.cache === true || search.cache === "true" || undefined,
   }
 }
 
-export function LaunchPage({ source, artifact, provider, slot, location, data, cache }: LaunchSearch) {
+export function LaunchPage({ source, artifact, provider, slot, screen, android, location, data, cache }: LaunchSearch) {
   const launch = useLaunch()
   const navigate = useNavigate()
   const providers = useProviders()
@@ -42,6 +46,8 @@ export function LaunchPage({ source, artifact, provider, slot, location, data, c
         artifactId: artifact,
         provider,
         slot,
+        screen,
+        android,
         location,
         appData: data ? { id: data, cache: !!cache } : undefined,
         queue: true,

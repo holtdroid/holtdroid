@@ -75,6 +75,8 @@ type createSessionInput struct {
 		ArtifactID string         `json:"artifactId" minLength:"1"`
 		Provider   string         `json:"provider,omitempty" doc:"empty picks the first provider in the configured order with a free device"`
 		Slot       string         `json:"slot,omitempty" doc:"a device of the provider; empty picks any free one"`
+		Screen     string         `json:"screen,omitempty" doc:"a screen of the provider (virtual devices); empty takes its first"`
+		Android    string         `json:"android,omitempty" doc:"an Android version of the provider (virtual devices); empty takes its newest"`
 		Location   string         `json:"location,omitempty"`
 		AppData    *AppDataChoice `json:"appData,omitempty" doc:"start the app with saved app data instead of a fresh install"`
 		Queue      bool           `json:"queue,omitempty" doc:"when every slot is busy, wait in line for one instead of failing; cancelling the request gives up the place"`
@@ -125,7 +127,7 @@ func (s *Server) register(api huma.API) {
 		id, _ := auth.FromContext(ctx)
 		v, err := s.createSession(ctx, id, launchRequest{
 			source: in.Body.Source, artifactID: in.Body.ArtifactID, provider: in.Body.Provider, slot: in.Body.Slot,
-			location: in.Body.Location, appData: in.Body.AppData, queue: in.Body.Queue,
+			screen: in.Body.Screen, android: in.Body.Android, location: in.Body.Location, appData: in.Body.AppData, queue: in.Body.Queue,
 		})
 		result, _ := outcome(err)
 		launchesTotal.WithLabelValues(cmp.Or(v.Provider, in.Body.Provider, "any"), string(result)).Inc()
@@ -383,9 +385,9 @@ func (s *Server) view(ctx context.Context, provider string, sess contract.Sessio
 }
 
 type launchRequest struct {
-	source, artifactID, provider, slot, location string
-	appData                                      *AppDataChoice
-	queue                                        bool
+	source, artifactID, provider, slot, screen, android, location string
+	appData                                                       *AppDataChoice
+	queue                                                         bool
 }
 
 type launchTarget struct {
@@ -451,6 +453,8 @@ func (s *Server) createSession(ctx context.Context, who auth.Identity, req launc
 			Owner:       who.User,
 			Location:    req.location,
 			Slot:        target.slot,
+			Screen:      req.screen,
+			Android:     req.android,
 			AppData:     restore,
 		})
 		return err

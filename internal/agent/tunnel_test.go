@@ -64,7 +64,7 @@ func roundTrip(t *testing.T, c io.ReadWriter, msg string) {
 
 func TestTunnels(t *testing.T) {
 	dev := &fakeDevice{}
-	tunnels := NewTunnels(adbTunnels{adb: dev, addr: echoServer(t)}, slog.New(slog.DiscardHandler))
+	tunnels := NewTunnels(adbTunnels{adb: dev, addr: echoServer(t)}, ShellFull, slog.New(slog.DiscardHandler))
 	srv := httptest.NewServer(tunnels.Handler())
 	t.Cleanup(srv.Close)
 	client := contract.NewTunnelClient(srv.URL, nil)
@@ -152,7 +152,7 @@ func TestTunnels(t *testing.T) {
 }
 
 func TestTunnelProbes(t *testing.T) {
-	tunnels := NewTunnels(adbTunnels{adb: &fakeDevice{}, addr: echoServer(t)}, slog.New(slog.DiscardHandler))
+	tunnels := NewTunnels(adbTunnels{adb: &fakeDevice{}, addr: echoServer(t)}, ShellFull, slog.New(slog.DiscardHandler))
 	tunnels.probeEvery, tunnels.probeWait = 20*time.Millisecond, 50*time.Millisecond
 	srv := httptest.NewServer(tunnels.Handler())
 	t.Cleanup(srv.Close)

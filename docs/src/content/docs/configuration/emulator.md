@@ -26,16 +26,16 @@ imagePullPolicy: IfNotPresent
 imagePullSecrets: []
 agentPort: 8080
 redroid:
-  image: ghcr.io/holtdroid/holtdroid-redroid:main
-  width: 720
-  height: 1600
-  dpi: 320
+  images: # Android version → image; the newest is the default
+    "15": ghcr.io/holtdroid/holtdroid-redroid:15
+  screens: [] # the built-in presets; see below
   fps: 60
   gpu: /dev/dri/renderD128
   dataSize: 8Gi
+  shell: allowlist # what users' ADB may run inside Android: allowlist | full | off
   args: [] # more redroid boot arguments
 resources: # the Android container
-  requests: { cpu: "1", memory: 1536Mi }
+  requests: { cpu: 500m, memory: 1536Mi }
   limits: { memory: 3Gi }
 agentResources:
   requests: { cpu: 100m, memory: 256Mi }
@@ -54,28 +54,30 @@ nodeInfo:
   port: 8090
 ```
 
-| Key                                     | Meaning                                                                                                                                                                                  |
-| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `kubeconfig`                            | Path to a kubeconfig. Empty uses the in-cluster service account                                                                                                                          |
-| `namespace`                             | Where session Pods and their Secrets are created                                                                                                                                         |
-| `nodeSelector`                          | [Label selector](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors) for nodes that may run sessions. See [Node requirements](#node-requirements) |
-| `tolerations`                           | Taints session Pods tolerate. Nodes with other `NoSchedule`/`NoExecute` taints are not used                                                                                              |
-| `slots`                                 | Maximum concurrent sessions over all nodes; `0` means no cap                                                                                                                             |
-| `slotsPerNode`                          | Sessions per node, unless `nodes.<name>.slots` says otherwise                                                                                                                            |
-| `image`, `imagePullPolicy`              | Session image: the agent with adb, Frida and scrcpy-server. The pull policy applies to the redroid image too                                                                             |
-| `imagePullSecrets`                      | Secret names for pulling the images                                                                                                                                                      |
-| `agentPort`                             | Port the agent listens on inside the Pod; the api reaches it at the Pod IP                                                                                                               |
-| `redroid.image`                         | The Android image, [holtdroid-redroid](https://github.com/holtdroid/holtdroid-redroid): redroid 15 with software video encoders and ARM64 translation                                    |
-| `redroid.width`, `height`, `dpi`, `fps` | The screen. Size and refresh rate are fixed at boot; the density can still be changed in a session                                                                                       |
-| `redroid.gpu`                           | DRI render node Android renders on                                                                                                                                                       |
-| `redroid.dataSize`                      | Size limit of the `emptyDir` holding Android's `/data`                                                                                                                                   |
-| `resources`                             | Android container resources. Leave out a CPU limit: a busy session may borrow idle cores                                                                                                 |
-| `agentResources`                        | Agent container resources                                                                                                                                                                |
-| `nodes`                                 | Per-node overrides by node name: `slots` and `resources`                                                                                                                                 |
-| `vpn`                                   | Per-session VPN, see below                                                                                                                                                               |
-| `sessionTelemetry`                      | Metrics port and tracing settings passed to session agents, see [Monitoring](/holtdroid/operations/monitoring/)                                                                          |
-| `maintenance`                           | Name of the ConfigMap in `namespace` that keeps maintenance holds. The provider creates it on the first hold. Empty turns holds off                                                      |
-| `nodeInfo`                              | Label `selector` and `port` of the `holtdroid node-info` Pods that describe session nodes on the Inventory page. Empty selector: Node objects only                                       |
+| Key                        | Meaning                                                                                                                                                                                                                                      |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `kubeconfig`               | Path to a kubeconfig. Empty uses the in-cluster service account                                                                                                                                                                              |
+| `namespace`                | Where session Pods and their Secrets are created                                                                                                                                                                                             |
+| `nodeSelector`             | [Label selector](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors) for nodes that may run sessions. See [Node requirements](#node-requirements)                                                     |
+| `tolerations`              | Taints session Pods tolerate. Nodes with other `NoSchedule`/`NoExecute` taints are not used                                                                                                                                                  |
+| `slots`                    | Maximum concurrent sessions over all nodes; `0` means no cap                                                                                                                                                                                 |
+| `slotsPerNode`             | Sessions per node, unless `nodes.<name>.slots` says otherwise                                                                                                                                                                                |
+| `image`, `imagePullPolicy` | Session image: the agent with adb, Frida and scrcpy-server. The pull policy applies to the redroid image too                                                                                                                                 |
+| `imagePullSecrets`         | Secret names for pulling the images                                                                                                                                                                                                          |
+| `agentPort`                | Port the agent listens on inside the Pod; the api reaches it at the Pod IP                                                                                                                                                                   |
+| `redroid.images`           | Android version → image, [holtdroid-redroid](https://github.com/holtdroid/holtdroid-redroid) tagged by version: redroid with software video encoders and ARM64 translation. The launch dialog offers the versions; the newest is the default |
+| `redroid.screens`          | Screens the launch dialog offers (`id`, `label`, `width`, `height`, `dpi`, `cutout`); the first is the default. Empty takes the built-in presets, see [Screens](#screens-and-android-versions)                                               |
+| `redroid.fps`              | Refresh rate, fixed at boot                                                                                                                                                                                                                  |
+| `redroid.shell`            | What users' ADB may run inside Android: `allowlist` (default), `full` or `off`, see [Users' ADB](#users-adb-inside-android)                                                                                                                  |
+| `redroid.gpu`              | DRI render node Android renders on                                                                                                                                                                                                           |
+| `redroid.dataSize`         | Size limit of the `emptyDir` holding Android's `/data`                                                                                                                                                                                       |
+| `resources`                | Android container resources. Leave out a CPU limit: a busy session may borrow idle cores                                                                                                                                                     |
+| `agentResources`           | Agent container resources                                                                                                                                                                                                                    |
+| `nodes`                    | Per-node overrides by node name: `slots` and `resources`                                                                                                                                                                                     |
+| `vpn`                      | Per-session VPN, see below                                                                                                                                                                                                                   |
+| `sessionTelemetry`         | Metrics port and tracing settings passed to session agents, see [Monitoring](/holtdroid/operations/monitoring/)                                                                                                                              |
+| `maintenance`              | Name of the ConfigMap in `namespace` that keeps maintenance holds. The provider creates it on the first hold. Empty turns holds off                                                                                                          |
+| `nodeInfo`                 | Label `selector` and `port` of the `holtdroid node-info` Pods that describe session nodes on the Inventory page. Empty selector: Node objects only                                                                                           |
 
 Every matching node has `slotsPerNode` slots, named `<node>-1`, `<node>-2`,
 …. A session takes the first free slot, or the one picked in the launch
@@ -104,8 +106,15 @@ whatever else the node runs.
   DaemonSet also uses an image volume (1.35, or the `ImageVolume` feature
   gate).
 - **Nodes dedicated to sessions.** The Android container is privileged and
-  shares the node's kernel, so root inside a session — which users get in
-  the browser's ADB shell — is root on the node. See
+  shares the node's kernel, so root inside a session — frida-server, the
+  agent's adb, and users' ADB with `redroid.shell: full` — is root on the
+  node. Keep session nodes free of anything else (taint them and set
+  `nodeSelector`/`tolerations`). The provider keeps the rest of the cluster
+  out of Android's reach: the chart's egress NetworkPolicy lets sessions
+  reach only cluster DNS, the api and the internet (the LAN, node IPs and
+  other Pods are carved out), the agent container runs without privileges,
+  users' ADB runs only allowlisted commands by default, and the image's init
+  wrapper keeps Android from rewriting the node's sysctls. See
   [Security](/holtdroid/operations/security/).
 
 Apps with only `arm64-v8a` native code run through `libndk_translation`;
@@ -115,16 +124,70 @@ separate ARM executables don't (that would need `binfmt_misc` on the node).
 
 Each session Pod has three containers sharing one network namespace:
 
-- `android`: the redroid image, privileged, as root, with an `emptyDir` on
-  `/data`. Its boot arguments set the GPU and the screen.
-- `agent`: the session image. It reaches Android's adbd at
-  `127.0.0.1:5555` and frida-server at `127.0.0.1:27042`, roots adbd,
-  installs and instruments the app and serves the Agent API. It is
-  privileged so the metrics bar can read the Pod's cgroup.
+- `android`: the redroid image of the launch's Android version, privileged,
+  as root, with an `emptyDir` on `/data`. Its boot arguments set the GPU and
+  the launch's screen.
+- `agent`: the session image, without privileges (all capabilities dropped).
+  It reaches Android's adbd at `127.0.0.1:5555` and frida-server at
+  `127.0.0.1:27042`, roots adbd, enables the screen's cutout overlay,
+  installs and instruments the app and serves the Agent API. The node's
+  `/sys/fs/cgroup` is mounted read-only at `/host/cgroup` so the metrics bar
+  can read the whole Pod's CPU and memory.
 - `vpn`: the sing-box sidecar, when locations are configured.
 
 adbd listens on every address of the Pod; keep `networkPolicy` on so only
-the api and the ssh-gateway reach the Pod.
+the api and the ssh-gateway reach the Pod, and its `egress` rules on so
+Android reaches only cluster DNS, the api and the internet. Anything
+in-cluster a sidecar needs, such as a shared VPN gateway, goes into
+`networkPolicy.egress.extraEgress`.
+
+## Screens and Android versions
+
+The launch dialog offers the provider's screens and Android versions
+(`Screen` and `Android` selects, remembered per provider). A screen is fixed
+for the session: width, height and density in pixels, as a popular phone
+reports them, plus an emulated display cutout. Android ships overlays for
+cutouts — `corner` (a hole in the top-left corner), `double` (notches top
+and bottom), `hole` (a centered punch hole), `tall` (a tall notch) and
+`waterfall` (curved edges) — which the agent enables after boot with
+`cmd overlay`, so apps see `WindowInsets` with a real cutout. The built-in
+presets, used when `redroid.screens` is empty:
+
+| id            | Screen                           | Density | Cutout | Like                              |
+| ------------- | -------------------------------- | ------- | ------ | --------------------------------- |
+| `hd`          | 720×1600 (6.7″ HD+, the default) | 280     | `tall` | Galaxy A05, Redmi 13C             |
+| `fhd-samsung` | 1080×2340 (6.5″ FHD+)            | 420     | `tall` | Galaxy A15, A25, A35              |
+| `fhd`         | 1080×2400 (6.1–6.7″ FHD+)        | 420     | `hole` | Pixel 6a–8a, Moto G54, Realme C67 |
+| `fhd-tall`    | 1080×2460 (6.8″ FHD+)            | 420     | `hole` | Infinix Hot 40                    |
+| `1.5k`        | 1220×2712 (6.7″ 1.5K)            | 480     | `hole` | Redmi Note 13 Pro, Poco X6        |
+| `tablet`      | 1200×1920 (11″)                  | 240     | none   | Galaxy Tab A9+                    |
+
+Streaming a bigger screen costs more CPU in the session (about one core for
+a changing 1080p screen) and bandwidth in the browser; the default stays
+HD+. Density can still be changed in a session's Display controls.
+
+Android versions are the keys of `redroid.images` (the chart: `versions`,
+each pulled from `<repository>:<version>`). holtdroid-redroid publishes one
+tag per Android major version it supports; Android 16 can't run on
+mainline kernels (it needs ashmem).
+
+## Users' ADB inside Android
+
+Android in redroid is a userdebug build whose adbd runs as root on the
+node's kernel. `redroid.shell` says what users' ADB — the browser tabs and
+the `holtdroid` client — may run there:
+
+- `allowlist` (default): only the read-only commands and package operations
+  behind the Logcat, Files, App and Device tabs (`getprop`, `logcat`, `pm`,
+  `am`, `cmd package`, `settings get`, a few `dumpsys`), plus file transfer
+  and port forwards. The Terminal tab is not shown.
+- `full`: any command, and the Terminal tab appears. Only for clusters whose
+  session nodes run nothing else and whose users are trusted with them.
+- `off`: no shell commands at all; file transfer and forwards still work.
+
+The agent's own adb is not affected. Requests that would cut the agent off
+(`reboot`, `unroot`, `remount`, `tcpip`, `usb`, `sideload`, verity) are
+always refused.
 
 Without an emulator console, the GPS goes through Android's test location
 providers and the battery through `dumpsys battery`; network speed profiles
@@ -166,17 +229,22 @@ providers:
       image: { repository: ghcr.io/holtdroid/holtdroid-session, tag: "" } # tag defaults to image.tag
       resources: { requests: { cpu: 100m, memory: 256Mi }, limits: { memory: 1Gi } }
     redroid:
-      image: { repository: ghcr.io/holtdroid/holtdroid-redroid, tag: main }
-      width: 720
-      height: 1600
-      dpi: 320
+      image: { repository: ghcr.io/holtdroid/holtdroid-redroid }
+      versions: ["15"] # tags of the repository, offered at launch
+      screens: [] # the built-in presets
       fps: 60
       gpu: /dev/dri/renderD128
       dataSize: 8Gi
-      resources: { requests: { cpu: "1", memory: 1536Mi }, limits: { memory: 3Gi } }
+      shell: allowlist
+      resources: { requests: { cpu: 500m, memory: 1536Mi }, limits: { memory: 3Gi } }
     nodes: {} # per-node overrides, as above
     vpn: {} # the vpn section below
-    networkPolicy: { enabled: true } # only the api and the provider reach session agents
+    networkPolicy:
+      enabled: true # only the api and the provider reach session agents
+      egress:
+        enabled: true # Android reaches only cluster DNS, the api and the internet
+        privateRanges: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10, 169.254.0.0/16]
+        extraEgress: [] # e.g. the VPN gateway's Pods: [{ to: [{ namespaceSelector: {...}, podSelector: {...} }], ports: [{ protocol: TCP, port: 1080 }] }]
     prepull:
       enabled: true # DaemonSet that pulls the session and redroid images onto session nodes
       refresh: { enabled: true, interval: 5m }

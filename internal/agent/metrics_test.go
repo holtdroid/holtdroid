@@ -106,32 +106,32 @@ func TestReadHost(t *testing.T) {
 	}{
 		{"no cgroup", fstest.MapFS{}, nil},
 		{"limits", fstest.MapFS{
-			"sys/fs/cgroup/cpu.stat":       {Data: []byte("usage_usec 1500\nnr_throttled 2\nthrottled_usec 300\n")},
-			"sys/fs/cgroup/cpu.max":        {Data: []byte("400000 100000\n")},
-			"sys/fs/cgroup/memory.current": {Data: []byte("5000\n")},
-			"sys/fs/cgroup/memory.stat":    {Data: []byte("anon 3000\ninactive_file 1000\n")},
-			"sys/fs/cgroup/memory.max":     {Data: []byte("7000\n")},
+			"kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod0a_1b.slice/cpu.stat":       {Data: []byte("usage_usec 1500\nnr_throttled 2\nthrottled_usec 300\n")},
+			"kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod0a_1b.slice/cpu.max":        {Data: []byte("400000 100000\n")},
+			"kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod0a_1b.slice/memory.current": {Data: []byte("5000\n")},
+			"kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod0a_1b.slice/memory.stat":    {Data: []byte("anon 3000\ninactive_file 1000\n")},
+			"kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod0a_1b.slice/memory.max":     {Data: []byte("7000\n")},
 		}, &hostSample{usage: 1500, throttled: 300, limit: 4, working: 4000, memMax: 7000}},
-		{"session pod", fstest.MapFS{
-			"proc/self/cgroup":                                       {Data: []byte("0::/kubepods.slice/pod1.slice/cri-1.scope\n")},
-			"sys/fs/cgroup/cpu.stat":                                 {Data: []byte("usage_usec 999999\n")},
-			"sys/fs/cgroup/kubepods.slice/pod1.slice/cpu.stat":       {Data: []byte("usage_usec 1500\nthrottled_usec 0\n")},
-			"sys/fs/cgroup/kubepods.slice/pod1.slice/cpu.max":        {Data: []byte("200000 100000\n")},
-			"sys/fs/cgroup/kubepods.slice/pod1.slice/memory.current": {Data: []byte("5000\n")},
-			"sys/fs/cgroup/kubepods.slice/pod1.slice/memory.max":     {Data: []byte("7000\n")},
+		{"cgroupfs driver", fstest.MapFS{
+			"cpu.stat":                                         {Data: []byte("usage_usec 999999\n")},
+			"kubepods/burstable/pod0a-1b/cpu.stat":             {Data: []byte("usage_usec 1500\nthrottled_usec 0\n")},
+			"kubepods/burstable/pod0a-1b/cpu.max":              {Data: []byte("200000 100000\n")},
+			"kubepods/burstable/pod0a-1b/memory.current":       {Data: []byte("5000\n")},
+			"kubepods/burstable/pod0a-1b/memory.max":           {Data: []byte("7000\n")},
+			"kubepods/burstable/pod0a-1b/cri-1/memory.max":     {Data: []byte("1\n")},
+			"kubepods/burstable/pod0a-1b/cri-1/memory.current": {Data: []byte("1\n")},
 		}, &hostSample{usage: 1500, limit: 2, working: 5000, memMax: 7000}},
 		{"unlimited", fstest.MapFS{
-			"proc/self/cgroup":             {Data: []byte("0::/\n")},
-			"sys/fs/cgroup/cpu.stat":       {Data: []byte("usage_usec 1500\n")},
-			"sys/fs/cgroup/cpu.max":        {Data: []byte("max 100000\n")},
-			"sys/fs/cgroup/memory.current": {Data: []byte("5000\n")},
-			"sys/fs/cgroup/memory.max":     {Data: []byte("max\n")},
-			"proc/meminfo":                 {Data: []byte("MemTotal:       32000 kB\nMemFree: 1 kB\n")},
+			"kubepods.slice/pod0a_1b.slice/cpu.stat":       {Data: []byte("usage_usec 1500\n")},
+			"kubepods.slice/pod0a_1b.slice/cpu.max":        {Data: []byte("max 100000\n")},
+			"kubepods.slice/pod0a_1b.slice/memory.current": {Data: []byte("5000\n")},
+			"kubepods.slice/pod0a_1b.slice/memory.max":     {Data: []byte("max\n")},
 		}, &hostSample{usage: 1500, limit: -1, working: 5000, memMax: 32000 << 10}},
 	}
+	host := fstest.MapFS{"proc/meminfo": {Data: []byte("MemTotal:       32000 kB\nMemFree: 1 kB\n")}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := readHost(tt.fs)
+			got := readHost(tt.fs, podCgroup(tt.fs, "0a-1b"), host)
 			if got != nil && tt.want != nil && tt.want.limit == -1 {
 				tt.want.limit = got.limit
 				if got.limit < 1 {
@@ -166,7 +166,7 @@ func (d *countingDevice) count() int {
 
 func TestMetricsSampleOnlyWhileWatched(t *testing.T) {
 	dev := &countingDevice{}
-	m := NewMetrics(dev, "com.example.app", fstest.MapFS{}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	m := NewMetrics(dev, "com.example.app", fstest.MapFS{}, fstest.MapFS{}, "", slog.New(slog.NewTextHandler(io.Discard, nil)))
 	m.interval = 10 * time.Millisecond
 
 	ctx, cancel := context.WithCancel(t.Context())

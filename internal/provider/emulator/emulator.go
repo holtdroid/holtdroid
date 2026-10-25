@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
+	"github.com/holtdroid/holtdroid/internal/agent"
 	"github.com/holtdroid/holtdroid/internal/contract"
 	"github.com/holtdroid/holtdroid/internal/telemetry"
 	"github.com/holtdroid/holtdroid/internal/vpn"
@@ -84,17 +85,17 @@ type Node struct {
 	Resources Resources
 }
 
-// Redroid is the Android container: its image and boot settings. The screen
-// size is fixed at boot; GPU is the node's DRI render node.
+// Redroid is the Android container: one image per Android version, the
+// screens a session may pick (fixed at boot), the node's DRI render node and
+// the shell policy of users' ADB.
 type Redroid struct {
-	Image    string
-	Width    int
-	Height   int
-	DPI      int
+	Images   map[string]string
+	Screens  []contract.Display
 	FPS      int
 	GPU      string
 	DataSize string
 	Args     []string
+	Shell    agent.ShellPolicy
 }
 
 type Resources struct {
@@ -112,16 +113,14 @@ func DefaultConfig() Config {
 		AgentPort:       8080,
 		TunnelPort:      8081,
 		Redroid: Redroid{
-			Image:    "ghcr.io/holtdroid/holtdroid-redroid:main",
-			Width:    720,
-			Height:   1600,
-			DPI:      320,
+			Screens:  DefaultScreens(),
 			FPS:      60,
 			GPU:      "/dev/dri/renderD128",
 			DataSize: "8Gi",
+			Shell:    agent.ShellAllowlist,
 		},
 		Resources: Resources{
-			Requests: map[string]string{"cpu": "1", "memory": "1536Mi"},
+			Requests: map[string]string{"cpu": "500m", "memory": "1536Mi"},
 			Limits:   map[string]string{"memory": "3Gi"},
 		},
 		AgentResources: Resources{
@@ -140,14 +139,25 @@ func (c Config) Validate() error {
 	if c.Namespace == "" {
 		errs = append(errs, errors.New("namespace is required"))
 	}
-	if c.Image == "" || c.Redroid.Image == "" {
-		errs = append(errs, errors.New("image and redroid.image are required"))
+	if c.Image == "" {
+		errs = append(errs, errors.New("image is required"))
+	}
+	for v, image := range c.Redroid.Images {
+		if v == "" || image == "" {
+			errs = append(errs, fmt.Errorf("redroid.images: version %q and image %q must not be empty", v, image))
+		}
+	}
+	if err := validateScreens(c.Redroid.Screens); err != nil {
+		errs = append(errs, err)
+	}
+	if err := c.Redroid.Shell.Validate(); err != nil {
+		errs = append(errs, fmt.Errorf("redroid.shell: %w", err))
 	}
 	if c.Slots < 0 || c.SlotsPerNode < 0 {
 		errs = append(errs, errors.New("slots and slotsPerNode must not be negative"))
 	}
-	if r := c.Redroid; r.Width <= 0 || r.Height <= 0 || r.DPI <= 0 || r.FPS <= 0 {
-		errs = append(errs, errors.New("redroid: width, height, dpi and fps must be positive"))
+	if c.Redroid.FPS <= 0 {
+		errs = append(errs, errors.New("redroid.fps must be positive"))
 	}
 	if c.Redroid.DataSize != "" {
 		if _, err := resource.ParseQuantity(c.Redroid.DataSize); err != nil {
@@ -261,9 +271,16 @@ type Option func(*Provider)
 
 func WithClock(now func() time.Time) Option { return func(p *Provider) { p.now = now } }
 
+// DefaultImage is the Android image when redroid.images is empty; config
+// maps merge with defaults, so the default can't be a map entry.
+const DefaultImage = "ghcr.io/holtdroid/holtdroid-redroid:15"
+
 func New(cfg Config, kube kubernetes.Interface, sec vpn.Secrets, opts ...Option) (*Provider, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
+	}
+	if len(cfg.Redroid.Images) == 0 {
+		cfg.Redroid.Images = map[string]string{"15": DefaultImage}
 	}
 	res, _ := cfg.Resources.requirements()
 	agentRes, _ := cfg.AgentResources.requirements()
@@ -291,6 +308,8 @@ func (p *Provider) Capabilities(context.Context) (contract.Capabilities, error) 
 		Locations:       p.cfg.VPN.Offered(),
 		DefaultLocation: p.cfg.VPN.DefaultLocation(),
 		ABIs:            []string{"x86_64", "arm64-v8a"},
+		Screens:         p.cfg.Redroid.Screens,
+		Versions:        p.cfg.Redroid.versions(),
 	}, nil
 }
 
@@ -417,6 +436,14 @@ func (p *Provider) Create(ctx context.Context, req contract.CreateSession) (cont
 	case req.Location != "":
 		return contract.Session{}, fmt.Errorf("%w: unknown location %q", contract.ErrInvalid, req.Location)
 	}
+	screen, err := p.cfg.Redroid.screen(req.Screen)
+	if err != nil {
+		return contract.Session{}, err
+	}
+	version, image, err := p.cfg.Redroid.image(req.Android)
+	if err != nil {
+		return contract.Session{}, err
+	}
 
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -429,7 +456,7 @@ func (p *Provider) Create(ctx context.Context, req contract.CreateSession) (cont
 		return contract.Session{}, err
 	}
 
-	pod := p.renderPod(randomID(), c.Slots[i].ID, c.nodes[i].Name, req, location, p.now())
+	pod := p.renderPod(randomID(), c.Slots[i].ID, c.nodes[i].Name, req, device{screen, version, image, location}, p.now())
 	created, err := p.kube.CoreV1().Pods(p.cfg.Namespace).Create(ctx, pod, metav1.CreateOptions{})
 	if err != nil {
 		return contract.Session{}, fmt.Errorf("create session pod: %w", err)

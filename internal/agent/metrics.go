@@ -7,7 +7,6 @@ import (
 	"io/fs"
 	"log/slog"
 	"math"
-	"path"
 	"regexp"
 	"runtime"
 	"slices"
@@ -23,20 +22,26 @@ import (
 // Metrics samples the device, the app and the session Pod, but only while
 // someone watches.
 type Metrics struct {
-	dev      Device
-	pkg      string
-	root     fs.FS
-	interval time.Duration
-	now      func() time.Time
-	log      *slog.Logger
+	dev       Device
+	pkg       string
+	root      fs.FS
+	cgroup    fs.FS
+	podUID    string
+	cgroupDir string
+	interval  time.Duration
+	now       func() time.Time
+	log       *slog.Logger
 
 	mu   sync.Mutex
 	subs map[chan contract.Metrics]struct{}
 	stop context.CancelFunc
 }
 
-func NewMetrics(dev Device, pkg string, root fs.FS, log *slog.Logger) *Metrics {
-	return &Metrics{dev: dev, pkg: pkg, root: root, interval: 2 * time.Second, now: time.Now, log: log, subs: map[chan contract.Metrics]struct{}{}}
+func NewMetrics(dev Device, pkg string, root, cgroup fs.FS, podUID string, log *slog.Logger) *Metrics {
+	return &Metrics{
+		dev: dev, pkg: pkg, root: root, cgroup: cgroup, podUID: podUID,
+		interval: 2 * time.Second, now: time.Now, log: log, subs: map[chan contract.Metrics]struct{}{},
+	}
 }
 
 func (m *Metrics) Watch(ctx context.Context, send func(contract.Metrics) error) error {
@@ -162,7 +167,7 @@ func (m *Metrics) sample(ctx context.Context) (*sample, error) {
 	}
 	s := parseDeviceSample(out)
 	s.at = m.now()
-	s.host = readHost(m.root)
+	s.host = readHost(m.cgroup, m.podCgroup(), m.root)
 	s.temps = append(s.temps, hostinfo.Zones(m.root)...)
 	return s, nil
 }
@@ -334,22 +339,49 @@ func parseThermal(lines []string) []contract.Temperature {
 	return bySection[false]
 }
 
-// cgroupDir finds the session Pod's cgroup, the parent of the container's
-// own: privileged containers see the node's whole hierarchy at
-// /sys/fs/cgroup.
-func cgroupDir(root fs.FS) string {
-	if b, err := fs.ReadFile(root, "proc/self/cgroup"); err == nil {
-		for line := range strings.SplitSeq(string(b), "\n") {
-			if p, ok := strings.CutPrefix(strings.TrimSpace(line), "0::"); ok {
-				return path.Join("sys/fs/cgroup", path.Dir(p))
-			}
-		}
+// podCgroup finds the session Pod's cgroup in the node's tree: kubelet names
+// it after the Pod's uid (dashes or underscores, systemd or cgroupfs driver).
+func (m *Metrics) podCgroup() string {
+	if m.podUID == "" {
+		return ""
 	}
-	return "sys/fs/cgroup"
+	if m.cgroupDir == "" {
+		m.cgroupDir = podCgroup(m.cgroup, m.podUID)
+	}
+	return m.cgroupDir
 }
 
-func readHost(root fs.FS) *hostSample {
-	cg := cgroupDir(root) + "/"
+func podCgroup(root fs.FS, uid string) string {
+	names := []string{"pod" + uid, "pod" + strings.ReplaceAll(uid, "-", "_")}
+	found := ""
+	_ = fs.WalkDir(root, ".", func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return fs.SkipDir
+		}
+		switch {
+		case !d.IsDir():
+			return nil
+		case found != "":
+			return fs.SkipAll
+		case strings.Count(p, "/") > 3:
+			return fs.SkipDir
+		}
+		for _, n := range names {
+			if strings.Contains(d.Name(), n) {
+				found = p
+				return fs.SkipAll
+			}
+		}
+		return nil
+	})
+	return found
+}
+
+func readHost(root fs.FS, dir string, host fs.FS) *hostSample {
+	if dir == "" {
+		return nil
+	}
+	cg := dir + "/"
 	stat, err := keyValues(root, cg+"cpu.stat")
 	if err != nil {
 		return nil
@@ -373,7 +405,7 @@ func readHost(root fs.FS) *hostSample {
 		h.working = max(0, current-ms["inactive_file"])
 	}
 	if h.memMax, err = readInt(root, cg+"memory.max"); err != nil {
-		if mi, err := keyValues(root, "proc/meminfo"); err == nil {
+		if mi, err := keyValues(host, "proc/meminfo"); err == nil {
 			h.memMax = mi["MemTotal:"] << 10
 		}
 	}

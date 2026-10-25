@@ -22,8 +22,10 @@ DevTools:
   storage), `/data/local/tmp` and the whole file system. Download files, upload
   them with the button or by dropping them onto the list (handy for testing
   file pickers), create folders and delete.
-- **Terminal** is a root shell on emulators, with a real terminal (colours,
-  `top`, line editing).
+- **Terminal** is a shell with a real terminal (colours, `top`, line
+  editing). On emulators it only appears when the provider allows arbitrary
+  commands (`redroid.shell: full`); by default it is off, because that shell
+  is root on the node running the session.
 - **App** shows the installed version, opens deep links (`myapp://…` or
   `https://…`, optionally only in your app, with a history kept in the
   browser), grants and revokes runtime permissions, force-stops the app,
@@ -91,5 +93,11 @@ cut the session off from its own device. On phones the
 [phone provider](/holtdroid/configuration/phones/#adb-on-phones) also refuses
 `root`, reverse forwards and the frida-server ports, and limits shell
 commands with `adb.shell`.
+
+On emulators the same `redroid.shell` policy applies to the browser and the
+`holtdroid` client: `allowlist` (the default) runs only the commands behind
+the Logcat, Files, App and Device tabs, `full` runs anything and shows the
+Terminal tab, `off` refuses every shell command. See
+[Emulator provider](/holtdroid/configuration/emulator/#users-adb-inside-android).
 
 The browser keeps an ADB key in its storage; emulators don't ask for it.

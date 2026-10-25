@@ -3,7 +3,10 @@
 {{- $name := include "holtdroid.fullname" . -}}
 {{- $component := "provider-emulator" -}}
 {{- $sessionImage := printf "%s:%s" $e.session.image.repository ($e.session.image.tag | default (include "holtdroid.tag" .)) -}}
-{{- $redroidImage := printf "%s:%s" $e.redroid.image.repository $e.redroid.image.tag -}}
+{{- $redroidImages := dict -}}
+{{- range $e.redroid.versions }}
+{{- $_ := set $redroidImages (toString .) (printf "%s:%s" $e.redroid.image.repository (toString .)) -}}
+{{- end }}
 {{- $selector := list -}}
 {{- range $k, $v := $e.nodeSelector }}
 {{- $selector = append $selector (printf "%s=%s" $k $v) -}}
@@ -25,15 +28,16 @@
   "agentResources" $e.session.resources
   "resources" $e.redroid.resources
   "redroid" (dict
-    "image" $redroidImage
-    "width" $e.redroid.width
-    "height" $e.redroid.height
-    "dpi" $e.redroid.dpi
+    "images" $redroidImages
     "fps" $e.redroid.fps
     "gpu" $e.redroid.gpu
-    "dataSize" $e.redroid.dataSize)
+    "dataSize" $e.redroid.dataSize
+    "shell" $e.redroid.shell)
   "nodes" $e.nodes
 -}}
+{{- with $e.redroid.screens }}
+{{- $_ := set $cfg.redroid "screens" . -}}
+{{- end }}
 {{- $_ := set $cfg "telemetry" (include "holtdroid.telemetry" . | fromYaml) -}}
 {{- $_ := set $cfg "sessionTelemetry" (dict
   "metricsPort" (ternary (int .Values.telemetry.metrics.port) 0 .Values.telemetry.metrics.enabled)
@@ -203,7 +207,7 @@ spec:
     matchLabels:
       app.kubernetes.io/name: holtdroid-session
       app.kubernetes.io/managed-by: holtdroid-provider-emulator
-  policyTypes: [Ingress]
+  policyTypes: [Ingress{{ if $e.networkPolicy.egress.enabled }}, Egress{{ end }}]
   ingress:
     - from:
         - podSelector:
@@ -228,6 +232,35 @@ spec:
       ports:
         - { protocol: TCP, port: {{ .Values.telemetry.metrics.port }} }
     {{- end }}
+  {{- if $e.networkPolicy.egress.enabled }}
+  egress:
+    # Cluster DNS (CoreDNS in kube-system).
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+    # The api, for APK and app-data downloads.
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "holtdroid.selector" (dict "root" . "component" "api") | nindent 14 }}
+    # Direct internet, with the LAN, node IPs and other Pods (the private
+    # ranges) carved out so they stay unreachable from inside Android.
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              {{- toYaml $e.networkPolicy.egress.privateRanges | nindent 14 }}
+    {{- with $e.networkPolicy.egress.extraEgress }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- end }}
 {{- end }}
 {{- if $e.prepull.enabled }}
 ---
@@ -275,12 +308,16 @@ spec:
           resources:
             {{- toYaml $e.prepull.resources | nindent 12 }}
           volumeMounts:
-            - { name: redroid, mountPath: /redroid, readOnly: true }
+            {{- range $v, $image := $redroidImages }}
+            - { name: redroid-{{ $v | replace "." "-" }}, mountPath: /redroid/{{ $v }}, readOnly: true }
+            {{- end }}
       volumes:
-        - name: redroid
+        {{- range $v, $image := $redroidImages }}
+        - name: redroid-{{ $v | replace "." "-" }}
           image:
-            reference: {{ $redroidImage }}
+            reference: {{ $image }}
             pullPolicy: {{ $e.session.image.pullPolicy }}
+        {{- end }}
 {{- end }}
 {{- if $e.nodeInfo.enabled }}
 ---

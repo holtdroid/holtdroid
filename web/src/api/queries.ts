@@ -173,6 +173,8 @@ export type LaunchInput = {
   artifactId: string
   provider?: string
   slot?: string
+  screen?: string
+  android?: string
   location?: string
   appData?: AppDataChoice
   queue?: boolean

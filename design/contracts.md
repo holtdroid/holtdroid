@@ -140,6 +140,17 @@ type Capabilities struct {
 	Locations []Location // empty when VPN is not supported/configured
 	DefaultLocation string // where a session starts when CreateSession has no location
 	ABIs      []string   // what the device can run, incl. translated ABIs
+	Screens   []Display  // optional (virtual devices): screens a launch may pick; the first is the default (decision #83)
+	Versions  []string   // optional (virtual devices): Android versions a launch may pick, newest first
+}
+
+type Display struct {
+	ID     string // "hd"
+	Label  string // "6.7″ HD+ 720×1600 · notch (Galaxy A05, Redmi 13C)"
+	Width  int
+	Height int
+	DPI    int
+	Cutout string // "none" | "corner" | "double" | "hole" | "tall" | "waterfall": Android's DisplayCutoutEmulation overlays
 }
 
 type Location struct {
@@ -223,6 +234,7 @@ type SlotCapabilities struct {
 	Root     bool     // the agent has root on the device
 	DevTools string   // "all" | "debuggable": every WebView, or only debuggable builds'
 	ADB      bool     // browser ADB and ADB tunnels
+	Shell    bool     // ADB runs any shell command (the UI offers the Terminal tab); false: only the allowlisted commands behind the other tabs
 	AppData  bool     // app data can be saved and restored; the api skips saves when false
 }
 
@@ -233,6 +245,8 @@ type CreateSession struct {
 	Owner       string
 	Location    string // optional
 	Slot        string // optional: run on this slot; 422 if unknown, 409 if not free; empty takes any free one (decision #76)
+	Screen      string // optional: one of Capabilities.Screens; 422 if unknown; empty takes the first (decision #83)
+	Android     string // optional: one of Capabilities.Versions; 422 if unknown; empty takes the newest
 	AppData     *AppDataRestore // optional: {url, cache}, decision #49
 }
 
