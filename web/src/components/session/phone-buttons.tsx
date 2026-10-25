@@ -72,9 +72,9 @@ function SideKey({
       />
       <span
         className={cn(
-          "transition-opacity [&_svg]:size-2.5",
+          "transition-opacity [&_svg]:size-3.5",
           flagged ? "text-amber-600" : "text-muted-foreground",
-          "opacity-60 group-hover/key:opacity-100 group-focus-visible/key:opacity-100",
+          "opacity-75 group-hover/key:opacity-100 group-focus-visible/key:opacity-100",
         )}
       >
         <Icon />

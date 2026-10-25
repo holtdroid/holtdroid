@@ -2678,5 +2678,5 @@ muted or its audio is off. The keys stay on
 the right in landscape too.
 
 **Consequences.** The rail keeps rotation, navigation, capture, stream and
-device controls. Small + and − marks and the power key's current action sit next to the keys, which widen on hover and sink on a press. The frame takes 76 px of width and 40 px of height from
+device controls. Small + and − marks and the power key's current action sit next to the keys, which widen on hover and sink on a press. The frame takes 84 px of width and 40 px of height from
 the screen panel, which the auto-fit accounts for.

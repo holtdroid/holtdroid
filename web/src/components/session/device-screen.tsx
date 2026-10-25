@@ -16,7 +16,7 @@ type Status = "connecting" | "live" | "retrying"
 const gap = 12
 const bezel = 8
 const key = 4
-const keyIcon = 14
+const keyIcon = 18
 
 export const frameInset = { x: 2 * (gap + bezel + key + keyIcon), y: 2 * (gap + bezel) }
 
