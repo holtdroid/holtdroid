@@ -1,6 +1,16 @@
 import { useQueryClient } from "@tanstack/react-query"
-import { CheckIcon, LockIcon, LockOpenIcon, PowerIcon, Volume2Icon, VolumeXIcon } from "lucide-react"
-import { type ReactNode, useState } from "react"
+import {
+  CheckIcon,
+  LockIcon,
+  LockOpenIcon,
+  MinusIcon,
+  PlusIcon,
+  PowerIcon,
+  Volume2Icon,
+  VolumeXIcon,
+  type LucideIcon,
+} from "lucide-react"
+import { useState } from "react"
 import type { DeviceAction } from "@/api/client"
 import { useDeviceAudio } from "@/components/session/device-audio"
 import type { LiveScreen } from "@/components/session/live-screen"
@@ -16,9 +26,9 @@ import { cn } from "@/lib/utils"
 
 type Run = (a: DeviceAction) => void
 
-const lockModes: Record<LockMode, { label: string; hint: string; icon: ReactNode }> = {
-  lock: { label: "Lock screen", hint: "Show the lock screen", icon: <LockIcon /> },
-  "screen-off": { label: "Turn screen off", hint: "Press the power button", icon: <PowerIcon /> },
+const lockModes: Record<LockMode, { label: string; hint: string; icon: LucideIcon }> = {
+  lock: { label: "Lock screen", hint: "Show the lock screen", icon: LockIcon },
+  "screen-off": { label: "Turn screen off", hint: "Press the power button", icon: PowerIcon },
 }
 
 export function PhoneButtons({ provider, id, live }: { provider: string; id: string; live: LiveScreen }) {
@@ -33,11 +43,13 @@ export function PhoneButtons({ provider, id, live }: { provider: string; id: str
 
 function SideKey({
   label,
+  icon: Icon,
   flagged,
   className,
   onClick,
 }: {
   label: string
+  icon: LucideIcon
   flagged?: boolean
   className?: string
   onClick: () => void
@@ -46,18 +58,27 @@ function SideKey({
     <button
       type="button"
       aria-label={label}
-      className="group/key -ml-1 flex flex-1 cursor-pointer items-stretch pr-2 pl-1 outline-none"
+      className="group/key -ml-1 flex flex-1 cursor-pointer items-center gap-1 pr-1 pl-1 outline-none"
       onClick={onClick}
     >
       <span
         className={cn(
-          "w-1 transition-colors",
+          "w-1 self-stretch transition-all duration-150 ease-out group-hover/key:w-1.5 group-focus-visible/key:w-1.5 group-active/key:w-0.5 group-active/key:duration-75",
           flagged
             ? "bg-amber-500 group-hover/key:bg-amber-400 group-focus-visible/key:bg-amber-400"
             : "bg-neutral-600 group-hover/key:bg-neutral-400 group-focus-visible/key:bg-neutral-400",
           className,
         )}
       />
+      <span
+        className={cn(
+          "transition-opacity [&_svg]:size-2.5",
+          flagged ? "text-amber-600" : "text-muted-foreground",
+          "opacity-60 group-hover/key:opacity-100 group-focus-visible/key:opacity-100",
+        )}
+      >
+        <Icon />
+      </span>
     </button>
   )
 }
@@ -81,9 +102,16 @@ function VolumeRocker({ provider, id, live, run }: { provider: string; id: strin
     <HoverCard openDelay={150} closeDelay={150}>
       <HoverCardTrigger asChild>
         <div className="absolute top-[17%] left-full flex h-[15%] flex-col">
-          <SideKey label="Volume up" flagged={flagged} className="rounded-tr-sm" onClick={() => press("volume-up")} />
+          <SideKey
+            label="Volume up"
+            icon={PlusIcon}
+            flagged={flagged}
+            className="rounded-tr-sm"
+            onClick={() => press("volume-up")}
+          />
           <SideKey
             label="Volume down"
+            icon={MinusIcon}
             flagged={flagged}
             className="rounded-br-sm"
             onClick={() => press("volume-down")}
@@ -180,7 +208,12 @@ function PowerKey({ run }: { run: Run }) {
     <HoverCard openDelay={150} closeDelay={150}>
       <HoverCardTrigger asChild>
         <div className="absolute top-[37%] left-full flex h-[9%] flex-col">
-          <SideKey label={lockModes[mode].label} className="rounded-r-sm" onClick={() => run(mode)} />
+          <SideKey
+            label={lockModes[mode].label}
+            icon={lockModes[mode].icon}
+            className="rounded-r-sm"
+            onClick={() => run(mode)}
+          />
         </div>
       </HoverCardTrigger>
       <HoverCardContent side="right" align="start" className="flex w-56 flex-col gap-0.5 p-1">
@@ -205,7 +238,7 @@ function PowerKey({ run }: { run: Run }) {
               run(m)
             }}
           >
-            {info.icon}
+            <info.icon />
             <span className="flex flex-1 flex-col">
               <span>{info.label}</span>
               <span className="text-muted-foreground text-xs font-normal">{info.hint}</span>

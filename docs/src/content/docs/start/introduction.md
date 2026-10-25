@@ -40,8 +40,9 @@ hybrid apps, support engineers reproducing a customer bug.
    it by hand; the button on the divider turns following back on.
 
    The screen sits in a phone body with keys on its right edge, like a
-   real phone: the volume rocker turns the volume up (upper half) or down
-   (lower half), and the power key locks the device or turns its screen off.
+   real phone: the volume rocker turns the volume up (upper half, marked +)
+   or down (lower half, −), and the power key locks the device or turns its
+   screen off, as the icon next to it shows.
    Hovering the rocker shows the device's media volume with a slider and a
    switch that mutes Android itself, and the device audio, which plays in
    your browser by default: switch it off, or silence it in this tab while it
