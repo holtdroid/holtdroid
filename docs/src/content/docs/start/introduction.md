@@ -56,10 +56,10 @@ hybrid apps, support engineers reproducing a customer bug.
    a panel styled like Android's quick settings shade with Wi-Fi, mobile
    data and airplane mode tiles, the VPN locations and the emulated network
    conditions (slow or lossy networks and scenarios such as a subway ride,
-   each with its description, on emulators with VPN locations). Each
-   corner of the phone has a thin arc in its bezel: hovering
-   one opens back, home, recent apps, notifications, quick settings and
-   rotation. Under the network card, the stream card picks the video codec
+   each with its description, on emulators with VPN locations). A
+   small handle above the phone slides out buttons for the notifications
+   and quick settings on hover, one below it for back, home and recent
+   apps; rotation is in the display card. Under the network card, the stream card picks the video codec
    (H.264, the lightest for the server, by default; H.265 or AV1 where the
    browser decodes them), quality (the device's own up to 1080p, then 720p,
    480p and 360p; a sharper screen is streamed at 1080p), frame rate (45 fps

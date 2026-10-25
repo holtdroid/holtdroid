@@ -8,19 +8,15 @@ import {
   MinusIcon,
   PlusIcon,
   PowerIcon,
-  RotateCcwSquareIcon,
-  RotateCwSquareIcon,
   SquareIcon,
   ToggleRightIcon,
   Volume2Icon,
   VolumeXIcon,
   type LucideIcon,
 } from "lucide-react"
-import type { CSSProperties } from "react"
 import type { DeviceAction } from "@/api/client"
 import type { LiveScreen } from "@/components/session/live-screen"
 import { deviceKey, useDevice, useRunDeviceAction, useUpdateDevice } from "@/components/session/use-device"
-import { Button } from "@/components/ui/button"
 import {
   Row,
   Section,
@@ -31,7 +27,7 @@ import {
   ShadeSlider,
   Tile,
 } from "@/components/session/shade"
-import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
+import { HoverCardTrigger } from "@/components/ui/hover-card"
 import { type LockMode, setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
 import { cn } from "@/lib/utils"
 
@@ -104,122 +100,63 @@ export function PhoneButtons({
         <VolumeRocker provider={provider} id={id} run={run} layout={layout} />
         <PowerKey run={run} layout={layout} />
       </ShadeSideContext>
-      {corners.map((c) => (
-        <CornerMenu key={c.name} corner={c} run={run} />
-      ))}
+      <NavBar place="top" keys={topKeys} run={run} offset={edge === "top" ? keyArea : 0} />
+      <NavBar place="bottom" keys={bottomKeys} run={run} offset={edge === "bottom" ? keyArea : 0} />
     </>
   )
 }
 
-const inset = 3.5
+export const keyArea = 4 + 18
+export const navArea = 24
 
-type Corner = { name: string; arc: string; place: CSSProperties; side: "left" | "right"; align: "start" | "end" }
+type NavKey = { action: DeviceAction; label: string; icon: LucideIcon }
 
-const corners: Corner[] = [
-  {
-    name: "top-left",
-    arc: "M0 100A100 100 0 0 1 100 0",
-    place: { top: inset, left: inset },
-    side: "left",
-    align: "start",
-  },
-  {
-    name: "top-right",
-    arc: "M0 0A100 100 0 0 1 100 100",
-    place: { top: inset, right: inset },
-    side: "right",
-    align: "start",
-  },
-  {
-    name: "bottom-right",
-    arc: "M100 0A100 100 0 0 1 0 100",
-    place: { bottom: inset, right: inset },
-    side: "right",
-    align: "end",
-  },
-  {
-    name: "bottom-left",
-    arc: "M100 100A100 100 0 0 1 0 0",
-    place: { bottom: inset, left: inset },
-    side: "left",
-    align: "end",
-  },
+const topKeys: NavKey[] = [
+  { action: "notifications", label: "Notifications", icon: BellIcon },
+  { action: "quick-settings", label: "Quick settings", icon: ToggleRightIcon },
 ]
 
-const cornerGroups: { title: string; keys: { action: DeviceAction; label: string; icon: LucideIcon }[] }[] = [
-  {
-    title: "Navigation",
-    keys: [
-      { action: "back", label: "Back", icon: ChevronLeftIcon },
-      { action: "home", label: "Home", icon: CircleIcon },
-      { action: "recents", label: "Recent apps", icon: SquareIcon },
-    ],
-  },
-  {
-    title: "System",
-    keys: [
-      { action: "notifications", label: "Notifications", icon: BellIcon },
-      { action: "quick-settings", label: "Quick settings", icon: ToggleRightIcon },
-    ],
-  },
-  {
-    title: "Rotation",
-    keys: [
-      { action: "rotate-left", label: "Rotate left", icon: RotateCcwSquareIcon },
-      { action: "rotate-right", label: "Rotate right", icon: RotateCwSquareIcon },
-    ],
-  },
+const bottomKeys: NavKey[] = [
+  { action: "back", label: "Back", icon: ChevronLeftIcon },
+  { action: "home", label: "Home", icon: CircleIcon },
+  { action: "recents", label: "Recent apps", icon: SquareIcon },
 ]
 
-function CornerMenu({ corner, run }: { corner: Corner; run: Run }) {
-  const size = `calc(var(--sr) + var(--bz) - ${inset}px)`
+function NavBar({ place, keys, run, offset }: { place: "top" | "bottom"; keys: NavKey[]; run: Run; offset: number }) {
+  const top = place === "top"
   return (
-    <HoverCard openDelay={150} closeDelay={200}>
-      <HoverCardTrigger asChild>
-        <svg
-          viewBox="0 0 100 100"
-          preserveAspectRatio="none"
-          aria-label="Navigation and rotation"
-          className="group/corner pointer-events-none absolute overflow-visible"
-          style={{ ...corner.place, width: size, height: size }}
-        >
-          <path
-            d={corner.arc}
-            fill="none"
-            vectorEffect="non-scaling-stroke"
-            strokeLinecap="round"
-            className="stroke-neutral-600 stroke-[3px] transition-all duration-150 group-hover/corner:stroke-neutral-400 group-hover/corner:stroke-[4px]"
-          />
-          <path
-            d={corner.arc}
-            fill="none"
-            vectorEffect="non-scaling-stroke"
-            pointerEvents="stroke"
-            className="cursor-pointer stroke-transparent stroke-[9px]"
-          />
-        </svg>
-      </HoverCardTrigger>
-      <HoverCardContent side={corner.side} align={corner.align} className="flex w-60 flex-col gap-2.5 p-2.5">
-        {cornerGroups.map((g) => (
-          <section key={g.title} className="grid gap-1">
-            <h4 className="text-muted-foreground px-0.5 text-[11px] font-medium tracking-wide uppercase">{g.title}</h4>
-            <div className="grid grid-cols-3 gap-1">
-              {g.keys.map((k) => (
-                <Button
-                  key={k.action}
-                  variant="ghost"
-                  className="h-auto flex-col justify-start gap-1 px-1 py-1.5 text-[11px] font-normal whitespace-normal"
-                  onClick={() => run(k.action)}
-                >
-                  <k.icon />
-                  {k.label}
-                </Button>
-              ))}
-            </div>
-          </section>
+    <div
+      className={cn(
+        "group/nav absolute left-1/2 flex w-[70%] -translate-x-1/2 justify-center",
+        top ? "bottom-full items-end" : "top-full items-start",
+      )}
+      style={{ height: navArea, ...(top ? { marginBottom: offset } : { marginTop: offset }) }}
+    >
+      <span
+        className={cn(
+          "pointer-events-none absolute h-1.5 w-14 rounded-full bg-neutral-500/60 transition-opacity duration-150 group-focus-within/nav:opacity-0 group-hover/nav:opacity-0",
+          top ? "bottom-2" : "top-2",
+        )}
+      />
+      <div
+        className={cn(
+          "pointer-events-none flex gap-1.5 opacity-0 transition-all delay-200 duration-150 group-focus-within/nav:pointer-events-auto group-focus-within/nav:translate-y-0 group-focus-within/nav:opacity-100 group-focus-within/nav:delay-0 group-hover/nav:pointer-events-auto group-hover/nav:translate-y-0 group-hover/nav:opacity-100 group-hover/nav:delay-0",
+          top ? "translate-y-1" : "-translate-y-1",
+        )}
+      >
+        {keys.map((k) => (
+          <button
+            key={k.action}
+            type="button"
+            className="flex h-9 items-center gap-1.5 rounded-full bg-neutral-900 px-3.5 text-xs whitespace-nowrap text-neutral-100 shadow-lg ring-1 ring-white/15 transition hover:bg-neutral-700 focus-visible:ring-2 focus-visible:ring-sky-300 focus-visible:outline-none active:scale-95"
+            onClick={() => run(k.action)}
+          >
+            <k.icon className="size-4" />
+            {k.label}
+          </button>
         ))}
-      </HoverCardContent>
-    </HoverCard>
+      </div>
+    </div>
   )
 }
 

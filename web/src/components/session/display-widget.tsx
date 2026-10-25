@@ -1,4 +1,14 @@
-import { MoonIcon, SunIcon, SunMediumIcon, SunMoonIcon, TypeIcon, ZoomInIcon, type LucideIcon } from "lucide-react"
+import {
+  MoonIcon,
+  RotateCcwSquareIcon,
+  RotateCwSquareIcon,
+  SunIcon,
+  SunMediumIcon,
+  SunMoonIcon,
+  TypeIcon,
+  ZoomInIcon,
+  type LucideIcon,
+} from "lucide-react"
 import { useTheme } from "next-themes"
 import { useEffect, useEffectEvent, useRef } from "react"
 import type { DeviceSettings, DeviceState } from "@/api/client"
@@ -14,7 +24,7 @@ import {
   ShadeSlider,
   Tile,
 } from "@/components/session/shade"
-import { useDevice, useUpdateDevice } from "@/components/session/use-device"
+import { useDevice, useDeviceAction, useUpdateDevice } from "@/components/session/use-device"
 import { HoverCardTrigger } from "@/components/ui/hover-card"
 import { setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
 
@@ -44,6 +54,7 @@ type Set = (patch: DeviceSettings) => void
 export function DisplayWidget({ provider, id }: { provider: string; id: string }) {
   const device = useDevice(provider, id)
   const update = useUpdateDevice(provider, id)
+  const action = useDeviceAction(provider, id)
   const s = device.data
   if (!s) {
     return (
@@ -52,10 +63,27 @@ export function DisplayWidget({ provider, id }: { provider: string; id: string }
       </ShadeCard>
     )
   }
-  return <Display s={s} busy={update.isPending} set={(patch) => update.mutate(patch)} />
+  return (
+    <Display
+      s={s}
+      busy={update.isPending || action.isPending}
+      set={(patch) => update.mutate(patch)}
+      rotate={(a) => action.mutate(a)}
+    />
+  )
 }
 
-function Display({ s, busy, set }: { s: DeviceState; busy: boolean; set: Set }) {
+function Display({
+  s,
+  busy,
+  set,
+  rotate,
+}: {
+  s: DeviceState
+  busy: boolean
+  set: Set
+  rotate: (a: "rotate-left" | "rotate-right") => void
+}) {
   const { deviceTheme } = useScreenPrefs()
   const { resolvedTheme } = useTheme()
   const siteDark = resolvedTheme === "dark"
@@ -156,6 +184,30 @@ function Display({ s, busy, set }: { s: DeviceState; busy: boolean; set: Set }) 
             The stream shows the picture before the backlight, so it doesn&apos;t get darker; the device and its apps
             see the setting. Brightness lasts for this session only.
           </Note>
+        </section>
+        <section className="grid gap-2">
+          <h4 className="flex justify-between px-1 text-xs font-medium text-neutral-400">
+            Rotation
+            <span>{s.rotation % 2 ? "Landscape" : s.rotation === 2 ? "Upside down" : "Portrait"}</span>
+          </h4>
+          <div className="grid grid-cols-2 gap-2">
+            <Tile
+              icon={RotateCcwSquareIcon}
+              label="Rotate left"
+              status="90° counterclockwise"
+              on={false}
+              disabled={busy}
+              onClick={() => rotate("rotate-left")}
+            />
+            <Tile
+              icon={RotateCwSquareIcon}
+              label="Rotate right"
+              status="90° clockwise"
+              on={false}
+              disabled={busy}
+              onClick={() => rotate("rotate-right")}
+            />
+          </div>
         </section>
         <Section title="Theme">
           {(Object.entries(themes) as [ThemeMode, (typeof themes)[ThemeMode]][]).map(([m, t]) => (

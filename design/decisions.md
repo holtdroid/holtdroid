@@ -2695,10 +2695,11 @@ stream card, which is marked while it is off. The rocker turns amber, the
 colour of a changed device control, while the device is muted. The keys stay on
 the right in landscape too.
 
-Back, home, recent apps, notifications, quick settings and rotation open
-from a thin arc in each corner of the bezel, drawn concentric with the
-screen's corner and hit-tested on its stroke only, so the screen's corners
-stay touchable.
+Notifications and quick settings slide out as a row of large buttons from a
+handle above the phone, back, home and recent apps from one below it, in
+the space the frame keeps there, instead of a popup from arcs in the
+bezel's corners: the buttons sit right at the screen and are easy to hit.
+Rotation moved into the display card.
 
 The network (Wi-Fi, mobile data, airplane mode, the VPN location and the
 emulated conditions) moved out of the rail into a card to the right of the

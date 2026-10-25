@@ -15,7 +15,7 @@ import { widgetWidth } from "@/components/session/shade"
 import { SSHWidget } from "@/components/session/ssh-widget"
 import { StreamWidget } from "@/components/session/stream-widget"
 import { TimeWidget } from "@/components/session/time-widget"
-import { type KeyEdge, PhoneButtons } from "@/components/session/phone-buttons"
+import { type KeyEdge, keyArea, navArea, PhoneButtons } from "@/components/session/phone-buttons"
 import { useDevice } from "@/components/session/use-device"
 import { Spinner } from "@/components/ui/spinner"
 import { useEventSource } from "@/hooks/use-event-source"
@@ -28,7 +28,6 @@ type Status = "connecting" | "live" | "retrying"
 
 const gap = 12
 const bezel = 8
-const keyArea = 4 + 18
 const columnWidth = widgetWidth + 2 * gap
 const fade = 24
 
@@ -36,7 +35,7 @@ function phoneInset(edge: KeyEdge) {
   const across = edge === "top" || edge === "bottom"
   return {
     x: 2 * (gap + bezel) + (across ? 0 : 2 * keyArea),
-    y: 2 * (gap + bezel) + (across ? 2 * keyArea : 0),
+    y: 2 * (gap + bezel + navArea) + (across ? 2 * keyArea : 0),
   }
 }
 
