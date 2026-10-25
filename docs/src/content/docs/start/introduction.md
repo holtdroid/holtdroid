@@ -58,13 +58,16 @@ hybrid apps, support engineers reproducing a customer bug.
    one opens back, home, recent apps, notifications, quick settings and
    rotation. Under the network card, the stream card picks the video codec
    (H.264, the lightest for the server, by default; H.265 or AV1 where the
-   browser decodes them), resolution, frame rate (up to the device's own
-   refresh rate) and bitrate, and switches the keyboard between text input
+   browser decodes them), resolution, frame rate (60 fps at most, and never
+   above the device's refresh rate) and bitrate, shows the frames, bitrate
+   and dropped frames the browser decodes right now, and switches the keyboard between text input
    and a virtual USB keyboard that types in any alphabet with the layout set
    on the device. The codec and bitrate are remembered in the browser,
    resolution and frame rate start from the device's own in every session.
    The clipboard card turns sync on or off with a click (both ways by
-   default; hover to pick one direction). When the device vibrates, the page
+   default; hover to pick one direction) and keeps the last 10 synced
+   texts, shown with · for spaces and ↵ for line breaks, each with buttons
+   to copy it or save it as a text file. When the device vibrates, the page
    shows a notification and plays a buzz. A rail next to the screen has the
    screenshot and recording buttons; the arrow at its top widens it into a
    menu with section titles and a label next to every icon, and back. Below

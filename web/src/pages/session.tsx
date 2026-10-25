@@ -194,9 +194,7 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
           </ScreenSplit>
         )}
       </div>
-      {state === "ready" && (
-        <MetricsBar provider={provider} id={id} live={live} network={(caps?.locations.length ?? 0) > 0} />
-      )}
+      {state === "ready" && <MetricsBar provider={provider} id={id} network={(caps?.locations.length ?? 0) > 0} />}
     </div>
   )
 }

@@ -30,7 +30,7 @@ export type ScreenPrefs = {
 export const defaultScreenPrefs: ScreenPrefs = {
   codec: "h264",
   maxSize: 0,
-  maxFps: 0,
+  maxFps: 60,
   streamFor: "",
   bitRate: 4_000_000,
   keyboard: "text",

@@ -288,8 +288,8 @@ func TestScrcpyVideoOptions(t *testing.T) {
 		{"codec=av1&maxSize=0", videoOptions{codec: "av1", maxFPS: 60, bitRate: 4_000_000}, false},
 		{"codec=vp9", videoOptions{}, true},
 		{"maxSize=100", videoOptions{}, true},
-		{"maxFps=0", videoOptions{codec: "h264", bitRate: 4_000_000}, false},
-		{"maxFps=500", videoOptions{}, true},
+		{"maxFps=0", videoOptions{}, true},
+		{"maxFps=90", videoOptions{}, true},
 		{"bitRate=lots", videoOptions{}, true},
 	} {
 		q, _ := url.ParseQuery(tc.query)

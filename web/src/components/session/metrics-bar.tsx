@@ -7,19 +7,16 @@ import {
   HardDriveIcon,
   type LucideIcon,
   MemoryStickIcon,
-  MonitorPlayIcon,
   ServerIcon,
   ThermometerIcon,
   TriangleAlertIcon,
 } from "lucide-react"
-import { type ReactNode, useEffect, useState, useSyncExternalStore } from "react"
+import { type ReactNode, useState, useSyncExternalStore } from "react"
 import { type Metrics, type Network, sessionBase } from "@/api/client"
-import type { LiveScreen } from "@/components/session/live-screen"
 import { useNetwork } from "@/components/session/use-device"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useEventSource } from "@/hooks/use-event-source"
 import { countryFlag, formatBytes } from "@/lib/format"
-import type { ScreenConnection, StreamStats } from "@/lib/scrcpy"
 import {
   celsius,
   hottest,
@@ -35,23 +32,12 @@ import { cn } from "@/lib/utils"
 
 const historySize = 30
 
-export function MetricsBar({
-  provider,
-  id,
-  live,
-  network,
-}: {
-  provider: string
-  id: string
-  live: LiveScreen
-  network: boolean
-}) {
+export function MetricsBar({ provider, id, network }: { provider: string; id: string; network: boolean }) {
   const visible = useDocumentVisible()
   const [history, setHistory] = useState<Metrics[]>([])
   useEventSource<{ metrics: Metrics }>(visible ? `${sessionBase(provider, id)}/v1/metrics` : null, {
     metrics: (m) => setHistory((h) => [...h.slice(1 - historySize), m]),
   })
-  const stream = useStreamRate(live)
   const egress = useNetwork(provider, id, network).data
   const m = history.at(-1)
 
@@ -70,7 +56,6 @@ export function MetricsBar({
         <span className="text-muted-foreground">Measuring the device…</span>
       )}
       <div className="ml-auto flex items-center gap-4">
-        {stream && <StreamStat rate={stream} />}
         {m?.host && <HostStat host={m.host} />}
         {network && egress?.externalIp && <EgressStat network={egress} />}
       </div>
@@ -243,30 +228,6 @@ function ThermalStat({ m }: { m: Metrics }) {
   )
 }
 
-type StreamRate = { fps: number; bitrate: number; dropped: number }
-
-function StreamStat({ rate }: { rate: StreamRate }) {
-  return (
-    <Stat
-      icon={MonitorPlayIcon}
-      level={rate.dropped > 0 ? "warn" : "ok"}
-      className="hidden lg:flex"
-      tip={
-        <>
-          <Title>Screen stream</Title>
-          <Row label="Frames shown" value={`${rate.fps.toFixed(0)} fps`} />
-          <Row label="Bitrate" value={bitRate(rate.bitrate)} />
-          <Row label="Dropped" value={String(rate.dropped)} />
-          <Note>Decoded in this browser; the device only sends frames when the screen changes.</Note>
-        </>
-      }
-    >
-      <Value>{rate.fps.toFixed(0)} fps</Value>
-      <span className="text-muted-foreground">{bitRate(rate.bitrate)}</span>
-    </Stat>
-  )
-}
-
 function HostStat({ host }: { host: NonNullable<Metrics["host"]> }) {
   const cpu = level(host.cpuLimit > 0 ? (host.cpu / host.cpuLimit) * 100 : 0, 80, 95)
   const mem = level(host.memoryLimit > 0 ? (host.memoryUsed / host.memoryLimit) * 100 : 0, 85, 95)
@@ -421,34 +382,6 @@ function useDocumentVisible() {
   )
 }
 
-function useStreamRate(live: LiveScreen) {
-  const [rate, setRate] = useState<StreamRate | null>(null)
-  useEffect(() => {
-    let prev: { at: number; stats: StreamStats; connection: ScreenConnection } | null = null
-    const timer = window.setInterval(() => {
-      const connection = live.connection
-      if (!connection) {
-        prev = null
-        setRate(null)
-        return
-      }
-      const at = performance.now()
-      const stats = connection.stats()
-      if (prev?.connection === connection) {
-        const secs = (at - prev.at) / 1000
-        setRate({
-          fps: (stats.frames - prev.stats.frames) / secs,
-          bitrate: ((stats.bytes - prev.stats.bytes) * 8) / secs,
-          dropped: stats.skipped - prev.stats.skipped,
-        })
-      }
-      prev = { at, stats, connection }
-    }, 2000)
-    return () => window.clearInterval(timer)
-  }, [live])
-  return rate
-}
-
 function processLabel(name: string) {
   if (name.includes(":sandboxed_process")) return "WebView renderer"
   const i = name.indexOf(":")
@@ -472,8 +405,4 @@ function bytesPair(used: number, total: number) {
 
 function byteRate(bps: number) {
   return `${formatBytes(Math.round(bps))}/s`
-}
-
-function bitRate(bps: number) {
-  return bps >= 1e6 ? `${(bps / 1e6).toFixed(1)} Mb/s` : `${Math.round(bps / 1e3)} kb/s`
 }

@@ -1,5 +1,12 @@
-import { KeyboardIcon, MonitorPlayIcon, SettingsIcon, TypeIcon, VideoIcon } from "lucide-react"
-import { type LiveScreen, useDecodableCodecs, useScreenLive } from "@/components/session/live-screen"
+import { ActivityIcon, KeyboardIcon, MonitorPlayIcon, SettingsIcon, TypeIcon, VideoIcon } from "lucide-react"
+import {
+  bitRate,
+  type LiveScreen,
+  type StreamRate,
+  useDecodableCodecs,
+  useScreenLive,
+  useStreamRate,
+} from "@/components/session/live-screen"
 import {
   CardLine,
   Chips,
@@ -12,6 +19,7 @@ import {
   Tile,
 } from "@/components/session/shade"
 import { useDevice } from "@/components/session/use-device"
+import { cn } from "@/lib/utils"
 import { HoverCard, HoverCardTrigger } from "@/components/ui/hover-card"
 import {
   codecCost,
@@ -37,7 +45,7 @@ const sizes = [
   { value: 800, label: "800 px" },
 ]
 
-const rates = [120, 90, 60, 30, 15]
+const maxRate = 60
 
 const bitRates = [
   { value: 8_000_000, label: "8 Mbit/s" },
@@ -59,16 +67,18 @@ export function StreamWidget({ provider, id, live }: { provider: string; id: str
   const codec = pickCodec(prefs.codec, decodable)
   const { maxSize, maxFps } = streamLimits(prefs, session)
   const refresh = useDevice(provider, id).data?.refreshRate ?? 0
-  const fps = refresh > 0 && maxFps >= refresh ? 0 : maxFps
+  const top = refresh > 0 ? Math.min(refresh, maxRate) : maxRate
+  const fps = Math.min(maxFps, top)
   const connected = useScreenLive(live)
+  const rate = useStreamRate(live)
 
-  const fpsOptions = [
-    { value: 0, label: refresh > 0 ? `${refresh} fps (device)` : "Device rate" },
-    ...rates.filter((r) => refresh === 0 || r < refresh).map((r) => ({ value: r, label: `${r} fps` })),
-  ]
+  const fpsOptions = [top, ...[30, 15].filter((r) => r < top)].map((r) => ({
+    value: r,
+    label: r === refresh ? `${r} fps (device)` : `${r} fps`,
+  }))
   const size = sizes.find((s) => s.value === maxSize)?.label ?? `${maxSize} px`
   const changed =
-    codec !== defaultScreenPrefs.codec || prefs.bitRate !== defaultScreenPrefs.bitRate || maxSize !== 0 || fps !== 0
+    codec !== defaultScreenPrefs.codec || prefs.bitRate !== defaultScreenPrefs.bitRate || maxSize !== 0 || fps !== top
 
   return (
     <HoverCard openDelay={150} closeDelay={200}>
@@ -79,8 +89,13 @@ export function StreamWidget({ provider, id, live }: { provider: string; id: str
             <span className="truncate">{codecs[codec].label}</span>
           </span>
           <CardLine icon={VideoIcon}>
-            {size} · {fps || refresh || "max"} fps
+            {size} · {fps} fps
           </CardLine>
+          {rate && (
+            <CardLine icon={ActivityIcon}>
+              {rate.fps.toFixed(0)} fps · {bitRate(rate.bitrate)}
+            </CardLine>
+          )}
           <CardLine icon={prefs.keyboard === "uhid" ? KeyboardIcon : TypeIcon}>
             {prefs.keyboard === "uhid" ? "USB keyboard" : "Text input"}
           </CardLine>
@@ -89,7 +104,7 @@ export function StreamWidget({ provider, id, live }: { provider: string; id: str
       <ShadePanel>
         <ShadeHeader
           title="Stream"
-          summary={`${codecs[codec].label} · ${size} · ${fps || refresh || "max"} fps · ${bitRateLabel(prefs.bitRate)}`}
+          summary={`${codecs[codec].label} · ${size} · ${fps} fps · ${bitRateLabel(prefs.bitRate)}`}
           onReset={
             changed
               ? () =>
@@ -97,12 +112,13 @@ export function StreamWidget({ provider, id, live }: { provider: string; id: str
                     codec: defaultScreenPrefs.codec,
                     bitRate: defaultScreenPrefs.bitRate,
                     maxSize: 0,
-                    maxFps: 0,
+                    maxFps: maxRate,
                     streamFor: session,
                   })
               : undefined
           }
         />
+        {rate && <LiveStats rate={rate} />}
         <Section title="Codec">
           {available.map((c) => (
             <Row
@@ -132,7 +148,7 @@ export function StreamWidget({ provider, id, live }: { provider: string; id: str
           title="Bitrate"
           options={bitRates}
           value={prefs.bitRate}
-          onChange={(bitRate) => setScreenPrefs({ bitRate })}
+          onChange={(v) => setScreenPrefs({ bitRate: v })}
         />
         <Note>
           The codec and bitrate are remembered in this browser; resolution and frame rate start from the device&apos;s
@@ -176,5 +192,28 @@ export function StreamWidget({ provider, id, live }: { provider: string; id: str
         )}
       </ShadePanel>
     </HoverCard>
+  )
+}
+
+function LiveStats({ rate }: { rate: StreamRate }) {
+  return (
+    <section className="grid gap-1.5">
+      <h4 className="px-1 text-xs font-medium text-neutral-400">Right now, in this browser</h4>
+      <div className="grid grid-cols-3 gap-1.5">
+        <Stat label="Frames shown" value={`${rate.fps.toFixed(0)} fps`} />
+        <Stat label="Bitrate" value={bitRate(rate.bitrate)} />
+        <Stat label="Dropped" value={String(rate.dropped)} warn={rate.dropped > 0} />
+      </div>
+      <Note>The device only sends frames when the screen changes, so a still screen shows few of them.</Note>
+    </section>
+  )
+}
+
+function Stat({ label, value, warn = false }: { label: string; value: string; warn?: boolean }) {
+  return (
+    <div className="grid gap-0.5 rounded-2xl bg-neutral-800 px-3 py-2">
+      <span className={cn("text-sm font-medium tabular-nums", warn && "text-amber-400")}>{value}</span>
+      <span className="text-[11px] text-neutral-400">{label}</span>
+    </div>
   )
 }

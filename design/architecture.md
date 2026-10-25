@@ -343,10 +343,11 @@ the screen is connected and through `/v1/device/actions` otherwise; the
 screenshot button saves the last decoded frame. Returning to the tab asks
 the server for a key frame (`reset video`). The codec, bitrate and
 keyboard mode are kept in `localStorage`; resolution and frame rate belong to
-one session (`streamFor`) and start at the original size and `maxFps=0`,
-scrcpy's "no limit", so the device's own refresh rate (`refreshRate` in
-`DeviceState`, the fastest `fps=` mode in `dumpsys display`) caps it and the
-UI offers nothing above it. Codecs the browser can't decode are not offered;
+one session (`streamFor`) and start at the original size and 60 fps, the
+most the agent accepts; the UI also offers nothing above the device's
+refresh rate (`refreshRate` in `DeviceState`, the fastest `fps=` mode in
+`dumpsys display`). The stream card shows the decoder's frames, bitrate
+and dropped frames every two seconds. Codecs the browser can't decode are not offered;
 when the saved one is missing, the cheapest to encode that is decodable
 (H.264, then H.265, then AV1) is used. Device
 audio (`web/src/lib/audio.ts`) is decoded with WebCodecs `AudioDecoder` and
@@ -419,6 +420,9 @@ codecs and reports that it can't capture audio.
 - The clipboard card next to the phone controls sync: click turns it on or off,
   hovering picks the direction (both ways by default, to the device, from
   the device). Both settings live in `localStorage` with the screen prefs.
+  The card keeps the last 10 texts synced either way in the tab's memory,
+  drawn with visible whitespace (· ↵ →, control pictures for the rest), to
+  copy again or save as a `.txt`.
 - Browser → device: when the tab gains focus or something is copied in the
   page, the UI reads `navigator.clipboard.readText()` (the browser may ask
   for permission once, Safari and Firefox mostly refuse without a click) and

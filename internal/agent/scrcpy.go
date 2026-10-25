@@ -108,7 +108,7 @@ func (s *Scrcpy) videoOptions(q url.Values) (videoOptions, error) {
 		zero     bool
 	}{
 		{"maxSize", &o.maxSize, 240, 4096, true},
-		{"maxFps", &o.maxFPS, 1, 240, true},
+		{"maxFps", &o.maxFPS, 1, 60, false},
 		{"bitRate", &o.bitRate, 100_000, 50_000_000, false},
 	} {
 		v := q.Get(p.name)
