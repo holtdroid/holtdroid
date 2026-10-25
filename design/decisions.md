@@ -2708,7 +2708,11 @@ Language and region. The time zone follows the VPN location like the GPS:
 the agent applies the location's zone at start and on every switch unless
 the user picked one for the session, and the card can go back to the
 location's. The card is marked while the clock is shifted, out of real
-time or in a zone picked by hand.
+time or in a zone picked by hand; an exact moment unfolds inside its panel
+instead of a dialog. The system language and the keyboard layouts got a
+card too, a grid of flags where a click picks the language or toggles a
+layout; the rail keeps only the faked GPS of that section. Panels stay open
+once clicked into, so typing and native date pickers don't close them.
 
 **Consequences.** The rail keeps capture and the other device controls. Small + and − marks and the power key's current action sit next to the keys, which widen on hover and sink on a press. The frame and the cards take 198 px of width and 40 px of height from
 the screen panel, which the auto-fit accounts for.

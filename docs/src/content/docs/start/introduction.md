@@ -73,8 +73,13 @@ hybrid apps, support engineers reproducing a customer bug.
    device's clock and is marked while the clock is shifted, not in real time
    or in a time zone picked by hand; hovering it opens real-time sync,
    shifting the clock back or forward by any amount, an exact moment entered
-   in your own time zone, and the time zone, which follows the VPN location
-   unless you pick another one for the session. When the device vibrates, the page
+   in your own time zone (it unfolds in place), and the time zone, which
+   follows the VPN location unless you pick another one for the session. The
+   language card picks the system language and the keyboard layouts from a
+   grid of flags: a click on a layout adds or removes it (up to 7, remembered
+   in your browser and guessed from your keyboard where the browser allows).
+   A panel opened by hovering stays open once you click inside it, until you
+   click elsewhere or press Esc. When the device vibrates, the page
    shows a notification and plays a buzz. A rail next to the screen has the
    screenshot and recording buttons; the arrow at its top widens it into a
    menu with section titles and a label next to every icon, and back. Below
@@ -85,9 +90,9 @@ hybrid apps, support engineers reproducing a customer bug.
      charge level.
    - **Display**: click to cycle light, dark and matching the portal's theme;
      font and display size.
-   - **Language and region**: system language, extra keyboard
-     layouts (remembered in your browser, guessed from your keyboard where
-     the browser allows) and a faked GPS position.
+   - **GPS location** (on devices that can fake it): follows the VPN
+     location unless you override it with a city, coordinates or your own
+     position.
 
    An amber dot marks a section whose settings differ from the defaults, and
    its popup has a reset button.

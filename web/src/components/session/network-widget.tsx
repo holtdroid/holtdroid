@@ -11,8 +11,8 @@ import {
   unwrap,
 } from "@/api/client"
 import { networkKey, useDevice, useNetwork, useUpdateDevice } from "@/components/session/use-device"
-import { Note, Row, Section, ShadeCard, ShadeHeader, ShadePanel, Tile } from "@/components/session/shade"
-import { HoverCard, HoverCardTrigger } from "@/components/ui/hover-card"
+import { Note, Row, Section, ShadeCard, ShadeHeader, ShadePanel, Tile, ShadeRoot } from "@/components/session/shade"
+import { HoverCardTrigger } from "@/components/ui/hover-card"
 import { rememberLocation } from "@/lib/launch-prefs"
 import { locationFlag } from "@/lib/location"
 
@@ -33,7 +33,7 @@ export function NetworkWidget({ provider, id, locations }: { provider: string; i
       (!!s.networkProfile && s.networkProfile !== "full"))
 
   return (
-    <HoverCard openDelay={150} closeDelay={200}>
+    <ShadeRoot>
       <HoverCardTrigger asChild>
         <ShadeCard aria-label="Network" changed={changed}>
           <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
@@ -71,7 +71,7 @@ export function NetworkWidget({ provider, id, locations }: { provider: string; i
           <Note>Loading the device…</Note>
         )}
       </ShadePanel>
-    </HoverCard>
+    </ShadeRoot>
   )
 }
 

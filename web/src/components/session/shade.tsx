@@ -1,6 +1,6 @@
 import { CheckIcon, GlobeIcon, Loader2Icon, RotateCcwIcon, type LucideIcon } from "lucide-react"
-import type { ComponentProps, ReactNode } from "react"
-import { HoverCardContent } from "@/components/ui/hover-card"
+import { type ComponentProps, createContext, type ReactNode, use, useMemo, useState } from "react"
+import { HoverCard, HoverCardContent } from "@/components/ui/hover-card"
 import { cn } from "@/lib/utils"
 
 export const widgetWidth = 128
@@ -36,11 +36,47 @@ export function CardLine({ icon: Icon, children }: { icon: LucideIcon; children:
   )
 }
 
+const Pin = createContext<{ pin: () => void; close: () => void }>({ pin: () => undefined, close: () => undefined })
+
+export function ShadeRoot({ children }: { children: ReactNode }) {
+  const [open, setOpen] = useState(false)
+  const [pinned, setPinned] = useState(false)
+  const pins = useMemo(
+    () => ({
+      pin: () => setPinned(true),
+      close: () => {
+        setPinned(false)
+        setOpen(false)
+      },
+    }),
+    [],
+  )
+  return (
+    <Pin value={pins}>
+      <HoverCard
+        open={open}
+        openDelay={150}
+        closeDelay={200}
+        onOpenChange={(next) => {
+          if (next) setOpen(true)
+          else if (!pinned) setOpen(false)
+        }}
+      >
+        {children}
+      </HoverCard>
+    </Pin>
+  )
+}
+
 export function ShadePanel({ className, ...props }: ComponentProps<typeof HoverCardContent>) {
+  const { pin, close } = use(Pin)
   return (
     <HoverCardContent
       side="right"
       align="start"
+      onPointerDownCapture={pin}
+      onPointerDownOutside={close}
+      onEscapeKeyDown={close}
       className={cn(
         "flex max-h-(--radix-hover-card-content-available-height) w-96 flex-col gap-4 overflow-y-auto rounded-[28px] border-0 bg-neutral-900 p-4 text-neutral-100 shadow-2xl ring-1 ring-white/10",
         className,

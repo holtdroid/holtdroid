@@ -5,6 +5,7 @@ import { type Display, type Location, type Screen, sessionBase } from "@/api/cli
 import { CutoutOverlay } from "@/components/session/cutout-overlay"
 import { displayURL, type LiveScreen, useDecodableCodecs } from "@/components/session/live-screen"
 import { ClipboardWidget } from "@/components/session/clipboard-widget"
+import { LanguageWidget } from "@/components/session/language-widget"
 import { NetworkWidget } from "@/components/session/network-widget"
 import { widgetWidth } from "@/components/session/shade"
 import { StreamWidget } from "@/components/session/stream-widget"
@@ -263,6 +264,7 @@ export function DeviceScreen({
           <NetworkWidget provider={provider} id={id} locations={locations} />
           <StreamWidget provider={provider} id={id} live={live} />
           {clipboard && <ClipboardWidget provider={provider} id={id} />}
+          <LanguageWidget provider={provider} id={id} />
           <TimeWidget provider={provider} id={id} />
         </div>
       </div>

@@ -13,8 +13,18 @@ import {
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import { agentClient, type Clipboard, sessionBase, unwrap } from "@/api/client"
-import { CardLine, Note, Row, Section, ShadeCard, ShadeHeader, ShadePanel, Tile } from "@/components/session/shade"
-import { HoverCard, HoverCardTrigger } from "@/components/ui/hover-card"
+import {
+  CardLine,
+  Note,
+  Row,
+  Section,
+  ShadeCard,
+  ShadeHeader,
+  ShadePanel,
+  Tile,
+  ShadeRoot,
+} from "@/components/session/shade"
+import { HoverCardTrigger } from "@/components/ui/hover-card"
 import { useEventSource } from "@/hooks/use-event-source"
 import { download, stamp } from "@/lib/adb"
 import { onCopied } from "@/lib/clipboard"
@@ -37,7 +47,7 @@ export function ClipboardWidget({ provider, id }: { provider: string; id: string
   const summary = on ? modes[mode].label : "Off"
 
   return (
-    <HoverCard openDelay={150} closeDelay={200}>
+    <ShadeRoot>
       <HoverCardTrigger asChild>
         <ShadeCard
           aria-label={on ? "Turn clipboard sync off" : "Turn clipboard sync on"}
@@ -85,7 +95,7 @@ export function ClipboardWidget({ provider, id }: { provider: string; id: string
         <Note>Ctrl/Cmd+V on the screen always pastes, with sync on or off.</Note>
         <History entries={history} />
       </ShadePanel>
-    </HoverCard>
+    </ShadeRoot>
   )
 }
 

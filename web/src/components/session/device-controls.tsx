@@ -1,37 +1,31 @@
-import { useQuery } from "@tanstack/react-query"
 import {
   BatteryChargingIcon,
   BatteryFullIcon,
   BatteryLowIcon,
   BatteryMediumIcon,
   GlobeIcon,
-  KeyboardIcon,
-  LanguagesIcon,
   LocateFixedIcon,
   MapPinIcon,
   MoonIcon,
   SunIcon,
   SunMoonIcon,
-  XIcon,
   type LucideIcon,
 } from "lucide-react"
 import { useTheme } from "next-themes"
-import { type ReactNode, useEffect, useEffectEvent, useMemo, useRef, useState } from "react"
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import { type DeviceSettings, type DeviceState, type Location } from "@/api/client"
-import { Combobox, type ComboboxOption } from "@/components/combobox"
+import { Combobox } from "@/components/combobox"
 import { ControlGroup, RailControl } from "@/components/session/rail-control"
 import { RailItem } from "@/components/session/rail-item"
 import { useDevice, useNetwork, useUpdateDevice } from "@/components/session/use-device"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { CITIES, defaultGeo, LOCALES } from "@/lib/device-presets"
-import { baseLayout, desiredLocales, detectLayouts, sameLocales } from "@/lib/keyboard-layouts"
+import { CITIES, defaultGeo } from "@/lib/device-presets"
 import { setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
 
 const defaultBattery = 65
@@ -58,7 +52,6 @@ const themes: Record<ThemeMode, { label: string; icon: LucideIcon; next: ThemeMo
 const placeholders: [string, LucideIcon][] = [
   ["Battery", BatteryFullIcon],
   ["Display", SunIcon],
-  ["Language and region", LanguagesIcon],
 ]
 
 type Props = { s: DeviceState; set: (patch: DeviceSettings) => void; busy: boolean }
@@ -83,7 +76,7 @@ export function DeviceControls({ provider, id, locations }: { provider: string; 
     <>
       <BatteryControl {...props} />
       <DisplayControl {...props} />
-      <LanguageControl {...props} provider={provider} id={id} vpn={locations.length > 0} />
+      {s.canFakeGeo && <GpsControl {...props} provider={provider} id={id} vpn={locations.length > 0} />}
     </>
   )
 }
@@ -290,19 +283,6 @@ function DisplayControl({ s, set, busy }: Props) {
   )
 }
 
-function languageName(tag: string, inLanguage?: string) {
-  try {
-    const name = new Intl.DisplayNames(inLanguage ? [inLanguage] : undefined, { type: "language" }).of(tag) ?? tag
-    return name.charAt(0).toLocaleUpperCase(inLanguage) + name.slice(1)
-  } catch {
-    return tag
-  }
-}
-
-function localeOptions(tags: string[]): ComboboxOption[] {
-  return tags.map((tag) => ({ value: tag, label: languageName(tag, tag), hint: `${languageName(tag)} · ${tag}` }))
-}
-
 function geoName(geo: DeviceState["geo"]) {
   if (!geo) return defaultGeo.name
   const city = CITIES.find(
@@ -311,129 +291,18 @@ function geoName(geo: DeviceState["geo"]) {
   return city?.name ?? `${geo.latitude.toFixed(4)}, ${geo.longitude.toFixed(4)}`
 }
 
-function LanguageControl({ s, set, busy, provider, id, vpn }: Props & { provider: string; id: string; vpn: boolean }) {
-  const { keyboardLayouts } = useScreenPrefs()
-  const detected = useQuery({
-    queryKey: ["keyboard-layouts"],
-    queryFn: detectLayouts,
-    staleTime: Infinity,
-    enabled: keyboardLayouts === null,
-  })
-  const layouts = keyboardLayouts ?? detected.data ?? null
+function GpsControl({ s, set, busy, provider, id, vpn }: Props & { provider: string; id: string; vpn: boolean }) {
   const network = useNetwork(provider, id, vpn)
-  const applied = useRef(false)
-
-  const appOnly = s.languageScope === "app"
-  const applyLayouts = useEffectEvent((l: string[]) => {
-    if (appOnly) return
-    const want = desiredLocales(s.locale, l)
-    if (!sameLocales(want, s.locales)) set({ locales: want })
-  })
-  useEffect(() => {
-    if (!layouts || applied.current) return
-    applied.current = true
-    applyLayouts(layouts)
-  }, [layouts])
-
-  const current = layouts ?? [baseLayout]
-  const setLayouts = (l: string[]) => {
-    setScreenPrefs({ keyboardLayouts: l })
-    set({ locales: desiredLocales(s.locale, l) })
-  }
-  const languages = useMemo(
-    () => localeOptions(LOCALES.includes(s.locale) ? LOCALES : [s.locale, ...LOCALES]),
-    [s.locale],
-  )
-  const relabeled = s.locale !== baseLayout
-
   return (
     <RailControl
-      label="Language and region"
-      icon={LanguagesIcon}
-      changed={relabeled || s.geoOverride}
-      summary={[languageName(s.locale, s.locale), s.geo && `GPS ${geoName(s.geo)}`].filter(Boolean).join(" · ")}
-      onReset={() =>
-        set({
-          ...(relabeled && { locales: appOnly ? [baseLayout] : desiredLocales(baseLayout, current) }),
-          ...(s.geoOverride && { resetGeo: true }),
-        })
-      }
+      label="GPS location"
+      icon={MapPinIcon}
+      changed={s.geoOverride}
+      summary={geoName(s.geo)}
+      onReset={() => set({ resetGeo: true })}
     >
-      <ControlGroup>
-        <Row label={appOnly ? "App language" : "Language"}>
-          <Combobox
-            className="w-44"
-            icon={LanguagesIcon}
-            placeholder="Search languages…"
-            options={languages}
-            value={s.locale}
-            disabled={busy}
-            onChange={(tag) => set({ locales: appOnly ? [tag] : desiredLocales(tag, current) })}
-          />
-        </Row>
-      </ControlGroup>
-      {appOnly ? (
-        <p className="text-muted-foreground text-xs">
-          This phone can&apos;t change its system language without root, so this sets the app&apos;s own language.
-          Keyboard languages are set in the phone&apos;s keyboard.
-        </p>
-      ) : (
-        <KeyboardLayouts
-          layouts={current}
-          guessed={keyboardLayouts === null}
-          disabled={busy || layouts === null}
-          onChange={setLayouts}
-        />
-      )}
-      {s.canFakeGeo && <GeoControl s={s} set={set} busy={busy} vpnCountry={network.data?.country} />}
+      <GeoControl s={s} set={set} busy={busy} vpnCountry={network.data?.country} />
     </RailControl>
-  )
-}
-
-function KeyboardLayouts({
-  layouts,
-  guessed,
-  disabled,
-  onChange,
-}: {
-  layouts: string[]
-  guessed: boolean
-  disabled: boolean
-  onChange: (layouts: string[]) => void
-}) {
-  const options = useMemo(() => localeOptions(LOCALES.filter((l) => !layouts.includes(l))), [layouts])
-  return (
-    <ControlGroup title="Keyboard layouts">
-      <div className="flex flex-wrap gap-1.5">
-        {layouts.map((l) => (
-          <Badge key={l} variant="secondary" className="gap-1 pr-1">
-            {languageName(l, l)}
-            <button
-              type="button"
-              aria-label={`Remove ${l}`}
-              disabled={disabled || layouts.length === 1}
-              className="hover:text-foreground text-muted-foreground rounded-sm disabled:opacity-40"
-              onClick={() => onChange(layouts.filter((x) => x !== l))}
-            >
-              <XIcon className="size-3" />
-            </button>
-          </Badge>
-        ))}
-      </div>
-      <Combobox
-        className="w-full"
-        icon={KeyboardIcon}
-        placeholder="Add a layout…"
-        options={options}
-        value=""
-        disabled={disabled || layouts.length >= 7}
-        onChange={(tag) => onChange([...layouts, tag])}
-      />
-      <p className="text-muted-foreground text-xs">
-        {guessed ? "Picked from your keyboard. " : ""}Added as system languages, so the on-screen keyboard offers them;
-        switch with its globe key or Ctrl+Space. Remembered in this browser.
-      </p>
-    </ControlGroup>
   )
 }
 
@@ -541,15 +410,6 @@ function GeoControl({ s, set, busy, vpnCountry }: Props & { vpnCountry?: string 
         </>
       )}
     </ControlGroup>
-  )
-}
-
-function Row({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="text-sm">{label}</span>
-      {children}
-    </div>
   )
 }
 

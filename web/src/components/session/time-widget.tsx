@@ -1,4 +1,13 @@
-import { CalendarClockIcon, ClockIcon, EarthIcon, MinusIcon, PlusIcon, SearchIcon, ShieldIcon } from "lucide-react"
+import {
+  CalendarClockIcon,
+  ChevronDownIcon,
+  ClockIcon,
+  EarthIcon,
+  MinusIcon,
+  PlusIcon,
+  SearchIcon,
+  ShieldIcon,
+} from "lucide-react"
 import { useMemo, useState } from "react"
 import type { DeviceSettings, DeviceState } from "@/api/client"
 import {
@@ -11,10 +20,10 @@ import {
   ShadeHeader,
   ShadePanel,
   Tile,
+  ShadeRoot,
 } from "@/components/session/shade"
-import { TimeDialog } from "@/components/session/time-dialog"
 import { useDevice, useUpdateDevice } from "@/components/session/use-device"
-import { HoverCard, HoverCardTrigger } from "@/components/ui/hover-card"
+import { HoverCardTrigger } from "@/components/ui/hover-card"
 import { useNow } from "@/hooks/use-now"
 import { browserTimeZone, formatClockOffset } from "@/lib/format"
 import { cn } from "@/lib/utils"
@@ -59,14 +68,13 @@ function deviceFormat(s: DeviceState, options: Intl.DateTimeFormatOptions) {
 export function TimeWidget({ provider, id }: { provider: string; id: string }) {
   const device = useDevice(provider, id)
   const update = useUpdateDevice(provider, id)
-  const [exact, setExact] = useState(false)
   const s = device.data
   const shifted = !!s && Math.abs(s.timeOffset) >= 1500
   const changed = !!s && (shifted || !s.autoTime || s.timeZoneOverride)
 
   return (
     <>
-      <HoverCard openDelay={150} closeDelay={200}>
+      <ShadeRoot>
         <HoverCardTrigger asChild>
           <ShadeCard aria-label="Date and time" changed={changed}>
             {s ? <CardClock s={s} shifted={shifted} /> : <CardLine icon={ClockIcon}>Date and time</CardLine>}
@@ -74,33 +82,26 @@ export function TimeWidget({ provider, id }: { provider: string; id: string }) {
         </HoverCardTrigger>
         <ShadePanel>
           {s ? (
-            <TimeShade
-              s={s}
-              busy={update.isPending}
-              changed={changed}
-              set={(patch) => update.mutate(patch)}
-              onExact={() => setExact(true)}
-            />
+            <TimeShade s={s} busy={update.isPending} changed={changed} set={(patch) => update.mutate(patch)} />
           ) : (
             <Note>Loading the device…</Note>
           )}
         </ShadePanel>
-      </HoverCard>
-      {exact && s && (
-        <TimeDialog state={s} onClose={() => setExact(false)} onSubmit={(patch) => update.mutateAsync(patch)} />
-      )}
+      </ShadeRoot>
     </>
   )
 }
 
 function CardClock({ s, shifted }: { s: DeviceState; shifted: boolean }) {
   const now = useNow() + s.timeOffset
-  const time = useMemo(() => deviceFormat(s, { hour: "2-digit", minute: "2-digit" }), [s])
-  const date = useMemo(() => deviceFormat(s, { weekday: "short", day: "numeric", month: "short" }), [s])
+  const time = useMemo(() => deviceFormat(s, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }), [s])
+  const date = useMemo(() => deviceFormat(s, { day: "numeric", month: "short" }), [s])
   return (
     <>
-      <span className="text-2xl leading-none font-medium tabular-nums">{time.format(now)}</span>
-      <span className="truncate text-xs text-neutral-400">{date.format(now)}</span>
+      <span className="flex min-w-0 items-baseline gap-1.5 text-sm font-semibold tabular-nums">
+        {time.format(now)}
+        <span className="truncate">{date.format(now)}</span>
+      </span>
       <CardLine icon={shifted ? CalendarClockIcon : EarthIcon}>
         {shifted ? formatClockOffset(s.timeOffset) : zoneCity(s.timeZone)}
       </CardLine>
@@ -113,16 +114,17 @@ function TimeShade({
   busy,
   changed,
   set,
-  onExact,
 }: {
   s: DeviceState
   busy: boolean
   changed: boolean
   set: (patch: DeviceSettings) => void
-  onExact: () => void
 }) {
   const now = useNow() + s.timeOffset
-  const time = useMemo(() => deviceFormat(s, { hour: "2-digit", minute: "2-digit", second: "2-digit" }), [s])
+  const time = useMemo(
+    () => deviceFormat(s, { hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }),
+    [s],
+  )
   const date = useMemo(() => deviceFormat(s, { weekday: "long", day: "numeric", month: "long", year: "numeric" }), [s])
   const shifted = Math.abs(s.timeOffset) >= 1500
 
@@ -161,15 +163,7 @@ function TimeShade({
       />
 
       <TimeShift offset={s.timeOffset} disabled={busy} onShift={(timeOffset) => set({ timeOffset })} />
-      <button
-        type="button"
-        disabled={busy}
-        className="flex items-center justify-center gap-2 rounded-full bg-neutral-800 px-4 py-2.5 text-sm text-neutral-100 transition-colors hover:bg-neutral-700 disabled:opacity-50"
-        onClick={onExact}
-      >
-        <CalendarClockIcon className="size-4" />
-        Set an exact moment…
-      </button>
+      <ExactMoment s={s} busy={busy} set={set} />
 
       <TimeZones s={s} busy={busy} set={set} />
     </>
@@ -324,5 +318,133 @@ function TimeZones({ s, busy, set }: { s: DeviceState; busy: boolean; set: (patc
         </p>
       )}
     </Section>
+  )
+}
+
+function offsetTo(at: number) {
+  return at - Date.now()
+}
+
+function pad(n: number) {
+  return String(n).padStart(2, "0")
+}
+
+function localParts(ms: number) {
+  const d = new Date(ms)
+  return {
+    date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+    time: `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`,
+  }
+}
+
+function ExactMoment({ s, busy, set }: { s: DeviceState; busy: boolean; set: (patch: DeviceSettings) => void }) {
+  const mine = browserTimeZone()
+  const [open, setOpen] = useState(false)
+  const [value, setValue] = useState({ date: "", time: "" })
+  const [useMyZone, setUseMyZone] = useState(false)
+  const at = new Date(`${value.date}T${value.time.length === 5 ? `${value.time}:00` : value.time}`).getTime()
+
+  const toggle = () => {
+    if (!open) {
+      setValue(localParts(Date.now() + s.timeOffset))
+      setUseMyZone(false)
+    }
+    setOpen(!open)
+  }
+  const apply = () => {
+    if (Number.isNaN(at)) return
+    set({ timeOffset: offsetTo(at), ...(useMyZone && mine && { timeZone: mine }) })
+    setOpen(false)
+  }
+
+  return (
+    <div className="grid overflow-hidden rounded-3xl bg-neutral-800">
+      <button
+        type="button"
+        aria-expanded={open}
+        disabled={busy}
+        className="flex items-center gap-3 px-4 py-3 text-left text-sm text-neutral-100 transition-colors hover:bg-neutral-700 disabled:opacity-50"
+        onClick={toggle}
+      >
+        <CalendarClockIcon className="size-4 shrink-0" />
+        <span className="flex-1">Set an exact moment</span>
+        <ChevronDownIcon className={cn("size-4 shrink-0 transition-transform duration-200", open && "rotate-180")} />
+      </button>
+      <div
+        className={cn(
+          "grid transition-[grid-template-rows] duration-200 ease-out",
+          open ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+        )}
+      >
+        <form
+          className="grid min-h-0 gap-3 overflow-hidden px-4"
+          inert={!open}
+          onSubmit={(e) => {
+            e.preventDefault()
+            apply()
+          }}
+        >
+          <div className="grid grid-cols-[1fr_auto] gap-2 pt-1">
+            <MomentInput
+              type="date"
+              label="Date"
+              value={value.date}
+              onChange={(date) => setValue((v) => ({ ...v, date }))}
+            />
+            <MomentInput
+              type="time"
+              label="Time"
+              value={value.time}
+              onChange={(time) => setValue((v) => ({ ...v, time }))}
+            />
+          </div>
+          <p className="text-xs text-neutral-400">In your time zone, {zoneName(mine)}. Real-time sync turns off.</p>
+          {mine && mine !== s.timeZone && (
+            <label className="flex items-center justify-between gap-3 text-sm text-neutral-200">
+              Also switch the device to {zoneName(mine)}
+              <input
+                type="checkbox"
+                checked={useMyZone}
+                onChange={(e) => setUseMyZone(e.target.checked)}
+                className="size-4 accent-sky-300"
+              />
+            </label>
+          )}
+          <button
+            type="submit"
+            disabled={busy || Number.isNaN(at)}
+            className="mb-4 rounded-full bg-sky-200 px-4 py-2.5 text-sm font-medium text-sky-950 transition-colors hover:bg-sky-100 disabled:opacity-50"
+          >
+            Set the time
+          </button>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+function MomentInput({
+  type,
+  label,
+  value,
+  onChange,
+}: {
+  type: "date" | "time"
+  label: string
+  value: string
+  onChange: (v: string) => void
+}) {
+  return (
+    <label className="grid gap-1">
+      <span className="px-3 text-[11px] text-neutral-400">{label}</span>
+      <input
+        type={type}
+        step={type === "time" ? 1 : undefined}
+        required
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-10 rounded-full bg-neutral-900 px-3 text-sm text-neutral-100 tabular-nums [color-scheme:dark] outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
+      />
+    </label>
   )
 }

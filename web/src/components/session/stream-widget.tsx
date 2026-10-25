@@ -17,10 +17,11 @@ import {
   ShadeHeader,
   ShadePanel,
   Tile,
+  ShadeRoot,
 } from "@/components/session/shade"
 import { useDevice } from "@/components/session/use-device"
 import { cn } from "@/lib/utils"
-import { HoverCard, HoverCardTrigger } from "@/components/ui/hover-card"
+import { HoverCardTrigger } from "@/components/ui/hover-card"
 import { defaultScreenPrefs, setScreenPrefs, useScreenPrefs, type VideoCodec } from "@/lib/screen-prefs"
 import { codecCost, pickCodec, streamSettings } from "@/lib/stream-settings"
 
@@ -56,7 +57,7 @@ export function StreamWidget({ provider, id, live }: { provider: string; id: str
   const changed = codec !== defaultScreenPrefs.codec || prefs.bitRate !== defaultScreenPrefs.bitRate || st.changed
 
   return (
-    <HoverCard openDelay={150} closeDelay={200}>
+    <ShadeRoot>
       <HoverCardTrigger asChild>
         <ShadeCard aria-label="Stream and keyboard" changed={changed}>
           <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
@@ -160,7 +161,7 @@ export function StreamWidget({ provider, id, live }: { provider: string; id: str
           </button>
         )}
       </ShadePanel>
-    </HoverCard>
+    </ShadeRoot>
   )
 }
 
