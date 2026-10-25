@@ -57,7 +57,7 @@ export function useLaunchTarget(
   const webviews = webviewCapable ? (catalog.data ?? []).filter((w) => !level || w.minSdk <= level) : []
   const webview =
     [chosenWebView, lastWebView(provider?.name ?? "")].find(
-      (id): id is string => id !== null && webviews.some((w) => w.id === id),
+      (id): id is string => id === "" || (id !== null && webviews.some((w) => w.id === id)),
     ) ?? ""
 
   return {
