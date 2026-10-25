@@ -163,7 +163,7 @@ function LanguageGrid({
   onClick: (tag: string) => void
 }) {
   return (
-    <div className="grid grid-cols-4 gap-1.5">
+    <div className="grid grid-cols-3 gap-1.5">
       {tags.map((tag) => {
         const on = selected(tag)
         return (

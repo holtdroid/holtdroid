@@ -10,6 +10,7 @@ import { DeviceRail } from "@/components/session/device-rail"
 import { DeviceScreen } from "@/components/session/device-screen"
 import { useLiveScreen } from "@/components/session/live-screen"
 import { DevToolsPanel } from "@/components/session/devtools-panel"
+import { useMetricsHistory } from "@/components/session/metrics"
 import { MetricsBar } from "@/components/session/metrics-bar"
 import { ScreenSplit } from "@/components/session/screen-split"
 import { AppActions, SessionToolbar } from "@/components/session/session-toolbar"
@@ -46,6 +47,7 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
   })
 
   const state = session?.state === "failed" ? "failed" : (status?.state ?? session?.state)
+  const metrics = useMetricsHistory(provider, id, state === "ready")
   if (state === "ready" && !wasReady) setWasReady(true)
   const manage = session ? canManage(me.data, session) : false
   const adbAllowed =
@@ -168,6 +170,7 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
               display={session.capabilities?.screen}
               locations={caps?.locations ?? []}
               clipboard={caps?.clipboard ?? false}
+              metrics={metrics}
             />
             <DeviceRail
               provider={provider}
@@ -194,7 +197,7 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
           </ScreenSplit>
         )}
       </div>
-      {state === "ready" && <MetricsBar provider={provider} id={id} network={(caps?.locations.length ?? 0) > 0} />}
+      {state === "ready" && <MetricsBar history={metrics} />}
     </div>
   )
 }

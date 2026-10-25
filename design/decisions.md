@@ -2699,7 +2699,9 @@ more: emulators encode in software and faster rarely helps a test). A frame
 rate below the start is remembered, since it is usually about a slow
 connection; quality and a faster frame rate last for one session. The agent
 now reports the display's size and refresh rate. The stream's decode
-numbers moved from the bottom bar into the stream card, and the clipboard
+numbers moved from the bottom bar into the stream card, and the device's
+network traffic into the network card, which already shows the external IP
+the bar used to repeat, and the clipboard
 card keeps the last 10 synced texts to copy again or save. H.264 stays the default because it is the cheapest to encode on
 emulators without hardware encoders; the saved codec falls back to the
 cheapest decodable one.

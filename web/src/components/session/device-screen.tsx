@@ -1,7 +1,7 @@
 import { LockIcon, PowerIcon } from "lucide-react"
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
-import { type Display, type Location, type Screen, sessionBase } from "@/api/client"
+import { type Display, type Location, type Metrics, type Screen, sessionBase } from "@/api/client"
 import { CutoutOverlay } from "@/components/session/cutout-overlay"
 import { displayURL, type LiveScreen, useDecodableCodecs } from "@/components/session/live-screen"
 import { ClipboardWidget } from "@/components/session/clipboard-widget"
@@ -49,6 +49,7 @@ export function DeviceScreen({
   display: shape,
   locations,
   clipboard,
+  metrics,
 }: {
   provider: string
   id: string
@@ -56,6 +57,7 @@ export function DeviceScreen({
   display?: Display
   locations: Location[]
   clipboard: boolean
+  metrics: Metrics[]
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const supported = screenSupported()
@@ -261,7 +263,7 @@ export function DeviceScreen({
           <PhoneButtons provider={provider} id={id} live={live} />
         </div>
         <div className="flex flex-col gap-2">
-          <NetworkWidget provider={provider} id={id} locations={locations} />
+          <NetworkWidget provider={provider} id={id} locations={locations} metrics={metrics} />
           <StreamWidget provider={provider} id={id} live={live} />
           {clipboard && <ClipboardWidget provider={provider} id={id} />}
           <LanguageWidget provider={provider} id={id} />

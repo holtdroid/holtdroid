@@ -66,12 +66,13 @@ fades away under the mouse and lets clicks through to the device.
 A bar at the bottom of the session page shows the load every two seconds:
 device CPU and memory, the app's own CPU and memory per process (WebView
 renderers included), the frames it renders and how many of them are janky,
-network traffic, free space on `/data`, temperatures and, for emulators, the CPU, memory and throttling of the session
+free space on `/data`, temperatures and, for emulators, the CPU, memory and throttling of the session
 Pod (Android, the agent and the VPN sidecar together). Hover an item for
 details. Android in redroid runs on the node's kernel, so its sensor
 readings are the node's. The screen stream's own numbers (frames shown,
 bitrate and dropped frames, as decoded in this browser) are in the stream
-card next to the phone.
+card next to the phone, and the device's network traffic with the external
+IP in the network card.
 
 The device is only measured while a session page is open and visible.
 

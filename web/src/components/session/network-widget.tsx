@@ -1,5 +1,17 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { ActivityIcon, GlobeIcon, PlaneIcon, SignalIcon, UsbIcon, WifiIcon, WifiOffIcon } from "lucide-react"
+import {
+  ActivityIcon,
+  ArrowDownIcon,
+  ArrowDownUpIcon,
+  ArrowUpIcon,
+  GlobeIcon,
+  PlaneIcon,
+  SignalIcon,
+  UsbIcon,
+  WifiIcon,
+  WifiOffIcon,
+  type LucideIcon,
+} from "lucide-react"
 import { useMemo } from "react"
 import { toast } from "sonner"
 import {
@@ -7,16 +19,39 @@ import {
   type DeviceSettings,
   type DeviceState,
   type Location,
+  type Metrics,
   type NetworkProfileInfo,
   unwrap,
 } from "@/api/client"
+import { byteRate } from "@/components/session/metrics"
 import { networkKey, useDevice, useNetwork, useUpdateDevice } from "@/components/session/use-device"
-import { Note, Row, Section, ShadeCard, ShadeHeader, ShadePanel, Tile, ShadeRoot } from "@/components/session/shade"
+import {
+  CardLine,
+  Note,
+  Row,
+  Section,
+  ShadeCard,
+  ShadeHeader,
+  ShadePanel,
+  Tile,
+  ShadeRoot,
+} from "@/components/session/shade"
 import { HoverCardTrigger } from "@/components/ui/hover-card"
 import { rememberLocation } from "@/lib/launch-prefs"
 import { locationFlag } from "@/lib/location"
 
-export function NetworkWidget({ provider, id, locations }: { provider: string; id: string; locations: Location[] }) {
+export function NetworkWidget({
+  provider,
+  id,
+  locations,
+  metrics,
+}: {
+  provider: string
+  id: string
+  locations: Location[]
+  metrics: Metrics[]
+}) {
+  const m = metrics.at(-1)
   const device = useDevice(provider, id)
   const update = useUpdateDevice(provider, id)
   const network = useNetwork(provider, id, locations.length > 0)
@@ -51,6 +86,11 @@ export function NetworkWidget({ provider, id, locations }: { provider: string; i
             <LinkIcon s={s} className="size-3.5 shrink-0" />
             <span className="truncate">{s?.airplaneMode ? "Airplane mode" : (profile?.name ?? linkSummary(s))}</span>
           </span>
+          {m && (
+            <CardLine icon={ArrowDownUpIcon}>
+              ↓ {byteRate(m.device.rxRate)} ↑ {byteRate(m.device.txRate)}
+            </CardLine>
+          )}
         </ShadeCard>
       </HoverCardTrigger>
       <ShadePanel>
@@ -66,6 +106,7 @@ export function NetworkWidget({ provider, id, locations }: { provider: string; i
             current={n?.location}
             country={n?.country}
             ip={n?.externalIp}
+            metrics={metrics}
           />
         ) : (
           <Note>Loading the device…</Note>
@@ -102,6 +143,7 @@ function Shade({
   current,
   country,
   ip,
+  metrics,
 }: {
   s: DeviceState
   busy: boolean
@@ -113,6 +155,7 @@ function Shade({
   current?: string
   country?: string
   ip?: string
+  metrics: Metrics[]
 }) {
   const radios = !s.usbNetwork
   return (
@@ -134,6 +177,7 @@ function Shade({
         }
       />
 
+      {metrics.length > 0 && <Traffic history={metrics} />}
       <div className="grid grid-cols-2 gap-2">
         <Tile icon={WifiIcon} label="Wi-Fi" on={s.wifi} disabled={busy} onClick={() => set({ wifi: !s.wifi })} />
         <Tile
@@ -282,4 +326,49 @@ function linkNumbers(p: NetworkProfileInfo) {
 function bandwidth(kbit?: number) {
   if (!kbit) return "∞"
   return kbit >= 1000 ? `${kbit / 1000} Mbit/s` : `${kbit} kbit/s`
+}
+
+function Traffic({ history }: { history: Metrics[] }) {
+  const last = history.at(-1)
+  if (!last) return null
+  const totals = history.map((h) => h.device.rxRate + h.device.txRate)
+  const top = Math.max(...totals, 1)
+  const points = totals.map((v, i) => `${(i / Math.max(totals.length - 1, 1)) * 100},${30 - (v / top) * 28}`).join(" ")
+  return (
+    <section className="grid gap-1.5">
+      <h4 className="px-1 text-xs font-medium text-neutral-400">Device traffic</h4>
+      <div className="grid grid-cols-2 gap-1.5">
+        <Rate icon={ArrowDownIcon} label="Download" value={last.device.rxRate} />
+        <Rate icon={ArrowUpIcon} label="Upload" value={last.device.txRate} />
+      </div>
+      <svg
+        viewBox="0 0 100 30"
+        preserveAspectRatio="none"
+        className="h-10 w-full rounded-2xl bg-neutral-800"
+        aria-hidden
+      >
+        <polyline
+          points={points}
+          fill="none"
+          vectorEffect="non-scaling-stroke"
+          strokeWidth={1.5}
+          strokeLinejoin="round"
+          className="stroke-sky-300"
+        />
+      </svg>
+      <Note>Everything the device sends and receives, every two seconds over the last minute.</Note>
+    </section>
+  )
+}
+
+function Rate({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: number }) {
+  return (
+    <div className="grid gap-0.5 rounded-2xl bg-neutral-800 px-3 py-2">
+      <span className="flex items-center gap-1 text-sm font-medium tabular-nums">
+        <Icon className="size-3.5 text-sky-300" />
+        {byteRate(value)}
+      </span>
+      <span className="text-[11px] text-neutral-400">{label}</span>
+    </div>
+  )
 }

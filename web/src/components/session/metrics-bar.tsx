@@ -1,9 +1,6 @@
 import {
   ActivityIcon,
-  ArrowDownIcon,
-  ArrowUpIcon,
   CpuIcon,
-  GlobeIcon,
   HardDriveIcon,
   type LucideIcon,
   MemoryStickIcon,
@@ -11,12 +8,11 @@ import {
   ThermometerIcon,
   TriangleAlertIcon,
 } from "lucide-react"
-import { type ReactNode, useState, useSyncExternalStore } from "react"
-import { type Metrics, type Network, sessionBase } from "@/api/client"
-import { useNetwork } from "@/components/session/use-device"
+import type { ReactNode } from "react"
+import type { Metrics } from "@/api/client"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { useEventSource } from "@/hooks/use-event-source"
-import { countryFlag, formatBytes } from "@/lib/format"
+import { historySize } from "@/components/session/metrics"
+import { formatBytes } from "@/lib/format"
 import {
   celsius,
   hottest,
@@ -30,15 +26,7 @@ import {
 } from "@/lib/thermal"
 import { cn } from "@/lib/utils"
 
-const historySize = 30
-
-export function MetricsBar({ provider, id, network }: { provider: string; id: string; network: boolean }) {
-  const visible = useDocumentVisible()
-  const [history, setHistory] = useState<Metrics[]>([])
-  useEventSource<{ metrics: Metrics }>(visible ? `${sessionBase(provider, id)}/v1/metrics` : null, {
-    metrics: (m) => setHistory((h) => [...h.slice(1 - historySize), m]),
-  })
-  const egress = useNetwork(provider, id, network).data
+export function MetricsBar({ history }: { history: Metrics[] }) {
   const m = history.at(-1)
 
   return (
@@ -48,17 +36,17 @@ export function MetricsBar({ provider, id, network }: { provider: string; id: st
           <CPUStat m={m} history={history} />
           <MemoryStat m={m} />
           <FramesStat m={m} history={history} />
-          <NetworkStat m={m} history={history} />
           <StorageStat m={m} />
           <ThermalStat m={m} />
         </>
       ) : (
         <span className="text-muted-foreground">Measuring the device…</span>
       )}
-      <div className="ml-auto flex items-center gap-4">
-        {m?.host && <HostStat host={m.host} />}
-        {network && egress?.externalIp && <EgressStat network={egress} />}
-      </div>
+      {m?.host && (
+        <div className="ml-auto flex items-center gap-4">
+          <HostStat host={m.host} />
+        </div>
+      )}
     </footer>
   )
 }
@@ -154,27 +142,6 @@ function FramesStat({ m, history }: Props) {
   )
 }
 
-function NetworkStat({ m, history }: Props) {
-  const { rxRate, txRate } = m.device
-  return (
-    <Stat
-      icon={ArrowDownIcon}
-      tip={
-        <>
-          <Title>Device network</Title>
-          <Row label="Download" value={byteRate(rxRate)} />
-          <Row label="Upload" value={byteRate(txRate)} />
-        </>
-      }
-    >
-      <Value className="w-16">{byteRate(rxRate)}</Value>
-      <ArrowUpIcon className="text-muted-foreground size-3.5 shrink-0" />
-      <Value className="w-16">{byteRate(txRate)}</Value>
-      <Sparkline values={history.map((h) => h.device.rxRate + h.device.txRate)} level="ok" />
-    </Stat>
-  )
-}
-
 function StorageStat({ m }: { m: Metrics }) {
   const { storageUsed, storageTotal } = m.device
   if (storageTotal <= 0) return null
@@ -256,26 +223,6 @@ function HostStat({ host }: { host: NonNullable<Metrics["host"]> }) {
           throttled {percent(host.throttled)}
         </span>
       )}
-    </Stat>
-  )
-}
-
-function EgressStat({ network }: { network: Network }) {
-  return (
-    <Stat
-      icon={GlobeIcon}
-      tip={
-        <>
-          <Title>Device egress</Title>
-          <Row label="External IP" value={network.externalIp ?? "—"} />
-          {network.country && <Row label="Country" value={network.country.toUpperCase()} />}
-          <Row label="Location" value={network.location} />
-        </>
-      }
-    >
-      <Value className="font-mono">
-        {countryFlag(network.country)} {network.externalIp}
-      </Value>
     </Stat>
   )
 }
@@ -372,16 +319,6 @@ function Meter({ ratio, level: l }: { ratio: number; level: Level }) {
   )
 }
 
-function useDocumentVisible() {
-  return useSyncExternalStore(
-    (onChange) => {
-      document.addEventListener("visibilitychange", onChange)
-      return () => document.removeEventListener("visibilitychange", onChange)
-    },
-    () => document.visibilityState === "visible",
-  )
-}
-
 function processLabel(name: string) {
   if (name.includes(":sandboxed_process")) return "WebView renderer"
   const i = name.indexOf(":")
@@ -401,8 +338,4 @@ const gib = 1024 ** 3
 function bytesPair(used: number, total: number) {
   if (total >= gib) return `${(used / gib).toFixed(1)}/${(total / gib).toFixed(1)} GB`
   return `${Math.round(used / 1024 ** 2)}/${Math.round(total / 1024 ** 2)} MB`
-}
-
-function byteRate(bps: number) {
-  return `${formatBytes(Math.round(bps))}/s`
 }
