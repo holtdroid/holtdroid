@@ -3,6 +3,7 @@ import {
   ArrowRightIcon,
   DatabaseIcon,
   FlaskConicalIcon,
+  GlobeIcon,
   MonitorSmartphoneIcon,
   RocketIcon,
   ShieldCheckIcon,
@@ -34,7 +35,7 @@ import {
 import { Label } from "@/components/ui/label"
 import { useLaunchTarget, useStartSession } from "@/hooks/use-launch-target"
 import { formatBytes, formatRelative } from "@/lib/format"
-import { locationLabel } from "@/lib/location"
+import { locationFlag } from "@/lib/location"
 import { cn } from "@/lib/utils"
 
 type Slot = ProviderView["capacity"]["slots"][number]
@@ -213,11 +214,16 @@ function LaunchFlow({ artifact, onClose }: { artifact: ArtifactView; onClose: ()
               <Section title="Screen" hint="The size is fixed for the session; the density can still be changed later.">
                 <ChoiceGroup label="Screen" className="grid-cols-2 sm:grid-cols-3">
                   {screens.map((s) => (
-                    <ChoiceCard key={s.id} selected={s.id === screen} onSelect={() => setChosenScreen(s.id)}>
-                      <div className="grid h-20 place-items-center">
+                    <ChoiceCard
+                      key={s.id}
+                      selected={s.id === screen}
+                      onSelect={() => setChosenScreen(s.id)}
+                      className="flex-row items-center gap-3"
+                    >
+                      <div className="grid w-14 shrink-0 place-items-center">
                         <PhonePreview width={s.width} height={s.height} cutout={s.cutout} />
                       </div>
-                      <div className="min-w-0">
+                      <div className="min-w-0 pr-4">
                         <div className="text-sm font-medium">{s.label}</div>
                         <div className="text-muted-foreground text-xs tabular-nums">
                           {s.width}×{s.height} · {s.dpi} dpi
@@ -269,11 +275,14 @@ function LaunchFlow({ artifact, onClose }: { artifact: ArtifactView; onClose: ()
                       type="button"
                       role="radio"
                       aria-checked={l.id === location}
-                      size="sm"
+                      className="h-9 gap-2 px-3"
                       variant={l.id === location ? "default" : "outline"}
                       onClick={() => setChosenLocation(l.id)}
                     >
-                      {locationLabel(l)}
+                      <span className="text-lg leading-none">
+                        {locationFlag(l) ?? <GlobeIcon className="size-4" />}
+                      </span>
+                      {l.label}
                       {l.id === defaultLocation && <span className="opacity-60">· default</span>}
                     </Button>
                   ))}
