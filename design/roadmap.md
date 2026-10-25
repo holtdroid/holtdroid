@@ -265,7 +265,7 @@ Goal: several Android devices per node instead of one emulator per node.
 - [x] Verified on a k3s node in a scratch namespace: boot in about 6 s, install, the app under Frida, VPN egress through the gateway
 - [x] Isolation on dedicated session nodes (decision #83): egress NetworkPolicy (DNS, the api and the internet only; LAN, nodes and other Pods unreachable from Android), the agent container unprivileged, users' ADB behind `redroid.shell` (allowlist by default, no Terminal tab), Android init kept off the node's sysctls
 - [x] Screens picked at launch (presets of popular budget phones; `redroid.screens`) with emulated display cutouts; Android version picked at launch (`redroid.versions`, one image tag per version)
-- [ ] Verify end to end on the live deployment (screen, DevTools, clipboard, audio, location switch, app data, ADB tools)
+- [x] Verified on the live deployment on 2026-10-25 (sessions on k3s-3: boot, install, Frida, DevTools target, screenshot, metrics, location switch, egress policy); clipboard, audio, app data and the ADB tabs still to be tried by hand in the browser
 - [ ] Network speed profiles through `tc netem` on the tun (`sch_netem`, `ifb` for downloads)
 - [ ] The session wallpaper on redroid: find why attaching to `system_server` after the install breaks frida-server
 - [ ] A session's root that can't reach the node: user namespaces were tried and dropped (decision #83); next candidates are a per-session binder allowlist from a node helper, token-authenticated frida-server and a non-root adbd for users

@@ -172,8 +172,9 @@ deployment"):
 
 ## Next steps, in order
 
-1. Redroid (Phase 8): verify the live deployment after the move to the
-   dedicated session node, then network speed profiles with `tc netem`, the
+1. Redroid (Phase 8): try clipboard, audio, app data and the ADB tabs by
+   hand in the browser on the live deployment (sessions run on k3s-3 since
+   2026-10-25), then network speed profiles with `tc netem`, the
    wallpaper, and the next isolation steps of decision #83 (binder devices
    from a node helper so the container can drop `privileged`, a token on
    frida-server, a non-root adbd for users).
