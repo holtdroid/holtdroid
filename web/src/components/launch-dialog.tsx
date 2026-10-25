@@ -4,9 +4,9 @@ import {
   DatabaseIcon,
   FlaskConicalIcon,
   GlobeIcon,
+  LayoutGridIcon,
   MonitorSmartphoneIcon,
   RocketIcon,
-  SearchIcon,
   ShieldCheckIcon,
   SmartphoneIcon,
   SparklesIcon,
@@ -19,8 +19,8 @@ import { AppIcon } from "@/components/app-icon"
 import { artifactTitle } from "@/components/artifact-list"
 import { AndroidVersionCard } from "@/components/launch/android-version"
 import { ChoiceCard, ChoiceGroup, Section } from "@/components/launch/choice-card"
-import { PhonePreview } from "@/components/launch/phone-preview"
-import { Combobox } from "@/components/combobox"
+import { DevicePicker } from "@/components/launch/device-picker"
+import { ScreenCard } from "@/components/launch/screen-card"
 import { WebViewChoice } from "@/components/launch/webview-choice"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -139,10 +139,10 @@ function LaunchFlow({ artifact, onClose }: { artifact: ArtifactView; onClose: ()
     artifact.app && artifact.app.abis.length > 0 && abis ? !artifact.app.abis.some((abi) => abis.includes(abi)) : false
   const slots = provider?.capacity.slots ?? []
   const virtual = provider ? isVirtual(provider) : false
-  const generic = screens.filter((s) => !s.brand)
-  const catalog = screens.filter((s) => s.brand)
-  const chosenDevice = catalog.find((s) => s.id === screen)
-  const cards = chosenDevice ? [...generic, chosenDevice] : generic
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const shortlist = screens.slice(0, 5)
+  const chosen = screens.find((s) => s.id === screen)
+  const visibleScreens = chosen && !shortlist.includes(chosen) ? [...shortlist.slice(0, 4), chosen] : shortlist
 
   const submit = () => {
     if (usable.length === 0) return
@@ -219,43 +219,35 @@ function LaunchFlow({ artifact, onClose }: { artifact: ArtifactView; onClose: ()
             {virtual && screens.length > 1 && (
               <Section title="Screen" hint="The size is fixed for the session; the density can still be changed later.">
                 <ChoiceGroup label="Screen" className="grid-cols-2 sm:grid-cols-3">
-                  {cards.map((s) => (
-                    <ChoiceCard
+                  {visibleScreens.map((s) => (
+                    <ScreenCard
                       key={s.id}
+                      display={s}
                       selected={s.id === screen}
                       onSelect={() => setChosenScreen(s.id)}
-                      className="flex-row items-center gap-3"
-                    >
-                      <div className="grid w-14 shrink-0 place-items-center">
-                        <PhonePreview display={s} />
-                      </div>
-                      <div className="min-w-0 pr-4">
-                        <div className="text-sm font-medium">{s.brand ? `${s.brand} ${s.label}` : s.label}</div>
-                        <div className="text-muted-foreground text-xs tabular-nums">
-                          {s.width}×{s.height} · {s.dpi} dpi
-                        </div>
-                        <div className="text-muted-foreground text-xs tabular-nums">
-                          {Math.round((s.width * 160) / s.dpi)}×{Math.round((s.height * 160) / s.dpi)} CSS px
-                        </div>
-                        {s.like && <div className="text-muted-foreground mt-0.5 line-clamp-2 text-xs">{s.like}</div>}
-                      </div>
-                    </ChoiceCard>
+                    />
                   ))}
+                  <button
+                    type="button"
+                    onClick={() => setPickerOpen(true)}
+                    className="text-muted-foreground hover:bg-muted/50 hover:text-foreground focus-visible:ring-ring/50 flex min-w-0 items-center gap-3 rounded-xl border border-dashed p-3 text-left transition outline-none focus-visible:ring-3"
+                  >
+                    <span className="bg-muted grid size-10 shrink-0 place-items-center rounded-lg">
+                      <LayoutGridIcon className="size-5" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="text-foreground block text-sm font-medium">More devices</span>
+                      <span className="block text-xs">{screens.length - visibleScreens.length} more, with search</span>
+                    </span>
+                  </button>
                 </ChoiceGroup>
-                {catalog.length > 0 && (
-                  <Combobox
-                    options={catalog.map((d) => ({
-                      value: d.id,
-                      label: `${d.brand} ${d.label}`,
-                      hint: `${d.width}×${d.height}`,
-                    }))}
-                    value={catalog.some((d) => d.id === screen) ? (screen ?? "") : ""}
-                    onChange={setChosenScreen}
-                    placeholder={`Or search ${catalog.length} real devices…`}
-                    icon={SearchIcon}
-                    className="w-full sm:w-80"
-                  />
-                )}
+                <DevicePicker
+                  open={pickerOpen}
+                  onOpenChange={setPickerOpen}
+                  screens={screens}
+                  selected={screen}
+                  onSelect={setChosenScreen}
+                />
               </Section>
             )}
 

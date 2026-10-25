@@ -2518,8 +2518,12 @@ edge); the Android overlay that gives apps the insets is derived from the
 shape (a centered circle or capsule is `hole`, a left one `corner`, a drop or
 notch `tall`), and a screen that only names an overlay gets a stock shape.
 The UI draws the shape, the camera inside it and the black rounded corners
-over the stream, and the launch dialog shows the generic screens as cards and
-the real devices in a search. The numbers are hand-collected approximations.
+over the stream. The launch dialog shows five screens as cards (the chosen
+one always among them) and a "More devices" card that opens a wider dialog
+with every screen, grouped by brand, with previews, brand chips and search.
+A catalog device without a known corner radius gets 12 to 14 dp, and the
+previews round their corners a little more than real life so they read as
+phones. The numbers are hand-collected approximations.
 No outside dataset is copied: the closest open one, gmobile's display-panel
 files, is GPL-3 and covers few Android phones, so it only served as a
 cross-check of a few sizes. A Firebase Test Lab export would give exact

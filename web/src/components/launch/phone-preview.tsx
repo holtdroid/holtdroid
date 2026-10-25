@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils"
 
 export function PhonePreview({ display, className }: { display: Display; className?: string }) {
   const { w, h } = screenDp(display)
-  const r = Math.min(Math.max(display.radius ?? 0, w * 0.04), w / 2)
+  const r = Math.min(Math.max(display.radius ?? 0, w * 0.15), w / 2)
   return (
     <svg viewBox={`0 0 ${w} ${h}`} className={cn("text-foreground h-20 w-auto", className)} aria-hidden>
       <rect width={w} height={h} rx={r} fill="currentColor" fillOpacity="0.08" />
