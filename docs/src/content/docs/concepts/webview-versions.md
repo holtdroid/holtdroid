@@ -21,7 +21,10 @@ Android version. It lists:
 - one card per Chromium milestone in the catalog, marked with the release
   channels it is on today (Stable, Beta, Dev, Canary).
 
-Only builds that install on the chosen Android version are shown. The choice
+Only builds that work on the chosen Android version are shown. Chromium 149
+and later need Android 14 or 15. On Android 11, 12 and 13 they abort as
+soon as an app creates a WebView, so there the newest choice is Chromium
+145 (148 with `extra: [148]`). The choice
 is remembered per provider and reused by quick launch. While the session
 starts, the progress shows "Installing WebView …", which adds a few seconds.
 The session header then shows the installed version. To compare versions,
@@ -117,5 +120,8 @@ cache.
   Google, so a snapshot can't replace it.
 - x86_64 builds from Chromium 129 on; earlier versions only as a built-in
   WebView.
+- Chromium 149 and later only on Android 14 and 15. The sync job's
+  `requirements` rules record this as `requiresSdk` in the catalog, and the
+  api refuses a build the chosen Android version can't run.
 - A WebView that fails to install fails the session, and the reason says
   why.

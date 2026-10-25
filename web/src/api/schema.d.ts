@@ -1326,7 +1326,7 @@ export interface components {
             milestone: number;
             /**
              * Format: int64
-             * @description the oldest Android API level it installs on
+             * @description the oldest Android API level it works on: the APK's minSdk, or the catalog's requiresSdk when that is higher
              */
             minSdk: number;
             /** Format: date-time */

@@ -2482,6 +2482,16 @@ versions without a history. Before the change, a spike on a live session
   The choice is remembered per provider and reused by quick launch. The
   session header shows the installed version.
 
+A second live test (2026-10-25, all five images) found that snapshots from
+Chromium 149 on abort on Android 11, 12 and 13. The abort happens as soon
+as an app creates a WebView, with
+`libc++ Hardening assertion this->has_value() failed`, with or without
+Frida. 148 and older work there, and Android 14 and 15 run every build.
+Their manifests still say minSdk 29, so the sync job has `requirements`
+rules (default `{from: 149, minSdk: 34}`) that write `requiresSdk`. The
+api's `minSdk` is the higher of the two: the UI filters on it, and
+`createSession` refuses a build the requested Android version can't run.
+
 **Consequences.** Versions before Chromium 129 have no x86_64 snapshots;
 for those, the built-in WebView (125 to 128) is the only option. A snapshot
 is a main-branch build near the milestone's last Canary, not the shipped

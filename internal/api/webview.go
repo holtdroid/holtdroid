@@ -31,7 +31,7 @@ type WebViewView struct {
 	Version   string    `json:"version"`
 	Milestone int       `json:"milestone"`
 	Channels  []string  `json:"channels" doc:"Android release channels this milestone is on now: stable, beta, dev, canary"`
-	MinSDK    int       `json:"minSdk" doc:"the oldest Android API level it installs on"`
+	MinSDK    int       `json:"minSdk" doc:"the oldest Android API level it works on: the APK's minSdk, or the catalog's requiresSdk when that is higher"`
 	Released  time.Time `json:"released"`
 	Size      int64     `json:"size"`
 }
@@ -64,6 +64,7 @@ func webviewOf(a source.Artifact) (webviewBuild, bool) {
 	}
 	milestone, _ := strconv.Atoi(t["milestone"])
 	minSDK, _ := strconv.Atoi(t["minSdk"])
+	requires, _ := strconv.Atoi(t["requiresSdk"])
 	channels := []string{}
 	for c := range strings.SplitSeq(t["channel"], ",") {
 		if c = strings.TrimSpace(c); c != "" {
@@ -73,7 +74,7 @@ func webviewOf(a source.Artifact) (webviewBuild, bool) {
 	return webviewBuild{
 		view: WebViewView{
 			ID: encodeID(a.ID), Title: cmp.Or(a.Meta.Title, "WebView "+version), Version: version, Milestone: milestone,
-			Channels: channels, MinSDK: minSDK, Released: a.UploadedAt(), Size: a.Size,
+			Channels: channels, MinSDK: max(minSDK, requires), Released: a.UploadedAt(), Size: a.Size,
 		},
 		frontend: t["frontend"],
 	}, true
@@ -118,15 +119,21 @@ func (c *webviewCatalog) get(ctx context.Context, id string) (string, webviewBui
 	return key, b, nil
 }
 
+// apiLevels are the Android versions virtual devices offer.
+var apiLevels = map[string]int{"11": 30, "12": 31, "13": 33, "14": 34, "15": 35, "16": 36}
+
 // webviewFor resolves a launch's WebView choice and keeps only the
 // providers that can install it.
-func (s *Server) webviewFor(ctx context.Context, id string, candidates []string) (*contract.WebViewInstall, []string, error) {
+func (s *Server) webviewFor(ctx context.Context, id, android string, candidates []string) (*contract.WebViewInstall, []string, error) {
 	if id == "" {
 		return nil, candidates, nil
 	}
 	_, b, err := s.webviews.get(ctx, id)
 	if err != nil {
 		return nil, nil, err
+	}
+	if level, ok := apiLevels[android]; ok && b.view.MinSDK > level {
+		return nil, nil, fmt.Errorf("%w: %s needs Android API level %d, Android %s is %d", contract.ErrInvalid, b.view.Title, b.view.MinSDK, android, level)
 	}
 	var able []string
 	for _, name := range candidates {

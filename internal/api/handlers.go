@@ -438,7 +438,7 @@ func (s *Server) createSession(ctx context.Context, who auth.Identity, req launc
 		}
 	}
 
-	webview, candidates, err := s.webviewFor(ctx, req.webview, candidates)
+	webview, candidates, err := s.webviewFor(ctx, req.webview, req.android, candidates)
 	if err != nil {
 		return SessionView{}, err
 	}
