@@ -162,6 +162,7 @@ func (p *Provider) Create(_ context.Context, req contract.CreateSession) (contra
 		CreatedAt:    p.now().UTC(),
 		LastActivity: p.now().UTC(),
 	}, p.cfg.StepDelay, p.offers, req)
+	d.now = p.now
 	p.sessions[id] = d
 	return d.session(), nil
 }

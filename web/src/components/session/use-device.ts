@@ -26,7 +26,7 @@ export function useDevice(provider: string, id: string) {
   return useQuery({
     queryKey: deviceKey(provider, id),
     queryFn: () => unwrap(client.GET("/v1/device")),
-    refetchInterval: 30_000,
+    refetchInterval: (q) => (q.state.data?.route?.moving ? 1_000 : 30_000),
   })
 }
 

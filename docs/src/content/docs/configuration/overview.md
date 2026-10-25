@@ -120,7 +120,8 @@ providers:
 ### GPS map
 
 The GPS panel of a session shows a map: click it or drag the marker to fake
-the device's position there. The tiles come from
+the device's position there, or click points for it to walk, run or drive
+through. The tiles come from
 [OpenFreeMap](https://openfreemap.org), which needs no API key, through the
 api: the browser only talks to the portal, and the tile server sees the
 api's address and User-Agent, never the user's cookies.

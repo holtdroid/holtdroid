@@ -32,6 +32,9 @@ type device struct {
 	screen    contract.Screen
 	settings  contract.DeviceState
 	unmuteTo  int
+	now       func() time.Time
+	route     *contract.GeoRoute
+	routeFrom time.Time
 	subs      map[chan struct{}]struct{}
 	done      chan struct{}
 	offers    func(location string) bool

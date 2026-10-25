@@ -9,6 +9,7 @@ import (
 	"image/color"
 	"image/png"
 	"slices"
+	"time"
 
 	"github.com/holtdroid/holtdroid/internal/contract"
 	"github.com/holtdroid/holtdroid/internal/netem"
@@ -46,6 +47,11 @@ func (d *device) Device(context.Context) (contract.DeviceState, error) {
 	defer d.mu.Unlock()
 	s := d.settings
 	s.Locales = slices.Clone(s.Locales)
+	if d.route != nil {
+		pt, st := d.route.State(d.clock().Sub(d.routeFrom).Seconds())
+		st.Points = slices.Clone(st.Points)
+		s.Geo, s.Route = &pt, &st
+	}
 	return s, nil
 }
 
@@ -100,11 +106,20 @@ func (d *device) UpdateDevice(_ context.Context, in contract.DeviceSettings) (co
 			s.Locales = slices.Clone(in.Locales)
 			s.Locale = s.Locales[0]
 		}
+		if d.route != nil && (in.Geo != nil || in.ResetGeo || in.StopRoute || in.Route != nil) {
+			pt, _ := d.route.State(d.clock().Sub(d.routeFrom).Seconds())
+			s.Geo, d.route = &pt, nil
+		}
 		switch {
 		case in.Geo != nil:
 			s.Geo = &contract.GeoPoint{Latitude: in.Geo.Latitude, Longitude: in.Geo.Longitude}
+			s.GeoOverride = true
 		case in.ResetGeo:
-			s.Geo = nil
+			s.Geo, s.GeoOverride = nil, false
+		case in.Route != nil:
+			r := *in.Route
+			r.Points = slices.Clone(r.Points)
+			d.route, d.routeFrom, s.GeoOverride = &r, d.clock(), true
 		}
 		set(&s.AutoTime, in.AutoTime)
 		switch {
@@ -173,6 +188,13 @@ func (d *device) Screenshot(context.Context) ([]byte, error) {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+func (d *device) clock() time.Time {
+	if d.now == nil {
+		return time.Now()
+	}
+	return d.now()
 }
 
 func set[T any](dst *T, v *T) {

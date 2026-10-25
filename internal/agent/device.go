@@ -28,11 +28,14 @@ type Controls struct {
 	su         bool
 	now        func() time.Time
 
-	shaper networkShaper
+	shaper    networkShaper
+	routeTick time.Duration
 
+	geoMu       sync.Mutex
 	mu          sync.Mutex
 	geo         *contract.GeoPoint
 	geoOverride bool
+	route       *routeRun
 	tzOverride  bool
 	vpnTZ       string
 	unmuteTo    int
@@ -58,7 +61,7 @@ func (c *Controls) resetNetwork(ctx context.Context) error {
 // su runs setting changes through su (a rooted phone), otherwise the shell is
 // already root (redroid) or the change needs none.
 func NewControls(dev Device, localesDex string, root, su bool) *Controls {
-	return &Controls{dev: dev, localesDex: localesDex, root: root || su, su: su, now: time.Now}
+	return &Controls{dev: dev, localesDex: localesDex, root: root || su, su: su, now: time.Now, routeTick: time.Second}
 }
 
 // exec runs a setting-changing command, as root through su on a rooted phone.
@@ -196,6 +199,11 @@ func (c *Controls) State(ctx context.Context) (contract.DeviceState, error) {
 		c.mu.Lock()
 		s.Geo = c.geo
 		s.GeoOverride = c.geoOverride
+		if r := c.route; r != nil {
+			_, st := r.route.State(c.now().Sub(r.start).Seconds())
+			st.Points = slices.Clone(st.Points)
+			s.Route = &st
+		}
 		s.CanFakeGeo = true
 		s.CanSimulateBattery = true
 		c.mu.Unlock()
@@ -352,6 +360,9 @@ func (c *Controls) Update(ctx context.Context, in contract.DeviceSettings) (cont
 			}
 		}
 	}
+	if in.Geo != nil || in.ResetGeo || in.StopRoute || in.Route != nil {
+		c.stopRoute()
+	}
 	if in.Geo != nil || in.ResetGeo {
 		if err := c.setGeo(ctx, in.Geo); err != nil {
 			return contract.DeviceState{}, err
@@ -359,6 +370,11 @@ func (c *Controls) Update(ctx context.Context, in contract.DeviceSettings) (cont
 		c.mu.Lock()
 		c.geoOverride = in.Geo != nil
 		c.mu.Unlock()
+	}
+	if in.Route != nil {
+		if err := c.startRoute(ctx, *in.Route); err != nil {
+			return contract.DeviceState{}, err
+		}
 	}
 	if len(in.Locales) > 0 && c.appLocales != "" {
 		if _, err := c.dev.Shell(ctx, "cmd locale set-app-locales "+c.appLocales+" --user 0 --locales "+in.Locales[0]); err != nil {
@@ -466,6 +482,8 @@ func (c *Controls) setGeo(ctx context.Context, geo *contract.GeoPoint) error {
 	if !c.root {
 		return fmt.Errorf("%w: this device can't fake its location", contract.ErrInvalid)
 	}
+	c.geoMu.Lock()
+	defer c.geoMu.Unlock()
 	if err := c.setGeoRoot(ctx, geo); err != nil {
 		return err
 	}
@@ -501,6 +519,77 @@ func (c *Controls) setGeoRoot(ctx context.Context, geo *contract.GeoPoint) error
 			"cmd location providers set-test-provider-location "+p+" --location "+lat+","+lng)
 	}
 	_, err := c.dev.Shell(ctx, strings.Join(cmds, "\n"))
+	return err
+}
+
+type routeRun struct {
+	route  contract.GeoRoute
+	start  time.Time
+	cancel context.CancelFunc
+}
+
+func (c *Controls) startRoute(ctx context.Context, route contract.GeoRoute) error {
+	if len(route.Points) < 2 || route.Speed <= 0 {
+		return fmt.Errorf("%w: a route needs two points and a speed", contract.ErrInvalid)
+	}
+	route.Points = slices.Clone(route.Points)
+	if err := c.setGeo(ctx, &route.Points[0]); err != nil {
+		return err
+	}
+	runCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
+	run := &routeRun{route: route, start: c.now(), cancel: cancel}
+	c.mu.Lock()
+	c.route, c.geoOverride = run, true
+	c.mu.Unlock()
+	go c.drive(runCtx, run)
+	return nil
+}
+
+func (c *Controls) stopRoute() {
+	c.mu.Lock()
+	run := c.route
+	c.route = nil
+	c.mu.Unlock()
+	if run != nil {
+		run.cancel()
+	}
+}
+
+// drive moves the test providers along the route every routeTick until it is
+// stopped or, without loop, reaches its last point.
+func (c *Controls) drive(ctx context.Context, run *routeRun) {
+	t := time.NewTicker(c.routeTick)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
+		pt, st := run.route.State(c.now().Sub(run.start).Seconds())
+		c.geoMu.Lock()
+		if ctx.Err() == nil {
+			if err := c.moveGeoRoot(ctx, pt); err != nil {
+				_ = c.setGeoRoot(ctx, &pt)
+			}
+			c.mu.Lock()
+			c.geo = &pt
+			c.mu.Unlock()
+		}
+		c.geoMu.Unlock()
+		if !st.Moving {
+			return
+		}
+	}
+}
+
+func (c *Controls) moveGeoRoot(ctx context.Context, pt contract.GeoPoint) error {
+	loc := strconv.FormatFloat(pt.Latitude, 'f', 7, 64) + "," + strconv.FormatFloat(pt.Longitude, 'f', 7, 64)
+	cmds := make([]string, 0, len(mockProviders))
+	for _, p := range mockProviders {
+		cmds = append(cmds, "cmd location providers set-test-provider-location "+p+" --location "+loc)
+	}
+	_, err := c.dev.Shell(ctx, strings.Join(cmds, " && "))
 	return err
 }
 

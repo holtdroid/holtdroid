@@ -98,7 +98,11 @@ hybrid apps, support engineers reproducing a customer bug.
    it opens the rest:
    - **GPS location** (on devices that can fake it): follows the VPN
      location unless you override it with a click on the map, a city,
-     coordinates or your own position.
+     coordinates or your own position. **Move along a route** walks, runs or
+     drives the device through points you click on the map, in straight
+     lines and optionally in a loop; it keeps going until you stop it, even
+     with the tab closed. Apps see the position move but no speed or
+     bearing.
 
    An amber dot marks a section whose settings differ from the defaults, and
    its popup has a reset button.

@@ -365,6 +365,7 @@ type DeviceState struct {
 	TimeZoneOverride   bool                 `json:"timeZoneOverride" doc:"the time zone is a session override set by the user; otherwise it follows the VPN location"`
 	VPNTimeZone        string               `json:"vpnTimeZone,omitempty" doc:"the active VPN location's time zone; empty when it has none"`
 	GeoOverride        bool                 `json:"geoOverride" doc:"the GPS is a session override set by the user; otherwise it follows the VPN location"`
+	Route              *GeoRouteState       `json:"route,omitempty" doc:"the route geo is moving along; empty while it stands still"`
 	CanFakeGeo         bool                 `json:"canFakeGeo"`
 	CanSimulateBattery bool                 `json:"canSimulateBattery" doc:"the battery level and charging can be set; battery saver works everywhere"`
 	USBNetwork         bool                 `json:"usbNetwork" doc:"the device reaches the internet over USB through the host, so Wi-Fi and mobile data are off on purpose"`
@@ -405,6 +406,8 @@ type DeviceSettings struct {
 	Locales        []string        `json:"locales,omitempty" minItems:"1" maxItems:"8" doc:"the system languages in order: the first sets the UI language, the rest add their keyboard layouts"`
 	Geo            *GeoPoint       `json:"geo,omitempty" doc:"fakes the GPS position"`
 	ResetGeo       bool            `json:"resetGeo,omitempty" doc:"puts the default GPS position back"`
+	Route          *GeoRoute       `json:"route,omitempty" doc:"moves the GPS from the first point along the rest; geo, resetGeo or stopRoute stop it"`
+	StopRoute      bool            `json:"stopRoute,omitempty" doc:"stops the route where it is and keeps that position"`
 	ResetTimeZone  bool            `json:"resetTimeZone,omitempty" doc:"goes back to the VPN location's time zone"`
 	AutoTime       *bool           `json:"autoTime,omitempty" doc:"true syncs the clock with real time and keeps it synced"`
 	TimeOffset     *int64          `json:"timeOffset,omitempty" minimum:"-3155760000000" maximum:"3155760000000" doc:"sets the device clock to real time plus this many milliseconds and turns autoTime off"`

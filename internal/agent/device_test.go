@@ -405,3 +405,47 @@ func TestFollowLocationRooted(t *testing.T) {
 		t.Fatalf("override should keep the location from moving the GPS: %q", dev.cmds)
 	}
 }
+
+func TestControlsRoute(t *testing.T) {
+	ctx := context.Background()
+	start := time.Unix(1_760_000_000, 0)
+	var mu sync.Mutex
+	now := start
+	dev := &scriptedDevice{clock: "1760000000", state: "level=50\n"}
+	c := NewControls(dev, "", true, false)
+	c.routeTick = time.Millisecond
+	c.now = func() time.Time { mu.Lock(); defer mu.Unlock(); return now }
+	route := contract.GeoRoute{Points: []contract.GeoPoint{{Latitude: 0, Longitude: 0}, {Latitude: 0, Longitude: 0.01}}, Speed: 10}
+	if _, err := c.Update(ctx, contract.DeviceSettings{Route: &route}); err != nil {
+		t.Fatal(err)
+	}
+	mu.Lock()
+	now = start.Add(time.Duration(contract.Distance(route.Points[0], route.Points[1])/20*1e9) * time.Nanosecond)
+	mu.Unlock()
+	halfway := "cmd location providers set-test-provider-location gps --location 0.0000000,0.0050000 && cmd location providers set-test-provider-location network --location 0.0000000,0.0050000"
+	waitFor(t, func() bool {
+		dev.mu.Lock()
+		defer dev.mu.Unlock()
+		return slices.Contains(dev.cmds, halfway)
+	})
+	s, err := c.State(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Route == nil || !s.Route.Moving || math.Abs(s.Route.Travelled-s.Route.Length/2) > 1 || !s.GeoOverride {
+		t.Fatalf("state while moving = %+v", s.Route)
+	}
+	if _, err := c.Update(ctx, contract.DeviceSettings{StopRoute: true}); err != nil {
+		t.Fatal(err)
+	}
+	dev.mu.Lock()
+	n := len(dev.cmds)
+	dev.mu.Unlock()
+	time.Sleep(20 * time.Millisecond)
+	s, _ = c.State(ctx)
+	dev.mu.Lock()
+	defer dev.mu.Unlock()
+	if s.Route != nil || !s.GeoOverride || s.Geo == nil || math.Abs(s.Geo.Longitude-0.005) > 1e-6 || len(dev.cmds) != n {
+		t.Fatalf("after stop: route %+v geo %+v, %d more commands", s.Route, s.Geo, len(dev.cmds)-n)
+	}
+}

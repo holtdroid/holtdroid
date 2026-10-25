@@ -461,6 +461,10 @@ export interface components {
             resetTimeZone?: boolean;
             /** Format: int64 */
             rotation?: number;
+            /** @description moves the GPS from the first point along the rest; geo, resetGeo or stopRoute stop it */
+            route?: components["schemas"]["GeoRoute"];
+            /** @description stops the route where it is and keeps that position */
+            stopRoute?: boolean;
             /**
              * Format: int64
              * @description sets the device clock to real time plus this many milliseconds and turns autoTime off
@@ -524,6 +528,8 @@ export interface components {
             refreshRate: number;
             /** Format: int64 */
             rotation: number;
+            /** @description the route geo is moving along; empty while it stands still */
+            route?: components["schemas"]["GeoRouteState"];
             /** Format: int64 */
             screenHeight: number;
             /**
@@ -601,6 +607,38 @@ export interface components {
             latitude: number;
             /** Format: double */
             longitude: number;
+        };
+        GeoRoute: {
+            /** @description after the last point head back to the first and go round again */
+            loop?: boolean;
+            points: components["schemas"]["GeoPoint"][];
+            /**
+             * Format: double
+             * @description metres per second
+             */
+            speed: number;
+        };
+        GeoRouteState: {
+            /**
+             * Format: double
+             * @description metres of one pass, back to the first point included with loop
+             */
+            length: number;
+            /** @description after the last point head back to the first and go round again */
+            loop?: boolean;
+            /** @description false once a route without loop has reached its last point */
+            moving: boolean;
+            points: components["schemas"]["GeoPoint"][];
+            /**
+             * Format: double
+             * @description metres per second
+             */
+            speed: number;
+            /**
+             * Format: double
+             * @description metres covered in the current pass
+             */
+            travelled: number;
         };
         Health: {
             ok: boolean;

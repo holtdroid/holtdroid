@@ -4,6 +4,7 @@ import { toast } from "sonner"
 import { type DeviceSettings, type DeviceState, type Location } from "@/api/client"
 import { useMap } from "@/api/queries"
 import { Combobox } from "@/components/combobox"
+import { RouteControl, routeLine } from "@/components/session/geo-route"
 import { ControlGroup, RailControl } from "@/components/session/rail-control"
 import { RailSection } from "@/components/session/rail-item"
 import { useDevice, useNetwork, useUpdateDevice } from "@/components/session/use-device"
@@ -11,6 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { CITIES, defaultGeo } from "@/lib/device-presets"
+import type { Point } from "@/lib/geo"
 
 const GeoMap = lazy(() => import("@/components/session/geo-map"))
 
@@ -79,6 +81,13 @@ function GeoControl({ s, set, busy, vpnCountry }: Props & { vpnCountry?: string 
   const valid = !!point && Math.abs(point.latitude) <= 90 && Math.abs(point.longitude) <= 180
   const goTo = (latitude: number, longitude: number) => set({ geo: { latitude, longitude } })
   const map = useMap().data
+  const [plan, setPlan] = useState<Point[] | null>(null)
+  const here = s.geo ?? defaultGeo
+  const route = s.route
+  const line = useMemo(() => {
+    if (plan) return [s.geo ?? defaultGeo, ...plan]
+    return route ? routeLine(route) : undefined
+  }, [plan, route, s.geo])
 
   const locate = () => {
     setLocating(true)
@@ -105,15 +114,21 @@ function GeoControl({ s, set, busy, vpnCountry }: Props & { vpnCountry?: string 
         <Suspense fallback={<div className="bg-muted h-56 w-full rounded-md" />}>
           <GeoMap
             map={map}
-            point={s.geo ?? defaultGeo}
+            point={here}
+            line={line}
             disabled={busy}
             onPick={(p) => {
+              if (plan) {
+                setPlan([...plan, p])
+                return
+              }
               setOverride(true)
               goTo(p.latitude, p.longitude)
             }}
           />
         </Suspense>
       )}
+      {map?.enabled && <RouteControl s={s} set={set} busy={busy} here={here} plan={plan} setPlan={setPlan} />}
       <label className="flex items-center justify-between gap-2 text-sm">
         <span>Override for this session</span>
         <Switch

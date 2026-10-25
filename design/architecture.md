@@ -277,7 +277,9 @@ agent (`HOLTDROID_GEO__<ID>__…`), so the GPS and time zone follow the
 location as on rooted phones. A time zone the user picks
 (`PATCH /v1/device` with `timeZone`) stays for the session across location
 switches (`timeZoneOverride`) until `resetTimeZone` puts the location's
-back; the date and time card next to the phone drives all of it.
+back; the date and time card next to the phone drives all of it. A GPS
+route (decision #98) is a goroutine in the agent that moves the test
+providers along the points every second until another GPS change stops it.
 
 The provider configures the agent through environment variables
 (`HOLTDROID_ARTIFACTURL`, `HOLTDROID_PACKAGE`, `HOLTDROID_LOCATION`,

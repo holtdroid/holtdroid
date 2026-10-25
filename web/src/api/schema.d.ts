@@ -1219,6 +1219,8 @@ export interface components {
             refreshRate: number;
             /** Format: int64 */
             rotation: number;
+            /** @description the route geo is moving along; empty while it stands still */
+            route?: components["schemas"]["GeoRouteState"];
             /** Format: int64 */
             screenHeight: number;
             /**
@@ -1331,6 +1333,28 @@ export interface components {
             latitude: number;
             /** Format: double */
             longitude: number;
+        };
+        GeoRouteState: {
+            /**
+             * Format: double
+             * @description metres of one pass, back to the first point included with loop
+             */
+            length: number;
+            /** @description after the last point head back to the first and go round again */
+            loop?: boolean;
+            /** @description false once a route without loop has reached its last point */
+            moving: boolean;
+            points: components["schemas"]["GeoPoint"][];
+            /**
+             * Format: double
+             * @description metres per second
+             */
+            speed: number;
+            /**
+             * Format: double
+             * @description metres covered in the current pass
+             */
+            travelled: number;
         };
         HeartbeatInputBody: {
             /** @description The user interacted with the session page since the last heartbeat */

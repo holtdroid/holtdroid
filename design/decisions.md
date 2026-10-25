@@ -2866,3 +2866,31 @@ map or dragging the marker overrides the GPS like picking a city.
 is stored, the browser cache does the caching. Moving the position along a
 route (walking, running, driving) and road routing are the next steps
 (roadmap, Later).
+
+## 98. GPS routes are driven by the agent
+
+**Context.** Testing a delivery or fitness app needs a position that moves:
+walking, running or driving along a path, not jumps between points.
+
+**Decision.** `PATCH /v1/device` takes `route: {points, speed, loop}`. The
+agent fakes the first point, then a goroutine computes where the route is
+from the elapsed time every second (straight lines between the points,
+great-circle distance, linear interpolation inside a leg) and sets only
+`set-test-provider-location` on the gps and network test providers; a
+failed tick falls back to registering the providers again. The route belongs
+to the agent, not the browser, so it keeps going with the tab closed or
+reconnecting; any other GPS change (`geo`, `resetGeo`, a new `route`,
+`stopRoute`) stops it, and it is a session override like a manual position,
+so VPN location switches don't move the device. The UI offers walking
+(5 km/h), running (10 km/h) and driving (50 km/h), takes the points as clicks
+on the GPS map, draws the line and polls the device state every second while
+it moves. The fake provider computes the same position from its clock on
+read.
+
+**Consequences.** The faked `Location` carries no speed or bearing (as far
+as we know, `cmd location` sets only the position, accuracy and time), so an
+app that reads `getSpeed()` sees none while the position moves; Frida could
+add them later. Routes follow straight lines, not roads: road routing
+through a routing service proxied by the api is the next step. The route is
+in the agent's memory only, like the rest of the session's GPS override.
+
