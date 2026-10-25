@@ -99,7 +99,7 @@ hybrid apps, support engineers reproducing a customer bug.
    one button per section. Clicking a button does the common thing, hovering
    it opens the rest:
    - **GPS location** (on devices that can fake it): follows the VPN
-     location unless you override it with a click on the map, a city,
+     location unless you override it with a click on the map,
      coordinates or your own position. **Move along a route** walks, runs or
      drives the device through points you click on the map, along roads
      (or in straight lines) and optionally in a loop, speeding up, slowing for

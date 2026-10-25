@@ -3,7 +3,6 @@ import { lazy, Suspense, useMemo, useState } from "react"
 import { toast } from "sonner"
 import { type DeviceSettings, type DeviceState, type Location } from "@/api/client"
 import { useMap } from "@/api/queries"
-import { Combobox } from "@/components/combobox"
 import { maxRoadPoints, type Plan, RouteControl, routeLine, usePlannedPath } from "@/components/session/geo-route"
 import { ControlGroup, RailControl } from "@/components/session/rail-control"
 import { RailSection } from "@/components/session/rail-item"
@@ -65,15 +64,6 @@ function GeoControl({ s, set, busy, vpnCountry }: Props & { vpnCountry?: string 
   const [locating, setLocating] = useState(false)
   const [override, setOverride] = useState(s.geoOverride)
   const manual = override || s.geoOverride
-  const cities = useMemo(
-    () =>
-      CITIES.map((c) => ({
-        value: c.name,
-        label: c.name,
-        hint: new Intl.DisplayNames(undefined, { type: "region" }).of(c.country),
-      })),
-    [],
-  )
   const vpnCity = vpnCountry ? CITIES.find((c) => c.country === vpnCountry.toUpperCase()) : undefined
   const parsed = text.match(/^\s*(-?\d+(?:\.\d+)?)\s*[,;\s]\s*(-?\d+(?:\.\d+)?)\s*$/)
   const point = parsed && { latitude: Number(parsed[1]), longitude: Number(parsed[2]) }
@@ -150,18 +140,6 @@ function GeoControl({ s, set, busy, vpnCountry }: Props & { vpnCountry?: string 
       </label>
       {manual && (
         <>
-          <Combobox
-            className="w-full"
-            icon={MapPinIcon}
-            placeholder="Search cities…"
-            options={cities}
-            value=""
-            disabled={busy}
-            onChange={(name) => {
-              const c = CITIES.find((x) => x.name === name)
-              if (c) goTo(c.latitude, c.longitude)
-            }}
-          />
           <form
             className="flex gap-2"
             onSubmit={(e) => {
