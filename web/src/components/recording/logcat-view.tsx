@@ -1,13 +1,19 @@
-import { CopyIcon, SearchIcon } from "lucide-react"
+import { ChevronDownIcon, CopyIcon, SearchIcon } from "lucide-react"
 import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react"
 import { toast } from "sonner"
 import { levelRank, logLevels } from "@/lib/recording/android"
 import type { Player } from "@/lib/recording/player"
 import { clock, type LogLine } from "@/lib/recording/timeline"
-import { cn } from "@/lib/utils"
 
 const shown = 400
-const filters = ["V", "D", "I", "W", "E"] as const
+type Level = "V" | "D" | "I" | "W" | "E"
+const filters: { level: Level; label: string }[] = [
+  { level: "V", label: "All levels" },
+  { level: "D", label: "Debug and above" },
+  { level: "I", label: "Info and above" },
+  { level: "W", label: "Warnings and above" },
+  { level: "E", label: "Errors only" },
+]
 
 function Badge({ level }: { level: string }) {
   const color = logLevels[level]?.color ?? "#bbbbbb"
@@ -23,7 +29,7 @@ function Badge({ level }: { level: string }) {
 }
 
 export function LogcatView({ player, time }: { player: Player; time: number }) {
-  const [minLevel, setMinLevel] = useState<(typeof filters)[number]>("V")
+  const [minLevel, setMinLevel] = useState<Level>("V")
   const [query, setQuery] = useState("")
   const [held, setHeld] = useState<number | null>(null)
   const scroller = useRef<HTMLDivElement>(null)
@@ -65,32 +71,32 @@ export function LogcatView({ player, time }: { player: Player; time: number }) {
   return (
     <section className="flex min-h-0 flex-col overflow-hidden rounded-[28px] bg-[#1c211e]">
       <header className="flex flex-wrap items-center gap-2 px-5 pt-4 pb-2">
-        <h2 className="mr-auto text-sm font-medium tracking-wide text-[#c0c9c1]">Logcat</h2>
-        <div className="flex gap-1" role="group" aria-label="Minimum level">
-          {filters.map((f) => (
-            <button
-              key={f}
-              type="button"
-              aria-pressed={minLevel === f}
-              onClick={() => setMinLevel(f)}
-              className={cn(
-                "grid size-7 place-items-center rounded-full text-xs font-bold transition-colors",
-                minLevel === f ? "bg-[#354b3b] text-[#d1e8d5]" : "text-[#8a938c] hover:bg-[#262b28]",
-              )}
-              title={`${logLevels[f]?.name} and above`}
-            >
-              {f}
-            </button>
-          ))}
-        </div>
+        <h2 className="mr-auto text-sm font-medium tracking-wide text-[#c0c9c1]">
+          Logcat <span className="font-normal text-[#6f7872]">· {lines.length} lines</span>
+        </h2>
+        <label className="relative">
+          <span className="sr-only">Minimum level</span>
+          <select
+            value={minLevel}
+            onChange={(e) => setMinLevel(e.target.value as Level)}
+            className="appearance-none rounded-full bg-[#262b28] py-1.5 pr-8 pl-3 text-sm text-[#e0e3de] outline-none hover:bg-[#2c322e] [&>option]:bg-[#262b28]"
+          >
+            {filters.map((f) => (
+              <option key={f.level} value={f.level}>
+                {f.label}
+              </option>
+            ))}
+          </select>
+          <ChevronDownIcon className="pointer-events-none absolute top-1/2 right-2.5 size-4 -translate-y-1/2 text-[#8a938c]" />
+        </label>
         <button
           type="button"
           onClick={copy}
-          className="grid size-7 place-items-center rounded-full text-[#c0c9c1] hover:bg-[#262b28]"
-          title="Copy the lines on screen"
-          aria-label="Copy the lines on screen"
+          className="inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-sm text-[#c0c9c1] hover:bg-[#262b28]"
+          title="Copy the lines shown here"
         >
           <CopyIcon className="size-4" />
+          Copy
         </button>
       </header>
       <label className="mx-4 mb-2 flex items-center gap-2 rounded-full bg-[#262b28] px-3 py-1.5 text-sm">

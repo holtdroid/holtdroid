@@ -84,6 +84,7 @@ export async function bake(opts: {
         frame: cursor.frame?.sample ?? null,
         snap: telemetry.at(t),
         logcat: logcat.before(t, 60),
+        overlay: telemetry.touches.at(t),
         app,
       })
       await source.add(t / 1000, step / 1000)

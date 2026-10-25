@@ -20,7 +20,11 @@ recording keeps more than the picture:
   how far it was set off real time;
 - the **load** every two seconds: device and app CPU, memory, frames and
   jank, traffic, the container's CPU and throttling, temperatures;
-- whether the app was running, and when another build was installed.
+- whether the app was running, and when another build was installed;
+- what the person at the screen did: taps, long presses and swipes, and the
+  Back, Home and Recents keys. Only what was done in the portal is seen;
+  input from `adb` over SSH or from the app itself isn't. Typed text and
+  other keys are never recorded.
 
 Nothing is rendered on the server: the agent copies the video the device
 already encodes and writes the rest as small text files next to it. The
@@ -58,14 +62,18 @@ still in progress is marked and can be watched while it grows.
 Everything beside the phone is ordinary page text, so you can select and
 copy it. In the logcat panel:
 
-- the level buttons (V to E) hide quieter lines and the filter box searches
-  tags and messages;
+- the level menu hides quieter lines (for example **Warnings and above**) and
+  the filter box searches tags and messages;
 - click a line's time to jump to it in the recording;
 - while you hold a selection the panel stops following the video, so the text
   doesn't scroll away; click elsewhere to follow again;
 - the copy button puts the lines on screen on the clipboard, and **Logcat**
   below downloads the whole logcat as one text file, each line starting with
   its time in the recording.
+
+Taps and swipes show on the phone as green circles with a fading trail, and
+the navigation keys as a label at the bottom. The pointer button in the player's controls hides them (it only appears when something was touched);
+the downloaded video always has them.
 
 The timeline shows where there is video (grey) and where the app closed (red
 marks). Play and pause, five-second steps, speeds from 0.5× to 4× and full

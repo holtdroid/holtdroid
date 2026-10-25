@@ -1,6 +1,7 @@
 import type { RecordingManifest } from "@/api/client"
 import { Cursor, Frames } from "@/lib/recording/frames"
 import { LogcatChunks, segmentsOf } from "@/lib/recording/timeline"
+import { drawOverlay, type TouchTrack } from "@/lib/recording/touches"
 
 export type PlayerState = {
   time: number
@@ -24,6 +25,8 @@ export class Player {
   #from = 0
   #raf = 0
   #size: { w: number; h: number }
+  #touches: TouchTrack | null = null
+  #showTouches = true
   #state: PlayerState
   #published = -1
   #listeners = new Set<() => void>()
@@ -67,6 +70,16 @@ export class Player {
     this.logcat.update(manifest.logcat)
     if (grew && this.#cursor.ended) this.#cursor.seek(this.#t)
     this.#publish(true)
+    this.#draw()
+  }
+
+  setTouches(track: TouchTrack | null) {
+    this.#touches = track
+    this.#draw()
+  }
+
+  setShowTouches(show: boolean) {
+    this.#showTouches = show
     this.#draw()
   }
 
@@ -149,6 +162,8 @@ export class Player {
       ctx.fillStyle = "#000"
       ctx.fillRect(0, 0, this.#size.w, this.#size.h)
     }
+    if (this.#showTouches && this.#touches)
+      drawOverlay(ctx, 0, 0, this.#size.w, this.#size.h, this.#touches.at(this.#t))
   }
 
   /** Stops playing and frees the decoder; a later seek or attach starts it again. */

@@ -84,6 +84,12 @@ func (d *device) serveScreen(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				return
 			}
+			d.rec.mu.Lock()
+			rec := d.rec.rec
+			d.rec.mu.Unlock()
+			if rec != nil {
+				rec.Control(msg)
+			}
 			switch {
 			case isRecentsKey(msg):
 				d.update(func() { d.appClosed = true })

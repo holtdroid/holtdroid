@@ -2809,6 +2809,13 @@ pass a recording to someone without an account.
   logcat (`logcat -v threadtime`) as gzipped text, each line prefixed with
   the recording time, flushed every 10 s; a JPEG thumbnail from
   `screencap` after 5 s and at the end.
+- **Touches are events too.** The agent already forwards the viewer's
+  scrcpy control messages to the device, so it also reads them: touch
+  down, move and up (position as 0–1 of the screen, moves kept at most every
+  33 ms per finger) and the Back, Home and Recents keys, never text or other
+  keys, which could be passwords. The player and the video draw them over the
+  screen as circles, trails and a key label. Input that doesn't pass through
+  the portal's screen (adb, SSH, the app itself) isn't seen.
 - **Uploads go through the api**, not to storage directly, so session Pods
   hold no storage credentials. The api creates the recording (at launch,
   through `CreateSession.recording`, or on request through the agent's

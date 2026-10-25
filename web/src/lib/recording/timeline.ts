@@ -9,6 +9,7 @@ import type {
   RecordingSegment,
   StatusEvent,
 } from "@/api/client"
+import { TouchTrack } from "@/lib/recording/touches"
 
 export type Segment = RecordingSegment & { init: string; width: number; height: number }
 
@@ -80,6 +81,7 @@ export type Snapshot = {
 
 /** The recording's events indexed by type, to look up the state at any time. */
 export class Telemetry {
+  readonly touches: TouchTrack
   readonly info: At<RecordingInfo>[] = []
   readonly status: At<StatusEvent>[] = []
   readonly device: At<DeviceState>[] = []
@@ -87,6 +89,7 @@ export class Telemetry {
   readonly metrics: At<Metrics>[] = []
 
   constructor(events: RecordingEvent[]) {
+    this.touches = new TouchTrack(events)
     for (const e of events) {
       if (e.info) this.info.push({ t: e.t, v: e.info })
       if (e.status) this.status.push({ t: e.t, v: e.status })

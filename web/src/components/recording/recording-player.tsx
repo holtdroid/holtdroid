@@ -4,6 +4,7 @@ import {
   MaximizeIcon,
   PauseIcon,
   PlayIcon,
+  PointerIcon,
   SkipBackIcon,
   SkipForwardIcon,
 } from "lucide-react"
@@ -79,6 +80,7 @@ export function RecordingPlayer({
   const [player] = useState(() => new Player(r.filesUrl, manifest))
   const state = useSyncExternalStore(player.subscribe, player.getState)
   const [baking, setBaking] = useState(false)
+  const [showTouches, setShowTouches] = useState(true)
   const box = useRef<HTMLDivElement>(null)
   const attach = useCallback(
     (c: HTMLCanvasElement | null) => {
@@ -89,6 +91,8 @@ export function RecordingPlayer({
   )
 
   useEffect(() => player.update(manifest), [player, manifest])
+  useEffect(() => player.setTouches(telemetry.touches), [player, telemetry])
+  useEffect(() => player.setShowTouches(showTouches), [player, showTouches])
   useEffect(() => () => player.dispose(), [player])
 
   const onKey = (e: KeyboardEvent) => {
@@ -116,20 +120,23 @@ export function RecordingPlayer({
       onKeyDown={onKey}
       className="android-stage grid gap-3 rounded-[32px] p-3 outline-none lg:p-4"
     >
-      <div className="grid gap-3 lg:h-[min(80dvh,900px)] lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+      <div className="grid gap-3 [--stage-h:68dvh] lg:h-(--stage-h) lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:[--stage-h:min(80dvh,900px)]">
         <div className="order-3 flex h-[60dvh] min-h-0 flex-col lg:order-1 lg:h-auto [&>section]:flex-1">
           <LogcatView player={player} time={state.time} />
         </div>
 
-        <div className="order-1 grid h-[68dvh] min-h-0 place-items-center lg:order-2 lg:h-auto">
+        <div className="order-1 grid min-h-0 place-items-center lg:order-2">
           <div
-            className="relative h-full max-w-full rounded-[44px] bg-black p-2.5 shadow-[0_0_0_1.5px_#404943,0_24px_60px_-20px_#000]"
-            style={{ aspectRatio: `${state.size.w} / ${state.size.h}` }}
+            className="relative rounded-[44px] bg-black p-2.5 shadow-[0_0_0_1.5px_#404943,0_24px_60px_-20px_#000]"
+            style={{
+              aspectRatio: `${state.size.w} / ${state.size.h}`,
+              height: `min(var(--stage-h), calc((100vw - 4rem) * ${state.size.h / state.size.w}))`,
+            }}
           >
             <canvas
               ref={attach}
               onClick={() => player.toggle()}
-              className="block size-full cursor-pointer rounded-[34px] bg-black"
+              className="block size-full cursor-pointer rounded-[34px] bg-black object-contain"
             />
             {!state.playing && (
               <button
@@ -206,6 +213,15 @@ export function RecordingPlayer({
                 Download video
               </Tonal>
             )}
+            <IconButton
+              aria-label="Show taps and swipes"
+              aria-pressed={showTouches}
+              title={showTouches ? "Hide taps and swipes" : "Show taps and swipes"}
+              className={cn(showTouches && "bg-[#354b3b] text-[#d1e8d5]", telemetry.touches.empty && "hidden")}
+              onClick={() => setShowTouches((v) => !v)}
+            >
+              <PointerIcon />
+            </IconButton>
             <IconButton
               aria-label="Full screen"
               onClick={() => void box.current?.requestFullscreen().catch(() => undefined)}

@@ -2,6 +2,7 @@ import type { VideoSample } from "mediabunny"
 import { logLevels, md, mono, sans, series } from "@/lib/recording/android"
 import { summarize, type Block, type Row, type Summary, type Tone } from "@/lib/recording/summary"
 import { clock, type LogLine, type Snapshot } from "@/lib/recording/timeline"
+import { drawOverlay, type Overlay } from "@/lib/recording/touches"
 
 export const sceneWidth = 1920
 export const sceneHeight = 1080
@@ -15,6 +16,7 @@ export type SceneInput = {
   frame: VideoSample | null
   snap: Snapshot
   logcat: LogLine[]
+  overlay?: Overlay
   app: SceneApp
 }
 
@@ -180,7 +182,7 @@ function drawLogcat(ctx: Ctx, x: number, y: number, w: number, h: number, lines:
   if (shown.length === 0) text(ctx, "No logcat yet", x + 20, top + 14, 15, md.outline)
 }
 
-function drawPhone(ctx: Ctx, x: number, y: number, w: number, h: number, frame: VideoSample | null) {
+function drawPhone(ctx: Ctx, x: number, y: number, w: number, h: number, frame: VideoSample | null, overlay?: Overlay) {
   const fw = frame?.displayWidth ?? 9
   const fh = frame?.displayHeight ?? 19.5
   const bezel = 10
@@ -211,6 +213,7 @@ function drawPhone(ctx: Ctx, x: number, y: number, w: number, h: number, frame: 
   ctx.fillStyle = "#000"
   ctx.fillRect(sx, sy, sw, sh)
   if (frame) frame.draw(ctx, sx, sy, sw, sh)
+  if (overlay) drawOverlay(ctx, sx, sy, sw, sh, overlay)
   ctx.restore()
 }
 
@@ -342,7 +345,7 @@ export function drawScene(ctx: Ctx, input: SceneInput) {
   drawLogcat(ctx, pad, pad, side, h, input.logcat, input.t)
   const cx = pad + side + gap
   const cw = sceneWidth - (cx + side + gap + pad)
-  drawPhone(ctx, cx, pad, cw, h, input.frame)
+  drawPhone(ctx, cx, pad, cw, h, input.frame, input.overlay)
   drawInfo(ctx, sceneWidth - pad - side, pad, side, h, summary, input.app.icon)
 }
 

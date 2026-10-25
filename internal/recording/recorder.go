@@ -71,6 +71,7 @@ type Recorder struct {
 	video    video
 	events   chunk
 	logcat   chunk
+	moved    map[int]int64
 	quit     chan struct{}
 	loopDone chan struct{}
 }
@@ -89,6 +90,7 @@ func Start(target contract.RecordingTarget, cfg Config, log *slog.Logger, opts .
 		cfg:      cfg,
 		now:      time.Now,
 		log:      log.With("recording", target.ID),
+		moved:    map[int]int64{},
 		quit:     make(chan struct{}),
 		loopDone: make(chan struct{}),
 	}
@@ -158,6 +160,10 @@ func (r *Recorder) Event(ev contract.RecordingEvent) {
 	if r.stopped {
 		return
 	}
+	r.eventLocked(ev)
+}
+
+func (r *Recorder) eventLocked(ev contract.RecordingEvent) {
 	ev.T = r.elapsed()
 	line, err := json.Marshal(ev)
 	if err != nil {

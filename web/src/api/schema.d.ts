@@ -1680,13 +1680,19 @@ export interface components {
         RecordingEvent: {
             device?: components["schemas"]["DeviceState"];
             info?: components["schemas"]["RecordingInfoData"];
+            /**
+             * @description a navigation key pressed in the portal; typed text is never recorded
+             * @enum {string}
+             */
+            key?: "back" | "home" | "recents";
             metrics?: components["schemas"]["Metrics"];
             network?: components["schemas"]["Network"];
             status?: components["schemas"]["StatusEvent"];
             /** Format: int64 */
             t: number;
+            touch?: components["schemas"]["RecordingTouch"];
             /** @enum {string} */
-            type: "info" | "status" | "metrics" | "device" | "network";
+            type: "info" | "status" | "metrics" | "device" | "network" | "touch" | "key";
         };
         RecordingEvents: {
             items: components["schemas"]["RecordingEvent"][];
@@ -1766,6 +1772,19 @@ export interface components {
         RecordingShare: {
             token: string;
             url: string;
+        };
+        RecordingTouch: {
+            /** @enum {string} */
+            action: "down" | "move" | "up";
+            /**
+             * Format: int64
+             * @description 0 for the mouse, else the finger's number
+             */
+            pointer: number;
+            /** Format: double */
+            x: number;
+            /** Format: double */
+            y: number;
         };
         RecordingView: {
             artifactId: string;

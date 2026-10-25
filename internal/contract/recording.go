@@ -81,18 +81,39 @@ const (
 	EventMetrics RecordingEventType = "metrics"
 	EventDevice  RecordingEventType = "device"
 	EventNetwork RecordingEventType = "network"
+	EventTouch   RecordingEventType = "touch"
+	EventKey     RecordingEventType = "key"
 )
 
 // RecordingEvent is one line of a recording's events: T is milliseconds
 // since the recording started, and exactly one of the payloads is set.
 type RecordingEvent struct {
 	T       int64              `json:"t"`
-	Type    RecordingEventType `json:"type" enum:"info,status,metrics,device,network"`
+	Type    RecordingEventType `json:"type" enum:"info,status,metrics,device,network,touch,key"`
 	Info    *RecordingInfoData `json:"info,omitempty"`
 	Status  *StatusEvent       `json:"status,omitempty"`
 	Metrics *Metrics           `json:"metrics,omitempty"`
 	Device  *DeviceState       `json:"device,omitempty"`
 	Network *Network           `json:"network,omitempty"`
+	Touch   *RecordingTouch    `json:"touch,omitempty"`
+	Key     string             `json:"key,omitempty" enum:"back,home,recents" doc:"a navigation key pressed in the portal; typed text is never recorded"`
+}
+
+type TouchAction string
+
+const (
+	TouchDown TouchAction = "down"
+	TouchMove TouchAction = "move"
+	TouchUp   TouchAction = "up"
+)
+
+// RecordingTouch is a finger (or the mouse) on the screen the viewer
+// controls, with a position of 0 to 1 across and down the screen.
+type RecordingTouch struct {
+	Action  TouchAction `json:"action" enum:"down,move,up"`
+	Pointer int         `json:"pointer" doc:"0 for the mouse, else the finger's number"`
+	X       float64     `json:"x" minimum:"0" maximum:"1"`
+	Y       float64     `json:"y" minimum:"0" maximum:"1"`
 }
 
 // RecordingInfoData is what the device says about itself and the app.

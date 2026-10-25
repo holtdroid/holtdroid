@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -270,5 +271,86 @@ func TestRecorderCutsWithoutKeyFrames(t *testing.T) {
 		if s.Duration > 20_000 {
 			t.Fatalf("segment %s lasts %d ms", s.File, s.Duration)
 		}
+	}
+}
+
+func touchMsg(action byte, pointer uint64, x, y uint32) []byte {
+	m := make([]byte, 32)
+	m[0], m[1] = 2, action
+	binary.BigEndian.PutUint64(m[2:], pointer)
+	binary.BigEndian.PutUint32(m[10:], x)
+	binary.BigEndian.PutUint32(m[14:], y)
+	binary.BigEndian.PutUint16(m[18:], 1080)
+	binary.BigEndian.PutUint16(m[20:], 2400)
+	return m
+}
+
+func keyMsg(action byte, code uint32) []byte {
+	m := make([]byte, 14)
+	m[1] = action
+	binary.BigEndian.PutUint32(m[2:], code)
+	return m
+}
+
+func TestParseControl(t *testing.T) {
+	text := append([]byte{1}, make([]byte, 20)...)
+	for _, c := range []struct {
+		name string
+		msg  []byte
+		want contract.RecordingEvent
+		ok   bool
+	}{
+		{"finger down", touchMsg(0, 1, 540, 1200), contract.RecordingEvent{Type: contract.EventTouch, Touch: &contract.RecordingTouch{Action: contract.TouchDown, Pointer: 1, X: 0.5, Y: 0.5}}, true},
+		{"mouse move", touchMsg(2, 0xFFFFFFFFFFFFFFFF, 1080, 0), contract.RecordingEvent{Type: contract.EventTouch, Touch: &contract.RecordingTouch{Action: contract.TouchMove, X: 1}}, true},
+		{"second finger up", touchMsg(6, 2, 0, 2400), contract.RecordingEvent{Type: contract.EventTouch, Touch: &contract.RecordingTouch{Action: contract.TouchUp, Pointer: 2, Y: 1}}, true},
+		{"hover", touchMsg(7, 0, 1, 1), contract.RecordingEvent{}, false},
+		{"back pressed", keyMsg(0, 4), contract.RecordingEvent{Type: contract.EventKey, Key: "back"}, true},
+		{"back released", keyMsg(1, 4), contract.RecordingEvent{}, false},
+		{"a letter", keyMsg(0, 29), contract.RecordingEvent{}, false},
+		{"typed text", text, contract.RecordingEvent{}, false},
+		{"truncated", []byte{2, 0, 0}, contract.RecordingEvent{}, false},
+	} {
+		got, ok := ParseControl(c.msg)
+		if ok != c.ok || !reflect.DeepEqual(got, c.want) {
+			t.Errorf("%s: got %+v %v, want %+v %v", c.name, got, ok, c.want, c.ok)
+		}
+	}
+}
+
+func TestRecorderKeepsTouchesWithoutFlooding(t *testing.T) {
+	b := &bucket{files: map[string][]byte{}}
+	c := &clock{t: time.Now()}
+	r := start(t, b, c)
+	r.Control(touchMsg(0, 1, 100, 100))
+	for i := range 30 {
+		c.add(10 * time.Millisecond)
+		r.Control(touchMsg(2, 1, uint32(100+i), 100))
+	}
+	r.Control(touchMsg(1, 1, 130, 100))
+	r.Control(keyMsg(0, 3))
+	r.Stop(context.Background())
+	var m contract.RecordingManifest
+	if err := json.Unmarshal(b.get(t, "manifest.json"), &m); err != nil {
+		t.Fatal(err)
+	}
+	var moves, downs, ups, keys int
+	for line := range strings.SplitSeq(strings.TrimSpace(gunzip(t, b.get(t, m.Events[0].File))), "\n") {
+		var ev contract.RecordingEvent
+		if err := json.Unmarshal([]byte(line), &ev); err != nil {
+			t.Fatal(err)
+		}
+		switch {
+		case ev.Key == "home":
+			keys++
+		case ev.Touch != nil && ev.Touch.Action == contract.TouchDown:
+			downs++
+		case ev.Touch != nil && ev.Touch.Action == contract.TouchMove:
+			moves++
+		case ev.Touch != nil && ev.Touch.Action == contract.TouchUp:
+			ups++
+		}
+	}
+	if downs != 1 || ups != 1 || keys != 1 || moves < 6 || moves > 9 {
+		t.Fatalf("down %d move %d up %d key %d", downs, moves, ups, keys)
 	}
 }

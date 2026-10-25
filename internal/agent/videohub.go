@@ -117,6 +117,16 @@ func (h *videoHub) packet(f *videoFeed, p recording.Packet) {
 	}
 }
 
+// control tells the recording what a viewer touched.
+func (h *videoHub) control(msg []byte) {
+	h.mu.Lock()
+	rec := h.rec
+	h.mu.Unlock()
+	if rec != nil {
+		rec.Control(msg)
+	}
+}
+
 func (h *videoHub) stopOwn() {
 	if h.own != nil {
 		h.own()

@@ -167,7 +167,7 @@ func (s *Scrcpy) serveVideo(w http.ResponseWriter, r *http.Request) {
 		defer s.video.close(f)
 		stream = io.TeeReader(conns[0], &f.tap)
 	}
-	bridge(ctx, cancel, ws, stream, conns[0], conns[1])
+	bridge(ctx, cancel, ws, stream, conns[0], conns[1], s.video.control)
 }
 
 // Key frames every few seconds keep recording segments short: software
@@ -195,7 +195,7 @@ func (s *Scrcpy) serveAudio(w http.ResponseWriter, r *http.Request) {
 		_ = ws.Close(websocket.StatusTryAgainLater, "audio is not available yet")
 		return
 	}
-	bridge(ctx, cancel, ws, conns[0], conns[0], nil)
+	bridge(ctx, cancel, ws, conns[0], conns[0], nil, nil)
 }
 
 func accept(w http.ResponseWriter, r *http.Request) (*websocket.Conn, context.Context, context.CancelFunc, bool) {
@@ -211,7 +211,7 @@ func accept(w http.ResponseWriter, r *http.Request) (*websocket.Conn, context.Co
 // bridge copies stream (read from conn) to the WebSocket and the
 // WebSocket's binary messages to control; without a control socket they are
 // dropped.
-func bridge(ctx context.Context, cancel context.CancelFunc, ws *websocket.Conn, stream io.Reader, conn, control net.Conn) {
+func bridge(ctx context.Context, cancel context.CancelFunc, ws *websocket.Conn, stream io.Reader, conn, control net.Conn, onControl func([]byte)) {
 	go func() {
 		<-ctx.Done()
 		conn.Close()
@@ -237,6 +237,9 @@ func bridge(ctx context.Context, cancel context.CancelFunc, ws *websocket.Conn, 
 			}
 			if _, err := control.Write(data); err != nil {
 				return
+			}
+			if onControl != nil {
+				onControl(data)
 			}
 		}
 	}()
