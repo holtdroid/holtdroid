@@ -1,3 +1,5 @@
+import { useSyncExternalStore } from "react"
+
 const providerKey = "holtdroid:provider"
 const locationKey = (provider: string) => `holtdroid:location:${provider || "*"}`
 const screenKey = (provider: string) => `holtdroid:screen:${provider || "*"}`
@@ -56,3 +58,38 @@ export function quickLaunchMode(): QuickLaunchMode {
 }
 
 export const rememberQuickLaunchMode = (mode: QuickLaunchMode) => write(quickModeKey, mode)
+
+const favoritesKey = "holtdroid:favorite-screens"
+const favoriteListeners = new Set<() => void>()
+
+function loadFavorites(): string[] {
+  try {
+    const parsed: unknown = JSON.parse(read(favoritesKey) ?? "[]")
+    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : []
+  } catch {
+    return []
+  }
+}
+
+let favorites = loadFavorites()
+
+function changed() {
+  favorites = loadFavorites()
+  for (const l of favoriteListeners) l()
+}
+
+function subscribeFavorites(listener: () => void) {
+  favoriteListeners.add(listener)
+  window.addEventListener("storage", changed)
+  return () => {
+    favoriteListeners.delete(listener)
+    window.removeEventListener("storage", changed)
+  }
+}
+
+export const useFavoriteScreens = () => useSyncExternalStore(subscribeFavorites, () => favorites)
+
+export function toggleFavoriteScreen(id: string) {
+  write(favoritesKey, JSON.stringify(favorites.includes(id) ? favorites.filter((f) => f !== id) : [...favorites, id]))
+  changed()
+}

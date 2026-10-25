@@ -24,11 +24,11 @@ func DefaultScreens() []contract.Display {
 	drop := &contract.CutoutShape{Kind: "drop", Width: 48, Height: 24}
 	screens := []contract.Display{
 		{ID: "hd", Label: "HD+", Like: "Galaxy A05, Redmi 13C", Width: 720, Height: 1600, DPI: 280, Radius: 14, Shape: drop},
+		{ID: "classic", Label: "Classic 16:9", Like: "Galaxy S5, Nexus 5X, Moto G4", Width: 1080, Height: 1920, DPI: 480, Radius: 12},
 		{ID: "fhd-samsung", Label: "FHD+ 19.5:9", Like: "Galaxy A15, A25, A35", Width: 1080, Height: 2340, DPI: 420, Radius: 16, Shape: drop},
 		{ID: "fhd", Label: "FHD+ 20:9", Like: "Pixel 6a–8a, Moto G54, Realme C67", Width: 1080, Height: 2400, DPI: 420, Radius: 28, Shape: hole},
 		{ID: "fhd-tall", Label: "FHD+ tall", Like: "Infinix Hot 40", Width: 1080, Height: 2460, DPI: 420, Radius: 20, Shape: hole},
 		{ID: "1.5k", Label: "1.5K", Like: "Redmi Note 13 Pro, Poco X6", Width: 1220, Height: 2712, DPI: 480, Radius: 32, Shape: hole},
-		{ID: "classic", Label: "Classic 16:9", Like: "Galaxy S5, Nexus 5X, Moto G4", Width: 1080, Height: 1920, DPI: 480, Radius: 12},
 		{ID: "compact", Label: "Compact 18:9", Like: "Redmi 6A, Galaxy J4+", Width: 720, Height: 1440, DPI: 320, Radius: 12},
 		{ID: "flat", Label: "FHD+ flat", Like: "Under-display camera and slider phones", Width: 1080, Height: 2400, DPI: 420, Radius: 24},
 		{ID: "tablet", Label: "Tablet", Like: "Galaxy Tab A9+", Width: 1200, Height: 1920, DPI: 240, Radius: 12},

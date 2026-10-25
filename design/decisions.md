@@ -2521,7 +2521,9 @@ The UI draws the shape, the camera inside it and the black rounded corners
 over the stream. The launch dialog shows five screens as cards (the chosen
 one always among them) and a "More devices" card that opens a wider dialog
 with every screen, grouped by brand, with previews, brand chips and search.
-A catalog device without a known corner radius gets 12 to 14 dp, and the
+Stars in that dialog mark favorites, kept in the browser's local storage:
+they lead the dialog and take the first cards of the screen list from the
+defaults. A catalog device without a known corner radius gets 12 to 14 dp, and the
 previews round their corners a little more than real life so they read as
 phones. The numbers are hand-collected approximations.
 No outside dataset is copied: the closest open one, gmobile's display-panel

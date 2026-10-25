@@ -1,10 +1,12 @@
-import { SearchIcon } from "lucide-react"
+import { SearchIcon, StarIcon } from "lucide-react"
 import { useMemo, useState } from "react"
 import type { Display } from "@/api/client"
-import { ScreenCard } from "@/components/launch/screen-card"
+import { ScreenCard, screenName } from "@/components/launch/screen-card"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { toggleFavoriteScreen, useFavoriteScreens } from "@/lib/launch-prefs"
+import { cn } from "@/lib/utils"
 
 const GENERIC = "Generic"
 
@@ -61,11 +63,15 @@ function Body({
 }) {
   const [query, setQuery] = useState("")
   const [brand, setBrand] = useState("")
+  const favorites = useFavoriteScreens()
   const brands = useMemo(() => [...new Set(screens.map(brandOf))], [screens])
   const shown = screens.filter((d) => (!brand || brandOf(d) === brand) && matches(d, query.trim()))
-  const groups = brands
-    .map((b) => ({ brand: b, items: shown.filter((d) => brandOf(d) === b) }))
-    .filter((g) => g.items.length > 0)
+  const starred = favorites.map((id) => shown.find((d) => d.id === id)).filter((d): d is Display => !!d)
+  const rest = shown.filter((d) => !favorites.includes(d.id))
+  const groups = [
+    { brand: "Favorites", items: starred },
+    ...brands.map((b) => ({ brand: b, items: rest.filter((d) => brandOf(d) === b) })),
+  ].filter((g) => g.items.length > 0)
 
   return (
     <>
@@ -113,20 +119,27 @@ function Body({
                 <h4 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
                   {g.brand} · {g.items.length}
                 </h4>
-                <div
-                  role="radiogroup"
-                  aria-label={g.brand}
-                  className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4"
-                >
-                  {g.items.map((d) => (
-                    <ScreenCard
-                      key={d.id}
-                      display={d}
-                      tile
-                      selected={d.id === selected}
-                      onSelect={() => onSelect(d.id)}
-                    />
-                  ))}
+                <div role="radiogroup" aria-label={g.brand} className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {g.items.map((d) => {
+                    const fav = favorites.includes(d.id)
+                    return (
+                      <div key={d.id} className="relative">
+                        <ScreenCard display={d} selected={d.id === selected} onSelect={() => onSelect(d.id)} />
+                        <button
+                          type="button"
+                          aria-pressed={fav}
+                          aria-label={`${fav ? "Remove" : "Add"} ${screenName(d)} ${fav ? "from" : "to"} favorites`}
+                          title={fav ? "Remove from favorites" : "Add to favorites"}
+                          onClick={() => toggleFavoriteScreen(d.id)}
+                          className="hover:bg-muted focus-visible:ring-ring/50 absolute right-1.5 bottom-1.5 grid size-7 place-items-center rounded-md outline-none focus-visible:ring-3"
+                        >
+                          <StarIcon
+                            className={cn("size-4", fav ? "fill-amber-400 text-amber-400" : "text-muted-foreground")}
+                          />
+                        </button>
+                      </div>
+                    )
+                  })}
                 </div>
               </section>
             ))}

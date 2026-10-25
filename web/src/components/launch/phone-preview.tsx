@@ -6,8 +6,13 @@ import { cn } from "@/lib/utils"
 export function PhonePreview({ display, className }: { display: Display; className?: string }) {
   const { w, h } = screenDp(display)
   const r = Math.min(Math.max(display.radius ?? 0, w * 0.15), w / 2)
+  const pad = h * 0.015
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className={cn("text-foreground h-20 w-auto", className)} aria-hidden>
+    <svg
+      viewBox={`${-pad} ${-pad} ${w + 2 * pad} ${h + 2 * pad}`}
+      className={cn("text-foreground h-20 w-auto", className)}
+      aria-hidden
+    >
       <rect width={w} height={h} rx={r} fill="currentColor" fillOpacity="0.08" />
       <rect
         x={w * 0.12}

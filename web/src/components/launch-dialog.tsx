@@ -13,7 +13,7 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import { useMemo, useState } from "react"
-import type { ArtifactView, ProviderView } from "@/api/client"
+import type { ArtifactView, Display, ProviderView } from "@/api/client"
 import { useAppDataFor, useProviders } from "@/api/queries"
 import { AppIcon } from "@/components/app-icon"
 import { artifactTitle } from "@/components/artifact-list"
@@ -37,6 +37,7 @@ import {
 import { Label } from "@/components/ui/label"
 import { useLaunchTarget, useStartSession } from "@/hooks/use-launch-target"
 import { formatBytes, formatRelative } from "@/lib/format"
+import { useFavoriteScreens } from "@/lib/launch-prefs"
 import { locationFlag } from "@/lib/location"
 import { cn } from "@/lib/utils"
 
@@ -140,7 +141,9 @@ function LaunchFlow({ artifact, onClose }: { artifact: ArtifactView; onClose: ()
   const slots = provider?.capacity.slots ?? []
   const virtual = provider ? isVirtual(provider) : false
   const [pickerOpen, setPickerOpen] = useState(false)
-  const shortlist = screens.slice(0, 5)
+  const favorites = useFavoriteScreens()
+  const starred = favorites.map((id) => screens.find((s) => s.id === id)).filter((s): s is Display => !!s)
+  const shortlist = [...starred, ...screens.filter((s) => !starred.includes(s))].slice(0, 5)
   const chosen = screens.find((s) => s.id === screen)
   const visibleScreens = chosen && !shortlist.includes(chosen) ? [...shortlist.slice(0, 4), chosen] : shortlist
 

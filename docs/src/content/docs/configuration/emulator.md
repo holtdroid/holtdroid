@@ -157,7 +157,10 @@ screen (with a speaker and camera) together with the display's rounded
 corners; the cutout fades to 30% under the pointer and passes clicks through
 to the device.
 
-Besides the generic screens below, the provider ships a catalog of about fifty
+In the launch dialog five screens show as cards and "More devices" opens a
+searchable list of all of them; a star marks a favorite (kept in your
+browser), and favorites come first in both places. Besides the generic
+screens below, the provider ships a catalog of about fifty
 real phones and tablets (Pixel, Galaxy A and S, Redmi, Poco, Moto, OnePlus,
 Realme, Fairphone and others), searchable in the launch dialog. Each has its
 size, density, corner radius and a cutout shape: a punch hole, a capsule, a
