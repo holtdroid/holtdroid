@@ -10,6 +10,7 @@ import {
 import {
   type KeyboardEvent,
   type PointerEvent,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -50,6 +51,13 @@ export function RecordingPlayer({
   const state = useSyncExternalStore(player.subscribe, player.getState)
   const [baking, setBaking] = useState(false)
   const box = useRef<HTMLDivElement>(null)
+  const attach = useCallback(
+    (c: HTMLCanvasElement | null) => {
+      player.attach(c)
+      return () => player.attach(null)
+    },
+    [player],
+  )
 
   useEffect(() => player.update(manifest, telemetry), [player, manifest, telemetry])
   useEffect(() => () => player.dispose(), [player])
@@ -70,14 +78,7 @@ export function RecordingPlayer({
         onKeyDown={onKey}
         className="group/player relative overflow-hidden rounded-xl border bg-black outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
       >
-        <canvas
-          ref={(c) => {
-            player.attach(c)
-            return () => player.attach(null)
-          }}
-          onClick={() => player.toggle()}
-          className="block aspect-video w-full cursor-pointer"
-        />
+        <canvas ref={attach} onClick={() => player.toggle()} className="block aspect-video w-full cursor-pointer" />
         {!state.playing && (
           <button
             type="button"

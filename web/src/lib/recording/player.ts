@@ -66,6 +66,7 @@ export class Player {
   }
 
   attach(canvas: HTMLCanvasElement | null) {
+    if (canvas && this.#ctx?.canvas === canvas) return
     this.#ctx = null
     if (canvas) {
       canvas.width = sceneWidth
