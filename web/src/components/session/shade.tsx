@@ -62,7 +62,7 @@ function subscribe(l: () => void) {
   return () => listeners.delete(l)
 }
 
-export type ShadeSide = "right" | "bottom" | "top"
+export type ShadeSide = "right" | "bottom" | "top" | "left"
 
 export const ShadeSideContext = createContext<ShadeSide>("right")
 

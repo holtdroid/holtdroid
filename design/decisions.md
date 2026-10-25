@@ -2750,8 +2750,7 @@ says that display size is Android's density setting rather than the screen
 chosen at launch. All the cards' sliders are Android-style pills with the
 icon inside the fill.
 
-**Consequences.** The rail keeps capture and the other device controls. Small + and − marks and the power key's current action sit next to the keys, which widen on hover and sink on a press. The cards (158 px wide) stand in a column on the left from the top of the panel, or in rows above and below the phone when the phone gets bigger that way (picked from the panel size, the screen ratio and an estimated card height); only one panel is open at a time, and one that was clicked into keeps others from opening on hover. The frame and the column take 254 px of width and 40 px of height from
-the screen panel, which the auto-fit accounts for.
+**Consequences.** The rail keeps capture and the other device controls. Small + and − marks and the power key's current action sit next to the keys, which widen on hover and sink on a press. The cards (158 px wide) stand on the left from the top of the panel, in as many columns as the height needs (from an estimated card height), and the phone moves aside; only one panel is open at a time, and one that was clicked into keeps others from opening on hover. A landscape screen turns the page split vertical, the screen above the tools, and the side keys follow the rotation to the top, bottom or left edge. The screen reports its insets (the card columns, the frame and the keys) as `data-inset-x`/`data-inset-y`, which the auto-fit reads for either split.
 
 ## 95. Newer Mesa Vulkan drivers in the Android 15 redroid image
 

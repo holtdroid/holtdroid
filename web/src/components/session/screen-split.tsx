@@ -1,7 +1,6 @@
-import { MoveHorizontalIcon } from "lucide-react"
+import { MoveHorizontalIcon, MoveVerticalIcon } from "lucide-react"
 import { type ReactNode, useEffect, useRef, useState } from "react"
 import { usePanelRef } from "react-resizable-panels"
-import { frameInset } from "@/components/session/device-screen"
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
@@ -19,6 +18,7 @@ export function ScreenSplit({ children: [screen, rail, tools] }: { children: [Re
   const display = useRef<HTMLDivElement>(null)
   const toggle = useRef<HTMLButtonElement>(null)
   const [edge, setEdge] = useState<number | null>(null)
+  const [vertical, setVertical] = useState(false)
 
   useEffect(() => {
     const onDown = (e: PointerEvent) => {
@@ -32,14 +32,29 @@ export function ScreenSplit({ children: [screen, rail, tools] }: { children: [Re
     const box = area.current
     const line = row.current
     const view = display.current
-    if (!autoFit || !box || !line || !view) return undefined
+    if (!box || !line || !view) return undefined
     const fit = () => {
       const canvas = view.querySelector("canvas")
       const ratio =
         canvas?.hasAttribute("width") && canvas.width > 0 && canvas.height > 0
           ? canvas.width / canvas.height
           : placeholderRatio
-      const want = (view.clientHeight - frameInset.y) * ratio + frameInset.x + line.clientWidth - view.clientWidth
+      const across = ratio > 1
+      if (across !== vertical) {
+        setVertical(across)
+        return
+      }
+      if (!autoFit) return
+      const frame = view.querySelector<HTMLElement>("[data-inset-x]")
+      const insetX = Number(frame?.dataset.insetX ?? 0)
+      const insetY = Number(frame?.dataset.insetY ?? 0)
+      if (vertical) {
+        const want = (view.clientWidth - insetX) / ratio + insetY + line.clientHeight - view.clientHeight
+        const height = Math.round(Math.min(Math.max(want, box.clientHeight * minShare), box.clientHeight * maxShare))
+        if (Math.abs(height - line.clientHeight) > 1) panel.current?.resize(`${height}px`)
+        return
+      }
+      const want = (view.clientHeight - insetY) * ratio + insetX + line.clientWidth - view.clientWidth
       const width = Math.round(Math.min(Math.max(want, box.clientWidth * minShare), box.clientWidth * maxShare))
       if (Math.abs(width - line.clientWidth) > 1) panel.current?.resize(`${width}px`)
     }
@@ -48,18 +63,23 @@ export function ScreenSplit({ children: [screen, rail, tools] }: { children: [Re
     resized.observe(line)
     resized.observe(view)
     const mutated = new MutationObserver(fit)
-    mutated.observe(view, { subtree: true, childList: true, attributes: true, attributeFilter: ["width", "height"] })
+    mutated.observe(view, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ["width", "height", "data-inset-x", "data-inset-y"],
+    })
     fit()
     return () => {
       resized.disconnect()
       mutated.disconnect()
     }
-  }, [autoFit, panel])
+  }, [autoFit, panel, vertical])
 
   return (
     <div ref={area} className="group/split relative size-full">
       <ResizablePanelGroup
-        orientation="horizontal"
+        orientation={vertical ? "vertical" : "horizontal"}
         onLayoutChanged={(_, meta) => {
           if (meta.isUserInteraction && autoFit) setScreenPrefs({ autoFit: false })
         }}
@@ -85,17 +105,19 @@ export function ScreenSplit({ children: [screen, rail, tools] }: { children: [Re
               type="button"
               aria-pressed={autoFit}
               onClick={() => setScreenPrefs({ autoFit: !autoFit })}
-              style={{ left: edge }}
+              style={vertical ? { top: edge } : { left: edge }}
               className={cn(
-                "absolute top-1/2 z-20 ml-2 grid size-7 -translate-y-1/2 cursor-pointer place-items-center rounded-md bg-white/10 text-white/70 opacity-0 backdrop-blur transition-opacity delay-300 hover:bg-white/20 hover:text-white hover:opacity-100 hover:delay-0 focus-visible:opacity-100 focus-visible:delay-0 group-has-[[data-slot=resizable-handle]:hover]/split:opacity-100 group-has-[[data-slot=resizable-handle]:hover]/split:delay-0 [&_svg]:size-4",
+                "absolute z-20 grid size-7 cursor-pointer",
+                vertical ? "left-1/2 mt-2 -translate-x-1/2" : "top-1/2 ml-2 -translate-y-1/2",
+                "place-items-center rounded-md bg-white/10 text-white/70 opacity-0 backdrop-blur transition-opacity delay-300 hover:bg-white/20 hover:text-white hover:opacity-100 hover:delay-0 focus-visible:opacity-100 focus-visible:delay-0 group-has-[[data-slot=resizable-handle]:hover]/split:opacity-100 group-has-[[data-slot=resizable-handle]:hover]/split:delay-0 [&_svg]:size-4",
                 autoFit && "text-white",
               )}
             >
-              <MoveHorizontalIcon />
+              {vertical ? <MoveVerticalIcon /> : <MoveHorizontalIcon />}
               <span className="sr-only">Fit to the screen</span>
             </button>
           </TooltipTrigger>
-          <TooltipContent side="right">
+          <TooltipContent side={vertical ? "bottom" : "right"}>
             {autoFit ? "Follows the screen; drag the handle to size it yourself" : "Fit the panel to the screen"}
           </TooltipContent>
         </Tooltip>

@@ -35,7 +35,8 @@ hybrid apps, support engineers reproducing a customer bug.
    restart or reinstall the app or save its data; **Extend** and **Stop**
    sit on the right. The bar at the bottom shows the device's load. By default the screen's side follows the screen: it
    grows or shrinks until the screen fills its height or the side reaches
-   70% of the page, also when the device rotates. Dragging the divider sizes
+   70% of the page. A landscape screen splits the page top and bottom
+   instead, the screen above the tools. Dragging the divider sizes
    it by hand; the button on the divider turns following back on.
 
    The screen sits in a phone body with keys on its right edge, like a
@@ -46,9 +47,10 @@ hybrid apps, support engineers reproducing a customer bug.
    tile that mutes Android itself; the rocker turns amber while the device is
    muted. Hovering the power key offers **Wake and unlock**, locking and
    turning the screen off right away, and picks what a click on the key
-   does. The device cards sit in a column on the left of the screen panel, or
-   in rows above and below the phone when that leaves the phone more room;
-   only one card's panel shows at a time. The network card shows the VPN
+   does. The device cards sit on the left of the screen panel, in as many
+   columns as the height needs, and the phone takes the rest; only one
+   card's panel shows at a time. The volume and power keys move with the
+   device's rotation, to the top or bottom edge in landscape. The network card shows the VPN
    location, the external IP and the network conditions; hovering it opens
    a panel styled like Android's quick settings shade with Wi-Fi, mobile
    data and airplane mode tiles, the VPN locations and the emulated network

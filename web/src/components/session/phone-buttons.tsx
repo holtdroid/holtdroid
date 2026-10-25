@@ -21,7 +21,16 @@ import type { DeviceAction } from "@/api/client"
 import type { LiveScreen } from "@/components/session/live-screen"
 import { deviceKey, useDevice, useRunDeviceAction, useUpdateDevice } from "@/components/session/use-device"
 import { Button } from "@/components/ui/button"
-import { Row, Section, ShadeHeader, ShadePanel, ShadeRoot, ShadeSlider, Tile } from "@/components/session/shade"
+import {
+  Row,
+  Section,
+  ShadeHeader,
+  ShadePanel,
+  ShadeRoot,
+  ShadeSideContext,
+  ShadeSlider,
+  Tile,
+} from "@/components/session/shade"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { type LockMode, setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
 import { cn } from "@/lib/utils"
@@ -33,12 +42,68 @@ const lockModes: Record<LockMode, { label: string; hint: string; icon: LucideIco
   "screen-off": { label: "Turn screen off", hint: "Press the power button", icon: PowerIcon },
 }
 
-export function PhoneButtons({ provider, id, live }: { provider: string; id: string; live: LiveScreen }) {
+export type KeyEdge = "right" | "top" | "bottom" | "left"
+
+type EdgeLayout = { rocker: string; power: string; key: string; bar: string; first: string; last: string; only: string }
+
+const edges: Record<KeyEdge, EdgeLayout> = {
+  right: {
+    rocker: "top-[17%] left-full h-[15%] flex-col",
+    power: "top-[37%] left-full h-[9%] flex-col",
+    key: "-ml-1 flex-row pr-1 pl-1",
+    bar: "w-1 self-stretch group-hover/key:w-1.5 group-focus-visible/key:w-1.5 group-active/key:w-0.5",
+    first: "rounded-tr-sm",
+    last: "rounded-br-sm",
+    only: "rounded-r-sm",
+  },
+  left: {
+    rocker: "bottom-[17%] right-full h-[15%] flex-col-reverse",
+    power: "bottom-[37%] right-full h-[9%] flex-col",
+    key: "-mr-1 flex-row-reverse pr-1 pl-1",
+    bar: "w-1 self-stretch group-hover/key:w-1.5 group-focus-visible/key:w-1.5 group-active/key:w-0.5",
+    first: "rounded-bl-sm",
+    last: "rounded-tl-sm",
+    only: "rounded-l-sm",
+  },
+  top: {
+    rocker: "left-[17%] bottom-full w-[15%] flex-row",
+    power: "left-[37%] bottom-full w-[9%] flex-row",
+    key: "-mb-1 flex-col-reverse pt-1 pb-1",
+    bar: "h-1 self-stretch group-hover/key:h-1.5 group-focus-visible/key:h-1.5 group-active/key:h-0.5",
+    first: "rounded-tl-sm",
+    last: "rounded-tr-sm",
+    only: "rounded-t-sm",
+  },
+  bottom: {
+    rocker: "right-[17%] top-full w-[15%] flex-row-reverse",
+    power: "right-[37%] top-full w-[9%] flex-row",
+    key: "-mt-1 flex-col pt-1 pb-1",
+    bar: "h-1 self-stretch group-hover/key:h-1.5 group-focus-visible/key:h-1.5 group-active/key:h-0.5",
+    first: "rounded-br-sm",
+    last: "rounded-bl-sm",
+    only: "rounded-b-sm",
+  },
+}
+
+export function PhoneButtons({
+  provider,
+  id,
+  live,
+  edge,
+}: {
+  provider: string
+  id: string
+  live: LiveScreen
+  edge: KeyEdge
+}) {
   const run = useRunDeviceAction(provider, id, live)
+  const layout = edges[edge]
   return (
     <>
-      <VolumeRocker provider={provider} id={id} run={run} />
-      <PowerKey run={run} />
+      <ShadeSideContext value={edge}>
+        <VolumeRocker provider={provider} id={id} run={run} layout={layout} />
+        <PowerKey run={run} layout={layout} />
+      </ShadeSideContext>
       {corners.map((c) => (
         <CornerMenu key={c.name} corner={c} run={run} />
       ))}
@@ -162,12 +227,14 @@ function SideKey({
   label,
   icon: Icon,
   flagged,
+  layout,
   className,
   onClick,
 }: {
   label: string
   icon: LucideIcon
   flagged?: boolean
+  layout: EdgeLayout
   className?: string
   onClick: () => void
 }) {
@@ -175,12 +242,13 @@ function SideKey({
     <button
       type="button"
       aria-label={label}
-      className="group/key -ml-1 flex flex-1 cursor-pointer items-center gap-1 pr-1 pl-1 outline-none"
+      className={cn("group/key flex flex-1 cursor-pointer items-center gap-1 outline-none", layout.key)}
       onClick={onClick}
     >
       <span
         className={cn(
-          "w-1 self-stretch transition-all duration-150 ease-out group-hover/key:w-1.5 group-focus-visible/key:w-1.5 group-active/key:w-0.5 group-active/key:duration-75",
+          "transition-all duration-150 ease-out group-active/key:duration-75",
+          layout.bar,
           flagged
             ? "bg-amber-500 group-hover/key:bg-amber-400 group-focus-visible/key:bg-amber-400"
             : "bg-neutral-600 group-hover/key:bg-neutral-400 group-focus-visible/key:bg-neutral-400",
@@ -200,7 +268,7 @@ function SideKey({
   )
 }
 
-function VolumeRocker({ provider, id, run }: { provider: string; id: string; run: Run }) {
+function VolumeRocker({ provider, id, run, layout }: { provider: string; id: string; run: Run; layout: EdgeLayout }) {
   const device = useDevice(provider, id)
   const update = useUpdateDevice(provider, id)
   const qc = useQueryClient()
@@ -216,19 +284,21 @@ function VolumeRocker({ provider, id, run }: { provider: string; id: string; run
   return (
     <ShadeRoot>
       <HoverCardTrigger asChild>
-        <div className="absolute top-[17%] left-full flex h-[15%] flex-col">
+        <div className={cn("absolute flex", layout.rocker)}>
           <SideKey
             label="Volume up"
             icon={PlusIcon}
             flagged={muted}
-            className="rounded-tr-sm"
+            layout={layout}
+            className={layout.first}
             onClick={() => press("volume-up")}
           />
           <SideKey
             label="Volume down"
             icon={MinusIcon}
             flagged={muted}
-            className="rounded-br-sm"
+            layout={layout}
+            className={layout.last}
             onClick={() => press("volume-down")}
           />
         </div>
@@ -272,17 +342,18 @@ function VolumeRocker({ provider, id, run }: { provider: string; id: string; run
   )
 }
 
-function PowerKey({ run }: { run: Run }) {
+function PowerKey({ run, layout }: { run: Run; layout: EdgeLayout }) {
   const { lockMode } = useScreenPrefs()
   const mode = lockModes[lockMode] ? lockMode : "lock"
   return (
     <ShadeRoot>
       <HoverCardTrigger asChild>
-        <div className="absolute top-[37%] left-full flex h-[9%] flex-col">
+        <div className={cn("absolute flex", layout.power)}>
           <SideKey
             label={lockModes[mode].label}
             icon={lockModes[mode].icon}
-            className="rounded-r-sm"
+            layout={layout}
+            className={layout.only}
             onClick={() => run(mode)}
           />
         </div>

@@ -10,11 +10,11 @@ import { DisplayWidget } from "@/components/session/display-widget"
 import { GpsWidget } from "@/components/session/gps-widget"
 import { LanguageWidget } from "@/components/session/language-widget"
 import { NetworkWidget } from "@/components/session/network-widget"
-import { ShadeSideContext, widgetWidth } from "@/components/session/shade"
+import { widgetWidth } from "@/components/session/shade"
 import { SSHWidget } from "@/components/session/ssh-widget"
 import { StreamWidget } from "@/components/session/stream-widget"
 import { TimeWidget } from "@/components/session/time-widget"
-import { PhoneButtons } from "@/components/session/phone-buttons"
+import { type KeyEdge, PhoneButtons } from "@/components/session/phone-buttons"
 import { useDevice } from "@/components/session/use-device"
 import { Spinner } from "@/components/ui/spinner"
 import { useEventSource } from "@/hooks/use-event-source"
@@ -22,7 +22,6 @@ import { screenDp } from "@/lib/cutout"
 import { openScreen, screenSupported, UnsupportedCodecError } from "@/lib/scrcpy"
 import { setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
 import { pickCodec, streamSettings } from "@/lib/stream-settings"
-import { cn } from "@/lib/utils"
 
 type Status = "connecting" | "live" | "retrying"
 
@@ -30,40 +29,32 @@ const gap = 12
 const bezel = 8
 const keyArea = 4 + 18
 const widgetGap = 8
-const cardHeight = 96
-const columnWidth = widgetWidth + 2 * gap
+const cardHeight = 92
 
-const phoneInset = { x: 2 * (gap + bezel + keyArea), y: 2 * (gap + bezel) }
-
-export const frameInset = { x: phoneInset.x + columnWidth, y: phoneInset.y }
-
-type Layout = "side" | "rows"
-
-function pickLayout(w: number, h: number, ratio: number, cards: number): Layout {
-  const side = Math.min(h - phoneInset.y, (w - columnWidth - phoneInset.x) / ratio)
-  const perRow = Math.max(1, Math.floor((w - 2 * gap + widgetGap) / (widgetWidth + widgetGap)))
-  const rows = Math.ceil(Math.ceil(cards / 2) / perRow) + Math.ceil(Math.floor(cards / 2) / perRow)
-  const stacked = Math.min(h - phoneInset.y - rows * (cardHeight + widgetGap) - gap, (w - phoneInset.x) / ratio)
-  return stacked > side + 16 ? "rows" : "side"
+function phoneInset(edge: KeyEdge) {
+  const across = edge === "top" || edge === "bottom"
+  return {
+    x: 2 * (gap + bezel) + (across ? 0 : 2 * keyArea),
+    y: 2 * (gap + bezel) + (across ? 2 * keyArea : 0),
+  }
 }
 
-const layouts: Record<Layout, CSSProperties> = {
-  side: {
-    gridTemplateColumns: `${columnWidth}px minmax(0, 1fr)`,
-    gridTemplateRows: "auto minmax(0, 1fr)",
-    gridTemplateAreas: '"a p" "b p"',
-  },
-  rows: {
-    gridTemplateColumns: "minmax(0, 1fr)",
-    gridTemplateRows: "auto minmax(0, 1fr) auto",
-    gridTemplateAreas: '"a" "p" "b"',
-  },
+function keyEdge(ratio: number, rotation: number): KeyEdge {
+  if (ratio > 1) return rotation === 3 ? "bottom" : "top"
+  return rotation === 2 ? "left" : "right"
 }
 
-function frameStyle(ratio: number, corner: number): CSSProperties {
+function widgetGrid(height: number | undefined, cards: number) {
+  const fit = height ? Math.floor((height - 2 * gap + widgetGap) / (cardHeight + widgetGap)) : cards
+  const rows = Math.min(Math.max(1, fit), cards)
+  const columns = Math.ceil(cards / rows)
+  return { rows, width: columns * widgetWidth + (columns - 1) * widgetGap + 2 * gap }
+}
+
+function frameStyle(ratio: number, corner: number, inset: { x: number; y: number }): CSSProperties {
   return {
     "--r": ratio,
-    "--sw": `max(0px, min(calc((100cqh - ${phoneInset.y}px) * var(--r)), calc(100cqw - ${phoneInset.x}px)))`,
+    "--sw": `max(0px, min(calc((100cqh - ${inset.y}px) * var(--r)), calc(100cqw - ${inset.x}px)))`,
     "--sr": `calc(min(var(--sw), var(--sw) / var(--r)) * ${corner})`,
     "--bz": `${bezel}px`,
     padding: bezel,
@@ -259,41 +250,36 @@ export function DeviceScreen({
   const corner = portrait?.radius ? portrait.radius / Math.min(screenDp(portrait).w, screenDp(portrait).h) : 0.07
 
   const cards = 7 + (clipboard ? 1 : 0) + (device.data?.canFakeGeo ? 1 : 0)
-  const layout = box ? pickLayout(box.w, box.h, ratio, cards) : "side"
-  const rows = layout === "rows"
+  const grid = widgetGrid(box?.h, cards)
+  const edge = keyEdge(ratio, device.data?.rotation ?? 0)
+  const inset = phoneInset(edge)
 
   return (
-    <div ref={rootRef} className="bg-muted/40 grid size-full overflow-hidden" style={layouts[layout]}>
-      <ShadeSideContext value={rows ? "bottom" : "right"}>
-        <div
-          className={cn("flex gap-2 px-3 pt-3", rows ? "flex-wrap justify-center" : "flex-col")}
-          style={{ gridArea: "a" }}
-        >
-          <NetworkWidget provider={provider} id={id} locations={locations} metrics={metrics} />
-          <GpsWidget provider={provider} id={id} vpn={locations.length > 0} />
-          <StreamWidget provider={provider} id={id} live={live} />
-          <DisplayWidget provider={provider} id={id} />
-          {clipboard && <ClipboardWidget provider={provider} id={id} />}
-        </div>
-      </ShadeSideContext>
-      <ShadeSideContext value={rows ? "top" : "right"}>
-        <div
-          className={cn(
-            "flex gap-2 px-3 pb-3",
-            rows ? "flex-wrap justify-center" : "min-h-0 flex-col overflow-y-auto pt-2",
-          )}
-          style={{ gridArea: "b" }}
-        >
-          <BatteryWidget provider={provider} id={id} />
-          <LanguageWidget provider={provider} id={id} />
-          <TimeWidget provider={provider} id={id} />
-          <SSHWidget provider={provider} id={id} />
-        </div>
-      </ShadeSideContext>
-      <div className="grid min-h-0 min-w-0 place-items-center" style={{ gridArea: "p", containerType: "size" }}>
+    <div
+      ref={rootRef}
+      className="bg-muted/40 grid size-full overflow-hidden"
+      style={{ gridTemplateColumns: `${grid.width}px minmax(0, 1fr)` }}
+      data-inset-x={grid.width + inset.x}
+      data-inset-y={inset.y}
+    >
+      <div
+        className="grid min-h-0 grid-flow-col content-start justify-start gap-2 overflow-y-auto p-3"
+        style={{ gridTemplateRows: `repeat(${grid.rows}, max-content)` }}
+      >
+        <NetworkWidget provider={provider} id={id} locations={locations} metrics={metrics} />
+        <GpsWidget provider={provider} id={id} vpn={locations.length > 0} />
+        <StreamWidget provider={provider} id={id} live={live} />
+        <DisplayWidget provider={provider} id={id} />
+        {clipboard && <ClipboardWidget provider={provider} id={id} />}
+        <BatteryWidget provider={provider} id={id} />
+        <LanguageWidget provider={provider} id={id} />
+        <TimeWidget provider={provider} id={id} />
+        <SSHWidget provider={provider} id={id} />
+      </div>
+      <div className="grid min-h-0 min-w-0 place-items-center" style={{ containerType: "size" }}>
         <div
           className="relative bg-neutral-900 shadow-lg ring-1 ring-black/50 dark:ring-white/15"
-          style={frameStyle(ratio, corner)}
+          style={frameStyle(ratio, corner, inset)}
         >
           <div
             className="relative overflow-hidden bg-neutral-950"
@@ -331,7 +317,7 @@ export function DeviceScreen({
               </div>
             )}
           </div>
-          <PhoneButtons provider={provider} id={id} live={live} />
+          <PhoneButtons provider={provider} id={id} live={live} edge={edge} />
         </div>
       </div>
     </div>
