@@ -286,6 +286,7 @@ func New(cfg Config, kube kubernetes.Interface, sec vpn.Secrets, opts ...Option)
 	if len(cfg.Redroid.Images) == 0 {
 		cfg.Redroid.Images = map[string]string{"15": DefaultImage}
 	}
+	cfg.Redroid.Screens = complete(cfg.Redroid.Screens)
 	res, _ := cfg.Resources.requirements()
 	agentRes, _ := cfg.AgentResources.requirements()
 	nodeRes := map[string]corev1.ResourceRequirements{}

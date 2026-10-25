@@ -2502,3 +2502,32 @@ few seconds to the launch. holtdroid-sync's APK parser gained a fallback
 for manifests that androidbinary rejects (Chromium's optimised namespaces).
 Holtdroid's own `internal/apk` doesn't need it, because the api never parses
 WebView builds.
+
+## 89. A catalog of real devices with cutout shapes and rounded corners
+
+**Context.** #84 offered a few generic screens, and #87 painted the cutout
+over the stream. People test against specific phones, and the five Android
+cutout overlays only approximate real shapes; Android reports no corner
+radius to apps at all.
+
+**Decision.** The provider embeds `devices.json`, about fifty devices (brand,
+model, size, density, corner radius in dp and a cutout shape), and appends it
+to the generic screens. `contract.Display` gains `brand`, `radius` and a
+`shape` (a circle, capsule, waterdrop or wide notch, in dp from the top
+edge); the Android overlay that gives apps the insets is derived from the
+shape (a centered circle or capsule is `hole`, a left one `corner`, a drop or
+notch `tall`), and a screen that only names an overlay gets a stock shape.
+The UI draws the shape, the camera inside it and the black rounded corners
+over the stream, and the launch dialog shows the generic screens as cards and
+the real devices in a search. The numbers are hand-collected approximations.
+No outside dataset is copied: the closest open one, gmobile's display-panel
+files, is GPL-3 and covers few Android phones, so it only served as a
+cross-check of a few sizes. A Firebase Test Lab export would give exact
+resolutions and densities for hundreds of devices (it needs a Google Cloud
+project), and could replace the hand-written sizes later.
+
+**Consequences.** Apps see the stock overlay's insets, not the exact cutout
+of the chosen device; the drawn shape is exact only as far as the catalog is.
+Rotation hides the overlay. The `providers` response grows by the catalog
+(about 15 KB).
+

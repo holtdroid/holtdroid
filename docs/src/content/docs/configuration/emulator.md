@@ -153,8 +153,21 @@ and bottom), `hole` (a centered punch hole), `tall` (a tall notch) and
 `waterfall` (curved edges) — which the agent enables after boot with
 `cmd overlay`, so apps see `WindowInsets` with a real cutout. Android doesn't
 draw the black shape in the stream, so the session page paints it over the
-screen (with a speaker and camera); it fades to 30% under the pointer and
-passes clicks through to the device. The built-in
+screen (with a speaker and camera) together with the display's rounded
+corners; the cutout fades to 30% under the pointer and passes clicks through
+to the device.
+
+Besides the generic screens below, the provider ships a catalog of about fifty
+real phones and tablets (Pixel, Galaxy A and S, Redmi, Poco, Moto, OnePlus,
+Realme, Fairphone and others), searchable in the launch dialog. Each has its
+size, density, corner radius and a cutout shape: a punch hole, a capsule, a
+waterdrop or a wide notch, placed in dp from the top edge. The numbers
+are approximations from public specifications and measurements, good enough
+to see how an app's header sits next to a cutout, not to the pixel. A screen
+in `redroid.screens` takes the same fields: `brand`, `radius` (dp) and
+`shape` (`kind` `circle`, `pill`, `drop` or `notch`, `align`, `offset`, `top`,
+`width`, `height`); the Android overlay is derived from the shape unless
+`cutout` names one. The built-in
 presets, used when `redroid.screens` is empty:
 
 | id            | Screen                           | Density | Cutout | Like                              |

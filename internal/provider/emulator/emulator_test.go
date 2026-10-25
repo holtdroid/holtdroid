@@ -111,11 +111,11 @@ func TestRender(t *testing.T) {
 			r := req
 			r.AppData = tt.appData
 			r.WebView = tt.webview
-			screen, err := cfg.Redroid.screen(tt.screen)
+			screen, err := p.cfg.Redroid.screen(tt.screen)
 			if err != nil {
 				t.Fatal(err)
 			}
-			version, image, err := cfg.Redroid.image(tt.android)
+			version, image, err := p.cfg.Redroid.image(tt.android)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -576,5 +576,29 @@ func TestFillOrder(t *testing.T) {
 	want := []string{"core-1", "core-2", "k3s-1-1", "k3s-2-1", "core-3", "k3s-2-2", "k3s-1-2", "k3s-3-1", "k3s-3-2"}
 	if !slices.Equal(got, want) {
 		t.Fatalf("order %v, want %v", got, want)
+	}
+}
+
+func TestScreenCatalog(t *testing.T) {
+	screens := DefaultScreens()
+	if err := validateScreens(screens); err != nil {
+		t.Fatal(err)
+	}
+	if len(screens) < 40 {
+		t.Fatalf("only %d screens", len(screens))
+	}
+	done := map[string]contract.Display{}
+	for _, s := range complete(screens) {
+		done[s.ID] = s
+	}
+	for id, want := range map[string]string{
+		"pixel-6a": "hole", "pixel-4a": "corner", "galaxy-a15": "tall", "oneplus-6": "tall", "xperia-10-v": "none", "hd": "tall", "classic": "none",
+	} {
+		if got := done[id]; got.Cutout != want {
+			t.Errorf("%s: overlay %q, want %q", id, got.Cutout, want)
+		}
+	}
+	if s := complete([]contract.Display{{ID: "x", Width: 1, Height: 1, DPI: 1, Cutout: "hole"}})[0]; s.Shape == nil || s.Shape.Kind != "circle" {
+		t.Errorf("a screen that only names an overlay gets no shape: %+v", s)
 	}
 }

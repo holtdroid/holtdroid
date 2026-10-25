@@ -44,13 +44,26 @@ type Capabilities struct {
 // Display is a virtual device's screen: size, density and the emulated
 // cutout (none, or one of Android's DisplayCutoutEmulation overlays).
 type Display struct {
-	ID     string `json:"id" minLength:"1"`
-	Label  string `json:"label" doc:"a short name, e.g. HD+"`
-	Like   string `json:"like,omitempty" doc:"phones with this screen, e.g. Galaxy A05, Redmi 13C"`
-	Width  int    `json:"width" minimum:"1"`
-	Height int    `json:"height" minimum:"1"`
-	DPI    int    `json:"dpi" minimum:"1"`
-	Cutout string `json:"cutout,omitempty" enum:"none,corner,double,hole,tall,waterfall"`
+	ID     string       `json:"id" minLength:"1"`
+	Brand  string       `json:"brand,omitempty" doc:"the maker of a real device's screen; empty for a generic screen"`
+	Label  string       `json:"label" doc:"a short name: HD+, or the device's model"`
+	Like   string       `json:"like,omitempty" doc:"phones with this screen, e.g. Galaxy A05, Redmi 13C"`
+	Width  int          `json:"width" minimum:"1"`
+	Height int          `json:"height" minimum:"1"`
+	DPI    int          `json:"dpi" minimum:"1"`
+	Radius float64      `json:"radius,omitempty" doc:"corner radius of the display in dp"`
+	Cutout string       `json:"cutout,omitempty" enum:"none,corner,double,hole,tall,waterfall" doc:"the Android overlay that gives apps the cutout's insets; derived from shape when empty"`
+	Shape  *CutoutShape `json:"shape,omitempty" doc:"what the UI draws over the stream; derived from cutout when empty"`
+}
+
+// CutoutShape is a camera cutout in dp, measured from the top edge.
+type CutoutShape struct {
+	Kind   string  `json:"kind" enum:"circle,pill,drop,notch" doc:"circle: a punch hole; pill: a rounded capsule; drop: a waterdrop or U notch; notch: a wide notch"`
+	Align  string  `json:"align,omitempty" enum:"left,center,right" doc:"where on the top edge; center when empty"`
+	Offset float64 `json:"offset,omitempty" doc:"for left and right: dp from that edge to the shape's center"`
+	Top    float64 `json:"top" doc:"dp from the top edge to the shape's top"`
+	Width  float64 `json:"width" minimum:"1"`
+	Height float64 `json:"height,omitempty" doc:"defaults to width"`
 }
 
 var Cutouts = []string{"none", "corner", "double", "hole", "tall", "waterfall"}

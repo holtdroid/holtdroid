@@ -6,6 +6,7 @@ import {
   GlobeIcon,
   MonitorSmartphoneIcon,
   RocketIcon,
+  SearchIcon,
   ShieldCheckIcon,
   SmartphoneIcon,
   SparklesIcon,
@@ -19,6 +20,7 @@ import { artifactTitle } from "@/components/artifact-list"
 import { AndroidVersionCard } from "@/components/launch/android-version"
 import { ChoiceCard, ChoiceGroup, Section } from "@/components/launch/choice-card"
 import { PhonePreview } from "@/components/launch/phone-preview"
+import { Combobox } from "@/components/combobox"
 import { WebViewChoice } from "@/components/launch/webview-choice"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -137,6 +139,10 @@ function LaunchFlow({ artifact, onClose }: { artifact: ArtifactView; onClose: ()
     artifact.app && artifact.app.abis.length > 0 && abis ? !artifact.app.abis.some((abi) => abis.includes(abi)) : false
   const slots = provider?.capacity.slots ?? []
   const virtual = provider ? isVirtual(provider) : false
+  const generic = screens.filter((s) => !s.brand)
+  const catalog = screens.filter((s) => s.brand)
+  const chosenDevice = catalog.find((s) => s.id === screen)
+  const cards = chosenDevice ? [...generic, chosenDevice] : generic
 
   const submit = () => {
     if (usable.length === 0) return
@@ -213,7 +219,7 @@ function LaunchFlow({ artifact, onClose }: { artifact: ArtifactView; onClose: ()
             {virtual && screens.length > 1 && (
               <Section title="Screen" hint="The size is fixed for the session; the density can still be changed later.">
                 <ChoiceGroup label="Screen" className="grid-cols-2 sm:grid-cols-3">
-                  {screens.map((s) => (
+                  {cards.map((s) => (
                     <ChoiceCard
                       key={s.id}
                       selected={s.id === screen}
@@ -221,10 +227,10 @@ function LaunchFlow({ artifact, onClose }: { artifact: ArtifactView; onClose: ()
                       className="flex-row items-center gap-3"
                     >
                       <div className="grid w-14 shrink-0 place-items-center">
-                        <PhonePreview width={s.width} height={s.height} cutout={s.cutout} />
+                        <PhonePreview display={s} />
                       </div>
                       <div className="min-w-0 pr-4">
-                        <div className="text-sm font-medium">{s.label}</div>
+                        <div className="text-sm font-medium">{s.brand ? `${s.brand} ${s.label}` : s.label}</div>
                         <div className="text-muted-foreground text-xs tabular-nums">
                           {s.width}×{s.height} · {s.dpi} dpi
                         </div>
@@ -236,6 +242,20 @@ function LaunchFlow({ artifact, onClose }: { artifact: ArtifactView; onClose: ()
                     </ChoiceCard>
                   ))}
                 </ChoiceGroup>
+                {catalog.length > 0 && (
+                  <Combobox
+                    options={catalog.map((d) => ({
+                      value: d.id,
+                      label: `${d.brand} ${d.label}`,
+                      hint: `${d.width}×${d.height}`,
+                    }))}
+                    value={catalog.some((d) => d.id === screen) ? (screen ?? "") : ""}
+                    onChange={setChosenScreen}
+                    placeholder={`Or search ${catalog.length} real devices…`}
+                    icon={SearchIcon}
+                    className="w-full sm:w-80"
+                  />
+                )}
               </Section>
             )}
 

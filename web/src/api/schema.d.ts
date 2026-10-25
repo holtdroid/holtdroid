@@ -912,6 +912,35 @@ export interface components {
             refreshToken: string;
             user: string;
         };
+        CutoutShape: {
+            /**
+             * @description where on the top edge; center when empty
+             * @enum {string}
+             */
+            align?: "left" | "center" | "right";
+            /**
+             * Format: double
+             * @description defaults to width
+             */
+            height?: number;
+            /**
+             * @description circle: a punch hole; pill: a rounded capsule; drop: a waterdrop or U notch; notch: a wide notch
+             * @enum {string}
+             */
+            kind: "circle" | "pill" | "drop" | "notch";
+            /**
+             * Format: double
+             * @description for left and right: dp from that edge to the shape's center
+             */
+            offset?: number;
+            /**
+             * Format: double
+             * @description dp from the top edge to the shape's top
+             */
+            top: number;
+            /** Format: double */
+            width: number;
+        };
         DeviceInfo: {
             abis: string[];
             android?: string;
@@ -943,17 +972,29 @@ export interface components {
             uptime?: number;
         };
         Display: {
-            /** @enum {string} */
+            /** @description the maker of a real device's screen; empty for a generic screen */
+            brand?: string;
+            /**
+             * @description the Android overlay that gives apps the cutout's insets; derived from shape when empty
+             * @enum {string}
+             */
             cutout?: "none" | "corner" | "double" | "hole" | "tall" | "waterfall";
             /** Format: int64 */
             dpi: number;
             /** Format: int64 */
             height: number;
             id: string;
-            /** @description a short name, e.g. HD+ */
+            /** @description a short name: HD+, or the device's model */
             label: string;
             /** @description phones with this screen, e.g. Galaxy A05, Redmi 13C */
             like?: string;
+            /**
+             * Format: double
+             * @description corner radius of the display in dp
+             */
+            radius?: number;
+            /** @description what the UI draws over the stream; derived from cutout when empty */
+            shape?: components["schemas"]["CutoutShape"];
             /** Format: int64 */
             width: number;
         };

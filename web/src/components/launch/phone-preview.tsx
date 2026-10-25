@@ -1,81 +1,63 @@
-import { useId } from "react"
+import type { Display } from "@/api/client"
+import { CutoutGraphic } from "@/components/session/cutout-graphic"
+import { screenDp } from "@/lib/cutout"
 import { cn } from "@/lib/utils"
 
-export type Cutout = "none" | "corner" | "double" | "hole" | "tall" | "waterfall" | undefined
-
-const H = 100
-
-// notch draws a cutout that is flat against the screen edge at y and rounded
-// on the side facing into the screen (dir 1 hangs down from the top, -1 rises
-// from the bottom).
-function notch(cx: number, width: number, y: number, dir: 1 | -1) {
-  const r = 3
-  const h = 5.5
-  const x = cx - width / 2
-  return `M${x} ${y} H${x + width} V${y + dir * (h - r)} a${r} ${r} 0 0 ${dir === 1 ? 1 : 0} ${-r} ${dir * r} H${x + r} a${r} ${r} 0 0 ${dir === 1 ? 1 : 0} ${-r} ${-dir * r} Z`
-}
-
-export function PhonePreview({
-  width,
-  height,
-  cutout,
-  className,
-}: {
-  width: number
-  height: number
-  cutout?: Cutout
-  className?: string
-}) {
-  const id = useId()
-  const w = Math.round((H * width) / height)
-  const tablet = width / height > 0.6
-  const r = tablet ? 6 : 10
-  const mid = w / 2
+export function PhonePreview({ display, className }: { display: Display; className?: string }) {
+  const { w, h } = screenDp(display)
+  const r = Math.min(Math.max(display.radius ?? 0, w * 0.04), w / 2)
   return (
-    <svg viewBox={`0 0 ${w} ${H}`} className={cn("text-foreground h-20 w-auto", className)} aria-hidden>
-      <defs>
-        <linearGradient id={id} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="currentColor" stopOpacity="0.14" />
-          <stop offset="1" stopColor="currentColor" stopOpacity="0.03" />
-        </linearGradient>
-      </defs>
+    <svg viewBox={`0 0 ${w} ${h}`} className={cn("text-foreground h-20 w-auto", className)} aria-hidden>
+      <rect width={w} height={h} rx={r} fill="currentColor" fillOpacity="0.08" />
       <rect
-        x="1"
-        y="1"
-        width={w - 2}
-        height={H - 2}
+        x={w * 0.12}
+        y={h * 0.18}
+        width={w * 0.5}
+        height={h * 0.02}
+        rx={h * 0.01}
+        fill="currentColor"
+        opacity="0.25"
+      />
+      <rect
+        x={w * 0.12}
+        y={h * 0.23}
+        width={w * 0.76}
+        height={h * 0.045}
+        rx={h * 0.012}
+        fill="currentColor"
+        opacity="0.12"
+      />
+      <rect
+        x={w * 0.12}
+        y={h * 0.29}
+        width={w * 0.76}
+        height={h * 0.045}
+        rx={h * 0.012}
+        fill="currentColor"
+        opacity="0.12"
+      />
+      <rect
+        x={w * 0.38}
+        y={h * 0.985}
+        width={w * 0.24}
+        height={h * 0.005}
+        rx={h * 0.0025}
+        fill="currentColor"
+        opacity="0.45"
+      />
+      {display.shape && <CutoutGraphic shape={display.shape} widthDp={w} fill="currentColor" details={false} />}
+      <rect
+        x={0}
+        y={0}
+        width={w}
+        height={h}
         rx={r}
-        fill={`url(#${id})`}
+        fill="none"
         stroke="currentColor"
         strokeOpacity="0.55"
-        strokeWidth="2"
+        strokeWidth="1.5"
+        vectorEffect="non-scaling-stroke"
       />
-      <rect x={w * 0.14} y={H * 0.2} width={w * 0.5} height="5" rx="2.5" fill="currentColor" opacity="0.2" />
-      <rect x={w * 0.14} y={H * 0.2 + 9} width={w * 0.72} height="12" rx="3" fill="currentColor" opacity="0.1" />
-      <rect x={w * 0.14} y={H * 0.2 + 25} width={w * 0.72} height="12" rx="3" fill="currentColor" opacity="0.1" />
-      <rect x={mid - w * 0.12} y={H - 6} width={w * 0.24} height="2" rx="1" fill="currentColor" opacity="0.45" />
-      {(cutout === "tall" || cutout === "double") && <path d={notch(mid, w * 0.28, 2, 1)} fill="currentColor" />}
-      {cutout === "hole" && <circle cx={mid} cy="7" r="2.8" fill="currentColor" />}
-      {cutout === "corner" && <circle cx="8" cy="8" r="2.8" fill="currentColor" />}
-      {cutout === "double" && <path d={notch(mid, w * 0.28, H - 2, -1)} fill="currentColor" />}
-      {cutout === "waterfall" && (
-        <>
-          <path
-            d={`M1.5 ${r} C5 ${H * 0.3} 5 ${H * 0.7} 1.5 ${H - r}`}
-            fill="none"
-            stroke="currentColor"
-            strokeOpacity="0.5"
-            strokeWidth="1.5"
-          />
-          <path
-            d={`M${w - 1.5} ${r} C${w - 5} ${H * 0.3} ${w - 5} ${H * 0.7} ${w - 1.5} ${H - r}`}
-            fill="none"
-            stroke="currentColor"
-            strokeOpacity="0.5"
-            strokeWidth="1.5"
-          />
-        </>
-      )}
     </svg>
   )
 }

@@ -146,12 +146,25 @@ type Capabilities struct {
 }
 
 type Display struct {
-	ID     string // "hd"
-	Label  string // "6.7″ HD+ 720×1600 · notch (Galaxy A05, Redmi 13C)"
+	ID     string // "hd", "pixel-6a"
+	Brand  string // a real device's maker; empty for a generic screen (decision #89)
+	Label  string // "HD+", "Pixel 6a"
+	Like   string // phones with this screen: "Galaxy A05, Redmi 13C"
 	Width  int
 	Height int
 	DPI    int
-	Cutout string // "none" | "corner" | "double" | "hole" | "tall" | "waterfall": Android's DisplayCutoutEmulation overlays
+	Radius float64      // display corner radius in dp
+	Cutout string       // "none" | "corner" | "double" | "hole" | "tall" | "waterfall": the Android overlay that gives apps the insets; derived from Shape when empty
+	Shape  *CutoutShape // what the UI draws over the stream; derived from Cutout when empty
+}
+
+type CutoutShape struct {
+	Kind   string  // "circle" | "pill" | "drop" | "notch"
+	Align  string  // "left" | "center" | "right"; center when empty
+	Offset float64 // dp from the left or right edge to the shape's center
+	Top    float64 // dp from the top edge to the shape's top
+	Width  float64 // dp
+	Height float64 // dp; defaults to Width
 }
 
 type Location struct {
