@@ -1,5 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEventSource } from "@/hooks/use-event-source"
+import { recordPreference } from "@/lib/launch-prefs"
 import {
   api,
   type AppDataChoice,
@@ -22,6 +23,9 @@ export const keys = {
   providers: ["providers"] as const,
   sessions: ["sessions"] as const,
   appData: ["app-data"] as const,
+  recordings: ["recordings"] as const,
+  recording: (id: string) => ["recordings", id] as const,
+  shared: (token: string) => ["shared", token] as const,
   webviews: ["webviews"] as const,
   map: ["map"] as const,
 }
@@ -203,7 +207,10 @@ export type LaunchInput = {
 export function useLaunch() {
   const qc = useQueryClient()
   return async (body: LaunchInput, signal: AbortSignal) => {
-    const session = await unwrap(api.POST("/api/v1/sessions", { body, signal }))
+    const record = recordPreference()
+    const session = await unwrap(
+      api.POST("/api/v1/sessions", { body: record === null ? body : { ...body, record }, signal }),
+    )
     void qc.invalidateQueries({ queryKey: keys.sessions })
     void qc.invalidateQueries({ queryKey: keys.providers })
     return session
@@ -219,6 +226,7 @@ export function useStopSession() {
       void qc.invalidateQueries({ queryKey: keys.sessions })
       void qc.invalidateQueries({ queryKey: keys.providers })
       void qc.invalidateQueries({ queryKey: keys.appData })
+      void qc.invalidateQueries({ queryKey: keys.recordings })
     },
   })
 }
@@ -290,4 +298,75 @@ export function useSaveAppData() {
       ),
     onSuccess: () => void qc.invalidateQueries({ queryKey: keys.appData }),
   })
+}
+
+export function useRecordings() {
+  return useQuery({
+    queryKey: keys.recordings,
+    queryFn: () => unwrap(api.GET("/api/v1/recordings")),
+    staleTime: 15_000,
+    refetchInterval: (q) =>
+      q.state.data?.items.some((r) => r.state === "recording" || r.state === "pending") ? 10_000 : false,
+  })
+}
+
+export type RecordingSource = { kind: "own"; id: string } | { kind: "shared"; token: string }
+
+export function useRecordingDetail(source: RecordingSource) {
+  return useQuery({
+    queryKey: source.kind === "own" ? keys.recording(source.id) : keys.shared(source.token),
+    queryFn: () =>
+      source.kind === "own"
+        ? unwrap(api.GET("/api/v1/recordings/{id}", { params: { path: { id: source.id } } }))
+        : unwrap(api.GET("/api/v1/shared/{token}", { params: { path: { token: source.token } } })),
+    refetchInterval: (q) => (q.state.data?.recording.state === "recording" ? 10_000 : false),
+  })
+}
+
+export function useRecordingEvents(source: RecordingSource, version: number) {
+  return useQuery({
+    queryKey: [...(source.kind === "own" ? keys.recording(source.id) : keys.shared(source.token)), "events", version],
+    queryFn: () =>
+      source.kind === "own"
+        ? unwrap(api.GET("/api/v1/recordings/{id}/events", { params: { path: { id: source.id } } }))
+        : unwrap(api.GET("/api/v1/shared/{token}/events", { params: { path: { token: source.token } } })),
+    placeholderData: keepPreviousData,
+    staleTime: Infinity,
+  })
+}
+
+function useRecordingMutation<T, R>(fn: (v: T) => Promise<R>) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.recordings }),
+  })
+}
+
+export function useKeepRecording() {
+  return useRecordingMutation(({ id, keep }: { id: string; keep: boolean }) =>
+    unwrap(api.PUT("/api/v1/recordings/{id}/keep", { params: { path: { id } }, body: { keep } })),
+  )
+}
+
+export function useShareRecording() {
+  return useRecordingMutation(({ id, share }: { id: string; share: boolean }) =>
+    share
+      ? unwrap(api.POST("/api/v1/recordings/{id}/share", { params: { path: { id } } }))
+      : unwrap(api.DELETE("/api/v1/recordings/{id}/share", { params: { path: { id } } })),
+  )
+}
+
+export function useDeleteRecording() {
+  return useRecordingMutation((id: string) =>
+    unwrap(api.DELETE("/api/v1/recordings/{id}", { params: { path: { id } } })),
+  )
+}
+
+export function useSessionRecording() {
+  return useRecordingMutation(({ provider, id, on }: { provider: string; id: string; on: boolean }) =>
+    on
+      ? unwrap(api.POST("/api/v1/sessions/{provider}/{id}/recording", { params: { path: { provider, id } } }))
+      : unwrap(api.DELETE("/api/v1/sessions/{provider}/{id}/recording", { params: { path: { provider, id } } })),
+  )
 }

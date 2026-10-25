@@ -44,6 +44,11 @@ config:
   # storage of its own: the default shared storage is the cache volume.
   appData:
     enabled: false
+  # Record sessions on the server (docs: Concepts → Recordings). Agents
+  # upload through the internal Service; give it a storage of its own like
+  # app data, e.g. an S3 prefix.
+  recordings:
+    enabled: false
   # WebView builds a launch can install over the built-in WebView, written by
   # holtdroid-webview-sync (docs: Concepts → WebView versions). Off without a
   # storage type.

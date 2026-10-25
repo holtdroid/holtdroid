@@ -1,8 +1,7 @@
 import { CameraIcon, ChevronsLeftIcon, ChevronsRightIcon, VibrateIcon } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
-import { type Location, type SessionView, sessionBase, type Vibration } from "@/api/client"
-import type { AdbSession } from "@/components/session/adb-session"
+import { type Location, type SessionView, sessionBase, type StatusEvent, type Vibration } from "@/api/client"
 import { DeviceControls } from "@/components/session/device-controls"
 import type { LiveScreen } from "@/components/session/live-screen"
 import { RecordButton } from "@/components/session/record-button"
@@ -19,15 +18,17 @@ export function DeviceRail({
   id,
   session,
   live,
-  adb,
   locations,
+  status,
+  manage,
 }: {
   provider: string
   id: string
   session: SessionView
   live: LiveScreen
-  adb: AdbSession | null
   locations: Location[]
+  status: StatusEvent | null
+  manage: boolean
 }) {
   const [shooting, setShooting] = useState(false)
   const { audio, railLabels } = useScreenPrefs()
@@ -69,7 +70,13 @@ export function DeviceRail({
       <RailButton label="Screenshot" disabled={shooting} onClick={() => void screenshot()}>
         <CameraIcon />
       </RailButton>
-      <RecordButton provider={provider} id={id} session={session} live={live} adb={adb} />
+      <RecordButton
+        provider={provider}
+        id={id}
+        recording={status?.recording}
+        since={status?.recordedAt}
+        manage={manage}
+      />
       <DeviceControls provider={provider} id={id} locations={locations} />
     </div>
   )

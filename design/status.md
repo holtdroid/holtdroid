@@ -91,8 +91,7 @@ deployment"):
   with tabs next to DevTools for Logcat (app-only by uid, crash toast),
   Files, Terminal, App (deep links, permissions, force stop, clear data,
   doze, standby bucket) and Device (props, WebView provider, demo mode,
-  bug report zip and bugreportz), plus screen recording in the rail
-  (framed phone or whole tab with a details strip, MP4 streamed to OPFS, decisions #66, #74). The
+  bug report zip and bugreportz). The
   agent's adb relays refuse `reboot:`/`unroot:`/`remount:`/`tcpip:`/`usb:`.
   The fake provider has a small adbd. Works on the real emulator.
 - Holtdroid WebView (decision #62), a separate app in
@@ -100,6 +99,14 @@ deployment"):
   viewport framing, freeze, clear data, TLS/proxy/user agent, console and
   Eruda, GeckoView build, control over `am start`/`am broadcast`; releases
   from Conventional Commits, Renovate for dependencies. Docs under Tools.
+- Server-side recordings (decision #96, Phase 4.12): the agent muxes the
+  viewer's H.264 stream (or its own) into fMP4 segments and uploads them
+  with events and logcat through the api into storage; the Recordings page
+  plays them in a canvas scene (logcat, phone, app, time, device, network,
+  load), renders MP4 downloads in the browser, keeps, shares by link
+  without sign-in and enforces a per-user quota and retention. Replaced the
+  browser recording. Covered by tests with the fake provider; not yet tried
+  on a redroid session.
 - A metrics bar at the bottom of the session page (decision #40): device,
   app (fps, jank, CPU/PSS per process), network, storage, temperatures,
   the session Pod's CPU/memory/throttling and the stream.
@@ -196,22 +203,25 @@ deployment"):
 
 ## Next steps, in order
 
-1. Redroid (Phase 8): try clipboard, audio, app data and the ADB tabs by
+1. Recordings: watch a recording of a real redroid session end to end
+   (viewer tap and own stream, rotation, logcat volume, a session stopped
+   mid-upload) and the video download of a long one.
+2. Redroid (Phase 8): try clipboard, audio, app data and the ADB tabs by
    hand in the browser on the live deployment (sessions run on k3s-3 since
    2026-10-25), then the
    wallpaper, and the next isolation steps of decision #83 (binder devices
    from a node helper so the container can drop `privileged`, a token on
    frida-server, a non-root adbd for users).
-2. Phones: try the ADB proxy over SSH on the real phone, a check after the
+3. Phones: try the ADB proxy over SSH on the real phone, a check after the
    cleanup, then the layer-3 root hardening.
-3. The conformance suite (`internal/contract/conformance`) for Provider and
+4. The conformance suite (`internal/contract/conformance`) for Provider and
    Agent — the last open item of Phases 1 and 3.
-4. Planned, each starting with a decisions.md entry: Phase 4.7 traffic
+5. Planned, each starting with a decisions.md entry: Phase 4.7 traffic
    inspection proxy, Phase 4.8 MCP server. Both optional and off by
    default; each adds its own audit events and metrics (decision #44).
-5. The rest of Phase 4.11 (decision #64): the SYN-driven automatic port mode,
+6. The rest of Phase 4.11 (decision #64): the SYN-driven automatic port mode,
    Windows, and revocation once the database persists.
-6. Whatever more use of real sessions turns up (Phase 6).
+7. Whatever more use of real sessions turns up (Phase 6).
 
 ## Requirements from the maintainer
 

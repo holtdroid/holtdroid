@@ -733,6 +733,29 @@ data, doze, standby bucket) and Device (props, WebView provider, demo mode,
 bug reports). The connection opens when the device is first ready and lives
 as long as the page, so logcat survives app restarts.
 
+## Recordings
+
+Sessions are recorded by their agent and rendered by the browser
+(decision #96, `internal/recording`, `web/src/lib/recording`):
+
+```
+device ─scrcpy H.264─▶ agent ──tee──▶ viewer's WebSocket
+                         │ fMP4 segments, events.jsonl.gz, logcat.log.gz, thumb.jpg, manifest.json
+                         ▼ PUT /internal/recordings/{user}/{id}/{secret}/{file}
+                        api ──▶ storage: recordings/meta/…, recordings/files/…, recordings/shares/…
+                         ▲ GET /api/v1/recordings/{id}/files/…, /events (or /api/v1/shared/{token}/…)
+browser: mediabunny decodes one init+segment at a time, the canvas scene draws
+         logcat | phone | app, time, device, network, load — the player and the
+         MP4 download (WebCodecs encode into OPFS) share it
+```
+
+The api creates the recording at launch (`CreateSession.recording`, the
+agent starts at its first `ready`) or on request (`POST /v1/recording`),
+stops it before a session is stopped or reaped, sweeps expired recordings
+every `recordings.sweepInterval` and enforces the per-user quota when
+manifests arrive. Agents never get storage credentials; the upload URL's
+secret is checked against the recording's meta.
+
 ## Security model
 
 - Sign-in is `auth.mode`: `anonymous` (random names), `password`, `oidc`,

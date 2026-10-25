@@ -14,7 +14,7 @@ import {
 } from "lucide-react"
 import { useMemo, useState } from "react"
 import type { ArtifactView, Display, ProviderView } from "@/api/client"
-import { useAppDataFor, useProviders } from "@/api/queries"
+import { useAppDataFor, useProviders, useRecordings } from "@/api/queries"
 import { AppIcon } from "@/components/app-icon"
 import { artifactTitle } from "@/components/artifact-list"
 import { AndroidVersionCard } from "@/components/launch/android-version"
@@ -35,9 +35,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import { useLaunchTarget, useStartSession } from "@/hooks/use-launch-target"
 import { formatBytes, formatRelative } from "@/lib/format"
-import { useFavoriteScreens } from "@/lib/launch-prefs"
+import { recordPreference, rememberRecord, useFavoriteScreens } from "@/lib/launch-prefs"
 import { locationFlag } from "@/lib/location"
 import { cn } from "@/lib/utils"
 
@@ -131,6 +132,8 @@ function LaunchFlow({ artifact, onClose }: { artifact: ArtifactView; onClose: ()
   )
   const launch = useStartSession()
   const appData = useAppDataFor(artifact.app?.package)
+  const recordings = useRecordings()
+  const [record, setRecord] = useState(recordPreference)
   const snapshot = appData.items.find((d) => d.id === chosenData)
   const appVersion = artifact.app?.versionCode ?? 0
   const newerData = !!snapshot?.versionCode && appVersion > 0 && snapshot.versionCode > appVersion
@@ -357,6 +360,25 @@ function LaunchFlow({ artifact, onClose }: { artifact: ArtifactView; onClose: ()
                   </div>
                 )}
               </Section>
+            )}
+
+            {recordings.data?.enabled && (
+              <div className="flex items-start gap-2.5">
+                <Switch
+                  id="launch-record"
+                  checked={record ?? recordings.data.auto}
+                  onCheckedChange={(v) => {
+                    setRecord(v)
+                    rememberRecord(v)
+                  }}
+                />
+                <Label htmlFor="launch-record" className="grid gap-0.5 font-normal">
+                  <span>Record the session</span>
+                  <span className="text-muted-foreground text-xs">
+                    The screen, logcat, device and network on the server, to watch or share later in Recordings
+                  </span>
+                </Label>
+              </div>
             )}
 
             {newerData && (

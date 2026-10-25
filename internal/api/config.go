@@ -74,6 +74,18 @@ type AppDataConfig struct {
 	Timeout      time.Duration
 }
 
+// RecordingsConfig controls server-side session recordings (decision #96).
+type RecordingsConfig struct {
+	Enabled       bool
+	Storage       storage.Config
+	Auto          bool
+	MaxAge        time.Duration
+	Quota         config.ByteSize
+	Share         bool
+	MaxFileSize   config.ByteSize
+	SweepInterval time.Duration
+}
+
 // ADBConfig controls the browser's ADB connection to sessions (the portal's
 // logcat, files, terminal and app tools).
 type ADBConfig struct {
@@ -96,6 +108,7 @@ type Config struct {
 	Uploads        UploadsConfig
 	Downloads      DownloadsConfig
 	AppData        AppDataConfig
+	Recordings     RecordingsConfig
 	WebView        WebViewConfig
 	Map            MapConfig
 	Sources        []source.Config
@@ -126,6 +139,9 @@ func DefaultConfig() Config {
 		Uploads: UploadsConfig{Enabled: true, Prefix: "uploads", MaxSize: 1 << 30, TemporaryTTL: 7 * 24 * time.Hour},
 		AppData: AppDataConfig{
 			Keep: 6, MaxAge: 7 * 24 * time.Hour, MaxCacheSize: 256 << 20, MaxSize: 1 << 30, Export: true, Timeout: 5 * time.Minute,
+		},
+		Recordings: RecordingsConfig{
+			Auto: true, MaxAge: 7 * 24 * time.Hour, Share: true, MaxFileSize: 64 << 20, SweepInterval: 10 * time.Minute,
 		},
 		Map: MapConfig{URL: "https://tiles.openfreemap.org", Style: "styles/liberty", DarkStyle: "styles/dark"},
 		Sources: []source.Config{{
@@ -218,6 +234,14 @@ func (c Config) Validate() error {
 		}
 		if c.Map.Style == "" {
 			errs = append(errs, errors.New("map.style is required with map.url"))
+		}
+	}
+	if c.Recordings.Enabled {
+		if c.Recordings.MaxAge < 0 {
+			errs = append(errs, errors.New("recordings.maxAge must not be negative"))
+		}
+		if c.Recordings.MaxFileSize == 0 || c.Recordings.SweepInterval <= 0 {
+			errs = append(errs, errors.New("recordings.maxFileSize and recordings.sweepInterval must be positive"))
 		}
 	}
 	seen := map[string]bool{}

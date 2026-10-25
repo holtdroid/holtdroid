@@ -283,7 +283,7 @@ func New(cfg Config, host Host, opts ...Option) (*Provider, error) {
 			continue
 		}
 		p.mu.Lock()
-		p.start(s.Session, s.ArtifactURL, true, v)
+		p.start(s.Session, s.ArtifactURL, nil, true, v)
 		p.mu.Unlock()
 	}
 	p.mu.Lock()
@@ -553,7 +553,7 @@ func (p *Provider) Create(ctx context.Context, req contract.CreateSession) (cont
 	if p.cfg.TunnelURL != "" {
 		s.TunnelURL = strings.TrimRight(p.cfg.TunnelURL, "/") + "/agents/" + id
 	}
-	sess := p.start(s, req.ArtifactURL, false, v)
+	sess := p.start(s, req.ArtifactURL, req.Recording, false, v)
 	if err := p.saveLocked(); err != nil {
 		sess.cancel()
 		delete(p.sessions, id)
@@ -564,9 +564,12 @@ func (p *Provider) Create(ctx context.Context, req contract.CreateSession) (cont
 
 // start runs the session's agent, and its sing-box when v is set; p.mu must
 // be held.
-func (p *Provider) start(s contract.Session, artifactURL string, resume bool, v *vpnRun) *session {
+func (p *Provider) start(s contract.Session, artifactURL string, rec *contract.RecordingTarget, resume bool, v *vpnRun) *session {
 	cfg := agent.DefaultConfig()
 	cfg.ArtifactURL = artifactURL
+	if rec != nil {
+		cfg.Recording = *rec
+	}
 	cfg.Package = s.Package
 	cfg.ADB = p.cfg.ADB.Bin
 	cfg.Serial = s.Slot

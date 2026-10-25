@@ -127,32 +127,37 @@ while their regular logs go to stderr. Every audit line has
 | `reason`              | Why it was denied or failed, or why the reaper stopped the session         |
 | `details`             | Action-specific strings                                                    |
 
-| Action                 | Details                                                   | Notes                                                                                                                     |
-| ---------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `auth.signin`          | `method` (`anonymous`, `password`, `oidc`)                | Header mode has no sign-in: your proxy did it                                                                             |
-| `auth.signout`         |                                                           |                                                                                                                           |
-| `session.launch`       | `package`, `location`, `appData`, `appDataCache`          | `appData` is the id of the save the session started from                                                                  |
-| `session.stop`         |                                                           | Stopped by a user                                                                                                         |
-| `session.reap`         | `owner`                                                   | `reason`: `idle timeout` or `max TTL reached`                                                                             |
-| `session.extend`       |                                                           |                                                                                                                           |
-| `session.install`      | `package`, `keepData`                                     | Another build installed into a running session                                                                            |
-| `session.location`     | `location`                                                | VPN location switch                                                                                                       |
-| `session.clipboard`    |                                                           | Clipboard writes through the agent API; never the content. Clipboard sync inside the scrcpy stream is not seen by the api |
-| `artifact.upload`      | `package`, `version`, `visibility`, `temporary`           |                                                                                                                           |
-| `artifact.update`      | `visibility`, `temporary`                                 |                                                                                                                           |
-| `artifact.delete`      |                                                           |                                                                                                                           |
-| `artifact.download`    |                                                           | Denied for non-admins with `downloads.adminOnly`                                                                          |
-| `ssh.enroll`           | `computer`, `hostname`, `fingerprint`, `os`               | A computer was enrolled with a code from the portal; denied for invalid, expired or reused codes                          |
-| `ssh.connect`          | `computer`, `hostname`                                    | From the ssh-gateway; denied for a rejected certificate from the portal's authority                                       |
-| `ssh.disconnect`       | `computer`, `hostname`, `seconds`, `bytes`                |                                                                                                                           |
-| `ssh.tunnel`           | `computer`, `hostname`, `kind` (`adb`, `reverse`), `port` | Every ADB connection and port published on a device                                                                       |
-| `appdata.save`         | `owner`, `package`, `trigger`, `id`, `cache`, `size`      | `trigger`: `stop`, `reap` or `manual`; nothing is recorded when the app had no data                                       |
-| `appdata.download`     | `package`, `id`                                           |                                                                                                                           |
-| `appdata.delete`       | `package`, `id`                                           | Deleted by the user; retention deletions are only logged                                                                  |
-| `adb.connect`          |                                                           | The session page's ADB connection; denied per `adb.browser` / `adb.ownerOnly`                                             |
-| `adb.disconnect`       | `seconds`                                                 |                                                                                                                           |
-| `audit.export`         | `events`, `q`                                             | An admin downloaded events from the audit page                                                                            |
-| `provider.maintenance` | `slot`, `enabled`, `reason`                               | An admin held or released a slot (empty `slot`: the whole provider) on the Inventory page                                 |
+| Action                 | Details                                                       | Notes                                                                                                                     |
+| ---------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `auth.signin`          | `method` (`anonymous`, `password`, `oidc`)                    | Header mode has no sign-in: your proxy did it                                                                             |
+| `auth.signout`         |                                                               |                                                                                                                           |
+| `session.launch`       | `package`, `location`, `appData`, `appDataCache`, `recording` | `appData` is the id of the save the session started from; `recording` the recording that started with it                  |
+| `session.stop`         |                                                               | Stopped by a user                                                                                                         |
+| `session.reap`         | `owner`                                                       | `reason`: `idle timeout` or `max TTL reached`                                                                             |
+| `session.extend`       |                                                               |                                                                                                                           |
+| `session.install`      | `package`, `keepData`                                         | Another build installed into a running session                                                                            |
+| `session.location`     | `location`                                                    | VPN location switch                                                                                                       |
+| `session.clipboard`    |                                                               | Clipboard writes through the agent API; never the content. Clipboard sync inside the scrcpy stream is not seen by the api |
+| `artifact.upload`      | `package`, `version`, `visibility`, `temporary`               |                                                                                                                           |
+| `artifact.update`      | `visibility`, `temporary`                                     |                                                                                                                           |
+| `artifact.delete`      |                                                               |                                                                                                                           |
+| `artifact.download`    |                                                               | Denied for non-admins with `downloads.adminOnly`                                                                          |
+| `ssh.enroll`           | `computer`, `hostname`, `fingerprint`, `os`                   | A computer was enrolled with a code from the portal; denied for invalid, expired or reused codes                          |
+| `ssh.connect`          | `computer`, `hostname`                                        | From the ssh-gateway; denied for a rejected certificate from the portal's authority                                       |
+| `ssh.disconnect`       | `computer`, `hostname`, `seconds`, `bytes`                    |                                                                                                                           |
+| `ssh.tunnel`           | `computer`, `hostname`, `kind` (`adb`, `reverse`), `port`     | Every ADB connection and port published on a device                                                                       |
+| `appdata.save`         | `owner`, `package`, `trigger`, `id`, `cache`, `size`          | `trigger`: `stop`, `reap` or `manual`; nothing is recorded when the app had no data                                       |
+| `appdata.download`     | `package`, `id`                                               |                                                                                                                           |
+| `appdata.delete`       | `package`, `id`                                               | Deleted by the user; retention deletions are only logged                                                                  |
+| `recording.start`      | `recording`                                                   | Started from the session page; recordings started at launch show up as `recording` in `session.launch`                    |
+| `recording.stop`       | `recording`                                                   | Stopped from the session page; stopping the session ends its recording too                                                |
+| `recording.delete`     | `recording`                                                   | Deleted by the user; retention and quota deletions are only logged                                                        |
+| `recording.share`      | `recording`                                                   | A share link was made                                                                                                     |
+| `recording.unshare`    | `recording`                                                   |                                                                                                                           |
+| `adb.connect`          |                                                               | The session page's ADB connection; denied per `adb.browser` / `adb.ownerOnly`                                             |
+| `adb.disconnect`       | `seconds`                                                     |                                                                                                                           |
+| `audit.export`         | `events`, `q`                                                 | An admin downloaded events from the audit page                                                                            |
+| `provider.maintenance` | `slot`, `enabled`, `reason`                                   | An admin held or released a slot (empty `slot`: the whole provider) on the Inventory page                                 |
 
 Session actions are also kept in the api's database for the session's
 lifetime.

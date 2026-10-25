@@ -63,7 +63,7 @@ function retention(info: AuditInfo) {
 export function AuditPage() {
   const me = useMe()
   const admin = me.data?.admin === true
-  const filter = useSearch({ from: "/audit" })
+  const filter = useSearch({ from: "/_portal/audit" })
   const navigate = useNavigate({ from: "/audit" })
   const [live, setLive] = useState(true)
   const info = useAuditInfo(admin)

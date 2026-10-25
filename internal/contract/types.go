@@ -153,17 +153,18 @@ const (
 )
 
 type CreateSession struct {
-	ArtifactURL string          `json:"artifactUrl" format:"uri"`
-	ArtifactRef string          `json:"artifactRef" minLength:"1"`
-	Package     string          `json:"package" minLength:"1"`
-	Owner       string          `json:"owner" minLength:"1"`
-	Location    string          `json:"location,omitempty"`
-	Slot        string          `json:"slot,omitempty" doc:"run on this slot; empty picks any free one"`
-	Screen      string          `json:"screen,omitempty" doc:"one of the provider's screens; empty takes the first"`
-	Android     string          `json:"android,omitempty" doc:"one of the provider's Android versions; empty takes the newest"`
-	AppData     *AppDataRestore `json:"appData,omitempty" doc:"app data to put back after installing the app and before it first starts"`
-	WebView     *WebViewInstall `json:"webview,omitempty" doc:"a WebView build to install over the built-in one before the app; needs the provider's webview capability"`
-	Frontend    string          `json:"frontend,omitempty" pattern:"^[0-9a-f]{40}$" doc:"the Chromium commit whose DevTools frontend fits the app itself, from the build's frontend tag; for Chromium builds that report none of their own"`
+	ArtifactURL string           `json:"artifactUrl" format:"uri"`
+	ArtifactRef string           `json:"artifactRef" minLength:"1"`
+	Package     string           `json:"package" minLength:"1"`
+	Owner       string           `json:"owner" minLength:"1"`
+	Location    string           `json:"location,omitempty"`
+	Slot        string           `json:"slot,omitempty" doc:"run on this slot; empty picks any free one"`
+	Screen      string           `json:"screen,omitempty" doc:"one of the provider's screens; empty takes the first"`
+	Android     string           `json:"android,omitempty" doc:"one of the provider's Android versions; empty takes the newest"`
+	AppData     *AppDataRestore  `json:"appData,omitempty" doc:"app data to put back after installing the app and before it first starts"`
+	WebView     *WebViewInstall  `json:"webview,omitempty" doc:"a WebView build to install over the built-in one before the app; needs the provider's webview capability"`
+	Frontend    string           `json:"frontend,omitempty" pattern:"^[0-9a-f]{40}$" doc:"the Chromium commit whose DevTools frontend fits the app itself, from the build's frontend tag; for Chromium builds that report none of their own"`
+	Recording   *RecordingTarget `json:"recording,omitempty" doc:"record the session from the moment it is first ready"`
 }
 
 // WebViewInstall is a build of com.android.webview that replaces the
@@ -243,6 +244,8 @@ type StatusEvent struct {
 	Reason     string       `json:"reason,omitempty"`
 	Detail     string       `json:"detail,omitempty"`
 	AppRunning bool         `json:"appRunning" doc:"The app is running under instrumentation; once it is closed it stays closed until it is started again"`
+	Recording  string       `json:"recording,omitempty" doc:"the recording in progress"`
+	RecordedAt time.Time    `json:"recordedAt,omitzero" doc:"when the recording in progress started"`
 }
 
 // Install replaces the app in a running session with another build of the

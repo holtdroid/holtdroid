@@ -405,6 +405,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/recordings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The caller's session recordings, newest first, and the server's rules for them. */
+        get: operations["listRecordings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recordings/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getRecording"];
+        put?: never;
+        post?: never;
+        delete: operations["deleteRecording"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recordings/{id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Every event of the recording, from all its event files, in order. */
+        get: operations["getRecordingEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recordings/{id}/keep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Keeps the recording past recordings.maxAge, or lets retention delete it again. It still counts against the quota. */
+        put: operations["keepRecording"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recordings/{id}/share": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Makes a link that opens the recording without signing in; asking again returns the same link. */
+        post: operations["shareRecording"];
+        /** @description Turns the recording's share link off. */
+        delete: operations["unshareRecording"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sessions": {
         parameters: {
             query?: never;
@@ -497,6 +582,57 @@ export interface paths {
         put?: never;
         /** @description Replaces the app in a running session with another build of the same package and starts it. */
         post: operations["installSessionArtifact"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{provider}/{id}/recording": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Starts recording the session into a new recording; 423 while one is in progress. */
+        post: operations["startSessionRecording"];
+        /** @description Stops the session's recording and waits for its last files. */
+        delete: operations["stopSessionRecording"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shared/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A recording opened through a share link; needs no sign-in. */
+        get: operations["getSharedRecording"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shared/{token}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getSharedRecordingEvents"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -701,6 +837,20 @@ export interface components {
             versionCode?: number;
             versionName?: string;
         };
+        AppLoad: {
+            /**
+             * Format: double
+             * @description frames the app rendered per second; 0 while nothing changes on screen
+             */
+            fps: number;
+            /**
+             * Format: double
+             * @description percent of those frames that missed their deadline
+             */
+            jank: number;
+            /** @description the app's processes and its WebView renderers */
+            processes: components["schemas"]["ProcessLoad"][];
+        };
         ArtifactList: {
             errors: components["schemas"]["SourceError"][];
             items: components["schemas"]["ArtifactView"][];
@@ -899,6 +1049,8 @@ export interface components {
             provider?: string;
             /** @description when every slot is busy, wait in line for one instead of failing; cancelling the request gives up the place */
             queue?: boolean;
+            /** @description record the session from its start; empty follows the server's recordings.auto */
+            record?: boolean;
             /** @description a screen of the provider (virtual devices); empty takes its first */
             screen?: string;
             /** @description a device of the provider; empty picks any free one */
@@ -987,6 +1139,117 @@ export interface components {
              */
             uptime?: number;
         };
+        DeviceLoad: {
+            /** Format: int64 */
+            cores: number;
+            /**
+             * Format: double
+             * @description percent of all cores
+             */
+            cpu: number;
+            /** Format: int64 */
+            memoryTotal: number;
+            /** Format: int64 */
+            memoryUsed: number;
+            /**
+             * Format: double
+             * @description bytes per second received, all interfaces but loopback
+             */
+            rxRate: number;
+            /** Format: int64 */
+            storageTotal: number;
+            /**
+             * Format: int64
+             * @description bytes used on /data
+             */
+            storageUsed: number;
+            /**
+             * Format: double
+             * @description bytes per second sent
+             */
+            txRate: number;
+        };
+        DeviceState: {
+            airplaneMode: boolean;
+            /** @description Android picks the brightness from the light sensor */
+            autoBrightness: boolean;
+            autoTime: boolean;
+            /** Format: int64 */
+            batteryLevel: number;
+            batterySaver: boolean;
+            /**
+             * Format: int64
+             * @description the screen brightness setting, percent of the brightest
+             */
+            brightness: number;
+            canFakeGeo: boolean;
+            /** @description the battery level and charging can be set; battery saver works everywhere */
+            canSimulateBattery: boolean;
+            charging: boolean;
+            darkMode: boolean;
+            /** Format: int64 */
+            defaultDensity: number;
+            /** Format: int64 */
+            density: number;
+            /** Format: double */
+            fontScale: number;
+            /** @description the faked GPS position; empty while the device reports its default one */
+            geo?: components["schemas"]["GeoPoint"];
+            /** @description the GPS is a session override set by the user; otherwise it follows the VPN location */
+            geoOverride: boolean;
+            /**
+             * @description system: locales are the system languages; app: only the app under test's language can be set (phones without root)
+             * @enum {string}
+             */
+            languageScope: "system" | "app";
+            locale: string;
+            /** @description the system languages in order: the first is locale, the rest add their keyboard layouts */
+            locales: string[];
+            mobileData: boolean;
+            /** @description the media stream is muted */
+            muted: boolean;
+            /** @description empty when the device can't emulate network conditions */
+            networkProfile?: string;
+            /** @description the profiles networkProfile may be set to */
+            networkProfiles?: components["schemas"]["NetworkProfileInfo"][];
+            /**
+             * Format: int64
+             * @description the display's highest refresh rate in Hz; 0 when the device doesn't report it
+             */
+            refreshRate: number;
+            /** Format: int64 */
+            rotation: number;
+            /** Format: int64 */
+            screenHeight: number;
+            /**
+             * Format: int64
+             * @description the display's size in pixels as streamed (an override from wm size wins); 0 when unknown
+             */
+            screenWidth: number;
+            /**
+             * Format: int64
+             * @description device clock minus real time, in milliseconds
+             */
+            timeOffset: number;
+            timeZone: string;
+            /** @description the time zone is a session override set by the user; otherwise it follows the VPN location */
+            timeZoneOverride: boolean;
+            /** @description the device reaches the internet over USB through the host, so Wi-Fi and mobile data are off on purpose */
+            usbNetwork: boolean;
+            /**
+             * Format: int64
+             * @description the media volume step, 0 while muted
+             */
+            volume: number;
+            /**
+             * Format: int64
+             * @description the highest media volume step; 0 when the device doesn't report its volume
+             */
+            volumeMax: number;
+            /** @description the active VPN location's time zone; empty when it has none */
+            vpnTimeZone?: string;
+            wifi: boolean;
+        };
         Display: {
             /** @description the maker of a real device's screen; empty for a generic screen */
             brand?: string;
@@ -1063,6 +1326,12 @@ export interface components {
              */
             type: string;
         };
+        GeoPoint: {
+            /** Format: double */
+            latitude: number;
+            /** Format: double */
+            longitude: number;
+        };
         HeartbeatInputBody: {
             /** @description The user interacted with the session page since the last heartbeat */
             active: boolean;
@@ -1099,6 +1368,33 @@ export interface components {
              */
             uptime?: number;
         };
+        HostLoad: {
+            /**
+             * Format: double
+             * @description cores in use
+             */
+            cpu: number;
+            /**
+             * Format: double
+             * @description cores the container may use: its limit, or every core of the node
+             */
+            cpuLimit: number;
+            /**
+             * Format: int64
+             * @description the container's memory limit, or the node's memory
+             */
+            memoryLimit: number;
+            /**
+             * Format: int64
+             * @description working set: usage without inactive page cache
+             */
+            memoryUsed: number;
+            /**
+             * Format: double
+             * @description percent of the interval the container was CPU-throttled
+             */
+            throttled: number;
+        };
         Identity: {
             admin: boolean;
             email?: string;
@@ -1127,6 +1423,9 @@ export interface components {
         };
         InventoryView: {
             providers: components["schemas"]["ProviderInventory"][];
+        };
+        KeepInputBody: {
+            keep: boolean;
         };
         LocalPort: {
             /** Format: int64 */
@@ -1207,10 +1506,77 @@ export interface components {
             versionCode?: number;
             versionName?: string;
         };
+        Metrics: {
+            /** @description absent while the app isn't running */
+            app?: components["schemas"]["AppLoad"];
+            /** Format: date-time */
+            at: string;
+            device: components["schemas"]["DeviceLoad"];
+            /** @description the container the device runs in, for emulators */
+            host?: components["schemas"]["HostLoad"];
+            /**
+             * Format: double
+             * @description seconds since the previous sample
+             */
+            interval: number;
+            thermal: components["schemas"]["Temperature"][];
+        };
+        Network: {
+            country?: string;
+            externalIp?: string;
+            location: string;
+        };
+        NetworkProfileInfo: {
+            description: string;
+            /**
+             * Format: int64
+             * @description download kbit/s; empty is unlimited
+             */
+            down?: number;
+            id: string;
+            /**
+             * Format: int64
+             * @description round trip jitter, ms
+             */
+            jitter?: number;
+            /**
+             * Format: double
+             * @description percent of packets lost in each direction
+             */
+            loss?: number;
+            name: string;
+            /**
+             * Format: int64
+             * @description round trip added, ms
+             */
+            rtt?: number;
+            /** @description conditions change over time */
+            scenario: boolean;
+            /**
+             * Format: int64
+             * @description upload kbit/s; empty is unlimited
+             */
+            up?: number;
+        };
         PatchArtifactInputBody: {
             temporary?: boolean;
             /** @enum {string} */
             visibility?: "public" | "private";
+        };
+        ProcessLoad: {
+            /**
+             * Format: double
+             * @description percent of all device cores
+             */
+            cpu: number;
+            /**
+             * Format: int64
+             * @description proportional set size in bytes
+             */
+            memory: number;
+            name: string;
+            /** Format: int64 */
+            pid: number;
         };
         ProviderInventory: {
             devices: components["schemas"]["InventoryDevice"][];
@@ -1230,6 +1596,165 @@ export interface components {
         };
         PublishedInputBody: {
             ports: number[];
+        };
+        RecordingChunk: {
+            /** Format: int64 */
+            end: number;
+            file: string;
+            /** Format: int64 */
+            lines?: number;
+            /** Format: int64 */
+            size: number;
+            /** Format: int64 */
+            start: number;
+        };
+        RecordingDetail: {
+            /** @description absent until the agent uploads its first one */
+            manifest?: components["schemas"]["RecordingManifest"];
+            recording: components["schemas"]["RecordingView"];
+            /** @description opened through a share link */
+            shared: boolean;
+        };
+        RecordingEpoch: {
+            /** @description RFC 6381, e.g. avc1.640028 */
+            codec: string;
+            /** Format: int64 */
+            height: number;
+            init: string;
+            segments: components["schemas"]["RecordingSegment"][];
+            /** Format: int64 */
+            width: number;
+        };
+        RecordingEvent: {
+            device?: components["schemas"]["DeviceState"];
+            info?: components["schemas"]["RecordingInfoData"];
+            metrics?: components["schemas"]["Metrics"];
+            network?: components["schemas"]["Network"];
+            status?: components["schemas"]["StatusEvent"];
+            /** Format: int64 */
+            t: number;
+            /** @enum {string} */
+            type: "info" | "status" | "metrics" | "device" | "network";
+        };
+        RecordingEvents: {
+            items: components["schemas"]["RecordingEvent"][];
+        };
+        RecordingInfoData: {
+            abi?: string;
+            android?: string;
+            artifactRef?: string;
+            build?: string;
+            manufacturer?: string;
+            model?: string;
+            package?: string;
+            /** Format: int64 */
+            sdk?: number;
+            /** Format: int64 */
+            versionCode?: number;
+            versionName?: string;
+            /** @description the WebView provider's package and version */
+            webview?: string;
+        };
+        RecordingList: {
+            /** @description sessions are recorded from their start unless the launch says otherwise */
+            auto: boolean;
+            enabled: boolean;
+            items: components["schemas"]["RecordingView"][];
+            /**
+             * Format: int64
+             * @description seconds a recording is kept unless it is kept for longer, 0 for no limit
+             */
+            maxAge: number;
+            /**
+             * Format: int64
+             * @description bytes a user's recordings may take, 0 for no limit
+             */
+            quota: number;
+            /** @description recordings can be shared by link */
+            share: boolean;
+            /**
+             * Format: int64
+             * @description bytes the caller's recordings take
+             */
+            used: number;
+        };
+        RecordingManifest: {
+            /** Format: int64 */
+            duration: number;
+            epochs: components["schemas"]["RecordingEpoch"][];
+            /** @description gzipped JSON lines of RecordingEvent */
+            events: components["schemas"]["RecordingChunk"][];
+            /** @description gzipped text: the recording time (HH:MM:SS.mmm), two spaces, a logcat threadtime line */
+            logcat: components["schemas"]["RecordingChunk"][];
+            reason?: string;
+            /**
+             * Format: int64
+             * @description bytes of every file but the manifest
+             */
+            size: number;
+            /** Format: date-time */
+            startedAt: string;
+            /** @enum {string} */
+            state: "recording" | "done" | "failed" | "interrupted";
+            thumbnail?: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        RecordingSegment: {
+            /** Format: int64 */
+            duration: number;
+            file: string;
+            /** Format: int64 */
+            size: number;
+            /** Format: int64 */
+            start: number;
+        };
+        RecordingShare: {
+            token: string;
+            url: string;
+        };
+        RecordingView: {
+            artifactId: string;
+            /** Format: date-time */
+            createdAt: string;
+            /**
+             * Format: int64
+             * @description milliseconds
+             */
+            duration: number;
+            /** Format: date-time */
+            expiresAt?: string;
+            /** @description prefix of the recording's files: manifest.json and what it lists */
+            filesUrl: string;
+            iconUrl?: string;
+            id: string;
+            /** @description kept past the retention period */
+            keep: boolean;
+            label?: string;
+            location?: string;
+            /** @description the whole logcat as one text file */
+            logcatUrl: string;
+            owner?: string;
+            package: string;
+            provider?: string;
+            reason?: string;
+            session?: string;
+            share?: components["schemas"]["RecordingShare"];
+            /**
+             * Format: int64
+             * @description bytes stored
+             */
+            size: number;
+            source: string;
+            /** Format: date-time */
+            startedAt?: string;
+            /** @enum {string} */
+            state: "pending" | "recording" | "done" | "failed" | "interrupted";
+            thumbnailUrl?: string;
+            /** Format: int32 */
+            versionCode?: number;
+            versionName?: string;
+            webview?: string;
         };
         Refresh: {
             /** @description the key the refresh token was issued for */
@@ -1360,6 +1885,21 @@ export interface components {
         SourceView: {
             name: string;
             readOnly: boolean;
+        };
+        StatusEvent: {
+            /** @description The app is running under instrumentation; once it is closed it stays closed until it is started again */
+            appRunning: boolean;
+            detail?: string;
+            reason?: string;
+            /**
+             * Format: date-time
+             * @description when the recording in progress started
+             */
+            recordedAt?: string;
+            /** @description the recording in progress */
+            recording?: string;
+            /** @enum {string} */
+            state: "provisioning" | "booting" | "installing" | "restoring" | "instrumenting" | "ready" | "stopping" | "failed";
         };
         Temperature: {
             /** Format: double */
@@ -2267,6 +2807,223 @@ export interface operations {
             };
         };
     };
+    listRecordings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordingList"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getRecording: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordingDetail"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    deleteRecording: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getRecordingEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordingEvents"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    keepRecording: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KeepInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordingView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    shareRecording: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordingView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    unshareRecording: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordingView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     listSessions: {
         parameters: {
             query?: never;
@@ -2512,6 +3269,130 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SessionView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    startSessionRecording: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordingView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    stopSessionRecording: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getSharedRecording: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordingDetail"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getSharedRecordingEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordingEvents"];
                 };
             };
             /** @description Error */

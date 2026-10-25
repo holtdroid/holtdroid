@@ -112,7 +112,7 @@ Design: decision #51, architecture.md "ADB in the browser".
 - [x] Agent `WS /adb` on the main port (fake agent too); api proxy rule with `adb.browser` / `adb.ownerOnly`, `X-Holtdroid-User` from the identity, `GET /api/v1/adb`, audit `adb.connect` / `adb.disconnect`
 - [x] adb packet relay in the agent for `/adb` and `/tunnel/adb` that refuses `reboot:`, `unroot:`, `remount:`, `tcpip:`, `usb:`, `sideload:`, `*-verity:`; `/v1/tunnels` tells browser and SSH clients apart
 - [x] Fake adbd in the fake provider: shell v1/v2 with a pty, exec, sync v1, binary logcat with a generator and `am crash`, `pm`/`am`/`dumpsys`/`settings`/`cmd`/`bugreportz`, a small file system
-- [x] UI: one Tango connection per session page; tabs next to DevTools: Logcat, Files, Terminal, App, Device; crash toast; screen recording from the rail (framed phone or the whole tab under a details strip, MP4 streamed to disk, auto-record — decisions #66, #74)
+- [x] UI: one Tango connection per session page; tabs next to DevTools: Logcat, Files, Terminal, App, Device; crash toast; screen recording from the rail (framed phone or the whole tab under a details strip, MP4 streamed to disk, auto-record — decisions #66, #74; replaced by server recordings, #96)
 - [x] Tests: `internal/adbproto`, the relay's filter, the fake adbd, the proxy end to end with audit; `bun test` for the dumpsys parsers
 - [x] Device audio on by default; vibrations (`/v1/vibrations` from `dumpsys vibrator_manager`, fake agent every 45 s) as a toast plus a synthesized buzz (decision #54)
 - [x] Screen off / locked badge over the device screen (`/v1/screen` from `dumpsys power` and the keyguard state)
@@ -217,6 +217,18 @@ of the same app from it (decision #49).
 - [x] Launch target: **Any** provider by default (first free in `providers[]` order), or a provider and optionally one of its devices, busy ones included (they wait in line); `CreateSession.slot`; flags next to VPN locations (decision #76)
 - [ ] Android Keystore keys of the app (keystore2), so apps that encrypt with them survive a restore
 - [ ] External app storage (`/sdcard/Android/data/{pkg}`)
+
+## Phase 4.12 — Server-side recordings
+
+Record sessions on the server with what surrounds the screen, watch them in
+the portal and download them as a video (decision #96).
+
+- [x] Agent: `internal/recording` muxes the scrcpy H.264 stream into fragmented MP4 segments without re-encoding, taps the newest viewer's stream or runs its own; events (device info, WebView, status, metrics, device state, network) and logcat with recording times; thumbnail; uploads in order with retries; `/v1/recording`, `CreateSession.recording`, `StatusEvent.recording`; the fake provider records its looping screen
+- [x] api: recordings in storage without a database (meta, state, keep and share markers), upload endpoint with a per-recording secret, retention by age unless kept, per-user quota that deletes the oldest unkept recordings first, share links without sign-in, logcat as one text file, audit events
+- [x] UI: Recordings page (preview, keep, share, delete, storage), player with the scene (logcat, phone, app, time, device, network, load), timeline, speeds, Record in the session rail, the launch dialog's Record switch, video download rendered in the browser with a progress timeline, public `/r/{token}` page
+- [x] Tests: recorder (segments start with key frames, epochs, chunks, quota), api end to end with the fake provider (record, share, keep, retention, quota, on demand, upload secret), web timeline helpers
+- [ ] Sound in recordings, sharing one audio capture with viewers
+- [ ] Logcat filters in the player (app only, level, search) and a searchable list next to the scene
 
 ## Phase 5 — Packaging and docs
 

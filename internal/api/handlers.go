@@ -82,6 +82,7 @@ type createSessionInput struct {
 		AppData    *AppDataChoice `json:"appData,omitempty" doc:"start the app with saved app data instead of a fresh install"`
 		WebView    string         `json:"webview,omitempty" doc:"a build from GET /api/v1/webviews to install over the built-in WebView; only providers with the webview capability take it"`
 		Queue      bool           `json:"queue,omitempty" doc:"when every slot is busy, wait in line for one instead of failing; cancelling the request gives up the place"`
+		Record     *bool          `json:"record,omitempty" doc:"record the session from its start; empty follows the server's recordings.auto"`
 	}
 }
 
@@ -139,6 +140,7 @@ func (s *Server) register(api huma.API) {
 		v, err := s.createSession(ctx, id, launchRequest{
 			source: in.Body.Source, artifactID: in.Body.ArtifactID, provider: in.Body.Provider, slot: in.Body.Slot,
 			screen: in.Body.Screen, android: in.Body.Android, location: in.Body.Location, appData: in.Body.AppData, webview: in.Body.WebView, queue: in.Body.Queue,
+			record: in.Body.Record,
 		})
 		result, _ := outcome(err)
 		launchesTotal.WithLabelValues(cmp.Or(v.Provider, in.Body.Provider, "any"), string(result)).Inc()
@@ -174,6 +176,7 @@ func (s *Server) register(api huma.API) {
 			ctx := context.WithoutCancel(ctx)
 			ev.Artifact = sess.ArtifactRef
 			_, _, _ = s.saveAppData(ctx, in.Provider, sess, "stop", false)
+			s.stopRecording(ctx, in.Provider, sess)
 			err = p.Delete(ctx, sess.ID)
 		}
 		s.emitResult(ctx, ev, err)
@@ -232,6 +235,7 @@ func (s *Server) register(api huma.API) {
 	s.registerADB(api)
 	s.registerAudit(api)
 	s.registerAppData(api)
+	s.registerRecordings(api)
 	s.registerInventory(api)
 	s.registerMap(api)
 }
@@ -401,6 +405,7 @@ type launchRequest struct {
 	source, artifactID, provider, slot, screen, android, location, webview string
 	appData                                                                *AppDataChoice
 	queue                                                                  bool
+	record                                                                 *bool
 }
 
 type launchTarget struct {
@@ -453,6 +458,13 @@ func (s *Server) createSession(ctx context.Context, who auth.Identity, req launc
 		return SessionView{}, err
 	}
 	ref := artifactRef(req.source, artifact.ID, artifact.Revision)
+	var webviewVersion string
+	if webview != nil {
+		webviewVersion = webview.Version
+	}
+	recTarget, rec := s.recordingFor(ctx, who, req.record, contract.Session{
+		Package: entry.Meta.Package, ArtifactRef: ref, Location: req.location, WebView: webviewVersion,
+	})
 	line := req.provider
 	if req.slot != "" {
 		line += "/" + req.slot
@@ -476,10 +488,14 @@ func (s *Server) createSession(ctx context.Context, who auth.Identity, req launc
 			AppData:     restore,
 			WebView:     webview,
 			Frontend:    validFrontend(artifact.Meta.Tags["frontend"]),
+			Recording:   recTarget,
 		})
 		return err
 	})
 	if err != nil {
+		if recTarget != nil {
+			_ = s.recordings.remove(context.WithoutCancel(ctx), recordingRef{userDir(rec.Owner), rec.ID})
+		}
 		return SessionView{}, err
 	}
 	ctx = context.WithoutCancel(ctx)
@@ -490,6 +506,13 @@ func (s *Server) createSession(ctx context.Context, who auth.Identity, req launc
 	}
 	if webview != nil {
 		details["webview"] = webview.Version
+	}
+	if recTarget != nil {
+		rec.Provider, rec.Session, rec.Location = target.provider, sess.ID, sess.Location
+		if err := s.writeRecordingMeta(ctx, rec); err != nil {
+			s.log.Warn("could not note the recording's session", "recording", rec.ID, "err", err)
+		}
+		details["recording"] = rec.ID
 	}
 	k := sessionKey{target.provider, sess.ID}
 	s.activity.Mark(k)

@@ -23,16 +23,27 @@ import (
 
 // KeepAudio captures the device's audio for the whole session instead of
 // per viewer, so the device never plays it out loud (phones).
+// Record is the stream a recording runs while nobody watches in H.264.
 type ScrcpyConfig struct {
 	Server    string
 	Version   string
 	BitRate   int
 	MaxFPS    int
 	KeepAudio bool
+	Record    RecordStream
+}
+
+type RecordStream struct {
+	BitRate int
+	MaxFPS  int
+	MaxSize int
 }
 
 func DefaultScrcpyConfig() ScrcpyConfig {
-	return ScrcpyConfig{Server: "/opt/scrcpy/scrcpy-server", Version: "3.3.3", BitRate: 4_000_000, MaxFPS: 60}
+	return ScrcpyConfig{
+		Server: "/opt/scrcpy/scrcpy-server", Version: "3.3.3", BitRate: 4_000_000, MaxFPS: 60,
+		Record: RecordStream{BitRate: 2_000_000, MaxFPS: 30, MaxSize: 1280},
+	}
 }
 
 var videoCodecs = []string{"h264", "h265", "av1"}
@@ -58,12 +69,14 @@ type Scrcpy struct {
 	log *slog.Logger
 
 	audio    *audioHub
+	video    *videoHub
 	mu       sync.Mutex
 	encoders []string
 }
 
 func NewScrcpy(cfg ScrcpyConfig, dev ScrcpyDevice, log *slog.Logger) *Scrcpy {
 	s := &Scrcpy{cfg: cfg, dev: dev, log: log}
+	s.video = newVideoHub(s)
 	if cfg.KeepAudio {
 		s.audio = newAudioHub(s)
 	}
@@ -142,14 +155,23 @@ func (s *Scrcpy) serveVideo(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	conns, err := s.start(ctx, fmt.Sprintf("audio=false control=true clipboard_autosync=false "+
-		"video_codec=%s video_bit_rate=%d max_fps=%d max_size=%d", o.codec, o.bitRate, o.maxFPS, o.maxSize), 2)
+	conns, err := s.start(ctx, videoOpts(o.codec, o.bitRate, o.maxFPS, o.maxSize)+" control=true clipboard_autosync=false", 2)
 	if err != nil {
 		s.log.Warn("scrcpy start", "err", err)
 		_ = ws.Close(websocket.StatusTryAgainLater, "screen is not available yet")
 		return
 	}
-	bridge(ctx, cancel, ws, conns[0], conns[1])
+	var stream io.Reader = conns[0]
+	if o.codec == "h264" {
+		f := s.video.open()
+		defer s.video.close(f)
+		stream = io.TeeReader(conns[0], &f.tap)
+	}
+	bridge(ctx, cancel, ws, stream, conns[0], conns[1])
+}
+
+func videoOpts(codec string, bitRate, maxFPS, maxSize int) string {
+	return fmt.Sprintf("audio=false video_codec=%s video_bit_rate=%d max_fps=%d max_size=%d", codec, bitRate, maxFPS, maxSize)
 }
 
 func (s *Scrcpy) serveAudio(w http.ResponseWriter, r *http.Request) {
@@ -165,7 +187,7 @@ func (s *Scrcpy) serveAudio(w http.ResponseWriter, r *http.Request) {
 		_ = ws.Close(websocket.StatusTryAgainLater, "audio is not available yet")
 		return
 	}
-	bridge(ctx, cancel, ws, conns[0], nil)
+	bridge(ctx, cancel, ws, conns[0], conns[0], nil)
 }
 
 func accept(w http.ResponseWriter, r *http.Request) (*websocket.Conn, context.Context, context.CancelFunc, bool) {
@@ -178,12 +200,13 @@ func accept(w http.ResponseWriter, r *http.Request) (*websocket.Conn, context.Co
 	return ws, ctx, cancel, true
 }
 
-// bridge copies stream to the WebSocket and the WebSocket's binary messages
-// to control; without a control socket they are dropped.
-func bridge(ctx context.Context, cancel context.CancelFunc, ws *websocket.Conn, stream, control net.Conn) {
+// bridge copies stream (read from conn) to the WebSocket and the
+// WebSocket's binary messages to control; without a control socket they are
+// dropped.
+func bridge(ctx context.Context, cancel context.CancelFunc, ws *websocket.Conn, stream io.Reader, conn, control net.Conn) {
 	go func() {
 		<-ctx.Done()
-		stream.Close()
+		conn.Close()
 		if control != nil {
 			control.Close()
 		}

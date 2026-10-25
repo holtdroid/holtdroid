@@ -42,7 +42,10 @@ func (d *device) buildHandler() http.Handler {
 func (d *device) Status(context.Context) contract.StatusEvent {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	return contract.StatusEvent{State: d.s.State, Detail: detail(d.s.State), AppRunning: d.s.State == contract.StateReady && !d.appClosed}
+	return contract.StatusEvent{
+		State: d.s.State, Detail: detail(d.s.State), AppRunning: d.s.State == contract.StateReady && !d.appClosed,
+		Recording: d.recID, RecordedAt: d.recAt,
+	}
 }
 
 func (d *device) WatchStatus(ctx context.Context, send func(contract.StatusEvent) error) error {

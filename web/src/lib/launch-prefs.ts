@@ -48,6 +48,16 @@ export function rememberLaunch(
   if (webview !== undefined) write(webviewKey(provider), webview)
 }
 
+const recordKey = "holtdroid:record"
+
+/** Whether to record sessions, or null to follow the server. */
+export function recordPreference(): boolean | null {
+  const v = read(recordKey)
+  return v === "1" ? true : v === "0" ? false : null
+}
+
+export const rememberRecord = (record: boolean) => write(recordKey, record ? "1" : "0")
+
 export type QuickLaunchMode = "fresh" | "data" | "cache"
 
 const quickModeKey = "holtdroid:quick-launch"

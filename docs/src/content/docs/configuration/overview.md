@@ -81,6 +81,8 @@ downloads:
   adminOnly: false
 appData:
   enabled: false
+recordings:
+  enabled: false
 adb:
   browser: true
   ownerOnly: true
@@ -108,6 +110,7 @@ providers:
 | `uploads.*`             | enabled     | Uploads from the UI, see [Artifact sources](/holtdroid/sources/overview/#uploads)                     |
 | `downloads.adminOnly`   | `false`     | Only admins may download APKs, see [Downloads](/holtdroid/sources/overview/#downloads)                |
 | `appData.*`             | off         | Save app data between sessions, see [App data](/holtdroid/concepts/app-data/)                         |
+| `recordings.*`          | off         | Record sessions on the server, see [Recordings](/holtdroid/concepts/recordings/)                      |
 | `webview.storage`       | off         | The WebView catalog, see [WebView versions](/holtdroid/concepts/webview-versions/)                    |
 | `map.url`               | OpenFreeMap | Tile server for the GPS map, proxied by the api; empty turns the map off, see [below](#gps-map)       |
 | `adb.browser`           | `true`      | ADB tools on the session page, see [ADB tools](/holtdroid/concepts/adb/)                              |

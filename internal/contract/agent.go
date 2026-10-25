@@ -33,6 +33,9 @@ type Agent interface {
 	Tunnels(ctx context.Context) (Tunnels, error)
 	WatchTunnels(ctx context.Context, probe bool, send func(Tunnels) error) error
 	WatchMetrics(ctx context.Context, send func(Metrics) error) error
+	Recording(ctx context.Context) RecordingState
+	StartRecording(ctx context.Context, target RecordingTarget) (RecordingState, error)
+	StopRecording(ctx context.Context) (RecordingState, error)
 }
 
 type AppAction string
@@ -71,6 +74,10 @@ const (
 	HeaderAppDataSize  = "X-App-Data-Size"
 	HeaderAppDataCache = "X-App-Data-Cache"
 )
+
+type recordingInput struct {
+	Body RecordingTarget
+}
 
 type deviceSettingsInput struct {
 	Body DeviceSettings
@@ -240,6 +247,33 @@ func RegisterAgent(api huma.API, a Agent) {
 		}}, nil
 	})
 
+	huma.Register(api, huma.Operation{OperationID: "getRecording", Method: http.MethodGet, Path: "/v1/recording", Tags: tags},
+		func(ctx context.Context, _ *struct{}) (*body[RecordingState], error) {
+			return &body[RecordingState]{a.Recording(ctx)}, nil
+		})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "startRecording", Method: http.MethodPost, Path: "/v1/recording", Tags: tags,
+		Description: "Starts recording the screen, the device's state and logcat to the target; 423 while another recording runs.",
+	}, func(ctx context.Context, in *recordingInput) (*body[RecordingState], error) {
+		r, err := a.StartRecording(ctx, in.Body)
+		if err != nil {
+			return nil, toHuma(err)
+		}
+		return &body[RecordingState]{r}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "stopRecording", Method: http.MethodDelete, Path: "/v1/recording", Tags: tags,
+		Description: "Stops the recording and returns once its last files are uploaded.",
+	}, func(ctx context.Context, _ *struct{}) (*body[RecordingState], error) {
+		r, err := a.StopRecording(ctx)
+		if err != nil {
+			return nil, toHuma(err)
+		}
+		return &body[RecordingState]{r}, nil
+	})
+
 	huma.Register(api, huma.Operation{OperationID: "getDevice", Method: http.MethodGet, Path: "/v1/device", Tags: tags},
 		func(ctx context.Context, _ *struct{}) (*body[DeviceState], error) {
 			s, err := a.Device(ctx)
@@ -311,6 +345,18 @@ func (a *AgentClient) ExportAppData(ctx context.Context, req AppDataExport) (App
 	size, _ := strconv.ParseInt(resp.Header.Get(HeaderAppDataSize), 10, 64)
 	cache, _ := strconv.ParseBool(resp.Header.Get(HeaderAppDataCache))
 	return AppDataInfo{Size: size, Cache: cache}, resp.Body, nil
+}
+
+func (a *AgentClient) StartRecording(ctx context.Context, target RecordingTarget) (RecordingState, error) {
+	var r RecordingState
+	err := a.c.do(ctx, http.MethodPost, "/v1/recording", target, &r)
+	return r, err
+}
+
+func (a *AgentClient) StopRecording(ctx context.Context) (RecordingState, error) {
+	var r RecordingState
+	err := a.c.withTimeout(recordingStopTimeout).do(ctx, http.MethodDelete, "/v1/recording", nil, &r)
+	return r, err
 }
 
 type watchTunnelsInput struct {

@@ -73,7 +73,10 @@ func (c client) withTimeout(d time.Duration) client {
 	return client{base: c.base, hc: &hc}
 }
 
-const installTimeout = 10 * time.Minute
+const (
+	installTimeout       = 10 * time.Minute
+	recordingStopTimeout = time.Minute
+)
 
 type ErrorDetail struct {
 	Message  string `json:"message"`

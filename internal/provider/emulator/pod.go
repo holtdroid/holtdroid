@@ -121,6 +121,12 @@ func (p *Provider) renderPod(id, slot, node string, req contract.CreateSession, 
 	if req.Frontend != "" {
 		env = append(env, corev1.EnvVar{Name: "HOLTDROID_FRONTEND", Value: req.Frontend})
 	}
+	if r := req.Recording; r != nil {
+		env = append(env,
+			corev1.EnvVar{Name: "HOLTDROID_RECORDING__ID", Value: r.ID},
+			corev1.EnvVar{Name: "HOLTDROID_RECORDING__URL", Value: r.URL},
+		)
+	}
 	resources, ok := p.nodeRes[node]
 	if !ok {
 		resources = p.resources

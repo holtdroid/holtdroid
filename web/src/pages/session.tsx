@@ -176,8 +176,9 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
               id={id}
               session={session}
               live={live}
-              adb={adbAllowed ? adb : null}
               locations={caps?.locations ?? []}
+              status={status}
+              manage={manage}
             />
             <ToolTabs tab={tab} onTab={setTab} adb={adbAllowed ? adb : null} session={session}>
               {caps?.devtools ? (

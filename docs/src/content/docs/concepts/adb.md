@@ -39,34 +39,8 @@ DevTools:
   the tab, device and app details, ready to attach to a bug; **Full Android bug
   report** runs Android's own `bugreportz`.
 
-The rail next to the screen also records to an MP4 file. The video is
-encoded in the browser and written to disk as it goes (the browser's
-private storage), so a long recording doesn't fill the memory; the file is
-downloaded when you stop. Hover **Record** to pick what it records; the
-choices are remembered in the browser:
-
-- **Device screen** (default): the screen in a plain phone frame with the
-  device's own proportions; the video takes the shape of the framed phone.
-  The first second and a half shows the Holtdroid logo with the app and the
-  device details, then the screen fades in. The frame turns with the device
-  when it rotates.
-- **Whole tab**: this tab as it is on the page, DevTools, Logcat and all,
-  under a thin strip with the logo, the app (icon, name, package, version),
-  the device (model, Android, slot, density, locale, time zone, VPN
-  location, theme, as many as fit) and the elapsed time. The browser asks
-  to share the tab once per recording; with **Also share tab audio** the
-  tab's sound goes into the file. The video keeps the size the tab had when
-  recording started: if the browser window is resized, the tab is scaled to
-  fit without stretching. Stopping the share in the browser stops the
-  recording.
-- **Record automatically** starts recording in the chosen mode as soon as
-  the screen connects and saves the file when you stop it or leave the
-  session page. With **Whole tab** a toast offers to start, because the
-  browser only asks to share a tab after a click.
-
-If the tab closes mid-recording, the next
-session page offers to download what was written: it plays up to where it
-stopped.
+Recording a session is done by the server, with logcat and the device's
+state next to the screen: see [Recordings](/holtdroid/concepts/recordings/).
 
 ## Configuration
 

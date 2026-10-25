@@ -41,10 +41,17 @@ type device struct {
 	fs        *fakeFS
 	log       fakeLog
 	adb       adbState
+	rec       recorder
+	recTarget *contract.RecordingTarget
+	recID     string
+	recAt     time.Time
 }
 
-func newDevice(s contract.Session, step time.Duration, offers func(string) bool, appData *contract.AppDataRestore) *device {
-	d := &device{s: s, settings: defaultSettings(), screen: contract.Screen{On: true}, subs: map[chan struct{}]struct{}{}, done: make(chan struct{}), offers: offers, appData: appData}
+func newDevice(s contract.Session, step time.Duration, offers func(string) bool, req contract.CreateSession) *device {
+	d := &device{
+		s: s, settings: defaultSettings(), screen: contract.Screen{On: true}, subs: map[chan struct{}]struct{}{}, done: make(chan struct{}),
+		offers: offers, appData: req.AppData, recTarget: req.Recording,
+	}
 	d.settings.VPNTimeZone = timeZones[s.Location]
 	d.settings.TimeZone = cmp.Or(d.settings.VPNTimeZone, d.settings.TimeZone)
 	d.ports = &fakePorts{adbd: d.serveADB}
@@ -73,9 +80,17 @@ func (d *device) run(step time.Duration) {
 			}
 		}
 	}
+	if d.recTarget != nil {
+		if err := d.startRecording(*d.recTarget); err != nil {
+			slog.Warn("fake: start the recording", "err", err)
+		}
+	}
 }
 
 func (d *device) stop() {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	_, _ = d.StopRecording(ctx)
+	cancel()
 	d.update(func() { d.s.State = contract.StateStopping })
 	close(d.done)
 	d.tunnels.Close()

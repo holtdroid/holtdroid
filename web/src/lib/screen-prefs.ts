@@ -1,5 +1,4 @@
 import { useSyncExternalStore } from "react"
-import type { RecordMode } from "@/lib/recorder"
 
 export type VideoCodec = "h264" | "h265" | "av1"
 export type KeyboardMode = "text" | "uhid"
@@ -18,8 +17,6 @@ export type ScreenPrefs = {
   audio: boolean
   vibrationSound: boolean
   lockMode: LockMode
-  recordMode: RecordMode
-  recordAuto: boolean
   deviceTheme: DeviceTheme
   railLabels: boolean
   autoFit: boolean
@@ -39,8 +36,6 @@ export const defaultScreenPrefs: ScreenPrefs = {
   audio: true,
   vibrationSound: true,
   lockMode: "lock",
-  recordMode: "screen",
-  recordAuto: false,
   deviceTheme: "manual",
   railLabels: true,
   autoFit: true,

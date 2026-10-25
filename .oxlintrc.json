@@ -24,7 +24,8 @@
     "react/iframe-missing-sandbox": "off",
     "typescript/no-unsafe-type-assertion": "off",
     "typescript/no-unnecessary-type-parameters": "off",
-    "unicorn/require-post-message-target-origin": "off"
+    "unicorn/require-post-message-target-origin": "off",
+    "no-await-in-loop": "off"
   },
   "ignorePatterns": [
     "web/src/api/*.d.ts",

@@ -1,6 +1,7 @@
 import { Link, useMatchRoute } from "@tanstack/react-router"
 import {
   BookOpenIcon,
+  ClapperboardIcon,
   DatabaseIcon,
   LayoutGridIcon,
   LaptopIcon,
@@ -14,7 +15,7 @@ import {
 } from "lucide-react"
 import { useTheme } from "next-themes"
 import type { ReactNode } from "react"
-import { useAppData, useAuth, useLogout, useSessionEvents } from "@/api/queries"
+import { useAppData, useAuth, useLogout, useRecordings, useSessionEvents } from "@/api/queries"
 import { useComputers, useSSHInfo } from "@/api/ssh"
 import { Button } from "@/components/ui/button"
 import {
@@ -36,6 +37,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const online = computers.data?.computers.length ?? 0
   const auth = useAuth()
   const appData = useAppData()
+  const recordings = useRecordings()
   const logout = useLogout()
   const matchRoute = useMatchRoute()
   const onApps = Boolean(matchRoute({ to: "/" }) || matchRoute({ to: "/apps/$pkg", fuzzy: true }))
@@ -74,6 +76,19 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </Button>
               </TooltipTrigger>
               <TooltipContent>App data</TooltipContent>
+            </Tooltip>
+          )}
+          {recordings.data?.enabled && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" asChild>
+                  <Link to="/recordings" activeProps={{ className: "bg-muted" }}>
+                    <ClapperboardIcon />
+                    <span className="sr-only">Recordings</span>
+                  </Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Recordings</TooltipContent>
             </Tooltip>
           )}
           {sshInfo.data?.enabled && (

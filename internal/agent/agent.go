@@ -19,6 +19,7 @@ import (
 	"github.com/holtdroid/holtdroid/internal/agent/redroid"
 	"github.com/holtdroid/holtdroid/internal/contract"
 	"github.com/holtdroid/holtdroid/internal/netem"
+	"github.com/holtdroid/holtdroid/internal/recording"
 	"github.com/holtdroid/holtdroid/internal/vpn"
 )
 
@@ -31,6 +32,7 @@ type Config struct {
 	ArtifactURL      string
 	AppData          contract.AppDataRestore
 	WebView          contract.WebViewInstall
+	Recording        contract.RecordingTarget
 	Frontend         string
 	Package          string
 	Location         string
@@ -158,11 +160,19 @@ type Agent struct {
 	launches chan App
 	busy     atomic.Bool
 
-	mu     sync.Mutex
-	status contract.StatusEvent
-	text   string
-	app    App
-	subs   map[chan struct{}]struct{}
+	mu       sync.Mutex
+	status   contract.StatusEvent
+	text     string
+	app      App
+	artifact string
+	subs     map[chan struct{}]struct{}
+
+	recMu     sync.Mutex
+	recCtx    context.Context
+	rec       *recording.Recorder
+	recID     string
+	recCancel context.CancelFunc
+	recLast   contract.RecordingState
 }
 
 func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Logger) *Agent {
@@ -191,7 +201,9 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 		actions:  make(chan appRequest, 1),
 		launches: make(chan App),
 		status:   contract.StatusEvent{State: contract.StateProvisioning},
+		artifact: cfg.Session.ArtifactRef,
 		subs:     map[chan struct{}]struct{}{},
+		recCtx:   context.Background(),
 	}
 }
 
@@ -231,6 +243,10 @@ func (a *Agent) TunnelHandler() http.Handler { return a.tunnels.Handler() }
 func (a *Agent) Run(parent context.Context) {
 	ctx, cancel := context.WithCancelCause(parent)
 	defer cancel(nil)
+	defer a.shutdownRecording()
+	a.recMu.Lock()
+	a.recCtx = ctx
+	a.recMu.Unlock()
 
 	a.setStatus(contract.StateBooting, "Booting Android")
 	booted := make(chan struct{})
@@ -319,6 +335,11 @@ func (a *Agent) run(ctx context.Context) error {
 	}
 	if err := a.spawn(ctx); err != nil {
 		return err
+	}
+	if a.cfg.Recording.URL != "" && !a.cfg.Resume {
+		if err := a.startRecording(a.cfg.Recording); err != nil {
+			a.log.Warn("start the recording", "err", err)
+		}
 	}
 
 	for {
@@ -441,6 +462,14 @@ func (a *Agent) install(ctx context.Context, req contract.Install, apk *string) 
 	}
 	os.Remove(*apk)
 	*apk = next
+	a.mu.Lock()
+	a.artifact = req.ArtifactRef
+	a.mu.Unlock()
+	a.recMu.Lock()
+	if rec := a.rec; rec != nil {
+		go a.recordInfo(ctx, rec)
+	}
+	a.recMu.Unlock()
 	a.setWallpaper(ctx, req.ArtifactRef, next)
 	a.log.Info("installed another build", "artifact", req.ArtifactRef, "keepData", req.KeepData)
 	return nil
@@ -458,7 +487,7 @@ func (a *Agent) stop(parent, ctx context.Context) {
 func (a *Agent) fail(err error) {
 	a.log.Error("session failed", "err", err)
 	a.mu.Lock()
-	a.status = contract.StatusEvent{State: contract.StateFailed, Reason: err.Error()}
+	a.status = contract.StatusEvent{State: contract.StateFailed, Reason: err.Error(), Recording: a.status.Recording, RecordedAt: a.status.RecordedAt}
 	a.app = nil
 	a.mu.Unlock()
 	a.notify()
@@ -574,7 +603,9 @@ func (a *Agent) exportTo(e *exportRequest) error {
 
 func (a *Agent) setStatus(state contract.SessionState, detail string) {
 	a.mu.Lock()
-	a.status = contract.StatusEvent{State: state, Detail: detail, AppRunning: a.app != nil}
+	a.status = contract.StatusEvent{
+		State: state, Detail: detail, AppRunning: a.app != nil, Recording: a.status.Recording, RecordedAt: a.status.RecordedAt,
+	}
 	a.mu.Unlock()
 	a.notify()
 }
@@ -585,6 +616,12 @@ func (a *Agent) setApp(app App) {
 	a.status.AppRunning = app != nil
 	a.mu.Unlock()
 	a.notify()
+}
+
+func (a *Agent) currentArtifact() string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.artifact
 }
 
 func (a *Agent) currentApp() App {
@@ -703,6 +740,7 @@ func (a *Agent) SetLocation(ctx context.Context, location string) (contract.Netw
 		return net, err
 	}
 	a.followLocationGeo(ctx, location)
+	a.record(contract.RecordingEvent{Type: contract.EventNetwork, Network: &net})
 	return net, nil
 }
 
@@ -772,7 +810,11 @@ func (a *Agent) Device(ctx context.Context) (contract.DeviceState, error) {
 }
 
 func (a *Agent) UpdateDevice(ctx context.Context, settings contract.DeviceSettings) (contract.DeviceState, error) {
-	return a.controls.Update(ctx, settings)
+	st, err := a.controls.Update(ctx, settings)
+	if err == nil {
+		a.record(contract.RecordingEvent{Type: contract.EventDevice, Device: &st})
+	}
+	return st, err
 }
 
 func (a *Agent) DeviceAction(ctx context.Context, action contract.DeviceAction) error {

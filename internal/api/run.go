@@ -23,6 +23,9 @@ func (s *Server) Run(ctx context.Context) {
 	if s.appData != nil {
 		go s.appDataLoop(ctx)
 	}
+	if s.recordings != nil {
+		go s.recordingsLoop(ctx)
+	}
 
 	for {
 		select {
@@ -65,6 +68,7 @@ func (s *Server) Reap(ctx context.Context) {
 			if _, _, err := s.saveAppData(ctx, provider, sess, "reap", false); errors.Is(err, contract.ErrBusy) {
 				continue
 			}
+			s.stopRecording(ctx, provider, sess)
 			ev := audit.Event{
 				Action: audit.SessionReap, Provider: provider, Session: sess.ID, Artifact: sess.ArtifactRef,
 				Details: map[string]string{"owner": sess.Owner},

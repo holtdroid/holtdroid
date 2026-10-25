@@ -62,7 +62,9 @@ the device audio on `/display/audio`, vibrations on `/v1/vibrations`, whether th
 and WebSocket proxying, clipboard and network endpoints, and device controls
 (`/v1/device`: settings, hardware buttons, screenshots), app actions
 (`/v1/app/restart`, `/v1/app/reinstall`), `/v1/install` for the provider
-to swap the build and `/v1/app-data/export` for the api to save the app's
-data (see [App data](/holtdroid/concepts/app-data/)). A provider for a new
+to swap the build, `/v1/app-data/export` for the api to save the app's
+data (see [App data](/holtdroid/concepts/app-data/)) and `/v1/recording`
+to start and stop a recording that the agent uploads to the api itself
+(see [Recordings](/holtdroid/concepts/recordings/)). A provider for a new
 kind of device ships its own agent that implements the same API; the UI
 adapts to what `capabilities` advertises (`display: scrcpy` today).

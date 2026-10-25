@@ -215,6 +215,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/recording": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getRecording"];
+        put?: never;
+        /** @description Starts recording the screen, the device's state and logcat to the target; 423 while another recording runs. */
+        post: operations["startRecording"];
+        /** @description Stops the recording and returns once its last files are uploaded. */
+        delete: operations["stopRecording"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/screen": {
         parameters: {
             query?: never;
@@ -688,6 +706,29 @@ export interface components {
             /** Format: int64 */
             pid: number;
         };
+        RecordingState: {
+            active: boolean;
+            /**
+             * Format: int64
+             * @description milliseconds recorded
+             */
+            duration: number;
+            /** @description why the last recording stopped on its own */
+            error?: string;
+            id?: string;
+            /**
+             * Format: int64
+             * @description bytes uploaded
+             */
+            size: number;
+            /** Format: date-time */
+            startedAt?: string;
+        };
+        RecordingTarget: {
+            id: string;
+            /** Format: uri */
+            url: string;
+        };
         ReverseTunnel: {
             /**
              * Format: int64
@@ -722,6 +763,13 @@ export interface components {
             appRunning: boolean;
             detail?: string;
             reason?: string;
+            /**
+             * Format: date-time
+             * @description when the recording in progress started
+             */
+            recordedAt?: string;
+            /** @description the recording in progress */
+            recording?: string;
             /** @enum {string} */
             state: "provisioning" | "booting" | "installing" | "restoring" | "instrumenting" | "ready" | "stopping" | "failed";
         };
@@ -1224,6 +1272,97 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Network"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getRecording: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordingState"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    startRecording: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordingTarget"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordingState"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    stopRecording: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordingState"];
                 };
             };
             /** @description Error */

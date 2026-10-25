@@ -1611,6 +1611,8 @@ yet.
 
 ## 66. Screen recordings are a canvas scene encoded to an OPFS file
 
+Superseded by #96; the OPFS file lives on in its video download.
+
 **Context.** The rail recorded either the screen canvas or the whole tab
 with `MediaRecorder`, kept every chunk in memory until the end and patched
 the WebM duration afterwards. Long recordings filled the memory, the screen
@@ -1858,6 +1860,7 @@ the phone was first cleaned.
 ## 74. Recordings are the framed phone or the whole tab under a strip
 
 Supersedes the scene layout of #66; the encoding and the OPFS file stay.
+Superseded by #96: sessions are recorded on the server.
 
 **Context.** The *Screen and details* scene rebuilt a dashboard on the
 canvas and cut the tool panel out of the tab with `RestrictionTarget`. It
@@ -2768,6 +2771,77 @@ same way but was first exercised by real sessions. The Android 15 image
 build takes about 9 minutes instead of 1, and Mesa is now ours to update.
 Chromium 157 and later still fail on Android 11 to 14 images.
 
+## 96. Sessions are recorded on the server, rendered only when watched
+
+Supersedes #66 and #74: the browser no longer records.
+
+**Context.** Browser recordings needed the tab open the whole time, showed
+only what the tab had (or a share prompt per recording for the whole tab),
+and knew nothing the page didn't fetch. Testers wanted every session on
+record with what was going on around the screen: the device, the WebView
+version, the app's build, the load, the network with its emulated
+conditions, the device clock's offset from real time, and logcat, and to
+pass a recording to someone without an account.
+
+**Decision.**
+
+- **The agent records** (`internal/recording`). Video is the scrcpy H.264
+  stream muxed as is into fragmented MP4 (`bluenviron/mediacommon`), no
+  decoding or encoding: one init file per epoch (a new stream or a new
+  config packet, e.g. after a rotation) and segments cut at the first key
+  frame after 2 s, so every segment starts with a key frame and can be
+  decoded on its own. The agent taps the newest viewer's H.264 stream
+  (`videoHub`), so watching and recording share one encoder on the device;
+  with no such viewer it runs its own stream (H.264, 1280 px, 30 fps,
+  2 Mbit/s). Sound isn't recorded: a second capture would fight the
+  viewer's. Next to the video: events as gzipped JSON lines
+  (`RecordingEvent`: device info and WebView version at start and after
+  installs, `StatusEvent` changes, every metrics sample, the `DeviceState`
+  after each change and every 30 s, the network after each switch) and
+  logcat (`logcat -v threadtime`) as gzipped text, each line prefixed with
+  the recording time, flushed every 10 s; a JPEG thumbnail from
+  `screencap` after 5 s and at the end.
+- **Uploads go through the api**, not to storage directly, so session Pods
+  hold no storage credentials. The api creates the recording (at launch,
+  through `CreateSession.recording`, or on request through the agent's
+  `POST /v1/recording`) and hands the agent an internal URL that carries a
+  random secret whose SHA-256 is in the recording's meta. The agent PUTs
+  each file once, in order, retrying for up to 10 minutes, the manifest
+  last; a 4xx stops the recording. A session that dies mid-recording
+  leaves everything uploaded so far, shown as cut off once its manifest is
+  two minutes old.
+- **Storage is objects, no database**: `meta/<user>/<id>.json` (written by
+  the api at creation), `.state.json` (the manifest's summary, written only
+  by the upload handler), `.keep` and `.share` markers, the files under
+  `files/<user>/<id>/`, and `shares/<token>.json` pointing back. Writers
+  never share an object, so replicas don't race; a user's recordings are
+  listed without their files.
+- **Retention and quota**: recordings older than `recordings.maxAge` are
+  deleted unless kept. The per-user `recordings.quota` is checked when a
+  recording starts and on each manifest upload (usage cached a minute per
+  replica): the oldest recordings that are neither kept nor running are
+  deleted to make room; when that isn't enough the upload gets 507 and the
+  agent stops, and a launch goes ahead without a recording.
+- **Rendering happens in the browser**, from the same data for the player
+  and the download: a canvas scene (`web/src/lib/recording/scene.ts`) with
+  logcat on the left, the phone in the middle and app, time (real and device
+  clock), device, network (VPN, throttling profile) and load with
+  sparklines on the right. Segments are decoded with WebCodecs through
+  mediabunny, one `init + segment` blob at a time, so a seek fetches only
+  the segment it needs. **Download video** renders the scene at 1920×1080,
+  30 fps frame by frame into an MP4 in OPFS. Share links open the player
+  without sign-in and don't offer the download.
+
+**Consequences.** The server spends no CPU on video; an hour of an app in
+use is 0.2–2 GB in storage (the viewer's quality decides), events and
+logcat a few MB. The recording follows the viewer's resolution and frame
+rate, and a viewer who switches codec or quality starts a new epoch. A
+second viewer joining takes the recording over at its first key frame;
+when the newest viewer leaves while another is still watching, the
+recording waits for the remaining stream's next key frame (up to the
+encoder's I-frame interval). Downloads take as long as the browser needs
+to decode, draw and encode every frame, typically several times real time.
+
 ## 97. The GPS map uses keyless OpenFreeMap tiles proxied by the api
 
 **Context.** Picking a fake GPS position from a city list or typed
@@ -2792,4 +2866,3 @@ map or dragging the marker overrides the GPS like picking a city.
 is stored, the browser cache does the caching. Moving the position along a
 route (walking, running, driving) and road routing are the next steps
 (roadmap, Later).
-

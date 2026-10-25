@@ -40,6 +40,7 @@ type Server struct {
 	provOrder      []string
 	cache          *Cache
 	appData        *appDataStore
+	recordings     *recordingStore
 	webviews       *webviewCatalog
 	activity       *activity
 	warm           chan warmItem
@@ -136,6 +137,16 @@ func New(ctx context.Context, cfg Config, opts ...Option) (*Server, error) {
 				return nil, fmt.Errorf("appData.storage: %w", err)
 			}
 			s.appData = &appDataStore{store: store}
+		}
+	}
+	if cfg.Recordings.Enabled {
+		s.recordings = newRecordingStore(s.store, recordingsPrefix)
+		if cfg.Recordings.Storage.Type != "" {
+			store, err := storage.New(ctx, cfg.Recordings.Storage, s.secrets)
+			if err != nil {
+				return nil, fmt.Errorf("recordings.storage: %w", err)
+			}
+			s.recordings = newRecordingStore(store, "")
 		}
 	}
 	if s.webviews, err = newWebViewCatalog(ctx, cfg.WebView, s); err != nil {
@@ -258,6 +269,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET "+mapTilesPath+"{path...}", s.serveMapTile)
 	mux.HandleFunc("GET /tunnel.sh", s.serveTunnelScript)
 	mux.HandleFunc("GET /connect/{file}", s.serveConnectClient)
+	mux.HandleFunc("GET /api/v1/recordings/{id}/files/{file}", s.serveRecordingFile)
+	mux.HandleFunc("GET /api/v1/recordings/{id}/logcat.txt", s.serveRecordingLogcat)
+	mux.HandleFunc("GET /api/v1/shared/{token}/files/{file}", s.serveRecordingFile)
+	mux.HandleFunc("GET /api/v1/shared/{token}/logcat.txt", s.serveRecordingLogcat)
 	mux.Handle("/", s.uiHandler())
 
 	protected := s.auth.Middleware(mux)
@@ -267,7 +282,7 @@ func (s *Server) Handler() http.Handler {
 		switch {
 		case p == "/healthz":
 			w.WriteHeader(http.StatusOK)
-		case strings.HasPrefix(p, "/api/v1/auth"), strings.HasPrefix(p, "/api/openapi"),
+		case strings.HasPrefix(p, "/api/v1/auth"), strings.HasPrefix(p, "/api/openapi"), strings.HasPrefix(p, "/api/v1/shared/"),
 			p == "/api/v1/connect/enroll", p == "/api/v1/connect/refresh",
 			strings.HasPrefix(p, "/api/docs"), strings.HasPrefix(p, "/api/schemas"):
 			optional.ServeHTTP(w, r)
@@ -303,6 +318,7 @@ func (s *Server) InternalHandler() http.Handler {
 	})
 	mux.HandleFunc("GET /internal/app-data/{key...}", s.serveInternalAppData)
 	mux.HandleFunc("GET /internal/webview/{id}", s.serveInternalWebView)
+	mux.HandleFunc("PUT /internal/recordings/{user}/{id}/{secret}/{file}", s.serveRecordingUpload)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
 	contract.RegisterSSHSessions(contract.NewAPI(mux, "Holtdroid api internal"), s)
 	return mux

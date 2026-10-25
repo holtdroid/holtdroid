@@ -265,6 +265,14 @@ type CreateSession struct {
 	AppData     *AppDataRestore // optional: {url, cache}, decision #49
 	WebView     *WebViewInstall // optional: needs Capabilities.WebView, decision #88
 	Frontend    string          // optional, 40 hex digits: the build's `frontend` tag, the DevTools frontend for the app's own sockets when they report an all-zero revision (Chromium browser builds, decision #91)
+	Recording   *RecordingTarget // optional: record the session from the moment it is first ready (decision #96)
+}
+
+// The agent PUTs every file of the recording to url + "/" + name, the
+// manifest last; the url carries a secret only this agent knows.
+type RecordingTarget struct {
+	ID  string // 20261025T120000Z-<24 hex>
+	URL string // api-internal, /internal/recordings/{user hash}/{id}/{secret}
 }
 
 // The agent installs url (a com.android.webview build) over the built-in
@@ -331,8 +339,8 @@ static assets and WebSockets.
 | Method | Path | Notes | In `contract.Agent` |
 |--------|------|-------|----|
 | `GET` | `/v1/health` | 200 once `ready`, 503 before | `Status` |
-| `GET` | `/v1/state` | the current `{state, reason?, detail?, appRunning}`; providers read it with `contract.AgentClient` | `Status` |
-| `GET` | `/v1/status` | SSE, `event: state` with `{state, reason?, detail?, appRunning}`; first event is the current state. `appRunning` is false once the app is closed; the device stays `ready` | `WatchStatus` |
+| `GET` | `/v1/state` | the current `{state, reason?, detail?, appRunning, recording?, recordedAt?}`; providers read it with `contract.AgentClient` | `Status` |
+| `GET` | `/v1/status` | SSE, `event: state` with `{state, reason?, detail?, appRunning, recording?, recordedAt?}`; first event is the current state. `appRunning` is false once the app is closed; the device stays `ready`. `recording` is the id of the recording in progress and `recordedAt` when it started | `WatchStatus` |
 | `GET` | `/v1/devtools/targets` | `{items: [{socket, pid, process, id, type, title, url, frontendRev}]}` | `Targets` |
 | `GET` | `/v1/clipboard` | `{text}` | `Clipboard` |
 | `POST` | `/v1/clipboard` | `{text}` → 204 | `SetClipboard` |
@@ -348,6 +356,9 @@ static assets and WebSockets.
 | `PATCH` | `/v1/device` | `DeviceSettings` (any subset of the writable fields above; `locales` replaces the whole list; `resetGeo: true` puts the default GPS position back; `timeZone` overrides the VPN location's zone for the session and `resetTimeZone: true` follows it again; `density: 0` restores the default; `volume` sets the media step, `muted: true` sets it to the lowest step and `false` brings back the step it had; `timeOffset` sets the clock to real time + offset and turns `autoTime` off; `autoTime: true` syncs the clock) → `DeviceState` | `UpdateDevice` |
 | `POST` | `/v1/device/actions/{volume-up\|volume-down\|mute\|screen-off\|lock\|unlock\|back\|home\|recents\|notifications\|quick-settings\|rotate-left\|rotate-right}` | 204 | `DeviceAction` |
 | `GET` | `/v1/device/screenshot` | `image/png` of the current screen | `Screenshot` |
+| `GET` | `/v1/recording` | `RecordingState` `{active, id?, startedAt?, duration, size, error?}`: the recording in progress, or the last one with why it stopped on its own | `Recording` |
+| `POST` | `/v1/recording` | `RecordingTarget` → `RecordingState`; starts recording the screen, events and logcat to the target (decision #96). 400 before the session is ready, 423 while another recording runs | `StartRecording` |
+| `DELETE` | `/v1/recording` | → `RecordingState` once the last files are uploaded (the api waits up to a minute); a no-op without a recording | `StopRecording` |
 | `GET` | `/v1/tunnels?probe=` | SSE, `event: tunnels` with `{adb: [{user, client, since}], reverse: [{port, user, since, connections, state}]}` — what the ssh-gateway (`client: ssh`) and browsers (`client: browser`) have open into the device; the first event is the current set. `state` (`unknown`, `up`, `down`) says whether a server answers behind the port on the publisher's machine; `probe=true` makes the agent check it while the stream is open (decision #52) | `WatchTunnels` |
 | `GET` | `/v1/tunnels/current` | the same `Tunnels` once, as JSON, for the api | `Tunnels` |
 | `GET` | `/v1/metrics` | SSE, `event: metrics` every ~2 s with `{at, interval, device: {cores, cpu, memoryUsed, memoryTotal, storageUsed, storageTotal, rxRate, txRate}, app?: {processes: [{pid, name, cpu, memory}], fps, jank}, host?: {cpu, cpuLimit, throttled, memoryUsed, memoryLimit}, thermal: [{source, type, name, celsius}]}` (decision #40). `cpu` percentages are of all device cores (for redroid the Pod's CPU limit, with memory from the Pod's cgroup, since the guest's `/proc` shows the node), `memory` is PSS, rates are bytes/s since the previous sample; `app` is absent while the app is closed, `host` is the container an emulator runs in. The device is only sampled while someone listens | `WatchMetrics` |
@@ -457,13 +468,24 @@ keeping the provider in the path is what lets the api stay stateless.
 | `GET` | `/api/v1/map` | `{enabled, style?, darkStyle?}`: the GPS map's MapLibre style URLs under the tile proxy (decision #97); `enabled: false` without `map.url` |
 | `GET` | `/api/v1/map/tiles/{path}` | proxies `map.url` + `path` (style, TileJSON, tiles, sprites, glyphs), rewriting `map.url` in JSON responses to this prefix; 404 without `map.url`, 502 when the tile server is unreachable |
 | `GET` | `/api/v1/webviews` | the WebView catalog (decision #88), newest milestone first: `[{id, title, version, milestone, channels, minSdk, released, size}]`, where `minSdk` is the higher of the APK's and the sidecar's `requiresSdk`; empty without `webview.storage`. `createSession` answers 422 for a build whose `minSdk` is above the requested Android version |
-| `POST` | `/api/v1/sessions` | `{source, artifactId, provider?, slot?, screen?, android?, location?, appData?: {id, cache}, webview?, queue?}`. `webview` is an id from `/api/v1/webviews` and keeps only providers with the `webview` capability (422 when none is left or no catalog is configured, 404 for an unknown build). Without `provider` the api takes the first provider in `providers[]` order that offers the location and has a free slot (for app data, one that can restore it); `slot` needs `provider` (decision #76). 404 for artifacts the caller can't see or app data that isn't the caller's for that package, 403 for `appData` while app data is off, 409 when no slot is free (or others are queued for that provider) and `queue` is false, 422 for an invalid APK or unknown location. With `queue: true` it waits in line (one per target: any provider, a provider, or one slot) until a slot frees up; cancelling the request leaves the line (decision #57) |
+| `POST` | `/api/v1/sessions` | `{source, artifactId, provider?, slot?, screen?, android?, location?, appData?: {id, cache}, webview?, queue?, record?}`. `record` overrides `recordings.auto`; with recordings on the api creates the recording and passes its target in `CreateSession.recording`, or launches without one when the quota is full of kept recordings. `webview` is an id from `/api/v1/webviews` and keeps only providers with the `webview` capability (422 when none is left or no catalog is configured, 404 for an unknown build). Without `provider` the api takes the first provider in `providers[]` order that offers the location and has a free slot (for app data, one that can restore it); `slot` needs `provider` (decision #76). 404 for artifacts the caller can't see or app data that isn't the caller's for that package, 403 for `appData` while app data is off, 409 when no slot is free (or others are queued for that provider) and `queue` is false, 422 for an invalid APK or unknown location. With `queue: true` it waits in line (one per target: any provider, a provider, or one slot) until a slot frees up; cancelling the request leaves the line (decision #57) |
 | `GET` | `/api/v1/sessions/{provider}/{id}` | one session |
 | `DELETE` | `/api/v1/sessions/{provider}/{id}` | owner or admin only; with app data on, a `ready` session's app data is saved into the owner's first (a failed save is logged and audited, the session is stopped anyway) |
 | `POST` | `/api/v1/sessions/{provider}/{id}/app-data` | owner or admin; saves the app data now into the session owner's saves and restarts the app → `AppDataView`; 403 when off, 404 when the app has no data, 413 over `appData.maxSize`, 423 while another app action runs |
 | `GET` | `/api/v1/app-data?package=` | the caller's saves, newest first: `{enabled, cache, export, keep, maxAge, items: [{id, package, label?, versionName?, versionCode?, source, artifactId, iconUrl?, cache, size, compressed, createdAt, lastUsedAt, expiresAt?}]}`; `maxAge` in seconds, `size` bytes on the device, `compressed` bytes stored |
 | `DELETE` | `/api/v1/app-data/{package}/{id}` | the caller's own save only (admins included), 404 otherwise |
 | `GET` | `/api/v1/app-data/{package}/{id}/download` | `application/zstd` attachment; 403 when `appData.export` is off |
+| `POST` | `/api/v1/sessions/{provider}/{id}/recording` | owner or admin; starts a new recording of a `ready` session → `RecordingView`; 403 when recordings are off, 423 while one runs, 507 when the owner's quota is full of kept recordings |
+| `DELETE` | `/api/v1/sessions/{provider}/{id}/recording` | owner or admin; stops the recording and waits for its last files → 204 |
+| `GET` | `/api/v1/recordings` | the caller's recordings, newest first: `{enabled, auto, share, quota, used, maxAge, items: [RecordingView]}`; a `RecordingView` has `{id, package, label?, versionName?, source, artifactId, provider?, session?, location?, webview?, state (pending\|recording\|done\|failed\|interrupted), reason?, createdAt, startedAt?, duration, size, filesUrl, iconUrl?, thumbnailUrl?, logcatUrl, keep, expiresAt?, share?: {token, url}}` |
+| `GET` | `/api/v1/recordings/{id}` | `{recording, manifest?, shared: false}`; the manifest is the agent's `RecordingManifest` |
+| `GET` | `/api/v1/recordings/{id}/events` | `{items: [RecordingEvent]}`: every event of the recording in order |
+| `GET` | `/api/v1/recordings/{id}/files/{file}` | a file the manifest lists, `icon.png` or `thumb.jpg`; `.gz` chunks are sent with `Content-Encoding: gzip` |
+| `GET` | `/api/v1/recordings/{id}/logcat.txt` | the whole logcat as one text attachment |
+| `PUT` | `/api/v1/recordings/{id}/keep` | `{keep}` → `RecordingView`; a kept recording is exempt from `recordings.maxAge`, not from the quota |
+| `POST`, `DELETE` | `/api/v1/recordings/{id}/share` | make (or return the existing) share link, or turn it off → `RecordingView`; 403 when `recordings.share` is off |
+| `DELETE` | `/api/v1/recordings/{id}` | → 204; the caller's own recordings only |
+| `GET` | `/api/v1/shared/{token}`, `…/events`, `…/files/{file}`, `…/logcat.txt` | the same for a share link, **without sign-in**; `shared: true`, the owner's name, no `share` or session |
 | `POST` | `/api/v1/sessions/{provider}/{id}/extend` | owner or admin only; counts as activity |
 | `POST` | `/api/v1/sessions/{provider}/{id}/heartbeat` | `{active}`; sent every 30 s by a visible session tab, `active` = the user gave input since the previous heartbeat |
 | `GET` | `/api/v1/admin/audit` | admins only (403 otherwise): `{enabled, events, oldest?, maxEvents, maxAge (s), persistent, actors, actions}` of the api's audit store |
@@ -477,6 +499,7 @@ keeping the provider in the path is what lets the api stay stateless.
 | `GET` | `/internal/artifacts/{key}` | APK download for agents by cache key, **internal port only** |
 | `GET` | `/internal/app-data/{key}` | app data download for agents, **internal port only**; `key` is `{user hash}/{package}/{id}.tar.zst`, ids carry 96 random bits |
 | `GET` | `/internal/webview/{id}` | a WebView build from the catalog for agents, **internal port only**, streamed from `webview.storage` (decision #88) |
+| `PUT` | `/internal/recordings/{user hash}/{id}/{secret}/{file}` | recording uploads from agents, **internal port only** (decision #96): 404 unless the secret's SHA-256 matches the recording's meta; `file` is `init-N.mp4`, `seg-N.m4s`, `events-N.jsonl.gz`, `logcat-N.log.gz`, `thumb.jpg` or `manifest.json`, at most `recordings.maxFileSize`. A manifest updates the recording's state and, while it records, checks the owner's quota: 507 when nothing more can be deleted to make room |
 | `GET` | `/internal/ssh/authority` | gateway only, **internal port**: `{publicKey}` of the CA that signs connect clients' certificates; 404 when SSH is disabled |
 | `POST` | `/internal/sessions/{slug}/activity` | gateway only, **internal port**: tunnel traffic counts as activity → 204; 404 for an unknown session |
 | `GET` | `/internal/users/{handle}/sessions` | gateway only, **internal port**: `{sessions: [SSHSession]}` (`{provider, id, owner, state, tunnelUrl?, package?, label?, versionName?}`), every session (any state) whose owner has this `user-…` handle; empty for an unknown handle; 500 if a provider can't list, so the gateway keeps what it has |

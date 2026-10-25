@@ -15,6 +15,8 @@ import { ComputersPage } from "@/pages/computers"
 import { HomePage } from "@/pages/home"
 import { InventoryPage } from "@/pages/inventory"
 import { LaunchPage, validateLaunchSearch } from "@/pages/launch"
+import { RecordingPage } from "@/pages/recording"
+import { RecordingsPage } from "@/pages/recordings"
 import { SessionPage } from "@/pages/session"
 
 const onUnauthorized = (error: Error) => {
@@ -32,7 +34,11 @@ const queryClient: QueryClient = new QueryClient({
   },
 })
 
-const rootRoute = createRootRoute({
+const rootRoute = createRootRoute({ component: Outlet })
+
+const portalRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  id: "_portal",
   component: () => (
     <AuthGate>
       <AppShell>
@@ -42,8 +48,21 @@ const rootRoute = createRootRoute({
   ),
 })
 
-const homeRoute = createRoute({
+const sharedRoute = createRoute({
   getParentRoute: () => rootRoute,
+  path: "/r/$token",
+  component: function Shared() {
+    const { token } = sharedRoute.useParams()
+    return (
+      <div className="h-dvh">
+        <RecordingPage key={token} source={{ kind: "shared", token }} />
+      </div>
+    )
+  },
+})
+
+const homeRoute = createRoute({
+  getParentRoute: () => portalRoute,
   path: "/",
   validateSearch: (search: Record<string, unknown>): { source?: string; launch?: string; quick?: boolean } => ({
     source: typeof search.source === "string" ? search.source : undefined,
@@ -54,7 +73,7 @@ const homeRoute = createRoute({
 })
 
 const appRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => portalRoute,
   path: "/apps/$pkg",
   component: function App() {
     const { pkg } = appRoute.useParams()
@@ -63,7 +82,7 @@ const appRoute = createRoute({
 })
 
 const sessionRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => portalRoute,
   path: "/session/$provider/$id",
   component: function Session() {
     const { provider, id } = sessionRoute.useParams()
@@ -72,7 +91,7 @@ const sessionRoute = createRoute({
 })
 
 const launchRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => portalRoute,
   path: "/launch",
   validateSearch: validateLaunchSearch,
   component: function Launch() {
@@ -81,29 +100,49 @@ const launchRoute = createRoute({
   },
 })
 
-const computersRoute = createRoute({ getParentRoute: () => rootRoute, path: "/computers", component: ComputersPage })
+const computersRoute = createRoute({ getParentRoute: () => portalRoute, path: "/computers", component: ComputersPage })
 
 const auditRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => portalRoute,
   path: "/audit",
   validateSearch: validateAuditSearch,
   component: AuditPage,
 })
 
-const inventoryRoute = createRoute({ getParentRoute: () => rootRoute, path: "/inventory", component: InventoryPage })
+const inventoryRoute = createRoute({ getParentRoute: () => portalRoute, path: "/inventory", component: InventoryPage })
 
-const appDataRoute = createRoute({ getParentRoute: () => rootRoute, path: "/app-data", component: AppDataPage })
+const appDataRoute = createRoute({ getParentRoute: () => portalRoute, path: "/app-data", component: AppDataPage })
+
+const recordingsRoute = createRoute({
+  getParentRoute: () => portalRoute,
+  path: "/recordings",
+  component: RecordingsPage,
+})
+
+const recordingRoute = createRoute({
+  getParentRoute: () => portalRoute,
+  path: "/recordings/$id",
+  component: function Recording() {
+    const { id } = recordingRoute.useParams()
+    return <RecordingPage key={id} source={{ kind: "own", id }} />
+  },
+})
 
 const router = createRouter({
   routeTree: rootRoute.addChildren([
-    homeRoute,
-    appRoute,
-    launchRoute,
-    sessionRoute,
-    computersRoute,
-    auditRoute,
-    inventoryRoute,
-    appDataRoute,
+    portalRoute.addChildren([
+      homeRoute,
+      appRoute,
+      launchRoute,
+      sessionRoute,
+      computersRoute,
+      auditRoute,
+      inventoryRoute,
+      appDataRoute,
+      recordingsRoute,
+      recordingRoute,
+    ]),
+    sharedRoute,
   ]),
 })
 

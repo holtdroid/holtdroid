@@ -50,6 +50,11 @@ const (
 	AppDataSave      Action = "appdata.save"
 	AppDataDownload  Action = "appdata.download"
 	AppDataDelete    Action = "appdata.delete"
+	RecordingStart   Action = "recording.start"
+	RecordingStop    Action = "recording.stop"
+	RecordingDelete  Action = "recording.delete"
+	RecordingShare   Action = "recording.share"
+	RecordingUnshare Action = "recording.unshare"
 	Maintenance      Action = "provider.maintenance"
 )
 
