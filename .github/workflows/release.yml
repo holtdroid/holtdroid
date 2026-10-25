@@ -58,7 +58,7 @@ jobs:
             -v /tmp/frida:/opt/frida:ro \
             -e CGO_ENABLED=1 -e CGO_CFLAGS=-I/opt/frida -e CGO_LDFLAGS=-L/opt/frida -e VERSION \
             "$GO_IMAGE" \
-            go build -tags frida -trimpath -ldflags "-s -w -X main.version=$VERSION" -o prebuilt/holtdroid-frida-linux-amd64 ./cmd/holtdroid
+            go build -buildvcs=false -tags frida -trimpath -ldflags "-s -w -X main.version=$VERSION" -o prebuilt/holtdroid-frida-linux-amd64 ./cmd/holtdroid
           stage="$(mktemp -d)"
           cp frida/package.json frida/bun.lock "$stage"/
           (cd "$stage" && bun install --frozen-lockfile --production)
@@ -77,10 +77,10 @@ jobs:
           archs=amd64
           if [ "$GITHUB_REF_TYPE" = tag ]; then archs="amd64 arm64"; fi
           for arch in $archs; do
-            GOOS=linux GOARCH=$arch go build -trimpath -ldflags "-s -w -X main.version=$VERSION" -o "prebuilt/holtdroid-linux-$arch" ./cmd/holtdroid
+            GOOS=linux GOARCH=$arch go build -buildvcs=false -trimpath -ldflags "-s -w -X main.version=$VERSION" -o "prebuilt/holtdroid-linux-$arch" ./cmd/holtdroid
           done
           for p in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64; do
-            GOOS=${p%/*} GOARCH=${p#*/} go build -trimpath -ldflags "-s -w -X main.version=$VERSION" -o "prebuilt/connect/holtdroid-${p%/*}-${p#*/}" ./cmd/holtdroid-connect
+            GOOS=${p%/*} GOARCH=${p#*/} go build -buildvcs=false -trimpath -ldflags "-s -w -X main.version=$VERSION" -o "prebuilt/connect/holtdroid-${p%/*}-${p#*/}" ./cmd/holtdroid-connect
           done
       - uses: actions/upload-artifact@v4
         with:
