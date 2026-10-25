@@ -155,7 +155,11 @@ func (r *Redroid) route(ctx context.Context) error {
 // so sing-box can't route by itself; the script is idempotent and re-run.
 func Routes(bypass []string) string {
 	table := vpn.TunTable
-	cmds := []string{"ip link show " + vpn.TunInterface + " >/dev/null", "ip route replace default dev " + vpn.TunInterface + " table " + table}
+	cmds := []string{
+		"ip link show " + vpn.TunInterface + " >/dev/null",
+		"ip route replace default dev " + vpn.TunInterface + " table " + table,
+		"ip route replace unreachable default metric 1000 table " + table,
+	}
 	for _, cidr := range bypass {
 		if strings.Contains(cidr, ":") {
 			continue

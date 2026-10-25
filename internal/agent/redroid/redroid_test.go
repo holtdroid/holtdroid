@@ -79,6 +79,7 @@ func TestRoutes(t *testing.T) {
 	got := Routes([]string{"10.0.0.0/8", "fc00::/7"})
 	want := "ip link show holtdroid0 >/dev/null && " +
 		"ip route replace default dev holtdroid0 table 2022 && " +
+		"ip route replace unreachable default metric 1000 table 2022 && " +
 		"ip route replace throw 10.0.0.0/8 table 2022 && " +
 		"{ ip rule list pref 8999 | grep -q . || ip rule add to 198.18.0.0/30 lookup 2022 pref 8999; } && " +
 		"{ ip rule list pref 9000 | grep -q . || ip rule add not uidrange 0-0 lookup 2022 pref 9000; }"

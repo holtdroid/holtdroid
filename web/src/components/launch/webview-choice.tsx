@@ -1,7 +1,11 @@
-import { GlobeIcon, PackageIcon } from "lucide-react"
+import { ChevronDownIcon, ChevronUpIcon, GlobeIcon, PackageIcon } from "lucide-react"
+import { useState } from "react"
 import type { WebViewView } from "@/api/client"
 import { ChoiceCard, ChoiceGroup, Section } from "@/components/launch/choice-card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+
+const COLLAPSED = 4
 
 export function WebViewChoice({
   webviews,
@@ -14,6 +18,14 @@ export function WebViewChoice({
   android?: string
   onSelect: (id: string) => void
 }) {
+  const [expanded, setExpanded] = useState(false)
+  const index = webviews.findIndex((w) => w.id === selected)
+  const pinned = webviews[index]
+  const shown =
+    expanded || !pinned || index < COLLAPSED - 1
+      ? webviews.slice(0, expanded ? undefined : COLLAPSED - 1)
+      : [pinned, ...webviews.slice(0, COLLAPSED - 2)]
+  const hidden = webviews.length - shown.length
   return (
     <Section
       title="WebView"
@@ -31,7 +43,7 @@ export function WebViewChoice({
             {android ? `As shipped with Android ${android}` : "As shipped"}
           </div>
         </ChoiceCard>
-        {webviews.map((w) => (
+        {shown.map((w) => (
           <ChoiceCard key={w.id} selected={w.id === selected} onSelect={() => onSelect(w.id)} className="gap-1.5 p-2.5">
             <div className="flex items-center gap-2 pr-5">
               <span className="bg-primary/10 text-primary grid size-7 shrink-0 place-items-center rounded-md">
@@ -52,6 +64,18 @@ export function WebViewChoice({
           </ChoiceCard>
         ))}
       </ChoiceGroup>
+      {(hidden > 0 || expanded) && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="text-muted-foreground w-fit"
+          onClick={() => setExpanded(!expanded)}
+        >
+          {expanded ? <ChevronUpIcon /> : <ChevronDownIcon />}
+          {expanded ? "Show fewer versions" : `Show ${hidden} older ${hidden === 1 ? "version" : "versions"}`}
+        </Button>
+      )}
     </Section>
   )
 }

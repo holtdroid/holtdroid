@@ -2537,3 +2537,25 @@ of the chosen device; the drawn shape is exact only as far as the catalog is.
 Rotation hides the overlay. The `providers` response grows by the catalog
 (about 15 KB).
 
+## 90. No direct network on request; faster releases
+
+**Context.** `vpn.direct` could already hide the Direct location, but the
+policy route that sends apps into the tunnel only fell through to the
+Pod's own route when the tunnel went away, so "no direct" was not a
+guarantee. Releases also took about ten minutes from push to deployment.
+
+**Decision.** The route table that holds the tunnel's default route now ends
+in an `unreachable` default (metric 1000), so apps lose the network instead
+of leaking when the tunnel is down; the agent's own and root's traffic stays
+direct as before. The maintainer's deployment sets `vpn.direct: false`, for
+sessions and phones alike. The release workflow exported its build cache to
+the GitHub Actions cache after the image was already pushed, which held the
+job (and the deploy branch behind it) for another three minutes; the
+`image` and `physical-image` builds now use registry caches like the session
+image. The rest of the wait is the Go builds (about three minutes on cold
+caches) and Argo CD's poll (two minutes, one more of jitter).
+
+**Consequences.** A session whose VPN endpoint is down has no network until
+it is back, which is the point. The first release after the change builds
+without a cache.
+
