@@ -446,8 +446,9 @@ usable cellular signal**. Run the farm phones that way.
 Root mode is transitional: it grants `su` to the shell uid, so a user with
 `adb.shell: full` would inherit root (phones default to `allowlist`). The
 hardening that keeps root from users — a token-authenticated frida-server
-and `su` denied to the shell uid, with a watchdog — is still to come, as is
-the network-speed profile on phones whose kernel has no traffic shaping.
+and `su` denied to the shell uid, with a watchdog — is still to come, as are
+network conditions on phones (the A05's kernel has no `sch_netem`, so they
+would have to be shaped on the host).
 
 ## What is still missing
 

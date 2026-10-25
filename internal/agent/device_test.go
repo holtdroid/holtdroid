@@ -217,6 +217,29 @@ func TestControlsOnAPhone(t *testing.T) {
 	}
 }
 
+type stubShaper struct{ current contract.NetworkProfile }
+
+func (s *stubShaper) Current() contract.NetworkProfile { return s.current }
+
+func (s *stubShaper) Set(_ context.Context, id contract.NetworkProfile) error {
+	s.current = id
+	return nil
+}
+
+func (s *stubShaper) Close(context.Context) error {
+	s.current = contract.NetworkFull
+	return nil
+}
+
+func TestControlsNetworkProfile(t *testing.T) {
+	c := NewControls(&scriptedDevice{clock: "1760000000"}, "", true, false)
+	c.shaper = &stubShaper{current: contract.NetworkFull}
+	s, err := c.Update(context.Background(), contract.DeviceSettings{NetworkProfile: new(contract.NetworkProfile("subway"))})
+	if err != nil || s.NetworkProfile != "subway" || len(s.NetworkProfiles) == 0 {
+		t.Fatalf("state %+v, %v", s, err)
+	}
+}
+
 func TestControlsAppLanguage(t *testing.T) {
 	dev := &scriptedDevice{clock: "1760000000"}
 	c := NewControls(dev, "", false, false)

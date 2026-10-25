@@ -427,8 +427,8 @@ export interface components {
             /** @description the system languages in order: the first sets the UI language, the rest add their keyboard layouts */
             locales?: string[];
             mobileData?: boolean;
-            /** @enum {string} */
-            networkProfile?: "full" | "lte" | "hsdpa" | "umts" | "edge" | "gprs" | "gsm";
+            /** @description one of DeviceState.networkProfiles */
+            networkProfile?: string;
             /** @description puts the default GPS position back */
             resetGeo?: boolean;
             /** Format: int64 */
@@ -471,11 +471,10 @@ export interface components {
             /** @description the system languages in order: the first is locale, the rest add their keyboard layouts */
             locales: string[];
             mobileData: boolean;
-            /**
-             * @description empty when the device can't emulate network conditions
-             * @enum {string}
-             */
-            networkProfile?: "full" | "lte" | "hsdpa" | "umts" | "edge" | "gprs" | "gsm";
+            /** @description empty when the device can't emulate network conditions */
+            networkProfile?: string;
+            /** @description the profiles networkProfile may be set to */
+            networkProfiles?: components["schemas"]["NetworkProfileInfo"][];
             /** Format: int64 */
             rotation: number;
             /**
@@ -591,6 +590,38 @@ export interface components {
             country?: string;
             externalIp?: string;
             location: string;
+        };
+        NetworkProfileInfo: {
+            description: string;
+            /**
+             * Format: int64
+             * @description download kbit/s; empty is unlimited
+             */
+            down?: number;
+            id: string;
+            /**
+             * Format: int64
+             * @description round trip jitter, ms
+             */
+            jitter?: number;
+            /**
+             * Format: double
+             * @description percent of packets lost in each direction
+             */
+            loss?: number;
+            name: string;
+            /**
+             * Format: int64
+             * @description round trip added, ms
+             */
+            rtt?: number;
+            /** @description conditions change over time */
+            scenario: boolean;
+            /**
+             * Format: int64
+             * @description upload kbit/s; empty is unlimited
+             */
+            up?: number;
         };
         ProcessLoad: {
             /**

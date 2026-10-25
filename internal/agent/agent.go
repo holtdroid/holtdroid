@@ -18,6 +18,8 @@ import (
 
 	"github.com/holtdroid/holtdroid/internal/agent/redroid"
 	"github.com/holtdroid/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/netem"
+	"github.com/holtdroid/holtdroid/internal/vpn"
 )
 
 type Config struct {
@@ -181,7 +183,7 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 		screen:   screen,
 		clip:     NewClipboard(screen, log),
 		frontend: NewFrontend(cfg.DevToolsFrontend, filepath.Join(cfg.CacheDir, "devtools-frontend")),
-		controls: newControls(cfg, dev),
+		controls: newControls(cfg, dev, log),
 		tunnels:  NewTunnels(newADBTunnels(cfg, dev, log), cfg.ADBShell, log),
 		metrics:  NewMetrics(dev, cfg.Package, host, cgroup, cfg.PodUID, log),
 		vibes:    NewVibrations(dev, log),
@@ -193,9 +195,12 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 	}
 }
 
-func newControls(cfg Config, dev Device) *Controls {
+func newControls(cfg Config, dev Device, log *slog.Logger) *Controls {
 	c := NewControls(dev, cfg.LocalesDex, cfg.Root, cfg.RootShell)
 	c.usbNetwork = cfg.USBNetwork
+	if cfg.Redroid.VPN {
+		c.shaper = netem.NewShaper(vpn.TunInterface, log)
+	}
 	if cfg.AppLanguage && packageName.MatchString(cfg.Package) {
 		c.appLocales = cfg.Package
 	}
@@ -245,6 +250,9 @@ func (a *Agent) Run(parent context.Context) {
 	go a.devtools.Run(ctx, 2*time.Second)
 	go a.screen.Run(ctx)
 	go a.clip.Run(ctx, a.onClip)
+	if err := a.controls.resetNetwork(ctx); err != nil {
+		a.log.Warn("reset network profile", "err", err)
+	}
 
 	if err := a.run(ctx); err != nil {
 		a.fail(err)

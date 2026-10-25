@@ -192,6 +192,7 @@ func (p *Provider) renderPod(id, slot, node string, req contract.CreateSession, 
 		},
 	}
 	if p.cfg.VPN.Enabled() {
+		containers[1].SecurityContext.Capabilities.Add = []corev1.Capability{"NET_ADMIN"}
 		containers = append(containers, corev1.Container{
 			Name:  containerVPN,
 			Image: p.cfg.VPN.Image,

@@ -102,6 +102,9 @@ whatever else the node runs.
 - A GPU with a Mesa driver and a render node (`/dev/dri/renderD128`): Intel
   and AMD integrated graphics work. WebGL runs on it; WebGPU is not
   available in WebView.
+- For [network conditions](#network-conditions): the `sch_netem`, `ifb`,
+  `act_mirred` and `cls_matchall` kernel modules (stock distribution kernels
+  have them; they load on first use).
 - containerd and Kubernetes that support
   `securityContext.supplementalGroupsPolicy` (1.31 or newer); the pre-pull
   DaemonSet also uses an image volume (1.35, or the `ImageVolume` feature
@@ -113,7 +116,8 @@ whatever else the node runs.
   `nodeSelector`/`tolerations`). The provider keeps the rest of the cluster
   out of Android's reach: the chart's egress NetworkPolicy lets sessions
   reach only cluster DNS, the api and the internet (the LAN, node IPs and
-  other Pods are carved out), the agent container runs without privileges,
+  other Pods are carved out), the agent container runs without privileges
+  (only `NET_ADMIN` in the Pod's network namespace, for network conditions),
   users' ADB runs only allowlisted commands by default, and the image's init
   wrapper keeps Android from rewriting the node's sysctls. See
   [Security](/holtdroid/operations/security/).
@@ -128,7 +132,9 @@ Each session Pod has three containers sharing one network namespace:
 - `android`: the redroid image of the launch's Android version, privileged,
   as root, with an `emptyDir` on `/data`. Its boot arguments set the GPU and
   the launch's screen.
-- `agent`: the session image, without privileges (all capabilities dropped).
+- `agent`: the session image, without privileges (all capabilities dropped,
+  except `NET_ADMIN` when VPN locations are configured: it shapes the VPN
+  tunnel for [network conditions](#network-conditions)).
   It reaches Android's adbd at `127.0.0.1:5555` and frida-server at
   `127.0.0.1:27042`, roots adbd, enables the screen's cutout overlay,
   installs and instruments the app and serves the Agent API. The node's
@@ -220,8 +226,7 @@ The agent's own adb is not affected. Requests that would cut the agent off
 always refused.
 
 Without an emulator console, the GPS goes through Android's test location
-providers and the battery through `dumpsys battery`; network speed profiles
-are not offered.
+providers and the battery through `dumpsys battery`.
 
 ## Inventory and maintenance
 
@@ -345,3 +350,26 @@ vpn:
 Any outbound works, for example a WireGuard endpoint straight in the sidecar
 (set `mtu: 1280` on overlay networks such as flannel VXLAN). But a WireGuard
 key used by several session Pods at once breaks, so prefer the gateway.
+
+## Network conditions
+
+With VPN locations configured, the **Network** control of a session offers
+emulated network conditions: named networks (5G, typical and weak 4G, 3G,
+2G, GPRS, busy public Wi-Fi, a crowded venue, satellite links, a slow
+upload, a lossy link, a far away server) and scenarios that change them over
+time (subway, driving, elevator, a fading signal, a flapping link, Starlink's
+satellite switches). Each shows its latency, bandwidth and loss next to a
+short description. The numbers are rough medians of public mobile network
+reports, not measurements of a specific operator.
+
+The agent applies them with `tc netem` on the VPN tunnel: the tunnel's
+egress (what apps send) gets the upload half, its ingress is redirected to
+an `ifb` device for the download half, each with half of the round trip.
+Losses are random or in bursts (a Gilbert model). An outage drops every
+packet while Android still sees a connected network, so requests hang until
+they time out, the way a dead cell behaves; turn on airplane mode or switch
+Wi-Fi and mobile data off for a disconnected network instead.
+
+Only apps' traffic is shaped: the screen, DevTools, ADB, the agent and
+destinations in `vpn.bypassCIDRs` are not. Without VPN locations there is no
+tunnel and no network conditions.

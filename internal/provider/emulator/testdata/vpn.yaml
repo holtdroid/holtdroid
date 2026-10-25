@@ -125,6 +125,8 @@ spec:
     securityContext:
       allowPrivilegeEscalation: false
       capabilities:
+        add:
+        - NET_ADMIN
         drop:
         - ALL
     volumeMounts:

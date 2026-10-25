@@ -33,6 +33,7 @@ import {
   type DeviceState,
   type Location,
   type NetworkProfile,
+  type NetworkProfileInfo,
   unwrap,
 } from "@/api/client"
 import { Combobox, type ComboboxOption } from "@/components/combobox"
@@ -44,7 +45,15 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
@@ -57,16 +66,6 @@ import { locationLabel } from "@/lib/location"
 import { setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
 
 const defaultBattery = 65
-
-const networks: { value: NetworkProfile; label: string }[] = [
-  { value: "full", label: "No limits" },
-  { value: "lte", label: "LTE (4G)" },
-  { value: "hsdpa", label: "HSDPA (3.5G)" },
-  { value: "umts", label: "UMTS (3G)" },
-  { value: "edge", label: "EDGE (2.5G)" },
-  { value: "gprs", label: "GPRS" },
-  { value: "gsm", label: "GSM (2G)" },
-]
 
 const fontScales = [0.85, 1, 1.15, 1.3, 1.5, 2]
 
@@ -142,12 +141,12 @@ function NetworkControl({
   id,
   locations,
 }: Props & { provider: string; id: string; locations: Location[] }) {
-  const slow = !!s.networkProfile && s.networkProfile !== "full"
-  const speed = networks.find((n) => n.value === s.networkProfile)?.label
+  const profile = s.networkProfiles?.find((p) => p.id === s.networkProfile)
+  const slow = !!profile && profile.id !== "full"
   const radios = !s.usbNetwork
   const summary = s.airplaneMode
     ? "Airplane mode"
-    : [s.usbNetwork && "USB", s.wifi && "Wi-Fi", s.mobileData && "Mobile data", slow && speed]
+    : [s.usbNetwork && "USB", s.wifi && "Wi-Fi", s.mobileData && "Mobile data", slow && profile.name]
         .filter(Boolean)
         .join(" · ") || "Offline"
   const icon = s.airplaneMode
@@ -192,30 +191,80 @@ function NetworkControl({
             This phone reaches the internet over USB through the session&apos;s VPN, so Wi-Fi and mobile data stay off.
           </p>
         )}
-        {s.networkProfile && (
-          <Row label="Speed">
-            <Select
-              value={s.networkProfile}
-              disabled={busy}
-              onValueChange={(v) => set({ networkProfile: v as NetworkProfile })}
-            >
-              <SelectTrigger size="sm" className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {networks.map((n) => (
-                  <SelectItem key={n.value} value={n.value}>
-                    {n.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Row>
+        {s.networkProfiles && (
+          <NetworkConditions
+            profiles={s.networkProfiles}
+            current={profile}
+            busy={busy}
+            onChange={(networkProfile) => set({ networkProfile })}
+          />
         )}
       </ControlGroup>
       {locations.length > 0 && <VPNLocation provider={provider} id={id} locations={locations} />}
     </RailControl>
   )
+}
+
+function NetworkConditions({
+  profiles,
+  current,
+  busy,
+  onChange,
+}: {
+  profiles: NetworkProfileInfo[]
+  current?: NetworkProfileInfo
+  busy: boolean
+  onChange: (id: NetworkProfile) => void
+}) {
+  const groups = [
+    { label: "Networks", items: profiles.filter((p) => !p.scenario) },
+    { label: "Scenarios", items: profiles.filter((p) => p.scenario) },
+  ]
+  const numbers = current && linkNumbers(current)
+  return (
+    <>
+      <Row label="Conditions">
+        <Select value={current?.id ?? ""} disabled={busy} onValueChange={onChange}>
+          <SelectTrigger size="sm" className="w-44">
+            <SelectValue placeholder="Conditions" />
+          </SelectTrigger>
+          <SelectContent>
+            {groups.map((g) => (
+              <SelectGroup key={g.label}>
+                <SelectLabel>{g.label}</SelectLabel>
+                {g.items.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            ))}
+          </SelectContent>
+        </Select>
+      </Row>
+      {current && current.id !== "full" && (
+        <p className="text-muted-foreground text-xs">
+          {current.description}
+          {numbers && <span className="block font-mono">{numbers}</span>}
+        </p>
+      )}
+    </>
+  )
+}
+
+function linkNumbers(p: NetworkProfileInfo) {
+  return [
+    p.rtt && `+${p.rtt}${p.jitter ? ` ±${p.jitter}` : ""} ms`,
+    (p.down || p.up) && `↓ ${bandwidth(p.down)} ↑ ${bandwidth(p.up)}`,
+    p.loss && `${p.loss}% loss`,
+  ]
+    .filter(Boolean)
+    .join(" · ")
+}
+
+function bandwidth(kbit?: number) {
+  if (!kbit) return "∞"
+  return kbit >= 1000 ? `${kbit / 1000} Mbit/s` : `${kbit} kbit/s`
 }
 
 function VPNLocation({ provider, id, locations }: { provider: string; id: string; locations: Location[] }) {

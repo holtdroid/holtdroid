@@ -52,8 +52,9 @@ hybrid apps, support engineers reproducing a customer bug.
    with the layout set on the device. Below them come the device controls,
    one button per section. Clicking a button does the common thing, hovering
    it opens the rest:
-   - **Network**: click for airplane mode; Wi-Fi, mobile data and the VPN
-     location.
+   - **Network**: click for airplane mode; Wi-Fi, mobile data, the VPN
+     location and emulated network conditions (slow or lossy networks and
+     scenarios such as a subway ride, on emulators with VPN locations).
    - **Battery** (65%, on battery, at start): click for battery saver; charging and the
      charge level.
    - **Display**: click to cycle light, dark and matching the portal's theme;

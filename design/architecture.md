@@ -210,7 +210,7 @@ Session Pod (rendered by `provider-emulator`, golden-tested; decision #82):
 | Container | Image | Notes |
 |-----------|-------|-------|
 | `android` | `holtdroid-redroid:<version>` | privileged, `runAsUser`/`runAsGroup` 0 (Pod `supplementalGroupsPolicy: Strict`), `emptyDir` on `/data`, 0.5 CPU requested / 1.5–3 GiB. Boot arguments: GPU render node, the launch's screen (size, density), fps, memfd. The image is the launch's Android version (decision #83) |
-| `agent` | `holtdroid-session` | not privileged, all capabilities dropped; the node's `/sys/fs/cgroup` mounted read-only at `/host/cgroup` and the Pod uid in the environment, so the metrics bar finds the Pod's cgroup. Runs `holtdroid agent`, which enables the screen's cutout overlay and relays users' ADB under `redroid.shell` |
+| `agent` | `holtdroid-session` | not privileged, all capabilities dropped but `NET_ADMIN` with a VPN (network conditions on the tun); the node's `/sys/fs/cgroup` mounted read-only at `/host/cgroup` and the Pod uid in the environment, so the metrics bar finds the Pod's cgroup. Runs `holtdroid agent`, which enables the screen's cutout overlay and relays users' ADB under `redroid.shell` |
 | `vpn` | upstream `sing-box` | `NET_ADMIN`, `/dev/net/tun`. Config from the per-session Secret |
 
 All three share the Pod's network namespace. Plus a Secret (sing-box config,
@@ -266,7 +266,9 @@ The agent (`internal/agent/redroid`):
 
 Device controls have no emulator console: the GPS goes through the location
 service's test providers and the battery through `dumpsys battery`, as on
-rooted phones but without `su`; network speed profiles are not offered. With
+rooted phones but without `su`. Network conditions (decision #93) are
+`tc netem` on the VPN tun, applied by the agent (it has `NET_ADMIN` in the
+Pod's network namespace when VPN locations are configured). With
 VPN locations that carry `geo`/`timezone`, the provider hands them to the
 agent (`HOLTDROID_GEO__<ID>__…`), so the GPS and time zone follow the
 location as on rooted phones.

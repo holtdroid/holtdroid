@@ -117,7 +117,7 @@ FROM go-${GO_SOURCE} AS go
 FROM bundle-${GO_SOURCE} AS bundle
 
 FROM ${UBUNTU_IMAGE}
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates iproute2 && rm -rf /var/lib/apt/lists/*
 ENV PATH=/opt/android-sdk/platform-tools:$PATH
 COPY --from=sdk /out/ /
 COPY --from=tools /out/ /

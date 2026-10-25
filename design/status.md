@@ -19,7 +19,11 @@ deployment"):
   version (decision #84). Sessions are kept away from the rest of the
   cluster (decision #83): egress NetworkPolicy, an unprivileged agent
   container, users' ADB on an allowlist (no Terminal tab by default), the
-  node's sysctls protected from Android init. Verified on 2026-10-25 with a
+  node's sysctls protected from Android init. Network conditions (decision
+  #93): named networks and scenarios such as a subway ride or a flapping
+  link, `tc netem` on the VPN tun; the kernel side (netem, gemodel, ifb,
+  matchall) was probed on k3s-3, the full path in a live session is still to
+  be tried. Verified on 2026-10-25 with a
   dev release of the chart on k3s-3: boot to ready in about 25 s, install,
   the app under Frida, DevTools target of a WebView page, screenshot, the
   metrics bar with the Pod's cgroup, VPN location switch (PL → UA with GPS
@@ -190,7 +194,7 @@ deployment"):
 
 1. Redroid (Phase 8): try clipboard, audio, app data and the ADB tabs by
    hand in the browser on the live deployment (sessions run on k3s-3 since
-   2026-10-25), then network speed profiles with `tc netem`, the
+   2026-10-25) and a network-conditions scenario in a live session, then the
    wallpaper, and the next isolation steps of decision #83 (binder devices
    from a node helper so the container can drop `privileged`, a token on
    frida-server, a non-root adbd for users).

@@ -311,43 +311,52 @@ const (
 	DeviceRotateRight   DeviceAction = "rotate-right"
 )
 
-// NetworkProfile is an emulated link: speed and latency of a mobile network.
+// NetworkProfile names emulated network conditions, one of
+// DeviceState.NetworkProfiles.
 type NetworkProfile string
 
-const (
-	NetworkFull  NetworkProfile = "full"
-	NetworkLTE   NetworkProfile = "lte"
-	NetworkHSDPA NetworkProfile = "hsdpa"
-	NetworkUMTS  NetworkProfile = "umts"
-	NetworkEDGE  NetworkProfile = "edge"
-	NetworkGPRS  NetworkProfile = "gprs"
-	NetworkGSM   NetworkProfile = "gsm"
-)
+const NetworkFull NetworkProfile = "full"
+
+// NetworkProfileInfo is an offered network profile: a link or a scenario
+// that changes the link over time. The numbers describe the link (a
+// scenario's are zero unless it has one base link).
+type NetworkProfileInfo struct {
+	ID          NetworkProfile `json:"id"`
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	Scenario    bool           `json:"scenario" doc:"conditions change over time"`
+	RTT         int            `json:"rtt,omitempty" doc:"round trip added, ms"`
+	Jitter      int            `json:"jitter,omitempty" doc:"round trip jitter, ms"`
+	Down        int            `json:"down,omitempty" doc:"download kbit/s; empty is unlimited"`
+	Up          int            `json:"up,omitempty" doc:"upload kbit/s; empty is unlimited"`
+	Loss        float64        `json:"loss,omitempty" doc:"percent of packets lost in each direction"`
+}
 
 type DeviceState struct {
-	AirplaneMode       bool           `json:"airplaneMode"`
-	WiFi               bool           `json:"wifi"`
-	MobileData         bool           `json:"mobileData"`
-	BatterySaver       bool           `json:"batterySaver"`
-	BatteryLevel       int            `json:"batteryLevel"`
-	Charging           bool           `json:"charging"`
-	DarkMode           bool           `json:"darkMode"`
-	FontScale          float64        `json:"fontScale"`
-	Density            int            `json:"density"`
-	DefaultDensity     int            `json:"defaultDensity"`
-	Rotation           int            `json:"rotation" minimum:"0" maximum:"3"`
-	NetworkProfile     NetworkProfile `json:"networkProfile,omitempty" enum:"full,lte,hsdpa,umts,edge,gprs,gsm" doc:"empty when the device can't emulate network conditions"`
-	TimeZone           string         `json:"timeZone"`
-	Locale             string         `json:"locale"`
-	Locales            []string       `json:"locales" doc:"the system languages in order: the first is locale, the rest add their keyboard layouts"`
-	LanguageScope      LanguageScope  `json:"languageScope" enum:"system,app" doc:"system: locales are the system languages; app: only the app under test's language can be set (phones without root)"`
-	Geo                *GeoPoint      `json:"geo,omitempty" doc:"the faked GPS position; empty while the device reports its default one"`
-	GeoOverride        bool           `json:"geoOverride" doc:"the GPS is a session override set by the user; otherwise it follows the VPN location"`
-	CanFakeGeo         bool           `json:"canFakeGeo"`
-	CanSimulateBattery bool           `json:"canSimulateBattery" doc:"the battery level and charging can be set; battery saver works everywhere"`
-	USBNetwork         bool           `json:"usbNetwork" doc:"the device reaches the internet over USB through the host, so Wi-Fi and mobile data are off on purpose"`
-	AutoTime           bool           `json:"autoTime"`
-	TimeOffset         int64          `json:"timeOffset" doc:"device clock minus real time, in milliseconds"`
+	AirplaneMode       bool                 `json:"airplaneMode"`
+	WiFi               bool                 `json:"wifi"`
+	MobileData         bool                 `json:"mobileData"`
+	BatterySaver       bool                 `json:"batterySaver"`
+	BatteryLevel       int                  `json:"batteryLevel"`
+	Charging           bool                 `json:"charging"`
+	DarkMode           bool                 `json:"darkMode"`
+	FontScale          float64              `json:"fontScale"`
+	Density            int                  `json:"density"`
+	DefaultDensity     int                  `json:"defaultDensity"`
+	Rotation           int                  `json:"rotation" minimum:"0" maximum:"3"`
+	NetworkProfile     NetworkProfile       `json:"networkProfile,omitempty" doc:"empty when the device can't emulate network conditions"`
+	NetworkProfiles    []NetworkProfileInfo `json:"networkProfiles,omitempty" doc:"the profiles networkProfile may be set to"`
+	TimeZone           string               `json:"timeZone"`
+	Locale             string               `json:"locale"`
+	Locales            []string             `json:"locales" doc:"the system languages in order: the first is locale, the rest add their keyboard layouts"`
+	LanguageScope      LanguageScope        `json:"languageScope" enum:"system,app" doc:"system: locales are the system languages; app: only the app under test's language can be set (phones without root)"`
+	Geo                *GeoPoint            `json:"geo,omitempty" doc:"the faked GPS position; empty while the device reports its default one"`
+	GeoOverride        bool                 `json:"geoOverride" doc:"the GPS is a session override set by the user; otherwise it follows the VPN location"`
+	CanFakeGeo         bool                 `json:"canFakeGeo"`
+	CanSimulateBattery bool                 `json:"canSimulateBattery" doc:"the battery level and charging can be set; battery saver works everywhere"`
+	USBNetwork         bool                 `json:"usbNetwork" doc:"the device reaches the internet over USB through the host, so Wi-Fi and mobile data are off on purpose"`
+	AutoTime           bool                 `json:"autoTime"`
+	TimeOffset         int64                `json:"timeOffset" doc:"device clock minus real time, in milliseconds"`
 }
 
 type LanguageScope string
@@ -374,7 +383,7 @@ type DeviceSettings struct {
 	FontScale      *float64        `json:"fontScale,omitempty" minimum:"0.5" maximum:"3"`
 	Density        *int            `json:"density,omitempty" minimum:"0" maximum:"1000" doc:"0 restores the default"`
 	Rotation       *int            `json:"rotation,omitempty" minimum:"0" maximum:"3"`
-	NetworkProfile *NetworkProfile `json:"networkProfile,omitempty" enum:"full,lte,hsdpa,umts,edge,gprs,gsm"`
+	NetworkProfile *NetworkProfile `json:"networkProfile,omitempty" pattern:"^[a-z0-9-]{1,32}$" maxLength:"32" doc:"one of DeviceState.networkProfiles"`
 	TimeZone       *string         `json:"timeZone,omitempty" pattern:"^[A-Za-z][A-Za-z0-9_+/-]*$" maxLength:"64"`
 	Locales        []string        `json:"locales,omitempty" minItems:"1" maxItems:"8" doc:"the system languages in order: the first sets the UI language, the rest add their keyboard layouts"`
 	Geo            *GeoPoint       `json:"geo,omitempty" doc:"fakes the GPS position"`

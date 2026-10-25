@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/holtdroid/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/netem"
 )
 
 // Controls reads and changes device settings through adb shell.
@@ -27,9 +28,25 @@ type Controls struct {
 	su         bool
 	now        func() time.Time
 
+	shaper networkShaper
+
 	mu          sync.Mutex
 	geo         *contract.GeoPoint
 	geoOverride bool
+}
+
+type networkShaper interface {
+	Current() contract.NetworkProfile
+	Set(ctx context.Context, id contract.NetworkProfile) error
+	Close(ctx context.Context) error
+}
+
+// resetNetwork drops shaping a previous agent left on the tun.
+func (c *Controls) resetNetwork(ctx context.Context) error {
+	if c.shaper == nil {
+		return nil
+	}
+	return c.shaper.Close(ctx)
 }
 
 // NewControls changes the system language by running localesDex, a dex
@@ -101,6 +118,9 @@ func (c *Controls) State(ctx context.Context) (contract.DeviceState, error) {
 		}
 	}
 	s.USBNetwork = c.usbNetwork
+	if c.shaper != nil {
+		s.NetworkProfile, s.NetworkProfiles = c.shaper.Current(), netem.Catalog()
+	}
 	s.LanguageScope = contract.LanguageSystem
 	if c.appLocales != "" {
 		s.LanguageScope = contract.LanguageApp
@@ -319,7 +339,10 @@ func (c *Controls) setTime(ctx context.Context, offset int64, auto bool) error {
 	return err
 }
 
-func (c *Controls) setNetwork(_ context.Context, p contract.NetworkProfile) error {
+func (c *Controls) setNetwork(ctx context.Context, p contract.NetworkProfile) error {
+	if c.shaper != nil {
+		return c.shaper.Set(ctx, p)
+	}
 	if p == contract.NetworkFull {
 		return nil
 	}

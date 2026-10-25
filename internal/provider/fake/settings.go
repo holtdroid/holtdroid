@@ -10,6 +10,7 @@ import (
 	"slices"
 
 	"github.com/holtdroid/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/netem"
 )
 
 func defaultSettings() contract.DeviceState {
@@ -21,6 +22,7 @@ func defaultSettings() contract.DeviceState {
 		Density:            320,
 		DefaultDensity:     320,
 		NetworkProfile:     contract.NetworkFull,
+		NetworkProfiles:    netem.Catalog(),
 		TimeZone:           "UTC",
 		Locale:             "en-US",
 		Locales:            []string{"en-US"},
@@ -40,6 +42,11 @@ func (d *device) Device(context.Context) (contract.DeviceState, error) {
 }
 
 func (d *device) UpdateDevice(_ context.Context, in contract.DeviceSettings) (contract.DeviceState, error) {
+	if p := in.NetworkProfile; p != nil {
+		if _, ok := netem.Find(*p); !ok {
+			return contract.DeviceState{}, fmt.Errorf("%w: unknown network profile %q", contract.ErrInvalid, *p)
+		}
+	}
 	d.update(func() {
 		s := &d.settings
 		set(&s.AirplaneMode, in.AirplaneMode)

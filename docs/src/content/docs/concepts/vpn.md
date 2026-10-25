@@ -35,6 +35,9 @@ during a session). If there is none, or it is no longer offered, it falls
 back to the configured default (`vpn.default`). With `vpn.direct: false`
 there is no VPN-less option at all.
 
+The same tunnel carries the session's [network conditions](/holtdroid/configuration/emulator/#network-conditions):
+latency, bandwidth limits, packet loss and outages applied with `tc netem`.
+
 Android itself is not configured at all; to apps it looks like a normal
 network. Port forwarding (`adb reverse`, [your connected computer](/holtdroid/concepts/ssh/))
 runs over loopback and is unaffected by the VPN.

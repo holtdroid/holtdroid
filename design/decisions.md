@@ -2169,8 +2169,8 @@ first release one runtime is enough.
   frida-server unable to attach anything until it restarts. There is no
   emulator console: GPS goes through the location
   service's test providers and the battery through `dumpsys battery`, as on
-  rooted phones (#80), but without `su`. Network speed profiles are not
-  offered (they need `tc netem` on the tunnel interface, a follow-up).
+  rooted phones (#80), but without `su`. Network speed profiles were not
+  offered at first; #93 adds them as `tc netem` on the tunnel interface.
 - VPN: Android's netd owns the Pod's policy routing and flushes foreign
   `ip rule`s when it starts, so sing-box can't use `auto_route`. The sidecar
   runs its tun without it (`default_interface: eth0`), and the agent adds,
@@ -2200,7 +2200,7 @@ heavy WebGL in one session slows the others. Android 11 to 15 (16: see #84); no 
 supported with in process gpu`, as on the emulator); ARM code runs only as
 `.so` libraries inside app processes (no ARM executables: registering
 binfmt_misc would change the host); no hardware video encoder; the screen
-size is fixed at boot (density can change); no network speed profiles; no
+size is fixed at boot (density can change); network conditions only with a VPN tun (#93); no
 session wallpaper. Nodes need binder
 (`CONFIG_ANDROID_BINDERFS`) and, for the GPU, a Mesa-supported `/dev/dri`
 render node. The k3s nodes become usable again.
@@ -2612,4 +2612,42 @@ instead of six (measured: 123 s end to end on a dry run), then Argo CD's poll
 and the rollout. Caches are scoped to the branch that made them, so the first
 run after a change to `go.sum` or on a new branch is cold (about five
 minutes). The `:main` image has no arm64 manifest; tags do.
+
+## 93. Network conditions are tc netem on the VPN tun, driven by the agent
+
+**Context.** Testers want slow, lossy and flaky networks: a named, realistic
+choice rather than raw numbers, plus networks that change over time (a
+subway ride, short dropouts). The emulator console (`adb emu network`, #31)
+went away with redroid (#82), and redroid shares the node's kernel, so
+Android has no link of its own to slow down. All app traffic already goes
+through the VPN sidecar's tun.
+
+**Decision.** `internal/netem` holds a catalog of profiles (round trip,
+jitter, kbit/s down and up, loss, optional burst length) and scenarios
+(steps over profiles and outages, each held for a random time in a range),
+with names and descriptions; the agent offers it in `DeviceState` and the
+UI only renders it. The agent shapes the tun with `tc` from iproute2 in the
+session image: netem on the tun's egress for the upload, its ingress
+redirected (matchall + mirred) to an ifb device with netem for the download,
+half the round trip in each direction, a queue of about half a second at
+the link's rate, Gilbert-model losses for bursts. Every change replaces the
+qdiscs, because `tc qdisc change` keeps a rate or slot the new link leaves
+out. A scenario steps in a goroutine until the next change; a plain link is
+re-checked every 10 s and re-applied if the tun lost it (a sidecar
+restart). The agent clears the shaping when it starts. An outage is 100 %
+loss, not a link down: Android keeps a connected network and requests hang,
+like a dead cell; airplane mode and the radio toggles stay the way to a
+disconnected network. Android's own `tc` can't be used (its binaries only
+run under Android's init), so the agent container gets `NET_ADMIN` when VPN
+locations are configured. That adds nothing an attacker in the Pod lacks:
+Android is privileged in the same network namespace.
+
+**Consequences.** Only sessions with VPN locations offer network
+conditions, and only apps' traffic is shaped: root processes (the agent,
+sing-box, Android's daemons) and `vpn.bypassCIDRs` skip the tun, so the
+screen, DevTools and ADB stay fast. Session nodes need the `sch_netem`,
+`ifb`, `act_mirred` and `cls_matchall` modules. Profile ids are no longer a
+contract enum: the agent validates them against its catalog. Phones still
+offer none (the A05 has no `sch_netem`); they would need shaping on the host
+of their sing-box.
 
