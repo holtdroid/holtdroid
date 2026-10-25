@@ -159,7 +159,7 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
           />
         ) : (
           <ScreenSplit>
-            <DeviceScreen provider={provider} id={id} live={live} />
+            <DeviceScreen provider={provider} id={id} live={live} display={session.capabilities?.screen} />
             <DeviceRail
               provider={provider}
               id={id}

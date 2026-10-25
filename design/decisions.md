@@ -2407,6 +2407,15 @@ cards. The sessions panel draws at most eight slot pills per provider, busy
 ones first, then `+N` and the free/total count, so a provider with many slots
 stays inside its block.
 
+The session page draws the emulated cutout itself over the stream (a notch
+or hole with a speaker and camera lens, a corner hole, double notches or
+waterfall edges, sized in dp from the screen's density), because redroid
+reports the cutout to apps as insets but does not render the black shape.
+The overlay lets every pointer event through to the device and fades to 30%
+while the pointer is over it, so the area under it stays visible and usable.
+It is hidden while the device is rotated. `SlotCapabilities.Screen` carries
+the screen to the UI.
+
 **Consequences.** More clicks to reach Launch than before; the defaults
 (newest Android, the default screen and location, a fresh install) let the
 last step be one click. Quick launch is unchanged and uses the remembered

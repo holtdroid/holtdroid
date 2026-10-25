@@ -1,7 +1,8 @@
 import { LockIcon, PowerIcon } from "lucide-react"
 import { type ReactNode, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
-import { type Screen, sessionBase } from "@/api/client"
+import { type Display, type Screen, sessionBase } from "@/api/client"
+import { CutoutOverlay } from "@/components/session/cutout-overlay"
 import { displayURL, type LiveScreen, useDecodableCodecs } from "@/components/session/live-screen"
 import { Spinner } from "@/components/ui/spinner"
 import { useEventSource } from "@/hooks/use-event-source"
@@ -10,7 +11,17 @@ import { setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
 
 type Status = "connecting" | "live" | "retrying"
 
-export function DeviceScreen({ provider, id, live }: { provider: string; id: string; live: LiveScreen }) {
+export function DeviceScreen({
+  provider,
+  id,
+  live,
+  display: shape,
+}: {
+  provider: string
+  id: string
+  live: LiveScreen
+  display?: Display
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const supported = screenSupported()
   const prefs = useScreenPrefs()
@@ -171,6 +182,7 @@ export function DeviceScreen({ provider, id, live }: { provider: string; id: str
         onBlur={() => live.connection?.control.releaseKeys()}
         onContextMenu={(e) => e.preventDefault()}
       />
+      {shape?.cutout && shape.cutout !== "none" && <CutoutOverlay canvasRef={canvasRef} screen={shape} />}
       {notice && (
         <div className="pointer-events-none absolute inset-0 grid place-items-center p-4">
           <div

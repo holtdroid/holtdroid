@@ -1262,6 +1262,8 @@ export interface components {
             model?: string;
             /** @description the agent has root on the device */
             root: boolean;
+            /** @description the device's screen when it is a virtual one chosen at launch: size, density and emulated cutout */
+            screen?: components["schemas"]["Display"];
             /** @description ADB runs any shell command, so the Terminal tab is offered; otherwise only the allowlisted commands behind the other tabs */
             shell: boolean;
         };

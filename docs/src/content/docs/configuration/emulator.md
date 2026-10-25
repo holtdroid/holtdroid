@@ -151,7 +151,10 @@ reports them, plus an emulated display cutout. Android ships overlays for
 cutouts — `corner` (a hole in the top-left corner), `double` (notches top
 and bottom), `hole` (a centered punch hole), `tall` (a tall notch) and
 `waterfall` (curved edges) — which the agent enables after boot with
-`cmd overlay`, so apps see `WindowInsets` with a real cutout. The built-in
+`cmd overlay`, so apps see `WindowInsets` with a real cutout. Android doesn't
+draw the black shape in the stream, so the session page paints it over the
+screen (with a speaker and camera); it fades to 30% under the pointer and
+passes clicks through to the device. The built-in
 presets, used when `redroid.screens` is empty:
 
 | id            | Screen                           | Density | Cutout | Like                              |

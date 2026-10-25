@@ -234,6 +234,7 @@ type SlotCapabilities struct {
 	Root     bool     // the agent has root on the device
 	DevTools string   // "all" | "debuggable": every WebView, or only debuggable builds'
 	ADB      bool     // browser ADB and ADB tunnels
+	Screen   *Display // virtual devices: the screen chosen at launch (size, density, emulated cutout); the UI draws the cutout over the stream
 	Shell    bool     // ADB runs any shell command (the UI offers the Terminal tab); false: only the allowlisted commands behind the other tabs
 	AppData  bool     // app data can be saved and restored; the api skips saves when false
 }

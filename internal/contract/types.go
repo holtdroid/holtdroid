@@ -86,6 +86,7 @@ type SlotCapabilities struct {
 	Root     bool          `json:"root" doc:"the agent has root on the device"`
 	DevTools DevToolsScope `json:"devtools" enum:"all,debuggable" doc:"all WebViews, or only those of debuggable builds"`
 	ADB      bool          `json:"adb" doc:"ADB tunnels (browser and holtdroid client) are available"`
+	Screen   *Display      `json:"screen,omitempty" doc:"the device's screen when it is a virtual one chosen at launch: size, density and emulated cutout"`
 	Shell    bool          `json:"shell" doc:"ADB runs any shell command, so the Terminal tab is offered; otherwise only the allowlisted commands behind the other tabs"`
 	AppData  bool          `json:"appData" doc:"app data can be saved and restored"`
 }
