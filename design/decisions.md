@@ -2712,3 +2712,25 @@ time or in a zone picked by hand.
 
 **Consequences.** The rail keeps capture and the other device controls. Small + and − marks and the power key's current action sit next to the keys, which widen on hover and sink on a press. The frame and the cards take 198 px of width and 40 px of height from
 the screen panel, which the auto-fit accounts for.
+
+## 95. Newer Mesa Vulkan drivers in the Android 15 redroid image
+
+**Context.** Chromium 157 and later draw only through ANGLE and Skia on
+Vulkan, with no GL fallback. redroid ships Mesa 24.0.8 built with
+`android-strict`, which advertises Vulkan 1.1 and hides
+`VK_KHR_pipeline_library`, `dynamic_rendering`, `synchronization2` and the
+AHardwareBuffer extension, so those builds abort with "GPU process isn't
+usable" on every node (AMD on core, Intel on the k3s nodes). Flags such as
+`--disable-features=SkiaGraphite,Vulkan` don't help.
+
+**Decision.** holtdroid-redroid cross-compiles Mesa 26.2.5 with the Android
+NDK and `-Dandroid-strict=false` (radv and anv, libdrm and expat linked
+statically) and replaces `vulkan.radeon.so` and `vulkan.intel.so`; EGL and
+GLES stay redroid's. It is switched on per image (`VULKAN=mesa`), so far only
+for Android 15.
+
+**Consequences.** On Intel UHD 630 ANGLE reports Vulkan 1.4, Chromium 158
+and the built-in WebView render WebGL at 60 fps. radv on core is built the
+same way but was first exercised by real sessions. The Android 15 image
+build takes about 9 minutes instead of 1, and Mesa is now ours to update.
+Chromium 157 and later still fail on Android 11 to 14 images.

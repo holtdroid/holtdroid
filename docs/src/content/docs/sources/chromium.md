@@ -93,3 +93,7 @@ The job needs outbound HTTPS to `chromiumdash.appspot.com` and
   frontend. It can differ from the build by a few commits.
 - Two builds of the same package can't be installed side by side: to
   compare milestones, start one session per milestone.
+- Chromium 157 and later draw only through Vulkan 1.3 features. The Android
+  15 image of holtdroid-redroid ships newer Mesa Vulkan drivers for that;
+  on Android 11 to 14 these builds abort with "GPU process isn't usable",
+  so start them on Android 15. Chromium 156 and older run on every version.

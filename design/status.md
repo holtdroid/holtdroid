@@ -52,7 +52,9 @@ deployment"):
   Live since 2026-10-25 as source `chromium` (18 builds: 130, even 136–148,
   149–158; 290–420 MB each). The api passes a build's `frontend` tag to
   the session (`CreateSession.Frontend`), so DevTools open the browser's
-  tabs with the Canary commit's frontend.
+  tabs with the Canary commit's frontend. Chromium 157 and later need the
+  Android 15 image with newer Mesa Vulkan drivers (decision #95); verified
+  on k3s-1 and k3s-2 (Intel) with Chromium 158.
 - The portal: APK list with parsed
   metadata/icons, launch dialog, sessions panel with slots and idle countdown,
   session page with screen/DevTools split, target switcher, clipboard, VPN
