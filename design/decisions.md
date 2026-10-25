@@ -2584,3 +2584,32 @@ report an all-zero frontend revision, so the api passes any source build's
 valid `frontend` tag as `CreateSession.Frontend`; the agent uses it for the
 app's own DevTools sockets and the WebView catalog's for the rest. Phones
 ignore it: the builds are x86_64.
+
+## 92. Go and the UI are compiled on the runner, the images only copy them
+
+**Context.** Every release compiled Go from scratch inside three Docker
+builds (the plain binary for two architectures, the four `holtdroid` client
+builds, and the cgo Frida build twice over for the session and phones
+images), about three minutes on a cold cache that a source change always
+invalidated. Docker layer caches can't help with that, and BuildKit cache
+mounts don't survive between runners.
+
+**Decision.** A `build` job in the release workflow compiles everything once
+with restored caches: the Frida binary in the Go builder image (so it runs on
+the phones image's Debian 12 glibc), the bundled Frida scripts, the web UI,
+`holtdroid` for linux/amd64 (arm64 too on tags) and the client for four
+platforms. The binaries go to the three image jobs as an artifact, and each
+Dockerfile takes them with `--build-arg GO_SOURCE=prebuilt`; the default,
+`build`, still compiles inside Docker so `make image` and local builds work as
+before. The arm64 variant of the main image is now built for tags only: the
+cluster is amd64 and a commit on `main` doesn't need a second architecture.
+The workflow can also be started by hand from any branch (`gh workflow run
+release.yml --ref <branch>`), which builds the images without pushing them
+or moving the deploy branch.
+
+**Consequences.** A release with warm caches takes about two minutes in CI
+instead of six (measured: 123 s end to end on a dry run), then Argo CD's poll
+and the rollout. Caches are scoped to the branch that made them, so the first
+run after a change to `go.sum` or on a new branch is cold (about five
+minutes). The `:main` image has no arm64 manifest; tags do.
+
