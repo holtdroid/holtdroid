@@ -24,7 +24,8 @@ export function shapePath(s: CutoutShape, widthDp: number) {
     return `M${x + r} ${y} H${x + w - r} A${r} ${r} 0 0 1 ${x + w - r} ${y + h} H${x + r} A${r} ${r} 0 0 1 ${x + r} ${y} Z`
   }
   const r = s.kind === "drop" ? Math.min(w / 2, h) : Math.min(h * 0.55, w / 4)
-  return `M${x} ${y} H${x + w} V${y + h - r} A${r} ${r} 0 0 1 ${x + w - r} ${y + h} H${x + r} A${r} ${r} 0 0 1 ${x} ${y + h - r} Z`
+  const top = y > 0.5 ? y : y - 2
+  return `M${x} ${top} H${x + w} V${y + h - r} A${r} ${r} 0 0 1 ${x + w - r} ${y + h} H${x + r} A${r} ${r} 0 0 1 ${x} ${y + h - r} Z`
 }
 
 export function cornerPath(w: number, h: number, radius: number) {

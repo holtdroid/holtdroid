@@ -97,9 +97,9 @@ hybrid apps, support engineers reproducing a customer bug.
    each connected computer, or the command that connects a computer.
    A panel opened by hovering stays open once you click inside it, until you
    click elsewhere or press Esc. When the device vibrates, the page
-   shows a notification and plays a buzz. A rail next to the screen has the
-   screenshot and [recording](/holtdroid/concepts/recordings/) buttons; the arrow at its top widens it into a
-   menu with section titles and a label next to every icon, and back.
+   shows a notification and plays a buzz. The screenshot button is with the
+   notifications and quick settings above the phone; recording has its own
+   card ([recordings](/holtdroid/concepts/recordings/)).
 
    On devices that can fake it, the **GPS location** card follows the VPN
    location until you tap the map, drag the dot, paste coordinates or use the

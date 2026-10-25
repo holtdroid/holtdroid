@@ -17,6 +17,7 @@ import { StreamWidget } from "@/components/session/stream-widget"
 import { TimeWidget } from "@/components/session/time-widget"
 import { type KeyEdge, keyArea, navArea, PhoneButtons } from "@/components/session/phone-buttons"
 import { useDevice } from "@/components/session/use-device"
+import { useVibrationAlerts } from "@/components/session/vibration-alerts"
 import { Spinner } from "@/components/ui/spinner"
 import { useEventSource } from "@/hooks/use-event-source"
 import { screenDp } from "@/lib/cutout"
@@ -101,6 +102,7 @@ export function DeviceScreen({
   recording,
   recordedAt,
   manage,
+  pkg,
 }: {
   provider: string
   id: string
@@ -112,6 +114,7 @@ export function DeviceScreen({
   recording?: string
   recordedAt?: string
   manage: boolean
+  pkg: string
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const supported = screenSupported()
@@ -119,6 +122,7 @@ export function DeviceScreen({
   const codecs = useDecodableCodecs()
   const { bitRate } = prefs
   const device = useDevice(provider, id)
+  useVibrationAlerts(provider, id)
   const { maxSize, maxFps } = streamSettings(prefs, `${provider}/${id}`, device.data)
   const ready = !device.isPending
   const codec = pickCodec(prefs.codec, codecs)
@@ -334,7 +338,7 @@ export function DeviceScreen({
               </div>
             )}
           </div>
-          <PhoneButtons provider={provider} id={id} live={live} edge={edge} />
+          <PhoneButtons provider={provider} id={id} live={live} edge={edge} pkg={pkg} />
         </div>
       </div>
     </div>

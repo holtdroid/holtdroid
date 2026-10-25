@@ -72,7 +72,7 @@ export function CutoutOverlay({
   return (
     <svg
       viewBox={`0 0 ${w} ${h}`}
-      className="pointer-events-none absolute"
+      className="pointer-events-none absolute overflow-visible"
       style={{ left: box.left, top: box.top, width: box.width, height: box.height }}
       aria-hidden
     >

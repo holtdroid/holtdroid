@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query"
 import {
   BellIcon,
+  CameraIcon,
   ChevronLeftIcon,
   CircleIcon,
   LockIcon,
@@ -14,7 +15,9 @@ import {
   VolumeXIcon,
   type LucideIcon,
 } from "lucide-react"
-import type { DeviceAction } from "@/api/client"
+import { useState } from "react"
+import { toast } from "sonner"
+import { type DeviceAction, sessionBase } from "@/api/client"
 import type { LiveScreen } from "@/components/session/live-screen"
 import { deviceKey, useDevice, useRunDeviceAction, useUpdateDevice } from "@/components/session/use-device"
 import {
@@ -29,6 +32,7 @@ import {
 } from "@/components/session/shade"
 import { HoverCardTrigger } from "@/components/ui/hover-card"
 import { type LockMode, setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
+import { download, stamp } from "@/lib/adb"
 import { cn } from "@/lib/utils"
 
 type Run = (a: DeviceAction) => void
@@ -47,7 +51,7 @@ const edges: Record<KeyEdge, EdgeLayout> = {
     rocker: "top-[17%] left-full h-[15%] flex-col",
     power: "top-[37%] left-full h-[9%] flex-col",
     key: "-ml-1 flex-row pr-1 pl-1",
-    bar: "w-1 self-stretch group-hover/key:w-1.5 group-focus-visible/key:w-1.5 group-active/key:w-0.5",
+    bar: "w-1.5 origin-left scale-x-[0.67] self-stretch group-hover/key:scale-x-100 group-focus-visible/key:scale-x-100 group-active/key:scale-x-[0.33]",
     first: "rounded-tr-sm",
     last: "rounded-br-sm",
     only: "rounded-r-sm",
@@ -56,7 +60,7 @@ const edges: Record<KeyEdge, EdgeLayout> = {
     rocker: "bottom-[17%] right-full h-[15%] flex-col-reverse",
     power: "bottom-[37%] right-full h-[9%] flex-col",
     key: "-mr-1 flex-row-reverse pr-1 pl-1",
-    bar: "w-1 self-stretch group-hover/key:w-1.5 group-focus-visible/key:w-1.5 group-active/key:w-0.5",
+    bar: "w-1.5 origin-right scale-x-[0.67] self-stretch group-hover/key:scale-x-100 group-focus-visible/key:scale-x-100 group-active/key:scale-x-[0.33]",
     first: "rounded-bl-sm",
     last: "rounded-tl-sm",
     only: "rounded-l-sm",
@@ -65,7 +69,7 @@ const edges: Record<KeyEdge, EdgeLayout> = {
     rocker: "left-[17%] bottom-full w-[15%] flex-row",
     power: "left-[37%] bottom-full w-[9%] flex-row",
     key: "-mb-1 flex-col-reverse pt-1 pb-1",
-    bar: "h-1 self-stretch group-hover/key:h-1.5 group-focus-visible/key:h-1.5 group-active/key:h-0.5",
+    bar: "h-1.5 origin-bottom scale-y-[0.67] self-stretch group-hover/key:scale-y-100 group-focus-visible/key:scale-y-100 group-active/key:scale-y-[0.33]",
     first: "rounded-tl-sm",
     last: "rounded-tr-sm",
     only: "rounded-t-sm",
@@ -74,7 +78,7 @@ const edges: Record<KeyEdge, EdgeLayout> = {
     rocker: "right-[17%] top-full w-[15%] flex-row-reverse",
     power: "right-[37%] top-full w-[9%] flex-row",
     key: "-mt-1 flex-col pt-1 pb-1",
-    bar: "h-1 self-stretch group-hover/key:h-1.5 group-focus-visible/key:h-1.5 group-active/key:h-0.5",
+    bar: "h-1.5 origin-top scale-y-[0.67] self-stretch group-hover/key:scale-y-100 group-focus-visible/key:scale-y-100 group-active/key:scale-y-[0.33]",
     first: "rounded-br-sm",
     last: "rounded-bl-sm",
     only: "rounded-b-sm",
@@ -86,13 +90,16 @@ export function PhoneButtons({
   id,
   live,
   edge,
+  pkg,
 }: {
   provider: string
   id: string
   live: LiveScreen
   edge: KeyEdge
+  pkg: string
 }) {
   const run = useRunDeviceAction(provider, id, live)
+  const shot = useScreenshot(provider, id, live, pkg)
   const layout = edges[edge]
   return (
     <>
@@ -100,8 +107,24 @@ export function PhoneButtons({
         <VolumeRocker provider={provider} id={id} run={run} layout={layout} />
         <PowerKey run={run} layout={layout} />
       </ShadeSideContext>
-      <NavBar place="top" keys={topKeys} run={run} offset={edge === "top" ? keyArea : 0} />
-      <NavBar place="bottom" keys={bottomKeys} run={run} offset={edge === "bottom" ? keyArea : 0} />
+      <NavBar
+        place="top"
+        offset={edge === "top" ? keyArea : 0}
+        keys={[
+          { label: "Notifications", icon: BellIcon, onClick: () => run("notifications") },
+          { label: "Quick settings", icon: ToggleRightIcon, onClick: () => run("quick-settings") },
+          { label: "Screenshot", icon: CameraIcon, disabled: shot.shooting, onClick: shot.take },
+        ]}
+      />
+      <NavBar
+        place="bottom"
+        offset={edge === "bottom" ? keyArea : 0}
+        keys={[
+          { label: "Back", icon: ChevronLeftIcon, onClick: () => run("back") },
+          { label: "Home", icon: CircleIcon, onClick: () => run("home") },
+          { label: "Recent apps", icon: SquareIcon, onClick: () => run("recents") },
+        ]}
+      />
     </>
   )
 }
@@ -109,20 +132,30 @@ export function PhoneButtons({
 export const keyArea = 4 + 18
 export const navArea = 24
 
-type NavKey = { action: DeviceAction; label: string; icon: LucideIcon }
+type NavKey = { label: string; icon: LucideIcon; disabled?: boolean; onClick: () => void }
 
-const topKeys: NavKey[] = [
-  { action: "notifications", label: "Notifications", icon: BellIcon },
-  { action: "quick-settings", label: "Quick settings", icon: ToggleRightIcon },
-]
+function useScreenshot(provider: string, id: string, live: LiveScreen, pkg: string) {
+  const [shooting, setShooting] = useState(false)
+  const take = async () => {
+    setShooting(true)
+    try {
+      let blob = await live.connection?.snapshot()
+      if (!blob) {
+        const resp = await fetch(`${sessionBase(provider, id)}/v1/device/screenshot`)
+        if (!resp.ok) throw new Error(resp.statusText || `HTTP ${resp.status}`)
+        blob = await resp.blob()
+      }
+      download(blob, `${pkg}-${stamp()}.png`)
+    } catch (e) {
+      toast.error("Could not take a screenshot", { description: e instanceof Error ? e.message : String(e) })
+    } finally {
+      setShooting(false)
+    }
+  }
+  return { shooting, take: () => void take() }
+}
 
-const bottomKeys: NavKey[] = [
-  { action: "back", label: "Back", icon: ChevronLeftIcon },
-  { action: "home", label: "Home", icon: CircleIcon },
-  { action: "recents", label: "Recent apps", icon: SquareIcon },
-]
-
-function NavBar({ place, keys, run, offset }: { place: "top" | "bottom"; keys: NavKey[]; run: Run; offset: number }) {
+function NavBar({ place, keys, offset }: { place: "top" | "bottom"; keys: NavKey[]; offset: number }) {
   const top = place === "top"
   return (
     <div
@@ -146,10 +179,11 @@ function NavBar({ place, keys, run, offset }: { place: "top" | "bottom"; keys: N
       >
         {keys.map((k) => (
           <button
-            key={k.action}
+            key={k.label}
             type="button"
+            disabled={k.disabled}
             className="flex h-9 items-center gap-1.5 rounded-full bg-neutral-900 px-3.5 text-xs whitespace-nowrap text-neutral-100 shadow-lg ring-1 ring-white/15 transition hover:bg-neutral-700 focus-visible:ring-2 focus-visible:ring-sky-300 focus-visible:outline-none active:scale-95"
-            onClick={() => run(k.action)}
+            onClick={k.onClick}
           >
             <k.icon className="size-4" />
             {k.label}
@@ -184,7 +218,7 @@ function SideKey({
     >
       <span
         className={cn(
-          "transition-all duration-150 ease-out group-active/key:duration-75",
+          "transition-[scale,background-color] duration-150 ease-out group-active/key:duration-75",
           layout.bar,
           flagged
             ? "bg-amber-500 group-hover/key:bg-amber-400 group-focus-visible/key:bg-amber-400"
@@ -218,62 +252,50 @@ function VolumeRocker({ provider, id, run, layout }: { provider: string; id: str
     window.setTimeout(() => void qc.invalidateQueries({ queryKey: deviceKey(provider, id) }), 400)
   }
 
+  const keys = (
+    <div className={cn("absolute flex", layout.rocker)}>
+      <SideKey
+        label="Volume up"
+        icon={PlusIcon}
+        flagged={muted}
+        layout={layout}
+        className={layout.first}
+        onClick={() => press("volume-up")}
+      />
+      <SideKey
+        label="Volume down"
+        icon={MinusIcon}
+        flagged={muted}
+        layout={layout}
+        className={layout.last}
+        onClick={() => press("volume-down")}
+      />
+    </div>
+  )
+  if (!hasVolume) return keys
+
   return (
     <ShadeRoot>
-      <HoverCardTrigger asChild>
-        <div className={cn("absolute flex", layout.rocker)}>
-          <SideKey
-            label="Volume up"
-            icon={PlusIcon}
-            flagged={muted}
-            layout={layout}
-            className={layout.first}
-            onClick={() => press("volume-up")}
-          />
-          <SideKey
-            label="Volume down"
-            icon={MinusIcon}
-            flagged={muted}
-            layout={layout}
-            className={layout.last}
-            onClick={() => press("volume-down")}
-          />
-        </div>
-      </HoverCardTrigger>
+      <HoverCardTrigger asChild>{keys}</HoverCardTrigger>
       <ShadePanel className="w-80">
-        <ShadeHeader
-          title="Volume"
-          summary={
-            !s
-              ? "Loading…"
-              : !hasVolume
-                ? "Not reported by this device"
-                : muted
-                  ? "Muted"
-                  : `${s.volume} of ${s.volumeMax}`
-          }
+        <ShadeHeader title="Volume" summary={muted ? "Muted" : `${s.volume} of ${s.volumeMax}`} />
+        <ShadeSlider
+          key={s.volume}
+          icon={muted ? VolumeXIcon : Volume2Icon}
+          label="Media volume"
+          value={s.volume}
+          max={s.volumeMax}
+          disabled={update.isPending}
+          onCommit={(volume) => update.mutate({ volume })}
         />
-        {hasVolume && (
-          <>
-            <ShadeSlider
-              key={s.volume}
-              icon={muted ? VolumeXIcon : Volume2Icon}
-              label="Media volume"
-              value={s.volume}
-              max={s.volumeMax}
-              disabled={update.isPending}
-              onCommit={(volume) => update.mutate({ volume })}
-            />
-            <Tile
-              icon={muted ? VolumeXIcon : Volume2Icon}
-              label="Mute the device"
-              on={muted}
-              wide
-              disabled={update.isPending}
-              onClick={() => update.mutate({ muted: !muted })}
-            />
-          </>
-        )}
+        <Tile
+          icon={muted ? VolumeXIcon : Volume2Icon}
+          label="Mute the device"
+          on={muted}
+          wide
+          disabled={update.isPending}
+          onClick={() => update.mutate({ muted: !muted })}
+        />
       </ShadePanel>
     </ShadeRoot>
   )

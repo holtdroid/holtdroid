@@ -6,7 +6,6 @@ import { sessionBase, type StatusEvent } from "@/api/client"
 import { canManage, useAppData, useExtendSession, useMe, useProviders, useSession, useStopSession } from "@/api/queries"
 import { AppIcon } from "@/components/app-icon"
 import { useADBInfo, useAdbSession } from "@/components/session/adb-session"
-import { DeviceRail } from "@/components/session/device-rail"
 import { DeviceScreen } from "@/components/session/device-screen"
 import { useLiveScreen } from "@/components/session/live-screen"
 import { DevToolsPanel } from "@/components/session/devtools-panel"
@@ -177,8 +176,8 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
                   recording={status?.recording}
                   recordedAt={status?.recordedAt}
                   manage={manage}
+                  pkg={session.package}
                 />
-                <DeviceRail provider={provider} id={id} session={session} live={live} />
                 <ToolTabs tab={tab} onTab={setTab} adb={adbAllowed ? adb : null} session={session}>
                   {caps?.devtools ? (
                     <DevToolsPanel

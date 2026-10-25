@@ -10,7 +10,7 @@ const minShare = 0.2
 const maxShare = 0.7
 const placeholderRatio = 320 / 640
 
-export function ScreenSplit({ children: [screen, rail, tools] }: { children: [ReactNode, ReactNode, ReactNode] }) {
+export function ScreenSplit({ children: [screen, tools] }: { children: [ReactNode, ReactNode] }) {
   const { autoFit } = useScreenPrefs()
   const panel = usePanelRef()
   const area = useRef<HTMLDivElement>(null)
@@ -89,7 +89,6 @@ export function ScreenSplit({ children: [screen, rail, tools] }: { children: [Re
             <div ref={display} className="min-w-0 flex-1">
               {screen}
             </div>
-            {rail}
           </div>
         </ResizablePanel>
         <ResizableHandle withHandle />

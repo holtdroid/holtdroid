@@ -58,10 +58,11 @@ deployment"):
 - The portal: APK list with parsed
   metadata/icons, launch dialog, sessions panel with slots and idle countdown,
   session page with screen/DevTools split, target switcher, clipboard, VPN
-  location switcher, extend/stop, reaper, device controls (buttons rail,
-  screenshot, device cards next to the screen: network with the VPN location,
-  stream, clipboard, display with brightness, battery, language and keyboard
-  layouts, date and time, SSH; a faked GPS position in the rail; decisions
+  location switcher, extend/stop, reaper, device controls (a phone body
+  with side keys and system and navigation buttons, screenshot, device cards
+  next to the screen: network with the VPN location, GPS, stream, clipboard,
+  display with brightness, battery, language and keyboard layouts, date and
+  time, SSH; decisions
   #31, #58, #94), screen over scrcpy with multi-touch
   (decision #34); clipboard through scrcpy, device audio, codec and quality
   settings and a virtual USB keyboard (decision #36); a launch queue when

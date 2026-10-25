@@ -18,7 +18,6 @@ export type ScreenPrefs = {
   vibrationSound: boolean
   lockMode: LockMode
   deviceTheme: DeviceTheme
-  railLabels: boolean
   autoFit: boolean
   keyboardLayouts: string[] | null
   clipboard: boolean
@@ -37,7 +36,6 @@ export const defaultScreenPrefs: ScreenPrefs = {
   vibrationSound: true,
   lockMode: "lock",
   deviceTheme: "manual",
-  railLabels: true,
   autoFit: true,
   keyboardLayouts: null,
   clipboard: true,
