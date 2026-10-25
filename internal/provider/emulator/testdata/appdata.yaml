@@ -76,6 +76,8 @@ spec:
       value: "2026-10-17T12:00:00Z"
     - name: HOLTDROID_ADBSHELL
       value: allowlist
+    - name: ANDROID_ADB_SERVER_PORT
+      value: "5038"
     - name: HOLTDROID_HOSTCGROUP
       value: /host/cgroup
     - name: HOLTDROID_PODUID

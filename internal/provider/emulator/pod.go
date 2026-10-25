@@ -92,6 +92,7 @@ func (p *Provider) renderPod(id, slot, node string, req contract.CreateSession, 
 		{Name: "HOLTDROID_SESSION__SLOT", Value: slot},
 		{Name: "HOLTDROID_SESSION__CREATEDAT", Value: at},
 		{Name: "HOLTDROID_ADBSHELL", Value: string(p.cfg.Redroid.Shell)},
+		{Name: "ANDROID_ADB_SERVER_PORT", Value: "5038"},
 		{Name: "HOLTDROID_HOSTCGROUP", Value: hostCgroup},
 		{Name: "HOLTDROID_PODUID", ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.uid"}}},
 	}

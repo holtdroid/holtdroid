@@ -2314,6 +2314,9 @@ images exist per Android major version.
   pre-pull DaemonSet pulls each as an image volume. The newest is the
   default. Android 16 is not offered: it needs ashmem, which mainline
   kernels dropped.
+- The agent's adb server listens on 5038 (`ANDROID_ADB_SERVER_PORT`): in
+  the shared network namespace, Android 11's adbd (`ro.kernel.qemu=1`) also
+  binds 127.0.0.1:5037 and aborts when the agent's server holds it.
 - The Android container's CPU request drops from 1 to 0.5 core: idle
   sessions use 0.05, there is no CPU limit, and a smaller request fits more
   slots on a node without changing what a busy session may use.
