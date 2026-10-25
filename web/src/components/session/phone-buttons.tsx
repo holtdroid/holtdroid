@@ -91,7 +91,7 @@ function VolumeRocker({ provider, id, live, run }: { provider: string; id: strin
   const s = device.data
   const hasVolume = !!s && s.volumeMax > 0
   const deviceMuted = hasVolume && s.muted
-  const flagged = deviceMuted || (audio.supported && (!audio.on || audio.muted))
+  const flagged = deviceMuted || (audio.supported && !audio.on)
 
   const press = (a: "volume-up" | "volume-down") => {
     run(a)
@@ -156,13 +156,6 @@ function VolumeRocker({ provider, id, live, run }: { provider: string; id: strin
           checked={audio.on}
           disabled={!audio.supported}
           onChange={audio.setOn}
-        />
-        <Toggle
-          label="Silence this tab"
-          hint="Keeps the device audio connected but quiet here"
-          checked={audio.muted}
-          disabled={!audio.supported || !audio.on}
-          onChange={audio.setMuted}
         />
       </HoverCardContent>
     </HoverCard>

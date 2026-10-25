@@ -45,9 +45,8 @@ hybrid apps, support engineers reproducing a customer bug.
    screen off, as the icon next to it shows.
    Hovering the rocker shows the device's media volume with a slider and a
    switch that mutes Android itself, and the device audio, which plays in
-   your browser by default: switch it off, or silence it in this tab while it
-   stays connected. The rocker turns amber while the device is muted or the
-   audio is off or silenced.
+   your browser by default and can be switched off. The rocker turns amber
+   while the device is muted or its audio is off.
    Hovering the power key picks what a click does and has **Wake and
    unlock**. A rail next to the screen has the other hardware buttons
    (rotate, back/home/recents, notifications, quick settings), a screenshot

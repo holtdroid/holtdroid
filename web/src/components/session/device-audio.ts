@@ -3,10 +3,10 @@ import { useEffect, useState } from "react"
 import { displayURL, type LiveScreen, useScreenLive } from "@/components/session/live-screen"
 import { useUserActivation } from "@/hooks/use-user-activation"
 import { type AudioConnection, AudioUnavailableError, audioSupported, openAudio } from "@/lib/audio"
-import { getScreenPrefs, setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
+import { setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
 
 export function useDeviceAudio(provider: string, id: string, live: LiveScreen) {
-  const { audio: wanted, audioMuted: muted } = useScreenPrefs()
+  const { audio: wanted } = useScreenPrefs()
   const screenLive = useScreenLive(live)
   const activated = useUserActivation()
   const supported = useQuery({ queryKey: ["audio-supported"], queryFn: audioSupported, staleTime: Infinity }).data
@@ -23,7 +23,7 @@ export function useDeviceAudio(provider: string, id: string, live: LiveScreen) {
     let retry: ReturnType<typeof setTimeout> | undefined
     const connect = async () => {
       try {
-        conn = await openAudio(displayURL(provider, id, "audio"), () => getScreenPrefs().audioMuted)
+        conn = await openAudio(displayURL(provider, id, "audio"))
         if (stopped) return
         setConnected(true)
         setLastError(null)
@@ -62,9 +62,7 @@ export function useDeviceAudio(provider: string, id: string, live: LiveScreen) {
         : !wanted
           ? "Off: the device's sound doesn't play here"
           : connected
-            ? muted
-              ? "Connected, muted in this tab"
-              : "Playing in this tab"
+            ? "Playing in this tab"
             : !activated
               ? "Starts after your first click on the page"
               : !screenLive
@@ -76,10 +74,8 @@ export function useDeviceAudio(provider: string, id: string, live: LiveScreen) {
   return {
     supported: supported === true,
     on,
-    muted,
     connected,
     status,
     setOn,
-    setMuted: (v: boolean) => setScreenPrefs({ audioMuted: v }),
   }
 }

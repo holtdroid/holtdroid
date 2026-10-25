@@ -351,11 +351,10 @@ The media volume comes from `cmd media_session volume --stream 3 --get`
 and the `Muted` flag of `STREAM_MUSIC` in `dumpsys audio`; muting sets the
 lowest step, which Android treats as muted, and the agent remembers the
 step to bring back (a third of the range when it doesn't know one).
-`audioMuted` keeps the stream connected and drops the decoded samples, so
-unmuting is instant. The canvas sits in a drawn phone body
+The canvas sits in a drawn phone body
 (`device-screen.tsx`, sized with container query units from the video's
 aspect ratio, corners from the display's radius) whose side keys
-(`phone-buttons.tsx`) are the volume rocker, with the audio switches on
+(`phone-buttons.tsx`) are the volume rocker, with the volume, Android's mute and the device audio switch on
 hover, and the power key, with the lock modes and wake-and-unlock on hover;
 the split's auto-fit adds the frame's inset.
 Vibrations come from `/v1/vibrations`: the agent polls `dumpsys
