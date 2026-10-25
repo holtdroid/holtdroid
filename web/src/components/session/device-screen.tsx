@@ -1,9 +1,10 @@
 import { LockIcon, PowerIcon } from "lucide-react"
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
-import { type Display, type Screen, sessionBase } from "@/api/client"
+import { type Display, type Location, type Screen, sessionBase } from "@/api/client"
 import { CutoutOverlay } from "@/components/session/cutout-overlay"
 import { displayURL, type LiveScreen, useDecodableCodecs } from "@/components/session/live-screen"
+import { NetworkWidget, networkWidgetWidth } from "@/components/session/network-widget"
 import { PhoneButtons } from "@/components/session/phone-buttons"
 import { Spinner } from "@/components/ui/spinner"
 import { useEventSource } from "@/hooks/use-event-source"
@@ -15,10 +16,13 @@ type Status = "connecting" | "live" | "retrying"
 
 const gap = 12
 const bezel = 8
-const key = 4
-const keyIcon = 18
+const keyArea = 4 + 18
+const widgetGap = 8
 
-export const frameInset = { x: 2 * (gap + bezel + key + keyIcon), y: 2 * (gap + bezel) }
+export const frameInset = {
+  x: 2 * (gap + bezel) + keyArea + widgetGap + networkWidgetWidth,
+  y: 2 * (gap + bezel),
+}
 
 function frameStyle(ratio: number, corner: number): CSSProperties {
   return {
@@ -36,11 +40,13 @@ export function DeviceScreen({
   id,
   live,
   display: shape,
+  locations,
 }: {
   provider: string
   id: string
   live: LiveScreen
   display?: Display
+  locations: Location[]
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const supported = screenSupported()
@@ -199,47 +205,50 @@ export function DeviceScreen({
 
   return (
     <div className="bg-muted/40 grid size-full place-items-center overflow-hidden" style={{ containerType: "size" }}>
-      <div
-        className="relative bg-neutral-900 shadow-lg ring-1 ring-black/50 dark:ring-white/15"
-        style={frameStyle(ratio, corner)}
-      >
+      <div className="flex items-start" style={{ gap: keyArea + widgetGap }}>
         <div
-          className="relative overflow-hidden bg-neutral-950"
-          style={{ width: "var(--sw)", height: "calc(var(--sw) / var(--r))", borderRadius: "var(--sr)" }}
-          onPointerMove={trackNotice}
-          onPointerLeave={() => setNoticeHovered(false)}
+          className="relative bg-neutral-900 shadow-lg ring-1 ring-black/50 dark:ring-white/15"
+          style={frameStyle(ratio, corner)}
         >
-          <canvas
-            ref={canvasRef}
-            tabIndex={0}
-            aria-label="Device screen"
-            className="size-full touch-none object-contain outline-none select-none"
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            onPointerCancel={onPointerUp}
-            onKeyDown={(e) => onKey(e, true)}
-            onKeyUp={(e) => onKey(e, false)}
-            onBlur={() => live.connection?.control.releaseKeys()}
-            onContextMenu={(e) => e.preventDefault()}
-          />
-          {shape?.cutout && shape.cutout !== "none" && <CutoutOverlay canvasRef={canvasRef} screen={shape} />}
-          {notice && (
-            <div className="pointer-events-none absolute inset-0 grid place-items-center p-4">
-              <div
-                ref={noticeRef}
-                role="status"
-                className="flex max-w-full flex-col items-center gap-2 rounded-[2rem] border border-white/10 bg-neutral-900/60 px-6 py-5 text-center text-white shadow-lg backdrop-blur-md transition-opacity duration-200 [corner-shape:squircle] supports-[corner-shape:squircle]:rounded-[3rem] data-[hovered=true]:opacity-0 [&_svg]:size-6 [&_svg]:text-white/80"
-                data-hovered={noticeHovered}
-              >
-                {notice.icon}
-                <span className="text-sm font-medium">{notice.title}</span>
-                {notice.hint && <span className="text-xs text-white/60">{notice.hint}</span>}
+          <div
+            className="relative overflow-hidden bg-neutral-950"
+            style={{ width: "var(--sw)", height: "calc(var(--sw) / var(--r))", borderRadius: "var(--sr)" }}
+            onPointerMove={trackNotice}
+            onPointerLeave={() => setNoticeHovered(false)}
+          >
+            <canvas
+              ref={canvasRef}
+              tabIndex={0}
+              aria-label="Device screen"
+              className="size-full touch-none object-contain outline-none select-none"
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+              onPointerCancel={onPointerUp}
+              onKeyDown={(e) => onKey(e, true)}
+              onKeyUp={(e) => onKey(e, false)}
+              onBlur={() => live.connection?.control.releaseKeys()}
+              onContextMenu={(e) => e.preventDefault()}
+            />
+            {shape?.cutout && shape.cutout !== "none" && <CutoutOverlay canvasRef={canvasRef} screen={shape} />}
+            {notice && (
+              <div className="pointer-events-none absolute inset-0 grid place-items-center p-4">
+                <div
+                  ref={noticeRef}
+                  role="status"
+                  className="flex max-w-full flex-col items-center gap-2 rounded-[2rem] border border-white/10 bg-neutral-900/60 px-6 py-5 text-center text-white shadow-lg backdrop-blur-md transition-opacity duration-200 [corner-shape:squircle] supports-[corner-shape:squircle]:rounded-[3rem] data-[hovered=true]:opacity-0 [&_svg]:size-6 [&_svg]:text-white/80"
+                  data-hovered={noticeHovered}
+                >
+                  {notice.icon}
+                  <span className="text-sm font-medium">{notice.title}</span>
+                  {notice.hint && <span className="text-xs text-white/60">{notice.hint}</span>}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
+          <PhoneButtons provider={provider} id={id} live={live} />
         </div>
-        <PhoneButtons provider={provider} id={id} live={live} />
+        <NetworkWidget provider={provider} id={id} locations={locations} />
       </div>
     </div>
   )

@@ -2682,5 +2682,12 @@ from a thin arc in each corner of the bezel, drawn concentric with the
 screen's corner and hit-tested on its stroke only, so the screen's corners
 stay touchable.
 
-**Consequences.** The rail keeps capture, stream and device controls. Small + and − marks and the power key's current action sit next to the keys, which widen on hover and sink on a press. The frame takes 84 px of width and 40 px of height from
+The network (Wi-Fi, mobile data, airplane mode, the VPN location and the
+emulated conditions) moved out of the rail into a card to the right of the
+phone that shows the location, the external IP and the conditions; hovering
+it opens a panel drawn like Android's quick settings shade, where every
+location and condition is a row with its description instead of a select.
+
+**Consequences.** The rail keeps capture, stream and the other device
+controls. Small + and − marks and the power key's current action sit next to the keys, which widen on hover and sink on a press. The frame and the network card take 198 px of width and 40 px of height from
 the screen panel, which the auto-fit accounts for.

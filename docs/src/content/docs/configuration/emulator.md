@@ -353,7 +353,7 @@ key used by several session Pods at once breaks, so prefer the gateway.
 
 ## Network conditions
 
-With VPN locations configured, the **Network** control of a session offers
+With VPN locations configured, the network card next to a session's phone offers
 emulated network conditions: named networks (5G, typical and weak 4G, 3G,
 2G, GPRS, busy public Wi-Fi, a crowded venue, satellite links, a slow
 upload, a lossy link, a far away server) and scenarios that change them over

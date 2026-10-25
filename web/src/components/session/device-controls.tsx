@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import {
   BatteryChargingIcon,
   BatteryFullIcon,
@@ -13,47 +13,25 @@ import {
   MapPinIcon,
   MinusIcon,
   MoonIcon,
-  PlaneIcon,
   PlusIcon,
-  SignalIcon,
   SunIcon,
   SunMoonIcon,
-  UsbIcon,
-  WifiIcon,
-  WifiOffIcon,
   XIcon,
   type LucideIcon,
 } from "lucide-react"
 import { useTheme } from "next-themes"
 import { type ReactNode, useEffect, useEffectEvent, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
-import {
-  agentClient,
-  type DeviceSettings,
-  type DeviceState,
-  type Location,
-  type NetworkProfile,
-  type NetworkProfileInfo,
-  unwrap,
-} from "@/api/client"
+import { type DeviceSettings, type DeviceState, type Location } from "@/api/client"
 import { Combobox, type ComboboxOption } from "@/components/combobox"
 import { ControlGroup, RailControl } from "@/components/session/rail-control"
 import { RailItem } from "@/components/session/rail-item"
 import { TimeDialog } from "@/components/session/time-dialog"
-import { networkKey, useDevice, useNetwork, useUpdateDevice } from "@/components/session/use-device"
+import { useDevice, useNetwork, useUpdateDevice } from "@/components/session/use-device"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
@@ -61,8 +39,6 @@ import { useNow } from "@/hooks/use-now"
 import { CITIES, defaultGeo, LOCALES } from "@/lib/device-presets"
 import { browserTimeZone, formatClockOffset } from "@/lib/format"
 import { baseLayout, desiredLocales, detectLayouts, sameLocales } from "@/lib/keyboard-layouts"
-import { rememberLocation } from "@/lib/launch-prefs"
-import { locationLabel } from "@/lib/location"
 import { setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
 
 const defaultBattery = 65
@@ -97,7 +73,6 @@ const units: { id: string; short: string; one: string; many: string; apply: (d: 
 ]
 
 const placeholders: [string, LucideIcon][] = [
-  ["Network", WifiIcon],
   ["Battery", BatteryFullIcon],
   ["Display", SunIcon],
   ["Language and region", LanguagesIcon],
@@ -124,187 +99,11 @@ export function DeviceControls({ provider, id, locations }: { provider: string; 
   const props: Props = { s, set: (patch) => update.mutate(patch), busy: update.isPending }
   return (
     <>
-      <NetworkControl {...props} provider={provider} id={id} locations={locations} />
       <BatteryControl {...props} />
       <DisplayControl {...props} />
       <LanguageControl {...props} provider={provider} id={id} vpn={locations.length > 0} />
       <TimeControl {...props} onSubmit={(patch) => update.mutateAsync(patch)} />
     </>
-  )
-}
-
-function NetworkControl({
-  s,
-  set,
-  busy,
-  provider,
-  id,
-  locations,
-}: Props & { provider: string; id: string; locations: Location[] }) {
-  const profile = s.networkProfiles?.find((p) => p.id === s.networkProfile)
-  const slow = !!profile && profile.id !== "full"
-  const radios = !s.usbNetwork
-  const summary = s.airplaneMode
-    ? "Airplane mode"
-    : [s.usbNetwork && "USB", s.wifi && "Wi-Fi", s.mobileData && "Mobile data", slow && profile.name]
-        .filter(Boolean)
-        .join(" · ") || "Offline"
-  const icon = s.airplaneMode
-    ? PlaneIcon
-    : s.wifi
-      ? WifiIcon
-      : s.mobileData
-        ? SignalIcon
-        : s.usbNetwork
-          ? UsbIcon
-          : WifiOffIcon
-
-  return (
-    <RailControl
-      label="Network"
-      icon={icon}
-      active={s.airplaneMode}
-      changed={s.airplaneMode || s.wifi !== radios || s.mobileData !== radios || slow}
-      summary={summary}
-      hint={`Click the icon to turn airplane mode ${s.airplaneMode ? "off" : "on"}`}
-      onClick={() => set({ airplaneMode: !s.airplaneMode })}
-      onReset={() =>
-        set({
-          airplaneMode: false,
-          wifi: radios,
-          mobileData: radios,
-          ...(s.networkProfile && { networkProfile: "full" }),
-        })
-      }
-    >
-      <ControlGroup>
-        <Toggle
-          label="Airplane mode"
-          checked={s.airplaneMode}
-          disabled={busy}
-          onChange={(v) => set({ airplaneMode: v })}
-        />
-        <Toggle label="Wi-Fi" checked={s.wifi} disabled={busy} onChange={(v) => set({ wifi: v })} />
-        <Toggle label="Mobile data" checked={s.mobileData} disabled={busy} onChange={(v) => set({ mobileData: v })} />
-        {s.usbNetwork && (
-          <p className="text-muted-foreground text-xs">
-            This phone reaches the internet over USB through the session&apos;s VPN, so Wi-Fi and mobile data stay off.
-          </p>
-        )}
-        {s.networkProfiles && (
-          <NetworkConditions
-            profiles={s.networkProfiles}
-            current={profile}
-            busy={busy}
-            onChange={(networkProfile) => set({ networkProfile })}
-          />
-        )}
-      </ControlGroup>
-      {locations.length > 0 && <VPNLocation provider={provider} id={id} locations={locations} />}
-    </RailControl>
-  )
-}
-
-function NetworkConditions({
-  profiles,
-  current,
-  busy,
-  onChange,
-}: {
-  profiles: NetworkProfileInfo[]
-  current?: NetworkProfileInfo
-  busy: boolean
-  onChange: (id: NetworkProfile) => void
-}) {
-  const groups = [
-    { label: "Networks", items: profiles.filter((p) => !p.scenario) },
-    { label: "Scenarios", items: profiles.filter((p) => p.scenario) },
-  ]
-  const numbers = current && linkNumbers(current)
-  return (
-    <>
-      <Row label="Conditions">
-        <Select value={current?.id ?? ""} disabled={busy} onValueChange={onChange}>
-          <SelectTrigger size="sm" className="w-44">
-            <SelectValue placeholder="Conditions" />
-          </SelectTrigger>
-          <SelectContent>
-            {groups.map((g) => (
-              <SelectGroup key={g.label}>
-                <SelectLabel>{g.label}</SelectLabel>
-                {g.items.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            ))}
-          </SelectContent>
-        </Select>
-      </Row>
-      {current && current.id !== "full" && (
-        <p className="text-muted-foreground text-xs">
-          {current.description}
-          {numbers && <span className="block font-mono">{numbers}</span>}
-        </p>
-      )}
-    </>
-  )
-}
-
-function linkNumbers(p: NetworkProfileInfo) {
-  return [
-    p.rtt && `+${p.rtt}${p.jitter ? ` ±${p.jitter}` : ""} ms`,
-    (p.down || p.up) && `↓ ${bandwidth(p.down)} ↑ ${bandwidth(p.up)}`,
-    p.loss && `${p.loss}% loss`,
-  ]
-    .filter(Boolean)
-    .join(" · ")
-}
-
-function bandwidth(kbit?: number) {
-  if (!kbit) return "∞"
-  return kbit >= 1000 ? `${kbit / 1000} Mbit/s` : `${kbit} kbit/s`
-}
-
-function VPNLocation({ provider, id, locations }: { provider: string; id: string; locations: Location[] }) {
-  const client = useMemo(() => agentClient(provider, id), [provider, id])
-  const qc = useQueryClient()
-  const network = useNetwork(provider, id)
-  const change = useMutation({
-    mutationFn: (location: string) => unwrap(client.PUT("/v1/network/location", { body: { location } })),
-    onSuccess: (n) => {
-      qc.setQueryData(networkKey(provider, id), n)
-      rememberLocation(provider, n.location)
-      toast.success(`Now browsing from ${n.country || n.location}`, { description: n.externalIp })
-    },
-    onError: (e) => toast.error("Could not switch location", { description: e.message }),
-  })
-  const n = network.data
-
-  return (
-    <ControlGroup title="VPN">
-      <Row label="Location">
-        <Select value={n?.location ?? ""} onValueChange={(v) => change.mutate(v)} disabled={change.isPending}>
-          <SelectTrigger size="sm" className="w-40">
-            <GlobeIcon />
-            <SelectValue placeholder="Location" />
-          </SelectTrigger>
-          <SelectContent>
-            {locations.map((l) => (
-              <SelectItem key={l.id} value={l.id}>
-                {locationLabel(l)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </Row>
-      {n?.externalIp && (
-        <p className="text-muted-foreground font-mono text-xs">
-          {[n.country, n.externalIp].filter(Boolean).join(" · ")}
-        </p>
-      )}
-    </ControlGroup>
   )
 }
 

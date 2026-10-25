@@ -48,7 +48,13 @@ hybrid apps, support engineers reproducing a customer bug.
    your browser by default and can be switched off. The rocker turns amber
    while the device is muted or its audio is off.
    Hovering the power key picks what a click does and has **Wake and
-   unlock**. Each corner of the phone has a thin arc in its bezel: hovering
+   unlock**. To the right of the phone a network card shows the VPN
+   location, the external IP and the network conditions; hovering it opens
+   a panel styled like Android's quick settings shade with Wi-Fi, mobile
+   data and airplane mode tiles, the VPN locations and the emulated network
+   conditions (slow or lossy networks and scenarios such as a subway ride,
+   each with its description, on emulators with VPN locations). Each
+   corner of the phone has a thin arc in its bezel: hovering
    one opens back, home, recent apps, notifications, quick settings and
    rotation. A rail next to the screen has a screenshot button and
    clipboard sync (both ways by default; hover to pick one
@@ -61,9 +67,6 @@ hybrid apps, support engineers reproducing a customer bug.
    with the layout set on the device. Below them come the device controls,
    one button per section. Clicking a button does the common thing, hovering
    it opens the rest:
-   - **Network**: click for airplane mode; Wi-Fi, mobile data, the VPN
-     location and emulated network conditions (slow or lossy networks and
-     scenarios such as a subway ride, on emulators with VPN locations).
    - **Battery** (65%, on battery, at start): click for battery saver; charging and the
      charge level.
    - **Display**: click to cycle light, dark and matching the portal's theme;
