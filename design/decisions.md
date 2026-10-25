@@ -2733,6 +2733,16 @@ as well (saver, charging, charge level); like the rest of the device state
 it lives on the device and nothing of it is remembered in the browser. Panels stay open
 once clicked into, so typing and native date pickers don't close them.
 
+Display left the rail for a card too, with the screen brightness and
+adaptive brightness added (`screen_brightness`, `screen_brightness_mode`).
+The stream is captured before the backlight, so the picture doesn't dim;
+it isn't faked in the browser either, since a dimmed canvas would look like
+a broken stream. Brightness is device state like the rest: redroid starts
+fresh and a phone's cleanup puts its own brightness back, so nothing is
+carried to the next session. The rail is left with capture and the faked
+GPS. The SSH button left the page header for a card at the bottom of the
+column, with the same tunnels, ADB commands and connect command in a shade.
+
 **Consequences.** The rail keeps capture and the other device controls. Small + and − marks and the power key's current action sit next to the keys, which widen on hover and sink on a press. The frame and the cards take 198 px of width and 40 px of height from
 the screen panel, which the auto-fit accounts for.
 

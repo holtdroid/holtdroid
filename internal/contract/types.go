@@ -343,6 +343,8 @@ type DeviceState struct {
 	FontScale          float64              `json:"fontScale"`
 	Density            int                  `json:"density"`
 	DefaultDensity     int                  `json:"defaultDensity"`
+	Brightness         int                  `json:"brightness" minimum:"0" maximum:"100" doc:"the screen brightness setting, percent of the brightest"`
+	AutoBrightness     bool                 `json:"autoBrightness" doc:"Android picks the brightness from the light sensor"`
 	Rotation           int                  `json:"rotation" minimum:"0" maximum:"3"`
 	ScreenWidth        int                  `json:"screenWidth" doc:"the display's size in pixels as streamed (an override from wm size wins); 0 when unknown"`
 	ScreenHeight       int                  `json:"screenHeight"`
@@ -390,6 +392,8 @@ type DeviceSettings struct {
 	DarkMode       *bool           `json:"darkMode,omitempty"`
 	FontScale      *float64        `json:"fontScale,omitempty" minimum:"0.5" maximum:"3"`
 	Density        *int            `json:"density,omitempty" minimum:"0" maximum:"1000" doc:"0 restores the default"`
+	Brightness     *int            `json:"brightness,omitempty" minimum:"0" maximum:"100" doc:"sets the screen brightness and turns autoBrightness off unless it is set too"`
+	AutoBrightness *bool           `json:"autoBrightness,omitempty"`
 	Rotation       *int            `json:"rotation,omitempty" minimum:"0" maximum:"3"`
 	Volume         *int            `json:"volume,omitempty" minimum:"0" maximum:"100" doc:"sets the media volume step, which also unmutes it above 0"`
 	Muted          *bool           `json:"muted,omitempty" doc:"true mutes the media stream, false brings back the volume it had"`

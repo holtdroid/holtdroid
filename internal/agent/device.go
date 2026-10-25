@@ -78,6 +78,8 @@ echo "ac=$(dumpsys battery get ac)"
 echo "usb=$(dumpsys battery get usb)"
 echo "night=$(cmd uimode night)"
 echo "font=$(settings get system font_scale)"
+echo "brightness=$(settings get system screen_brightness)"
+echo "autoBrightness=$(settings get system screen_brightness_mode)"
 echo "density=$(wm density | tr '\n' ' ')"
 echo "size=$(wm size | tr '\n' ' ')"
 echo "rotation=$(settings get system user_rotation)"
@@ -161,6 +163,10 @@ func (c *Controls) State(ctx context.Context) (contract.DeviceState, error) {
 	if f, err := strconv.ParseFloat(v["font"], 64); err == nil && f > 0 {
 		s.FontScale = f
 	}
+	if b, err := strconv.Atoi(v["brightness"]); err == nil {
+		s.Brightness = min(100, max(0, int(math.Round(float64(b)*100/255))))
+	}
+	s.AutoBrightness = v["autoBrightness"] == "1"
 	if m := physicalDensityRe.FindStringSubmatch(v["density"]); m != nil {
 		s.DefaultDensity, _ = strconv.Atoi(m[1])
 		s.Density = s.DefaultDensity
@@ -284,6 +290,15 @@ func (c *Controls) Update(ctx context.Context, in contract.DeviceSettings) (cont
 		} else {
 			add(fmt.Sprintf("wm density %d", *in.Density))
 		}
+	}
+	switch {
+	case in.AutoBrightness != nil:
+		add("settings put system screen_brightness_mode " + pick(*in.AutoBrightness, "1", "0"))
+	case in.Brightness != nil:
+		add("settings put system screen_brightness_mode 0")
+	}
+	if in.Brightness != nil {
+		add(fmt.Sprintf("settings put system screen_brightness %d", int(math.Round(float64(*in.Brightness)*255/100))))
 	}
 	if in.Rotation != nil {
 		add(rotate(*in.Rotation)...)

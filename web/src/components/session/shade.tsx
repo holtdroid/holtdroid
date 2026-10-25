@@ -38,7 +38,7 @@ export function CardLine({ icon: Icon, children }: { icon: LucideIcon; children:
 
 const Pin = createContext<{ pin: () => void; close: () => void }>({ pin: () => undefined, close: () => undefined })
 
-export function ShadeRoot({ children }: { children: ReactNode }) {
+export function ShadeRoot({ children, onOpenChange }: { children: ReactNode; onOpenChange?: (open: boolean) => void }) {
   const [open, setOpen] = useState(false)
   const [pinned, setPinned] = useState(false)
   const pins = useMemo(
@@ -47,9 +47,10 @@ export function ShadeRoot({ children }: { children: ReactNode }) {
       close: () => {
         setPinned(false)
         setOpen(false)
+        onOpenChange?.(false)
       },
     }),
-    [],
+    [onOpenChange],
   )
   return (
     <Pin value={pins}>
@@ -58,8 +59,9 @@ export function ShadeRoot({ children }: { children: ReactNode }) {
         openDelay={150}
         closeDelay={200}
         onOpenChange={(next) => {
-          if (next) setOpen(true)
-          else if (!pinned) setOpen(false)
+          if (!next && pinned) return
+          setOpen(next)
+          onOpenChange?.(next)
         }}
       >
         {children}

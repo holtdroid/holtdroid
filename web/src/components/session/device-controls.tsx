@@ -1,40 +1,18 @@
-import { GlobeIcon, LocateFixedIcon, MapPinIcon, MoonIcon, SunIcon, SunMoonIcon, type LucideIcon } from "lucide-react"
-import { useTheme } from "next-themes"
-import { lazy, Suspense, useEffect, useEffectEvent, useMemo, useRef, useState } from "react"
+import { GlobeIcon, LocateFixedIcon, MapPinIcon } from "lucide-react"
+import { lazy, Suspense, useMemo, useState } from "react"
 import { toast } from "sonner"
 import { type DeviceSettings, type DeviceState, type Location } from "@/api/client"
 import { useMap } from "@/api/queries"
 import { Combobox } from "@/components/combobox"
 import { ControlGroup, RailControl } from "@/components/session/rail-control"
-import { RailItem } from "@/components/session/rail-item"
+import { RailSection } from "@/components/session/rail-item"
 import { useDevice, useNetwork, useUpdateDevice } from "@/components/session/use-device"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { CITIES, defaultGeo } from "@/lib/device-presets"
-import { setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
 
 const GeoMap = lazy(() => import("@/components/session/geo-map"))
-
-const fontScales = [0.85, 1, 1.15, 1.3, 1.5, 2]
-
-const displaySizes = [
-  { k: 0.85, label: "Small" },
-  { k: 1, label: "Default" },
-  { k: 1.15, label: "Large" },
-  { k: 1.3, label: "Larger" },
-]
-
-type ThemeMode = "light" | "dark" | "sync"
-
-const themes: Record<ThemeMode, { label: string; icon: LucideIcon; next: ThemeMode }> = {
-  light: { label: "Light", icon: SunIcon, next: "dark" },
-  dark: { label: "Dark", icon: MoonIcon, next: "sync" },
-  sync: { label: "Match the portal", icon: SunMoonIcon, next: "light" },
-}
-
-const placeholders: [string, LucideIcon][] = [["Display", SunIcon]]
 
 type Props = { s: DeviceState; set: (patch: DeviceSettings) => void; busy: boolean }
 
@@ -42,135 +20,19 @@ export function DeviceControls({ provider, id, locations }: { provider: string; 
   const device = useDevice(provider, id)
   const update = useUpdateDevice(provider, id)
   const s = device.data
-  if (!s) {
-    return (
-      <>
-        {placeholders.map(([name, Icon]) => (
-          <RailItem key={name} label="Loading device settings" text={name} disabled>
-            <Icon />
-          </RailItem>
-        ))}
-      </>
-    )
-  }
-  const props: Props = { s, set: (patch) => update.mutate(patch), busy: update.isPending }
+  if (!s?.canFakeGeo) return null
   return (
     <>
-      <DisplayControl {...props} />
-      {s.canFakeGeo && <GpsControl {...props} provider={provider} id={id} vpn={locations.length > 0} />}
+      <RailSection title="Device" />
+      <GpsControl
+        s={s}
+        set={(patch) => update.mutate(patch)}
+        busy={update.isPending}
+        provider={provider}
+        id={id}
+        vpn={locations.length > 0}
+      />
     </>
-  )
-}
-
-function DisplayControl({ s, set, busy }: Props) {
-  const { deviceTheme } = useScreenPrefs()
-  const { resolvedTheme } = useTheme()
-  const siteDark = resolvedTheme === "dark"
-  const mode: ThemeMode = deviceTheme === "sync" ? "sync" : s.darkMode ? "dark" : "light"
-  const synced = useRef<boolean | null>(null)
-
-  const follow = useEffectEvent(() => {
-    if (deviceTheme !== "sync" || s.darkMode === siteDark || synced.current === siteDark) return
-    synced.current = siteDark
-    set({ darkMode: siteDark })
-  })
-  const drifted = deviceTheme === "sync" && s.darkMode !== siteDark
-  useEffect(() => {
-    if (drifted) follow()
-  }, [drifted])
-
-  const choose = (m: ThemeMode) => {
-    if (m === "sync") {
-      synced.current = null
-      setScreenPrefs({ deviceTheme: "sync" })
-      return
-    }
-    setScreenPrefs({ deviceTheme: "manual" })
-    if (s.darkMode !== (m === "dark")) set({ darkMode: m === "dark" })
-  }
-
-  const font = fontScales.find((f) => Math.abs(f - s.fontScale) < 0.01)
-  const size = displaySizes.find((d) => Math.round(s.defaultDensity * d.k) === s.density)
-  const resized = s.defaultDensity > 0 && s.density !== s.defaultDensity
-  const changed = Math.abs(s.fontScale - 1) > 0.01 || resized || mode === "dark"
-
-  return (
-    <RailControl
-      label="Display"
-      icon={themes[mode].icon}
-      changed={changed}
-      summary={[
-        mode === "sync" ? `Matches the portal (${s.darkMode ? "dark" : "light"})` : themes[mode].label,
-        `font ${Math.round(s.fontScale * 100)}%`,
-        resized && (size?.label.toLowerCase() ?? `${s.density} dpi`),
-      ]
-        .filter(Boolean)
-        .join(" · ")}
-      hint={`Click the icon to switch to ${themes[themes[mode].next].label.toLowerCase()}`}
-      onClick={() => choose(themes[mode].next)}
-      onReset={() => {
-        if (mode === "dark") choose("light")
-        set({ fontScale: 1, ...(resized && { density: 0 }) })
-      }}
-    >
-      <ControlGroup title="Theme">
-        <ToggleGroup
-          type="single"
-          variant="outline"
-          size="sm"
-          spacing={0}
-          value={mode}
-          onValueChange={(v) => v && choose(v as ThemeMode)}
-          disabled={busy}
-          className="w-full"
-        >
-          {(Object.entries(themes) as [ThemeMode, (typeof themes)[ThemeMode]][]).map(([m, t]) => (
-            <ToggleGroupItem key={m} value={m} className="flex-1 gap-1.5 text-xs">
-              <t.icon />
-              {m === "sync" ? "Portal" : t.label}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
-      </ControlGroup>
-      <ControlGroup title="Font size">
-        <ToggleGroup
-          type="single"
-          variant="outline"
-          size="sm"
-          spacing={0}
-          value={font ? String(font) : ""}
-          onValueChange={(v) => v && set({ fontScale: Number(v) })}
-          disabled={busy}
-          className="w-full"
-        >
-          {fontScales.map((f) => (
-            <ToggleGroupItem key={f} value={String(f)} className="flex-1 px-0 text-xs tabular-nums">
-              {Math.round(f * 100)}%
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
-      </ControlGroup>
-      {s.defaultDensity > 0 && (
-        <ControlGroup title="Display size">
-          <ToggleGroup
-            type="single"
-            variant="outline"
-            size="sm"
-            spacing={0}
-            value={size ? String(size.k) : ""}
-            onValueChange={(v) => v && set({ density: v === "1" ? 0 : Math.round(s.defaultDensity * Number(v)) })}
-            disabled={busy}
-            className="w-full"
-          >
-            {displaySizes.map((d) => (
-              <ToggleGroupItem key={d.k} value={String(d.k)} className="flex-1 text-xs">
-                {d.label}
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
-        </ControlGroup>
-      )}
-    </RailControl>
   )
 }
 

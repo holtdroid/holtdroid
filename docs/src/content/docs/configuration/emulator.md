@@ -193,7 +193,7 @@ presets, used when `redroid.screens` is empty:
 
 Streaming a bigger screen costs more CPU in the session (about one core for
 a changing 1080p screen) and bandwidth in the browser; the default stays
-HD+. Density can still be changed in a session's Display controls.
+HD+. Density can still be changed in a session's display card.
 
 Android versions are the keys of `redroid.images` (the chart: `versions`,
 each pulled from `<repository>:<version>`). holtdroid-redroid publishes one

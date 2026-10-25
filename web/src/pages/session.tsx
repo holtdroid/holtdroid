@@ -13,7 +13,7 @@ import { DevToolsPanel } from "@/components/session/devtools-panel"
 import { useMetricsHistory } from "@/components/session/metrics"
 import { MetricsBar } from "@/components/session/metrics-bar"
 import { ScreenSplit } from "@/components/session/screen-split"
-import { AppActions, SessionToolbar } from "@/components/session/session-toolbar"
+import { AppActions } from "@/components/session/session-toolbar"
 import { StartProgress } from "@/components/session/start-progress"
 import { ToolTabs } from "@/components/session/tool-tabs"
 import { VersionSwitcher } from "@/components/session/version-switcher"
@@ -114,7 +114,6 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
         </div>
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          {state === "ready" && caps && <SessionToolbar provider={provider} id={id} />}
           <span className="text-muted-foreground inline-flex items-center gap-1 text-xs tabular-nums">
             <ClockIcon className="size-3.5" />
             {formatDuration(left)}

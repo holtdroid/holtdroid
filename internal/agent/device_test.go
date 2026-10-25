@@ -55,6 +55,8 @@ ac=false
 usb=false
 night=Night mode: yes
 font=1.3
+brightness=102
+autoBrightness=0
 density=Physical density: 320 Override density: 400 
 size=Physical size: 1440x3200 Override size: 1080x2400 
 rotation=1
@@ -77,7 +79,7 @@ musicMuted=   Muted: true
 	}
 	want := contract.DeviceState{
 		WiFi: true, MobileData: true, BatterySaver: true, BatteryLevel: 42, DarkMode: true,
-		FontScale: 1.3, Density: 400, DefaultDensity: 320, Rotation: 1, ScreenWidth: 1080, ScreenHeight: 2400, RefreshRate: 120, Volume: 4, VolumeMax: 15, Muted: true,
+		FontScale: 1.3, Brightness: 40, Density: 400, DefaultDensity: 320, Rotation: 1, ScreenWidth: 1080, ScreenHeight: 2400, RefreshRate: 120, Volume: 4, VolumeMax: 15, Muted: true,
 		TimeZone: "Europe/Warsaw", Locale: "en-US", Locales: []string{"en-US", "ru-RU"}, CanFakeGeo: true, CanSimulateBattery: true, LanguageScope: contract.LanguageSystem, TimeOffset: 3_600_000,
 	}
 	if !reflect.DeepEqual(got, want) {
@@ -115,6 +117,8 @@ func TestControlsUpdate(t *testing.T) {
 		{"battery saver unplugs", contract.DeviceSettings{BatterySaver: new(true)}, []string{"dumpsys battery unplug && dumpsys battery set status 3 && cmd power set-mode 1"}},
 		{"charging and level", contract.DeviceSettings{Charging: new(true), BatteryLevel: new(15)}, []string{"dumpsys battery set ac 1 && dumpsys battery set status 2 && dumpsys battery set level 15"}},
 		{"display", contract.DeviceSettings{DarkMode: new(true), FontScale: new(1.15), Density: new(0)}, []string{"cmd uimode night yes && settings put system font_scale 1.15 && wm density reset"}},
+		{"brightness", contract.DeviceSettings{Brightness: new(40)}, []string{"settings put system screen_brightness_mode 0 && settings put system screen_brightness 102"}},
+		{"auto brightness", contract.DeviceSettings{AutoBrightness: new(true)}, []string{"settings put system screen_brightness_mode 1"}},
 		{"rotation", contract.DeviceSettings{Rotation: new(2)}, []string{"settings put system accelerometer_rotation 0 && settings put system user_rotation 2"}},
 		{"time zone", contract.DeviceSettings{TimeZone: new("Asia/Tokyo")}, []string{"settings put global auto_time_zone 0 && cmd alarm set-timezone Asia/Tokyo"}},
 		{"time offset", contract.DeviceSettings{TimeOffset: new(int64(-5000))}, []string{"settings put global auto_time 0 && cmd alarm set-time 1759999995000"}},

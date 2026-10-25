@@ -179,7 +179,7 @@ just show up in `adb devices`:
 adb -s 127.0.0.1:15555 shell
 ```
 
-The **Computers** page and the session page's **SSH** button show which port
+The **Computers** page and the **SSH** card next to a session's screen show which port
 belongs to which device. On emulators `adb connect` needs no authorization
 prompt and `adb shell` is root (redroid is a userdebug build and the agent
 restarts adbd as root), with the node's kernel underneath. `adb reboot`, `adb unroot`, `adb remount`,
@@ -189,8 +189,8 @@ its device. For logcat, files and a shell without any of this, use the
 
 ## What is open right now
 
-The **SSH** button on a session page shows the ADB clients and published
-ports of that device. While its popover is open, each port is checked through
+The **SSH** card next to a session's screen shows the ADB clients and published
+ports of that device. While its panel is open, each port is checked through
 its own tunnel: green means your server answers, red means nothing listens on
 that port on your computer. Clicking a port copies `http://localhost:<port>`
 (`http://localhost` for 80, `https://localhost` for 443). The **Computers**

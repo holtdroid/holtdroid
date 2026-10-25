@@ -6,9 +6,11 @@ import { CutoutOverlay } from "@/components/session/cutout-overlay"
 import { displayURL, type LiveScreen, useDecodableCodecs } from "@/components/session/live-screen"
 import { BatteryWidget } from "@/components/session/battery-widget"
 import { ClipboardWidget } from "@/components/session/clipboard-widget"
+import { DisplayWidget } from "@/components/session/display-widget"
 import { LanguageWidget } from "@/components/session/language-widget"
 import { NetworkWidget } from "@/components/session/network-widget"
 import { widgetWidth } from "@/components/session/shade"
+import { SSHWidget } from "@/components/session/ssh-widget"
 import { StreamWidget } from "@/components/session/stream-widget"
 import { TimeWidget } from "@/components/session/time-widget"
 import { PhoneButtons } from "@/components/session/phone-buttons"
@@ -266,10 +268,12 @@ export function DeviceScreen({
         <div className="flex flex-col gap-2">
           <NetworkWidget provider={provider} id={id} locations={locations} metrics={metrics} />
           <StreamWidget provider={provider} id={id} live={live} />
+          <DisplayWidget provider={provider} id={id} />
           {clipboard && <ClipboardWidget provider={provider} id={id} />}
           <BatteryWidget provider={provider} id={id} />
           <LanguageWidget provider={provider} id={id} />
           <TimeWidget provider={provider} id={id} />
+          <SSHWidget provider={provider} id={id} />
         </div>
       </div>
     </div>

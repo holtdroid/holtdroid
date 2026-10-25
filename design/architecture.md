@@ -657,8 +657,8 @@ half-closes). The fake provider serves the same handler with its small adbd
 and loopback listeners as device ports (`Provider.DialDevice` is "an app on
 the device" in tests).
 
-The session page's **SSH** popover shows the device's tunnels live from the
-agent's `GET /v1/tunnels` SSE; while it is open it asks with `?probe=true`,
+The session page's **SSH** card shows the device's tunnels live from the
+agent's `GET /v1/tunnels` SSE; while its panel is open it asks with `?probe=true`,
 and each published port is probed through its own tunnel and coloured
 (decision #52). It also shows this device's ADB port on each connected
 computer, or the connect command when none is connected.

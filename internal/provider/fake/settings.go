@@ -20,6 +20,8 @@ func defaultSettings() contract.DeviceState {
 		MobileData:         true,
 		BatteryLevel:       65,
 		FontScale:          1,
+		Brightness:         40,
+		AutoBrightness:     true,
 		Density:            320,
 		DefaultDensity:     320,
 		ScreenWidth:        1080,
@@ -70,6 +72,11 @@ func (d *device) UpdateDevice(_ context.Context, in contract.DeviceSettings) (co
 		if s.Density == 0 {
 			s.Density = s.DefaultDensity
 		}
+		set(&s.Brightness, in.Brightness)
+		if in.Brightness != nil {
+			s.AutoBrightness = false
+		}
+		set(&s.AutoBrightness, in.AutoBrightness)
 		set(&s.Rotation, in.Rotation)
 		switch {
 		case in.Muted != nil && *in.Muted:

@@ -75,10 +75,19 @@ hybrid apps, support engineers reproducing a customer bug.
    in your own time zone (it unfolds in place), and the time zone, which
    follows the VPN location unless you pick another one for the session. The
    battery card shows the charge (65% and on battery at start) and opens
-   battery saver, charging and the charge level with presets. The
+   battery saver, charging and the charge level with presets. The display
+   card shows the brightness, the theme and the font size; hovering it
+   opens a brightness slider and adaptive brightness (for this session
+   only; the stream itself doesn't get darker, the device and its apps see
+   the setting), the dark theme (light, dark or matching the portal's
+   theme), font and display size. The
    language card picks the system language and the keyboard layouts from a
    grid of flags: a click on a layout adds or removes it (up to 7, remembered
    in your browser and guessed from your keyboard where the browser allows).
+   When SSH is on, the SSH card says whether a computer is connected to
+   this device; hovering it lists the ADB clients and the ports your
+   computers publish on the device, the `adb` command for this device on
+   each connected computer, or the command that connects a computer.
    A panel opened by hovering stays open once you click inside it, until you
    click elsewhere or press Esc. When the device vibrates, the page
    shows a notification and plays a buzz. A rail next to the screen has the
@@ -87,8 +96,6 @@ hybrid apps, support engineers reproducing a customer bug.
    them come the device controls,
    one button per section. Clicking a button does the common thing, hovering
    it opens the rest:
-   - **Display**: click to cycle light, dark and matching the portal's theme;
-     font and display size.
    - **GPS location** (on devices that can fake it): follows the VPN
      location unless you override it with a click on the map, a city,
      coordinates or your own position.

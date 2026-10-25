@@ -5,15 +5,6 @@ import { toast } from "sonner"
 import { agentClient, unwrap } from "@/api/client"
 import { useAppData, useSaveAppData } from "@/api/queries"
 import { IconButton } from "@/components/session/icon-button"
-import { SSHControl } from "@/components/session/ssh-control"
-
-export function SessionToolbar({ provider, id }: { provider: string; id: string }) {
-  return (
-    <div className="flex items-center gap-2">
-      <SSHControl provider={provider} id={id} />
-    </div>
-  )
-}
 
 export function AppActions({ provider, id, appRunning }: { provider: string; id: string; appRunning: boolean }) {
   const client = useMemo(() => agentClient(provider, id), [provider, id])

@@ -70,7 +70,6 @@ export function DeviceRail({
         <CameraIcon />
       </RailButton>
       <RecordButton provider={provider} id={id} session={session} live={live} adb={adb} />
-      <RailSection title="Device" />
       <DeviceControls provider={provider} id={id} locations={locations} />
     </div>
   )

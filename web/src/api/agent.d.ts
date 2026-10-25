@@ -408,11 +408,17 @@ export interface components {
         };
         DeviceSettings: {
             airplaneMode?: boolean;
+            autoBrightness?: boolean;
             /** @description true syncs the clock with real time and keeps it synced */
             autoTime?: boolean;
             /** Format: int64 */
             batteryLevel?: number;
             batterySaver?: boolean;
+            /**
+             * Format: int64
+             * @description sets the screen brightness and turns autoBrightness off unless it is set too
+             */
+            brightness?: number;
             charging?: boolean;
             darkMode?: boolean;
             /**
@@ -452,10 +458,17 @@ export interface components {
         };
         DeviceState: {
             airplaneMode: boolean;
+            /** @description Android picks the brightness from the light sensor */
+            autoBrightness: boolean;
             autoTime: boolean;
             /** Format: int64 */
             batteryLevel: number;
             batterySaver: boolean;
+            /**
+             * Format: int64
+             * @description the screen brightness setting, percent of the brightest
+             */
+            brightness: number;
             canFakeGeo: boolean;
             /** @description the battery level and charging can be set; battery saver works everywhere */
             canSimulateBattery: boolean;
