@@ -491,6 +491,13 @@ export interface components {
             refreshRate: number;
             /** Format: int64 */
             rotation: number;
+            /** Format: int64 */
+            screenHeight: number;
+            /**
+             * Format: int64
+             * @description the display's size in pixels as streamed (an override from wm size wins); 0 when unknown
+             */
+            screenWidth: number;
             /**
              * Format: int64
              * @description device clock minus real time, in milliseconds

@@ -9,11 +9,13 @@ import { NetworkWidget } from "@/components/session/network-widget"
 import { widgetWidth } from "@/components/session/shade"
 import { StreamWidget } from "@/components/session/stream-widget"
 import { PhoneButtons } from "@/components/session/phone-buttons"
+import { useDevice } from "@/components/session/use-device"
 import { Spinner } from "@/components/ui/spinner"
 import { useEventSource } from "@/hooks/use-event-source"
 import { screenDp } from "@/lib/cutout"
 import { openScreen, screenSupported, UnsupportedCodecError } from "@/lib/scrcpy"
-import { pickCodec, setScreenPrefs, streamLimits, useScreenPrefs } from "@/lib/screen-prefs"
+import { setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
+import { pickCodec, streamSettings } from "@/lib/stream-settings"
 
 type Status = "connecting" | "live" | "retrying"
 
@@ -58,7 +60,9 @@ export function DeviceScreen({
   const prefs = useScreenPrefs()
   const codecs = useDecodableCodecs()
   const { bitRate } = prefs
-  const { maxSize, maxFps } = streamLimits(prefs, `${provider}/${id}`)
+  const device = useDevice(provider, id)
+  const { maxSize, maxFps } = streamSettings(prefs, `${provider}/${id}`, device.data)
+  const ready = !device.isPending
   const codec = pickCodec(prefs.codec, codecs)
   const stream = `${provider}/${id}/${codec}/${maxSize}/${maxFps}/${bitRate}`
   const [state, setState] = useState<{ stream: string; status: Status }>({ stream, status: "connecting" })
@@ -75,7 +79,7 @@ export function DeviceScreen({
 
   useEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas || !supported) return undefined
+    if (!canvas || !supported || !ready) return undefined
     let stopped = false
     let attempt = 0
     let timer = 0
@@ -110,7 +114,7 @@ export function DeviceScreen({
       live.connection?.close()
       live.set(null)
     }
-  }, [provider, id, supported, live, codec, maxSize, maxFps, bitRate, stream])
+  }, [provider, id, supported, ready, live, codec, maxSize, maxFps, bitRate, stream])
 
   useEffect(() => {
     const canvas = canvasRef.current

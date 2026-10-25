@@ -92,7 +92,7 @@ export function openSocket(url: string) {
   return { ws, opened, closed }
 }
 
-type StreamOptions = Pick<ScreenPrefs, "codec" | "maxSize" | "maxFps" | "bitRate">
+type StreamOptions = Pick<ScreenPrefs, "codec" | "maxFps" | "bitRate"> & { maxSize: number }
 
 function screenQuery(prefs: StreamOptions) {
   return new URLSearchParams({

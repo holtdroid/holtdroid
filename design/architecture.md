@@ -343,10 +343,13 @@ the screen is connected and through `/v1/device/actions` otherwise; the
 screenshot button saves the last decoded frame. Returning to the tab asks
 the server for a key frame (`reset video`). The codec, bitrate and
 keyboard mode are kept in `localStorage`; resolution and frame rate belong to
-one session (`streamFor`) and start at the original size and 60 fps, the
-most the agent accepts; the UI also offers nothing above the device's
-refresh rate (`refreshRate` in `DeviceState`, the fastest `fps=` mode in
-`dumpsys display`). The stream card shows the decoder's frames, bitrate
+one session (`streamFor`). Quality is the short side in `p`: the device's
+own (`screenWidth`/`screenHeight` from `wm size`) up to 1080p, sent to
+scrcpy as `maxSize`, the long side scaled to match. The frame rate starts at
+45 fps (or the device's refresh rate, `refreshRate` from the fastest `fps=`
+mode in `dumpsys display`, when lower) and goes up to that rate, never past
+60; a pick below the start is remembered in `localStorage` (`lowFps`), a
+faster one lasts for the session (`web/src/lib/stream-settings.ts`). The stream card shows the decoder's frames, bitrate
 and dropped frames every two seconds. Codecs the browser can't decode are not offered;
 when the saved one is missing, the cheapest to encode that is decodable
 (H.264, then H.265, then AV1) is used. Device

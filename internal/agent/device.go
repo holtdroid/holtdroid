@@ -77,6 +77,7 @@ echo "usb=$(dumpsys battery get usb)"
 echo "night=$(cmd uimode night)"
 echo "font=$(settings get system font_scale)"
 echo "density=$(wm density | tr '\n' ' ')"
+echo "size=$(wm size | tr '\n' ' ')"
 echo "rotation=$(settings get system user_rotation)"
 echo "tz=$(getprop persist.sys.timezone)"
 echo "locale=$(getprop persist.sys.locale)"
@@ -91,6 +92,8 @@ var (
 	localeTagRe       = regexp.MustCompile(`^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{1,8})*$`)
 	physicalDensityRe = regexp.MustCompile(`Physical density: (\d+)`)
 	overrideDensityRe = regexp.MustCompile(`Override density: (\d+)`)
+	physicalSizeRe    = regexp.MustCompile(`Physical size: (\d+)x(\d+)`)
+	overrideSizeRe    = regexp.MustCompile(`Override size: (\d+)x(\d+)`)
 	volumeRe          = regexp.MustCompile(`volume is (\d+) in range \[(\d+)\.\.(\d+)\]`)
 )
 
@@ -159,6 +162,12 @@ func (c *Controls) State(ctx context.Context) (contract.DeviceState, error) {
 	}
 	if m := overrideDensityRe.FindStringSubmatch(v["density"]); m != nil {
 		s.Density, _ = strconv.Atoi(m[1])
+	}
+	for _, re := range []*regexp.Regexp{physicalSizeRe, overrideSizeRe} {
+		if m := re.FindStringSubmatch(v["size"]); m != nil {
+			s.ScreenWidth, _ = strconv.Atoi(m[1])
+			s.ScreenHeight, _ = strconv.Atoi(m[2])
+		}
 	}
 	if r, err := strconv.Atoi(v["rotation"]); err == nil && r >= 0 && r <= 3 {
 		s.Rotation = r

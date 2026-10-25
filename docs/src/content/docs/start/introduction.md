@@ -58,12 +58,14 @@ hybrid apps, support engineers reproducing a customer bug.
    one opens back, home, recent apps, notifications, quick settings and
    rotation. Under the network card, the stream card picks the video codec
    (H.264, the lightest for the server, by default; H.265 or AV1 where the
-   browser decodes them), resolution, frame rate (60 fps at most, and never
-   above the device's refresh rate) and bitrate, shows the frames, bitrate
+   browser decodes them), quality (the device's own up to 1080p, then 720p,
+   480p and 360p; a sharper screen is streamed at 1080p), frame rate (45 fps
+   by default, up to the device's own and never above 60) and bitrate, shows the frames, bitrate
    and dropped frames the browser decodes right now, and switches the keyboard between text input
    and a virtual USB keyboard that types in any alphabet with the layout set
-   on the device. The codec and bitrate are remembered in the browser,
-   resolution and frame rate start from the device's own in every session.
+   on the device. The codec, the bitrate and a frame rate below 45 fps are
+   remembered in the browser; quality and faster frame rates last for one
+   session.
    The clipboard card turns sync on or off with a click (both ways by
    default; hover to pick one direction) and keeps the last 10 synced
    texts, shown with · for spaces and ↵ for line breaks, each with buttons

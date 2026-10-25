@@ -56,6 +56,7 @@ usb=false
 night=Night mode: yes
 font=1.3
 density=Physical density: 320 Override density: 400 
+size=Physical size: 1440x3200 Override size: 1080x2400 
 rotation=1
 tz=Europe/Warsaw
 locale=
@@ -76,7 +77,7 @@ musicMuted=   Muted: true
 	}
 	want := contract.DeviceState{
 		WiFi: true, MobileData: true, BatterySaver: true, BatteryLevel: 42, DarkMode: true,
-		FontScale: 1.3, Density: 400, DefaultDensity: 320, Rotation: 1, RefreshRate: 120, Volume: 4, VolumeMax: 15, Muted: true,
+		FontScale: 1.3, Density: 400, DefaultDensity: 320, Rotation: 1, ScreenWidth: 1080, ScreenHeight: 2400, RefreshRate: 120, Volume: 4, VolumeMax: 15, Muted: true,
 		TimeZone: "Europe/Warsaw", Locale: "en-US", Locales: []string{"en-US", "ru-RU"}, CanFakeGeo: true, CanSimulateBattery: true, LanguageScope: contract.LanguageSystem, TimeOffset: 3_600_000,
 	}
 	if !reflect.DeepEqual(got, want) {

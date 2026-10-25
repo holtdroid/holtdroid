@@ -2691,10 +2691,13 @@ location and condition is a row with its description instead of a select.
 The stream and keyboard settings and clipboard sync became cards under the
 network card with the same kind of shade (`shade.tsx` holds the shared
 pieces). Only the codec and bitrate are remembered across sessions:
-resolution and frame rate start from the original size and 60 fps in every
-session, and the frame rate can't go above 60 fps (the agent refuses more:
-emulators encode in software and faster rarely helps a test) or the
-device's refresh rate, which the agent now reports. The stream's decode
+quality is picked in `p` (the short side) and never above 1080p, a
+sharper screen is scaled down to it; the frame rate starts at 45 fps and
+can go up to the device's refresh rate but not past 60 (the agent refuses
+more: emulators encode in software and faster rarely helps a test). A frame
+rate below the start is remembered, since it is usually about a slow
+connection; quality and a faster frame rate last for one session. The agent
+now reports the display's size and refresh rate. The stream's decode
 numbers moved from the bottom bar into the stream card, and the clipboard
 card keeps the last 10 synced texts to copy again or save. H.264 stays the default because it is the cheapest to encode on
 emulators without hardware encoders; the saved codec falls back to the

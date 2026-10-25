@@ -21,31 +21,14 @@ import {
 import { useDevice } from "@/components/session/use-device"
 import { cn } from "@/lib/utils"
 import { HoverCard, HoverCardTrigger } from "@/components/ui/hover-card"
-import {
-  codecCost,
-  defaultScreenPrefs,
-  pickCodec,
-  setScreenPrefs,
-  streamLimits,
-  useScreenPrefs,
-  type VideoCodec,
-} from "@/lib/screen-prefs"
+import { defaultScreenPrefs, setScreenPrefs, useScreenPrefs, type VideoCodec } from "@/lib/screen-prefs"
+import { codecCost, pickCodec, streamSettings } from "@/lib/stream-settings"
 
 const codecs: Record<VideoCodec, { label: string; hint: string }> = {
   h264: { label: "H.264", hint: "The lightest for the server to encode, works in every browser" },
   h265: { label: "H.265 (HEVC)", hint: "About a third less bandwidth for the same picture, heavier to encode" },
   av1: { label: "AV1", hint: "The least bandwidth, the heaviest to encode" },
 }
-
-const sizes = [
-  { value: 0, label: "Original" },
-  { value: 1920, label: "1920 px" },
-  { value: 1280, label: "1280 px" },
-  { value: 1024, label: "1024 px" },
-  { value: 800, label: "800 px" },
-]
-
-const maxRate = 60
 
 const bitRates = [
   { value: 8_000_000, label: "8 Mbit/s" },
@@ -65,20 +48,12 @@ export function StreamWidget({ provider, id, live }: { provider: string; id: str
   const decodable = useDecodableCodecs()
   const available = codecCost.filter((c) => !decodable?.length || decodable.includes(c))
   const codec = pickCodec(prefs.codec, decodable)
-  const { maxSize, maxFps } = streamLimits(prefs, session)
-  const refresh = useDevice(provider, id).data?.refreshRate ?? 0
-  const top = refresh > 0 ? Math.min(refresh, maxRate) : maxRate
-  const fps = Math.min(maxFps, top)
+  const st = streamSettings(prefs, session, useDevice(provider, id).data)
   const connected = useScreenLive(live)
   const rate = useStreamRate(live)
 
-  const fpsOptions = [top, ...[30, 15].filter((r) => r < top)].map((r) => ({
-    value: r,
-    label: r === refresh ? `${r} fps (device)` : `${r} fps`,
-  }))
-  const size = sizes.find((s) => s.value === maxSize)?.label ?? `${maxSize} px`
-  const changed =
-    codec !== defaultScreenPrefs.codec || prefs.bitRate !== defaultScreenPrefs.bitRate || maxSize !== 0 || fps !== top
+  const size = `${st.quality}p`
+  const changed = codec !== defaultScreenPrefs.codec || prefs.bitRate !== defaultScreenPrefs.bitRate || st.changed
 
   return (
     <HoverCard openDelay={150} closeDelay={200}>
@@ -89,7 +64,7 @@ export function StreamWidget({ provider, id, live }: { provider: string; id: str
             <span className="truncate">{codecs[codec].label}</span>
           </span>
           <CardLine icon={VideoIcon}>
-            {size} · {fps} fps
+            {size} · {st.maxFps} fps
           </CardLine>
           {rate && (
             <CardLine icon={ActivityIcon}>
@@ -104,16 +79,14 @@ export function StreamWidget({ provider, id, live }: { provider: string; id: str
       <ShadePanel>
         <ShadeHeader
           title="Stream"
-          summary={`${codecs[codec].label} · ${size} · ${fps} fps · ${bitRateLabel(prefs.bitRate)}`}
+          summary={`${codecs[codec].label} · ${st.qualityLabel} · ${st.maxFps} fps · ${bitRateLabel(prefs.bitRate)}`}
           onReset={
             changed
               ? () =>
                   setScreenPrefs({
                     codec: defaultScreenPrefs.codec,
                     bitRate: defaultScreenPrefs.bitRate,
-                    maxSize: 0,
-                    maxFps: maxRate,
-                    streamFor: session,
+                    ...st.reset(),
                   })
               : undefined
           }
@@ -133,17 +106,12 @@ export function StreamWidget({ provider, id, live }: { provider: string; id: str
           ))}
         </Section>
         <Chips
-          title="Resolution, this session"
-          options={sizes}
-          value={maxSize}
-          onChange={(v) => setScreenPrefs({ maxSize: v, maxFps: fps, streamFor: session })}
+          title="Quality, this session"
+          options={st.qualities}
+          value={st.quality}
+          onChange={(v) => setScreenPrefs(st.setQuality(v))}
         />
-        <Chips
-          title="Frame rate, this session"
-          options={fpsOptions}
-          value={fps}
-          onChange={(v) => setScreenPrefs({ maxFps: v, maxSize, streamFor: session })}
-        />
+        <Chips title="Frame rate" options={st.rates} value={st.maxFps} onChange={(v) => setScreenPrefs(st.setFps(v))} />
         <Chips
           title="Bitrate"
           options={bitRates}
@@ -151,8 +119,9 @@ export function StreamWidget({ provider, id, live }: { provider: string; id: str
           onChange={(v) => setScreenPrefs({ bitRate: v })}
         />
         <Note>
-          The codec and bitrate are remembered in this browser; resolution and frame rate start from the device&apos;s
-          own in every session. Lower values help on a slow connection.
+          The stream is never sharper than 1080p or faster than 60 fps. The codec and bitrate are remembered in this
+          browser, and so is a frame rate below {st.startFps} fps; quality and faster frame rates last for this session
+          only. Lower values help on a slow connection.
         </Note>
 
         <section className="grid gap-1.5">

@@ -22,6 +22,8 @@ func defaultSettings() contract.DeviceState {
 		FontScale:          1,
 		Density:            320,
 		DefaultDensity:     320,
+		ScreenWidth:        1080,
+		ScreenHeight:       2340,
 		RefreshRate:        60,
 		Volume:             5,
 		VolumeMax:          15,
