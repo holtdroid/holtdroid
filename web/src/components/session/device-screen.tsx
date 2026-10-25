@@ -10,7 +10,7 @@ import { DisplayWidget } from "@/components/session/display-widget"
 import { GpsWidget } from "@/components/session/gps-widget"
 import { LanguageWidget } from "@/components/session/language-widget"
 import { NetworkWidget } from "@/components/session/network-widget"
-import { widgetWidth } from "@/components/session/shade"
+import { ShadeSideContext, widgetWidth } from "@/components/session/shade"
 import { SSHWidget } from "@/components/session/ssh-widget"
 import { StreamWidget } from "@/components/session/stream-widget"
 import { TimeWidget } from "@/components/session/time-widget"
@@ -22,6 +22,7 @@ import { screenDp } from "@/lib/cutout"
 import { openScreen, screenSupported, UnsupportedCodecError } from "@/lib/scrcpy"
 import { setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
 import { pickCodec, streamSettings } from "@/lib/stream-settings"
+import { cn } from "@/lib/utils"
 
 type Status = "connecting" | "live" | "retrying"
 
@@ -29,16 +30,40 @@ const gap = 12
 const bezel = 8
 const keyArea = 4 + 18
 const widgetGap = 8
+const cardHeight = 96
+const columnWidth = widgetWidth + 2 * gap
 
-export const frameInset = {
-  x: 2 * (gap + bezel) + keyArea + widgetGap + widgetWidth,
-  y: 2 * (gap + bezel),
+const phoneInset = { x: 2 * (gap + bezel + keyArea), y: 2 * (gap + bezel) }
+
+export const frameInset = { x: phoneInset.x + columnWidth, y: phoneInset.y }
+
+type Layout = "side" | "rows"
+
+function pickLayout(w: number, h: number, ratio: number, cards: number): Layout {
+  const side = Math.min(h - phoneInset.y, (w - columnWidth - phoneInset.x) / ratio)
+  const perRow = Math.max(1, Math.floor((w - 2 * gap + widgetGap) / (widgetWidth + widgetGap)))
+  const rows = Math.ceil(Math.ceil(cards / 2) / perRow) + Math.ceil(Math.floor(cards / 2) / perRow)
+  const stacked = Math.min(h - phoneInset.y - rows * (cardHeight + widgetGap) - gap, (w - phoneInset.x) / ratio)
+  return stacked > side + 16 ? "rows" : "side"
+}
+
+const layouts: Record<Layout, CSSProperties> = {
+  side: {
+    gridTemplateColumns: `${columnWidth}px minmax(0, 1fr)`,
+    gridTemplateRows: "auto minmax(0, 1fr)",
+    gridTemplateAreas: '"a p" "b p"',
+  },
+  rows: {
+    gridTemplateColumns: "minmax(0, 1fr)",
+    gridTemplateRows: "auto minmax(0, 1fr) auto",
+    gridTemplateAreas: '"a" "p" "b"',
+  },
 }
 
 function frameStyle(ratio: number, corner: number): CSSProperties {
   return {
     "--r": ratio,
-    "--sw": `max(0px, min(calc((100cqh - ${frameInset.y}px) * var(--r)), calc(100cqw - ${frameInset.x}px)))`,
+    "--sw": `max(0px, min(calc((100cqh - ${phoneInset.y}px) * var(--r)), calc(100cqw - ${phoneInset.x}px)))`,
     "--sr": `calc(min(var(--sw), var(--sw) / var(--r)) * ${corner})`,
     "--bz": `${bezel}px`,
     padding: bezel,
@@ -80,6 +105,18 @@ export function DeviceScreen({
   const noticeRef = useRef<HTMLDivElement>(null)
   const [noticeHovered, setNoticeHovered] = useState(false)
   const [videoRatio, setVideoRatio] = useState<number | null>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const [box, setBox] = useState<{ w: number; h: number } | null>(null)
+
+  useEffect(() => {
+    const root = rootRef.current
+    if (!root) return undefined
+    const observer = new ResizeObserver(([e]) => {
+      if (e) setBox({ w: e.contentRect.width, h: e.contentRect.height })
+    })
+    observer.observe(root)
+    return () => observer.disconnect()
+  }, [])
 
   useEventSource<{ screen: Screen }>(supported ? `${sessionBase(provider, id)}/v1/screen` : null, {
     screen: (value) => setScreen({ key: `${provider}/${id}`, value }),
@@ -221,9 +258,39 @@ export function DeviceScreen({
   const ratio = videoRatio ?? (portrait ? portrait.width / portrait.height : 9 / 19.5)
   const corner = portrait?.radius ? portrait.radius / Math.min(screenDp(portrait).w, screenDp(portrait).h) : 0.07
 
+  const cards = 7 + (clipboard ? 1 : 0) + (device.data?.canFakeGeo ? 1 : 0)
+  const layout = box ? pickLayout(box.w, box.h, ratio, cards) : "side"
+  const rows = layout === "rows"
+
   return (
-    <div className="bg-muted/40 grid size-full place-items-center overflow-hidden" style={{ containerType: "size" }}>
-      <div className="flex items-start" style={{ gap: keyArea + widgetGap }}>
+    <div ref={rootRef} className="bg-muted/40 grid size-full overflow-hidden" style={layouts[layout]}>
+      <ShadeSideContext value={rows ? "bottom" : "right"}>
+        <div
+          className={cn("flex gap-2 px-3 pt-3", rows ? "flex-wrap justify-center" : "flex-col")}
+          style={{ gridArea: "a" }}
+        >
+          <NetworkWidget provider={provider} id={id} locations={locations} metrics={metrics} />
+          <GpsWidget provider={provider} id={id} vpn={locations.length > 0} />
+          <StreamWidget provider={provider} id={id} live={live} />
+          <DisplayWidget provider={provider} id={id} />
+          {clipboard && <ClipboardWidget provider={provider} id={id} />}
+        </div>
+      </ShadeSideContext>
+      <ShadeSideContext value={rows ? "top" : "right"}>
+        <div
+          className={cn(
+            "flex gap-2 px-3 pb-3",
+            rows ? "flex-wrap justify-center" : "min-h-0 flex-col overflow-y-auto pt-2",
+          )}
+          style={{ gridArea: "b" }}
+        >
+          <BatteryWidget provider={provider} id={id} />
+          <LanguageWidget provider={provider} id={id} />
+          <TimeWidget provider={provider} id={id} />
+          <SSHWidget provider={provider} id={id} />
+        </div>
+      </ShadeSideContext>
+      <div className="grid min-h-0 min-w-0 place-items-center" style={{ gridArea: "p", containerType: "size" }}>
         <div
           className="relative bg-neutral-900 shadow-lg ring-1 ring-black/50 dark:ring-white/15"
           style={frameStyle(ratio, corner)}
@@ -265,17 +332,6 @@ export function DeviceScreen({
             )}
           </div>
           <PhoneButtons provider={provider} id={id} live={live} />
-        </div>
-        <div className="flex flex-col gap-2">
-          <NetworkWidget provider={provider} id={id} locations={locations} metrics={metrics} />
-          <GpsWidget provider={provider} id={id} vpn={locations.length > 0} />
-          <StreamWidget provider={provider} id={id} live={live} />
-          <DisplayWidget provider={provider} id={id} />
-          {clipboard && <ClipboardWidget provider={provider} id={id} />}
-          <BatteryWidget provider={provider} id={id} />
-          <LanguageWidget provider={provider} id={id} />
-          <TimeWidget provider={provider} id={id} />
-          <SSHWidget provider={provider} id={id} />
         </div>
       </div>
     </div>

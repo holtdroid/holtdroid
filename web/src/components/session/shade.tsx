@@ -1,9 +1,20 @@
 import { CheckIcon, GlobeIcon, Loader2Icon, RotateCcwIcon, type LucideIcon } from "lucide-react"
-import { type ComponentProps, createContext, type ReactNode, use, useMemo, useState } from "react"
+import {
+  type ComponentProps,
+  createContext,
+  type ReactNode,
+  use,
+  useEffect,
+  useEffectEvent,
+  useId,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react"
 import { HoverCard, HoverCardContent } from "@/components/ui/hover-card"
 import { cn } from "@/lib/utils"
 
-export const widgetWidth = 128
+export const widgetWidth = 158
 
 export function ShadeCard({
   changed,
@@ -36,21 +47,49 @@ export function CardLine({ icon: Icon, children }: { icon: LucideIcon; children:
   )
 }
 
+type Active = { id: string; pinned: boolean } | null
+
+let active: Active = null
+const listeners = new Set<() => void>()
+
+function setActive(next: Active) {
+  active = next
+  for (const l of listeners) l()
+}
+
+function subscribe(l: () => void) {
+  listeners.add(l)
+  return () => listeners.delete(l)
+}
+
+export type ShadeSide = "right" | "bottom" | "top"
+
+export const ShadeSideContext = createContext<ShadeSide>("right")
+
 const Pin = createContext<{ pin: () => void; close: () => void }>({ pin: () => undefined, close: () => undefined })
 
 export function ShadeRoot({ children, onOpenChange }: { children: ReactNode; onOpenChange?: (open: boolean) => void }) {
-  const [open, setOpen] = useState(false)
-  const [pinned, setPinned] = useState(false)
+  const id = useId()
+  const current = useSyncExternalStore(subscribe, () => active)
+  const open = current?.id === id
+  const report = useEffectEvent((o: boolean) => onOpenChange?.(o))
+  useEffect(() => report(open), [open])
+  useEffect(
+    () => () => {
+      if (active?.id === id) setActive(null)
+    },
+    [id],
+  )
   const pins = useMemo(
     () => ({
-      pin: () => setPinned(true),
+      pin: () => {
+        if (active?.id === id) setActive({ id, pinned: true })
+      },
       close: () => {
-        setPinned(false)
-        setOpen(false)
-        onOpenChange?.(false)
+        if (active?.id === id) setActive(null)
       },
     }),
-    [onOpenChange],
+    [id],
   )
   return (
     <Pin value={pins}>
@@ -59,9 +98,12 @@ export function ShadeRoot({ children, onOpenChange }: { children: ReactNode; onO
         openDelay={150}
         closeDelay={200}
         onOpenChange={(next) => {
-          if (!next && pinned) return
-          setOpen(next)
-          onOpenChange?.(next)
+          if (next) {
+            if (active && active.id !== id && active.pinned) return
+            setActive({ id, pinned: false })
+          } else if (active?.id === id && !active.pinned) {
+            setActive(null)
+          }
         }}
       >
         {children}
@@ -72,10 +114,13 @@ export function ShadeRoot({ children, onOpenChange }: { children: ReactNode; onO
 
 export function ShadePanel({ className, ...props }: ComponentProps<typeof HoverCardContent>) {
   const { pin, close } = use(Pin)
+  const side = use(ShadeSideContext)
   return (
     <HoverCardContent
-      side="right"
+      side={side}
       align="start"
+      sideOffset={10}
+      collisionPadding={8}
       onPointerDownCapture={pin}
       onPointerDownOutside={close}
       onEscapeKeyDown={close}

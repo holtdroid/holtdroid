@@ -46,7 +46,9 @@ hybrid apps, support engineers reproducing a customer bug.
    tile that mutes Android itself; the rocker turns amber while the device is
    muted. Hovering the power key offers **Wake and unlock**, locking and
    turning the screen off right away, and picks what a click on the key
-   does. To the right of the phone a network card shows the VPN
+   does. The device cards sit in a column on the left of the screen panel, or
+   in rows above and below the phone when that leaves the phone more room;
+   only one card's panel shows at a time. The network card shows the VPN
    location, the external IP and the network conditions; hovering it opens
    a panel styled like Android's quick settings shade with Wi-Fi, mobile
    data and airplane mode tiles, the VPN locations and the emulated network
