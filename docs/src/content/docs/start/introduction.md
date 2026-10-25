@@ -74,6 +74,8 @@ hybrid apps, support engineers reproducing a customer bug.
    shifting the clock back or forward by any amount, an exact moment entered
    in your own time zone (it unfolds in place), and the time zone, which
    follows the VPN location unless you pick another one for the session. The
+   battery card shows the charge (65% and on battery at start) and opens
+   battery saver, charging and the charge level with presets. The
    language card picks the system language and the keyboard layouts from a
    grid of flags: a click on a layout adds or removes it (up to 7, remembered
    in your browser and guessed from your keyboard where the browser allows).
@@ -85,8 +87,6 @@ hybrid apps, support engineers reproducing a customer bug.
    them come the device controls,
    one button per section. Clicking a button does the common thing, hovering
    it opens the rest:
-   - **Battery** (65%, on battery, at start): click for battery saver; charging and the
-     charge level.
    - **Display**: click to cycle light, dark and matching the portal's theme;
      font and display size.
    - **GPS location** (on devices that can fake it): follows the VPN

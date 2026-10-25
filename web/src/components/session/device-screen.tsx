@@ -4,6 +4,7 @@ import { toast } from "sonner"
 import { type Display, type Location, type Metrics, type Screen, sessionBase } from "@/api/client"
 import { CutoutOverlay } from "@/components/session/cutout-overlay"
 import { displayURL, type LiveScreen, useDecodableCodecs } from "@/components/session/live-screen"
+import { BatteryWidget } from "@/components/session/battery-widget"
 import { ClipboardWidget } from "@/components/session/clipboard-widget"
 import { LanguageWidget } from "@/components/session/language-widget"
 import { NetworkWidget } from "@/components/session/network-widget"
@@ -266,6 +267,7 @@ export function DeviceScreen({
           <NetworkWidget provider={provider} id={id} locations={locations} metrics={metrics} />
           <StreamWidget provider={provider} id={id} live={live} />
           {clipboard && <ClipboardWidget provider={provider} id={id} />}
+          <BatteryWidget provider={provider} id={id} />
           <LanguageWidget provider={provider} id={id} />
           <TimeWidget provider={provider} id={id} />
         </div>

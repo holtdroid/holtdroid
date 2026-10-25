@@ -248,3 +248,45 @@ export function Chips<T extends string | number>({
 export function Note({ children }: { children: ReactNode }) {
   return <p className="px-1 text-xs text-neutral-400">{children}</p>
 }
+
+export function ShadeSlider({
+  icon: Icon,
+  label,
+  value: initial,
+  max,
+  unit = "",
+  disabled,
+  onCommit,
+}: {
+  icon: LucideIcon
+  label: string
+  value: number
+  max: number
+  unit?: string
+  disabled?: boolean
+  onCommit: (v: number) => void
+}) {
+  const [value, setValue] = useState(initial)
+  return (
+    <label className="flex h-14 items-center gap-3 rounded-full bg-neutral-800 px-4">
+      <Icon className="size-5 shrink-0 text-sky-200" />
+      <input
+        type="range"
+        min={0}
+        max={max}
+        step={1}
+        value={value}
+        disabled={disabled}
+        aria-label={label}
+        className="h-1.5 min-w-0 flex-1 cursor-pointer accent-sky-300"
+        onChange={(e) => setValue(Number(e.target.value))}
+        onPointerUp={() => onCommit(value)}
+        onKeyUp={() => onCommit(value)}
+      />
+      <span className="w-9 text-right text-sm text-neutral-300 tabular-nums">
+        {value}
+        {unit}
+      </span>
+    </label>
+  )
+}

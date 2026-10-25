@@ -1,16 +1,4 @@
-import {
-  BatteryChargingIcon,
-  BatteryFullIcon,
-  BatteryLowIcon,
-  BatteryMediumIcon,
-  GlobeIcon,
-  LocateFixedIcon,
-  MapPinIcon,
-  MoonIcon,
-  SunIcon,
-  SunMoonIcon,
-  type LucideIcon,
-} from "lucide-react"
+import { GlobeIcon, LocateFixedIcon, MapPinIcon, MoonIcon, SunIcon, SunMoonIcon, type LucideIcon } from "lucide-react"
 import { useTheme } from "next-themes"
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
@@ -21,14 +9,10 @@ import { RailItem } from "@/components/session/rail-item"
 import { useDevice, useNetwork, useUpdateDevice } from "@/components/session/use-device"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { CITIES, defaultGeo } from "@/lib/device-presets"
 import { setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
-
-const defaultBattery = 65
 
 const fontScales = [0.85, 1, 1.15, 1.3, 1.5, 2]
 
@@ -39,8 +23,6 @@ const displaySizes = [
   { k: 1.3, label: "Larger" },
 ]
 
-const batteryPresets = [5, 15, 50, 65, 100]
-
 type ThemeMode = "light" | "dark" | "sync"
 
 const themes: Record<ThemeMode, { label: string; icon: LucideIcon; next: ThemeMode }> = {
@@ -49,10 +31,7 @@ const themes: Record<ThemeMode, { label: string; icon: LucideIcon; next: ThemeMo
   sync: { label: "Match the portal", icon: SunMoonIcon, next: "light" },
 }
 
-const placeholders: [string, LucideIcon][] = [
-  ["Battery", BatteryFullIcon],
-  ["Display", SunIcon],
-]
+const placeholders: [string, LucideIcon][] = [["Display", SunIcon]]
 
 type Props = { s: DeviceState; set: (patch: DeviceSettings) => void; busy: boolean }
 
@@ -74,100 +53,9 @@ export function DeviceControls({ provider, id, locations }: { provider: string; 
   const props: Props = { s, set: (patch) => update.mutate(patch), busy: update.isPending }
   return (
     <>
-      <BatteryControl {...props} />
       <DisplayControl {...props} />
       {s.canFakeGeo && <GpsControl {...props} provider={provider} id={id} vpn={locations.length > 0} />}
     </>
-  )
-}
-
-function BatteryControl({ s, set, busy }: Props) {
-  const level = s.batteryLevel
-  const icon = s.charging
-    ? BatteryChargingIcon
-    : level <= 20
-      ? BatteryLowIcon
-      : level <= 60
-        ? BatteryMediumIcon
-        : BatteryFullIcon
-
-  return (
-    <RailControl
-      label="Battery"
-      icon={icon}
-      active={s.batterySaver}
-      changed={s.batterySaver || (s.canSimulateBattery && (s.charging || level !== defaultBattery))}
-      summary={[`${level}%`, s.charging ? "charging" : "on battery", s.batterySaver && "saver on"]
-        .filter(Boolean)
-        .join(" · ")}
-      hint={`Click the icon to turn battery saver ${s.batterySaver ? "off" : "on"}`}
-      onClick={() => set({ batterySaver: !s.batterySaver })}
-      onReset={() =>
-        set(
-          s.canSimulateBattery
-            ? { batterySaver: false, charging: false, batteryLevel: defaultBattery }
-            : { batterySaver: false },
-        )
-      }
-    >
-      <ControlGroup>
-        <Toggle
-          label="Battery saver"
-          hint="Unplugs the charger: Android turns the saver off while charging"
-          checked={s.batterySaver}
-          disabled={busy}
-          onChange={(v) => set({ batterySaver: v })}
-        />
-        {s.canSimulateBattery && (
-          <Toggle label="Charging" checked={s.charging} disabled={busy} onChange={(v) => set({ charging: v })} />
-        )}
-      </ControlGroup>
-      {s.canSimulateBattery && (
-        <BatteryLevel key={level} level={level} disabled={busy} onCommit={(v) => set({ batteryLevel: v })} />
-      )}
-    </RailControl>
-  )
-}
-
-function BatteryLevel({
-  level,
-  disabled,
-  onCommit,
-}: {
-  level: number
-  disabled: boolean
-  onCommit: (v: number) => void
-}) {
-  const [value, setValue] = useState(level)
-  return (
-    <ControlGroup title="Charge level">
-      <div className="flex items-center gap-3">
-        <Slider
-          min={0}
-          max={100}
-          step={1}
-          value={[value]}
-          disabled={disabled}
-          onValueChange={([v = value]) => setValue(v)}
-          onValueCommit={([v = value]) => onCommit(v)}
-        />
-        <span className="w-10 text-right text-sm tabular-nums">{value}%</span>
-      </div>
-      <div className="flex gap-1">
-        {batteryPresets.map((p) => (
-          <Button
-            key={p}
-            size="xs"
-            variant={p === level ? "secondary" : "ghost"}
-            disabled={disabled}
-            className="flex-1 tabular-nums"
-            onClick={() => onCommit(p)}
-          >
-            {p}%
-          </Button>
-        ))}
-      </div>
-    </ControlGroup>
   )
 }
 
@@ -410,29 +298,5 @@ function GeoControl({ s, set, busy, vpnCountry }: Props & { vpnCountry?: string 
         </>
       )}
     </ControlGroup>
-  )
-}
-
-function Toggle({
-  label,
-  hint,
-  checked,
-  disabled,
-  onChange,
-}: {
-  label: string
-  hint?: string
-  checked: boolean
-  disabled?: boolean
-  onChange: (v: boolean) => void
-}) {
-  return (
-    <Label className="flex items-center justify-between gap-3 font-normal">
-      <span className="grid gap-0.5">
-        <span className="text-sm">{label}</span>
-        {hint && <span className="text-muted-foreground text-xs">{hint}</span>}
-      </span>
-      <Switch checked={checked} disabled={disabled} onCheckedChange={onChange} />
-    </Label>
   )
 }

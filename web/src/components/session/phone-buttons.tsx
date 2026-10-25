@@ -16,12 +16,12 @@ import {
   VolumeXIcon,
   type LucideIcon,
 } from "lucide-react"
-import { type CSSProperties, useState } from "react"
+import type { CSSProperties } from "react"
 import type { DeviceAction } from "@/api/client"
 import type { LiveScreen } from "@/components/session/live-screen"
 import { deviceKey, useDevice, useRunDeviceAction, useUpdateDevice } from "@/components/session/use-device"
 import { Button } from "@/components/ui/button"
-import { Note, Row, Section, ShadeHeader, ShadePanel, ShadeRoot, Tile } from "@/components/session/shade"
+import { Row, Section, ShadeHeader, ShadePanel, ShadeRoot, ShadeSlider, Tile } from "@/components/session/shade"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { type LockMode, setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
 import { cn } from "@/lib/utils"
@@ -246,11 +246,13 @@ function VolumeRocker({ provider, id, run }: { provider: string; id: string; run
                   : `${s.volume} of ${s.volumeMax}`
           }
         />
-        {hasVolume ? (
+        {hasVolume && (
           <>
-            <VolumeSlider
+            <ShadeSlider
               key={s.volume}
-              volume={s.volume}
+              icon={muted ? VolumeXIcon : Volume2Icon}
+              label="Media volume"
+              value={s.volume}
               max={s.volumeMax}
               disabled={update.isPending}
               onCommit={(volume) => update.mutate({ volume })}
@@ -258,53 +260,15 @@ function VolumeRocker({ provider, id, run }: { provider: string; id: string; run
             <Tile
               icon={muted ? VolumeXIcon : Volume2Icon}
               label="Mute the device"
-              status={muted ? "Muted, unmuting brings the level back" : "Off"}
               on={muted}
               wide
               disabled={update.isPending}
               onClick={() => update.mutate({ muted: !muted })}
             />
           </>
-        ) : (
-          s && <Note>The side keys still press volume up and down.</Note>
         )}
-        <Note>Android&apos;s media volume. Whether the sound plays in your browser is set in the stream card.</Note>
       </ShadePanel>
     </ShadeRoot>
-  )
-}
-
-function VolumeSlider({
-  volume,
-  max,
-  disabled,
-  onCommit,
-}: {
-  volume: number
-  max: number
-  disabled: boolean
-  onCommit: (v: number) => void
-}) {
-  const [value, setValue] = useState(volume)
-  const Icon = value === 0 ? VolumeXIcon : Volume2Icon
-  return (
-    <label className="flex h-14 items-center gap-3 rounded-full bg-neutral-800 px-4">
-      <Icon className="size-5 shrink-0 text-sky-200" />
-      <input
-        type="range"
-        min={0}
-        max={max}
-        step={1}
-        value={value}
-        disabled={disabled}
-        aria-label="Media volume"
-        className="h-1.5 min-w-0 flex-1 cursor-pointer accent-sky-300"
-        onChange={(e) => setValue(Number(e.target.value))}
-        onPointerUp={() => onCommit(value)}
-        onKeyUp={() => onCommit(value)}
-      />
-      <span className="w-6 text-right text-sm text-neutral-300 tabular-nums">{value}</span>
-    </label>
   )
 }
 
