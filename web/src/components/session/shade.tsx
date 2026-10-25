@@ -66,6 +66,8 @@ export type ShadeSide = "right" | "bottom" | "top"
 
 export const ShadeSideContext = createContext<ShadeSide>("right")
 
+export const ShadeBounds = createContext<Element | null>(null)
+
 const Pin = createContext<{ pin: () => void; close: () => void }>({ pin: () => undefined, close: () => undefined })
 
 export function ShadeRoot({ children, onOpenChange }: { children: ReactNode; onOpenChange?: (open: boolean) => void }) {
@@ -115,12 +117,14 @@ export function ShadeRoot({ children, onOpenChange }: { children: ReactNode; onO
 export function ShadePanel({ className, ...props }: ComponentProps<typeof HoverCardContent>) {
   const { pin, close } = use(Pin)
   const side = use(ShadeSideContext)
+  const bounds = use(ShadeBounds)
   return (
     <HoverCardContent
       side={side}
       align="start"
       sideOffset={10}
       collisionPadding={8}
+      collisionBoundary={bounds}
       onPointerDownCapture={pin}
       onPointerDownOutside={close}
       onEscapeKeyDown={close}

@@ -12,6 +12,7 @@ import { useLiveScreen } from "@/components/session/live-screen"
 import { DevToolsPanel } from "@/components/session/devtools-panel"
 import { useMetricsHistory } from "@/components/session/metrics"
 import { MetricsBar } from "@/components/session/metrics-bar"
+import { ShadeBounds } from "@/components/session/shade"
 import { ScreenSplit } from "@/components/session/screen-split"
 import { AppActions } from "@/components/session/session-toolbar"
 import { StartProgress } from "@/components/session/start-progress"
@@ -48,6 +49,7 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
 
   const state = session?.state === "failed" ? "failed" : (status?.state ?? session?.state)
   const metrics = useMetricsHistory(provider, id, state === "ready")
+  const [shadeBounds, setShadeBounds] = useState<HTMLDivElement | null>(null)
   if (state === "ready" && !wasReady) setWasReady(true)
   const manage = session ? canManage(me.data, session) : false
   const adbAllowed =
@@ -151,45 +153,49 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
         </div>
       </div>
 
-      <div className="min-h-0 flex-1">
-        {state !== "ready" ? (
-          <StartProgress
-            state={state ?? session.state}
-            detail={status?.detail || session.detail}
-            reason={session.reason || status?.reason}
-            appData={session.appData}
-            webview={session.webview}
-          />
-        ) : (
-          <ScreenSplit>
-            <DeviceScreen
-              provider={provider}
-              id={id}
-              live={live}
-              display={session.capabilities?.screen}
-              locations={caps?.locations ?? []}
-              clipboard={caps?.clipboard ?? false}
-              metrics={metrics}
-            />
-            <DeviceRail provider={provider} id={id} session={session} live={live} status={status} manage={manage} />
-            <ToolTabs tab={tab} onTab={setTab} adb={adbAllowed ? adb : null} session={session}>
-              {caps?.devtools ? (
-                <DevToolsPanel
+      <div ref={setShadeBounds} className="flex min-h-0 flex-1 flex-col">
+        <ShadeBounds value={shadeBounds}>
+          <div className="min-h-0 flex-1">
+            {state !== "ready" ? (
+              <StartProgress
+                state={state ?? session.state}
+                detail={status?.detail || session.detail}
+                reason={session.reason || status?.reason}
+                appData={session.appData}
+                webview={session.webview}
+              />
+            ) : (
+              <ScreenSplit>
+                <DeviceScreen
                   provider={provider}
                   id={id}
-                  frameRef={registerFrame}
-                  debuggableOnly={session.capabilities?.devtools === "debuggable"}
+                  live={live}
+                  display={session.capabilities?.screen}
+                  locations={caps?.locations ?? []}
+                  clipboard={caps?.clipboard ?? false}
+                  metrics={metrics}
                 />
-              ) : (
-                <div className="text-muted-foreground grid h-full place-items-center text-sm">
-                  This device does not support DevTools.
-                </div>
-              )}
-            </ToolTabs>
-          </ScreenSplit>
-        )}
+                <DeviceRail provider={provider} id={id} session={session} live={live} status={status} manage={manage} />
+                <ToolTabs tab={tab} onTab={setTab} adb={adbAllowed ? adb : null} session={session}>
+                  {caps?.devtools ? (
+                    <DevToolsPanel
+                      provider={provider}
+                      id={id}
+                      frameRef={registerFrame}
+                      debuggableOnly={session.capabilities?.devtools === "debuggable"}
+                    />
+                  ) : (
+                    <div className="text-muted-foreground grid h-full place-items-center text-sm">
+                      This device does not support DevTools.
+                    </div>
+                  )}
+                </ToolTabs>
+              </ScreenSplit>
+            )}
+          </div>
+          {state === "ready" && <MetricsBar history={metrics} />}
+        </ShadeBounds>
       </div>
-      {state === "ready" && <MetricsBar history={metrics} />}
     </div>
   )
 }
