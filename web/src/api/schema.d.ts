@@ -357,6 +357,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/map": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getMap"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me": {
         parameters: {
             query?: never;
@@ -1134,6 +1150,13 @@ export interface components {
         MaintenanceBody: {
             enabled: boolean;
             reason?: string;
+        };
+        MapView: {
+            /** @description the style for the dark theme */
+            darkStyle?: string;
+            enabled: boolean;
+            /** @description MapLibre style URL, proxied through the portal */
+            style?: string;
         };
         Meta: {
             /** @description What changed in this build, plain text or Markdown */
@@ -2144,6 +2167,35 @@ export interface operations {
                 };
                 content: {
                     "image/png": unknown;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getMap: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapView"];
                 };
             };
             /** @description Error */

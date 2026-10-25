@@ -97,6 +97,7 @@ type Config struct {
 	Downloads      DownloadsConfig
 	AppData        AppDataConfig
 	WebView        WebViewConfig
+	Map            MapConfig
 	Sources        []source.Config
 	Providers      []Endpoint
 }
@@ -126,6 +127,7 @@ func DefaultConfig() Config {
 		AppData: AppDataConfig{
 			Keep: 6, MaxAge: 7 * 24 * time.Hour, MaxCacheSize: 256 << 20, MaxSize: 1 << 30, Export: true, Timeout: 5 * time.Minute,
 		},
+		Map: MapConfig{URL: "https://tiles.openfreemap.org", Style: "styles/liberty", DarkStyle: "styles/dark"},
 		Sources: []source.Config{{
 			Name:       "local",
 			Type:       "filesystem",
@@ -208,6 +210,14 @@ func (c Config) Validate() error {
 		}
 		if c.AppData.Timeout <= 0 {
 			errs = append(errs, errors.New("appData.timeout must be positive"))
+		}
+	}
+	if c.Map.URL != "" {
+		if u, err := url.Parse(c.Map.URL); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			errs = append(errs, errors.New("map.url must be an absolute http(s) URL"))
+		}
+		if c.Map.Style == "" {
+			errs = append(errs, errors.New("map.style is required with map.url"))
 		}
 	}
 	seen := map[string]bool{}

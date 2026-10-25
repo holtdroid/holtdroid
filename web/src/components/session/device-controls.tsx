@@ -1,8 +1,9 @@
 import { GlobeIcon, LocateFixedIcon, MapPinIcon, MoonIcon, SunIcon, SunMoonIcon, type LucideIcon } from "lucide-react"
 import { useTheme } from "next-themes"
-import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react"
+import { lazy, Suspense, useEffect, useEffectEvent, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import { type DeviceSettings, type DeviceState, type Location } from "@/api/client"
+import { useMap } from "@/api/queries"
 import { Combobox } from "@/components/combobox"
 import { ControlGroup, RailControl } from "@/components/session/rail-control"
 import { RailItem } from "@/components/session/rail-item"
@@ -13,6 +14,8 @@ import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { CITIES, defaultGeo } from "@/lib/device-presets"
 import { setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
+
+const GeoMap = lazy(() => import("@/components/session/geo-map"))
 
 const fontScales = [0.85, 1, 1.15, 1.3, 1.5, 2]
 
@@ -213,6 +216,7 @@ function GeoControl({ s, set, busy, vpnCountry }: Props & { vpnCountry?: string 
   const point = parsed && { latitude: Number(parsed[1]), longitude: Number(parsed[2]) }
   const valid = !!point && Math.abs(point.latitude) <= 90 && Math.abs(point.longitude) <= 180
   const goTo = (latitude: number, longitude: number) => set({ geo: { latitude, longitude } })
+  const map = useMap().data
 
   const locate = () => {
     setLocating(true)
@@ -235,6 +239,19 @@ function GeoControl({ s, set, busy, vpnCountry }: Props & { vpnCountry?: string 
         <span className="min-w-0 flex-1 truncate">{geoName(s.geo)}</span>
         {!manual && <span className="text-muted-foreground text-xs">follows the VPN location</span>}
       </div>
+      {map?.enabled && (
+        <Suspense fallback={<div className="bg-muted h-56 w-full rounded-md" />}>
+          <GeoMap
+            map={map}
+            point={s.geo ?? defaultGeo}
+            disabled={busy}
+            onPick={(p) => {
+              setOverride(true)
+              goTo(p.latitude, p.longitude)
+            }}
+          />
+        </Suspense>
+      )}
       <label className="flex items-center justify-between gap-2 text-sm">
         <span>Override for this session</span>
         <Switch

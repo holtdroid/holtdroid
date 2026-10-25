@@ -233,6 +233,7 @@ func (s *Server) register(api huma.API) {
 	s.registerAudit(api)
 	s.registerAppData(api)
 	s.registerInventory(api)
+	s.registerMap(api)
 }
 
 var errForbidden = errors.New("only the owner or an admin can do this")

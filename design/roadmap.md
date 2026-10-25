@@ -80,6 +80,7 @@ Goal: one hand-written Pod on a KVM node proves the device side end to end.
 - [x] App lifecycle and versions (decision #35): no automatic restart after the app is closed (`appRunning`, "Start app"), launcher starts instrumented through spawn gating, version switcher on the session page (builds of the same package, keep data or clean install) through `POST /api/v1/sessions/{provider}/{id}/install` → provider → agent
 - [x] Origin links from sidecars accept only absolute `http(s)` URLs (api and UI), with a tooltip on the button
 - [x] Metrics bar at the bottom of the session page (decision #40): device CPU and memory, app CPU/PSS per process (WebView renderers included), app fps and jank from `gfxinfo`, network, `/data`, device and node temperatures, the emulator container's CPU/memory/throttling from cgroup v2, and the browser's stream fps/bitrate; `GET /v1/metrics` in the Agent API, sampled only while watched
+- [x] GPS map (decision #97): MapLibre map of keyless OpenFreeMap tiles in the GPS panel, proxied by the api (`map.*`, `/api/v1/map/tiles/…`); clicking or dragging the marker overrides the position
 
 ## Phase 4.5 — SSH access (ADB and published ports)
 

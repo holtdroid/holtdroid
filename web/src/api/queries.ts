@@ -23,6 +23,7 @@ export const keys = {
   sessions: ["sessions"] as const,
   appData: ["app-data"] as const,
   webviews: ["webviews"] as const,
+  map: ["map"] as const,
 }
 
 export function useAuth() {
@@ -151,6 +152,14 @@ export function useWebViews(enabled = true) {
     queryFn: () => unwrap(api.GET("/api/v1/webviews")),
     staleTime: 5 * 60_000,
     enabled,
+  })
+}
+
+export function useMap() {
+  return useQuery({
+    queryKey: keys.map,
+    queryFn: () => unwrap(api.GET("/api/v1/map")),
+    staleTime: Infinity,
   })
 }
 

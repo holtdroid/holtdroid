@@ -2757,3 +2757,29 @@ and the built-in WebView render WebGL at 60 fps. radv on core is built the
 same way but was first exercised by real sessions. The Android 15 image
 build takes about 9 minutes instead of 1, and Mesa is now ours to update.
 Chromium 157 and later still fail on Android 11 to 14 images.
+
+## 97. The GPS map uses keyless OpenFreeMap tiles proxied by the api
+
+**Context.** Picking a fake GPS position from a city list or typed
+coordinates is clumsy; people want to click a point on a map. Most tile
+services need an API key, and the openstreetmap.org tile servers forbid use
+by distributed apps. Loading tiles straight from a third party would also
+need the browser to reach it and would leak the user's cookies, IP and
+viewport to it.
+
+**Decision.** The GPS panel shows a MapLibre GL map (loaded lazily) of
+[OpenFreeMap](https://openfreemap.org) vector tiles: free, no key, no
+request limits. The api proxies everything under `map.url` at
+`/api/v1/map/tiles/…` behind sign-in, sends only its own User-Agent (no
+cookies or auth headers), passes the caching headers through and rewrites
+`map.url` in JSON responses (style, TileJSON) to the proxy path, so any
+server that keeps a MapLibre style, its tiles, sprites and glyphs under one
+base URL works, a self-hosted one included. `GET /api/v1/map` tells the UI
+the light and dark style; an empty `map.url` turns the map off. Clicking the
+map or dragging the marker overrides the GPS like picking a city.
+
+**Consequences.** The api needs outbound HTTPS to the tile server; nothing
+is stored, the browser cache does the caching. Moving the position along a
+route (walking, running, driving) and road routing are the next steps
+(roadmap, Later).
+

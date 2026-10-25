@@ -109,6 +109,27 @@ providers:
 | `downloads.adminOnly`   | `false`     | Only admins may download APKs, see [Downloads](/holtdroid/sources/overview/#downloads)                |
 | `appData.*`             | off         | Save app data between sessions, see [App data](/holtdroid/concepts/app-data/)                         |
 | `webview.storage`       | off         | The WebView catalog, see [WebView versions](/holtdroid/concepts/webview-versions/)                    |
+| `map.url`               | OpenFreeMap | Tile server for the GPS map, proxied by the api; empty turns the map off, see [below](#gps-map)       |
 | `adb.browser`           | `true`      | ADB tools on the session page, see [ADB tools](/holtdroid/concepts/adb/)                              |
 | `adb.ownerOnly`         | `true`      | Only a session's owner and admins may use its ADB tools                                               |
 | `providers[]`           | `[]`        | Device providers: unique `name` and base `url`; **Any** in the launch dialog tries them in this order |
+
+### GPS map
+
+The GPS panel of a session shows a map: click it or drag the marker to fake
+the device's position there. The tiles come from
+[OpenFreeMap](https://openfreemap.org), which needs no API key, through the
+api: the browser only talks to the portal, and the tile server sees the
+api's address and User-Agent, never the user's cookies.
+
+```yaml
+map:
+  url: https://tiles.openfreemap.org # empty turns the map off
+  style: styles/liberty # path of the MapLibre style under url
+  darkStyle: styles/dark # for the portal's dark theme; defaults to style
+```
+
+Any server that keeps a MapLibre style, its TileJSON, tiles, sprites and
+glyphs under one base URL works, a self-hosted one included: the api rewrites
+`map.url` in JSON responses to its own proxy path. The api needs outbound
+HTTPS to it; nothing is stored, browsers cache the tiles.

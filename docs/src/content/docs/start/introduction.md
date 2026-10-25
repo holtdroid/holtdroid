@@ -90,8 +90,8 @@ hybrid apps, support engineers reproducing a customer bug.
    - **Display**: click to cycle light, dark and matching the portal's theme;
      font and display size.
    - **GPS location** (on devices that can fake it): follows the VPN
-     location unless you override it with a city, coordinates or your own
-     position.
+     location unless you override it with a click on the map, a city,
+     coordinates or your own position.
 
    An amber dot marks a section whose settings differ from the defaults, and
    its popup has a reset button.

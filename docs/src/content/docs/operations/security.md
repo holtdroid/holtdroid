@@ -53,6 +53,10 @@ sidebar:
   build can save it to their computer. Set `downloads.adminOnly: true` when
   builds must not leave the portal; see
   [Downloads](/holtdroid/sources/overview/#downloads).
+- **The GPS map** makes the api fetch tiles from `map.url` (OpenFreeMap by
+  default) for signed-in users. Only the path is forwarded, with the api's
+  own User-Agent and no cookies; set `map.url: ""` if the api must not reach
+  the internet.
 - **Who can get in.** The default `anonymous` mode lets anyone who reaches the
   URL launch devices. Put it on a private network, or use `password`, `oidc`
   or `header` — see [Authentication](/holtdroid/configuration/authentication/).

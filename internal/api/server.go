@@ -255,6 +255,7 @@ func (s *Server) Handler() http.Handler {
 	s.register(api)
 	mux.Handle("/s/{provider}/{id}/", http.HandlerFunc(s.proxy))
 	mux.Handle("/api/v1/auth/oidc/", s.auth.OIDCHandler())
+	mux.HandleFunc("GET "+mapTilesPath+"{path...}", s.serveMapTile)
 	mux.HandleFunc("GET /tunnel.sh", s.serveTunnelScript)
 	mux.HandleFunc("GET /connect/{file}", s.serveConnectClient)
 	mux.Handle("/", s.uiHandler())
