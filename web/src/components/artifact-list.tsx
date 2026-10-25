@@ -117,7 +117,7 @@ export function ArtifactList({ onLaunch, pkg }: { onLaunch: (artifact: ArtifactV
 
   return (
     <section
-      className={cn("flex min-h-0 flex-col gap-3 rounded-xl", dragging && "outline-primary outline-2 outline-dashed")}
+      className={cn("flex flex-col gap-3 rounded-xl", dragging && "outline-primary outline-2 outline-dashed")}
       onDragOver={(e) => {
         if (!canUpload || !e.dataTransfer.types.includes("Files")) return
         e.preventDefault()
@@ -175,7 +175,7 @@ export function ArtifactList({ onLaunch, pkg }: { onLaunch: (artifact: ArtifactV
         </Alert>
       ))}
 
-      <div className="@container relative min-h-0 flex-1 overflow-y-auto">
+      <div className="@container relative">
         {artifacts.isPending ? (
           <div className="grid gap-2">
             {Array.from({ length: 5 }, (_, i) => (

@@ -26,36 +26,38 @@ export function HomePage({ pkg }: { pkg?: string }) {
   }
 
   return (
-    <div className="mx-auto grid h-full max-w-7xl gap-6 p-4 lg:grid-cols-[minmax(0,1fr)_380px] lg:p-6">
-      <div className="flex min-h-0 flex-col gap-3">
-        {pkg ? (
-          <AppHeader pkg={pkg} />
-        ) : (
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight">Apps</h1>
-            <p className="text-muted-foreground text-sm">
-              Launch the latest build of an app on a fresh Android device, or open it to pick another build.
-            </p>
-          </div>
-        )}
-        {linked.isError && (
-          <Alert variant="destructive">
-            <AlertDescription className="flex items-center justify-between gap-2">
-              The linked build is gone or not visible to you.
-              <Button variant="ghost" size="sm" onClick={clearLink}>
-                Dismiss
-              </Button>
-            </AlertDescription>
-          </Alert>
-        )}
-        <ArtifactList pkg={pkg} onLaunch={setLaunching} />
+    <div className="h-full overflow-y-auto">
+      <div className="mx-auto grid max-w-7xl gap-6 p-4 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:p-6">
+        <div className="flex flex-col gap-3">
+          {pkg ? (
+            <AppHeader pkg={pkg} />
+          ) : (
+            <div>
+              <h1 className="text-xl font-semibold tracking-tight">Apps</h1>
+              <p className="text-muted-foreground text-sm">
+                Launch the latest build of an app on a fresh Android device, or open it to pick another build.
+              </p>
+            </div>
+          )}
+          {linked.isError && (
+            <Alert variant="destructive">
+              <AlertDescription className="flex items-center justify-between gap-2">
+                The linked build is gone or not visible to you.
+                <Button variant="ghost" size="sm" onClick={clearLink}>
+                  Dismiss
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+          <ArtifactList pkg={pkg} onLaunch={setLaunching} />
+        </div>
+        <SessionsPanel className="lg:sticky lg:top-6 lg:max-h-[calc(100dvh-6.5rem)]" />
+        {search.quick && linked.data && <QuickLauncher artifact={linked.data} onFallback={dropQuick} />}
+        <LaunchDialog
+          artifact={launching ?? (search.launch && !search.quick ? (linked.data ?? null) : null)}
+          onClose={close}
+        />
       </div>
-      <SessionsPanel />
-      {search.quick && linked.data && <QuickLauncher artifact={linked.data} onFallback={dropQuick} />}
-      <LaunchDialog
-        artifact={launching ?? (search.launch && !search.quick ? (linked.data ?? null) : null)}
-        onClose={close}
-      />
     </div>
   )
 }

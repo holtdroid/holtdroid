@@ -70,13 +70,13 @@ function SlotPills({ slots }: { slots: Slot[] }) {
   )
 }
 
-export function SessionsPanel() {
+export function SessionsPanel({ className }: { className?: string }) {
   const sessions = useSessions()
   const providers = useProviders()
   const now = useNow()
 
   return (
-    <section className="flex min-h-0 min-w-0 flex-col gap-3">
+    <section className={cn("flex min-h-0 min-w-0 flex-col gap-3", className)}>
       <div className="flex items-baseline justify-between">
         <h2 className="font-semibold">Active sessions</h2>
         <span className="text-muted-foreground text-xs">{sessions.data?.items.length ?? 0} running</span>
