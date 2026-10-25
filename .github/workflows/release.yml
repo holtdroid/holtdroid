@@ -36,7 +36,9 @@ jobs:
             go-${{ runner.os }}-
       - uses: actions/cache@v4
         with:
-          path: ~/.cache/go-build-frida
+          path: |
+            ~/.cache/go-build-frida
+            ~/.cache/go-mod-frida
           key: go-frida-${{ runner.os }}-${{ hashFiles('go.sum') }}-${{ github.run_id }}
           restore-keys: |
             go-frida-${{ runner.os }}-${{ hashFiles('go.sum') }}-
@@ -49,12 +51,12 @@ jobs:
       - name: Frida builds (the session and phones images), in the image's own glibc
         run: |
           set -euxo pipefail
-          mkdir -p prebuilt /tmp/frida "$HOME/.cache/go-build-frida" "$HOME/go/pkg/mod"
+          mkdir -p prebuilt /tmp/frida "$HOME/.cache/go-build-frida" "$HOME/.cache/go-mod-frida"
           curl -fsSL "https://github.com/frida/frida/releases/download/$FRIDA_VERSION/frida-core-devkit-$FRIDA_VERSION-linux-x86_64.tar.xz" -o /tmp/devkit.tar.xz
           echo "$FRIDA_DEVKIT_SHA256  /tmp/devkit.tar.xz" | sha256sum -c -
           tar -xJf /tmp/devkit.tar.xz -C /tmp/frida
           docker run --rm -v "$PWD":/src -w /src \
-            -v "$HOME/.cache/go-build-frida":/root/.cache/go-build -v "$HOME/go/pkg/mod":/go/pkg/mod \
+            -v "$HOME/.cache/go-build-frida":/root/.cache/go-build -v "$HOME/.cache/go-mod-frida":/go/pkg/mod \
             -v /tmp/frida:/opt/frida:ro \
             -e CGO_ENABLED=1 -e CGO_CFLAGS=-I/opt/frida -e CGO_LDFLAGS=-L/opt/frida -e VERSION \
             "$GO_IMAGE" \
