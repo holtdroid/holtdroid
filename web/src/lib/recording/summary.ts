@@ -206,8 +206,10 @@ export function summarize(input: SummaryInput): Summary {
       { label: "WebView", value: info?.webview?.replace(/^\S+ /, "") || "—" },
       ...(device
         ? [
-            { label: "Screen", value: `${device.screenWidth}×${device.screenHeight} · ${device.density} dpi` },
-            { label: "Locale", value: device.locale },
+            {
+              label: "Screen",
+              value: `${device.screenWidth}×${device.screenHeight} · ${device.density} dpi · ${device.locale}`,
+            },
           ]
         : []),
     ],

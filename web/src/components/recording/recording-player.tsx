@@ -38,6 +38,7 @@ import {
   useShareRecording,
 } from "@/api/queries"
 import { BakeDialog } from "@/components/recording/bake-dialog"
+import { FitHeight } from "@/components/recording/fit-height"
 import { InfoView } from "@/components/recording/info-view"
 import { LogcatView } from "@/components/recording/logcat-view"
 import { MarkerPin, newMarkerId } from "@/components/recording/markers"
@@ -221,9 +222,9 @@ export function RecordingPlayer({
           </div>
         </div>
 
-        <div className="order-2 min-h-0 lg:order-3 lg:overflow-y-auto lg:pr-1">
+        <FitHeight className="order-2 lg:order-3">
           <InfoView summary={summary} iconUrl={r.iconUrl} />
-        </div>
+        </FitHeight>
       </div>
 
       <div className="grid gap-2 rounded-[28px] bg-[#1c211e] px-5 py-3">
