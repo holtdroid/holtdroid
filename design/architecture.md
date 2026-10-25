@@ -248,7 +248,10 @@ The agent (`internal/agent/redroid`):
    - forces `WebView.setWebContentsDebuggingEnabled(true)`: the setter is
      hooked to always pass `true`, and it is called from
      `Instrumentation.callApplicationOnCreate` and after every WebView
-     constructor;
+     constructor. Chromium browsers (an app with
+     `org.chromium.chrome.browser.ChromeTabbedActivity`) skip the early call:
+     it loads the system WebView into their process, where it aborts on a
+     `CHECK`; their own DevTools socket doesn't need it;
    - lets `NetworkSecurityPolicy.isCleartextTrafficPermitted(host)` return
      `true` for `localhost`, `127.0.0.1` and `::1` (decision #45).
    Only the app's main process is instrumented.

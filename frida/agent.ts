@@ -31,9 +31,19 @@ Java.perform(() => {
     return loopback.has(host.toLowerCase()) || cleartext.call(this, host)
   }
 
+  // A Chromium browser aborts on a CHECK when the system WebView is loaded
+  // into its process, so it only gets debugging if it creates a WebView.
+  const isChromiumBrowser = (app: Java.Wrapper) => {
+    try {
+      app.getClassLoader().loadClass("org.chromium.chrome.browser.ChromeTabbedActivity")
+      return true
+    } catch {
+      return false
+    }
+  }
   const Instrumentation = Java.use("android.app.Instrumentation")
   Instrumentation.callApplicationOnCreate.implementation = function (app: Java.Wrapper) {
-    enableDebugging()
+    if (!isChromiumBrowser(app)) enableDebugging()
     return this.callApplicationOnCreate(app)
   }
 })
