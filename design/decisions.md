@@ -2665,16 +2665,17 @@ sound was off.
 **Decision.** The screen is drawn inside a phone body with a volume rocker
 and a power key on its right edge. A click on the rocker's halves presses
 volume up or down, a click on the power key does the chosen lock mode;
-hovering opens the rest (the media volume and Android's mute, the device
-audio switch; wake and unlock, the lock modes).
+hovering opens the rest (the media volume and Android's mute; wake and
+unlock, locking now, and the lock mode the key uses).
 The agent reports the media volume and its mute in `DeviceState`; muting
 sets the lowest step rather than pressing `KEYCODE_VOLUME_MUTE`, which
 toggles whichever stream Android picks and can't be set to a known state,
 and the agent remembers the step to bring back. There is no separate mute
 for the browser tab: it differed from switching the device audio off only
-in staying connected, and three sound switches confused people. The rocker
-turns amber, the colour of a changed device control, while the device is
-muted or its audio is off. The keys stay on
+in staying connected, and three sound switches confused people. Whether the
+device audio plays in the browser is a stream setting, so it lives in the
+stream card, which is marked while it is off. The rocker turns amber, the
+colour of a changed device control, while the device is muted. The keys stay on
 the right in landscape too.
 
 Back, home, recent apps, notifications, quick settings and rotation open

@@ -44,11 +44,10 @@ hybrid apps, support engineers reproducing a customer bug.
    or down (lower half, −), and the power key locks the device or turns its
    screen off, as the icon next to it shows.
    Hovering the rocker shows the device's media volume with a slider and a
-   switch that mutes Android itself, and the device audio, which plays in
-   your browser by default and can be switched off. The rocker turns amber
-   while the device is muted or its audio is off.
-   Hovering the power key picks what a click does and has **Wake and
-   unlock**. To the right of the phone a network card shows the VPN
+   tile that mutes Android itself; the rocker turns amber while the device is
+   muted. Hovering the power key offers **Wake and unlock**, locking and
+   turning the screen off right away, and picks what a click on the key
+   does. To the right of the phone a network card shows the VPN
    location, the external IP and the network conditions; hovering it opens
    a panel styled like Android's quick settings shade with Wi-Fi, mobile
    data and airplane mode tiles, the VPN locations and the emulated network
@@ -60,7 +59,8 @@ hybrid apps, support engineers reproducing a customer bug.
    (H.264, the lightest for the server, by default; H.265 or AV1 where the
    browser decodes them), quality (the device's own up to 1080p, then 720p,
    480p and 360p; a sharper screen is streamed at 1080p), frame rate (45 fps
-   by default, up to the device's own and never above 60) and bitrate, shows the frames, bitrate
+   by default, up to the device's own and never above 60) and bitrate, switches the device audio
+   (it plays in your browser by default), shows the frames, bitrate
    and dropped frames the browser decodes right now, and switches the keyboard between text input
    and a virtual USB keyboard that types in any alphabet with the layout set
    on the device. The codec, the bitrate and a frame rate below 45 fps are

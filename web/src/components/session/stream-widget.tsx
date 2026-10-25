@@ -1,4 +1,13 @@
-import { ActivityIcon, KeyboardIcon, MonitorPlayIcon, SettingsIcon, TypeIcon, VideoIcon } from "lucide-react"
+import {
+  ActivityIcon,
+  HeadphoneOffIcon,
+  HeadphonesIcon,
+  KeyboardIcon,
+  MonitorPlayIcon,
+  SettingsIcon,
+  TypeIcon,
+  VideoIcon,
+} from "lucide-react"
 import {
   bitRate,
   type LiveScreen,
@@ -19,6 +28,7 @@ import {
   Tile,
   ShadeRoot,
 } from "@/components/session/shade"
+import { useDeviceAudio } from "@/components/session/device-audio"
 import { useDevice } from "@/components/session/use-device"
 import { cn } from "@/lib/utils"
 import { HoverCardTrigger } from "@/components/ui/hover-card"
@@ -52,9 +62,14 @@ export function StreamWidget({ provider, id, live }: { provider: string; id: str
   const st = streamSettings(prefs, session, useDevice(provider, id).data)
   const connected = useScreenLive(live)
   const rate = useStreamRate(live)
+  const audio = useDeviceAudio(provider, id, live)
 
   const size = `${st.quality}p`
-  const changed = codec !== defaultScreenPrefs.codec || prefs.bitRate !== defaultScreenPrefs.bitRate || st.changed
+  const changed =
+    (audio.supported && !audio.on) ||
+    codec !== defaultScreenPrefs.codec ||
+    prefs.bitRate !== defaultScreenPrefs.bitRate ||
+    st.changed
 
   return (
     <ShadeRoot>
@@ -93,6 +108,15 @@ export function StreamWidget({ provider, id, live }: { provider: string; id: str
           }
         />
         {rate && <LiveStats rate={rate} />}
+        <Tile
+          icon={audio.on ? HeadphonesIcon : HeadphoneOffIcon}
+          label="Device audio"
+          status={audio.status}
+          on={audio.on}
+          wide
+          disabled={!audio.supported}
+          onClick={() => audio.setOn(!audio.on)}
+        />
         <Section title="Codec">
           {available.map((c) => (
             <Row

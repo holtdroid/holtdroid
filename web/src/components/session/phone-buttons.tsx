@@ -1,7 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query"
 import {
   BellIcon,
-  CheckIcon,
   ChevronLeftIcon,
   CircleIcon,
   LockIcon,
@@ -19,15 +18,11 @@ import {
 } from "lucide-react"
 import { type CSSProperties, useState } from "react"
 import type { DeviceAction } from "@/api/client"
-import { useDeviceAudio } from "@/components/session/device-audio"
 import type { LiveScreen } from "@/components/session/live-screen"
 import { deviceKey, useDevice, useRunDeviceAction, useUpdateDevice } from "@/components/session/use-device"
 import { Button } from "@/components/ui/button"
+import { Note, Row, Section, ShadeHeader, ShadePanel, ShadeRoot, Tile } from "@/components/session/shade"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
-import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
-import { Slider } from "@/components/ui/slider"
-import { Switch } from "@/components/ui/switch"
 import { type LockMode, setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
 import { cn } from "@/lib/utils"
 
@@ -42,7 +37,7 @@ export function PhoneButtons({ provider, id, live }: { provider: string; id: str
   const run = useRunDeviceAction(provider, id, live)
   return (
     <>
-      <VolumeRocker provider={provider} id={id} live={live} run={run} />
+      <VolumeRocker provider={provider} id={id} run={run} />
       <PowerKey run={run} />
       {corners.map((c) => (
         <CornerMenu key={c.name} corner={c} run={run} />
@@ -205,15 +200,13 @@ function SideKey({
   )
 }
 
-function VolumeRocker({ provider, id, live, run }: { provider: string; id: string; live: LiveScreen; run: Run }) {
-  const audio = useDeviceAudio(provider, id, live)
+function VolumeRocker({ provider, id, run }: { provider: string; id: string; run: Run }) {
   const device = useDevice(provider, id)
   const update = useUpdateDevice(provider, id)
   const qc = useQueryClient()
   const s = device.data
   const hasVolume = !!s && s.volumeMax > 0
-  const deviceMuted = hasVolume && s.muted
-  const flagged = deviceMuted || (audio.supported && !audio.on)
+  const muted = hasVolume && s.muted
 
   const press = (a: "volume-up" | "volume-down") => {
     run(a)
@@ -221,34 +214,38 @@ function VolumeRocker({ provider, id, live, run }: { provider: string; id: strin
   }
 
   return (
-    <HoverCard openDelay={150} closeDelay={150}>
+    <ShadeRoot>
       <HoverCardTrigger asChild>
         <div className="absolute top-[17%] left-full flex h-[15%] flex-col">
           <SideKey
             label="Volume up"
             icon={PlusIcon}
-            flagged={flagged}
+            flagged={muted}
             className="rounded-tr-sm"
             onClick={() => press("volume-up")}
           />
           <SideKey
             label="Volume down"
             icon={MinusIcon}
-            flagged={flagged}
+            flagged={muted}
             className="rounded-br-sm"
             onClick={() => press("volume-down")}
           />
         </div>
       </HoverCardTrigger>
-      <HoverCardContent side="right" align="start" className="flex w-72 flex-col gap-3 p-3">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-sm font-medium">Device volume</span>
-          {hasVolume && (
-            <span className={cn("text-xs tabular-nums", deviceMuted ? "text-amber-600" : "text-muted-foreground")}>
-              {deviceMuted ? "Muted" : `${s.volume} of ${s.volumeMax}`}
-            </span>
-          )}
-        </div>
+      <ShadePanel className="w-80">
+        <ShadeHeader
+          title="Volume"
+          summary={
+            !s
+              ? "Loading…"
+              : !hasVolume
+                ? "Not reported by this device"
+                : muted
+                  ? "Muted"
+                  : `${s.volume} of ${s.volumeMax}`
+          }
+        />
         {hasVolume ? (
           <>
             <VolumeSlider
@@ -258,29 +255,22 @@ function VolumeRocker({ provider, id, live, run }: { provider: string; id: strin
               disabled={update.isPending}
               onCommit={(volume) => update.mutate({ volume })}
             />
-            <Toggle
+            <Tile
+              icon={muted ? VolumeXIcon : Volume2Icon}
               label="Mute the device"
-              hint="Android's media volume; unmuting brings the level back"
-              checked={s.muted}
+              status={muted ? "Muted, unmuting brings the level back" : "Off"}
+              on={muted}
+              wide
               disabled={update.isPending}
-              onChange={(muted) => update.mutate({ muted })}
+              onClick={() => update.mutate({ muted: !muted })}
             />
           </>
         ) : (
-          <p className="text-muted-foreground text-xs">
-            {s ? "This device doesn't report its volume; the side keys still press volume up and down." : "Loading…"}
-          </p>
+          s && <Note>The side keys still press volume up and down.</Note>
         )}
-        <Separator />
-        <Toggle
-          label="Device audio"
-          hint={audio.status}
-          checked={audio.on}
-          disabled={!audio.supported}
-          onChange={audio.setOn}
-        />
-      </HoverCardContent>
-    </HoverCard>
+        <Note>Android&apos;s media volume. Whether the sound plays in your browser is set in the stream card.</Note>
+      </ShadePanel>
+    </ShadeRoot>
   )
 }
 
@@ -296,23 +286,25 @@ function VolumeSlider({
   onCommit: (v: number) => void
 }) {
   const [value, setValue] = useState(volume)
+  const Icon = value === 0 ? VolumeXIcon : Volume2Icon
   return (
-    <div className="flex items-center gap-3">
-      {value === 0 ? (
-        <VolumeXIcon className="text-muted-foreground size-4 shrink-0" />
-      ) : (
-        <Volume2Icon className="text-muted-foreground size-4 shrink-0" />
-      )}
-      <Slider
+    <label className="flex h-14 items-center gap-3 rounded-full bg-neutral-800 px-4">
+      <Icon className="size-5 shrink-0 text-sky-200" />
+      <input
+        type="range"
         min={0}
         max={max}
         step={1}
-        value={[value]}
+        value={value}
         disabled={disabled}
-        onValueChange={([v = value]) => setValue(v)}
-        onValueCommit={([v = value]) => onCommit(v)}
+        aria-label="Media volume"
+        className="h-1.5 min-w-0 flex-1 cursor-pointer accent-sky-300"
+        onChange={(e) => setValue(Number(e.target.value))}
+        onPointerUp={() => onCommit(value)}
+        onKeyUp={() => onCommit(value)}
       />
-    </div>
+      <span className="w-6 text-right text-sm text-neutral-300 tabular-nums">{value}</span>
+    </label>
   )
 }
 
@@ -320,7 +312,7 @@ function PowerKey({ run }: { run: Run }) {
   const { lockMode } = useScreenPrefs()
   const mode = lockModes[lockMode] ? lockMode : "lock"
   return (
-    <HoverCard openDelay={150} closeDelay={150}>
+    <ShadeRoot>
       <HoverCardTrigger asChild>
         <div className="absolute top-[37%] left-full flex h-[9%] flex-col">
           <SideKey
@@ -331,62 +323,43 @@ function PowerKey({ run }: { run: Run }) {
           />
         </div>
       </HoverCardTrigger>
-      <HoverCardContent side="right" align="start" className="flex w-56 flex-col gap-0.5 p-1">
-        <Button
-          variant="ghost"
-          className="h-auto justify-start gap-2 px-2 py-1.5 text-left"
-          onClick={() => run("unlock")}
-        >
-          <LockOpenIcon />
-          <span className="flex flex-1 flex-col">
-            <span>Wake and unlock</span>
-            <span className="text-muted-foreground text-xs font-normal">Turn the screen on, skip the lock screen</span>
-          </span>
-        </Button>
-        {(Object.entries(lockModes) as [LockMode, (typeof lockModes)[LockMode]][]).map(([m, info]) => (
-          <Button
-            key={m}
-            variant="ghost"
-            className="h-auto justify-start gap-2 px-2 py-1.5 text-left"
-            onClick={() => {
-              setScreenPrefs({ lockMode: m })
-              run(m)
-            }}
-          >
-            <info.icon />
-            <span className="flex flex-1 flex-col">
-              <span>{info.label}</span>
-              <span className="text-muted-foreground text-xs font-normal">{info.hint}</span>
-            </span>
-            {m === mode && <CheckIcon className="text-muted-foreground" />}
-          </Button>
-        ))}
-        <p className="text-muted-foreground px-2 pt-1 pb-1.5 text-xs">Clicking the button does the checked one</p>
-      </HoverCardContent>
-    </HoverCard>
+      <ShadePanel className="w-80">
+        <ShadeHeader title="Power" summary={`The key: ${lockModes[mode].label.toLowerCase()}`} />
+        <div className="grid grid-cols-3 gap-2">
+          <PowerAction icon={LockOpenIcon} label="Wake and unlock" onClick={() => run("unlock")} />
+          {(Object.entries(lockModes) as [LockMode, (typeof lockModes)[LockMode]][]).map(([m, info]) => (
+            <PowerAction key={m} icon={info.icon} label={info.label} onClick={() => run(m)} />
+          ))}
+        </div>
+        <Section title="Pressing the side key">
+          {(Object.entries(lockModes) as [LockMode, (typeof lockModes)[LockMode]][]).map(([m, info]) => (
+            <Row
+              key={m}
+              selected={m === mode}
+              icon={info.icon}
+              title={info.label}
+              onClick={() => setScreenPrefs({ lockMode: m })}
+            >
+              {info.hint}
+            </Row>
+          ))}
+        </Section>
+      </ShadePanel>
+    </ShadeRoot>
   )
 }
 
-function Toggle({
-  label,
-  hint,
-  checked,
-  disabled,
-  onChange,
-}: {
-  label: string
-  hint: string
-  checked: boolean
-  disabled?: boolean
-  onChange: (v: boolean) => void
-}) {
+function PowerAction({ icon: Icon, label, onClick }: { icon: LucideIcon; label: string; onClick: () => void }) {
   return (
-    <Label className="flex items-center justify-between gap-3 font-normal">
-      <span className="grid gap-0.5">
-        <span className="text-sm">{label}</span>
-        <span className="text-muted-foreground text-xs">{hint}</span>
+    <button
+      type="button"
+      className="group/action flex flex-col items-center gap-2 rounded-3xl bg-neutral-800 px-2 py-3 text-center text-xs text-neutral-100 transition-colors hover:bg-neutral-700"
+      onClick={onClick}
+    >
+      <span className="grid size-11 place-items-center rounded-full bg-sky-200 text-sky-950 transition-transform group-active/action:scale-95">
+        <Icon className="size-5" />
       </span>
-      <Switch checked={checked} disabled={disabled} onCheckedChange={onChange} />
-    </Label>
+      {label}
+    </button>
   )
 }

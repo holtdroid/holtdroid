@@ -367,7 +367,7 @@ step to bring back (a third of the range when it doesn't know one).
 The canvas sits in a drawn phone body
 (`device-screen.tsx`, sized with container query units from the video's
 aspect ratio, corners from the display's radius) whose side keys
-(`phone-buttons.tsx`) are the volume rocker, with the volume, Android's mute and the device audio switch on
+(`phone-buttons.tsx`) are the volume rocker, with the volume and Android's mute on
 hover, and the power key, with the lock modes and wake-and-unlock on hover;
 the split's auto-fit adds the frame's inset.
 Vibrations come from `/v1/vibrations`: the agent polls `dumpsys
