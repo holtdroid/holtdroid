@@ -390,7 +390,7 @@ export function RecordingPlayer({
           manifest={manifest}
           files={files}
           telemetry={telemetry}
-          app={app}
+          app={{ ...app, recordingTitle: r.title }}
           markers={markers}
         />
       )}

@@ -505,6 +505,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/recordings/{id}/name": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Names the recording; an empty name goes back to the app's. */
+        put: operations["renameRecording"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/recordings/{id}/share": {
         parameters: {
             query?: never;
@@ -1898,6 +1915,8 @@ export interface components {
             /** @enum {string} */
             state: "pending" | "recording" | "done" | "failed" | "interrupted";
             thumbnailUrl?: string;
+            /** @description the name the owner gave the recording, shown instead of the app's */
+            title?: string;
             /** Format: int32 */
             versionCode?: number;
             versionName?: string;
@@ -1907,6 +1926,9 @@ export interface components {
             /** @description the key the refresh token was issued for */
             publicKey: string;
             refreshToken: string;
+        };
+        RenameInputBody: {
+            name: string;
         };
         ReverseTunnel: {
             /**
@@ -3188,6 +3210,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecordingMarkers"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    renameRecording: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordingView"];
                 };
             };
             /** @description Error */

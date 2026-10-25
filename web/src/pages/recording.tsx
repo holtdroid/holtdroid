@@ -5,6 +5,7 @@ import type { RecordingView } from "@/api/client"
 import { AppIcon } from "@/components/app-icon"
 import { HeaderSlot } from "@/components/header-slot"
 import { RecordingPlayer } from "@/components/recording/recording-player"
+import { recordingName, RenameButton } from "@/components/recording/rename-button"
 import { RecordingState } from "@/components/recording/recording-state"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -12,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { formatBytes } from "@/lib/format"
 import logo from "@/logo.svg"
 
-export function Title({ r, back }: { r: RecordingView; back: boolean }) {
+export function Title({ r, back, rename }: { r: RecordingView; back: boolean; rename?: boolean }) {
   return (
     <div className="flex min-w-0 items-center gap-2">
       {back && (
@@ -25,7 +26,7 @@ export function Title({ r, back }: { r: RecordingView; back: boolean }) {
       <AppIcon src={r.iconUrl} className="size-9" />
       <div className="grid min-w-0">
         <span className="flex items-center gap-2">
-          <span className="truncate font-medium">{r.label || r.package}</span>
+          <span className="truncate font-medium">{recordingName(r)}</span>
           <RecordingState state={r.state} />
         </span>
         <span className="text-muted-foreground truncate font-mono text-xs">
@@ -35,6 +36,7 @@ export function Title({ r, back }: { r: RecordingView; back: boolean }) {
           {r.reason && <span className="text-destructive"> · {r.reason}</span>}
         </span>
       </div>
+      {rename && <RenameButton recording={r} />}
     </div>
   )
 }
@@ -49,7 +51,7 @@ export function RecordingPage({ source }: { source: ServerRecording }) {
     <div className="flex h-full flex-col overflow-y-auto lg:overflow-hidden">
       {own && r && (
         <HeaderSlot>
-          <Title r={r} back />
+          <Title r={r} back rename />
         </HeaderSlot>
       )}
       {!own && (

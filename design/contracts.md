@@ -487,6 +487,7 @@ keeping the provider in the path is what lets the api stay stateless.
 | `GET` | `/api/v1/recordings/{id}/events` | `{items: [RecordingEvent]}`: every event of the recording in order |
 | `GET` | `/api/v1/recordings/{id}/files/{file}` | a file the manifest lists, `icon.png` or `thumb.jpg`; `.gz` chunks are sent with `Content-Encoding: gzip` |
 | `GET` | `/api/v1/recordings/{id}/logcat.txt` | the whole logcat as one text attachment |
+| `PUT` | `/api/v1/recordings/{id}/name` | the owner; `{name}` (at most 120 characters, whitespace tidied) → `RecordingView` with `title`; an empty name goes back to the app's |
 | `PUT` | `/api/v1/recordings/{id}/keep` | `{keep}` → `RecordingView`; a kept recording is exempt from `recordings.maxAge`, not from the quota |
 | `POST`, `DELETE` | `/api/v1/recordings/{id}/share` | make (or return the existing) share link, or turn it off → `RecordingView`; 403 when `recordings.share` is off |
 | `DELETE` | `/api/v1/recordings/{id}` | → 204; the caller's own recordings only |

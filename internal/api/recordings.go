@@ -61,6 +61,7 @@ type recordingMeta struct {
 	Package     string    `json:"package"`
 	ArtifactRef string    `json:"artifactRef"`
 	Label       string    `json:"label,omitempty"`
+	Title       string    `json:"title,omitempty"`
 	VersionName string    `json:"versionName,omitempty"`
 	VersionCode int32     `json:"versionCode,omitempty"`
 	Location    string    `json:"location,omitempty"`
@@ -647,6 +648,7 @@ type RecordingView struct {
 	Owner        string          `json:"owner,omitempty"`
 	Package      string          `json:"package"`
 	Label        string          `json:"label,omitempty"`
+	Title        string          `json:"title,omitempty" doc:"the name the owner gave the recording, shown instead of the app's"`
 	VersionName  string          `json:"versionName,omitempty"`
 	VersionCode  int32           `json:"versionCode,omitempty"`
 	Source       string          `json:"source"`
@@ -694,7 +696,7 @@ func (s *Server) recordingView(ctx context.Context, e *recordingEntry, base stri
 	m := e.meta
 	srcName, key, rev := splitRef(m.ArtifactRef)
 	v := RecordingView{
-		ID: m.ID, Package: m.Package, Label: m.Label, VersionName: m.VersionName, VersionCode: m.VersionCode,
+		ID: m.ID, Package: m.Package, Label: m.Label, Title: m.Title, VersionName: m.VersionName, VersionCode: m.VersionCode,
 		Source: srcName, ArtifactID: encodeID(key), Provider: m.Provider, Session: m.Session,
 		Location: m.Location, WebView: m.WebView, State: s.recordingStatus(e), CreatedAt: m.CreatedAt,
 		FilesURL: base + "files/", LogcatURL: base + "logcat.txt", LogcatLogURL: base + "logcat.log", ExportURL: base + "export", Keep: e.keep,
@@ -824,6 +826,13 @@ type sharePath struct {
 	Token string `path:"token"`
 }
 
+type renameInput struct {
+	ID   string `path:"id"`
+	Body struct {
+		Name string `json:"name" maxLength:"120"`
+	}
+}
+
 type keepInput struct {
 	ID   string `path:"id"`
 	Body struct {
@@ -904,6 +913,24 @@ func (s *Server) registerRecordings(api huma.API) {
 	})
 
 	s.registerMarkers(api)
+
+	huma.Register(api, huma.Operation{
+		OperationID: "renameRecording", Method: http.MethodPut, Path: "/api/v1/recordings/{id}/name", Tags: tags,
+		Description: "Names the recording; an empty name goes back to the app's.",
+	}, func(ctx context.Context, in *renameInput) (*out[RecordingView], error) {
+		ev := audit.Event{Action: audit.RecordingRename, Details: map[string]string{"recording": in.ID}}
+		e, err := s.ownRecording(ctx, in.ID)
+		if err == nil {
+			ev.Artifact, ev.Session = e.meta.ArtifactRef, e.meta.Session
+			e.meta.Title = strings.Join(strings.Fields(in.Body.Name), " ")
+			err = s.writeRecordingMeta(ctx, e.meta)
+		}
+		s.emitResult(ctx, ev, err)
+		if err != nil {
+			return nil, httpError(err)
+		}
+		return &out[RecordingView]{s.recordingView(ctx, e, ownBase(in.ID))}, nil
+	})
 
 	huma.Register(api, huma.Operation{
 		OperationID: "keepRecording", Method: http.MethodPut, Path: "/api/v1/recordings/{id}/keep", Tags: tags,

@@ -128,6 +128,14 @@ storage as they go and download it at the end. It needs a browser with
 WebCodecs (Chrome, Edge, Safari 17+, Firefox 130+) that can encode a video this
 size.
 
+## Naming
+
+A recording is named after its app. The pencil next to the name, on a
+recording's card and on its page, gives it a name of your own (up to 120
+characters); leaving it empty goes back to the app's. The name shows to
+anyone with the share link, in the `.holtdroid` file and in the video's
+header.
+
 ## Recording files
 
 **Download → Recording file (.holtdroid)** saves everything in one file: the

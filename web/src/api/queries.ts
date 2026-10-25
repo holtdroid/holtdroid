@@ -384,6 +384,12 @@ export function useKeepRecording() {
   )
 }
 
+export function useRenameRecording() {
+  return useRecordingMutation(({ id, name }: { id: string; name: string }) =>
+    unwrap(api.PUT("/api/v1/recordings/{id}/name", { params: { path: { id } }, body: { name } })),
+  )
+}
+
 export function useShareRecording() {
   return useRecordingMutation(({ id, share }: { id: string; share: boolean }) =>
     share

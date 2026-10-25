@@ -153,6 +153,7 @@ while their regular logs go to stderr. Every audit line has
 | `recording.stop`       | `recording`                                                   | Stopped from the session page; stopping the session ends its recording too                                                |
 | `recording.delete`     | `recording`                                                   | Deleted by the user; retention and quota deletions are only logged                                                        |
 | `recording.marker`     | `recording`                                                   | A marker was pinned from the session page                                                                                 |
+| `recording.rename`     | `recording`                                                   | The owner gave it a name                                                                                                  |
 | `recording.share`      | `recording`                                                   | A share link was made                                                                                                     |
 | `recording.unshare`    | `recording`                                                   |                                                                                                                           |
 | `adb.connect`          |                                                               | The session page's ADB connection; denied per `adb.browser` / `adb.ownerOnly`                                             |

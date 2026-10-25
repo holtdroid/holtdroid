@@ -5,6 +5,7 @@ import { toast } from "sonner"
 import type { RecordingView } from "@/api/client"
 import { useDeleteRecording, useKeepRecording, useRecordings, useShareRecording } from "@/api/queries"
 import { AppIcon } from "@/components/app-icon"
+import { recordingName, RenameButton } from "@/components/recording/rename-button"
 import { RecordingState } from "@/components/recording/recording-state"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -148,7 +149,9 @@ function RecordingCard({ recording: r, now, canShare }: { recording: RecordingVi
         <div className="flex min-w-0 items-center gap-2">
           <AppIcon src={r.iconUrl} className="size-7" />
           <div className="grid min-w-0">
-            <span className="truncate text-sm font-medium">{r.label || r.package}</span>
+            <span className="truncate text-sm font-medium" title={recordingName(r)}>
+              {recordingName(r)}
+            </span>
             <span className="text-muted-foreground truncate font-mono text-xs">
               {r.versionName ? `${r.versionName} · ` : ""}
               {formatBytes(r.size)}
@@ -196,6 +199,7 @@ function RecordingCard({ recording: r, now, canShare }: { recording: RecordingVi
               Stop sharing
             </Button>
           )}
+          <RenameButton recording={r} />
           <Button
             variant="ghost"
             size="icon-sm"
@@ -212,7 +216,7 @@ function RecordingCard({ recording: r, now, canShare }: { recording: RecordingVi
           <DialogHeader>
             <DialogTitle>Delete this recording?</DialogTitle>
             <DialogDescription>
-              {r.label || r.package}, recorded {formatRelative(r.createdAt, now)}. Its share link stops working. This
+              {recordingName(r)}, recorded {formatRelative(r.createdAt, now)}. Its share link stops working. This
               can&apos;t be undone.
             </DialogDescription>
           </DialogHeader>

@@ -435,3 +435,54 @@ func TestRecordingShorterThanTheMinimumIsDropped(t *testing.T) {
 		t.Fatalf("a short recording with a marker should stay: %+v", items)
 	}
 }
+
+func TestRenameRecording(t *testing.T) {
+	h := newRecordingHarness(t, nil)
+	r := h.record("alice", nil)
+	if r.Title != "" || r.Label == "" {
+		t.Fatalf("a fresh recording: %+v", r)
+	}
+	put := func(user, name string) *httptest.ResponseRecorder {
+		return h.do(http.MethodPut, "/api/v1/recordings/"+r.ID+"/name", user, "", map[string]string{"name": name})
+	}
+
+	rec := put("alice", "  Checkout   crash \n on Pixel ")
+	if got := decode[RecordingView](t, rec); rec.Code != http.StatusOK || got.Title != "Checkout crash on Pixel" || got.Label != r.Label {
+		t.Fatalf("rename: %d %s", rec.Code, rec.Body.String())
+	}
+	if items := h.recordings("alice").Items; len(items) != 1 || items[0].Title != "Checkout crash on Pixel" {
+		t.Fatalf("in the list: %+v", items)
+	}
+	if rec := put("bob", "mine"); rec.Code != http.StatusNotFound {
+		t.Fatalf("bob renames alice's recording: %d", rec.Code)
+	}
+	if rec := put("alice", strings.Repeat("x", 121)); rec.Code < 400 {
+		t.Fatalf("a too long name was taken: %d", rec.Code)
+	}
+
+	token := decode[RecordingView](t, h.do(http.MethodPost, "/api/v1/recordings/"+r.ID+"/share", "alice", "", nil)).Share.Token
+	if shared := decode[RecordingDetail](t, h.do(http.MethodGet, "/api/v1/shared/"+token, "", "", nil)); shared.Recording.Title != "Checkout crash on Pixel" {
+		t.Fatalf("a share link shows %q", shared.Recording.Title)
+	}
+	archive := h.do(http.MethodGet, r.ExportURL, "alice", "", nil).Body.Bytes()
+	zr, err := zip.NewReader(bytes.NewReader(archive), int64(len(archive)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range zr.File {
+		if f.Name != "holtdroid.json" {
+			continue
+		}
+		rc, _ := f.Open()
+		var meta bundleMeta
+		_ = json.NewDecoder(rc).Decode(&meta)
+		rc.Close()
+		if meta.Recording.Title != "Checkout crash on Pixel" {
+			t.Fatalf("the archive has %q", meta.Recording.Title)
+		}
+	}
+
+	if got := decode[RecordingView](t, put("alice", "   ")); got.Title != "" {
+		t.Fatalf("an empty name should go back to the app's: %+v", got)
+	}
+}

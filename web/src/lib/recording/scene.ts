@@ -52,7 +52,14 @@ export function sceneLayout(manifest: Pick<RecordingManifest, "epochs">): SceneL
   }
 }
 
-export type SceneApp = { title: string; subtitle: string; version?: string; icon?: HTMLImageElement | null }
+export type SceneApp = {
+  title: string
+  subtitle: string
+  version?: string
+  icon?: HTMLImageElement | null
+  /** the name the owner gave the recording */
+  recordingTitle?: string
+}
 
 export type SceneInput = {
   t: number
@@ -414,7 +421,7 @@ function drawInfo(
   }
 }
 
-function drawHeader(ctx: Ctx, layout: SceneLayout) {
+function drawHeader(ctx: Ctx, layout: SceneLayout, title?: string) {
   const size = 34
   const base = headerH / 2 + 8
   if (logoImage && logoImage.complete && logoImage.naturalWidth > 0) {
@@ -427,7 +434,16 @@ function drawHeader(ctx: Ctx, layout: SceneLayout) {
   ctx.arc(pad + size + 12 + word + 18, base - 6, 3, 0, Math.PI * 2)
   ctx.fillStyle = md.primary
   ctx.fill()
-  text(ctx, "Android test session", pad + size + 12 + word + 30, base - 1, 15, md.outline)
+  const room = layout.logicalW - pad * 2 - size - word - 330
+  font(ctx, 15)
+  text(
+    ctx,
+    ellipsize(ctx, title || "Android test session", room),
+    pad + size + 12 + word + 30,
+    base - 1,
+    15,
+    title ? md.onSurface : md.outline,
+  )
   ctx.textAlign = "right"
   text(ctx, "github.com/holtdroid/holtdroid", layout.logicalW - pad, base - 1, 14, md.outlineVariant)
   ctx.textAlign = "left"
@@ -440,7 +456,7 @@ export function drawScene(ctx: Ctx, input: SceneInput) {
   ctx.textAlign = "left"
   ctx.fillStyle = md.surface
   ctx.fillRect(0, 0, layout.logicalW + 4, layout.logicalH + 4)
-  drawHeader(ctx, layout)
+  drawHeader(ctx, layout, input.app.recordingTitle)
   const h = layout.logicalH - headerH - pad
   const summary = summarize({
     t: input.t,
