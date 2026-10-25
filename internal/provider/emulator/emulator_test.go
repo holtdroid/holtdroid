@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -549,5 +550,26 @@ func TestInstall(t *testing.T) {
 	}
 	if again, _ := p.Get(t.Context(), s.ID); again.ArtifactRef != next.ArtifactRef {
 		t.Fatalf("a failed install must keep the recorded build: %s", again.ArtifactRef)
+	}
+}
+
+func TestFillOrder(t *testing.T) {
+	p := newProvider(t, cluster(), func(c *Config) {
+		c.SlotsPerNode = 2
+		c.Tolerations = []Toleration{{Key: "dedicated", Operator: "Exists"}}
+		c.Nodes = map[string]Node{"core": {Slots: 3}}
+		c.FillOrder = []string{"core", "core", "k3s-1", "k3s-2", "core", "k3s-9", "k3s-2", "core"}
+	})
+	c, err := p.Capacity(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, s := range c.Slots {
+		got = append(got, s.ID)
+	}
+	want := []string{"core-1", "core-2", "k3s-1-1", "k3s-2-1", "core-3", "k3s-2-2", "k3s-1-2", "k3s-3-1", "k3s-3-2"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("order %v, want %v", got, want)
 	}
 }

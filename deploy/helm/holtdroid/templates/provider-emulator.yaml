@@ -20,6 +20,7 @@
   "namespace" .Release.Namespace
   "slots" $e.slots
   "slotsPerNode" $e.slotsPerNode
+  "fillOrder" $e.fillOrder
   "nodeSelector" (join "," $selector)
   "tolerations" $e.tolerations
   "image" $sessionImage

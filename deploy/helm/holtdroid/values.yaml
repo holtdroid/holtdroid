@@ -100,6 +100,12 @@ providers:
     slots: 0
     # Sessions per node, unless nodes.<name>.slots says otherwise.
     slotsPerNode: 1
+    # The order free slots are handed out in: one node name per slot, the
+    # nth occurrence of a node being its slot n, e.g. [core, core, k3s-1,
+    # k3s-2, k3s-3, core, core, core, core] fills two slots on core, then one
+    # on each k3s node, then the rest of core. Slots a node has beyond its
+    # occurrences follow, ordered by node name. Empty: ordered by node name.
+    fillOrder: []
     # Nodes that may run sessions; they need binder (CONFIG_ANDROID_BINDERFS)
     # and a GPU with a Mesa driver (/dev/dri/renderD128).
     nodeSelector: {}

@@ -2331,3 +2331,28 @@ images exist per Android major version.
 bandwidth; the default stays HD+. A screen is fixed for the session (density
 still changes in the Display controls). Each extra Android version is one
 more ~1.5 GB image on every session node.
+
+## 85. Sessions fill nodes in a configured order, core included
+
+**Context.** #83 kept sessions off `core` because a privileged redroid is
+root on its node and `core` is the NAS. The maintainer then chose to use
+every node: `core` for 6 sessions, each k3s node for 3.
+
+**Decision.** `fillOrder` (provider config, chart `providers.emulator.fillOrder`)
+lists node names, one per slot, in the order free slots are handed out; the
+provider returns its slots in that order and both the api and the provider
+pick the first free one. The maintainer's deployment fills two slots on
+`core`, then one on each k3s node, then the other four on `core`, then the
+k3s nodes' remaining slots. Nodes need no label: with an empty
+`nodeSelector` every node the provider tolerates is used, `core` through the
+`dedicated=nas` toleration, and a node's slots come from `nodes.<name>.slots`
+or `slotsPerNode`.
+
+**Consequences.** `core` now runs privileged Android next to the NAS. What
+reduces the risk is #83 (egress policy, the sysctl guard in the image,
+no Terminal by default, spawn gating off) and a lower memory limit for
+sessions on `core` (2.5 GiB instead of 3, so six of them can't take the
+node's memory from the NAS); it does not remove it: a vulnerability in an
+app under test that reaches root in Android reaches `core`. A new node
+joins the pool with `slotsPerNode` slots, ordered by name after the
+`fillOrder` entries.

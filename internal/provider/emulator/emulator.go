@@ -41,7 +41,11 @@ type Config struct {
 	Slots        int
 	SlotsPerNode int
 	NodeSelector string
-	Tolerations  []Toleration
+	// FillOrder lists node names, one per slot: the nth occurrence of a node
+	// is its slot n, and free slots are handed out in this order. Slots a
+	// node has beyond its occurrences follow, ordered by node name.
+	FillOrder   []string
+	Tolerations []Toleration
 	// Image is the session image with the agent; Android runs from Redroid.
 	Image            string
 	ImagePullPolicy  string
@@ -346,22 +350,21 @@ func (p *Provider) capacity(ctx context.Context) (snapshot, error) {
 	slices.SortFunc(eligible, func(a, b corev1.Node) int { return cmp.Compare(a.Name, b.Name) })
 	c := contract.Capacity{Slots: []contract.Slot{}}
 	var slotNodes []corev1.Node
-	for _, n := range eligible {
-		for i := range p.slotsOn(n.Name) {
-			if p.cfg.Slots > 0 && len(c.Slots) == p.cfg.Slots {
-				break
-			}
-			id := slotID(n.Name, i+1)
-			state := contract.SlotFree
-			switch {
-			case busy[id]:
-				state = contract.SlotBusy
-			case n.Spec.Unschedulable || !nodeReady(n):
-				state = contract.SlotOffline
-			}
-			c.Slots = append(c.Slots, contract.Slot{ID: id, Label: id, State: state})
-			slotNodes = append(slotNodes, n)
+	for _, e := range p.slotOrder(eligible) {
+		if p.cfg.Slots > 0 && len(c.Slots) == p.cfg.Slots {
+			break
 		}
+		n := e.node
+		id := slotID(n.Name, e.n)
+		state := contract.SlotFree
+		switch {
+		case busy[id]:
+			state = contract.SlotBusy
+		case n.Spec.Unschedulable || !nodeReady(n):
+			state = contract.SlotOffline
+		}
+		c.Slots = append(c.Slots, contract.Slot{ID: id, Label: id, State: state})
+		slotNodes = append(slotNodes, n)
 	}
 	held.Apply(&c)
 	return snapshot{c, pods, slotNodes}, nil
@@ -375,6 +378,36 @@ func (p *Provider) slotsOn(node string) int {
 }
 
 func slotID(node string, i int) string { return node + "-" + strconv.Itoa(i) }
+
+type slotEntry struct {
+	node corev1.Node
+	n    int
+}
+
+// slotOrder lists every slot of the nodes in the order sessions fill them:
+// FillOrder first, then the remaining slots by node name.
+func (p *Provider) slotOrder(nodes []corev1.Node) []slotEntry {
+	byName := map[string]corev1.Node{}
+	have := map[string]int{}
+	for _, n := range nodes {
+		byName[n.Name] = n
+		have[n.Name] = p.slotsOn(n.Name)
+	}
+	var out []slotEntry
+	used := map[string]int{}
+	for _, name := range p.cfg.FillOrder {
+		if n, ok := byName[name]; ok && used[name] < have[name] {
+			used[name]++
+			out = append(out, slotEntry{n, used[name]})
+		}
+	}
+	for _, n := range nodes {
+		for i := used[n.Name] + 1; i <= have[n.Name]; i++ {
+			out = append(out, slotEntry{n, i})
+		}
+	}
+	return out
+}
 
 func (p *Provider) tolerates(n corev1.Node) bool {
 	tolerations := p.tolerations()
