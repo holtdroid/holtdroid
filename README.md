@@ -35,6 +35,9 @@ make build && ./bin/holtdroid dev --apks ~/Downloads
 - **Dense, ARM-capable devices.** Android 15 runs in redroid containers on
   the node's kernel, several per node, with ARM translation from Google's
   x86_64 images for ARM-only builds.
+- **Any WebView version.** Start a device with a Chromium WebView build of
+  the milestone you need, synced from Chromium's snapshots, instead of the
+  one built into Android.
 - **Per-session VPN.** Each device egresses through its own sing-box sidecar;
   switch country from the UI.
 - **Sign-in your way.** Anonymous animal names, one shared password, OIDC,

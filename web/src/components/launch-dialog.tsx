@@ -222,6 +222,9 @@ function LaunchFlow({ artifact, onClose }: { artifact: ArtifactView; onClose: ()
                         <div className="text-muted-foreground text-xs tabular-nums">
                           {s.width}×{s.height} · {s.dpi} dpi
                         </div>
+                        <div className="text-muted-foreground text-xs tabular-nums">
+                          {Math.round((s.width * 160) / s.dpi)}×{Math.round((s.height * 160) / s.dpi)} CSS px
+                        </div>
                         {s.like && <div className="text-muted-foreground mt-0.5 line-clamp-2 text-xs">{s.like}</div>}
                       </div>
                     </ChoiceCard>

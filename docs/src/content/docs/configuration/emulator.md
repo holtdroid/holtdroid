@@ -164,6 +164,9 @@ presets, used when `redroid.screens` is empty:
 | `fhd`         | 1080×2400 (6.1–6.7″ FHD+)        | 420     | `hole` | Pixel 6a–8a, Moto G54, Realme C67 |
 | `fhd-tall`    | 1080×2460 (6.8″ FHD+)            | 420     | `hole` | Infinix Hot 40                    |
 | `1.5k`        | 1220×2712 (6.7″ 1.5K)            | 480     | `hole` | Redmi Note 13 Pro, Poco X6        |
+| `classic`     | 1080×1920 (360×640 CSS px)       | 480     | none   | Galaxy S5, Nexus 5X, Moto G4      |
+| `compact`     | 720×1440 (360×720 CSS px)        | 320     | none   | Redmi 6A, Galaxy J4+              |
+| `flat`        | 1080×2400 (6.5″)                 | 420     | none   | Under-display camera, sliders     |
 | `tablet`      | 1200×1920 (11″)                  | 240     | none   | Galaxy Tab A9+                    |
 
 Streaming a bigger screen costs more CPU in the session (about one core for

@@ -21,6 +21,9 @@ func DefaultScreens() []contract.Display {
 		{ID: "fhd", Label: "FHD+ 20:9", Like: "Pixel 6a–8a, Moto G54, Realme C67", Width: 1080, Height: 2400, DPI: 420, Cutout: "hole"},
 		{ID: "fhd-tall", Label: "FHD+ tall", Like: "Infinix Hot 40", Width: 1080, Height: 2460, DPI: 420, Cutout: "hole"},
 		{ID: "1.5k", Label: "1.5K", Like: "Redmi Note 13 Pro, Poco X6", Width: 1220, Height: 2712, DPI: 480, Cutout: "hole"},
+		{ID: "classic", Label: "Classic 16:9", Like: "Galaxy S5, Nexus 5X, Moto G4 · 360×640 CSS px", Width: 1080, Height: 1920, DPI: 480, Cutout: "none"},
+		{ID: "compact", Label: "Compact 18:9", Like: "Redmi 6A, Galaxy J4+", Width: 720, Height: 1440, DPI: 320, Cutout: "none"},
+		{ID: "flat", Label: "FHD+ flat", Like: "Under-display camera and slider phones", Width: 1080, Height: 2400, DPI: 420, Cutout: "none"},
 		{ID: "tablet", Label: "Tablet", Like: "Galaxy Tab A9+", Width: 1200, Height: 1920, DPI: 240, Cutout: "none"},
 	}
 }

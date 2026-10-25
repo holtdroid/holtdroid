@@ -28,7 +28,7 @@ export function PhonePreview({
 }) {
   const id = useId()
   const w = Math.round((H * width) / height)
-  const tablet = width / height > 0.55
+  const tablet = width / height > 0.6
   const r = tablet ? 6 : 10
   const mid = w / 2
   return (
