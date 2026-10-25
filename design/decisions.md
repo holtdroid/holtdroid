@@ -2926,3 +2926,28 @@ road's speed, and turns are as sharp as the shape. The public server limits
 the path length (1500 km for driving) and the rate; heavy users should run
 their own. The api needs outbound HTTPS to it, like the map tiles.
 
+## 100. GPS routes speed up, slow down and drift
+
+**Context.** A device that jumps to full speed, takes a right angle at 50
+km/h and stops dead looks fake to any app that derives speed from its
+positions, and decision #98 moved at exactly `speed` all the way.
+
+**Decision.** `speed` is now the cruising speed. `contract.Motion` samples
+the path every ~2 m (at most 20 000 samples) and sets a target speed per
+sample: the cruising speed with a slow drift of two sine waves (±7% walking
+to ±12% driving, wavelengths of about 20 and 47 seconds of travel), reduced
+for the heading change over the 2.5 seconds of travel before and after the
+sample (a right angle takes a car to about a quarter of its speed, a walker
+to 85%). A forward and a backward pass limit the change between samples to
+an acceleration of 0.25 + 0.1·speed m/s² (0.4 walking, 1.6 driving), from
+and to a crawl at the ends of a route without loop; a loop makes the drift
+periodic over its length and starts at cruising speed. The samples are
+integrated into the time each is reached, so the position after t seconds is
+still a pure function of the route and t, shared by the agent and the fake
+provider. `DeviceState.route` adds `currentSpeed` and `duration`.
+
+**Consequences.** A pass takes a little longer than length/speed (5% for a
+car on a route with one corner, under 1% walking). The `Location` still has
+no speed field (decision #98); the speed only shows in how fast the position
+moves. Road speed limits and stops at junctions are not modelled.
+

@@ -51,7 +51,8 @@ export function RouteControl({
       <div className="flex items-center gap-2 text-sm">
         <RouteIcon className="text-muted-foreground size-4" />
         <span className="min-w-0 flex-1 truncate">
-          {route.moving ? m.label : "Arrived"} · {formatDistance(route.travelled)} of {formatDistance(route.length)}
+          {route.moving ? `${m.label} · ${Math.round(route.currentSpeed * 3.6)} km/h` : "Arrived"} ·{" "}
+          {formatDistance(route.travelled)} of {formatDistance(route.length)}
           {route.loop && " (loop)"}
         </span>
         <Button size="xs" variant="outline" disabled={busy} onClick={() => set({ stopRoute: true })}>

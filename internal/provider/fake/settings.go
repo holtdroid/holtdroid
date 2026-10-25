@@ -119,7 +119,7 @@ func (d *device) UpdateDevice(_ context.Context, in contract.DeviceSettings) (co
 		case in.Route != nil:
 			r := *in.Route
 			r.Points = slices.Clone(r.Points)
-			d.route, d.routeFrom, s.GeoOverride = &r, d.clock(), true
+			d.route, d.routeFrom, s.GeoOverride = r.Motion(), d.clock(), true
 		}
 		set(&s.AutoTime, in.AutoTime)
 		switch {

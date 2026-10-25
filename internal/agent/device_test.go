@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -419,10 +420,13 @@ func TestControlsRoute(t *testing.T) {
 	if _, err := c.Update(ctx, contract.DeviceSettings{Route: &route}); err != nil {
 		t.Fatal(err)
 	}
+	motion := route.Motion()
 	mu.Lock()
-	now = start.Add(time.Duration(contract.Distance(route.Points[0], route.Points[1])/20*1e9) * time.Nanosecond)
+	now = start.Add(time.Duration(motion.Duration() / 2 * float64(time.Second)))
 	mu.Unlock()
-	halfway := "cmd location providers set-test-provider-location gps --location 0.0000000,0.0050000 && cmd location providers set-test-provider-location network --location 0.0000000,0.0050000"
+	want, wantState := motion.State(motion.Duration() / 2)
+	loc := strconv.FormatFloat(want.Latitude, 'f', 7, 64) + "," + strconv.FormatFloat(want.Longitude, 'f', 7, 64)
+	halfway := "cmd location providers set-test-provider-location gps --location " + loc + " && cmd location providers set-test-provider-location network --location " + loc
 	waitFor(t, func() bool {
 		dev.mu.Lock()
 		defer dev.mu.Unlock()
@@ -432,7 +436,7 @@ func TestControlsRoute(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if s.Route == nil || !s.Route.Moving || math.Abs(s.Route.Travelled-s.Route.Length/2) > 1 || !s.GeoOverride {
+	if s.Route == nil || !s.Route.Moving || math.Abs(s.Route.Travelled-wantState.Travelled) > 1e-6 || s.Route.CurrentSpeed <= 0 || !s.GeoOverride {
 		t.Fatalf("state while moving = %+v", s.Route)
 	}
 	if _, err := c.Update(ctx, contract.DeviceSettings{StopRoute: true}); err != nil {
@@ -445,7 +449,7 @@ func TestControlsRoute(t *testing.T) {
 	s, _ = c.State(ctx)
 	dev.mu.Lock()
 	defer dev.mu.Unlock()
-	if s.Route != nil || !s.GeoOverride || s.Geo == nil || math.Abs(s.Geo.Longitude-0.005) > 1e-6 || len(dev.cmds) != n {
+	if s.Route != nil || !s.GeoOverride || s.Geo == nil || math.Abs(s.Geo.Longitude-want.Longitude) > 1e-6 || len(dev.cmds) != n {
 		t.Fatalf("after stop: route %+v geo %+v, %d more commands", s.Route, s.Geo, len(dev.cmds)-n)
 	}
 }

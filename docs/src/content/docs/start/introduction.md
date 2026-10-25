@@ -102,7 +102,8 @@ hybrid apps, support engineers reproducing a customer bug.
      location unless you override it with a click on the map, a city,
      coordinates or your own position. **Move along a route** walks, runs or
      drives the device through points you click on the map, along roads
-     (or in straight lines) and optionally in a loop; it keeps going until you stop it, even
+     (or in straight lines) and optionally in a loop, speeding up, slowing for
+     turns and drifting around the chosen pace; it keeps going until you stop it, even
      with the tab closed. Apps see the position move but no speed or
      bearing.
 

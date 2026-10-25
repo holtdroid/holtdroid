@@ -200,7 +200,7 @@ func (c *Controls) State(ctx context.Context) (contract.DeviceState, error) {
 		s.Geo = c.geo
 		s.GeoOverride = c.geoOverride
 		if r := c.route; r != nil {
-			_, st := r.route.State(c.now().Sub(r.start).Seconds())
+			_, st := r.motion.State(c.now().Sub(r.start).Seconds())
 			st.Points = slices.Clone(st.Points)
 			s.Route = &st
 		}
@@ -523,7 +523,7 @@ func (c *Controls) setGeoRoot(ctx context.Context, geo *contract.GeoPoint) error
 }
 
 type routeRun struct {
-	route  contract.GeoRoute
+	motion *contract.Motion
 	start  time.Time
 	cancel context.CancelFunc
 }
@@ -537,7 +537,7 @@ func (c *Controls) startRoute(ctx context.Context, route contract.GeoRoute) erro
 		return err
 	}
 	runCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
-	run := &routeRun{route: route, start: c.now(), cancel: cancel}
+	run := &routeRun{motion: route.Motion(), start: c.now(), cancel: cancel}
 	c.mu.Lock()
 	c.route, c.geoOverride = run, true
 	c.mu.Unlock()
@@ -566,7 +566,7 @@ func (c *Controls) drive(ctx context.Context, run *routeRun) {
 			return
 		case <-t.C:
 		}
-		pt, st := run.route.State(c.now().Sub(run.start).Seconds())
+		pt, st := run.motion.State(c.now().Sub(run.start).Seconds())
 		c.geoMu.Lock()
 		if ctx.Err() == nil {
 			if err := c.moveGeoRoot(ctx, pt); err != nil {

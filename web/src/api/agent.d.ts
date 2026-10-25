@@ -614,11 +614,21 @@ export interface components {
             points: components["schemas"]["GeoPoint"][];
             /**
              * Format: double
-             * @description metres per second
+             * @description cruising speed in metres per second; the device speeds up, slows down for turns and drifts around it
              */
             speed: number;
         };
         GeoRouteState: {
+            /**
+             * Format: double
+             * @description metres per second right now
+             */
+            currentSpeed: number;
+            /**
+             * Format: double
+             * @description seconds one pass takes
+             */
+            duration: number;
             /**
              * Format: double
              * @description metres of one pass, back to the first point included with loop
@@ -631,7 +641,7 @@ export interface components {
             points: components["schemas"]["GeoPoint"][];
             /**
              * Format: double
-             * @description metres per second
+             * @description cruising speed in metres per second; the device speeds up, slows down for turns and drifts around it
              */
             speed: number;
             /**

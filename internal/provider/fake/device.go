@@ -33,7 +33,7 @@ type device struct {
 	settings  contract.DeviceState
 	unmuteTo  int
 	now       func() time.Time
-	route     *contract.GeoRoute
+	route     *contract.Motion
 	routeFrom time.Time
 	subs      map[chan struct{}]struct{}
 	done      chan struct{}
