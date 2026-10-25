@@ -232,6 +232,7 @@ the portal and download them as a video (decision #96).
 - [x] Tests: recorder (segments start with key frames, epochs, chunks, quota), api end to end with the fake provider (record, share, keep, retention, quota, on demand, upload secret), web timeline helpers
 - [x] Taps, swipes and navigation keys of the viewer in the events, drawn over the screen in the player and the video
 - [x] The video download: 1296 px tall, wider for landscape and tablets with a turning phone body, the logo in a header, written straight to a file the user picks
+- [x] Recording modes (always, auto, manual), the session page's recording card with markers, markers on the timeline, the coloured `.log` logcat
 - [ ] Sound in recordings, sharing one audio capture with viewers
 - [x] Logcat in the player as selectable HTML with level and text filters, click to seek, hold while selecting; stats as HTML cards in an Android look, the video download keeps the canvas scene in the same style
 - [ ] Logcat filter for the app's own processes in the player

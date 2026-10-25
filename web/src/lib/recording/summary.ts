@@ -5,7 +5,12 @@ import { clock, type Snapshot } from "@/lib/recording/timeline"
 
 export type Tone = "warn" | "bad"
 export type Row = { label: string; value: string; tone?: Tone }
-export type Tile = { id: "wifi" | "mobile" | "airplane" | "saver" | "dark"; label: string; on: boolean; tone?: Tone }
+export type Tile = {
+  id: "wifi" | "mobile" | "airplane" | "saver" | "dark"
+  label: string
+  on: boolean
+  tone?: Tone
+}
 export type Block = {
   label: string
   value: string
@@ -184,15 +189,15 @@ export function summarize(input: SummaryInput): Summary {
     tiles: device
       ? [
           { id: "wifi", label: "Wi-Fi", on: device.wifi },
-          { id: "mobile", label: "Mobile data", on: device.mobileData },
+          { id: "mobile", label: "Mobile", on: device.mobileData },
           {
             id: "airplane",
             label: "Airplane",
             on: device.airplaneMode,
             tone: device.airplaneMode ? "warn" : undefined,
           },
-          { id: "saver", label: "Battery Saver", on: device.batterySaver },
-          { id: "dark", label: "Dark theme", on: device.darkMode },
+          { id: "saver", label: "Saver", on: device.batterySaver },
+          { id: "dark", label: "Dark", on: device.darkMode },
         ]
       : [],
     device: [

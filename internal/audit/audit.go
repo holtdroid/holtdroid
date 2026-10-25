@@ -53,6 +53,7 @@ const (
 	RecordingStart   Action = "recording.start"
 	RecordingStop    Action = "recording.stop"
 	RecordingDelete  Action = "recording.delete"
+	RecordingMarker  Action = "recording.marker"
 	RecordingShare   Action = "recording.share"
 	RecordingUnshare Action = "recording.unshare"
 	Maintenance      Action = "provider.maintenance"

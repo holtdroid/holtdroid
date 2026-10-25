@@ -347,6 +347,12 @@ func (a *AgentClient) ExportAppData(ctx context.Context, req AppDataExport) (App
 	return AppDataInfo{Size: size, Cache: cache}, resp.Body, nil
 }
 
+func (a *AgentClient) Recording(ctx context.Context) (RecordingState, error) {
+	var r RecordingState
+	err := a.c.do(ctx, http.MethodGet, "/v1/recording", nil, &r)
+	return r, err
+}
+
 func (a *AgentClient) StartRecording(ctx context.Context, target RecordingTarget) (RecordingState, error) {
 	var r RecordingState
 	err := a.c.do(ctx, http.MethodPost, "/v1/recording", target, &r)

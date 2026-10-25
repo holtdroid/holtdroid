@@ -155,12 +155,12 @@ export function InfoView({ summary: s, iconUrl }: { summary: Summary; iconUrl?: 
       </Card>
 
       {s.tiles.length > 0 && (
-        <div className="grid grid-cols-3 gap-2">
+        <div className="flex gap-2">
           {s.tiles.map((t) => (
             <div
               key={t.id}
               className={cn(
-                "flex min-h-14 items-center gap-2 rounded-[22px] px-3 py-2 text-sm leading-tight [&_svg]:size-4 [&_svg]:shrink-0",
+                "flex min-h-16 min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-[22px] px-1 py-2 text-[13px] leading-tight font-medium [&_svg]:size-[22px] [&_svg]:shrink-0",
                 t.on
                   ? t.tone === "warn"
                     ? "bg-[#4a3a0a] text-[#f2c162]"
@@ -169,7 +169,7 @@ export function InfoView({ summary: s, iconUrl }: { summary: Summary; iconUrl?: 
               )}
             >
               {tileIcons[t.id]}
-              <span>{t.label}</span>
+              <span className="max-w-full truncate">{t.label}</span>
             </div>
           ))}
         </div>

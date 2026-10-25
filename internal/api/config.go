@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"slices"
 	"time"
 
 	"github.com/holtdroid/holtdroid/internal/auth"
@@ -74,11 +75,19 @@ type AppDataConfig struct {
 	Timeout      time.Duration
 }
 
+// Recording modes: every session is recorded and the recording can't be
+// stopped; sessions are recorded unless the launch says no; or only when asked.
+const (
+	RecordAlways = "always"
+	RecordAuto   = "auto"
+	RecordManual = "manual"
+)
+
 // RecordingsConfig controls server-side session recordings (decision #96).
 type RecordingsConfig struct {
 	Enabled       bool
 	Storage       storage.Config
-	Auto          bool
+	Mode          string
 	MaxAge        time.Duration
 	Quota         config.ByteSize
 	Share         bool
@@ -142,7 +151,7 @@ func DefaultConfig() Config {
 			Keep: 6, MaxAge: 7 * 24 * time.Hour, MaxCacheSize: 256 << 20, MaxSize: 1 << 30, Export: true, Timeout: 5 * time.Minute,
 		},
 		Recordings: RecordingsConfig{
-			Auto: true, MaxAge: 7 * 24 * time.Hour, Share: true, MaxFileSize: 64 << 20, SweepInterval: 10 * time.Minute,
+			Mode: RecordAlways, MaxAge: 7 * 24 * time.Hour, Share: true, MaxFileSize: 64 << 20, SweepInterval: 10 * time.Minute,
 		},
 		Map:     MapConfig{URL: "https://tiles.openfreemap.org", Style: "styles/liberty", DarkStyle: "styles/dark"},
 		Routing: RoutingConfig{URL: "https://valhalla1.openstreetmap.de"},
@@ -239,6 +248,9 @@ func (c Config) Validate() error {
 		}
 	}
 	if c.Recordings.Enabled {
+		if !slices.Contains([]string{RecordAlways, RecordAuto, RecordManual}, c.Recordings.Mode) {
+			errs = append(errs, fmt.Errorf("recordings.mode must be %s, %s or %s", RecordAlways, RecordAuto, RecordManual))
+		}
 		if c.Recordings.MaxAge < 0 {
 			errs = append(errs, errors.New("recordings.maxAge must not be negative"))
 		}

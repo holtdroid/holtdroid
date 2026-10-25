@@ -488,6 +488,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/recordings/{id}/markers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Replaces the recording's markers: pins on its timeline. Markers without an id get one. */
+        put: operations["setRecordingMarkers"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/recordings/{id}/share": {
         parameters: {
             query?: never;
@@ -617,6 +634,23 @@ export interface paths {
         post: operations["startSessionRecording"];
         /** @description Stops the session's recording and waits for its last files. */
         delete: operations["stopSessionRecording"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{provider}/{id}/recording/markers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Puts a marker on the session's recording at this moment, by the agent's own clock. */
+        post: operations["addSessionMarker"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1474,6 +1508,14 @@ export interface components {
         InventoryView: {
             providers: components["schemas"]["ProviderInventory"][];
         };
+        Item: {
+            /** @enum {string} */
+            icon?: "pin" | "bug" | "flag" | "star" | "alert" | "check";
+            id?: string;
+            label?: string;
+            /** Format: int64 */
+            t: number;
+        };
         KeepInputBody: {
             keep: boolean;
         };
@@ -1663,6 +1705,8 @@ export interface components {
         RecordingDetail: {
             /** @description absent until the agent uploads its first one */
             manifest?: components["schemas"]["RecordingManifest"];
+            /** @description pins on the timeline */
+            markers: components["schemas"]["RecordingMarker"][];
             recording: components["schemas"]["RecordingView"];
             /** @description opened through a share link */
             shared: boolean;
@@ -1714,8 +1758,6 @@ export interface components {
             webview?: string;
         };
         RecordingList: {
-            /** @description sessions are recorded from their start unless the launch says otherwise */
-            auto: boolean;
             enabled: boolean;
             items: components["schemas"]["RecordingView"][];
             /**
@@ -1723,6 +1765,11 @@ export interface components {
              * @description seconds a recording is kept unless it is kept for longer, 0 for no limit
              */
             maxAge: number;
+            /**
+             * @description always: every session is recorded and it can't be stopped; auto: recorded unless the launch says no; manual: only when asked
+             * @enum {string}
+             */
+            mode: "always" | "auto" | "manual";
             /**
              * Format: int64
              * @description bytes a user's recordings may take, 0 for no limit
@@ -1757,6 +1804,24 @@ export interface components {
             thumbnail?: string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        RecordingMarker: {
+            /** @enum {string} */
+            icon: "pin" | "bug" | "flag" | "star" | "alert" | "check";
+            /** @description empty on a new marker */
+            id: string;
+            label?: string;
+            /**
+             * Format: int64
+             * @description milliseconds since the recording started
+             */
+            t: number;
+        };
+        RecordingMarkers: {
+            items: components["schemas"]["RecordingMarker"][];
+        };
+        RecordingMarkersInput: {
+            items: components["schemas"]["Item"][];
         };
         RecordingSegment: {
             /** Format: int64 */
@@ -1805,6 +1870,8 @@ export interface components {
             keep: boolean;
             label?: string;
             location?: string;
+            /** @description the whole logcat as a .log with ANSI colours by level */
+            logcatLogUrl: string;
             /** @description the whole logcat as one text file */
             logcatUrl: string;
             owner?: string;
@@ -1896,6 +1963,15 @@ export interface components {
             id: string;
             provider: string;
             reverse: components["schemas"]["ReverseTunnel"][];
+        };
+        SessionMarker: {
+            marker: components["schemas"]["RecordingMarker"];
+            recording: string;
+        };
+        SessionMarkerInputBody: {
+            /** @enum {string} */
+            icon?: "pin" | "bug" | "flag" | "star" | "alert" | "check";
+            label?: string;
         };
         SessionView: {
             /**
@@ -3083,6 +3159,41 @@ export interface operations {
             };
         };
     };
+    setRecordingMarkers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordingMarkersInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordingMarkers"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     shareRecording: {
         parameters: {
             query?: never;
@@ -3453,6 +3564,42 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    addSessionMarker: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SessionMarkerInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionMarker"];
+                };
             };
             /** @description Error */
             default: {

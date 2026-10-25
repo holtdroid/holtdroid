@@ -1,6 +1,6 @@
 import { CheckIcon, ClapperboardIcon, DownloadIcon, Loader2Icon } from "lucide-react"
 import { useRef, useState } from "react"
-import type { RecordingManifest, RecordingView } from "@/api/client"
+import type { RecordingManifest, RecordingMarker, RecordingView } from "@/api/client"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -37,12 +37,14 @@ export function BakeDialog({
   manifest,
   telemetry,
   app,
+  markers,
 }: {
   onClose: () => void
   recording: RecordingView
   manifest: RecordingManifest
   telemetry: Telemetry
   app: SceneApp
+  markers: RecordingMarker[]
 }) {
   const [stage, setStage] = useState<Stage>({ kind: "idle" })
   const abort = useRef<AbortController | null>(null)
@@ -67,6 +69,7 @@ export function BakeDialog({
       manifest,
       telemetry,
       app,
+      markers,
       sink,
       signal: ctrl.signal,
       onProgress: ({ canvas, ...p }) => {

@@ -1,4 +1,5 @@
 import {
+  ChevronDownIcon,
   ClapperboardIcon,
   FileTextIcon,
   Link2OffIcon,
@@ -25,10 +26,19 @@ import {
 } from "react"
 import { toast } from "sonner"
 import type { RecordingDetail, RecordingManifest } from "@/api/client"
-import { type RecordingSource, useKeepRecording, useRecordingEvents, useShareRecording } from "@/api/queries"
+import type { RecordingMarker } from "@/api/client"
+import {
+  type RecordingSource,
+  useKeepRecording,
+  useRecordingEvents,
+  useSetMarkers,
+  useShareRecording,
+} from "@/api/queries"
 import { BakeDialog } from "@/components/recording/bake-dialog"
 import { InfoView } from "@/components/recording/info-view"
 import { LogcatView } from "@/components/recording/logcat-view"
+import { MarkerPin, newMarkerId } from "@/components/recording/markers"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { bakingSupported } from "@/lib/recording/bake"
 import { Player } from "@/lib/recording/player"
 import { loadIcon, type SceneApp } from "@/lib/recording/scene"
@@ -91,6 +101,10 @@ export function RecordingPlayer({
   const [gridHeight, setGridHeight] = useState(0)
   const keep = useKeepRecording()
   const share = useShareRecording()
+  const own = source.kind === "own"
+  const markers = detail.markers
+  const saveMarkers = useSetMarkers(r.id)
+  const [editing, setEditing] = useState<string | null>(null)
   const attach = useCallback(
     (c: HTMLCanvasElement | null) => {
       player.attach(c)
@@ -123,12 +137,20 @@ export function RecordingPlayer({
     }
   }
 
+  const setMarkers = (items: RecordingMarker[]) => saveMarkers.mutate(items)
+  const addMarker = () => {
+    const marker: RecordingMarker = { id: newMarkerId(), t: Math.round(state.time), label: "", icon: "pin" }
+    setMarkers([...markers, marker])
+    setEditing(marker.id)
+  }
+
   const onKey = (e: KeyboardEvent) => {
     const tag = (e.target as HTMLElement).tagName
     if (tag === "INPUT" || tag === "TEXTAREA") return
     if (e.key === " " || e.key === "k") player.toggle()
     else if (e.key === "ArrowLeft") void player.seek(state.time - 5000)
     else if (e.key === "ArrowRight") void player.seek(state.time + 5000)
+    else if (e.key === "m" && own) addMarker()
     else return
     e.preventDefault()
   }
@@ -194,6 +216,11 @@ export function RecordingPlayer({
           time={state.time}
           manifest={manifest}
           telemetry={telemetry}
+          markers={markers}
+          editable={own}
+          editing={editing}
+          onEditing={setEditing}
+          onMarkers={setMarkers}
           onSeek={(t) => void player.seek(t)}
         />
         <div className="flex flex-wrap items-center gap-1.5">
@@ -230,8 +257,14 @@ export function RecordingPlayer({
               </button>
             ))}
           </div>
+          {own && (
+            <Tonal className="ml-2" title="Pin this moment on the timeline (M)" onClick={addMarker}>
+              <PinIcon />
+              Marker
+            </Tonal>
+          )}
           <div className="ml-auto flex flex-wrap items-center gap-2">
-            {source.kind === "own" && (
+            {own && (
               <>
                 <Tonal
                   aria-pressed={r.keep}
@@ -269,14 +302,41 @@ export function RecordingPlayer({
                 )}
               </>
             )}
-            <a
-              href={r.logcatUrl}
-              download
-              className="inline-flex h-9 items-center gap-2 rounded-full bg-[#354b3b] px-4 text-sm font-medium text-[#d1e8d5] transition-colors hover:bg-[#3f5946] [&_svg]:size-4"
-            >
-              <FileTextIcon />
-              Logcat
-            </a>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Tonal>
+                  <FileTextIcon />
+                  Logcat
+                  <ChevronDownIcon className="-mr-1 opacity-70" />
+                </Tonal>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                side="top"
+                className="w-64 rounded-2xl border-0 bg-[#262b28] p-1.5 text-[#e0e3de] shadow-2xl ring-1 ring-white/10"
+              >
+                <DropdownMenuItem
+                  asChild
+                  className="gap-0 rounded-xl px-3 py-2 focus:bg-[#313633] focus:text-[#e0e3de]"
+                >
+                  <a href={r.logcatLogUrl} download className="grid gap-0.5">
+                    <span className="text-sm font-medium">Colored .log</span>
+                    <span className="text-xs text-[#8a938c]">
+                      Levels and colours as ANSI, for less -R, bat or an IDE
+                    </span>
+                  </a>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  asChild
+                  className="gap-0 rounded-xl px-3 py-2 focus:bg-[#313633] focus:text-[#e0e3de]"
+                >
+                  <a href={r.logcatUrl} download className="grid gap-0.5">
+                    <span className="text-sm font-medium">Plain text</span>
+                    <span className="text-xs text-[#8a938c]">The same lines without colour codes</span>
+                  </a>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             {!detail.shared && bakingSupported() && (
               <Tonal disabled={r.state === "recording"} onClick={() => setBaking(true)}>
                 <ClapperboardIcon />
@@ -309,6 +369,7 @@ export function RecordingPlayer({
           manifest={manifest}
           telemetry={telemetry}
           app={app}
+          markers={markers}
         />
       )}
     </div>
@@ -320,12 +381,22 @@ function Timeline({
   time,
   manifest,
   telemetry,
+  markers,
+  editable,
+  editing,
+  onEditing,
+  onMarkers,
   onSeek,
 }: {
   duration: number
   time: number
   manifest: RecordingManifest
   telemetry: Telemetry
+  markers: RecordingMarker[]
+  editable: boolean
+  editing: string | null
+  onEditing: (id: string | null) => void
+  onMarkers: (items: RecordingMarker[]) => void
   onSeek: (t: number) => void
 }) {
   const [hover, setHover] = useState<number | null>(null)
@@ -345,7 +416,7 @@ function Timeline({
       aria-valuemin={0}
       aria-valuemax={duration}
       aria-valuenow={time}
-      className="relative h-7 cursor-pointer touch-none select-none"
+      className="relative h-10 cursor-pointer touch-none select-none"
       onPointerDown={(e) => {
         e.currentTarget.setPointerCapture(e.pointerId)
         onSeek(at(e))
@@ -356,7 +427,7 @@ function Timeline({
       }}
       onPointerLeave={() => setHover(null)}
     >
-      <div className="absolute inset-x-0 top-[11px] h-1.5 overflow-hidden rounded-full bg-[#313633]">
+      <div className="absolute inset-x-0 top-[28px] h-1.5 overflow-hidden rounded-full bg-[#313633]">
         {segments.map((s) => (
           <span
             key={s.file}
@@ -370,17 +441,35 @@ function Timeline({
         <span
           key={c.t}
           title={`App closed at ${clock(c.t)}`}
-          className="absolute top-[7px] h-3.5 w-1 -translate-x-1/2 rounded-full bg-[#ffb4ab]"
+          className="absolute top-[24px] h-3.5 w-1 -translate-x-1/2 rounded-full bg-[#ffb4ab]"
           style={{ left: pct(c.t) }}
         />
       ))}
       <span
-        className="absolute top-[5px] h-[18px] w-1 -translate-x-1/2 rounded-full bg-[#78dc9a] shadow-[0_0_0_3px_#1c211e]"
+        className="absolute top-[22px] h-[18px] w-1 -translate-x-1/2 rounded-full bg-[#78dc9a] shadow-[0_0_0_3px_#1c211e]"
         style={{ left: pct(time) }}
       />
+      {markers.map((m) => (
+        <MarkerPin
+          key={m.id}
+          marker={m}
+          left={pct(m.t)}
+          open={editing === m.id}
+          editable={editable}
+          onOpen={(open) => {
+            if (open) onSeek(m.t)
+            onEditing(open ? m.id : null)
+          }}
+          onChange={(next) => onMarkers(markers.map((x) => (x.id === m.id ? next : x)))}
+          onRemove={() => {
+            onEditing(null)
+            onMarkers(markers.filter((x) => x.id !== m.id))
+          }}
+        />
+      ))}
       {hover !== null && (
         <span
-          className="pointer-events-none absolute -top-7 -translate-x-1/2 rounded-lg bg-[#313633] px-2 py-0.5 font-mono text-xs text-[#e0e3de] tabular-nums"
+          className="pointer-events-none absolute -top-8 -translate-x-1/2 rounded-lg bg-[#313633] px-2 py-0.5 font-mono text-xs text-[#e0e3de] tabular-nums"
           style={{ left: pct(hover) }}
         >
           {clock(hover)}

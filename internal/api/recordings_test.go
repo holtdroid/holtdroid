@@ -155,7 +155,7 @@ func TestRecordingQuota(t *testing.T) {
 }
 
 func TestRecordingOnDemand(t *testing.T) {
-	h := newRecordingHarness(t, nil)
+	h := newRecordingHarness(t, func(c *RecordingsConfig) { c.Mode = RecordAuto })
 	rec := h.do(http.MethodPost, "/api/v1/sessions", "alice", "", map[string]any{
 		"source": "local", "artifactId": encodeID("hello.apk"), "provider": "fake", "record": false,
 	})
@@ -218,5 +218,119 @@ func TestRecordingUploadNeedsTheSecret(t *testing.T) {
 	rec := h.do(http.MethodGet, r.ThumbnailURL, "alice", "", nil)
 	if b, _ := io.ReadAll(rec.Body); rec.Code != http.StatusOK || bytes.Equal(b, []byte("x")) {
 		t.Fatalf("thumbnail: %d", rec.Code)
+	}
+}
+
+func TestRecordingAlwaysCannotBeStopped(t *testing.T) {
+	h := newRecordingHarness(t, nil)
+	if l := h.recordings("alice"); l.Mode != RecordAlways {
+		t.Fatalf("the default mode: %q", l.Mode)
+	}
+	rec := h.do(http.MethodPost, "/api/v1/sessions", "alice", "", map[string]any{
+		"source": "local", "artifactId": encodeID("hello.apk"), "provider": "fake", "record": false,
+	})
+	v := decode[SessionView](t, rec)
+	h.waitReady(v.ID)
+	time.Sleep(300 * time.Millisecond)
+	items := h.recordings("alice").Items
+	if len(items) != 1 || (items[0].State != string(contract.RecordingActive) && items[0].State != "pending") {
+		t.Fatalf("the launch's \"record: false\" should be ignored: %+v", items)
+	}
+	if rec := h.do(http.MethodDelete, "/api/v1/sessions/fake/"+v.ID+"/recording", "alice", "", nil); rec.Code != http.StatusForbidden {
+		t.Fatalf("stopping: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := h.do(http.MethodPost, "/api/v1/sessions/fake/"+v.ID+"/recording", "alice", "", nil); rec.Code != http.StatusLocked {
+		t.Fatalf("starting a second one: %d", rec.Code)
+	}
+	h.stop("alice", v.ID)
+	if got := h.recordings("alice").Items; len(got) != 1 || got[0].State != string(contract.RecordingDone) {
+		t.Fatalf("after the session: %+v", got)
+	}
+}
+
+func TestRecordingManualMode(t *testing.T) {
+	h := newRecordingHarness(t, func(c *RecordingsConfig) { c.Mode = RecordManual })
+	if items := func() []RecordingView {
+		v := h.record("alice", nil)
+		return []RecordingView{v}
+	}(); items[0].ID != "" {
+		t.Fatalf("recorded without being asked: %+v", items)
+	}
+	if got := h.record("alice", map[string]any{"record": true}); got.State != string(contract.RecordingDone) {
+		t.Fatalf("asked to record: %+v", got)
+	}
+}
+
+func TestRecordingMarkers(t *testing.T) {
+	h := newRecordingHarness(t, nil)
+	rec := h.do(http.MethodPost, "/api/v1/sessions", "alice", "", map[string]any{
+		"source": "local", "artifactId": encodeID("hello.apk"), "provider": "fake",
+	})
+	v := decode[SessionView](t, rec)
+	h.waitReady(v.ID)
+	time.Sleep(700 * time.Millisecond)
+
+	if rec := h.do(http.MethodPost, "/api/v1/sessions/fake/"+v.ID+"/recording/markers", "bob", "", map[string]any{}); rec.Code != http.StatusForbidden {
+		t.Fatalf("bob marks alice's session: %d", rec.Code)
+	}
+	rec = h.do(http.MethodPost, "/api/v1/sessions/fake/"+v.ID+"/recording/markers", "alice", "", map[string]any{"label": "login screen", "icon": "bug"})
+	added := decode[SessionMarker](t, rec)
+	if rec.Code != http.StatusOK || added.Marker.T < 600 || added.Marker.ID == "" || added.Marker.Icon != "bug" || added.Marker.Label != "login screen" {
+		t.Fatalf("marker: %d %s", rec.Code, rec.Body.String())
+	}
+	h.stop("alice", v.ID)
+
+	detail := decode[RecordingDetail](t, h.do(http.MethodGet, "/api/v1/recordings/"+added.Recording, "alice", "", nil))
+	if len(detail.Markers) != 1 || detail.Markers[0] != added.Marker {
+		t.Fatalf("markers in the recording: %+v", detail.Markers)
+	}
+
+	put := h.do(http.MethodPut, "/api/v1/recordings/"+added.Recording+"/markers", "alice", "", map[string]any{"items": []map[string]any{
+		{"t": 3000, "label": "later", "icon": "flag"},
+		{"id": added.Marker.ID, "t": added.Marker.T, "label": "renamed", "icon": "pin"},
+	}})
+	got := decode[RecordingMarkers](t, put)
+	if put.Code != http.StatusOK || len(got.Items) != 2 || got.Items[0].Label != "renamed" || got.Items[1].T != 3000 || got.Items[1].ID == "" {
+		t.Fatalf("put: %d %s", put.Code, put.Body.String())
+	}
+	if rec := h.do(http.MethodPut, "/api/v1/recordings/"+added.Recording+"/markers", "bob", "", map[string]any{"items": []any{}}); rec.Code != http.StatusNotFound {
+		t.Fatalf("bob edits alice's markers: %d", rec.Code)
+	}
+	if rec := h.do(http.MethodPut, "/api/v1/recordings/"+added.Recording+"/markers", "alice", "", map[string]any{"items": []map[string]any{{"t": 1, "icon": "skull"}}}); rec.Code < 400 {
+		t.Fatalf("an unknown icon was taken: %d", rec.Code)
+	}
+
+	token := decode[RecordingView](t, h.do(http.MethodPost, "/api/v1/recordings/"+added.Recording+"/share", "alice", "", nil)).Share.Token
+	if shared := decode[RecordingDetail](t, h.do(http.MethodGet, "/api/v1/shared/"+token, "", "", nil)); len(shared.Markers) != 2 {
+		t.Fatalf("a share link should show the markers: %+v", shared.Markers)
+	}
+}
+
+func TestRecordingColoredLogcat(t *testing.T) {
+	h := newRecordingHarness(t, nil)
+	r := h.record("alice", nil)
+	plain := h.do(http.MethodGet, r.LogcatURL, "alice", "", nil)
+	colored := h.do(http.MethodGet, r.LogcatLogURL, "alice", "", nil)
+	if plain.Code != http.StatusOK || colored.Code != http.StatusOK {
+		t.Fatalf("logcat: %d %d", plain.Code, colored.Code)
+	}
+	if strings.Contains(plain.Body.String(), "\x1b[") || !strings.Contains(colored.Body.String(), "\x1b[") {
+		t.Fatal("only the .log should carry colours")
+	}
+	if !strings.HasSuffix(colored.Header().Get("Content-Disposition"), "logcat.log\"") {
+		t.Fatalf("name: %v", colored.Header())
+	}
+}
+
+func TestColorLogLine(t *testing.T) {
+	line := "00:01:02.345  10-25 12:00:05.000  1234  1240 E chromium: Uncaught TypeError"
+	got := colorLogLine(line)
+	for _, want := range []string{"\x1b[31mUncaught TypeError", "\x1b[1;31mE\x1b[0m", "\x1b[90m00:01:02.345", "1234 1240"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("%q is missing from %q", want, got)
+		}
+	}
+	if got := colorLogLine("-- 3 lines dropped --"); got != "\x1b[90m-- 3 lines dropped --\x1b[0m" {
+		t.Errorf("an odd line: %q", got)
 	}
 }

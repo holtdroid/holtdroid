@@ -10,6 +10,7 @@ import { DisplayWidget } from "@/components/session/display-widget"
 import { GpsWidget } from "@/components/session/gps-widget"
 import { LanguageWidget } from "@/components/session/language-widget"
 import { NetworkWidget } from "@/components/session/network-widget"
+import { RecordingWidget } from "@/components/session/recording-widget"
 import { widgetWidth } from "@/components/session/shade"
 import { SSHWidget } from "@/components/session/ssh-widget"
 import { StreamWidget } from "@/components/session/stream-widget"
@@ -98,6 +99,9 @@ export function DeviceScreen({
   locations,
   clipboard,
   metrics,
+  recording,
+  recordedAt,
+  manage,
 }: {
   provider: string
   id: string
@@ -106,6 +110,9 @@ export function DeviceScreen({
   locations: Location[]
   clipboard: boolean
   metrics: Metrics[]
+  recording?: string
+  recordedAt?: string
+  manage: boolean
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const supported = screenSupported()
@@ -284,6 +291,7 @@ export function DeviceScreen({
         <BatteryWidget provider={provider} id={id} />
         <LanguageWidget provider={provider} id={id} />
         <TimeWidget provider={provider} id={id} />
+        <RecordingWidget provider={provider} id={id} recording={recording} since={recordedAt} manage={manage} />
         <SSHWidget provider={provider} id={id} />
       </WidgetColumn>
       <div className="grid min-h-0 min-w-0 place-items-center" style={{ containerType: "size" }}>

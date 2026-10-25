@@ -253,7 +253,7 @@ func httpError(err error) error {
 	case errors.Is(err, contract.ErrInvalid):
 		return huma.Error422UnprocessableEntity(err.Error())
 	case errors.Is(err, errForbidden), errors.Is(err, source.ErrReadOnly), errors.Is(err, errUploadsDisabled), errors.Is(err, errDownloadsAdmin),
-		errors.Is(err, errAppDataDisabled), errors.Is(err, errAppDataExport):
+		errors.Is(err, errAppDataDisabled), errors.Is(err, errAppDataExport), errors.Is(err, errRecordAlways), errors.Is(err, errRecordingsDisabled), errors.Is(err, errSharingDisabled):
 		return huma.Error403Forbidden(err.Error())
 	case errors.Is(err, contract.ErrBusy):
 		return huma.Error423Locked(err.Error())

@@ -49,6 +49,7 @@ config:
   # app data, e.g. an S3 prefix.
   recordings:
     enabled: false
+    # mode: always  # always | auto | manual
   # WebView builds a launch can install over the built-in WebView, written by
   # holtdroid-webview-sync (docs: Concepts → WebView versions). Off without a
   # storage type.

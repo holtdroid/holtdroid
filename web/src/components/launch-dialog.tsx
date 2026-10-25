@@ -362,11 +362,11 @@ function LaunchFlow({ artifact, onClose }: { artifact: ArtifactView; onClose: ()
               </Section>
             )}
 
-            {recordings.data?.enabled && (
+            {recordings.data?.enabled && recordings.data.mode !== "always" && (
               <div className="flex items-start gap-2.5">
                 <Switch
                   id="launch-record"
-                  checked={record ?? recordings.data.auto}
+                  checked={record ?? recordings.data.mode === "auto"}
                   onCheckedChange={(v) => {
                     setRecord(v)
                     rememberRecord(v)

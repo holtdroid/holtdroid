@@ -2832,6 +2832,22 @@ pass a recording to someone without an account.
   `files/<user>/<id>/`, and `shares/<token>.json` pointing back. Writers
   never share an object, so replicas don't race; a user's recordings are
   listed without their files.
+- **Modes.** `recordings.mode` is `always` (the default: every session is
+  recorded and a recording can't be stopped, no matter what the launch asks),
+  `auto` (recorded unless the launch says no, and stoppable) or `manual`.
+  A server that must have a record of every session needs `always`; the
+  others are for people running their own.
+- **Markers** are pins on the timeline (an icon and a note) kept by the api
+  next to the recording (`meta/<user>/<id>.markers.json`), not in the agent's
+  files, so they can be added after the fact and edited. One set from the
+  session page is stamped with the agent's own elapsed time (`GET
+  /v1/recording`), which avoids any clock skew between browser and node.
+  Share links show them read-only, and the video shows them as labels.
+- **The session page's card** replaced the rail's Record button: a click pins a
+  marker, hovering shows the recording's numbers, keep-forever and share.
+  Sharing keeps the recording.
+- **Logcat as `.log`** is the logcat with ANSI colours by level, made on the
+  server by line so a share link gets it too; the plain text stays.
 - **Retention and quota**: recordings older than `recordings.maxAge` are
   deleted unless kept. The per-user `recordings.quota` is checked when a
   recording starts and on each manifest upload (usage cached a minute per

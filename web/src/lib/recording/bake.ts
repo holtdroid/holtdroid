@@ -9,9 +9,10 @@ import {
   type StreamTargetChunk,
   type Target,
 } from "mediabunny"
-import type { RecordingManifest } from "@/api/client"
+import type { RecordingManifest, RecordingMarker } from "@/api/client"
 import { Cursor, Frames } from "@/lib/recording/frames"
 import { drawScene, logoImage, type SceneApp, sceneLayout } from "@/lib/recording/scene"
+import { loadSceneIcons } from "@/lib/recording/scene-icons"
 import { LogcatChunks, rotationAt, segmentsOf, sizeChanges, type Telemetry } from "@/lib/recording/timeline"
 
 export const bakeFps = 30
@@ -123,11 +124,12 @@ export async function bake(opts: {
   manifest: RecordingManifest
   telemetry: Telemetry
   app: SceneApp
+  markers: RecordingMarker[]
   sink: Sink
   signal: AbortSignal
   onProgress: (p: BakeProgress) => void
 }): Promise<void> {
-  const { manifest, telemetry, app, sink, signal } = opts
+  const { manifest, telemetry, app, markers, sink, signal } = opts
   const layout = sceneLayout(manifest)
   const canvas = document.createElement("canvas")
   canvas.width = layout.width
@@ -136,7 +138,7 @@ export async function bake(opts: {
   if (!ctx) throw new Error("This browser can't draw the video")
   const codec = await getFirstEncodableVideoCodec(["avc", "vp9", "av1"], { width: layout.width, height: layout.height })
   if (!codec) throw new Error("This browser can't encode a video this big")
-  await logoImage?.decode().catch(() => undefined)
+  await Promise.all([logoImage?.decode().catch(() => undefined), loadSceneIcons()])
 
   const fragmented = !(sink.target instanceof BufferTarget)
   const output = new Output({
@@ -171,6 +173,7 @@ export async function bake(opts: {
         logcat: logcat.before(t, 60),
         overlay: telemetry.touches.at(t),
         rotation: rotationAt(changes, t),
+        markers,
         layout,
         app,
       })

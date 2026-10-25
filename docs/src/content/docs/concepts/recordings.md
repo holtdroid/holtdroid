@@ -36,16 +36,27 @@ Battery Saver and dark theme, the device, the network and the load.
 
 ## Recording a session
 
-Sessions are recorded from the moment they are ready, unless the server is
-set to record only on request (`recordings.auto: false`). The launch dialog
-has a **Record the session** switch; your choice is remembered in the browser
-and also used by the quick launch button.
+What gets recorded is set by `recordings.mode`:
 
-On the session page the rail next to the screen has **Record** while
-nothing is recorded and **Stop recording** with the elapsed time while it
-is. Stopping a recording and starting again makes a new recording. A
-recording ends when the session stops; the last few seconds are uploaded
-before the device goes away.
+- **`always`** (the default): every session is recorded from the moment it is
+  ready, and a recording can't be stopped. There is no switch in the launch
+  dialog and no Stop button.
+- **`auto`**: sessions are recorded unless you turn **Record the session** off
+  in the launch dialog (the choice is remembered in the browser and used by
+  the quick launch button). A recording can be stopped from the session page.
+- **`manual`**: sessions are recorded only when you switch it on at launch or
+  start it from the session page.
+
+On the session page the **Recording** card is among the cards beside the
+screen. While a recording runs it shows the elapsed time, and **a click on the
+card pins a marker** on the recording's timeline at that moment. Hover it for
+the rest: how long it has run, its size and how much of your space is used;
+**Keep forever**, which exempts the recording from the retention period; **Share**,
+which makes a link and copies it (sharing keeps the recording too); a button
+to open the recording; and, unless the mode is `always`, to stop or start
+recording. Stopping and starting again makes a new recording. A recording
+ends when the session stops; the last few seconds are uploaded before the
+device goes away.
 
 The screen is taken from what a viewer of the session already streams in
 H.264, so watching and recording cost one encoder on the device. When nobody
@@ -76,10 +87,27 @@ Taps and swipes show on the phone as green circles with a fading trail, and
 the navigation keys as a label at the bottom. The pointer button in the player's controls hides them (it only appears when something was touched);
 the downloaded video always has them.
 
+### Markers
+
+A marker is a pin on the timeline with an icon (pin, bug, flag, star, warning
+or done) and a short note. Click the **Recording** card on the session page
+while it records, press **Marker** (or <kbd>M</kbd>) in the player to pin the
+moment you are at, and click a pin to rename it, change its icon, jump there
+or delete it. Anyone with a share link sees the markers but can't change them.
+The downloaded video shows each marker as a label over the phone for a few
+seconds.
+
 The timeline shows where there is video (grey) and where the app closed (red
 marks). Play and pause, five-second steps, speeds from 0.5× to 4× and full
 screen are next to it. <kbd>Space</kbd> plays and pauses, <kbd>←</kbd> and
 <kbd>→</kbd> step.
+
+**Logcat** in the player's controls downloads the whole logcat. The **colored
+.log** keeps the levels and colours as ANSI codes (the level letter in bold, tags
+and the lines of warnings and errors coloured), so it reads well with
+`less -R`, `bat`, `lnav` or an editor with ANSI support; the **plain text**
+version has the same lines without colour codes. Each line starts with its time
+in the recording, followed by the usual `threadtime` line.
 
 ## Downloading a video
 
@@ -126,7 +154,7 @@ megabytes per hour.
 ```yaml
 recordings:
   enabled: true
-  auto: true # record every session from its start; false: only on request
+  mode: always # always: every session, can't be stopped; auto: unless the launch says no; manual: only on request
   maxAge: 168h # deleted this long after recording unless kept; 0 = never
   quota: 50GiB # per user; 0 = no limit
   share: true # allow share links

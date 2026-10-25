@@ -5,6 +5,8 @@ import {
   api,
   type AppDataChoice,
   type AppDataView,
+  type RecordingDetail,
+  type RecordingMarker,
   type ArtifactView,
   type ArtifactsEvent,
   type SessionView,
@@ -375,6 +377,34 @@ export function useDeleteRecording() {
   return useRecordingMutation((id: string) =>
     unwrap(api.DELETE("/api/v1/recordings/{id}", { params: { path: { id } } })),
   )
+}
+
+export function useSetMarkers(id: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (items: RecordingMarker[]) =>
+      unwrap(api.PUT("/api/v1/recordings/{id}/markers", { params: { path: { id } }, body: { items } })),
+    onMutate: (items) => {
+      qc.setQueryData(keys.recording(id), (d: RecordingDetail | undefined) =>
+        d ? { ...d, markers: items.toSorted((a, b) => a.t - b.t) } : d,
+      )
+    },
+    onSettled: () => void qc.invalidateQueries({ queryKey: keys.recording(id) }),
+  })
+}
+
+export function useAddSessionMarker() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ provider, id, label }: { provider: string; id: string; label?: string }) =>
+      unwrap(
+        api.POST("/api/v1/sessions/{provider}/{id}/recording/markers", {
+          params: { path: { provider, id } },
+          body: { label },
+        }),
+      ),
+    onSuccess: (r) => void qc.invalidateQueries({ queryKey: keys.recording(r.recording) }),
+  })
 }
 
 export function useSessionRecording() {

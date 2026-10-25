@@ -48,6 +48,7 @@ var (
 	errRecordingsDisabled = errors.New("recordings are turned off on this server")
 	errSharingDisabled    = errors.New("sharing recordings is turned off on this server")
 	errQuota              = errors.New("the recording storage quota is used up")
+	errRecordAlways       = errors.New("this server records every session and a recording can't be stopped")
 )
 
 // recordingMeta is what the api knows of a recording when it starts; it is
@@ -289,7 +290,7 @@ func (r *recordingStore) remove(ctx context.Context, ref recordingRef) error {
 			return err
 		}
 	}
-	for _, ext := range []string{".share", ".keep", ".state.json", ".json"} {
+	for _, ext := range []string{".share", ".keep", ".markers.json", ".state.json", ".json"} {
 		if err := r.store.Delete(ctx, r.metaKey(ref, ext)); err != nil && !errors.Is(err, storage.ErrNotExist) {
 			return err
 		}
@@ -432,9 +433,14 @@ func (s *Server) writeRecordingMeta(ctx context.Context, m recordingMeta) error 
 // recordingFor creates the recording a launch asks for, if any; a full
 // quota launches the session without one.
 func (s *Server) recordingFor(ctx context.Context, who auth.Identity, record *bool, sess contract.Session) (*contract.RecordingTarget, recordingMeta) {
-	want := s.cfg.Recordings.Auto
-	if record != nil {
-		want = *record
+	var want bool
+	switch s.cfg.Recordings.Mode {
+	case RecordAlways:
+		want = true
+	case RecordAuto:
+		want = record == nil || *record
+	default:
+		want = record != nil && *record
 	}
 	if s.recordings == nil || !want {
 		return nil, recordingMeta{}
@@ -623,6 +629,7 @@ type RecordingView struct {
 	IconURL      string          `json:"iconUrl,omitempty"`
 	ThumbnailURL string          `json:"thumbnailUrl,omitempty"`
 	LogcatURL    string          `json:"logcatUrl" doc:"the whole logcat as one text file"`
+	LogcatLogURL string          `json:"logcatLogUrl" doc:"the whole logcat as a .log with ANSI colours by level"`
 	Keep         bool            `json:"keep" doc:"kept past the retention period"`
 	ExpiresAt    *time.Time      `json:"expiresAt,omitempty"`
 	Share        *RecordingShare `json:"share,omitempty"`
@@ -630,7 +637,7 @@ type RecordingView struct {
 
 type RecordingList struct {
 	Enabled bool            `json:"enabled"`
-	Auto    bool            `json:"auto" doc:"sessions are recorded from their start unless the launch says otherwise"`
+	Mode    string          `json:"mode" enum:"always,auto,manual" doc:"always: every session is recorded and it can't be stopped; auto: recorded unless the launch says no; manual: only when asked"`
 	Share   bool            `json:"share" doc:"recordings can be shared by link"`
 	Quota   int64           `json:"quota" doc:"bytes a user's recordings may take, 0 for no limit"`
 	Used    int64           `json:"used" doc:"bytes the caller's recordings take"`
@@ -640,6 +647,7 @@ type RecordingList struct {
 
 type RecordingDetail struct {
 	Recording RecordingView               `json:"recording"`
+	Markers   []RecordingMarker           `json:"markers" doc:"pins on the timeline"`
 	Manifest  *contract.RecordingManifest `json:"manifest,omitempty" doc:"absent until the agent uploads its first one"`
 	Shared    bool                        `json:"shared" doc:"opened through a share link"`
 }
@@ -651,7 +659,7 @@ func (s *Server) recordingView(ctx context.Context, e *recordingEntry, base stri
 		ID: m.ID, Package: m.Package, Label: m.Label, VersionName: m.VersionName, VersionCode: m.VersionCode,
 		Source: srcName, ArtifactID: encodeID(key), Provider: m.Provider, Session: m.Session,
 		Location: m.Location, WebView: m.WebView, State: s.recordingStatus(e), CreatedAt: m.CreatedAt,
-		FilesURL: base + "files/", LogcatURL: base + "logcat.txt", Keep: e.keep,
+		FilesURL: base + "files/", LogcatURL: base + "logcat.txt", LogcatLogURL: base + "logcat.log", Keep: e.keep,
 	}
 	if e, ok := s.cache.Lookup(ctx, srcName, key, rev); ok && v.Label == "" {
 		v.Label = e.Meta.Label
@@ -723,7 +731,7 @@ func (s *Server) sharedRecording(ctx context.Context, token string) (*recordingE
 }
 
 func (s *Server) recordingDetail(ctx context.Context, e *recordingEntry, base string, shared bool) RecordingDetail {
-	d := RecordingDetail{Recording: s.recordingView(ctx, e, base), Shared: shared}
+	d := RecordingDetail{Recording: s.recordingView(ctx, e, base), Markers: s.recordings.markers(ctx, e.ref), Shared: shared}
 	if shared {
 		d.Recording.Share, d.Recording.Provider, d.Recording.Session = nil, "", ""
 		d.Recording.Owner = e.meta.Owner
@@ -797,7 +805,7 @@ func (s *Server) registerRecordings(api huma.API) {
 		if s.recordings == nil {
 			return &out[RecordingList]{l}, nil
 		}
-		l.Enabled, l.Auto, l.Share, l.Quota, l.MaxAge = true, cfg.Auto, cfg.Share, int64(cfg.Quota), int64(cfg.MaxAge/time.Second)
+		l.Enabled, l.Mode, l.Share, l.Quota, l.MaxAge = true, cfg.Mode, cfg.Share, int64(cfg.Quota), int64(cfg.MaxAge/time.Second)
 		who, _ := auth.FromContext(ctx)
 		used, entries, err := s.recordingUsage(ctx, userDir(who.User))
 		if err != nil {
@@ -855,6 +863,8 @@ func (s *Server) registerRecordings(api huma.API) {
 		}
 		return s.recordingEvents(ctx, e)
 	})
+
+	s.registerMarkers(api)
 
 	huma.Register(api, huma.Operation{
 		OperationID: "keepRecording", Method: http.MethodPut, Path: "/api/v1/recordings/{id}/keep", Tags: tags,
@@ -963,6 +973,9 @@ func (s *Server) registerRecordings(api huma.API) {
 	}, func(ctx context.Context, in *sessionPath) (*struct{}, error) {
 		ev := audit.Event{Action: audit.RecordingStop, Provider: in.Provider, Session: in.ID}
 		_, sess, err := s.ownedSession(ctx, in.Provider, in.ID)
+		if err == nil && s.cfg.Recordings.Mode == RecordAlways {
+			err = errRecordAlways
+		}
 		var c *contract.AgentClient
 		if err == nil {
 			ev.Artifact = sess.ArtifactRef
@@ -1056,7 +1069,8 @@ func (s *Server) serveRecordingFile(w http.ResponseWriter, r *http.Request) {
 	_, _ = io.Copy(w, rc)
 }
 
-// serveRecordingLogcat sends every logcat chunk as one text file.
+// serveRecordingLogcat sends every logcat chunk as one file: plain text, or
+// a .log with ANSI colours by level.
 func (s *Server) serveRecordingLogcat(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	e, err := s.recordingFromRequest(r)
@@ -1069,11 +1083,22 @@ func (s *Server) serveRecordingLogcat(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	colored := strings.HasSuffix(r.URL.Path, ".log")
+	ext := ".txt"
+	if colored {
+		ext = ".log"
+	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	name := cmp.Or(e.meta.Package, "recording") + "-" + e.ref.id + "-logcat.txt"
+	name := cmp.Or(e.meta.Package, "recording") + "-" + e.ref.id + "-logcat" + ext
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", name))
-	_, _ = fmt.Fprintf(w, "# %s %s, recording started %s; times are since the start\n",
+	header := fmt.Sprintf("# %s %s, recording started %s; times are since the start\n",
 		cmp.Or(e.meta.Label, e.meta.Package), e.meta.VersionName, mf.StartedAt.Format(time.RFC3339))
+	if colored {
+		header = sgr("90", strings.TrimSuffix(header, "\n")) + "\n" +
+			sgr("90", "# levels: ") + sgr("90", "V") + " " + sgr("94", "D") + " " + sgr("32", "I") + " " + sgr("33", "W") + " " + sgr("31", "E") + " " + sgr("1;35", "F") +
+			sgr("90", "; view with colours: less -R, bat, lnav or an ANSI-aware editor") + "\n"
+	}
+	_, _ = io.WriteString(w, header)
 	for _, c := range mf.Logcat {
 		if path.Base(c.File) != c.File || !contract.RecordingFile(c.File) {
 			continue
@@ -1083,7 +1108,11 @@ func (s *Server) serveRecordingLogcat(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		if zr, err := gzip.NewReader(rc); err == nil {
-			_, _ = io.Copy(w, zr)
+			if colored {
+				copyColored(w, zr)
+			} else {
+				_, _ = io.Copy(w, zr)
+			}
 		}
 		rc.Close()
 	}
