@@ -2731,7 +2731,7 @@ location's. The card is marked while the clock is shifted, out of real
 time or in a zone picked by hand; an exact moment unfolds inside its panel
 instead of a dialog. The system language and the keyboard layouts got a
 card too, a grid of flags where a click picks the language or toggles a
-layout; the rail keeps only the faked GPS of that section. Battery became a card
+layout; the faked GPS became a card as well, so the rail is down to capture. Battery became a card
 as well (saver, charging, charge level); like the rest of the device state
 it lives on the device and nothing of it is remembered in the browser. Panels stay open
 once clicked into, so typing and native date pickers don't close them.

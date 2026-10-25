@@ -1,8 +1,7 @@
 import { CameraIcon, ChevronsLeftIcon, ChevronsRightIcon, VibrateIcon } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
-import { type Location, type SessionView, sessionBase, type StatusEvent, type Vibration } from "@/api/client"
-import { DeviceControls } from "@/components/session/device-controls"
+import { type SessionView, sessionBase, type StatusEvent, type Vibration } from "@/api/client"
 import type { LiveScreen } from "@/components/session/live-screen"
 import { RecordButton } from "@/components/session/record-button"
 import { RailButton, RailSection } from "@/components/session/rail-item"
@@ -18,7 +17,6 @@ export function DeviceRail({
   id,
   session,
   live,
-  locations,
   status,
   manage,
 }: {
@@ -26,7 +24,6 @@ export function DeviceRail({
   id: string
   session: SessionView
   live: LiveScreen
-  locations: Location[]
   status: StatusEvent | null
   manage: boolean
 }) {
@@ -77,7 +74,6 @@ export function DeviceRail({
         since={status?.recordedAt}
         manage={manage}
       />
-      <DeviceControls provider={provider} id={id} locations={locations} />
     </div>
   )
 }

@@ -324,3 +324,23 @@ export function ShadeSlider({
     </div>
   )
 }
+
+export function ShadeButton({
+  primary = false,
+  className,
+  ...props
+}: ComponentProps<"button"> & { primary?: boolean }) {
+  return (
+    <button
+      type="button"
+      className={cn(
+        "flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm transition-colors disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0",
+        primary
+          ? "bg-sky-200 font-medium text-sky-950 hover:bg-sky-100"
+          : "bg-neutral-800 text-neutral-100 hover:bg-neutral-700",
+        className,
+      )}
+      {...props}
+    />
+  )
+}

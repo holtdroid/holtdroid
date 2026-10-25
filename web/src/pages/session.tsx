@@ -171,15 +171,7 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
               clipboard={caps?.clipboard ?? false}
               metrics={metrics}
             />
-            <DeviceRail
-              provider={provider}
-              id={id}
-              session={session}
-              live={live}
-              locations={caps?.locations ?? []}
-              status={status}
-              manage={manage}
-            />
+            <DeviceRail provider={provider} id={id} session={session} live={live} status={status} manage={manage} />
             <ToolTabs tab={tab} onTab={setTab} adb={adbAllowed ? adb : null} session={session}>
               {caps?.devtools ? (
                 <DevToolsPanel

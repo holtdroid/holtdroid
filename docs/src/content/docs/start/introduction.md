@@ -94,21 +94,18 @@ hybrid apps, support engineers reproducing a customer bug.
    click elsewhere or press Esc. When the device vibrates, the page
    shows a notification and plays a buzz. A rail next to the screen has the
    screenshot and [recording](/holtdroid/concepts/recordings/) buttons; the arrow at its top widens it into a
-   menu with section titles and a label next to every icon, and back. Below
-   them come the device controls,
-   one button per section. Clicking a button does the common thing, hovering
-   it opens the rest:
-   - **GPS location** (on devices that can fake it): follows the VPN
-     location unless you override it with a click on the map,
-     coordinates or your own position. **Move along a route** walks, runs or
-     drives the device through points you click on the map, along roads
-     (or in straight lines) and optionally in a loop, speeding up, slowing for
-     turns and drifting around the chosen pace; it keeps going until you stop it, even
-     with the tab closed. Apps see the position move but no speed or
-     bearing.
+   menu with section titles and a label next to every icon, and back.
 
-   An amber dot marks a section whose settings differ from the defaults, and
-   its popup has a reset button.
+   On devices that can fake it, the **GPS location** card follows the VPN
+   location unless you override it with a click on the map, coordinates or
+   your own position. **Move along a route** walks, runs or drives the
+   device through points you click on the map, along roads (or in straight
+   lines) and optionally in a loop, speeding up, slowing for turns and
+   drifting around the chosen pace; it keeps going until you stop it, even
+   with the tab closed. Apps see the position move but no speed or bearing.
+
+   An amber dot marks a card whose settings differ from the defaults, and
+   its panel has a reset button.
 
 5. Walk away. After the idle timeout (30 minutes by default) the device is
    deleted and the slot frees up. The home page shows every active session,
