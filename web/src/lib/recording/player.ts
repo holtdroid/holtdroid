@@ -1,20 +1,21 @@
 import type { RecordingManifest } from "@/api/client"
 import { Cursor, Frames } from "@/lib/recording/frames"
-import { drawScene, type SceneApp, sceneHeight, sceneWidth } from "@/lib/recording/scene"
-import { LogcatChunks, segmentsOf, type Telemetry } from "@/lib/recording/timeline"
+import { LogcatChunks, segmentsOf } from "@/lib/recording/timeline"
 
-export type PlayerState = { time: number; playing: boolean; rate: number; duration: number }
+export type PlayerState = {
+  time: number
+  playing: boolean
+  rate: number
+  duration: number
+  size: { w: number; h: number }
+}
 
-const logcatLines = 60
-
-/** Plays a recording onto a canvas through the same scene the baked video uses. */
+/** Plays a recording's video onto a canvas; everything around it is the page's. */
 export class Player {
   readonly frames: Frames
   readonly logcat: LogcatChunks
   #cursor: Cursor
-  #telemetry: Telemetry
   #manifest: RecordingManifest
-  #app: SceneApp
   #ctx: CanvasRenderingContext2D | null = null
   #t = 0
   #playing = false
@@ -22,20 +23,19 @@ export class Player {
   #wall = 0
   #from = 0
   #raf = 0
+  #size: { w: number; h: number }
   #state: PlayerState
   #published = -1
   #listeners = new Set<() => void>()
 
-  constructor(filesUrl: string, manifest: RecordingManifest, telemetry: Telemetry, app: SceneApp) {
+  constructor(filesUrl: string, manifest: RecordingManifest) {
     this.#manifest = manifest
-    this.#telemetry = telemetry
-    this.#app = app
     this.frames = new Frames(filesUrl, segmentsOf(manifest))
     this.logcat = new LogcatChunks(filesUrl, manifest.logcat)
     this.#cursor = new Cursor(this.frames)
-    this.#state = { time: 0, playing: false, rate: 1, duration: manifest.duration }
-    this.logcat.subscribe(() => this.#draw())
-    if (app.icon && !app.icon.complete) app.icon.addEventListener("load", () => this.#draw(), { once: true })
+    const first = manifest.epochs[0]
+    this.#size = { w: first?.width || 720, h: first?.height || 1600 }
+    this.#state = { time: 0, playing: false, rate: 1, duration: manifest.duration, size: this.#size }
   }
 
   subscribe = (fn: () => void) => {
@@ -49,15 +49,20 @@ export class Player {
     const time = Math.floor(this.#t / 100)
     if (!force && time === this.#published) return
     this.#published = time
-    this.#state = { time: this.#t, playing: this.#playing, rate: this.#rate, duration: this.#manifest.duration }
+    this.#state = {
+      time: this.#t,
+      playing: this.#playing,
+      rate: this.#rate,
+      duration: this.#manifest.duration,
+      size: this.#size,
+    }
     for (const fn of this.#listeners) fn()
   }
 
   /** Takes a newer manifest of a recording still in progress. */
-  update(manifest: RecordingManifest, telemetry: Telemetry) {
+  update(manifest: RecordingManifest) {
     const grew = manifest.duration > this.#manifest.duration
     this.#manifest = manifest
-    this.#telemetry = telemetry
     this.frames.segments = segmentsOf(manifest)
     this.logcat.update(manifest.logcat)
     if (grew && this.#cursor.ended) this.#cursor.seek(this.#t)
@@ -69,8 +74,8 @@ export class Player {
     if (canvas && this.#ctx?.canvas === canvas) return
     this.#ctx = null
     if (canvas) {
-      canvas.width = sceneWidth
-      canvas.height = sceneHeight
+      canvas.width = this.#size.w
+      canvas.height = this.#size.h
       this.#ctx = canvas.getContext("2d", { alpha: false })
       void this.seek(this.#t)
     }
@@ -130,16 +135,20 @@ export class Player {
   }
 
   #draw() {
-    if (!this.#ctx) return
-    drawScene(this.#ctx, {
-      t: this.#t,
-      duration: this.#manifest.duration,
-      startedAt: new Date(this.#manifest.startedAt).getTime(),
-      frame: this.#cursor.frame?.sample ?? null,
-      snap: this.#telemetry.at(this.#t),
-      logcat: this.logcat.before(this.#t, logcatLines),
-      app: this.#app,
-    })
+    const ctx = this.#ctx
+    if (!ctx) return
+    const sample = this.#cursor.frame?.sample
+    if (sample && (sample.displayWidth !== this.#size.w || sample.displayHeight !== this.#size.h)) {
+      this.#size = { w: sample.displayWidth, h: sample.displayHeight }
+      ctx.canvas.width = this.#size.w
+      ctx.canvas.height = this.#size.h
+      this.#publish(true)
+    }
+    if (sample) sample.draw(ctx, 0, 0, this.#size.w, this.#size.h)
+    else {
+      ctx.fillStyle = "#000"
+      ctx.fillRect(0, 0, this.#size.w, this.#size.h)
+    }
   }
 
   /** Stops playing and frees the decoder; a later seek or attach starts it again. */

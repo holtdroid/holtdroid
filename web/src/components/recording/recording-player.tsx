@@ -8,6 +8,7 @@ import {
   SkipForwardIcon,
 } from "lucide-react"
 import {
+  type ComponentProps,
   type KeyboardEvent,
   type PointerEvent,
   useCallback,
@@ -20,14 +21,42 @@ import {
 import type { RecordingDetail, RecordingManifest } from "@/api/client"
 import { type RecordingSource, useRecordingEvents } from "@/api/queries"
 import { BakeDialog } from "@/components/recording/bake-dialog"
-import { Button } from "@/components/ui/button"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { InfoView } from "@/components/recording/info-view"
+import { LogcatView } from "@/components/recording/logcat-view"
 import { bakingSupported } from "@/lib/recording/bake"
 import { Player } from "@/lib/recording/player"
 import { loadIcon, type SceneApp } from "@/lib/recording/scene"
+import { summarize } from "@/lib/recording/summary"
 import { clock, segmentsOf, Telemetry } from "@/lib/recording/timeline"
+import { cn } from "@/lib/utils"
 
 const rates = [0.5, 1, 2, 4]
+
+function Tonal({ className, ...props }: ComponentProps<"button">) {
+  return (
+    <button
+      type="button"
+      className={cn(
+        "inline-flex h-9 items-center gap-2 rounded-full bg-[#354b3b] px-4 text-sm font-medium text-[#d1e8d5] transition-colors hover:bg-[#3f5946] disabled:opacity-40 [&_svg]:size-4",
+        className,
+      )}
+      {...props}
+    />
+  )
+}
+
+function IconButton({ className, ...props }: ComponentProps<"button">) {
+  return (
+    <button
+      type="button"
+      className={cn(
+        "grid size-10 place-items-center rounded-full text-[#c0c9c1] transition-colors hover:bg-[#262b28] [&_svg]:size-5",
+        className,
+      )}
+      {...props}
+    />
+  )
+}
 
 export function RecordingPlayer({
   source,
@@ -47,7 +76,7 @@ export function RecordingPlayer({
     version: r.versionName,
     icon: loadIcon(r.iconUrl),
   }))
-  const [player] = useState(() => new Player(r.filesUrl, manifest, telemetry, app))
+  const [player] = useState(() => new Player(r.filesUrl, manifest))
   const state = useSyncExternalStore(player.subscribe, player.getState)
   const [baking, setBaking] = useState(false)
   const box = useRef<HTMLDivElement>(null)
@@ -59,10 +88,12 @@ export function RecordingPlayer({
     [player],
   )
 
-  useEffect(() => player.update(manifest, telemetry), [player, manifest, telemetry])
+  useEffect(() => player.update(manifest), [player, manifest])
   useEffect(() => () => player.dispose(), [player])
 
   const onKey = (e: KeyboardEvent) => {
+    const tag = (e.target as HTMLElement).tagName
+    if (tag === "INPUT" || tag === "TEXTAREA") return
     if (e.key === " " || e.key === "k") player.toggle()
     else if (e.key === "ArrowLeft") void player.seek(state.time - 5000)
     else if (e.key === "ArrowRight") void player.seek(state.time + 5000)
@@ -70,95 +101,121 @@ export function RecordingPlayer({
     e.preventDefault()
   }
 
+  const summary = summarize({
+    t: state.time,
+    duration: state.duration,
+    startedAt: new Date(manifest.startedAt).getTime(),
+    snap: telemetry.at(state.time),
+    app,
+  })
+
   return (
-    <div className="grid gap-3">
-      <div
-        ref={box}
-        tabIndex={0}
-        onKeyDown={onKey}
-        className="group/player relative overflow-hidden rounded-xl border bg-black outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-      >
-        <canvas ref={attach} onClick={() => player.toggle()} className="block aspect-video w-full cursor-pointer" />
-        {!state.playing && (
-          <button
-            type="button"
-            aria-label="Play"
-            onClick={() => player.play()}
-            className="absolute inset-0 m-auto grid size-16 place-items-center rounded-full bg-black/60 text-white opacity-90 backdrop-blur transition hover:scale-105"
+    <div
+      ref={box}
+      tabIndex={-1}
+      onKeyDown={onKey}
+      className="android-stage grid gap-3 rounded-[32px] p-3 outline-none lg:p-4"
+    >
+      <div className="grid gap-3 lg:h-[min(80dvh,900px)] lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+        <div className="order-3 flex h-[60dvh] min-h-0 flex-col lg:order-1 lg:h-auto [&>section]:flex-1">
+          <LogcatView player={player} time={state.time} />
+        </div>
+
+        <div className="order-1 grid h-[68dvh] min-h-0 place-items-center lg:order-2 lg:h-auto">
+          <div
+            className="relative h-full max-w-full rounded-[44px] bg-black p-2.5 shadow-[0_0_0_1.5px_#404943,0_24px_60px_-20px_#000]"
+            style={{ aspectRatio: `${state.size.w} / ${state.size.h}` }}
           >
-            <PlayIcon className="size-7 translate-x-0.5" />
-          </button>
-        )}
+            <canvas
+              ref={attach}
+              onClick={() => player.toggle()}
+              className="block size-full cursor-pointer rounded-[34px] bg-black"
+            />
+            {!state.playing && (
+              <button
+                type="button"
+                aria-label="Play"
+                onClick={() => player.play()}
+                className="absolute inset-0 m-auto grid size-16 place-items-center rounded-full bg-[#78dc9a] text-[#003919] shadow-lg transition-transform hover:scale-105"
+              >
+                <PlayIcon className="size-7 translate-x-0.5 fill-current" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="order-2 min-h-0 lg:order-3 lg:overflow-y-auto lg:pr-1">
+          <InfoView summary={summary} iconUrl={r.iconUrl} />
+        </div>
       </div>
 
-      <Timeline
-        duration={state.duration}
-        time={state.time}
-        manifest={manifest}
-        telemetry={telemetry}
-        onSeek={(t) => void player.seek(t)}
-      />
-
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          variant="outline"
-          size="icon-sm"
-          aria-label="Back 5 seconds"
-          onClick={() => void player.seek(state.time - 5000)}
-        >
-          <SkipBackIcon />
-        </Button>
-        <Button size="sm" onClick={() => player.toggle()} className="w-24">
-          {state.playing ? <PauseIcon /> : <PlayIcon />}
-          {state.playing ? "Pause" : "Play"}
-        </Button>
-        <Button
-          variant="outline"
-          size="icon-sm"
-          aria-label="Forward 5 seconds"
-          onClick={() => void player.seek(state.time + 5000)}
-        >
-          <SkipForwardIcon />
-        </Button>
-        <span className="text-muted-foreground font-mono text-sm tabular-nums">
-          {clock(state.time)} / {clock(state.duration)}
-        </span>
-        <ToggleGroup
-          type="single"
-          size="sm"
-          variant="outline"
-          value={String(state.rate)}
-          onValueChange={(v) => v && player.setRate(Number(v))}
-        >
-          {rates.map((x) => (
-            <ToggleGroupItem key={x} value={String(x)} className="px-2 font-mono text-xs">
-              {x}×
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" asChild>
-            <a href={r.logcatUrl} download>
+      <div className="grid gap-2 rounded-[28px] bg-[#1c211e] px-5 py-3">
+        <Timeline
+          duration={state.duration}
+          time={state.time}
+          manifest={manifest}
+          telemetry={telemetry}
+          onSeek={(t) => void player.seek(t)}
+        />
+        <div className="flex flex-wrap items-center gap-1.5">
+          <IconButton aria-label="Back 5 seconds" onClick={() => void player.seek(state.time - 5000)}>
+            <SkipBackIcon />
+          </IconButton>
+          <button
+            type="button"
+            aria-label={state.playing ? "Pause" : "Play"}
+            onClick={() => player.toggle()}
+            className="grid size-12 place-items-center rounded-full bg-[#78dc9a] text-[#003919] transition-transform hover:scale-105 [&_svg]:size-6 [&_svg]:fill-current"
+          >
+            {state.playing ? <PauseIcon /> : <PlayIcon className="translate-x-px" />}
+          </button>
+          <IconButton aria-label="Forward 5 seconds" onClick={() => void player.seek(state.time + 5000)}>
+            <SkipForwardIcon />
+          </IconButton>
+          <span className="mx-2 font-mono text-sm text-[#c0c9c1] tabular-nums">
+            {clock(state.time)} <span className="text-[#6f7872]">/ {clock(state.duration)}</span>
+          </span>
+          <div className="flex rounded-full bg-[#262b28] p-0.5" role="group" aria-label="Speed">
+            {rates.map((x) => (
+              <button
+                key={x}
+                type="button"
+                aria-pressed={state.rate === x}
+                onClick={() => player.setRate(x)}
+                className={cn(
+                  "h-8 rounded-full px-3 font-mono text-xs transition-colors",
+                  state.rate === x ? "bg-[#354b3b] text-[#d1e8d5]" : "text-[#8a938c] hover:text-[#c0c9c1]",
+                )}
+              >
+                {x}×
+              </button>
+            ))}
+          </div>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <a
+              href={r.logcatUrl}
+              download
+              className="inline-flex h-9 items-center gap-2 rounded-full bg-[#354b3b] px-4 text-sm font-medium text-[#d1e8d5] transition-colors hover:bg-[#3f5946] [&_svg]:size-4"
+            >
               <FileTextIcon />
               Logcat
             </a>
-          </Button>
-          {!detail.shared && bakingSupported() && (
-            <Button variant="outline" size="sm" disabled={r.state === "recording"} onClick={() => setBaking(true)}>
-              <ClapperboardIcon />
-              Download video
-            </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Full screen"
-            onClick={() => void box.current?.requestFullscreen().catch(() => undefined)}
-          >
-            <MaximizeIcon />
-          </Button>
+            {!detail.shared && bakingSupported() && (
+              <Tonal disabled={r.state === "recording"} onClick={() => setBaking(true)}>
+                <ClapperboardIcon />
+                Download video
+              </Tonal>
+            )}
+            <IconButton
+              aria-label="Full screen"
+              onClick={() => void box.current?.requestFullscreen().catch(() => undefined)}
+            >
+              <MaximizeIcon />
+            </IconButton>
+          </div>
         </div>
       </div>
+
       {baking && (
         <BakeDialog
           onClose={() => setBaking(false)}
@@ -202,7 +259,7 @@ function Timeline({
       aria-valuemin={0}
       aria-valuemax={duration}
       aria-valuenow={time}
-      className="group/timeline relative h-6 cursor-pointer touch-none select-none"
+      className="relative h-7 cursor-pointer touch-none select-none"
       onPointerDown={(e) => {
         e.currentTarget.setPointerCapture(e.pointerId)
         onSeek(at(e))
@@ -213,31 +270,31 @@ function Timeline({
       }}
       onPointerLeave={() => setHover(null)}
     >
-      <div className="bg-muted absolute inset-x-0 top-2.5 h-1.5 overflow-hidden rounded-full">
+      <div className="absolute inset-x-0 top-[11px] h-1.5 overflow-hidden rounded-full bg-[#313633]">
         {segments.map((s) => (
           <span
             key={s.file}
-            className="absolute inset-y-0 bg-zinc-400/40"
+            className="absolute inset-y-0 bg-[#404943]"
             style={{ left: pct(s.start), width: pct(s.duration) }}
           />
         ))}
-        <span className="absolute inset-y-0 left-0 bg-emerald-500" style={{ width: pct(time) }} />
+        <span className="absolute inset-y-0 left-0 rounded-full bg-[#78dc9a]" style={{ width: pct(time) }} />
       </div>
       {closes.map((c) => (
         <span
           key={c.t}
           title={`App closed at ${clock(c.t)}`}
-          className="absolute top-1.5 h-3.5 w-0.5 rounded bg-red-500"
+          className="absolute top-[7px] h-3.5 w-1 -translate-x-1/2 rounded-full bg-[#ffb4ab]"
           style={{ left: pct(c.t) }}
         />
       ))}
       <span
-        className="absolute top-1 size-4 -translate-x-1/2 rounded-full border-2 border-white bg-emerald-500 shadow"
+        className="absolute top-[5px] h-[18px] w-1 -translate-x-1/2 rounded-full bg-[#78dc9a] shadow-[0_0_0_3px_#1c211e]"
         style={{ left: pct(time) }}
       />
       {hover !== null && (
         <span
-          className="bg-popover text-popover-foreground pointer-events-none absolute -top-7 -translate-x-1/2 rounded border px-1.5 py-0.5 font-mono text-xs tabular-nums shadow"
+          className="pointer-events-none absolute -top-7 -translate-x-1/2 rounded-lg bg-[#313633] px-2 py-0.5 font-mono text-xs text-[#e0e3de] tabular-nums"
           style={{ left: pct(hover) }}
         >
           {clock(hover)}

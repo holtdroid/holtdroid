@@ -56,17 +56,18 @@ describe("segments", () => {
   })
 })
 
+const seg = (file: string, init: string, key: boolean) => ({
+  file,
+  init,
+  key,
+  start: 0,
+  duration: 1,
+  size: 1,
+  width: 1,
+  height: 1,
+})
+
 test("runs of segments start at a key frame", () => {
-  const seg = (file: string, init: string, key: boolean) => ({
-    file,
-    init,
-    key,
-    start: 0,
-    duration: 1,
-    size: 1,
-    width: 1,
-    height: 1,
-  })
   const segs = [
     seg("a", "i0", true),
     seg("b", "i0", false),

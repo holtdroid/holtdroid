@@ -36,7 +36,7 @@ export function segmentAt(segments: Segment[], t: number) {
   return found
 }
 
-const decodable = (s: Segment) => s.key !== false
+const decodable = (s: Segment) => (s.key as boolean | undefined) ?? true
 
 /** The segment at or before i that starts with a key frame of the same epoch. */
 export function runStart(segments: Segment[], i: number) {
@@ -114,7 +114,16 @@ export class Telemetry {
   }
 }
 
-export type LogLine = { t: number; time: string; pid: string; level: string; tag: string; message: string; raw: string }
+export type LogLine = {
+  id: string
+  t: number
+  time: string
+  pid: string
+  level: string
+  tag: string
+  message: string
+  raw: string
+}
 
 const threadtime = /^(\S+ \S+)\s+(\d+)\s+(\d+)\s+([VDIWEFA])\s+(.*?)\s*: (.*)$/
 
@@ -123,17 +132,18 @@ export function parseClock(s: string) {
   return m ? ((Number(m[1]) * 60 + Number(m[2])) * 60 + Number(m[3])) * 1000 + Number(m[4]) : 0
 }
 
-export function parseLogcat(text: string): LogLine[] {
+export function parseLogcat(text: string, prefix = ""): LogLine[] {
   const out: LogLine[] = []
   for (const raw of text.split("\n")) {
     if (raw.length < 14) continue
     const t = parseClock(raw)
     const rest = raw.slice(14)
     const m = threadtime.exec(rest)
+    const id = `${prefix}:${out.length}`
     out.push(
       m
-        ? { t, time: m[1]!, pid: m[2]!, level: m[4]!, tag: m[5]!, message: m[6]!, raw: rest }
-        : { t, time: "", pid: "", level: "I", tag: "", message: rest, raw: rest },
+        ? { id, t, time: m[1]!, pid: m[2]!, level: m[4]!, tag: m[5]!, message: m[6]!, raw: rest }
+        : { id, t, time: "", pid: "", level: "I", tag: "", message: rest, raw: rest },
     )
   }
   return out
@@ -183,7 +193,7 @@ export class LogcatChunks {
       p = fetch(this.filesUrl + file)
         .then((r) => (r.ok ? r.text() : ""))
         .then((text) => {
-          this.#loaded.set(file, parseLogcat(text))
+          this.#loaded.set(file, parseLogcat(text, file))
           this.version++
           for (const fn of this.#listeners) fn()
         })

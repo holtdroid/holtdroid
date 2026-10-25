@@ -231,7 +231,8 @@ the portal and download them as a video (decision #96).
 - [x] UI: Recordings page (preview, keep, share, delete, storage), player with the scene (logcat, phone, app, time, device, network, load), timeline, speeds, Record in the session rail, the launch dialog's Record switch, video download rendered in the browser with a progress timeline, public `/r/{token}` page
 - [x] Tests: recorder (segments start with key frames, epochs, chunks, quota), api end to end with the fake provider (record, share, keep, retention, quota, on demand, upload secret), web timeline helpers
 - [ ] Sound in recordings, sharing one audio capture with viewers
-- [ ] Logcat filters in the player (app only, level, search) and a searchable list next to the scene
+- [x] Logcat in the player as selectable HTML with level and text filters, click to seek, hold while selecting; stats as HTML cards in an Android look, the video download keeps the canvas scene in the same style
+- [ ] Logcat filter for the app's own processes in the player
 
 ## Phase 5 — Packaging and docs
 

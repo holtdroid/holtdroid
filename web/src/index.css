@@ -201,3 +201,26 @@
     animation: none;
   }
 }
+
+.android-stage {
+  font-family: "Google Sans Text", "Google Sans", Roboto, var(--font-sans);
+  color: #e0e3de;
+  background: #101411;
+}
+
+.android-stage ::selection {
+  background: #0a5230;
+  color: #94f7b5;
+}
+
+.android-stage ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.android-stage ::-webkit-scrollbar-thumb {
+  background: #404943;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}

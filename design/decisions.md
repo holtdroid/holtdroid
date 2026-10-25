@@ -2830,15 +2830,19 @@ pass a recording to someone without an account.
   replica): the oldest recordings that are neither kept nor running are
   deleted to make room; when that isn't enough the upload gets 507 and the
   agent stops, and a launch goes ahead without a recording.
-- **Rendering happens in the browser**, from the same data for the player
-  and the download: a canvas scene (`web/src/lib/recording/scene.ts`) with
-  logcat on the left, the phone in the middle and app, time (real and device
-  clock), device, network (VPN, throttling profile) and load with
-  sparklines on the right. Segments are decoded with WebCodecs through
-  mediabunny, one `init + segment` blob at a time, so a seek fetches only
-  the segment it needs. **Download video** renders the scene at 1920×1080,
-  30 fps frame by frame into an MP4 in OPFS. Share links open the player
-  without sign-in and don't offer the download.
+- **Rendering happens in the browser**, from one summary of the data
+  (`summary.ts`) in a Material You palette (`android.ts`): logcat on the
+  left, the phone in the middle and app, device clock with its offset from
+  real time, quick-settings tiles, device, network (VPN, throttling
+  profile) and load with meters and sparklines on the right. The player page
+  draws only the phone's frames on a canvas and everything else as HTML, so
+  text can be selected and copied, logcat has level and text filters and a
+  click on a time seeks. **Download video** draws the same summary and
+  logcat on a canvas scene (`scene.ts`) at 1920×1080, 30 fps, frame by frame
+  into an MP4 in OPFS, because a video can't hold page text. Segments are
+  decoded with WebCodecs through mediabunny, one `init + segment` run at a
+  time, so a seek fetches only the segment it needs. Share links open the
+  player without sign-in and don't offer the download.
 
 **Consequences.** The server spends no CPU on video; an hour of an app in
 use is 0.2–2 GB in storage (the viewer's quality decides), events and

@@ -23,9 +23,11 @@ recording keeps more than the picture:
 - whether the app was running, and when another build was installed.
 
 Nothing is rendered on the server: the agent copies the video the device
-already encodes and writes the rest as small text files next to it. Pages
-and downloaded videos draw the same scene from that data: logcat on the left,
-the phone in the middle and the device, network, time and load on the right.
+already encodes and writes the rest as small text files next to it. The
+portal draws the page from that data in an Android look: logcat on the left,
+the phone in the middle, and on the right the device clock like a status bar,
+the app, quick-settings style tiles for Wi-Fi, mobile data, airplane mode,
+Battery Saver and dark theme, the device, the network and the load.
 
 ## Recording a session
 
@@ -53,16 +55,27 @@ recorded.
 newest first, with a preview, the app, the length and the size. A recording
 still in progress is marked and can be watched while it grows.
 
-The player has the timeline (grey where there is video; red marks where
-the app closed), play and pause, five-second steps, speeds from 0.5× to 4×
-and full screen. <kbd>Space</kbd> plays and pauses, <kbd>←</kbd> and
-<kbd>→</kbd> step. **Logcat** downloads the whole logcat as one text file,
-each line starting with its time in the recording.
+Everything beside the phone is ordinary page text, so you can select and
+copy it. In the logcat panel:
+
+- the level buttons (V to E) hide quieter lines and the filter box searches
+  tags and messages;
+- click a line's time to jump to it in the recording;
+- while you hold a selection the panel stops following the video, so the text
+  doesn't scroll away; click elsewhere to follow again;
+- the copy button puts the lines on screen on the clipboard, and **Logcat**
+  below downloads the whole logcat as one text file, each line starting with
+  its time in the recording.
+
+The timeline shows where there is video (grey) and where the app closed (red
+marks). Play and pause, five-second steps, speeds from 0.5× to 4× and full
+screen are next to it. <kbd>Space</kbd> plays and pauses, <kbd>←</kbd> and
+<kbd>→</kbd> step.
 
 ## Downloading a video
 
 **Download video** renders the recording into an MP4 file in your browser,
-at 1920×1080 and 30 fps, with the same panels as the player. A progress bar
+at 1920×1080 and 30 fps, drawn in the same style as the page (the text there is part of the picture, so it can't be selected). A progress bar
 over the recording's timeline shows how far it got, how fast it goes and
 how long is left; keep the tab open until it finishes. The file is written
 to the browser's private storage as it goes, so long recordings don't fill
