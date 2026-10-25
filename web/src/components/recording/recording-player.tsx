@@ -189,7 +189,7 @@ export function RecordingPlayer({
       <div
         ref={grid}
         style={{ "--stage-h-lg": `${gridHeight}px` } as CSSProperties}
-        className="grid gap-3 [--phone-max-w:calc(100vw-4rem)] [--stage-h:68dvh] lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)] lg:[--phone-max-w:min(44vw,900px)] lg:[--stage-h:var(--stage-h-lg,60dvh)]"
+        className="grid gap-3 [--phone-max-w:calc(100vw-4rem)] [--stage-h:68dvh] lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1.45fr)_auto_minmax(280px,0.85fr)] lg:grid-rows-[minmax(0,1fr)] lg:[--phone-max-w:min(44vw,900px)] lg:[--stage-h:var(--stage-h-lg,60dvh)]"
       >
         <div className="order-3 flex h-[60dvh] min-h-0 flex-col lg:order-1 lg:h-auto [&>section]:flex-1">
           <LogcatView player={player} time={state.time} />
