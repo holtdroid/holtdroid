@@ -5,6 +5,7 @@
 # arm64 sing-box for the transparent tun, the locales dex and the Frida
 # bundles. linux/amd64 only (platform-tools for Linux is x86_64 only).
 
+ARG GO_SOURCE=build
 ARG GO_IMAGE=docker.io/library/golang:1.27.2-bookworm@sha256:5cf287a799e6b94384bad13d16b14904c531f51ba65792237e122ce42b392f61
 ARG BUN_IMAGE=docker.io/oven/bun:1.4.3@sha256:ec06c3b6cea04192ae6770c434f668ca41d343ad19fa6472216c7b48be39c598
 ARG JDK_IMAGE=docker.io/library/eclipse-temurin:21-jdk-noble@sha256:107215954359f1ab0be058a247d7c64ed6e69c71c1682d471d38ef751ec8e964
@@ -73,7 +74,7 @@ COPY frida/package.json frida/bun.lock ./
 RUN bun install --frozen-lockfile --production
 COPY frida/*.ts ./
 
-FROM --platform=$BUILDPLATFORM ${GO_IMAGE} AS go
+FROM --platform=$BUILDPLATFORM ${GO_IMAGE} AS go-build
 ARG FRIDA_VERSION
 ARG FRIDA_DEVKIT_SHA256=4f7b5ebfef5297f3dfc2ebc7629aa0a1d19334988ce95f74dbfd29b8665235e6
 ARG VERSION=dev
@@ -96,7 +97,7 @@ RUN set -eux; \
       go build -tags frida -trimpath -ldflags "-s -w -X main.version=$VERSION" -o /out/holtdroid ./cmd/holtdroid
 
 # Bundle the Frida scripts by running the frida binary on the build arch.
-FROM --platform=$BUILDPLATFORM ${GO_IMAGE} AS bundle
+FROM --platform=$BUILDPLATFORM ${GO_IMAGE} AS bundle-build
 ARG FRIDA_VERSION
 ARG FRIDA_DEVKIT_SHA256_AMD64=4f7b5ebfef5297f3dfc2ebc7629aa0a1d19334988ce95f74dbfd29b8665235e6
 ARG FRIDA_DEVKIT_SHA256_ARM64=27e28644a21050b0c3368a4a195a3d51331c49befcb63b6b67d099dd25a07ade
@@ -119,6 +120,17 @@ RUN mkdir -p web/dist && touch web/dist/.keep && \
     CGO_ENABLED=1 CGO_CFLAGS=-I/opt/frida CGO_LDFLAGS=-L/opt/frida go build -tags frida -o /usr/local/bin/holtdroid ./cmd/holtdroid
 COPY --from=script /opt/holtdroid/script /script
 RUN holtdroid agent compile-scripts /script && mkdir /out && cp /script/agent.js /script/system.js /out/
+
+# GO_SOURCE=prebuilt takes the Frida build and the bundled scripts the release
+# workflow made on the runner (with cached builds) instead of compiling here.
+FROM scratch AS go-prebuilt
+COPY --chmod=755 prebuilt/holtdroid-frida-linux-amd64 /out/holtdroid
+
+FROM scratch AS bundle-prebuilt
+COPY prebuilt/agent.js prebuilt/system.js /out/
+
+FROM go-${GO_SOURCE} AS go
+FROM bundle-${GO_SOURCE} AS bundle
 
 FROM gcr.io/distroless/cc-debian12:nonroot@sha256:9dac0a79194e45a7da0158a9c6da57b217585af0786db3845d1f0ec1a0dd182f
 COPY --from=tools /out/ /

@@ -16,3 +16,6 @@ web/openapi-agent.json
 AGENTS.local.md
 CLAUDE.local.md
 *.tsbuildinfo
+
+# Binaries the release workflow compiles for the image builds
+/prebuilt/
