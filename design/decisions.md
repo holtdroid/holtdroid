@@ -2699,7 +2699,7 @@ Notifications and quick settings slide out as a row of large buttons from a
 handle above the phone, back, home and recent apps from one below it, in
 the space the frame keeps there, instead of a popup from arcs in the
 bezel's corners: the buttons sit right at the screen and are easy to hit.
-Rotation moved into the display card.
+Rotation moved into the display card. The bars keep a small gap to the frame and look like Android's: chips in a pill above, the three navigation glyphs in a pill on the device's bottom edge, which in landscape is the right or left side (a vertical bar, as Android puts it), while the top bar stays above the screen like the status bar.
 
 The network (Wi-Fi, mobile data, airplane mode, the VPN location and the
 emulated conditions) moved out of the rail into a card to the right of the

@@ -26,7 +26,8 @@ export function ShadeCard({
     <button
       type="button"
       className={cn(
-        "relative grid cursor-default gap-1.5 rounded-2xl bg-neutral-900 p-3 text-left text-neutral-100 shadow-lg ring-1 ring-black/50 transition-colors outline-none hover:bg-neutral-800 focus-visible:ring-2 focus-visible:ring-sky-300 dark:ring-white/15",
+        "relative grid gap-1.5 rounded-2xl bg-neutral-900 p-3 text-left text-neutral-100 shadow-lg ring-1 ring-black/50 transition-colors outline-none hover:bg-neutral-800 focus-visible:ring-2 focus-visible:ring-sky-300 dark:ring-white/15",
+        props.onClick ? "cursor-pointer disabled:cursor-default" : "cursor-default",
         className,
       )}
       style={{ width: widgetWidth }}

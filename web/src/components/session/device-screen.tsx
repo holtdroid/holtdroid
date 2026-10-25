@@ -15,7 +15,7 @@ import { widgetWidth } from "@/components/session/shade"
 import { SSHWidget } from "@/components/session/ssh-widget"
 import { StreamWidget } from "@/components/session/stream-widget"
 import { TimeWidget } from "@/components/session/time-widget"
-import { type KeyEdge, keyArea, navArea, PhoneButtons } from "@/components/session/phone-buttons"
+import { type KeyEdge, keyArea, navArea, type NavSide, navSide, PhoneButtons } from "@/components/session/phone-buttons"
 import { useDevice } from "@/components/session/use-device"
 import { useVibrationAlerts } from "@/components/session/vibration-alerts"
 import { Spinner } from "@/components/ui/spinner"
@@ -32,10 +32,10 @@ const bezel = 8
 const columnWidth = widgetWidth + 2 * gap
 const fade = 24
 
-function phoneInset(edge: KeyEdge) {
+function phoneInset(edge: KeyEdge, nav: NavSide) {
   const across = edge === "top" || edge === "bottom"
   return {
-    x: 2 * (gap + bezel) + (across ? 0 : 2 * keyArea),
+    x: 2 * (gap + bezel) + (across ? 0 : 2 * keyArea) + (nav === "bottom" ? 0 : 2 * navArea),
     y: 2 * (gap + bezel + navArea) + (across ? 2 * keyArea : 0),
   }
 }
@@ -276,7 +276,8 @@ export function DeviceScreen({
   const corner = portrait?.radius ? portrait.radius / Math.min(screenDp(portrait).w, screenDp(portrait).h) : 0.07
 
   const edge = keyEdge(ratio, device.data?.rotation ?? 0)
-  const inset = phoneInset(edge)
+  const nav = navSide(ratio > 1, device.data?.rotation ?? 0)
+  const inset = phoneInset(edge, nav)
 
   return (
     <div
@@ -338,7 +339,7 @@ export function DeviceScreen({
               </div>
             )}
           </div>
-          <PhoneButtons provider={provider} id={id} live={live} edge={edge} pkg={pkg} />
+          <PhoneButtons provider={provider} id={id} live={live} edge={edge} nav={nav} pkg={pkg} />
         </div>
       </div>
     </div>

@@ -2,7 +2,6 @@ import { useQueryClient } from "@tanstack/react-query"
 import {
   BellIcon,
   CameraIcon,
-  ChevronLeftIcon,
   CircleIcon,
   LockIcon,
   LockOpenIcon,
@@ -11,11 +10,12 @@ import {
   PowerIcon,
   SquareIcon,
   ToggleRightIcon,
+  TriangleIcon,
   Volume2Icon,
   VolumeXIcon,
   type LucideIcon,
 } from "lucide-react"
-import { useState } from "react"
+import { type ReactNode, useState } from "react"
 import { toast } from "sonner"
 import { type DeviceAction, sessionBase } from "@/api/client"
 import type { LiveScreen } from "@/components/session/live-screen"
@@ -90,12 +90,14 @@ export function PhoneButtons({
   id,
   live,
   edge,
+  nav,
   pkg,
 }: {
   provider: string
   id: string
   live: LiveScreen
   edge: KeyEdge
+  nav: NavSide
   pkg: string
 }) {
   const run = useRunDeviceAction(provider, id, live)
@@ -117,10 +119,11 @@ export function PhoneButtons({
         ]}
       />
       <NavBar
-        place="bottom"
-        offset={edge === "bottom" ? keyArea : 0}
+        place={nav}
+        icons
+        offset={0}
         keys={[
-          { label: "Back", icon: ChevronLeftIcon, onClick: () => run("back") },
+          { label: "Back", icon: BackGlyph, onClick: () => run("back") },
           { label: "Home", icon: CircleIcon, onClick: () => run("home") },
           { label: "Recent apps", icon: SquareIcon, onClick: () => run("recents") },
         ]}
@@ -130,9 +133,14 @@ export function PhoneButtons({
 }
 
 export const keyArea = 4 + 18
-export const navArea = 24
+export const navArea = 38
 
-type NavKey = { label: string; icon: LucideIcon; disabled?: boolean; onClick: () => void }
+type NavKey = {
+  label: string
+  icon: LucideIcon | ((props: { className?: string }) => ReactNode)
+  disabled?: boolean
+  onClick: () => void
+}
 
 function useScreenshot(provider: string, id: string, live: LiveScreen, pkg: string) {
   const [shooting, setShooting] = useState(false)
@@ -155,43 +163,104 @@ function useScreenshot(provider: string, id: string, live: LiveScreen, pkg: stri
   return { shooting, take: () => void take() }
 }
 
-function NavBar({ place, keys, offset }: { place: "top" | "bottom"; keys: NavKey[]; offset: number }) {
-  const top = place === "top"
+export type NavSide = "bottom" | "left" | "right"
+
+export function navSide(landscape: boolean, rotation: number): NavSide {
+  if (!landscape) return "bottom"
+  return rotation === 3 ? "left" : "right"
+}
+
+type NavPlace = "top" | NavSide
+
+const navPlaces: Record<NavPlace, { zone: string; row: string; handle: string; hidden: string; margin: string }> = {
+  top: {
+    zone: "bottom-full left-1/2 w-[70%] -translate-x-1/2",
+    row: "bottom-1.5 left-1/2 -translate-x-1/2 flex-row",
+    handle: "bottom-3 left-1/2 h-1.5 w-14 -translate-x-1/2",
+    hidden: "translate-y-1",
+    margin: "marginBottom",
+  },
+  bottom: {
+    zone: "top-full left-1/2 w-[70%] -translate-x-1/2",
+    row: "top-1.5 left-1/2 -translate-x-1/2 flex-row",
+    handle: "top-3 left-1/2 h-1.5 w-14 -translate-x-1/2",
+    hidden: "-translate-y-1",
+    margin: "marginTop",
+  },
+  right: {
+    zone: "left-full top-1/2 h-[60%] -translate-y-1/2",
+    row: "left-1.5 top-1/2 -translate-y-1/2 flex-col-reverse",
+    handle: "left-3 top-1/2 h-14 w-1.5 -translate-y-1/2",
+    hidden: "-translate-x-1",
+    margin: "marginLeft",
+  },
+  left: {
+    zone: "right-full top-1/2 h-[60%] -translate-y-1/2",
+    row: "right-1.5 top-1/2 -translate-y-1/2 flex-col",
+    handle: "right-3 top-1/2 h-14 w-1.5 -translate-y-1/2",
+    hidden: "translate-x-1",
+    margin: "marginRight",
+  },
+}
+
+function NavBar({
+  place,
+  keys,
+  offset,
+  icons = false,
+}: {
+  place: NavPlace
+  keys: NavKey[]
+  offset: number
+  icons?: boolean
+}) {
+  const p = navPlaces[place]
+  const across = place === "top" || place === "bottom"
   return (
     <div
-      className={cn(
-        "group/nav absolute left-1/2 flex w-[70%] -translate-x-1/2 justify-center",
-        top ? "bottom-full items-end" : "top-full items-start",
-      )}
-      style={{ height: navArea, ...(top ? { marginBottom: offset } : { marginTop: offset }) }}
+      className={cn("group/nav absolute", p.zone)}
+      style={{ [across ? "height" : "width"]: navArea, [p.margin]: offset }}
     >
       <span
         className={cn(
-          "pointer-events-none absolute h-1.5 w-14 rounded-full bg-neutral-500/60 transition-opacity duration-150 group-focus-within/nav:opacity-0 group-hover/nav:opacity-0",
-          top ? "bottom-2" : "top-2",
+          "pointer-events-none absolute rounded-full bg-neutral-500/60 transition-opacity duration-150 group-focus-within/nav:opacity-0 group-hover/nav:opacity-0",
+          p.handle,
         )}
       />
       <div
         className={cn(
-          "pointer-events-none flex gap-1.5 opacity-0 transition-all delay-200 duration-150 group-focus-within/nav:pointer-events-auto group-focus-within/nav:translate-y-0 group-focus-within/nav:opacity-100 group-focus-within/nav:delay-0 group-hover/nav:pointer-events-auto group-hover/nav:translate-y-0 group-hover/nav:opacity-100 group-hover/nav:delay-0",
-          top ? "translate-y-1" : "-translate-y-1",
+          "pointer-events-none absolute flex gap-1 rounded-full bg-neutral-900 p-1 opacity-0 shadow-xl ring-1 ring-white/10 transition-all delay-200 duration-150 group-focus-within/nav:pointer-events-auto group-focus-within/nav:opacity-100 group-focus-within/nav:delay-0 group-hover/nav:pointer-events-auto group-hover/nav:opacity-100 group-hover/nav:delay-0",
+          p.row,
+          p.hidden,
+          across
+            ? "group-focus-within/nav:translate-y-0 group-hover/nav:translate-y-0"
+            : "group-focus-within/nav:translate-x-0 group-hover/nav:translate-x-0",
         )}
       >
         {keys.map((k) => (
           <button
             key={k.label}
             type="button"
+            aria-label={k.label}
+            title={icons ? k.label : undefined}
             disabled={k.disabled}
-            className="flex h-9 items-center gap-1.5 rounded-full bg-neutral-900 px-3.5 text-xs whitespace-nowrap text-neutral-100 shadow-lg ring-1 ring-white/15 transition hover:bg-neutral-700 focus-visible:ring-2 focus-visible:ring-sky-300 focus-visible:outline-none active:scale-95"
+            className={cn(
+              "flex items-center justify-center gap-2 rounded-full text-neutral-100 transition hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-sky-300 focus-visible:outline-none active:scale-90 active:bg-white/15 disabled:opacity-50",
+              icons ? "size-9" : "h-9 px-3.5 text-sm whitespace-nowrap",
+            )}
             onClick={k.onClick}
           >
-            <k.icon className="size-4" />
-            {k.label}
+            <k.icon className={icons ? "size-5" : "size-4"} />
+            {!icons && k.label}
           </button>
         ))}
       </div>
     </div>
   )
+}
+
+function BackGlyph({ className }: { className?: string }) {
+  return <TriangleIcon className={cn("-rotate-90", className)} />
 }
 
 function SideKey({

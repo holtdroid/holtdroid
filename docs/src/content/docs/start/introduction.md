@@ -57,9 +57,10 @@ hybrid apps, support engineers reproducing a customer bug.
    data and airplane mode tiles, the VPN locations and the emulated network
    conditions (slow or lossy networks and scenarios such as a subway ride,
    each with its description, on emulators with VPN locations). A
-   small handle above the phone slides out buttons for the notifications
-   and quick settings on hover, one below it for back, home and recent
-   apps; rotation is in the display card. Under the network card, the stream card picks the video codec
+   small handle above the phone slides out a bar with the notifications,
+   quick settings and a screenshot on hover, and one on the phone's bottom
+   edge slides out Android's back, home and recent apps buttons; in
+   landscape the navigation bar moves to the side, as on a phone; rotation is in the display card. Under the network card, the stream card picks the video codec
    (H.264, the lightest for the server, by default; H.265 or AV1 where the
    browser decodes them), quality (the device's own up to 1080p, then 720p,
    480p and 360p; a sharper screen is streamed at 1080p), frame rate (45 fps
