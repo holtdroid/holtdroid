@@ -255,40 +255,72 @@ export function ShadeSlider({
   icon: Icon,
   label,
   value: initial,
+  min = 0,
   max,
   unit = "",
+  format,
+  ticks = false,
   disabled,
   onCommit,
 }: {
   icon: LucideIcon
   label: string
   value: number
+  min?: number
   max: number
   unit?: string
+  format?: (v: number) => string
+  ticks?: boolean
   disabled?: boolean
   onCommit: (v: number) => void
 }) {
   const [value, setValue] = useState(initial)
+  const ratio = max > min ? (value - min) / (max - min) : 0
   return (
-    <label className="flex h-14 items-center gap-3 rounded-full bg-neutral-800 px-4">
-      <Icon className="size-5 shrink-0 text-sky-200" />
+    <div
+      className={cn(
+        "relative h-14 overflow-hidden rounded-full bg-neutral-800 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-sky-300",
+        disabled && "opacity-60",
+      )}
+    >
+      <div
+        className="absolute inset-y-0 left-0 rounded-full bg-sky-200 transition-[width] duration-100 ease-out"
+        style={{ width: `calc(3.5rem + (100% - 3.5rem) * ${ratio})` }}
+      />
+      {ticks &&
+        Array.from({ length: max - min + 1 }, (_, i) => (
+          <span
+            key={i}
+            className={cn(
+              "pointer-events-none absolute top-1/2 size-1 -translate-1/2 rounded-full",
+              i <= value - min ? "bg-sky-950/40" : "bg-neutral-500",
+            )}
+            style={{ left: `calc(1.75rem + (100% - 3.5rem) * ${i / Math.max(max - min, 1)})` }}
+          />
+        ))}
+      <Icon className="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-sky-950" />
+      <span
+        className={cn(
+          "pointer-events-none absolute top-1/2 right-5 -translate-y-1/2 text-sm font-medium tabular-nums",
+          ratio > 0.8 ? "text-sky-950" : "text-neutral-200",
+        )}
+      >
+        {format ? format(value) : `${value}${unit}`}
+      </span>
       <input
         type="range"
-        min={0}
+        min={min}
         max={max}
         step={1}
         value={value}
         disabled={disabled}
         aria-label={label}
-        className="h-1.5 min-w-0 flex-1 cursor-pointer accent-sky-300"
+        aria-valuetext={format ? format(value) : `${value}${unit}`}
+        className="absolute inset-0 size-full cursor-pointer opacity-0 disabled:cursor-default"
         onChange={(e) => setValue(Number(e.target.value))}
         onPointerUp={() => onCommit(value)}
         onKeyUp={() => onCommit(value)}
       />
-      <span className="w-9 text-right text-sm text-neutral-300 tabular-nums">
-        {value}
-        {unit}
-      </span>
-    </label>
+    </div>
   )
 }

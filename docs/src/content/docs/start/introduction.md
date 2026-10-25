@@ -80,7 +80,9 @@ hybrid apps, support engineers reproducing a customer bug.
    opens a brightness slider and adaptive brightness (for this session
    only; the stream itself doesn't get darker, the device and its apps see
    the setting), the dark theme (light, dark or matching the portal's
-   theme), font and display size. The
+   theme), the font size with a preview and the display size, Android's
+   setting that scales buttons, icons and text by changing the density (the
+   screen picked at launch keeps its resolution). The
    language card picks the system language and the keyboard layouts from a
    grid of flags: a click on a layout adds or removes it (up to 7, remembered
    in your browser and guessed from your keyboard where the browser allows).

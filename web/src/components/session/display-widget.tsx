@@ -1,10 +1,9 @@
-import { MoonIcon, SunIcon, SunMediumIcon, SunMoonIcon, TypeIcon, type LucideIcon } from "lucide-react"
+import { MoonIcon, SunIcon, SunMediumIcon, SunMoonIcon, TypeIcon, ZoomInIcon, type LucideIcon } from "lucide-react"
 import { useTheme } from "next-themes"
 import { useEffect, useEffectEvent, useRef } from "react"
 import type { DeviceSettings, DeviceState } from "@/api/client"
 import {
   CardLine,
-  Chips,
   Note,
   Row,
   Section,
@@ -27,6 +26,10 @@ const displaySizes = [
   { value: 1.15, label: "Large" },
   { value: 1.3, label: "Larger" },
 ]
+
+function nearest(values: number[], v: number) {
+  return values.reduce((best, x, i) => (Math.abs(x - v) < Math.abs(values[best]! - v) ? i : best), 0)
+}
 
 type ThemeMode = "light" | "dark" | "sync"
 
@@ -79,7 +82,14 @@ function Display({ s, busy, set }: { s: DeviceState; busy: boolean; set: Set }) 
     if (s.darkMode !== (m === "dark")) set({ darkMode: m === "dark" })
   }
 
-  const font = fontScales.find((f) => Math.abs(f.value - s.fontScale) < 0.01)?.value ?? 0
+  const fontStep = nearest(
+    fontScales.map((f) => f.value),
+    s.fontScale,
+  )
+  const sizeStep = nearest(
+    displaySizes.map((d) => d.value),
+    s.defaultDensity > 0 ? s.density / s.defaultDensity : 1,
+  )
   const size = displaySizes.find((d) => Math.round(s.defaultDensity * d.value) === s.density)
   const resized = s.defaultDensity > 0 && s.density !== s.defaultDensity
   const changed = Math.abs(s.fontScale - 1) > 0.01 || resized || mode === "dark"
@@ -154,14 +164,52 @@ function Display({ s, busy, set }: { s: DeviceState; busy: boolean; set: Set }) 
             </Row>
           ))}
         </Section>
-        <Chips title="Font size" options={fontScales} value={font} onChange={(fontScale) => set({ fontScale })} />
-        {s.defaultDensity > 0 && (
-          <Chips
-            title="Display size"
-            options={displaySizes}
-            value={size?.value ?? 0}
-            onChange={(k) => set({ density: k === 1 ? 0 : Math.round(s.defaultDensity * k) })}
+        <section className="grid gap-2">
+          <h4 className="px-1 text-xs font-medium text-neutral-400">Font size</h4>
+          <ShadeSlider
+            key={`font-${fontStep}`}
+            icon={TypeIcon}
+            label="Font size"
+            value={fontStep}
+            max={fontScales.length - 1}
+            ticks
+            format={(i) => fontScales[i]?.label ?? ""}
+            disabled={busy}
+            onCommit={(i) => set({ fontScale: fontScales[i]?.value ?? 1 })}
           />
+          <p
+            className="rounded-3xl bg-neutral-800 px-4 py-3 leading-snug text-neutral-100"
+            style={{ fontSize: `${14 * s.fontScale}px` }}
+          >
+            This is how text looks in apps.
+          </p>
+        </section>
+        {s.defaultDensity > 0 && (
+          <section className="grid gap-2">
+            <h4 className="flex justify-between px-1 text-xs font-medium text-neutral-400">
+              Display size
+              <span className="tabular-nums">{s.density} dpi</span>
+            </h4>
+            <ShadeSlider
+              key={`size-${sizeStep}`}
+              icon={ZoomInIcon}
+              label="Display size"
+              value={sizeStep}
+              max={displaySizes.length - 1}
+              ticks
+              format={(i) => displaySizes[i]?.label ?? ""}
+              disabled={busy}
+              onCommit={(i) => {
+                const k = displaySizes[i]?.value ?? 1
+                set({ density: k === 1 ? 0 : Math.round(s.defaultDensity * k) })
+              }}
+            />
+            <Note>
+              Android&apos;s own Display size setting: buttons, icons and text all get bigger or smaller, the way people
+              who see poorly set up their phones. The screen picked at launch keeps its resolution; only the density
+              changes, from {s.defaultDensity} dpi by default.
+            </Note>
+          </section>
         )}
       </ShadePanel>
     </ShadeRoot>

@@ -2745,6 +2745,10 @@ fresh and a phone's cleanup puts its own brightness back, so nothing is
 carried to the next session. The rail is left with capture and the faked
 GPS. The SSH button left the page header for a card at the bottom of the
 column, with the same tunnels, ADB commands and connect command in a shade.
+Its font and display size are stepped sliders with a preview, and the panel
+says that display size is Android's density setting rather than the screen
+chosen at launch. All the cards' sliders are Android-style pills with the
+icon inside the fill.
 
 **Consequences.** The rail keeps capture and the other device controls. Small + and − marks and the power key's current action sit next to the keys, which widen on hover and sink on a press. The frame and the cards take 198 px of width and 40 px of height from
 the screen panel, which the auto-fit accounts for.
