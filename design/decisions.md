@@ -2860,6 +2860,12 @@ pass a recording to someone without an account.
   Sharing keeps the recording.
 - **Logcat as `.log`** is the logcat with ANSI colours by level, made on the
   server by line so a share link gets it too; the plain text stays.
+- **Too short to keep.** A recording that ends under `recordings.minDuration`
+  (20 s) is deleted with its last manifest, the one the agent uploads when it
+  ends, so a session opened and closed at once leaves no empty recordings
+  in the list; the periodic sweep catches ones whose agent never said it was
+  done. A kept or shared recording and one with a marker stay, since someone
+  wanted them.
 - **Retention and quota**: recordings older than `recordings.maxAge` are
   deleted unless kept. The per-user `recordings.quota` is checked when a
   recording starts and on each manifest upload (usage cached a minute per

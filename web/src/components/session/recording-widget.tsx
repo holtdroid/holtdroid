@@ -242,6 +242,9 @@ export function RecordingWidget({
             ? `Recordings are deleted ${formatSpan(rules.maxAge)} after they were made unless kept. `
             : ""}
           {rules.quota > 0 ? `You have ${formatBytes(rules.quota)} of space; ${formatBytes(rules.used)} is used.` : ""}
+          {rules.minDuration > 0
+            ? ` A recording shorter than ${rules.minDuration} seconds is not kept, unless it has a marker.`
+            : ""}
         </Note>
       </ShadePanel>
     </ShadeRoot>

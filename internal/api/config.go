@@ -93,6 +93,7 @@ type RecordingsConfig struct {
 	Share         bool
 	MaxFileSize   config.ByteSize
 	SweepInterval time.Duration
+	MinDuration   time.Duration
 }
 
 // ADBConfig controls the browser's ADB connection to sessions (the portal's
@@ -152,6 +153,7 @@ func DefaultConfig() Config {
 		},
 		Recordings: RecordingsConfig{
 			Mode: RecordAlways, MaxAge: 7 * 24 * time.Hour, Share: true, MaxFileSize: 64 << 20, SweepInterval: 10 * time.Minute,
+			MinDuration: 20 * time.Second,
 		},
 		Map:     MapConfig{URL: "https://tiles.openfreemap.org", Style: "styles/liberty", DarkStyle: "styles/dark"},
 		Routing: RoutingConfig{URL: "https://valhalla1.openstreetmap.de"},
@@ -251,8 +253,8 @@ func (c Config) Validate() error {
 		if !slices.Contains([]string{RecordAlways, RecordAuto, RecordManual}, c.Recordings.Mode) {
 			errs = append(errs, fmt.Errorf("recordings.mode must be %s, %s or %s", RecordAlways, RecordAuto, RecordManual))
 		}
-		if c.Recordings.MaxAge < 0 {
-			errs = append(errs, errors.New("recordings.maxAge must not be negative"))
+		if c.Recordings.MaxAge < 0 || c.Recordings.MinDuration < 0 {
+			errs = append(errs, errors.New("recordings.maxAge and recordings.minDuration must not be negative"))
 		}
 		if c.Recordings.MaxFileSize == 0 || c.Recordings.SweepInterval <= 0 {
 			errs = append(errs, errors.New("recordings.maxFileSize and recordings.sweepInterval must be positive"))

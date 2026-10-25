@@ -163,6 +163,11 @@ download the logcat, but the page has no video download.
 
 ## Keeping and space
 
+A recording that ends in under `recordings.minDuration` (20 seconds by default)
+is deleted as soon as it ends: a session stopped at once or one that failed to
+start leaves nothing to watch. A recording you kept or shared, or one with a
+marker on it, stays.
+
 Recordings are deleted `recordings.maxAge` after they were made unless you
 **Keep** them. Each user has `recordings.quota` bytes: when a new recording
 doesn't fit, the oldest recordings that aren't kept are deleted first; when
@@ -180,6 +185,7 @@ recordings:
   enabled: true
   mode: always # always: every session, can't be stopped; auto: unless the launch says no; manual: only on request
   maxAge: 168h # deleted this long after recording unless kept; 0 = never
+  minDuration: 20s # a finished recording shorter than this is deleted unless kept or marked; 0 = keep all
   quota: 50GiB # per user; 0 = no limit
   share: true # allow share links
   maxFileSize: 64MiB # largest file an agent may upload

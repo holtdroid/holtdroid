@@ -94,6 +94,12 @@ export function RecordingsPage() {
                   ? `Deleted ${formatSpan(rules.maxAge)} after recording unless you keep them`
                   : "Kept until you delete them"}
               </li>
+              {rules.minDuration > 0 && (
+                <li>
+                  Recordings shorter than {formatSpan(rules.minDuration)} aren&apos;t kept, unless they have a marker or
+                  you kept them
+                </li>
+              )}
               {rules.quota > 0 && <li>When the space runs out, the oldest ones that aren&apos;t kept go first</li>}
               {rules.share && <li>A share link opens the recording without signing in, until you turn it off</li>}
             </ul>

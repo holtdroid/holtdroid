@@ -21,6 +21,7 @@ func newRecordingHarness(t *testing.T, configure func(*RecordingsConfig)) *harne
 	return newHarnessWith(t, 4, func(c *Config) {
 		c.Recordings.Enabled = true
 		c.PublicURL = "https://android.example.com"
+		c.Recordings.MinDuration = 0
 		if configure != nil {
 			configure(&c.Recordings)
 		}
@@ -392,5 +393,45 @@ func TestRecordingExport(t *testing.T) {
 	token := decode[RecordingView](t, h.do(http.MethodPost, "/api/v1/recordings/"+r.ID+"/share", "alice", "", nil)).Share.Token
 	if rec := h.do(http.MethodGet, "/api/v1/shared/"+token+"/export", "", "", nil); rec.Code != http.StatusOK || rec.Body.Len() == 0 {
 		t.Fatalf("export through a share link: %d", rec.Code)
+	}
+}
+
+func TestRecordingShorterThanTheMinimumIsDropped(t *testing.T) {
+	h := newRecordingHarness(t, func(c *RecordingsConfig) { c.MinDuration = 2 * time.Second })
+	if l := h.recordings("alice"); l.MinDuration != 2 {
+		t.Fatalf("minDuration in the list: %d", l.MinDuration)
+	}
+
+	if short := h.record("alice", nil); short.ID != "" {
+		t.Fatalf("a 1.5 s recording was kept: %+v", short)
+	}
+	if items := h.recordings("alice").Items; len(items) != 0 {
+		t.Fatalf("after a short one: %+v", items)
+	}
+
+	launch := func() SessionView {
+		rec := h.do(http.MethodPost, "/api/v1/sessions", "alice", "", map[string]any{
+			"source": "local", "artifactId": encodeID("hello.apk"), "provider": "fake",
+		})
+		v := decode[SessionView](t, rec)
+		h.waitReady(v.ID)
+		return v
+	}
+
+	long := launch()
+	time.Sleep(2500 * time.Millisecond)
+	h.stop("alice", long.ID)
+	if items := h.recordings("alice").Items; len(items) != 1 || items[0].State != string(contract.RecordingDone) {
+		t.Fatalf("a long enough recording: %+v", items)
+	}
+
+	marked := launch()
+	time.Sleep(400 * time.Millisecond)
+	if rec := h.do(http.MethodPost, "/api/v1/sessions/fake/"+marked.ID+"/recording/markers", "alice", "", map[string]any{"label": "bug"}); rec.Code != http.StatusOK {
+		t.Fatalf("marker: %d %s", rec.Code, rec.Body.String())
+	}
+	h.stop("alice", marked.ID)
+	if items := h.recordings("alice").Items; len(items) != 2 {
+		t.Fatalf("a short recording with a marker should stay: %+v", items)
 	}
 }

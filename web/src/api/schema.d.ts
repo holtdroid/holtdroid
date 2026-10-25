@@ -1766,6 +1766,11 @@ export interface components {
              */
             maxAge: number;
             /**
+             * Format: int64
+             * @description seconds: a finished recording shorter than this is deleted, unless it is kept or has a marker; 0 keeps them all
+             */
+            minDuration: number;
+            /**
              * @description always: every session is recorded and it can't be stopped; auto: recorded unless the launch says no; manual: only when asked
              * @enum {string}
              */

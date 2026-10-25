@@ -519,7 +519,32 @@ func (s *Server) serveRecordingUpload(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	if name == "manifest.json" {
+		var mf contract.RecordingManifest
+		if json.Unmarshal(data, &mf) == nil && mf.State != contract.RecordingActive {
+			s.dropIfTooShort(ctx, ref, mf.Duration)
+		}
+	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// dropIfTooShort deletes a recording that ended before recordings.minDuration,
+// unless it was kept (sharing keeps it) or has a marker, which says someone
+// wanted it.
+func (s *Server) dropIfTooShort(ctx context.Context, ref recordingRef, duration int64) bool {
+	min := s.cfg.Recordings.MinDuration
+	if min <= 0 || time.Duration(duration)*time.Millisecond >= min {
+		return false
+	}
+	if s.recordings.exists(ctx, s.recordings.metaKey(ref, ".keep")) || len(s.recordings.markers(ctx, ref)) > 0 {
+		return false
+	}
+	if err := s.recordings.remove(context.WithoutCancel(ctx), ref); err != nil {
+		s.log.Warn("could not delete a recording that is too short", "recording", ref.id, "err", err)
+		return false
+	}
+	s.log.Info("recording deleted: shorter than recordings.minDuration", "recording", ref.id, "duration", time.Duration(duration)*time.Millisecond)
+	return true
 }
 
 func (s *Server) takeManifest(ctx context.Context, ref recordingRef, m recordingMeta, data []byte) (int, error) {
@@ -576,6 +601,17 @@ func (s *Server) sweepRecordings(ctx context.Context) {
 	for _, e := range entries {
 		created := recordingCreated(e.ref.id)
 		e.meta.CreatedAt = created
+		if e.state != nil && s.now().Sub(created) < 2*time.Hour {
+			if st, err := s.recordings.state(ctx, e.ref); err == nil && st != nil {
+				e.state = st
+				switch s.recordingStatus(e) {
+				case string(contract.RecordingDone), string(contract.RecordingFailed), string(contract.RecordingInterrupted):
+					if s.dropIfTooShort(ctx, e.ref, st.Duration) {
+						continue
+					}
+				}
+			}
+		}
 		never := e.state == nil && s.now().Sub(created) > time.Hour
 		if !never && !s.recordingExpired(e) {
 			continue
@@ -637,13 +673,14 @@ type RecordingView struct {
 }
 
 type RecordingList struct {
-	Enabled bool            `json:"enabled"`
-	Mode    string          `json:"mode" enum:"always,auto,manual" doc:"always: every session is recorded and it can't be stopped; auto: recorded unless the launch says no; manual: only when asked"`
-	Share   bool            `json:"share" doc:"recordings can be shared by link"`
-	Quota   int64           `json:"quota" doc:"bytes a user's recordings may take, 0 for no limit"`
-	Used    int64           `json:"used" doc:"bytes the caller's recordings take"`
-	MaxAge  int64           `json:"maxAge" doc:"seconds a recording is kept unless it is kept for longer, 0 for no limit"`
-	Items   []RecordingView `json:"items"`
+	Enabled     bool            `json:"enabled"`
+	Mode        string          `json:"mode" enum:"always,auto,manual" doc:"always: every session is recorded and it can't be stopped; auto: recorded unless the launch says no; manual: only when asked"`
+	Share       bool            `json:"share" doc:"recordings can be shared by link"`
+	Quota       int64           `json:"quota" doc:"bytes a user's recordings may take, 0 for no limit"`
+	Used        int64           `json:"used" doc:"bytes the caller's recordings take"`
+	MaxAge      int64           `json:"maxAge" doc:"seconds a recording is kept unless it is kept for longer, 0 for no limit"`
+	MinDuration int64           `json:"minDuration" doc:"seconds: a finished recording shorter than this is deleted, unless it is kept or has a marker; 0 keeps them all"`
+	Items       []RecordingView `json:"items"`
 }
 
 type RecordingDetail struct {
@@ -807,6 +844,7 @@ func (s *Server) registerRecordings(api huma.API) {
 			return &out[RecordingList]{l}, nil
 		}
 		l.Enabled, l.Mode, l.Share, l.Quota, l.MaxAge = true, cfg.Mode, cfg.Share, int64(cfg.Quota), int64(cfg.MaxAge/time.Second)
+		l.MinDuration = int64(cfg.MinDuration / time.Second)
 		who, _ := auth.FromContext(ctx)
 		used, entries, err := s.recordingUsage(ctx, userDir(who.User))
 		if err != nil {
