@@ -2,7 +2,8 @@ import type { Display } from "@/api/client"
 import { ChoiceCard } from "@/components/launch/choice-card"
 import { PhonePreview } from "@/components/launch/phone-preview"
 
-export const screenName = (s: Display) => (s.brand ? `${s.brand} ${s.label}` : s.label)
+export const screenName = (s: Display) =>
+  !s.brand || s.label.toLowerCase().startsWith(s.brand.toLowerCase()) ? s.label : `${s.brand} ${s.label}`
 
 export function ScreenCard({
   display: s,

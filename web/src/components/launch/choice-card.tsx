@@ -51,7 +51,7 @@ export function ChoiceCard({
       disabled={disabled}
       onClick={onSelect}
       className={cn(
-        "bg-card focus-visible:ring-ring/50 relative flex min-w-0 flex-col gap-2 rounded-xl border p-3 text-left transition outline-none focus-visible:ring-3 disabled:cursor-not-allowed disabled:opacity-50",
+        "bg-card focus-visible:ring-ring/50 relative flex w-full min-w-0 flex-col gap-2 rounded-xl border p-3 text-left transition outline-none focus-visible:ring-3 disabled:cursor-not-allowed disabled:opacity-50",
         selected ? "border-primary bg-primary/5 ring-primary/30 ring-2" : "hover:bg-muted/50",
         className,
       )}

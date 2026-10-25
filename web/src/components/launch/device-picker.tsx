@@ -12,6 +12,14 @@ const GENERIC = "Generic"
 
 const brandOf = (d: Display) => d.brand || GENERIC
 
+// A brand with one or two devices takes one or two columns of the grid, so
+// small brands sit side by side under their own headings.
+function spans(count: number) {
+  if (count === 1) return { section: "", items: "" }
+  if (count === 2) return { section: "sm:col-span-2", items: "sm:grid-cols-2" }
+  return { section: "sm:col-span-2 lg:col-span-3", items: "sm:grid-cols-2 lg:grid-cols-3" }
+}
+
 function matches(d: Display, q: string) {
   if (!q) return true
   const text = [d.brand, d.label, d.like, `${d.width}x${d.height}`, `${d.width}×${d.height}`, `${d.dpi}dpi`]
@@ -113,13 +121,13 @@ function Body({
         {groups.length === 0 ? (
           <p className="text-muted-foreground py-12 text-center text-sm">Nothing matches “{query}”.</p>
         ) : (
-          <div className="grid gap-5 py-1">
+          <div className="grid grid-flow-dense gap-x-2 gap-y-5 py-1 sm:grid-cols-2 lg:grid-cols-3">
             {groups.map((g) => (
-              <section key={g.brand} className="grid gap-2">
+              <section key={g.brand} className={cn("grid content-start gap-2", spans(g.items.length).section)}>
                 <h4 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
                   {g.brand} · {g.items.length}
                 </h4>
-                <div role="radiogroup" aria-label={g.brand} className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                <div role="radiogroup" aria-label={g.brand} className={cn("grid gap-2", spans(g.items.length).items)}>
                   {g.items.map((d) => {
                     const fav = favorites.includes(d.id)
                     return (
