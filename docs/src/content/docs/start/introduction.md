@@ -42,9 +42,11 @@ hybrid apps, support engineers reproducing a customer bug.
    The screen sits in a phone body with keys on its right edge, like a
    real phone: the volume rocker turns the volume up (upper half) or down
    (lower half), and the power key locks the device or turns its screen off.
-   Hovering the rocker opens the device audio, which plays in your browser
-   by default: switch it off, or mute it in this tab while it stays
-   connected; the rocker turns amber while the audio is off or muted.
+   Hovering the rocker shows the device's media volume with a slider and a
+   switch that mutes Android itself, and the device audio, which plays in
+   your browser by default: switch it off, or silence it in this tab while it
+   stays connected. The rocker turns amber while the device is muted or the
+   audio is off or silenced.
    Hovering the power key picks what a click does and has **Wake and
    unlock**. A rail next to the screen has the other hardware buttons
    (rotate, back/home/recents, notifications, quick settings), a screenshot

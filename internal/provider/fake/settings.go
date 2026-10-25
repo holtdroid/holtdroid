@@ -2,6 +2,7 @@ package fake
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"fmt"
 	"image"
@@ -21,6 +22,8 @@ func defaultSettings() contract.DeviceState {
 		FontScale:          1,
 		Density:            320,
 		DefaultDensity:     320,
+		Volume:             5,
+		VolumeMax:          15,
 		NetworkProfile:     contract.NetworkFull,
 		NetworkProfiles:    netem.Catalog(),
 		TimeZone:           "UTC",
@@ -65,6 +68,15 @@ func (d *device) UpdateDevice(_ context.Context, in contract.DeviceSettings) (co
 			s.Density = s.DefaultDensity
 		}
 		set(&s.Rotation, in.Rotation)
+		switch {
+		case in.Muted != nil && *in.Muted:
+			d.unmuteTo, s.Volume, s.Muted = cmp.Or(s.Volume, d.unmuteTo), 0, true
+		case in.Volume != nil:
+			s.Volume = min(*in.Volume, s.VolumeMax)
+			s.Muted = s.Volume == 0
+		case in.Muted != nil:
+			s.Volume, s.Muted = cmp.Or(d.unmuteTo, 5), false
+		}
 		set(&s.NetworkProfile, in.NetworkProfile)
 		set(&s.TimeZone, in.TimeZone)
 		if len(in.Locales) > 0 {
@@ -103,8 +115,23 @@ func (d *device) DeviceAction(_ context.Context, action contract.DeviceAction) e
 		d.update(func() { d.screen = contract.Screen{On: true, Locked: true} })
 	case contract.DeviceUnlock:
 		d.update(func() { d.screen = contract.Screen{On: true} })
-	case contract.DeviceVolumeUp, contract.DeviceVolumeDown, contract.DeviceMute,
-		contract.DeviceBack, contract.DeviceHome, contract.DeviceNotifications, contract.DeviceQuickSettings:
+	case contract.DeviceVolumeUp:
+		d.update(func() { d.settings.Volume, d.settings.Muted = min(d.settings.Volume+1, d.settings.VolumeMax), false })
+	case contract.DeviceVolumeDown:
+		d.update(func() {
+			d.settings.Volume = max(d.settings.Volume-1, 0)
+			d.settings.Muted = d.settings.Volume == 0
+		})
+	case contract.DeviceMute:
+		d.update(func() {
+			s := &d.settings
+			if s.Muted {
+				s.Volume, s.Muted = cmp.Or(d.unmuteTo, 5), false
+			} else {
+				d.unmuteTo, s.Volume, s.Muted = s.Volume, 0, true
+			}
+		})
+	case contract.DeviceBack, contract.DeviceHome, contract.DeviceNotifications, contract.DeviceQuickSettings:
 	default:
 		return fmt.Errorf("%w: unknown action %q", contract.ErrInvalid, action)
 	}

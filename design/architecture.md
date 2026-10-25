@@ -347,6 +347,10 @@ audio (`web/src/lib/audio.ts`) is decoded with WebCodecs `AudioDecoder` and
 played through `@yume-chan/pcm-player`. It is on by default (`audio` in
 the stream settings): it connects once the screen is live and the page has
 had a click or key press, as browsers require, and reconnects after a drop.
+The media volume comes from `cmd media_session volume --stream 3 --get`
+and the `Muted` flag of `STREAM_MUSIC` in `dumpsys audio`; muting sets the
+lowest step, which Android treats as muted, and the agent remembers the
+step to bring back (a third of the range when it doesn't know one).
 `audioMuted` keeps the stream connected and drops the decoded samples, so
 unmuting is instant. The canvas sits in a drawn phone body
 (`device-screen.tsx`, sized with container query units from the video's

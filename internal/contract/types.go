@@ -344,6 +344,9 @@ type DeviceState struct {
 	Density            int                  `json:"density"`
 	DefaultDensity     int                  `json:"defaultDensity"`
 	Rotation           int                  `json:"rotation" minimum:"0" maximum:"3"`
+	Volume             int                  `json:"volume" doc:"the media volume step, 0 while muted"`
+	VolumeMax          int                  `json:"volumeMax" doc:"the highest media volume step; 0 when the device doesn't report its volume"`
+	Muted              bool                 `json:"muted" doc:"the media stream is muted"`
 	NetworkProfile     NetworkProfile       `json:"networkProfile,omitempty" doc:"empty when the device can't emulate network conditions"`
 	NetworkProfiles    []NetworkProfileInfo `json:"networkProfiles,omitempty" doc:"the profiles networkProfile may be set to"`
 	TimeZone           string               `json:"timeZone"`
@@ -383,6 +386,8 @@ type DeviceSettings struct {
 	FontScale      *float64        `json:"fontScale,omitempty" minimum:"0.5" maximum:"3"`
 	Density        *int            `json:"density,omitempty" minimum:"0" maximum:"1000" doc:"0 restores the default"`
 	Rotation       *int            `json:"rotation,omitempty" minimum:"0" maximum:"3"`
+	Volume         *int            `json:"volume,omitempty" minimum:"0" maximum:"100" doc:"sets the media volume step, which also unmutes it above 0"`
+	Muted          *bool           `json:"muted,omitempty" doc:"true mutes the media stream, false brings back the volume it had"`
 	NetworkProfile *NetworkProfile `json:"networkProfile,omitempty" pattern:"^[a-z0-9-]{1,32}$" maxLength:"32" doc:"one of DeviceState.networkProfiles"`
 	TimeZone       *string         `json:"timeZone,omitempty" pattern:"^[A-Za-z][A-Za-z0-9_+/-]*$" maxLength:"64"`
 	Locales        []string        `json:"locales,omitempty" minItems:"1" maxItems:"8" doc:"the system languages in order: the first sets the UI language, the rest add their keyboard layouts"`

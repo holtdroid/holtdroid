@@ -17,7 +17,7 @@ const viaScreen: Partial<Record<DeviceAction, (c: ScreenControl) => void>> = {
   "quick-settings": (c) => c.quickSettings(),
 }
 
-function deviceKey(provider: string, id: string) {
+export function deviceKey(provider: string, id: string) {
   return ["device", provider, id]
 }
 

@@ -1,12 +1,15 @@
-import { CheckIcon, LockIcon, LockOpenIcon, PowerIcon, Volume1Icon, Volume2Icon, VolumeXIcon } from "lucide-react"
-import type { ReactNode } from "react"
+import { useQueryClient } from "@tanstack/react-query"
+import { CheckIcon, LockIcon, LockOpenIcon, PowerIcon, Volume2Icon, VolumeXIcon } from "lucide-react"
+import { type ReactNode, useState } from "react"
 import type { DeviceAction } from "@/api/client"
 import { useDeviceAudio } from "@/components/session/device-audio"
 import type { LiveScreen } from "@/components/session/live-screen"
-import { useRunDeviceAction } from "@/components/session/use-device"
+import { deviceKey, useDevice, useRunDeviceAction, useUpdateDevice } from "@/components/session/use-device"
 import { Button } from "@/components/ui/button"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Label } from "@/components/ui/label"
+import { Separator } from "@/components/ui/separator"
+import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { type LockMode, setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
 import { cn } from "@/lib/utils"
@@ -61,30 +64,64 @@ function SideKey({
 
 function VolumeRocker({ provider, id, live, run }: { provider: string; id: string; live: LiveScreen; run: Run }) {
   const audio = useDeviceAudio(provider, id, live)
-  const flagged = audio.supported && (!audio.on || audio.muted)
+  const device = useDevice(provider, id)
+  const update = useUpdateDevice(provider, id)
+  const qc = useQueryClient()
+  const s = device.data
+  const hasVolume = !!s && s.volumeMax > 0
+  const deviceMuted = hasVolume && s.muted
+  const flagged = deviceMuted || (audio.supported && (!audio.on || audio.muted))
+
+  const press = (a: "volume-up" | "volume-down") => {
+    run(a)
+    window.setTimeout(() => void qc.invalidateQueries({ queryKey: deviceKey(provider, id) }), 400)
+  }
+
   return (
     <HoverCard openDelay={150} closeDelay={150}>
       <HoverCardTrigger asChild>
         <div className="absolute top-[17%] left-full flex h-[15%] flex-col">
-          <SideKey label="Volume up" flagged={flagged} className="rounded-tr-sm" onClick={() => run("volume-up")} />
-          <SideKey label="Volume down" flagged={flagged} className="rounded-br-sm" onClick={() => run("volume-down")} />
+          <SideKey label="Volume up" flagged={flagged} className="rounded-tr-sm" onClick={() => press("volume-up")} />
+          <SideKey
+            label="Volume down"
+            flagged={flagged}
+            className="rounded-br-sm"
+            onClick={() => press("volume-down")}
+          />
         </div>
       </HoverCardTrigger>
-      <HoverCardContent side="right" align="start" className="flex w-64 flex-col gap-3 p-3">
+      <HoverCardContent side="right" align="start" className="flex w-72 flex-col gap-3 p-3">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-sm font-medium">Volume</span>
-          <div className="flex gap-0.5">
-            <Button size="icon-xs" variant="ghost" aria-label="Volume down" onClick={() => run("volume-down")}>
-              <Volume1Icon />
-            </Button>
-            <Button size="icon-xs" variant="ghost" aria-label="Volume up" onClick={() => run("volume-up")}>
-              <Volume2Icon />
-            </Button>
-            <Button size="icon-xs" variant="ghost" aria-label="Android's mute key" onClick={() => run("mute")}>
-              <VolumeXIcon />
-            </Button>
-          </div>
+          <span className="text-sm font-medium">Device volume</span>
+          {hasVolume && (
+            <span className={cn("text-xs tabular-nums", deviceMuted ? "text-amber-600" : "text-muted-foreground")}>
+              {deviceMuted ? "Muted" : `${s.volume} of ${s.volumeMax}`}
+            </span>
+          )}
         </div>
+        {hasVolume ? (
+          <>
+            <VolumeSlider
+              key={s.volume}
+              volume={s.volume}
+              max={s.volumeMax}
+              disabled={update.isPending}
+              onCommit={(volume) => update.mutate({ volume })}
+            />
+            <Toggle
+              label="Mute the device"
+              hint="Android's media volume; unmuting brings the level back"
+              checked={s.muted}
+              disabled={update.isPending}
+              onChange={(muted) => update.mutate({ muted })}
+            />
+          </>
+        ) : (
+          <p className="text-muted-foreground text-xs">
+            {s ? "This device doesn't report its volume; the side keys still press volume up and down." : "Loading…"}
+          </p>
+        )}
+        <Separator />
         <Toggle
           label="Device audio"
           hint={audio.status}
@@ -93,14 +130,46 @@ function VolumeRocker({ provider, id, live, run }: { provider: string; id: strin
           onChange={audio.setOn}
         />
         <Toggle
-          label="Mute"
-          hint="Silences the device audio in this tab, Android's volume stays as it is"
+          label="Silence this tab"
+          hint="Keeps the device audio connected but quiet here"
           checked={audio.muted}
           disabled={!audio.supported || !audio.on}
           onChange={audio.setMuted}
         />
       </HoverCardContent>
     </HoverCard>
+  )
+}
+
+function VolumeSlider({
+  volume,
+  max,
+  disabled,
+  onCommit,
+}: {
+  volume: number
+  max: number
+  disabled: boolean
+  onCommit: (v: number) => void
+}) {
+  const [value, setValue] = useState(volume)
+  return (
+    <div className="flex items-center gap-3">
+      {value === 0 ? (
+        <VolumeXIcon className="text-muted-foreground size-4 shrink-0" />
+      ) : (
+        <Volume2Icon className="text-muted-foreground size-4 shrink-0" />
+      )}
+      <Slider
+        min={0}
+        max={max}
+        step={1}
+        value={[value]}
+        disabled={disabled}
+        onValueChange={([v = value]) => setValue(v)}
+        onValueCommit={([v = value]) => onCommit(v)}
+      />
+    </div>
   )
 }
 

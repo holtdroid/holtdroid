@@ -427,6 +427,8 @@ export interface components {
             /** @description the system languages in order: the first sets the UI language, the rest add their keyboard layouts */
             locales?: string[];
             mobileData?: boolean;
+            /** @description true mutes the media stream, false brings back the volume it had */
+            muted?: boolean;
             /** @description one of DeviceState.networkProfiles */
             networkProfile?: string;
             /** @description puts the default GPS position back */
@@ -439,6 +441,11 @@ export interface components {
              */
             timeOffset?: number;
             timeZone?: string;
+            /**
+             * Format: int64
+             * @description sets the media volume step, which also unmutes it above 0
+             */
+            volume?: number;
             wifi?: boolean;
         };
         DeviceState: {
@@ -471,6 +478,8 @@ export interface components {
             /** @description the system languages in order: the first is locale, the rest add their keyboard layouts */
             locales: string[];
             mobileData: boolean;
+            /** @description the media stream is muted */
+            muted: boolean;
             /** @description empty when the device can't emulate network conditions */
             networkProfile?: string;
             /** @description the profiles networkProfile may be set to */
@@ -485,6 +494,16 @@ export interface components {
             timeZone: string;
             /** @description the device reaches the internet over USB through the host, so Wi-Fi and mobile data are off on purpose */
             usbNetwork: boolean;
+            /**
+             * Format: int64
+             * @description the media volume step, 0 while muted
+             */
+            volume: number;
+            /**
+             * Format: int64
+             * @description the highest media volume step; 0 when the device doesn't report its volume
+             */
+            volumeMax: number;
             wifi: boolean;
         };
         ErrorDetail: {

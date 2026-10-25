@@ -17,10 +17,11 @@ import (
 
 type scriptedDevice struct {
 	fakeDevice
-	mu    sync.Mutex
-	state string
-	clock string
-	cmds  []string
+	mu     sync.Mutex
+	state  string
+	clock  string
+	volume string
+	cmds   []string
 }
 
 func (d *scriptedDevice) Shell(_ context.Context, cmd string) (string, error) {
@@ -33,6 +34,8 @@ func (d *scriptedDevice) Shell(_ context.Context, cmd string) (string, error) {
 		return d.clock, nil
 	case "settings get system user_rotation":
 		return "3\n", nil
+	case getVolume:
+		return d.volume, nil
 	case "cmd locale get-app-locales com.example.shop --user 0":
 		return "Locales for com.example.shop for user 0 are [lt-LT]\n", nil
 	}
@@ -59,6 +62,8 @@ locale=
 productLocale=en-US
 locales=en-US,ru-RU
 autotime=0
+volume=[V] volume is 4 in range [0..15]
+musicMuted=   Muted: true
 `,
 		clock: "1760003600000000000",
 	}
@@ -70,7 +75,7 @@ autotime=0
 	}
 	want := contract.DeviceState{
 		WiFi: true, MobileData: true, BatterySaver: true, BatteryLevel: 42, DarkMode: true,
-		FontScale: 1.3, Density: 400, DefaultDensity: 320, Rotation: 1,
+		FontScale: 1.3, Density: 400, DefaultDensity: 320, Rotation: 1, Volume: 4, VolumeMax: 15, Muted: true,
 		TimeZone: "Europe/Warsaw", Locale: "en-US", Locales: []string{"en-US", "ru-RU"}, CanFakeGeo: true, CanSimulateBattery: true, LanguageScope: contract.LanguageSystem, TimeOffset: 3_600_000,
 	}
 	if !reflect.DeepEqual(got, want) {
@@ -129,6 +134,39 @@ func TestControlsUpdate(t *testing.T) {
 				t.Errorf("shell\n got %q\nwant %q", dev.cmds, tc.cmds)
 			}
 		})
+	}
+}
+
+func TestControlsVolume(t *testing.T) {
+	ctx := context.Background()
+	dev := &scriptedDevice{clock: "1760000000", volume: "[V] will get volume\n[V] volume is 7 in range [0..15]\n"}
+	c := NewControls(dev, "", false, false)
+	step := func(in contract.DeviceSettings, current string, want string) {
+		t.Helper()
+		dev.volume, dev.cmds = current, nil
+		if _, err := c.Update(ctx, in); err != nil {
+			t.Fatal(err)
+		}
+		if got := strings.Join(dev.cmds, "\n"); got != want {
+			t.Errorf("shell\n got %q\nwant %q", got, want)
+		}
+	}
+	step(contract.DeviceSettings{Muted: new(true)}, "volume is 7 in range [0..15]", "cmd media_session volume --stream 3 --set 0")
+	step(contract.DeviceSettings{Muted: new(false)}, "volume is 0 in range [0..15]", "cmd media_session volume --stream 3 --set 7")
+	step(contract.DeviceSettings{Volume: new(40)}, "volume is 7 in range [0..15]", "cmd media_session volume --stream 3 --set 15")
+
+	fresh := NewControls(dev, "", false, false)
+	dev.volume, dev.cmds = "volume is 0 in range [0..15]", nil
+	if _, err := fresh.Update(ctx, contract.DeviceSettings{Muted: new(false)}); err != nil {
+		t.Fatal(err)
+	}
+	if want := "cmd media_session volume --stream 3 --set 5"; strings.Join(dev.cmds, "\n") != want {
+		t.Errorf("unmute without a remembered step: %q", dev.cmds)
+	}
+
+	dev.volume = "Unknown command"
+	if _, err := fresh.Update(ctx, contract.DeviceSettings{Muted: new(true)}); !errors.Is(err, contract.ErrInvalid) {
+		t.Errorf("no volume reported: %v", err)
 	}
 }
 

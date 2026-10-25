@@ -33,6 +33,7 @@ type Controls struct {
 	mu          sync.Mutex
 	geo         *contract.GeoPoint
 	geoOverride bool
+	unmuteTo    int
 }
 
 type networkShaper interface {
@@ -81,13 +82,29 @@ echo "tz=$(getprop persist.sys.timezone)"
 echo "locale=$(getprop persist.sys.locale)"
 echo "productLocale=$(getprop ro.product.locale)"
 echo "locales=$(settings get system system_locales)"
-echo "autotime=$(settings get global auto_time)"`
+echo "autotime=$(settings get global auto_time)"
+echo "volume=$(cmd media_session volume --stream 3 --get 2>/dev/null | grep 'volume is')"
+echo "musicMuted=$(dumpsys audio | grep -A1 -- '- STREAM_MUSIC:' | grep Muted)"`
 
 var (
 	localeTagRe       = regexp.MustCompile(`^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{1,8})*$`)
 	physicalDensityRe = regexp.MustCompile(`Physical density: (\d+)`)
 	overrideDensityRe = regexp.MustCompile(`Override density: (\d+)`)
+	volumeRe          = regexp.MustCompile(`volume is (\d+) in range \[(\d+)\.\.(\d+)\]`)
 )
+
+const getVolume = "cmd media_session volume --stream 3 --get"
+
+func parseVolume(out string) (volume, low, high int, ok bool) {
+	m := volumeRe.FindStringSubmatch(out)
+	if m == nil {
+		return 0, 0, 0, false
+	}
+	volume, _ = strconv.Atoi(m[1])
+	low, _ = strconv.Atoi(m[2])
+	high, _ = strconv.Atoi(m[3])
+	return volume, low, high, high > low
+}
 
 func (c *Controls) State(ctx context.Context) (contract.DeviceState, error) {
 	out, err := c.dev.Shell(ctx, stateScript)
@@ -144,6 +161,10 @@ func (c *Controls) State(ctx context.Context) (contract.DeviceState, error) {
 	}
 	if r, err := strconv.Atoi(v["rotation"]); err == nil && r >= 0 && r <= 3 {
 		s.Rotation = r
+	}
+	if volume, low, high, ok := parseVolume(v["volume"]); ok {
+		s.Volume, s.VolumeMax = volume, high
+		s.Muted = strings.Contains(v["musicMuted"], "true") || volume == low
 	}
 	if c.root {
 		c.mu.Lock()
@@ -270,6 +291,11 @@ func (c *Controls) Update(ctx context.Context, in contract.DeviceSettings) (cont
 		}
 	}
 
+	if in.Volume != nil || in.Muted != nil {
+		if err := c.setVolume(ctx, in.Volume, in.Muted); err != nil {
+			return contract.DeviceState{}, fmt.Errorf("set the volume: %w", err)
+		}
+	}
 	if in.NetworkProfile != nil {
 		if err := c.setNetwork(ctx, *in.NetworkProfile); err != nil {
 			return contract.DeviceState{}, err
@@ -336,6 +362,42 @@ func (c *Controls) setLocales(ctx context.Context, tags string) error {
 func (c *Controls) setTime(ctx context.Context, offset int64, auto bool) error {
 	at := c.now().Add(time.Duration(offset) * time.Millisecond).UnixMilli()
 	_, err := c.exec(ctx, fmt.Sprintf("settings put global auto_time %s && cmd alarm set-time %d", pick(auto, "1", "0"), at))
+	return err
+}
+
+// setVolume mutes by setting the media volume to its lowest step, which
+// Android treats as muted, and remembers the step to unmute to: a step above
+// it unmutes the stream.
+func (c *Controls) setVolume(ctx context.Context, volume *int, muted *bool) error {
+	out, err := c.dev.Shell(ctx, getVolume)
+	if err != nil {
+		return err
+	}
+	current, low, high, ok := parseVolume(out)
+	if !ok {
+		return fmt.Errorf("%w: this device doesn't report its volume", contract.ErrInvalid)
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if current > low {
+		c.unmuteTo = current
+	}
+	var target int
+	switch {
+	case muted != nil && *muted:
+		target = low
+	case volume != nil:
+		target = min(max(*volume, low), high)
+		if target > low {
+			c.unmuteTo = target
+		}
+	default:
+		target = c.unmuteTo
+		if target <= low || target > high {
+			target = max(low+1, (high+2)/3)
+		}
+	}
+	_, err = c.dev.Shell(ctx, fmt.Sprintf("cmd media_session volume --stream 3 --set %d", target))
 	return err
 }
 

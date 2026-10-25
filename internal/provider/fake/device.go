@@ -30,6 +30,7 @@ type device struct {
 	appClosed bool
 	screen    contract.Screen
 	settings  contract.DeviceState
+	unmuteTo  int
 	subs      map[chan struct{}]struct{}
 	done      chan struct{}
 	offers    func(location string) bool
