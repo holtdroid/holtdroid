@@ -15,6 +15,7 @@ import { ComputersPage } from "@/pages/computers"
 import { HomePage } from "@/pages/home"
 import { InventoryPage } from "@/pages/inventory"
 import { LaunchPage, validateLaunchSearch } from "@/pages/launch"
+import { OpenRecordingPage } from "@/pages/open-recording"
 import { RecordingPage } from "@/pages/recording"
 import { RecordingsPage } from "@/pages/recordings"
 import { SessionPage } from "@/pages/session"
@@ -60,6 +61,8 @@ const sharedRoute = createRoute({
     )
   },
 })
+
+const openRoute = createRoute({ getParentRoute: () => rootRoute, path: "/open", component: OpenRecordingPage })
 
 const homeRoute = createRoute({
   getParentRoute: () => portalRoute,
@@ -143,6 +146,7 @@ const router = createRouter({
       recordingRoute,
     ]),
     sharedRoute,
+    openRoute,
   ]),
 })
 

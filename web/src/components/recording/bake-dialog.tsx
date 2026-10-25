@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { download } from "@/lib/adb"
+import type { RecordingFiles } from "@/lib/recording/files"
 import { formatBytes, formatDuration } from "@/lib/format"
 import { bake, bakeFps, type BakeProgress, canSaveToFile, openSink, type Sink } from "@/lib/recording/bake"
 import { type SceneApp, sceneLayout } from "@/lib/recording/scene"
@@ -34,6 +35,7 @@ function ticks(duration: number) {
 export function BakeDialog({
   onClose,
   recording,
+  files,
   manifest,
   telemetry,
   app,
@@ -41,6 +43,7 @@ export function BakeDialog({
 }: {
   onClose: () => void
   recording: RecordingView
+  files: RecordingFiles
   manifest: RecordingManifest
   telemetry: Telemetry
   app: SceneApp
@@ -65,7 +68,7 @@ export function BakeDialog({
     abort.current = ctrl
     setStage({ kind: "running", progress: null })
     bake({
-      filesUrl: recording.filesUrl,
+      files,
       manifest,
       telemetry,
       app,

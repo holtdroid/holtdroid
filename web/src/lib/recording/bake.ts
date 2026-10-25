@@ -10,6 +10,7 @@ import {
   type Target,
 } from "mediabunny"
 import type { RecordingManifest, RecordingMarker } from "@/api/client"
+import type { RecordingFiles } from "@/lib/recording/files"
 import { Cursor, Frames } from "@/lib/recording/frames"
 import { drawScene, logoImage, type SceneApp, sceneLayout } from "@/lib/recording/scene"
 import { loadSceneIcons } from "@/lib/recording/scene-icons"
@@ -120,7 +121,7 @@ export async function openSink(name: string): Promise<Sink> {
  * data and in the same style as the player.
  */
 export async function bake(opts: {
-  filesUrl: string
+  files: RecordingFiles
   manifest: RecordingManifest
   telemetry: Telemetry
   app: SceneApp
@@ -150,8 +151,8 @@ export async function bake(opts: {
   await output.start()
 
   const segments = segmentsOf(manifest)
-  const cursor = new Cursor(new Frames(opts.filesUrl, segments, 4))
-  const logcat = new LogcatChunks(opts.filesUrl, manifest.logcat)
+  const cursor = new Cursor(new Frames(opts.files, segments, 4))
+  const logcat = new LogcatChunks(opts.files, manifest.logcat)
   const changes = sizeChanges(segments)
   const startedAt = new Date(manifest.startedAt).getTime()
   const step = 1000 / bakeFps

@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router"
-import { ClapperboardIcon, InfoIcon, LinkIcon, PinIcon, PinOffIcon, Trash2Icon } from "lucide-react"
+import { ClapperboardIcon, FolderOpenIcon, InfoIcon, LinkIcon, PinIcon, PinOffIcon, Trash2Icon } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 import type { RecordingView } from "@/api/client"
@@ -32,7 +32,15 @@ export function RecordingsPage() {
       <div className="mx-auto grid max-w-6xl gap-6 p-4 lg:grid-cols-[minmax(0,1fr)_300px] lg:p-6">
         <div className="grid content-start gap-4">
           <div>
-            <h1 className="text-xl font-semibold tracking-tight">Recordings</h1>
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-xl font-semibold tracking-tight">Recordings</h1>
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/open">
+                  <FolderOpenIcon />
+                  Open a file
+                </Link>
+              </Button>
+            </div>
             <p className="text-muted-foreground max-w-xl text-sm">
               Sessions recorded on the server: the screen with logcat, the device, the network and the load beside it.
               Watch them here, download them as a video or share a link.

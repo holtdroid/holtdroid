@@ -630,6 +630,7 @@ type RecordingView struct {
 	ThumbnailURL string          `json:"thumbnailUrl,omitempty"`
 	LogcatURL    string          `json:"logcatUrl" doc:"the whole logcat as one text file"`
 	LogcatLogURL string          `json:"logcatLogUrl" doc:"the whole logcat as a .log with ANSI colours by level"`
+	ExportURL    string          `json:"exportUrl" doc:"every file of the recording as one .holtdroid archive, which the portal plays from disk"`
 	Keep         bool            `json:"keep" doc:"kept past the retention period"`
 	ExpiresAt    *time.Time      `json:"expiresAt,omitempty"`
 	Share        *RecordingShare `json:"share,omitempty"`
@@ -659,7 +660,7 @@ func (s *Server) recordingView(ctx context.Context, e *recordingEntry, base stri
 		ID: m.ID, Package: m.Package, Label: m.Label, VersionName: m.VersionName, VersionCode: m.VersionCode,
 		Source: srcName, ArtifactID: encodeID(key), Provider: m.Provider, Session: m.Session,
 		Location: m.Location, WebView: m.WebView, State: s.recordingStatus(e), CreatedAt: m.CreatedAt,
-		FilesURL: base + "files/", LogcatURL: base + "logcat.txt", LogcatLogURL: base + "logcat.log", Keep: e.keep,
+		FilesURL: base + "files/", LogcatURL: base + "logcat.txt", LogcatLogURL: base + "logcat.log", ExportURL: base + "export", Keep: e.keep,
 	}
 	if e, ok := s.cache.Lookup(ctx, srcName, key, rev); ok && v.Label == "" {
 		v.Label = e.Meta.Label

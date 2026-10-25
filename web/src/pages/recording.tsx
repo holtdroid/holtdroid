@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router"
 import { ArrowLeftIcon } from "lucide-react"
-import { type RecordingSource, useRecordingDetail } from "@/api/queries"
+import { type ServerRecording, useRecordingDetail } from "@/api/queries"
 import type { RecordingView } from "@/api/client"
 import { AppIcon } from "@/components/app-icon"
 import { HeaderSlot } from "@/components/header-slot"
@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { formatBytes } from "@/lib/format"
 import logo from "@/logo.svg"
 
-function Title({ r, back }: { r: RecordingView; back: boolean }) {
+export function Title({ r, back }: { r: RecordingView; back: boolean }) {
   return (
     <div className="flex min-w-0 items-center gap-2">
       {back && (
@@ -39,7 +39,7 @@ function Title({ r, back }: { r: RecordingView; back: boolean }) {
   )
 }
 
-export function RecordingPage({ source }: { source: RecordingSource }) {
+export function RecordingPage({ source }: { source: ServerRecording }) {
   const detail = useRecordingDetail(source)
   const d = detail.data
   const r = d?.recording

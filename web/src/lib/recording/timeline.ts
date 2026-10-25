@@ -9,6 +9,7 @@ import type {
   RecordingSegment,
   StatusEvent,
 } from "@/api/client"
+import type { RecordingFiles } from "@/lib/recording/files"
 import { TouchTrack } from "@/lib/recording/touches"
 
 export type Segment = RecordingSegment & { init: string; width: number; height: number }
@@ -190,7 +191,7 @@ export class LogcatChunks {
   version = 0
 
   constructor(
-    readonly filesUrl: string,
+    readonly files: RecordingFiles,
     chunks: RecordingChunk[],
   ) {
     this.update(chunks)
@@ -222,8 +223,9 @@ export class LogcatChunks {
     if (this.#loaded.has(file)) return Promise.resolve()
     let p = this.#pending.get(file)
     if (!p) {
-      p = fetch(this.filesUrl + file)
-        .then((r) => (r.ok ? r.text() : ""))
+      p = this.files
+        .text(file)
+        .catch(() => "")
         .then((text) => {
           this.#loaded.set(file, parseLogcat(text, file))
           this.version++

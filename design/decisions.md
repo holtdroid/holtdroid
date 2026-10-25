@@ -2844,6 +2844,17 @@ pass a recording to someone without an account.
   session page is stamped with the agent's own elapsed time (`GET
   /v1/recording`), which avoids any clock skew between browser and node.
   Share links show them read-only, and the video shows them as labels.
+- **Recording files** (`.holtdroid`) are a ZIP of the recording's files plus
+  a small `holtdroid.json`, written by the api straight from storage (Go's
+  `archive/zip`: ZIP64 and data descriptors for free, no buffering, entries
+  stored since video and logs are compressed already). A ZIP rather than a
+  format of our own because every tool opens it and its central directory at
+  the end is an index: the web client reads that, then slices out only the
+  entries it plays from the `File` the user picked (`web/src/lib/recording/bundle.ts`),
+  so even a multi-gigabyte file costs a few hundred kilobytes of memory. The
+  player doesn't care where its files come from: `RecordingFiles` is either
+  the server's URLs or a ZIP, and the `/open` page, which needs no sign-in,
+  uploads nothing. The extension is `.holtdroid`.
 - **The session page's card** replaced the rail's Record button: a click pins a
   marker, hovering shows the recording's numbers, keep-forever and share.
   Sharing keeps the recording.

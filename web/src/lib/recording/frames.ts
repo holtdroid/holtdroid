@@ -1,4 +1,5 @@
 import { BlobSource, Input, MP4, type VideoSample, VideoSampleSink } from "mediabunny"
+import type { RecordingFiles } from "@/lib/recording/files"
 import { runEnd, runStart, type Segment, segmentAt } from "@/lib/recording/timeline"
 
 export type Frame = { t: number; sample: VideoSample }
@@ -13,7 +14,7 @@ export class Frames {
   segments: Segment[]
 
   constructor(
-    readonly filesUrl: string,
+    readonly files: RecordingFiles,
     segments: Segment[],
     readonly keep = 24,
   ) {
@@ -23,10 +24,7 @@ export class Frames {
   #fetch(file: string) {
     let p = this.#files.get(file)
     if (!p) {
-      p = fetch(this.filesUrl + file).then((r) => {
-        if (!r.ok) throw new Error(`${file}: ${r.status}`)
-        return r.arrayBuffer()
-      })
+      p = this.files.bytes(file)
       p.catch(() => this.#files.delete(file))
       this.#files.set(file, p)
       if (this.#files.size > this.keep) {

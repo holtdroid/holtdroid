@@ -1,11 +1,15 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEventSource } from "@/hooks/use-event-source"
 import { recordPreference } from "@/lib/launch-prefs"
+import { readEvents } from "@/lib/recording/bundle"
+import type { RecordingFiles } from "@/lib/recording/files"
 import {
   api,
   type AppDataChoice,
   type AppDataView,
   type RecordingDetail,
+  type RecordingEvent,
+  type RecordingManifest,
   type RecordingMarker,
   type ArtifactView,
   type ArtifactsEvent,
@@ -326,9 +330,14 @@ export function useRecordings() {
   })
 }
 
-export type RecordingSource = { kind: "own"; id: string } | { kind: "shared"; token: string }
+export type ServerRecording = { kind: "own"; id: string } | { kind: "shared"; token: string }
 
-export function useRecordingDetail(source: RecordingSource) {
+/** A recording from the server, or a .holtdroid file opened in this browser. */
+export type RecordingSource =
+  | ServerRecording
+  | { kind: "local"; id: string; files: RecordingFiles; manifest: RecordingManifest }
+
+export function useRecordingDetail(source: ServerRecording) {
   return useQuery({
     queryKey: source.kind === "own" ? keys.recording(source.id) : keys.shared(source.token),
     queryFn: () =>
@@ -341,11 +350,21 @@ export function useRecordingDetail(source: RecordingSource) {
 
 export function useRecordingEvents(source: RecordingSource, version: number) {
   return useQuery({
-    queryKey: [...(source.kind === "own" ? keys.recording(source.id) : keys.shared(source.token)), "events", version],
-    queryFn: () =>
-      source.kind === "own"
+    queryKey: [
+      ...(source.kind === "own"
+        ? keys.recording(source.id)
+        : source.kind === "shared"
+          ? keys.shared(source.token)
+          : ["local", source.id]),
+      "events",
+      version,
+    ],
+    queryFn: async (): Promise<{ items: RecordingEvent[] }> => {
+      if (source.kind === "local") return { items: await readEvents(source.files, source.manifest) }
+      return source.kind === "own"
         ? unwrap(api.GET("/api/v1/recordings/{id}/events", { params: { path: { id: source.id } } }))
-        : unwrap(api.GET("/api/v1/shared/{token}/events", { params: { path: { token: source.token } } })),
+        : unwrap(api.GET("/api/v1/shared/{token}/events", { params: { path: { token: source.token } } }))
+    },
     placeholderData: keepPreviousData,
     staleTime: Infinity,
   })

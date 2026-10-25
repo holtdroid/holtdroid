@@ -1,7 +1,9 @@
 package api
 
 import (
+	"archive/zip"
 	"bytes"
+	"encoding/json"
 	"io"
 	"maps"
 	"net/http"
@@ -332,5 +334,63 @@ func TestColorLogLine(t *testing.T) {
 	}
 	if got := colorLogLine("-- 3 lines dropped --"); got != "\x1b[90m-- 3 lines dropped --\x1b[0m" {
 		t.Errorf("an odd line: %q", got)
+	}
+}
+
+func TestRecordingExport(t *testing.T) {
+	h := newRecordingHarness(t, nil)
+	r := h.record("alice", nil)
+	h.do(http.MethodPut, "/api/v1/recordings/"+r.ID+"/markers", "alice", "", map[string]any{"items": []map[string]any{{"t": 1500, "label": "here", "icon": "bug"}}})
+	if r.ExportURL != "/api/v1/recordings/"+r.ID+"/export" {
+		t.Fatalf("export url: %q", r.ExportURL)
+	}
+
+	rec := h.do(http.MethodGet, r.ExportURL, "alice", "", nil)
+	if rec.Code != http.StatusOK || !strings.HasSuffix(rec.Header().Get("Content-Disposition"), ".holtdroid\"") {
+		t.Fatalf("export: %d %v", rec.Code, rec.Header())
+	}
+	zr, err := zip.NewReader(bytes.NewReader(rec.Body.Bytes()), int64(rec.Body.Len()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	files := map[string]*zip.File{}
+	for _, f := range zr.File {
+		if f.Method != zip.Store {
+			t.Errorf("%s is compressed", f.Name)
+		}
+		files[f.Name] = f
+	}
+	for _, want := range []string{"holtdroid.json", "manifest.json", "init-0.mp4", "seg-1.m4s", "thumb.jpg", "icon.png"} {
+		if files[want] == nil {
+			t.Fatalf("%s is missing from %d files", want, len(files))
+		}
+	}
+	rc, _ := files["holtdroid.json"].Open()
+	var meta bundleMeta
+	if err := json.NewDecoder(rc).Decode(&meta); err != nil {
+		t.Fatal(err)
+	}
+	rc.Close()
+	v := meta.Recording
+	if meta.Format != "holtdroid-recording" || meta.Version != 1 || v.ID != r.ID || v.Package != "com.example.helloworld" ||
+		len(meta.Markers) != 1 || meta.Markers[0].Label != "here" {
+		t.Fatalf("meta: %+v", meta)
+	}
+	if v.FilesURL != "" || v.Share != nil || v.Session != "" || v.Provider != "" || v.IconURL != "" {
+		t.Fatalf("the archive points back at the server: %+v", v)
+	}
+	mf, _ := files["manifest.json"].Open()
+	got, _ := io.ReadAll(mf)
+	mf.Close()
+	if want := h.do(http.MethodGet, r.FilesURL+"manifest.json", "alice", "", nil).Body.Bytes(); !bytes.Equal(got, want) {
+		t.Fatal("the manifest in the archive differs from the server's")
+	}
+
+	if rec := h.do(http.MethodGet, r.ExportURL, "bob", "", nil); rec.Code != http.StatusNotFound {
+		t.Fatalf("bob exports alice's recording: %d", rec.Code)
+	}
+	token := decode[RecordingView](t, h.do(http.MethodPost, "/api/v1/recordings/"+r.ID+"/share", "alice", "", nil)).Share.Token
+	if rec := h.do(http.MethodGet, "/api/v1/shared/"+token+"/export", "", "", nil); rec.Code != http.StatusOK || rec.Body.Len() == 0 {
+		t.Fatalf("export through a share link: %d", rec.Code)
 	}
 }

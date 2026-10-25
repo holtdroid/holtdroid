@@ -1,4 +1,5 @@
 import type { RecordingManifest } from "@/api/client"
+import type { RecordingFiles } from "@/lib/recording/files"
 import { Cursor, Frames } from "@/lib/recording/frames"
 import { LogcatChunks, segmentsOf } from "@/lib/recording/timeline"
 import { drawOverlay, type TouchTrack } from "@/lib/recording/touches"
@@ -31,10 +32,10 @@ export class Player {
   #published = -1
   #listeners = new Set<() => void>()
 
-  constructor(filesUrl: string, manifest: RecordingManifest) {
+  constructor(files: RecordingFiles, manifest: RecordingManifest) {
     this.#manifest = manifest
-    this.frames = new Frames(filesUrl, segmentsOf(manifest))
-    this.logcat = new LogcatChunks(filesUrl, manifest.logcat)
+    this.frames = new Frames(files, segmentsOf(manifest))
+    this.logcat = new LogcatChunks(files, manifest.logcat)
     this.#cursor = new Cursor(this.frames)
     const first = manifest.epochs[0]
     this.#size = { w: first?.width || 720, h: first?.height || 1600 }

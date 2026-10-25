@@ -1862,6 +1862,8 @@ export interface components {
             duration: number;
             /** Format: date-time */
             expiresAt?: string;
+            /** @description every file of the recording as one .holtdroid archive, which the portal plays from disk */
+            exportUrl: string;
             /** @description prefix of the recording's files: manifest.json and what it lists */
             filesUrl: string;
             iconUrl?: string;

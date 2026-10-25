@@ -1,7 +1,10 @@
 import {
+  ArchiveIcon,
   ChevronDownIcon,
   ClapperboardIcon,
+  DownloadIcon,
   FileTextIcon,
+  type LucideIcon,
   Link2OffIcon,
   LinkIcon,
   MaximizeIcon,
@@ -40,10 +43,13 @@ import { LogcatView } from "@/components/recording/logcat-view"
 import { MarkerPin, newMarkerId } from "@/components/recording/markers"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { bakingSupported } from "@/lib/recording/bake"
+import { remoteFiles } from "@/lib/recording/files"
+import { buildLogcat } from "@/lib/recording/logfile"
 import { Player } from "@/lib/recording/player"
 import { loadIcon, type SceneApp } from "@/lib/recording/scene"
 import { summarize } from "@/lib/recording/summary"
 import { clock, segmentsOf, Telemetry } from "@/lib/recording/timeline"
+import { download } from "@/lib/adb"
 import { cn } from "@/lib/utils"
 
 const rates = [0.5, 1, 2, 4]
@@ -92,7 +98,8 @@ export function RecordingPlayer({
     version: r.versionName,
     icon: loadIcon(r.iconUrl),
   }))
-  const [player] = useState(() => new Player(r.filesUrl, manifest))
+  const files = useMemo(() => (source.kind === "local" ? source.files : remoteFiles(r.filesUrl)), [source, r.filesUrl])
+  const [player] = useState(() => new Player(files, manifest))
   const state = useSyncExternalStore(player.subscribe, player.getState)
   const [baking, setBaking] = useState(false)
   const [showTouches, setShowTouches] = useState(true)
@@ -134,6 +141,15 @@ export function RecordingPlayer({
       })
     } catch (e) {
       toast.error("Could not share", { description: e instanceof Error ? e.message : String(e) })
+    }
+  }
+
+  const saveLogcat = async (colored: boolean) => {
+    try {
+      const blob = await buildLogcat(files, manifest, r, colored)
+      download(blob, `${r.package}-${r.id}-logcat.${colored ? "log" : "txt"}`)
+    } catch (e) {
+      toast.error("Could not build the logcat", { description: e instanceof Error ? e.message : String(e) })
     }
   }
 
@@ -305,44 +321,49 @@ export function RecordingPlayer({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Tonal>
-                  <FileTextIcon />
-                  Logcat
+                  <DownloadIcon />
+                  Download
                   <ChevronDownIcon className="-mr-1 opacity-70" />
                 </Tonal>
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 align="end"
                 side="top"
-                className="w-64 rounded-2xl border-0 bg-[#262b28] p-1.5 text-[#e0e3de] shadow-2xl ring-1 ring-white/10"
+                className="w-80 rounded-2xl border-0 bg-[#262b28] p-1.5 text-[#e0e3de] shadow-2xl ring-1 ring-white/10"
               >
-                <DropdownMenuItem
-                  asChild
-                  className="gap-0 rounded-xl px-3 py-2 focus:bg-[#313633] focus:text-[#e0e3de]"
-                >
-                  <a href={r.logcatLogUrl} download className="grid gap-0.5">
-                    <span className="text-sm font-medium">Colored .log</span>
-                    <span className="text-xs text-[#8a938c]">
-                      Levels and colours as ANSI, for less -R, bat or an IDE
-                    </span>
-                  </a>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  asChild
-                  className="gap-0 rounded-xl px-3 py-2 focus:bg-[#313633] focus:text-[#e0e3de]"
-                >
-                  <a href={r.logcatUrl} download className="grid gap-0.5">
-                    <span className="text-sm font-medium">Plain text</span>
-                    <span className="text-xs text-[#8a938c]">The same lines without colour codes</span>
-                  </a>
-                </DropdownMenuItem>
+                {!detail.shared && bakingSupported() && (
+                  <MenuItem
+                    icon={ClapperboardIcon}
+                    title="Video (.mp4)"
+                    hint="Rendered in your browser with the panels, in 1296p"
+                    disabled={r.state === "recording"}
+                    onSelect={() => setBaking(true)}
+                  />
+                )}
+                {source.kind !== "local" && (
+                  <MenuItem
+                    icon={ArchiveIcon}
+                    title="Recording file (.holtdroid)"
+                    hint="Everything in one file; open it on the Open page, no server needed"
+                    href={r.exportUrl}
+                  />
+                )}
+                <MenuItem
+                  icon={FileTextIcon}
+                  title="Logcat, colored (.log)"
+                  hint="Levels and colours as ANSI codes: less -R, bat, an IDE"
+                  href={source.kind === "local" ? undefined : r.logcatLogUrl}
+                  onSelect={source.kind === "local" ? () => void saveLogcat(true) : undefined}
+                />
+                <MenuItem
+                  icon={FileTextIcon}
+                  title="Logcat, plain text (.txt)"
+                  hint="The same lines without colour codes"
+                  href={source.kind === "local" ? undefined : r.logcatUrl}
+                  onSelect={source.kind === "local" ? () => void saveLogcat(false) : undefined}
+                />
               </DropdownMenuContent>
             </DropdownMenu>
-            {!detail.shared && bakingSupported() && (
-              <Tonal disabled={r.state === "recording"} onClick={() => setBaking(true)}>
-                <ClapperboardIcon />
-                Download video
-              </Tonal>
-            )}
             <IconButton
               aria-label="Show taps and swipes"
               aria-pressed={showTouches}
@@ -367,12 +388,51 @@ export function RecordingPlayer({
           onClose={() => setBaking(false)}
           recording={r}
           manifest={manifest}
+          files={files}
           telemetry={telemetry}
           app={app}
           markers={markers}
         />
       )}
     </div>
+  )
+}
+
+function MenuItem({
+  icon: Icon,
+  title,
+  hint,
+  href,
+  disabled,
+  onSelect,
+}: {
+  icon: LucideIcon
+  title: string
+  hint: string
+  href?: string
+  disabled?: boolean
+  onSelect?: () => void
+}) {
+  const body = (
+    <>
+      <Icon className="mt-0.5 size-4 shrink-0 text-[#78dc9a]" />
+      <span className="grid gap-0.5">
+        <span className="text-sm font-medium">{title}</span>
+        <span className="text-xs text-[#8a938c]">{hint}</span>
+      </span>
+    </>
+  )
+  const cls = "items-start gap-3 rounded-xl px-3 py-2 focus:bg-[#313633] focus:text-[#e0e3de]"
+  return href ? (
+    <DropdownMenuItem asChild className={cls}>
+      <a href={href} download>
+        {body}
+      </a>
+    </DropdownMenuItem>
+  ) : (
+    <DropdownMenuItem className={cls} disabled={disabled} onSelect={onSelect}>
+      {body}
+    </DropdownMenuItem>
   )
 }
 

@@ -480,6 +480,7 @@ keeping the provider in the path is what lets the api stay stateless.
 | `DELETE` | `/api/v1/sessions/{provider}/{id}/recording` | owner or admin; stops the recording and waits for its last files → 204; 403 in `recordings.mode: always` |
 | `POST` | `/api/v1/sessions/{provider}/{id}/recording/markers` | owner or admin; `{label?, icon?}` → `{recording, marker}`: pins a marker on the session's running recording at the agent's own time (it reads `GET /v1/recording`); 422 when nothing is being recorded |
 | `PUT` | `/api/v1/recordings/{id}/markers` | the owner; `{items: [{id?, t, label?, icon?}]}` replaces the recording's markers (at most 200, icons `pin,bug,flag,star,alert,check`) → `{items}` |
+| `GET` | `/api/v1/recordings/{id}/export` (and `/api/v1/shared/{token}/export`) | every file of the recording as one ZIP (`.holtdroid`, see "Recording archive" below), streamed from storage, entries stored; `RecordingView.exportUrl` |
 | `GET` | `/api/v1/recordings/{id}/logcat.log` (and `/api/v1/shared/{token}/logcat.log`) | the logcat with ANSI colours by level; `logcat.txt` is the same without them |
 | `GET` | `/api/v1/recordings` | the caller's recordings, newest first: `{enabled, mode (always\|auto\|manual), share, quota, used, maxAge, items: [RecordingView]}`; a `RecordingView` has `{id, package, label?, versionName?, source, artifactId, provider?, session?, location?, webview?, state (pending\|recording\|done\|failed\|interrupted), reason?, createdAt, startedAt?, duration, size, filesUrl, iconUrl?, thumbnailUrl?, logcatUrl, keep, expiresAt?, share?: {token, url}}` |
 | `GET` | `/api/v1/recordings/{id}` | `{recording, markers, manifest?, shared: false}`; the manifest is the agent's `RecordingManifest` |
@@ -588,3 +589,17 @@ settings). `provider-emulator` passes
 `sessionTelemetry.{metricsPort, tracing}` to session agents as
 `HOLTDROID_TELEMETRY__*` variables. The audit event schema (version 1) is in
 `internal/audit` and documented on the public "Monitoring and audit" page.
+
+## Recording archive (`.holtdroid`)
+
+A ZIP (ZIP64 when it needs to be; entries are stored, not deflated, and carry
+data descriptors) written by `GET …/export` and read by the web client with
+`File.slice`, so nothing but the index and the needed entries is loaded.
+
+| Entry | What |
+|-------|------|
+| `holtdroid.json` | `{format: "holtdroid-recording", version: 1, exportedAt, recording: RecordingView, markers: [RecordingMarker]}`; the view has no URLs, owner, session, keep or share; readers refuse another `format` and a higher `version` |
+| `manifest.json` | the agent's `RecordingManifest` as uploaded |
+| `init-N.mp4`, `seg-N.m4s` | the video, as listed in the manifest |
+| `events-N.jsonl.gz`, `logcat-N.log.gz` | gzipped event lines and logcat text |
+| `thumb.jpg`, `icon.png` | the preview and the app's icon, when there are any |

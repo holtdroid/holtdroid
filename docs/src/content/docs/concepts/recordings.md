@@ -102,7 +102,7 @@ marks). Play and pause, five-second steps, speeds from 0.5× to 4× and full
 screen are next to it. <kbd>Space</kbd> plays and pauses, <kbd>←</kbd> and
 <kbd>→</kbd> step.
 
-**Logcat** in the player's controls downloads the whole logcat. The **colored
+**Download → Logcat** gives the whole logcat. The **colored
 .log** keeps the levels and colours as ANSI codes (the level letter in bold, tags
 and the lines of warnings and errors coloured), so it reads well with
 `less -R`, `bat`, `lnav` or an editor with ANSI support; the **plain text**
@@ -111,7 +111,7 @@ in the recording, followed by the usual `threadtime` line.
 
 ## Downloading a video
 
-**Download video** renders the recording into an MP4 file in your browser,
+**Download → Video (.mp4)** renders the recording into an MP4 file in your browser,
 frame by frame, with the Holtdroid logo on top and the same panels as the page
 (the text is part of the picture, so it can't be selected). It is 1296 pixels
 tall and 30 fps: 2304×1296 for a phone held upright, 20% above 1080p. If the
@@ -127,6 +127,30 @@ removes the half-written file. Other browsers collect it in their private
 storage as they go and download it at the end. It needs a browser with
 WebCodecs (Chrome, Edge, Safari 17+, Firefox 130+) that can encode a video this
 size.
+
+## Recording files
+
+**Download → Recording file (.holtdroid)** saves everything in one file: the
+video segments, the events (device state, network, load, taps), the logcat, the
+markers, the preview and the app's icon. It is an ordinary ZIP archive whose
+video and logs are stored as they are, so any archiver opens it. It points back
+at nothing on the server.
+
+Open it again, on any machine and without signing in, on the **Open** page
+(**Recordings → Open a file**, or `/open`): drop the file on the page or pick
+it. It plays exactly like a recording on the server, with the logcat, panels,
+taps, markers and the video download, and **nothing is uploaded**. The browser
+reads only the pieces it plays (the segment under the playhead, the logcat
+around it) from your disk, so the file never sits in memory whole, however
+big it is. Keep, sharing and editing markers are only for recordings on the
+server.
+
+In the archive: `holtdroid.json` (the format, the recording's details and
+its markers), `manifest.json`, `init-N.mp4` and `seg-N.m4s` (the video, as fragmented MP4),
+`events-N.jsonl.gz` (one JSON event per line), `logcat-N.log.gz`,
+`thumb.jpg` and `icon.png`. To get a plain video of a recording without
+a new epoch (the screen didn't turn or restart), join an init file and its segments
+in order: `cat init-0.mp4 seg-1.m4s seg-2.m4s … > video.mp4`.
 
 ## Sharing
 
