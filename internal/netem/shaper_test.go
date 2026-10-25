@@ -65,7 +65,7 @@ func (r *recorder) run(_ context.Context, script string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.scripts = append(r.scripts, script)
-	if r.fail && strings.Contains(script, "root netem") {
+	if r.fail && strings.Contains(script, "handle 10: netem") {
 		return errors.New("boom")
 	}
 	return nil
@@ -79,7 +79,7 @@ func (r *recorder) got() []string {
 
 func newTestShaper() (*Shaper, *recorder) {
 	r := &recorder{tick: make(chan time.Time)}
-	s := NewShaper("holtdroid0", slog.New(slog.DiscardHandler))
+	s := NewShaper("holtdroid0", "198.18.0.0/30", slog.New(slog.DiscardHandler))
 	s.run = r.run
 	s.after = func(time.Duration) <-chan time.Time { return r.tick }
 	return s, r
@@ -93,16 +93,19 @@ func TestSetLink(t *testing.T) {
 	}
 	want := "tc qdisc del dev holtdroid0 root 2>/dev/null; tc qdisc del dev holtdroid0 ingress 2>/dev/null; tc qdisc del dev holtdroid0in root 2>/dev/null; true; " +
 		"{ ip link show holtdroid0in >/dev/null 2>&1 || ip link add holtdroid0in type ifb; } && ip link set holtdroid0in up && " +
-		"tc qdisc add dev holtdroid0 root netem delay 250ms 75ms rate 80kbit limit 20 loss random 2% && " +
+		"tc qdisc add dev holtdroid0 root handle 1: prio bands 2 priomap 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 && " +
+		"tc qdisc add dev holtdroid0 parent 1:1 handle 10: netem delay 250ms 75ms rate 80kbit limit 20 loss random 2% && " +
+		"tc filter add dev holtdroid0 parent 1: protocol ip prio 1 u32 match ip dst 198.18.0.0/30 flowid 1:2 && " +
 		"tc qdisc add dev holtdroid0in root netem delay 250ms 75ms rate 200kbit limit 20 loss random 2% && " +
 		"tc qdisc add dev holtdroid0 handle ffff: ingress && " +
-		"tc filter add dev holtdroid0 parent ffff: matchall action mirred egress redirect dev holtdroid0in"
+		"tc filter add dev holtdroid0 parent ffff: protocol ip prio 1 u32 match ip src 198.18.0.0/30 action ok && " +
+		"tc filter add dev holtdroid0 parent ffff: prio 2 matchall action mirred egress redirect dev holtdroid0in"
 	if got := r.got(); len(got) != 1 || got[0] != want {
 		t.Fatalf("scripts = %q", got)
 	}
 	r.tick <- time.Time{}
 	r.tick <- time.Time{}
-	if got := r.got(); len(got) < 2 || !strings.HasPrefix(got[1], "tc qdisc show dev holtdroid0 root | grep -q netem || { ") {
+	if got := r.got(); len(got) < 2 || !strings.HasPrefix(got[1], "tc qdisc show dev holtdroid0 | grep -q netem || { ") {
 		t.Errorf("no re-check: %q", got)
 	}
 	if s.Current() != "edge" {

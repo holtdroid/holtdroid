@@ -17,8 +17,12 @@ import (
 
 // Shaper applies profiles to a tun: its egress (what the device sends) is
 // the uplink, its ingress is redirected to an ifb device for the downlink.
+// Packets to or from local, the tun's own network, skip the shaping: a
+// system-stack tun NATs every TCP packet back through the tun to its
+// listener, so each one crosses the tun twice.
 type Shaper struct {
 	dev, ifb string
+	local    string
 	run      func(ctx context.Context, script string) error
 	after    func(time.Duration) <-chan time.Time
 	check    time.Duration
@@ -32,9 +36,9 @@ type Shaper struct {
 
 // NewShaper shapes dev with tc, which needs CAP_NET_ADMIN in dev's network
 // namespace.
-func NewShaper(dev string, log *slog.Logger) *Shaper {
+func NewShaper(dev, local string, log *slog.Logger) *Shaper {
 	return &Shaper{
-		dev: dev, ifb: dev + "in", run: sh, after: time.After, check: 10 * time.Second, log: log,
+		dev: dev, ifb: dev + "in", local: local, run: sh, after: time.After, check: 10 * time.Second, log: log,
 		current: contract.NetworkFull,
 	}
 }
@@ -160,15 +164,18 @@ func (s *Shaper) script(full bool, l Link) string {
 	return s.clear() + "; " + strings.Join([]string{
 		"{ ip link show " + s.ifb + " >/dev/null 2>&1 || ip link add " + s.ifb + " type ifb; }",
 		"ip link set " + s.ifb + " up",
-		"tc qdisc add dev " + s.dev + " root netem " + direction(l, l.Up),
+		"tc qdisc add dev " + s.dev + " root handle 1: prio bands 2 priomap 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0",
+		"tc qdisc add dev " + s.dev + " parent 1:1 handle 10: netem " + direction(l, l.Up),
+		"tc filter add dev " + s.dev + " parent 1: protocol ip prio 1 u32 match ip dst " + s.local + " flowid 1:2",
 		"tc qdisc add dev " + s.ifb + " root netem " + direction(l, l.Down),
 		"tc qdisc add dev " + s.dev + " handle ffff: ingress",
-		"tc filter add dev " + s.dev + " parent ffff: matchall action mirred egress redirect dev " + s.ifb,
+		"tc filter add dev " + s.dev + " parent ffff: protocol ip prio 1 u32 match ip src " + s.local + " action ok",
+		"tc filter add dev " + s.dev + " parent ffff: prio 2 matchall action mirred egress redirect dev " + s.ifb,
 	}, " && ")
 }
 
 func (s *Shaper) ensure(l Link) string {
-	return "tc qdisc show dev " + s.dev + " root | grep -q netem || { " + s.script(false, l) + "; }"
+	return "tc qdisc show dev " + s.dev + " | grep -q netem || { " + s.script(false, l) + "; }"
 }
 
 // direction is the netem options of one direction: half the round trip and

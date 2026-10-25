@@ -199,7 +199,7 @@ func newControls(cfg Config, dev Device, log *slog.Logger) *Controls {
 	c := NewControls(dev, cfg.LocalesDex, cfg.Root, cfg.RootShell)
 	c.usbNetwork = cfg.USBNetwork
 	if cfg.Redroid.VPN {
-		c.shaper = netem.NewShaper(vpn.TunInterface, log)
+		c.shaper = netem.NewShaper(vpn.TunInterface, vpn.TunNetwork, log)
 	}
 	if cfg.AppLanguage && packageName.MatchString(cfg.Package) {
 		c.appLocales = cfg.Package

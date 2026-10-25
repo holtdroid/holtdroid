@@ -2627,11 +2627,16 @@ jitter, kbit/s down and up, loss, optional burst length) and scenarios
 (steps over profiles and outages, each held for a random time in a range),
 with names and descriptions; the agent offers it in `DeviceState` and the
 UI only renders it. The agent shapes the tun with `tc` from iproute2 in the
-session image: netem on the tun's egress for the upload, its ingress
-redirected (matchall + mirred) to an ifb device with netem for the download,
-half the round trip in each direction, a queue of about half a second at
-the link's rate, Gilbert-model losses for bursts. Every change replaces the
-qdiscs, because `tc qdisc change` keeps a rate or slot the new link leaves
+session image: netem under a `prio` qdisc on the tun's egress for the
+upload, its ingress redirected (matchall + mirred) to an ifb device with
+netem for the download, half the round trip in each direction. Packets to
+or from the tun's own /30 skip both (a u32 filter to an unshaped band, and
+`action ok` before the redirect): sing-box's system stack NATs every TCP
+packet back through the tun to its own listener, so without the filters TCP
+crossed the tun twice and a download was capped at the upload rate (seen
+live: 291 kbit/s on a 20 Mbit/s down, 300 kbit/s up link). The queue is
+about half a second at the link's rate, with Gilbert-model losses for
+bursts. Every change replaces the qdiscs, because `tc qdisc change` keeps a rate or slot the new link leaves
 out. A scenario steps in a goroutine until the next change; a plain link is
 re-checked every 10 s and re-applied if the tun lost it (a sidecar
 restart). The agent clears the shaping when it starts. An outage is 100 %

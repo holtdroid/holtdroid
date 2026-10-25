@@ -365,6 +365,8 @@ reports, not measurements of a specific operator.
 The agent applies them with `tc netem` on the VPN tunnel: the tunnel's
 egress (what apps send) gets the upload half, its ingress is redirected to
 an `ifb` device for the download half, each with half of the round trip.
+sing-box's own NAT traffic inside the tunnel's network is left alone, so
+TCP is shaped once per direction.
 Losses are random or in bursts (a Gilbert model). An outage drops every
 packet while Android still sees a connected network, so requests hang until
 they time out, the way a dead cell behaves; turn on airplane mode or switch
