@@ -2813,7 +2813,9 @@ pass a recording to someone without an account.
   scrcpy control messages to the device, so it also reads them: touch
   down, move and up (position as 0–1 of the screen, moves kept at most every
   33 ms per finger) and the Back, Home and Recents keys, never text or other
-  keys, which could be passwords. The player and the video draw them over the
+  keys, which could be passwords. The buttons of the drawn phone body come
+  in through `POST /v1/device/actions/{action}` (decision #94) and are
+  recorded there, with volume, rotate and the shade. The player and the video draw them over the
   screen as circles, trails and a key label. Input that doesn't pass through
   the portal's screen (adb, SSH, the app itself) isn't seen.
 - **Uploads go through the api**, not to storage directly, so session Pods

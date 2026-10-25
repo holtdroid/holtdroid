@@ -1681,10 +1681,10 @@ export interface components {
             device?: components["schemas"]["DeviceState"];
             info?: components["schemas"]["RecordingInfoData"];
             /**
-             * @description a navigation key pressed in the portal; typed text is never recorded
+             * @description a device button pressed in the portal (DeviceAction); typed text is never recorded
              * @enum {string}
              */
-            key?: "back" | "home" | "recents";
+            key?: "back" | "home" | "recents" | "notifications" | "quick-settings" | "volume-up" | "volume-down" | "mute" | "screen-off" | "lock" | "unlock" | "rotate-left" | "rotate-right";
             metrics?: components["schemas"]["Metrics"];
             network?: components["schemas"]["Network"];
             status?: components["schemas"]["StatusEvent"];

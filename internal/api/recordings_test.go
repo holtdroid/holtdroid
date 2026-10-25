@@ -166,6 +166,9 @@ func TestRecordingOnDemand(t *testing.T) {
 	if rec := h.do(http.MethodPost, "/api/v1/sessions/fake/"+v.ID+"/recording", "alice", "", nil); rec.Code != http.StatusLocked {
 		t.Fatalf("second start: %d %s", rec.Code, rec.Body.String())
 	}
+	if rec := h.do(http.MethodPost, "/s/fake/"+v.ID+"/v1/device/actions/home", "alice", "", nil); rec.Code != http.StatusNoContent {
+		t.Fatalf("home: %d %s", rec.Code, rec.Body.String())
+	}
 	time.Sleep(time.Second)
 	if rec := h.do(http.MethodDelete, "/api/v1/sessions/fake/"+v.ID+"/recording", "alice", "", nil); rec.Code != http.StatusNoContent {
 		t.Fatalf("stop: %d %s", rec.Code, rec.Body.String())
@@ -173,6 +176,15 @@ func TestRecordingOnDemand(t *testing.T) {
 	items := h.recordings("alice").Items
 	if len(items) != 1 || items[0].ID != decode[RecordingView](t, started).ID || items[0].State != string(contract.RecordingDone) {
 		t.Fatalf("recordings: %+v", items)
+	}
+	var pressed []string
+	for _, e := range decode[RecordingEvents](t, h.do(http.MethodGet, "/api/v1/recordings/"+items[0].ID+"/events", "alice", "", nil)).Items {
+		if e.Type == contract.EventKey {
+			pressed = append(pressed, e.Key)
+		}
+	}
+	if len(pressed) != 1 || pressed[0] != "home" {
+		t.Fatalf("buttons in the recording: %v", pressed)
 	}
 	h.stop("alice", v.ID)
 }

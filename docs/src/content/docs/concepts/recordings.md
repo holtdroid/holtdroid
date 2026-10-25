@@ -22,7 +22,8 @@ recording keeps more than the picture:
   jank, traffic, the container's CPU and throttling, temperatures;
 - whether the app was running, and when another build was installed;
 - what the person at the screen did: taps, long presses and swipes, and the
-  Back, Home and Recents keys. Only what was done in the portal is seen;
+  buttons of the phone beside the screen (Back, Home, Recents, volume, rotate,
+  the notification shade and so on). Only what was done in the portal is seen;
   input from `adb` over SSH or from the app itself isn't. Typed text and
   other keys are never recorded.
 

@@ -96,7 +96,7 @@ type RecordingEvent struct {
 	Device  *DeviceState       `json:"device,omitempty"`
 	Network *Network           `json:"network,omitempty"`
 	Touch   *RecordingTouch    `json:"touch,omitempty"`
-	Key     string             `json:"key,omitempty" enum:"back,home,recents" doc:"a navigation key pressed in the portal; typed text is never recorded"`
+	Key     string             `json:"key,omitempty" enum:"back,home,recents,notifications,quick-settings,volume-up,volume-down,mute,screen-off,lock,unlock,rotate-left,rotate-right" doc:"a device button pressed in the portal (DeviceAction); typed text is never recorded"`
 }
 
 type TouchAction string

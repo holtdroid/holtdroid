@@ -306,6 +306,8 @@ func TestParseControl(t *testing.T) {
 		{"hover", touchMsg(7, 0, 1, 1), contract.RecordingEvent{}, false},
 		{"back pressed", keyMsg(0, 4), contract.RecordingEvent{Type: contract.EventKey, Key: "back"}, true},
 		{"back released", keyMsg(1, 4), contract.RecordingEvent{}, false},
+		{"right click back", []byte{4, 0}, contract.RecordingEvent{Type: contract.EventKey, Key: "back"}, true},
+		{"right click released", []byte{4, 1}, contract.RecordingEvent{}, false},
 		{"a letter", keyMsg(0, 29), contract.RecordingEvent{}, false},
 		{"typed text", text, contract.RecordingEvent{}, false},
 		{"truncated", []byte{2, 0, 0}, contract.RecordingEvent{}, false},

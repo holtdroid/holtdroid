@@ -133,6 +133,12 @@ func (d *device) UpdateDevice(_ context.Context, in contract.DeviceSettings) (co
 }
 
 func (d *device) DeviceAction(_ context.Context, action contract.DeviceAction) error {
+	d.rec.mu.Lock()
+	rec := d.rec.rec
+	d.rec.mu.Unlock()
+	if rec != nil {
+		rec.Event(contract.RecordingEvent{Type: contract.EventKey, Key: string(action)})
+	}
 	switch action {
 	case contract.DeviceRotateLeft:
 		d.update(func() { d.settings.Rotation = (d.settings.Rotation + 1) % 4 })

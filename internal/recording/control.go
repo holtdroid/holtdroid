@@ -10,6 +10,8 @@ const (
 	controlKey   = 0
 	controlTouch = 2
 
+	controlBackOrScreenOn = 4
+
 	keyHome    = 3
 	keyBack    = 4
 	keyRecents = 187
@@ -33,6 +35,11 @@ func ParseControl(msg []byte) (contract.RecordingEvent, bool) {
 			return contract.RecordingEvent{}, false
 		}
 		return contract.RecordingEvent{Type: contract.EventKey, Key: name}, true
+	case len(msg) == 2 && msg[0] == controlBackOrScreenOn:
+		if msg[1] != 0 {
+			return contract.RecordingEvent{}, false
+		}
+		return contract.RecordingEvent{Type: contract.EventKey, Key: "back"}, true
 	case len(msg) == 32 && msg[0] == controlTouch:
 		var action contract.TouchAction
 		switch msg[1] {

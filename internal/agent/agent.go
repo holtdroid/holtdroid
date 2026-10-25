@@ -818,7 +818,11 @@ func (a *Agent) UpdateDevice(ctx context.Context, settings contract.DeviceSettin
 }
 
 func (a *Agent) DeviceAction(ctx context.Context, action contract.DeviceAction) error {
-	return a.controls.Action(ctx, action)
+	err := a.controls.Action(ctx, action)
+	if err == nil {
+		a.record(contract.RecordingEvent{Type: contract.EventKey, Key: string(action)})
+	}
+	return err
 }
 
 func (a *Agent) Screenshot(ctx context.Context) ([]byte, error) {

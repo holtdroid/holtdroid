@@ -21,7 +21,21 @@ const trailSpan = 500
 const keyShown = 900
 const lostFinger = 1000
 const ripple = 320
-const keyNames: Record<string, string> = { back: "Back", home: "Home", recents: "Recents" }
+const keyNames: Record<string, string> = {
+  back: "Back",
+  home: "Home",
+  recents: "Recents",
+  notifications: "Notifications",
+  "quick-settings": "Quick settings",
+  "volume-up": "Volume up",
+  "volume-down": "Volume down",
+  mute: "Mute",
+  "screen-off": "Screen off",
+  lock: "Lock",
+  unlock: "Unlock",
+  "rotate-left": "Rotate left",
+  "rotate-right": "Rotate right",
+}
 
 /** The recording's touches and navigation keys, to show what was done on the screen at any time. */
 export class TouchTrack {
