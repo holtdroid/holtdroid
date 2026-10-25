@@ -127,16 +127,16 @@ export function RecordingPlayer({
 
         <div className="order-1 grid min-h-0 place-items-center lg:order-2">
           <div
-            className="relative rounded-[44px] bg-black p-2.5 shadow-[0_0_0_1.5px_#404943,0_24px_60px_-20px_#000]"
+            className="relative box-content rounded-[44px] bg-black p-2.5 shadow-[0_0_0_1.5px_#404943,0_24px_60px_-20px_#000]"
             style={{
               aspectRatio: `${state.size.w} / ${state.size.h}`,
-              height: `min(var(--stage-h), calc((100vw - 4rem) * ${state.size.h / state.size.w}))`,
+              height: `min(calc(var(--stage-h) - 1.25rem), calc((100vw - 5.25rem) * ${state.size.h / state.size.w}))`,
             }}
           >
             <canvas
               ref={attach}
               onClick={() => player.toggle()}
-              className="block size-full cursor-pointer rounded-[34px] bg-black object-contain"
+              className="block size-full cursor-pointer rounded-[34px] bg-black"
             />
             {!state.playing && (
               <button
