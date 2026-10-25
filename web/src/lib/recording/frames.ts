@@ -1,12 +1,12 @@
 import { BlobSource, Input, MP4, type VideoSample, VideoSampleSink } from "mediabunny"
-import { type Segment, segmentAt } from "@/lib/recording/timeline"
+import { runEnd, runStart, type Segment, segmentAt } from "@/lib/recording/timeline"
 
 export type Frame = { t: number; sample: VideoSample }
 
 /**
- * Decodes a recording's segments. Each segment starts with a key frame and is
- * read as its epoch's init file followed by the segment, so seeking only ever
- * fetches the segment that holds the time.
+ * Decodes a recording's segments. A run of segments, from one that starts
+ * with a key frame up to the next such one, is read as its epoch's init file
+ * followed by the run, so seeking fetches only the run that holds the time.
  */
 export class Frames {
   #files = new Map<string, Promise<ArrayBuffer>>()
@@ -28,7 +28,7 @@ export class Frames {
       })
       p.catch(() => this.#files.delete(file))
       this.#files.set(file, p)
-      if (this.#files.size > 16) {
+      if (this.#files.size > 24) {
         const oldest = [...this.#files.keys()].find((k) => k.startsWith("seg-"))
         if (oldest && oldest !== file) this.#files.delete(oldest)
       }
@@ -38,14 +38,18 @@ export class Frames {
 
   /** Frames from the one showing at t (ms) on, in recording time. */
   async *from(t: number): AsyncGenerator<Frame, void, unknown> {
-    let i = Math.max(0, segmentAt(this.segments, t))
-    for (; i < this.segments.length; i++) {
-      const seg = this.segments[i]!
-      const next = this.segments[i + 1]
+    let i = runStart(this.segments, Math.max(0, segmentAt(this.segments, t)))
+    let target = t
+    while (i < this.segments.length) {
+      const end = runEnd(this.segments, i)
+      const run = this.segments.slice(i, end)
+      const head = run[0]!
+      const next = this.segments[end]
       if (next) void this.#fetch(next.file).catch(() => undefined)
+      i = end
       let data: ArrayBuffer[]
       try {
-        data = await Promise.all([this.#fetch(seg.init), this.#fetch(seg.file)])
+        data = await Promise.all([this.#fetch(head.init), ...run.map((s) => this.#fetch(s.file))])
       } catch {
         continue
       }
@@ -54,9 +58,10 @@ export class Frames {
         const track = await input.getPrimaryVideoTrack()
         if (!track) continue
         const first = await track.getFirstTimestamp()
-        const startAt = Math.max(first, first + (t - seg.start) / 1000)
+        const startAt = first + Math.max(0, target - head.start) / 1000
+        target = 0
         for await (const sample of new VideoSampleSink(track).samples(startAt)) {
-          yield { t: seg.start + (sample.timestamp - first) * 1000, sample }
+          yield { t: head.start + (sample.timestamp - first) * 1000, sample }
         }
       } catch {
         continue

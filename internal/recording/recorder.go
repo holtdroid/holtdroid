@@ -23,6 +23,9 @@ type Config struct {
 	// Segment is the shortest video segment; one ends at the first key frame
 	// after it.
 	Segment time.Duration
+	// MaxSegment and MaxSegmentSize end a segment without a key frame.
+	MaxSegment     time.Duration
+	MaxSegmentSize int
 	// Flush is how often events and logcat are uploaded with the manifest.
 	Flush time.Duration
 	// MaxBacklog stops the recording when this many bytes wait for upload.
@@ -33,7 +36,10 @@ type Config struct {
 }
 
 func DefaultConfig() Config {
-	return Config{Segment: 2 * time.Second, Flush: 10 * time.Second, MaxBacklog: 256 << 20, MaxLogcat: 8 << 20}
+	return Config{
+		Segment: 2 * time.Second, MaxSegment: 20 * time.Second, MaxSegmentSize: 16 << 20,
+		Flush: 10 * time.Second, MaxBacklog: 256 << 20, MaxLogcat: 8 << 20,
+	}
 }
 
 // Packet is one scrcpy video packet: a config packet (SPS and PPS) or a

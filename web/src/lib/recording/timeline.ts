@@ -36,6 +36,21 @@ export function segmentAt(segments: Segment[], t: number) {
   return found
 }
 
+const decodable = (s: Segment) => s.key !== false
+
+/** The segment at or before i that starts with a key frame of the same epoch. */
+export function runStart(segments: Segment[], i: number) {
+  while (i > 0 && !decodable(segments[i]!) && segments[i - 1]!.init === segments[i]!.init) i--
+  return i
+}
+
+/** The index after the run that starts at i. */
+export function runEnd(segments: Segment[], i: number) {
+  let j = i + 1
+  while (j < segments.length && !decodable(segments[j]!) && segments[j]!.init === segments[i]!.init) j++
+  return j
+}
+
 function lastAt<T extends { t: number }>(items: T[], t: number): T | undefined {
   let lo = 0
   let hi = items.length - 1

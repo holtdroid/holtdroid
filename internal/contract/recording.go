@@ -33,8 +33,9 @@ type RecordingState struct {
 
 // RecordingManifest lists a recording's files. Times are milliseconds since
 // StartedAt. The video is fragmented MP4: one init file per epoch (the
-// stream's codec, size or rotation changed) and segments that each start
-// with a key frame.
+// stream's codec, size or rotation changed) and segments that end at a key
+// frame, or after a time or size limit when key frames are rare; a segment
+// without Key decodes only after the ones before it back to one with Key.
 type RecordingManifest struct {
 	State     RecordingStatus  `json:"state" enum:"recording,done,failed,interrupted"`
 	Reason    string           `json:"reason,omitempty"`
@@ -61,6 +62,7 @@ type RecordingSegment struct {
 	Start    int64  `json:"start"`
 	Duration int64  `json:"duration"`
 	Size     int64  `json:"size"`
+	Key      bool   `json:"key" doc:"starts with a key frame"`
 }
 
 type RecordingChunk struct {

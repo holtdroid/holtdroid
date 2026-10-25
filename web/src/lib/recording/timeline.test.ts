@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import type { RecordingEvent, RecordingManifest } from "@/api/client"
-import { clock, parseLogcat, segmentAt, segmentsOf, Telemetry } from "@/lib/recording/timeline"
+import { clock, parseLogcat, runEnd, runStart, segmentAt, segmentsOf, Telemetry } from "@/lib/recording/timeline"
 
 describe("parseLogcat", () => {
   test("recording time and threadtime fields", () => {
@@ -54,6 +54,31 @@ describe("segments", () => {
     expect(segmentAt(segs, 5000)).toBe(2)
     expect(segmentAt(segs, 99_000)).toBe(2)
   })
+})
+
+test("runs of segments start at a key frame", () => {
+  const seg = (file: string, init: string, key: boolean) => ({
+    file,
+    init,
+    key,
+    start: 0,
+    duration: 1,
+    size: 1,
+    width: 1,
+    height: 1,
+  })
+  const segs = [
+    seg("a", "i0", true),
+    seg("b", "i0", false),
+    seg("c", "i0", false),
+    seg("d", "i0", true),
+    seg("e", "i1", false),
+  ]
+  expect(runStart(segs, 2)).toBe(0)
+  expect(runEnd(segs, 0)).toBe(3)
+  expect(runStart(segs, 3)).toBe(3)
+  expect(runEnd(segs, 3)).toBe(4)
+  expect(runStart(segs, 4)).toBe(4)
 })
 
 const metrics = (t: number, cpu: number) =>

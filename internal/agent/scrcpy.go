@@ -155,7 +155,7 @@ func (s *Scrcpy) serveVideo(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	conns, err := s.start(ctx, videoOpts(o.codec, o.bitRate, o.maxFPS, o.maxSize)+" control=true clipboard_autosync=false", 2)
+	conns, err := s.start(ctx, videoOpts(o.codec, o.bitRate, o.maxFPS, o.maxSize, viewerKeyInterval)+" control=true clipboard_autosync=false", 2)
 	if err != nil {
 		s.log.Warn("scrcpy start", "err", err)
 		_ = ws.Close(websocket.StatusTryAgainLater, "screen is not available yet")
@@ -170,8 +170,16 @@ func (s *Scrcpy) serveVideo(w http.ResponseWriter, r *http.Request) {
 	bridge(ctx, cancel, ws, stream, conns[0], conns[1])
 }
 
-func videoOpts(codec string, bitRate, maxFPS, maxSize int) string {
-	return fmt.Sprintf("audio=false video_codec=%s video_bit_rate=%d max_fps=%d max_size=%d", codec, bitRate, maxFPS, maxSize)
+// Key frames every few seconds keep recording segments short: software
+// encoders (redroid's) otherwise send one only every minute or more.
+const (
+	viewerKeyInterval = 2
+	recordKeyInterval = 1
+)
+
+func videoOpts(codec string, bitRate, maxFPS, maxSize, keyInterval int) string {
+	return fmt.Sprintf("audio=false video_codec=%s video_bit_rate=%d max_fps=%d max_size=%d video_codec_options=i-frame-interval:int=%d",
+		codec, bitRate, maxFPS, maxSize, keyInterval)
 }
 
 func (s *Scrcpy) serveAudio(w http.ResponseWriter, r *http.Request) {

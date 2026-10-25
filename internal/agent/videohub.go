@@ -132,7 +132,7 @@ func (h *videoHub) startOwn() {
 	f := h.feed()
 	h.active = f
 	cfg := h.s.cfg.Record
-	opts := videoOpts("h264", cfg.BitRate, cfg.MaxFPS, cfg.MaxSize) + " control=false"
+	opts := videoOpts("h264", cfg.BitRate, cfg.MaxFPS, cfg.MaxSize, recordKeyInterval) + " control=false"
 	go func() {
 		for ctx.Err() == nil {
 			conns, err := h.s.start(ctx, opts, 1)

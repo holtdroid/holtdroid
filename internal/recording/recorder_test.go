@@ -241,3 +241,34 @@ func TestTap(t *testing.T) {
 		t.Fatalf("packets: %+v", got)
 	}
 }
+
+func TestRecorderCutsWithoutKeyFrames(t *testing.T) {
+	b := &bucket{files: map[string][]byte{}}
+	c := &clock{t: time.Now()}
+	r := start(t, b, c)
+	packets := screenPackets(t)
+	r.Video(packets[0])
+	var pts int64
+	for i := range 500 {
+		p := packets[1+i%(len(packets)-1)]
+		p.Key = i == 0
+		pts += 100_000
+		c.add(100 * time.Millisecond)
+		p.PTS = pts
+		r.Video(p)
+	}
+	r.Stop(context.Background())
+	var m contract.RecordingManifest
+	if err := json.Unmarshal(b.get(t, "manifest.json"), &m); err != nil {
+		t.Fatal(err)
+	}
+	segs := m.Epochs[0].Segments
+	if len(segs) != 3 || !segs[0].Key || segs[1].Key || segs[2].Key {
+		t.Fatalf("segments: %+v", segs)
+	}
+	for _, s := range segs {
+		if s.Duration > 20_000 {
+			t.Fatalf("segment %s lasts %d ms", s.File, s.Duration)
+		}
+	}
+}

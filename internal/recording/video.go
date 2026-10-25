@@ -23,6 +23,7 @@ type video struct {
 	basePTS int64
 	baseT   int64
 	samples []sample
+	bytes   int
 	seq     int
 }
 
@@ -69,10 +70,14 @@ func (r *Recorder) Video(p Packet) {
 	if !v.based {
 		v.basePTS, v.baseT, v.based = p.PTS, now, true
 	}
-	if p.Key && len(v.samples) > 0 && p.PTS-v.samples[0].pts >= r.cfg.Segment.Microseconds() {
-		r.writeSegment(p.PTS)
+	if n := len(v.samples); n > 0 {
+		long := p.PTS - v.samples[0].pts
+		if p.Key && long >= r.cfg.Segment.Microseconds() || long >= r.cfg.MaxSegment.Microseconds() || v.bytes >= r.cfg.MaxSegmentSize {
+			r.writeSegment(p.PTS)
+		}
 	}
 	v.samples = append(v.samples, sample{pts: p.PTS, at: now, key: p.Key, nalus: nalus})
+	v.bytes += len(p.Data)
 }
 
 // Break says the packets will come from another stream next, which starts
@@ -155,13 +160,13 @@ func (r *Recorder) writeSegment(endPTS int64) {
 		payload, err := h264.AVCC(s.nalus).Marshal()
 		if err != nil {
 			r.log.Warn("recording: bad picture", "err", err)
-			v.samples = nil
+			v.samples, v.bytes = nil, 0
 			return
 		}
 		samples[i] = &fmp4.Sample{Duration: uint32(max((next-s.pts)*timeScale/1_000_000, 1)), IsNonSyncSample: !s.key, Payload: payload}
 	}
 	first := v.samples[0]
-	v.samples = nil
+	v.samples, v.bytes = nil, 0
 	v.seq++
 	part := fmp4.Part{SequenceNumber: uint32(v.seq), Tracks: []*fmp4.PartTrack{{
 		ID:       1,
@@ -181,6 +186,7 @@ func (r *Recorder) writeSegment(endPTS int64) {
 		Start:    v.baseT + max(first.pts-v.basePTS, 0)/1000,
 		Duration: (endPTS - first.pts) / 1000,
 		Size:     int64(buf.Len()),
+		Key:      first.key,
 	})
 	r.dirty = true
 }

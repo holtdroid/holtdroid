@@ -2793,8 +2793,12 @@ pass a recording to someone without an account.
   stream muxed as is into fragmented MP4 (`bluenviron/mediacommon`), no
   decoding or encoding: one init file per epoch (a new stream or a new
   config packet, e.g. after a rotation) and segments cut at the first key
-  frame after 2 s, so every segment starts with a key frame and can be
-  decoded on its own. The agent taps the newest viewer's H.264 stream
+  frame after 2 s. Redroid's software encoder sent a key frame only every
+  minute or two (seen on 2026-10-25: a 140 s and a 50 s segment), so every
+  stream asks scrcpy for one every 2 s (`i-frame-interval`, 1 s on the
+  recording's own stream) and a segment also ends after 20 s or 16 MB
+  without one; the manifest marks which segments start with a key frame,
+  and the player decodes a run from such a segment on. The agent taps the newest viewer's H.264 stream
   (`videoHub`), so watching and recording share one encoder on the device;
   with no such viewer it runs its own stream (H.264, 1280 px, 30 fps,
   2 Mbit/s). Sound isn't recorded: a second capture would fight the

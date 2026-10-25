@@ -1746,6 +1746,8 @@ export interface components {
             /** Format: int64 */
             duration: number;
             file: string;
+            /** @description starts with a key frame */
+            key: boolean;
             /** Format: int64 */
             size: number;
             /** Format: int64 */
