@@ -22,6 +22,7 @@ export const keys = {
   providers: ["providers"] as const,
   sessions: ["sessions"] as const,
   appData: ["app-data"] as const,
+  webviews: ["webviews"] as const,
 }
 
 export function useAuth() {
@@ -144,6 +145,15 @@ export function useProviders() {
   })
 }
 
+export function useWebViews(enabled = true) {
+  return useQuery({
+    queryKey: keys.webviews,
+    queryFn: () => unwrap(api.GET("/api/v1/webviews")),
+    staleTime: 5 * 60_000,
+    enabled,
+  })
+}
+
 export function useSessions() {
   return useQuery({
     queryKey: keys.sessions,
@@ -176,6 +186,7 @@ export type LaunchInput = {
   screen?: string
   android?: string
   location?: string
+  webview?: string
   appData?: AppDataChoice
   queue?: boolean
 }

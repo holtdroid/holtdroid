@@ -142,6 +142,7 @@ type Capabilities struct {
 	ABIs      []string   // what the device can run, incl. translated ABIs
 	Screens   []Display  // optional (virtual devices): screens a launch may pick; the first is the default (decision #83)
 	Versions  []string   // optional (virtual devices): Android versions a launch may pick, newest first
+	WebView   bool       // a launch may install a WebView build from the api's catalog over the built-in one (decision #88)
 }
 
 type Display struct {
@@ -249,6 +250,17 @@ type CreateSession struct {
 	Screen      string // optional: one of Capabilities.Screens; 422 if unknown; empty takes the first (decision #83)
 	Android     string // optional: one of Capabilities.Versions; 422 if unknown; empty takes the newest
 	AppData     *AppDataRestore // optional: {url, cache}, decision #49
+	WebView     *WebViewInstall // optional: needs Capabilities.WebView, decision #88
+}
+
+// The agent installs url (a com.android.webview build) over the built-in
+// WebView before the app; a failed install fails the session. Frontend is
+// the Chromium commit whose DevTools frontend fits it, used for WebViews
+// that report an all-zero revision.
+type WebViewInstall struct {
+	URL      string // api-internal, /internal/webview/{id}
+	Version  string // "158.0.8123.0"
+	Frontend string // optional, 40 hex digits
 }
 
 // The agent downloads url (a zstd tar from /v1/app-data/export) and puts it
@@ -267,6 +279,7 @@ type Session struct {
 	ArtifactRef  string // as given in CreateSession
 	Location     string
 	AppData      string // ""|data|cache: what was restored at launch, from CreateSession.AppData
+	WebView      string // the WebView version installed at launch; empty for the built-in one
 	State        string // provisioning|booting|installing|restoring|instrumenting|ready|stopping|failed
 	Reason       string // set when failed
 	Detail       string // optional progress note while starting, e.g. "waiting for the session image"
@@ -427,7 +440,8 @@ keeping the provider in the path is what lets the api stay stateless.
 | `POST` | `/api/v1/uploads` | multipart `file` (+ `visibility`, `title`, `note`, `changelog`) → 201 artifact; 403 when disabled, 422 when not an APK, body capped at `maxSize` |
 | `GET` | `/api/v1/providers` | `{name, capabilities, capacity, error?}` per provider |
 | `GET` | `/api/v1/sessions` | `{items, errors}`, each item with `idleDeadline` and `ttlDeadline` |
-| `POST` | `/api/v1/sessions` | `{source, artifactId, provider?, slot?, location?, appData?: {id, cache}, queue?}`. Without `provider` the api takes the first provider in `providers[]` order that offers the location and has a free slot (for app data, one that can restore it); `slot` needs `provider` (decision #76). 404 for artifacts the caller can't see or app data that isn't the caller's for that package, 403 for `appData` while app data is off, 409 when no slot is free (or others are queued for that provider) and `queue` is false, 422 for an invalid APK or unknown location. With `queue: true` it waits in line (one per target: any provider, a provider, or one slot) until a slot frees up; cancelling the request leaves the line (decision #57) |
+| `GET` | `/api/v1/webviews` | the WebView catalog (decision #88), newest milestone first: `[{id, title, version, milestone, channels, minSdk, released, size}]`; empty without `webview.storage` |
+| `POST` | `/api/v1/sessions` | `{source, artifactId, provider?, slot?, screen?, android?, location?, appData?: {id, cache}, webview?, queue?}`. `webview` is an id from `/api/v1/webviews` and keeps only providers with the `webview` capability (422 when none is left or no catalog is configured, 404 for an unknown build). Without `provider` the api takes the first provider in `providers[]` order that offers the location and has a free slot (for app data, one that can restore it); `slot` needs `provider` (decision #76). 404 for artifacts the caller can't see or app data that isn't the caller's for that package, 403 for `appData` while app data is off, 409 when no slot is free (or others are queued for that provider) and `queue` is false, 422 for an invalid APK or unknown location. With `queue: true` it waits in line (one per target: any provider, a provider, or one slot) until a slot frees up; cancelling the request leaves the line (decision #57) |
 | `GET` | `/api/v1/sessions/{provider}/{id}` | one session |
 | `DELETE` | `/api/v1/sessions/{provider}/{id}` | owner or admin only; with app data on, a `ready` session's app data is saved into the owner's first (a failed save is logged and audited, the session is stopped anyway) |
 | `POST` | `/api/v1/sessions/{provider}/{id}/app-data` | owner or admin; saves the app data now into the session owner's saves and restarts the app → `AppDataView`; 403 when off, 404 when the app has no data, 413 over `appData.maxSize`, 423 while another app action runs |
@@ -446,6 +460,7 @@ keeping the provider in the path is what lets the api stay stateless.
 | `*` | `/s/{provider}/{id}/…` | proxy to the session's agent (HTTP + WS); any authenticated user may use it; non-GET requests count as activity |
 | `GET` | `/internal/artifacts/{key}` | APK download for agents by cache key, **internal port only** |
 | `GET` | `/internal/app-data/{key}` | app data download for agents, **internal port only**; `key` is `{user hash}/{package}/{id}.tar.zst`, ids carry 96 random bits |
+| `GET` | `/internal/webview/{id}` | a WebView build from the catalog for agents, **internal port only**, streamed from `webview.storage` (decision #88) |
 | `GET` | `/internal/ssh/authority` | gateway only, **internal port**: `{publicKey}` of the CA that signs connect clients' certificates; 404 when SSH is disabled |
 | `POST` | `/internal/sessions/{slug}/activity` | gateway only, **internal port**: tunnel traffic counts as activity → 204; 404 for an unknown session |
 | `GET` | `/internal/users/{handle}/sessions` | gateway only, **internal port**: `{sessions: [SSHSession]}` (`{provider, id, owner, state, tunnelUrl?, package?, label?, versionName?}`), every session (any state) whose owner has this `user-…` handle; empty for an unknown handle; 500 if a provider can't list, so the gateway keeps what it has |

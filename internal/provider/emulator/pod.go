@@ -31,6 +31,7 @@ const (
 	annotationScreen       = "holtdroid/screen"
 	annotationAndroid      = "holtdroid/android"
 	annotationAppData      = "holtdroid/app-data"
+	annotationWebView      = "holtdroid/webview"
 	annotationCreatedAt    = "holtdroid/created-at"
 	annotationLastActivity = "holtdroid/last-activity"
 
@@ -107,6 +108,15 @@ func (p *Provider) renderPod(id, slot, node string, req contract.CreateSession, 
 			corev1.EnvVar{Name: "HOLTDROID_APPDATA__URL", Value: req.AppData.URL},
 			corev1.EnvVar{Name: "HOLTDROID_APPDATA__CACHE", Value: strconv.FormatBool(req.AppData.Cache)},
 		)
+	}
+	if w := req.WebView; w != nil {
+		env = append(env,
+			corev1.EnvVar{Name: "HOLTDROID_WEBVIEW__URL", Value: w.URL},
+			corev1.EnvVar{Name: "HOLTDROID_WEBVIEW__VERSION", Value: w.Version},
+		)
+		if w.Frontend != "" {
+			env = append(env, corev1.EnvVar{Name: "HOLTDROID_WEBVIEW__FRONTEND", Value: w.Frontend})
+		}
 	}
 	resources, ok := p.nodeRes[node]
 	if !ok {
@@ -210,6 +220,9 @@ func (p *Provider) renderPod(id, slot, node string, req contract.CreateSession, 
 	}
 	if req.AppData != nil {
 		annotations[annotationAppData] = string(req.AppData.Kind())
+	}
+	if req.WebView != nil {
+		annotations[annotationWebView] = req.WebView.Version
 	}
 
 	return &corev1.Pod{
@@ -329,6 +342,7 @@ func (p *Provider) podSession(pod corev1.Pod) contract.Session {
 		ArtifactRef:  a[annotationArtifactRef],
 		Location:     a[annotationLocation],
 		AppData:      contract.AppDataKind(a[annotationAppData]),
+		WebView:      a[annotationWebView],
 		State:        state,
 		Reason:       reason,
 		Detail:       detail,

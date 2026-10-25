@@ -18,6 +18,7 @@ import { artifactTitle } from "@/components/artifact-list"
 import { AndroidVersionCard } from "@/components/launch/android-version"
 import { ChoiceCard, ChoiceGroup, Section } from "@/components/launch/choice-card"
 import { PhonePreview } from "@/components/launch/phone-preview"
+import { WebViewChoice } from "@/components/launch/webview-choice"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -93,6 +94,7 @@ function LaunchFlow({ artifact, onClose }: { artifact: ArtifactView; onClose: ()
   const [chosenSlot, setChosenSlot] = useState<string | null>(null)
   const [chosenScreen, setChosenScreen] = useState<string | null>(null)
   const [chosenAndroid, setChosenAndroid] = useState<string | null>(null)
+  const [chosenWebView, setChosenWebView] = useState<string | null>(null)
   const [chosenData, setChosenData] = useState(FRESH)
   const [withCache, setWithCache] = useState(false)
 
@@ -101,8 +103,28 @@ function LaunchFlow({ artifact, onClose }: { artifact: ArtifactView; onClose: ()
   const selected = picked ?? recommended ?? ""
   const stage = single || step === "options" ? "options" : "provider"
 
-  const { provider, slot, locations, defaultLocation, location, screens, screen, versions, android, free, total } =
-    useLaunchTarget(stage === "options" ? selected : "", chosenLocation, chosenSlot, chosenScreen, chosenAndroid)
+  const {
+    provider,
+    slot,
+    locations,
+    defaultLocation,
+    location,
+    screens,
+    screen,
+    versions,
+    android,
+    webviews,
+    webview,
+    free,
+    total,
+  } = useLaunchTarget(
+    stage === "options" ? selected : "",
+    chosenLocation,
+    chosenSlot,
+    chosenScreen,
+    chosenAndroid,
+    chosenWebView,
+  )
   const launch = useStartSession()
   const appData = useAppDataFor(artifact.app?.package)
   const snapshot = appData.items.find((d) => d.id === chosenData)
@@ -120,7 +142,14 @@ function LaunchFlow({ artifact, onClose }: { artifact: ArtifactView; onClose: ()
     const choice = snapshot && { id: snapshot.id, cache: withCache && snapshot.cache }
     launch(
       artifact,
-      { provider: provider?.name ?? selected, slot: virtual ? undefined : slot?.id, location, screen, android },
+      {
+        provider: provider?.name ?? selected,
+        slot: virtual ? undefined : slot?.id,
+        location,
+        screen,
+        android,
+        webview: provider?.capabilities.webview ? webview : undefined,
+      },
       choice,
     )
   }
@@ -199,6 +228,10 @@ function LaunchFlow({ artifact, onClose }: { artifact: ArtifactView; onClose: ()
                   ))}
                 </ChoiceGroup>
               </Section>
+            )}
+
+            {webviews.length > 0 && (
+              <WebViewChoice webviews={webviews} selected={webview} android={android} onSelect={setChosenWebView} />
             )}
 
             {!virtual && slots.length > 0 && (

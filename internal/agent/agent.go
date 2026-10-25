@@ -28,6 +28,7 @@ type Config struct {
 	ADBShell         ShellPolicy
 	ArtifactURL      string
 	AppData          contract.AppDataRestore
+	WebView          contract.WebViewInstall
 	Package          string
 	Location         string
 	ADB              string
@@ -174,7 +175,7 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 		boot:     boot,
 		log:      log,
 		hc:       &http.Client{Timeout: 10 * time.Minute},
-		devtools: NewDevTools(dev, log),
+		devtools: NewDevTools(dev, cfg.WebView.Frontend, log),
 		network:  NewNetwork(cfg.ClashAPI, cfg.IPInfoURL, cfg.IPInfoProxy),
 		screen:   screen,
 		clip:     NewClipboard(screen, log),
@@ -275,6 +276,11 @@ type exportResult struct {
 }
 
 func (a *Agent) run(ctx context.Context) error {
+	if a.cfg.WebView.URL != "" && !a.cfg.Resume {
+		if err := a.installWebView(ctx, a.cfg.WebView); err != nil {
+			return fmt.Errorf("install WebView %s: %w", a.cfg.WebView.Version, err)
+		}
+	}
 	a.setStatus(contract.StateInstalling, "Downloading the APK")
 	apk, err := a.download(ctx, a.cfg.ArtifactURL)
 	if err != nil {
@@ -447,6 +453,23 @@ func (a *Agent) fail(err error) {
 	a.app = nil
 	a.mu.Unlock()
 	a.notify()
+}
+
+// installWebView installs a com.android.webview build as an update of the
+// built-in WebView, which then serves every app.
+func (a *Agent) installWebView(ctx context.Context, w contract.WebViewInstall) error {
+	a.setStatus(contract.StateInstalling, "Downloading WebView "+w.Version)
+	file, err := a.fetch(ctx, w.URL, "holtdroid-webview-*.apk", "WebView")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(file)
+	a.setStatus(contract.StateInstalling, "Installing WebView "+w.Version)
+	if err := a.dev.Install(ctx, file); err != nil {
+		return err
+	}
+	a.log.Info("installed WebView", "version", w.Version)
+	return nil
 }
 
 func (a *Agent) download(ctx context.Context, artifactURL string) (string, error) {

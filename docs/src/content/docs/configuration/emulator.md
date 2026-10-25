@@ -176,6 +176,12 @@ tag per Android major version it supports (11 to 15). Android 16 boots
 but its netd aborts on a mainline kernel (Android's BPF loader accepts only
 LTS kernels), so it is not offered.
 
+With a WebView catalog (`webview.storage`), the launch dialog also offers a
+WebView build for the chosen Android version, which the agent installs over
+the built-in one. This needs holtdroid-redroid images that re-sign the
+built-in WebView with Chromium's debug key, which every published tag does.
+See [WebView versions](/holtdroid/concepts/webview-versions/).
+
 ## Users' ADB inside Android
 
 Android in redroid is a userdebug build whose adbd runs as root on the

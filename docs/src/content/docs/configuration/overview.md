@@ -108,6 +108,7 @@ providers:
 | `uploads.*`             | enabled     | Uploads from the UI, see [Artifact sources](/holtdroid/sources/overview/#uploads)                     |
 | `downloads.adminOnly`   | `false`     | Only admins may download APKs, see [Downloads](/holtdroid/sources/overview/#downloads)                |
 | `appData.*`             | off         | Save app data between sessions, see [App data](/holtdroid/concepts/app-data/)                         |
+| `webview.storage`       | off         | The WebView catalog, see [WebView versions](/holtdroid/concepts/webview-versions/)                    |
 | `adb.browser`           | `true`      | ADB tools on the session page, see [ADB tools](/holtdroid/concepts/adb/)                              |
 | `adb.ownerOnly`         | `true`      | Only a session's owner and admins may use its ADB tools                                               |
 | `providers[]`           | `[]`        | Device providers: unique `name` and base `url`; **Any** in the launch dialog tries them in this order |

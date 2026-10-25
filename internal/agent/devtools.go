@@ -25,6 +25,8 @@ type DevTools struct {
 	dev Device
 	log *slog.Logger
 	hc  *http.Client
+	// rev is the frontend revision for WebViews that report none.
+	rev string
 
 	mu      sync.Mutex
 	sockets map[string]*devtoolsSocket
@@ -38,8 +40,8 @@ type devtoolsSocket struct {
 	targets []contract.DevToolsTarget
 }
 
-func NewDevTools(dev Device, log *slog.Logger) *DevTools {
-	return &DevTools{dev: dev, log: log, hc: &http.Client{Timeout: 3 * time.Second}, sockets: map[string]*devtoolsSocket{}}
+func NewDevTools(dev Device, rev string, log *slog.Logger) *DevTools {
+	return &DevTools{dev: dev, rev: frontendRev("@" + rev), log: log, hc: &http.Client{Timeout: 3 * time.Second}, sockets: map[string]*devtoolsSocket{}}
 }
 
 // Run rescans the device's sockets every interval until ctx ends.
@@ -96,7 +98,7 @@ func (d *DevTools) scan(ctx context.Context) error {
 			WebKit  string `json:"WebKit-Version"`
 		}
 		if err := d.getJSON(ctx, port, "/json/version", &v); err == nil {
-			s.process, s.rev = v.Package, frontendRev(v.WebKit)
+			s.process, s.rev = v.Package, cmp.Or(frontendRev(v.WebKit), d.rev)
 		}
 		d.mu.Lock()
 		d.sockets[name] = s
@@ -251,9 +253,11 @@ func socketPID(name string) int {
 
 var revRe = regexp.MustCompile(`@([0-9a-f]{7,40})\b`)
 
+// frontendRev finds the revision in a WebKit-Version or a frontend URL.
+// Builds outside Chromium's release bots report all zeros, which is none.
 func frontendRev(s string) string {
 	m := revRe.FindStringSubmatch(s)
-	if m == nil {
+	if m == nil || strings.Trim(m[1], "0") == "" {
 		return ""
 	}
 	return m[1]

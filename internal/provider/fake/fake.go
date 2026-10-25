@@ -77,6 +77,7 @@ func (p *Provider) Capabilities(context.Context) (contract.Capabilities, error) 
 		Locations:       p.locations,
 		DefaultLocation: p.location,
 		ABIs:            []string{"x86_64", "arm64-v8a"},
+		WebView:         true,
 	}, nil
 }
 
@@ -154,6 +155,7 @@ func (p *Provider) Create(_ context.Context, req contract.CreateSession) (contra
 		ArtifactRef:  req.ArtifactRef,
 		Location:     location,
 		AppData:      req.AppData.Kind(),
+		WebView:      webviewVersion(req.WebView),
 		State:        contract.StateProvisioning,
 		AgentURL:     strings.TrimRight(p.cfg.PublicURL, "/") + "/agents/" + id,
 		TunnelURL:    tunnelURL,
@@ -218,4 +220,11 @@ func randomID() string {
 	b := make([]byte, 5)
 	_, _ = rand.Read(b)
 	return hex.EncodeToString(b)
+}
+
+func webviewVersion(w *contract.WebViewInstall) string {
+	if w == nil {
+		return ""
+	}
+	return w.Version
 }

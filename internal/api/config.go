@@ -96,6 +96,7 @@ type Config struct {
 	Uploads        UploadsConfig
 	Downloads      DownloadsConfig
 	AppData        AppDataConfig
+	WebView        WebViewConfig
 	Sources        []source.Config
 	Providers      []Endpoint
 }

@@ -40,6 +40,7 @@ type Server struct {
 	provOrder      []string
 	cache          *Cache
 	appData        *appDataStore
+	webviews       *webviewCatalog
 	activity       *activity
 	warm           chan warmItem
 	library        *library
@@ -136,6 +137,9 @@ func New(ctx context.Context, cfg Config, opts ...Option) (*Server, error) {
 			}
 			s.appData = &appDataStore{store: store}
 		}
+	}
+	if s.webviews, err = newWebViewCatalog(ctx, cfg.WebView, s); err != nil {
+		return nil, err
 	}
 	if cfg.SSH.Enabled {
 		if s.ca, err = newConnectCA(ctx, s); err != nil {
@@ -297,6 +301,7 @@ func (s *Server) InternalHandler() http.Handler {
 		_, _ = io.Copy(w, rc)
 	})
 	mux.HandleFunc("GET /internal/app-data/{key...}", s.serveInternalAppData)
+	mux.HandleFunc("GET /internal/webview/{id}", s.serveInternalWebView)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
 	contract.RegisterSSHSessions(contract.NewAPI(mux, "Holtdroid api internal"), s)
 	return mux

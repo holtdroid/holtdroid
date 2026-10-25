@@ -516,6 +516,8 @@ func (p *Provider) Create(ctx context.Context, req contract.CreateSession) (cont
 		return contract.Session{}, fmt.Errorf("%w: bad package name %q", contract.ErrInvalid, req.Package)
 	case req.Location != "" && !slices.ContainsFunc(p.cfg.VPN.Offered(), func(l contract.Location) bool { return l.ID == req.Location }):
 		return contract.Session{}, fmt.Errorf("%w: unknown location %q", contract.ErrInvalid, req.Location)
+	case req.WebView != nil:
+		return contract.Session{}, fmt.Errorf("%w: phones keep their own WebView", contract.ErrInvalid)
 	}
 	id := randomID()
 	v, err := p.prepareVPN(ctx, id, location)

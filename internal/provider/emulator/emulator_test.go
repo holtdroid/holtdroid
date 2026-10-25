@@ -73,8 +73,9 @@ func TestRender(t *testing.T) {
 		appData  *contract.AppDataRestore
 		screen   string
 		android  string
+		webview  *contract.WebViewInstall
 	}{
-		{"plain", func(c *Config) {}, "", nil, "", ""},
+		{"plain", func(c *Config) {}, "", nil, "", "", nil},
 		{"vpn", func(c *Config) {
 			c.Redroid.Shell = agent.ShellFull
 			c.VPN = vpnConfig()
@@ -82,17 +83,20 @@ func TestRender(t *testing.T) {
 			c.VPN.Locations[0].Timezone = "Europe/Warsaw"
 			c.VPN.Locations[0].Geo = &vpn.GeoArea{Lat: 52.2297, Lng: 21.0122, Radius: 5000}
 			c.Tolerations = []Toleration{{Key: "dedicated", Operator: "Equal", Value: "nas", Effect: "NoSchedule"}}
-		}, "nl", nil, "fhd", "14"},
+		}, "nl", nil, "fhd", "14", nil},
 		{"telemetry", func(c *Config) {
 			c.SessionTelemetry = SessionTelemetry{MetricsPort: 9090, Tracing: telemetry.TracingConfig{Enabled: true, Endpoint: "http://otel-collector:4318", Insecure: true, SampleRatio: 0.25}}
-		}, "", nil, "", ""},
+		}, "", nil, "", "", nil},
 		{"node", func(c *Config) {
 			c.Nodes = map[string]Node{
 				"k3s-1": {Slots: 3, Resources: Resources{Requests: map[string]string{"cpu": "2", "memory": "2Gi"}, Limits: map[string]string{"memory": "4Gi"}}},
 				"core":  {Slots: 6},
 			}
-		}, "", nil, "tablet", ""},
-		{"appdata", func(c *Config) {}, "", &contract.AppDataRestore{URL: "http://holtdroid-api-internal:8081/internal/app-data/x.tar.zst", Cache: true}, "", ""},
+		}, "", nil, "tablet", "", nil},
+		{"appdata", func(c *Config) {}, "", &contract.AppDataRestore{URL: "http://holtdroid-api-internal:8081/internal/app-data/x.tar.zst", Cache: true}, "", "", nil},
+		{"webview", func(c *Config) {}, "", nil, "", "14", &contract.WebViewInstall{
+			URL: "http://holtdroid-api-internal:8081/internal/webview/Y2hyb21pdW0tMTU4LmFwaw", Version: "158.0.8123.0", Frontend: "7d74334854bbfcbaf1c955e86589d8b7cc9acc31",
+		}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -106,6 +110,7 @@ func TestRender(t *testing.T) {
 			}
 			r := req
 			r.AppData = tt.appData
+			r.WebView = tt.webview
 			screen, err := cfg.Redroid.screen(tt.screen)
 			if err != nil {
 				t.Fatal(err)

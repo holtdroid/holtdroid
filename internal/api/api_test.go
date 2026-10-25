@@ -624,3 +624,97 @@ func TestInstallArtifact(t *testing.T) {
 		t.Fatalf("events %v", evs)
 	}
 }
+
+type noWebView struct{ contract.Provider }
+
+func (p noWebView) Capabilities(ctx context.Context) (contract.Capabilities, error) {
+	c, err := p.Provider.Capabilities(ctx)
+	c.WebView = false
+	return c, err
+}
+
+func TestWebViewCatalog(t *testing.T) {
+	dir := t.TempDir()
+	write := func(name, body, meta string) {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if meta != "" {
+			if err := os.WriteFile(filepath.Join(dir, name+".meta.json"), []byte(meta), 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	write("chromium-157.apk", "webview 157", `{"title":"Chromium 157","tags":{"milestone":"157","version":"157.0.8000.0","minSdk":"29","channel":"beta"}}`)
+	write("chromium-158.apk", "webview 158", `{"title":"Chromium 158","tags":{"milestone":"158","version":"158.0.8123.0","minSdk":"29","channel":"dev,canary","frontend":"7d74334854bbfcbaf1c955e86589d8b7cc9acc31"}}`)
+	write("stray.apk", "not a webview", "")
+
+	h := newHarnessWith(t, 2, func(c *Config) {
+		c.WebView.Storage = storage.Config{Type: "filesystem", Filesystem: storage.FilesystemConfig{Dir: dir}}
+	})
+	h.srv.providers["phones"] = noWebView{fake.New(fake.Config{Slots: 1, StepDelay: time.Hour, PublicURL: "http://agents"})}
+	h.srv.provOrder = append([]string{"phones"}, h.srv.provOrder...)
+
+	rec := h.do(http.MethodGet, "/api/v1/webviews", "otter", "", nil)
+	list := decode[[]WebViewView](t, rec)
+	if rec.Code != http.StatusOK || len(list) != 2 || list[0].Milestone != 158 || list[0].Version != "158.0.8123.0" ||
+		!slices.Equal(list[0].Channels, []string{"dev", "canary"}) || list[0].MinSDK != 29 || list[1].Title != "Chromium 157" {
+		t.Fatalf("webviews %d %+v", rec.Code, list)
+	}
+	id := list[0].ID
+
+	launch := func(body map[string]string) *httptest.ResponseRecorder {
+		body["source"], body["artifactId"] = "local", encodeID("hello.apk")
+		return h.do(http.MethodPost, "/api/v1/sessions", "otter", "", body)
+	}
+	if rec := launch(map[string]string{"provider": "phones", "webview": id}); rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("a provider without the capability: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := launch(map[string]string{"webview": encodeID("nope.apk")}); rec.Code != http.StatusNotFound {
+		t.Fatalf("an unknown build: %d %s", rec.Code, rec.Body.String())
+	}
+	rec = launch(map[string]string{"webview": id})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create: %d %s", rec.Code, rec.Body.String())
+	}
+	v := decode[SessionView](t, rec)
+	if v.Provider != "fake" || v.WebView != "158.0.8123.0" {
+		t.Fatalf("session %+v", v)
+	}
+	if !strings.Contains(h.audit.String(), `"webview":"158.0.8123.0"`) {
+		t.Fatalf("audit %s", h.audit.String())
+	}
+	if rec := launch(map[string]string{"provider": "phones"}); rec.Code != http.StatusCreated {
+		t.Fatalf("built-in WebView on any provider: %d %s", rec.Code, rec.Body.String())
+	}
+
+	for path, want := range map[string]int{"/internal/webview/" + id: http.StatusOK, "/internal/webview/" + encodeID("stray.apk"): http.StatusNotFound} {
+		rec := httptest.NewRecorder()
+		h.internal.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+		if rec.Code != want || (want == http.StatusOK && rec.Body.String() != "webview 158") {
+			t.Fatalf("%s: %d %q", path, rec.Code, rec.Body.String())
+		}
+	}
+
+	plain := newHarness(t, 1)
+	if rec := plain.do(http.MethodGet, "/api/v1/webviews", "otter", "", nil); rec.Code != http.StatusOK || strings.TrimSpace(rec.Body.String()) != "[]" {
+		t.Fatalf("no catalog: %d %s", rec.Code, rec.Body.String())
+	}
+	rec = plain.do(http.MethodPost, "/api/v1/sessions", "otter", "", map[string]string{"source": "local", "artifactId": encodeID("hello.apk"), "webview": id})
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("no catalog, a build asked for: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestValidFrontend(t *testing.T) {
+	for in, want := range map[string]string{
+		"7d74334854bbfcbaf1c955e86589d8b7cc9acc31": "7d74334854bbfcbaf1c955e86589d8b7cc9acc31",
+		"7D74334854BBFCBAF1C955E86589D8B7CC9ACC31": "",
+		"7d74334854bb": "",
+		"":             "",
+	} {
+		if got := validFrontend(in); got != want {
+			t.Errorf("validFrontend(%q) = %q", in, got)
+		}
+	}
+}

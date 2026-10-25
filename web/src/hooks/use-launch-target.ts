@@ -1,12 +1,14 @@
 import { useNavigate, useSearch } from "@tanstack/react-router"
 import { useMemo } from "react"
 import type { AppDataChoice, AppDataList, ArtifactView, ProviderView } from "@/api/client"
-import { useProviders } from "@/api/queries"
+import { useProviders, useWebViews } from "@/api/queries"
+import { apiLevels } from "@/lib/android"
 import {
   lastAndroid,
   lastLocation,
   lastProvider,
   lastScreen,
+  lastWebView,
   type QuickLaunchMode,
   rememberLaunch,
 } from "@/lib/launch-prefs"
@@ -25,6 +27,7 @@ export function useLaunchTarget(
   chosenSlot: string | null = null,
   chosenScreen: string | null = null,
   chosenAndroid: string | null = null,
+  chosenWebView: string | null = null,
 ) {
   const providers = useProviders()
   const usable = useMemo(() => (providers.data ?? []).filter((p) => !p.error), [providers.data])
@@ -48,6 +51,14 @@ export function useLaunchTarget(
   const android = [chosenAndroid, lastAndroid(provider?.name ?? ""), versions[0]].find(
     (v): v is string => !!v && versions.includes(v),
   )
+  const webviewCapable = pool.some((p) => p.capabilities.webview)
+  const catalog = useWebViews(webviewCapable)
+  const level = android ? apiLevels[android] : undefined
+  const webviews = webviewCapable ? (catalog.data ?? []).filter((w) => !level || w.minSdk <= level) : []
+  const webview =
+    [chosenWebView, lastWebView(provider?.name ?? "")].find(
+      (id): id is string => id !== null && webviews.some((w) => w.id === id),
+    ) ?? ""
 
   return {
     loaded: providers.isSuccess,
@@ -62,6 +73,8 @@ export function useLaunchTarget(
     screen,
     versions,
     android,
+    webviews,
+    webview,
     free: slot ? Number(slot.state === "free") : candidates.reduce((n, p) => n + freeSlots(p), 0),
     total: slot ? 1 : candidates.reduce((n, p) => n + p.capacity.slots.length, 0),
   }
@@ -72,10 +85,10 @@ export function useStartSession() {
   const linked = useSearch({ strict: false }).launch !== undefined
   return (
     artifact: ArtifactView,
-    target: { provider: string; slot?: string; location?: string; screen?: string; android?: string },
+    target: { provider: string; slot?: string; location?: string; screen?: string; android?: string; webview?: string },
     appData?: AppDataChoice,
   ) => {
-    rememberLaunch(target.provider, target.location, target.screen, target.android)
+    rememberLaunch(target.provider, target.location, target.screen, target.android, target.webview)
     void navigate({
       to: "/launch",
       search: {
@@ -85,6 +98,7 @@ export function useStartSession() {
         slot: target.slot,
         screen: target.screen,
         android: target.android,
+        webview: target.webview || undefined,
         location: target.location,
         data: appData?.id,
         cache: appData?.cache || undefined,

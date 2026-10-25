@@ -102,6 +102,7 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
               <span className="text-muted-foreground truncate font-mono text-xs">
                 {session.package}
                 {session.versionName ? ` · ${session.versionName}` : ""} · {session.slot}
+                {session.webview ? ` · WebView ${session.webview}` : ""}
               </span>
             </span>
           </VersionSwitcher>
@@ -156,6 +157,7 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
             detail={status?.detail || session.detail}
             reason={session.reason || status?.reason}
             appData={session.appData}
+            webview={session.webview}
           />
         ) : (
           <ScreenSplit>

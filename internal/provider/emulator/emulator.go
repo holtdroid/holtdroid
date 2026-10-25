@@ -314,6 +314,7 @@ func (p *Provider) Capabilities(context.Context) (contract.Capabilities, error) 
 		ABIs:            []string{"x86_64", "arm64-v8a"},
 		Screens:         p.cfg.Redroid.Screens,
 		Versions:        p.cfg.Redroid.versions(),
+		WebView:         true,
 	}, nil
 }
 

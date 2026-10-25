@@ -12,7 +12,7 @@ import { locationLabel } from "@/lib/location"
 import { cn } from "@/lib/utils"
 
 export function QuickLaunchButton({ artifact }: { artifact: ArtifactView }) {
-  const { usable, provider, target, locations, location, free, screen, android } = useLaunchTarget()
+  const { usable, provider, target, locations, location, free, screen, android, webview } = useLaunchTarget()
   const launch = useStartSession()
   const appData = useAppData()
   const [mode, setMode] = useState<QuickLaunchMode>(quickLaunchMode)
@@ -38,7 +38,7 @@ export function QuickLaunchButton({ artifact }: { artifact: ArtifactView }) {
       setMode(m)
       rememberQuickLaunchMode(m)
     }
-    launch(artifact, { provider: target, location, screen, android }, quickAppData(m, rules, pkg))
+    launch(artifact, { provider: target, location, screen, android, webview }, quickAppData(m, rules, pkg))
   }
 
   const button = (

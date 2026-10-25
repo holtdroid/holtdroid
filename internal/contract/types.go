@@ -38,6 +38,7 @@ type Capabilities struct {
 	ABIs            []string    `json:"abis"`
 	Screens         []Display   `json:"screens,omitempty" doc:"screens a session can be launched with (virtual devices); the first is the default"`
 	Versions        []string    `json:"versions,omitempty" doc:"Android versions a session can be launched with (virtual devices), newest first"`
+	WebView         bool        `json:"webview,omitempty" doc:"a session can start with a WebView build from the portal's catalog instead of the built-in one"`
 }
 
 // Display is a virtual device's screen: size, density and the emulated
@@ -148,6 +149,15 @@ type CreateSession struct {
 	Screen      string          `json:"screen,omitempty" doc:"one of the provider's screens; empty takes the first"`
 	Android     string          `json:"android,omitempty" doc:"one of the provider's Android versions; empty takes the newest"`
 	AppData     *AppDataRestore `json:"appData,omitempty" doc:"app data to put back after installing the app and before it first starts"`
+	WebView     *WebViewInstall `json:"webview,omitempty" doc:"a WebView build to install over the built-in one before the app; needs the provider's webview capability"`
+}
+
+// WebViewInstall is a build of com.android.webview that replaces the
+// device's built-in WebView for the session.
+type WebViewInstall struct {
+	URL      string `json:"url" format:"uri"`
+	Version  string `json:"version" minLength:"1" doc:"e.g. 158.0.8123.0"`
+	Frontend string `json:"frontend,omitempty" pattern:"^[0-9a-f]{40}$" doc:"the Chromium commit whose DevTools frontend fits this build; Chromium snapshot builds report none of their own"`
 }
 
 type AppDataKind string
@@ -195,6 +205,7 @@ type Session struct {
 	ArtifactRef  string            `json:"artifactRef"`
 	Location     string            `json:"location,omitempty"`
 	AppData      AppDataKind       `json:"appData,omitempty" enum:"data,cache" doc:"the app data restored at launch: data, or data with its cache; empty for a fresh install"`
+	WebView      string            `json:"webview,omitempty" doc:"the version of the WebView build installed at launch; empty for the built-in WebView"`
 	State        SessionState      `json:"state" enum:"provisioning,booting,installing,restoring,instrumenting,ready,stopping,failed"`
 	Reason       string            `json:"reason,omitempty"`
 	Detail       string            `json:"detail,omitempty"`

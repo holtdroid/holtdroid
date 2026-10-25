@@ -45,6 +45,7 @@ type SessionView struct {
 	IconURL      string                     `json:"iconUrl,omitempty"`
 	Location     string                     `json:"location,omitempty"`
 	AppData      contract.AppDataKind       `json:"appData,omitempty" enum:"data,cache" doc:"the app data restored at launch: data, or data with its cache; empty for a fresh install"`
+	WebView      string                     `json:"webview,omitempty" doc:"the version of the WebView build installed at launch; empty for the built-in WebView"`
 	State        contract.SessionState      `json:"state" enum:"provisioning,booting,installing,restoring,instrumenting,ready,stopping,failed"`
 	Reason       string                     `json:"reason,omitempty"`
 	Detail       string                     `json:"detail,omitempty"`
@@ -79,6 +80,7 @@ type createSessionInput struct {
 		Android    string         `json:"android,omitempty" doc:"an Android version of the provider (virtual devices); empty takes its newest"`
 		Location   string         `json:"location,omitempty"`
 		AppData    *AppDataChoice `json:"appData,omitempty" doc:"start the app with saved app data instead of a fresh install"`
+		WebView    string         `json:"webview,omitempty" doc:"a build from GET /api/v1/webviews to install over the built-in WebView; only providers with the webview capability take it"`
 		Queue      bool           `json:"queue,omitempty" doc:"when every slot is busy, wait in line for one instead of failing; cancelling the request gives up the place"`
 	}
 }
@@ -110,6 +112,15 @@ func (s *Server) register(api huma.API) {
 			return &out[auth.Identity]{id}, nil
 		})
 
+	huma.Register(api, huma.Operation{OperationID: "listWebViews", Method: http.MethodGet, Path: "/api/v1/webviews", Tags: tags},
+		func(ctx context.Context, _ *struct{}) (*out[[]WebViewView], error) {
+			items, err := s.webviews.list(ctx)
+			if err != nil {
+				return nil, httpError(err)
+			}
+			return &out[[]WebViewView]{items}, nil
+		})
+
 	huma.Register(api, huma.Operation{OperationID: "listProviders", Method: http.MethodGet, Path: "/api/v1/providers", Tags: tags},
 		func(ctx context.Context, _ *struct{}) (*out[[]ProviderView], error) {
 			return &out[[]ProviderView]{s.listProviders(ctx)}, nil
@@ -127,7 +138,7 @@ func (s *Server) register(api huma.API) {
 		id, _ := auth.FromContext(ctx)
 		v, err := s.createSession(ctx, id, launchRequest{
 			source: in.Body.Source, artifactID: in.Body.ArtifactID, provider: in.Body.Provider, slot: in.Body.Slot,
-			screen: in.Body.Screen, android: in.Body.Android, location: in.Body.Location, appData: in.Body.AppData, queue: in.Body.Queue,
+			screen: in.Body.Screen, android: in.Body.Android, location: in.Body.Location, appData: in.Body.AppData, webview: in.Body.WebView, queue: in.Body.Queue,
 		})
 		result, _ := outcome(err)
 		launchesTotal.WithLabelValues(cmp.Or(v.Provider, in.Body.Provider, "any"), string(result)).Inc()
@@ -367,6 +378,7 @@ func (s *Server) view(ctx context.Context, provider string, sess contract.Sessio
 		ArtifactID:   encodeID(key),
 		Location:     sess.Location,
 		AppData:      sess.AppData,
+		WebView:      sess.WebView,
 		State:        sess.State,
 		Reason:       sess.Reason,
 		Detail:       sess.Detail,
@@ -385,9 +397,9 @@ func (s *Server) view(ctx context.Context, provider string, sess contract.Sessio
 }
 
 type launchRequest struct {
-	source, artifactID, provider, slot, screen, android, location string
-	appData                                                       *AppDataChoice
-	queue                                                         bool
+	source, artifactID, provider, slot, screen, android, location, webview string
+	appData                                                                *AppDataChoice
+	queue                                                                  bool
 }
 
 type launchTarget struct {
@@ -426,6 +438,11 @@ func (s *Server) createSession(ctx context.Context, who auth.Identity, req launc
 		}
 	}
 
+	webview, candidates, err := s.webviewFor(ctx, req.webview, candidates)
+	if err != nil {
+		return SessionView{}, err
+	}
+
 	entry, err := s.cache.Ensure(ctx, req.source, artifact)
 	if err != nil {
 		return SessionView{}, err
@@ -456,6 +473,7 @@ func (s *Server) createSession(ctx context.Context, who auth.Identity, req launc
 			Screen:      req.screen,
 			Android:     req.android,
 			AppData:     restore,
+			WebView:     webview,
 		})
 		return err
 	})
@@ -467,6 +485,9 @@ func (s *Server) createSession(ctx context.Context, who auth.Identity, req launc
 	if restore != nil {
 		s.markAppDataUsed(ctx, snapshot)
 		details["appData"], details["appDataCache"] = snapshot.ID, strconv.FormatBool(restore.Cache)
+	}
+	if webview != nil {
+		details["webview"] = webview.Version
 	}
 	k := sessionKey{target.provider, sess.ID}
 	s.activity.Mark(k)

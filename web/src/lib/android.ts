@@ -28,6 +28,8 @@ export function parsePackage(out: string): PackageInfo {
   return info
 }
 
+export const apiLevels: Record<string, number> = { "11": 30, "12": 31, "13": 33, "14": 34, "15": 35, "16": 36 }
+
 export type WebViewInfo = {
   current?: { pkg: string; version: string }
   valid: { pkg: string; version: string }[]

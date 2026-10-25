@@ -587,6 +587,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/webviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listWebViews"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -795,6 +811,8 @@ export interface components {
             screens?: components["schemas"]["Display"][];
             /** @description Android versions a session can be launched with (virtual devices), newest first */
             versions?: string[];
+            /** @description a session can start with a WebView build from the portal's catalog instead of the built-in one */
+            webview?: boolean;
         };
         Capacity: {
             /** @description the whole provider is held for maintenance */
@@ -870,6 +888,8 @@ export interface components {
             /** @description a device of the provider; empty picks any free one */
             slot?: string;
             source: string;
+            /** @description a build from GET /api/v1/webviews to install over the built-in WebView; only providers with the webview capability take it */
+            webview?: string;
         };
         Credentials: {
             /** @description Authorization: Bearer token for the portal's API and session proxy, valid as long as the certificate */
@@ -1231,6 +1251,8 @@ export interface components {
             /** Format: date-time */
             ttlDeadline: string;
             versionName?: string;
+            /** @description the version of the WebView build installed at launch; empty for the built-in WebView */
+            webview?: string;
         };
         SessionsEvent: {
             errors: components["schemas"]["SourceError"][];
@@ -1295,6 +1317,24 @@ export interface components {
              * @description Seconds a temporary build is kept after its last use
              */
             temporaryTtl: number;
+        };
+        WebViewView: {
+            /** @description Android release channels this milestone is on now: stable, beta, dev, canary */
+            channels: string[];
+            id: string;
+            /** Format: int64 */
+            milestone: number;
+            /**
+             * Format: int64
+             * @description the oldest Android API level it installs on
+             */
+            minSdk: number;
+            /** Format: date-time */
+            released: string;
+            /** Format: int64 */
+            size: number;
+            title: string;
+            version: string;
         };
     };
     responses: never;
@@ -2606,6 +2646,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ArtifactView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    listWebViews: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebViewView"][];
                 };
             };
             /** @description Error */

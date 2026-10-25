@@ -12,6 +12,7 @@ export type LaunchSearch = {
   screen?: string
   android?: string
   location?: string
+  webview?: string
   data?: string
   cache?: boolean
 }
@@ -27,12 +28,24 @@ export function validateLaunchSearch(search: Record<string, unknown>): LaunchSea
     screen: str(search.screen),
     android: str(search.android),
     location: str(search.location),
+    webview: str(search.webview),
     data: str(search.data),
     cache: search.cache === true || search.cache === "true" || undefined,
   }
 }
 
-export function LaunchPage({ source, artifact, provider, slot, screen, android, location, data, cache }: LaunchSearch) {
+export function LaunchPage({
+  source,
+  artifact,
+  provider,
+  slot,
+  screen,
+  android,
+  location,
+  webview,
+  data,
+  cache,
+}: LaunchSearch) {
   const launch = useLaunch()
   const navigate = useNavigate()
   const providers = useProviders()
@@ -49,6 +62,7 @@ export function LaunchPage({ source, artifact, provider, slot, screen, android, 
         screen,
         android,
         location,
+        webview,
         appData: data ? { id: data, cache: !!cache } : undefined,
         queue: true,
       },

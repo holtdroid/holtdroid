@@ -2421,3 +2421,74 @@ the screen to the UI.
 last step be one click. Quick launch is unchanged and uses the remembered
 screen and Android version.
 
+
+## 88. Sessions can start with a chosen WebView build
+
+**Context.** A WebView bug often depends on the WebView version, not on the
+Android version. Each redroid image ships one built-in WebView (125 on
+Android 11 to 128 on Android 15). Testing with another version meant
+installing one by hand, which isn't possible here, because the built-in
+WebView is signed with AOSP's test key. Google's Trichrome WebView needs
+a matching library and an account, and third-party mirrors offer one or two
+versions without a history. Before the change, a spike on a live session
+(2026-10-25) showed the following:
+
+- Chromium's own snapshot builds have an x86_64 flavour
+  (`AndroidDesktop_x64`, from Chromium 129 on). Their
+  `chrome-android-desktop.zip` holds `SystemWebView.apk`: about 420 MB,
+  `com.android.webview`, minSdk 29, targetSdk 36, signed with Chromium's
+  public debug key.
+- With the built-in WebView re-signed with that key, `adb install -r -d`
+  of a snapshot succeeds in about 2 s. WebViewUpdateService makes the
+  snapshot the provider, pages render, and DevTools lists the page.
+- The snapshot reports a WebKit revision of all zeros, so the DevTools
+  frontend has to come from somewhere else. Chromium Dash names the commit
+  of each Canary release, and `chrome-devtools-frontend.appspot.com` serves
+  a frontend for those commits.
+
+**Decision.**
+
+- holtdroid-redroid re-signs the built-in `webview.apk` with Chromium's
+  public debug key at build time. Its contents are unchanged. The factory
+  WebView stays the default. A snapshot installs as an update of it, and
+  uninstalling the update goes back to the factory WebView.
+- `holtdroid-webview-sync` (holtdroid-sync, `job: webview`) fills a WebView
+  catalog. For each picked milestone it takes the newest snapshot at or
+  before that milestone's last Canary release. The picked milestones are
+  the ones on a channel now, the newest `latest`, every `every`-th and
+  `extra`. The job downloads only the APK out of the zip with HTTP range
+  requests. Each build is written as `chromium-<milestone>.apk` with a
+  sidecar whose tags carry `version`, `milestone`, `minSdk`, `targetSdk`,
+  `channel` and `frontend` (the Canary commit).
+- The api reads the catalog from `webview.storage`. It is not a source:
+  WebView builds are not apps and must not show up in the build list.
+  `GET /api/v1/webviews` lists the catalog from the sidecars alone, without
+  opening a 420 MB APK. `createSession` takes `webview` (a catalog id),
+  keeps only providers with `Capabilities.WebView`, and passes
+  `CreateSession.WebView {url, version, frontend}`. The agent downloads the
+  build from `/internal/webview/{id}`, which streams from the catalog
+  storage and leaves the APK cache alone.
+- The agent installs the build before the app (status `installing`,
+  "Installing WebView …"). A failed install fails the session. On resume it
+  is skipped, because the update is already in Android's data. The DevTools
+  scanner treats an all-zero revision as none and falls back to `frontend`.
+- The emulator provider offers it (`holtdroid/webview` annotation,
+  `HOLTDROID_WEBVIEW__*` env). The fake provider takes it for UI work.
+  Phones refuse it: their WebView belongs to the phone and is signed by
+  Google.
+- The launch dialog shows a WebView step when the provider has the
+  capability and the catalog has builds for the chosen Android version
+  (`minSdk`): "Built-in" plus one card per milestone with its channels.
+  The choice is remembered per provider and reused by quick launch. The
+  session header shows the installed version.
+
+**Consequences.** Versions before Chromium 129 have no x86_64 snapshots;
+for those, the built-in WebView (125 to 128) is the only option. A snapshot
+is a main-branch build near the milestone's last Canary, not the shipped
+Stable build, so it lacks fixes merged into the release branch and Google's
+proprietary parts (no Safe Browsing, no Google services). Each build is
+about 420 MB of storage (about 4.5 GB for the default selection) and adds a
+few seconds to the launch. holtdroid-sync's APK parser gained a fallback
+for manifests that androidbinary rejects (Chromium's optimised namespaces).
+Holtdroid's own `internal/apk` doesn't need it, because the api never parses
+WebView builds.

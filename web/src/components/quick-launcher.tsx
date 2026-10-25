@@ -10,7 +10,7 @@ import { quickLaunchMode } from "@/lib/launch-prefs"
 import { locationLabel } from "@/lib/location"
 
 export function QuickLauncher({ artifact, onFallback }: { artifact: ArtifactView; onFallback: () => void }) {
-  const { loaded, usable, provider, target, location, locations, screen, android } = useLaunchTarget()
+  const { loaded, usable, provider, target, location, locations, screen, android, webview } = useLaunchTarget()
   const launch = useStartSession()
   const appData = useAppData()
   const ready = loaded && !appData.isPending
@@ -23,7 +23,7 @@ export function QuickLauncher({ artifact, onFallback }: { artifact: ArtifactView
       return
     }
     const choice = quickAppData(quickLaunchMode(), appData.data, artifact.app?.package)
-    launch(artifact, { provider: target, location, screen, android }, choice)
+    launch(artifact, { provider: target, location, screen, android, webview }, choice)
   })
 
   useEffect(() => {

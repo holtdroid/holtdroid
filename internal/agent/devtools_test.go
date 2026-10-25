@@ -44,6 +44,7 @@ func TestSocketPIDAndRev(t *testing.T) {
 		{"https://chrome-devtools-frontend.appspot.com/serve_rev/@0a1b2c3d4e5f60718293a4b5c6d7e8f901234567/inspector.html?ws=localhost/devtools/page/X", "0a1b2c3d4e5f60718293a4b5c6d7e8f901234567"},
 		{"537.36 (@abcdef1234)", "abcdef1234"},
 		{"/devtools/inspector.html?ws=localhost/devtools/page/X", ""},
+		{"537.36 (@0000000000000000000000000000000000000000)", ""},
 	} {
 		if got := frontendRev(tc.in); got != tc.rev {
 			t.Errorf("frontendRev(%q) = %q, want %q", tc.in, got, tc.rev)
@@ -227,7 +228,7 @@ func webviewDevTools(t *testing.T) (*httptest.Server, int) {
 func TestDevToolsTargetsAndCDPProxy(t *testing.T) {
 	_, port := webviewDevTools(t)
 	dev := &fakeDevice{unix: procNetUnix, ports: map[string]int{"webview_devtools_remote_4242": port, "chrome_devtools_remote": 1}}
-	d := NewDevTools(dev, slog.New(slog.DiscardHandler))
+	d := NewDevTools(dev, "", slog.New(slog.DiscardHandler))
 	ctx := context.Background()
 	if err := d.scan(ctx); err != nil {
 		t.Fatal(err)
@@ -352,7 +353,7 @@ func TestDevToolsTargetsSurviveABusyWebView(t *testing.T) {
 	port := srv.Listener.Addr().(*net.TCPAddr).Port
 
 	dev := &fakeDevice{unix: procNetUnix, ports: map[string]int{"webview_devtools_remote_4242": port, "chrome_devtools_remote": 1}}
-	d := NewDevTools(dev, slog.New(slog.DiscardHandler))
+	d := NewDevTools(dev, "", slog.New(slog.DiscardHandler))
 	ctx := context.Background()
 	if err := d.scan(ctx); err != nil {
 		t.Fatal(err)
@@ -362,6 +363,34 @@ func TestDevToolsTargetsSurviveABusyWebView(t *testing.T) {
 		targets, err := d.Targets(ctx)
 		if err != nil || len(targets) != 1 || targets[0].ID != "P1" {
 			t.Fatalf("busy=%v: targets %+v, %v", b, targets, err)
+		}
+	}
+}
+
+func TestDevToolsFallbackRev(t *testing.T) {
+	const zeros, fallback = "0000000000000000000000000000000000000000", "7d74334854bbfcbaf1c955e86589d8b7cc9acc31"
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /json/version", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, `{"Android-Package":"com.example.shop","WebKit-Version":"537.36 (@`+zeros+`)"}`)
+	})
+	mux.HandleFunc("GET /json/list", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, `[{"id":"P1","type":"page","url":"https://shop.example/","devtoolsFrontendUrl":"https://chrome-devtools-frontend.appspot.com/serve_rev/@`+zeros+`/inspector.html"}]`)
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	port := srv.Listener.Addr().(*net.TCPAddr).Port
+	for _, tc := range []struct{ rev, want string }{{fallback, fallback}, {"", ""}, {"not-a-rev", ""}} {
+		dev := &fakeDevice{unix: procNetUnix, ports: map[string]int{"webview_devtools_remote_4242": port, "chrome_devtools_remote": port}}
+		d := NewDevTools(dev, tc.rev, slog.New(slog.DiscardHandler))
+		if err := d.scan(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		targets, err := d.Targets(context.Background())
+		if err != nil || len(targets) == 0 {
+			t.Fatalf("targets %+v, %v", targets, err)
+		}
+		if got := targets[0].FrontendRev; got != tc.want {
+			t.Errorf("fallback %q: frontend rev %q, want %q", tc.rev, got, tc.want)
 		}
 	}
 }

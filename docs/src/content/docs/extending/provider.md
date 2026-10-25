@@ -44,6 +44,11 @@ and the OpenAPI document a Go provider serves at `/openapi.json`.
    side must be able to reach it; the browser never does. When
    `CreateSession.appData` is set, pass it to the agent too: it restores
    `appData.url` (also on the internal port) after installing the APK.
+   Report `capabilities.webview` only if your devices accept a
+   `com.android.webview` build signed with Chromium's debug key. In that
+   case, pass `CreateSession.webview` to the agent, which installs
+   `webview.url` before the APK (see
+   [WebView versions](/holtdroid/concepts/webview-versions/)).
 5. **`POST /v1/sessions/{id}/touch` stores activity.** The api batches the
    last user activity and flushes it every `sessions.flushInterval`; return
    it as `lastActivity` so the idle timeout survives an api restart.

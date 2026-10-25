@@ -5,11 +5,11 @@ import { cn } from "@/lib/utils"
 
 export type StartState = SessionState | "queued"
 
-function startSteps(queued: boolean, appData: SessionView["appData"]) {
+function startSteps(queued: boolean, appData: SessionView["appData"], webview?: string) {
   const steps: { state: StartState; label: string }[] = [
     { state: "provisioning", label: "Reserving a device" },
     { state: "booting", label: "Booting Android" },
-    { state: "installing", label: "Installing the APK" },
+    { state: "installing", label: webview ? `Installing WebView ${webview} and the APK` : "Installing the APK" },
     { state: "instrumenting", label: "Enabling WebView debugging" },
     { state: "ready", label: "Ready" },
   ]
@@ -28,6 +28,7 @@ export function StartProgress({
   detail,
   reason,
   appData,
+  webview,
   queued = false,
   children,
 }: {
@@ -35,10 +36,11 @@ export function StartProgress({
   detail?: string
   reason?: string
   appData?: SessionView["appData"]
+  webview?: string
   queued?: boolean
   children?: ReactNode
 }) {
-  const steps = startSteps(queued, appData)
+  const steps = startSteps(queued, appData, webview)
   const current = steps.findIndex((s) => s.state === state)
   const failed = state === "failed"
 

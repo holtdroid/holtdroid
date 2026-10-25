@@ -310,6 +310,43 @@ func TestAgentResume(t *testing.T) {
 	}
 }
 
+func TestAgentWebView(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		resume bool
+		path   string
+		apks   []string
+		state  contract.SessionState
+	}{
+		{"before the app", false, "/internal/webview/chromium-158.apk", []string{"PK /internal/webview/chromium-158.apk", "PK /internal/artifacts/local/app.apk"}, contract.StateReady},
+		{"not again on resume", true, "/internal/webview/chromium-158.apk", nil, contract.StateReady},
+		{"a failed install fails the session", false, "/internal/webview/broken.apk", nil, contract.StateFailed},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var base string
+			h := newHarnessWith(t, func(ctx context.Context, booted func()) error {
+				booted()
+				<-ctx.Done()
+				return nil
+			}, func(c *Config) {
+				base = strings.TrimSuffix(c.ArtifactURL, "/internal/artifacts/local/app.apk")
+				c.WebView = contract.WebViewInstall{URL: base + tc.path, Version: "158.0.8123.0"}
+				c.Resume = tc.resume
+			})
+			s := h.waitState(tc.state)
+			h.dev.mu.Lock()
+			apks := slices.Clone(h.dev.apks)
+			h.dev.mu.Unlock()
+			if !slices.Equal(apks, tc.apks) {
+				t.Fatalf("installed %q, want %q", apks, tc.apks)
+			}
+			if tc.state == contract.StateFailed && !strings.Contains(s.Reason, "install WebView 158.0.8123.0") {
+				t.Fatalf("reason %q", s.Reason)
+			}
+		})
+	}
+}
+
 func TestAgentBootFailure(t *testing.T) {
 	h := newHarness(t, func(context.Context, func()) error {
 		return errors.New("emulator exited: exit status 1")
