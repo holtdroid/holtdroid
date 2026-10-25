@@ -77,7 +77,7 @@ export function LaunchDialog({ artifact, onClose }: { artifact: ArtifactView | n
   if (artifact && artifact !== shown) setShown(artifact)
   return (
     <Dialog open={!!artifact} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[92vh] grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)_auto] sm:max-w-2xl">
+      <DialogContent className="max-h-[92vh] grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)_auto] sm:max-w-[772px]">
         {shown && <LaunchFlow key={`${shown.source}/${shown.id}`} artifact={shown} onClose={onClose} />}
       </DialogContent>
     </Dialog>
@@ -167,7 +167,7 @@ function LaunchFlow({ artifact, onClose }: { artifact: ArtifactView; onClose: ()
           <>
             {virtual && versions.length > 1 && (
               <Section title="Android version">
-                <ChoiceGroup label="Android version" className="grid-cols-2 sm:grid-cols-3">
+                <ChoiceGroup label="Android version" className="grid-cols-2 sm:grid-cols-5">
                   {versions.map((v) => (
                     <AndroidVersionCard
                       key={v}
