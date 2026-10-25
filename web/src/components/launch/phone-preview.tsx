@@ -5,6 +5,16 @@ export type Cutout = "none" | "corner" | "double" | "hole" | "tall" | "waterfall
 
 const H = 100
 
+// notch draws a cutout that is flat against the screen edge at y and rounded
+// on the side facing into the screen (dir 1 hangs down from the top, -1 rises
+// from the bottom).
+function notch(cx: number, width: number, y: number, dir: 1 | -1) {
+  const r = 3
+  const h = 5.5
+  const x = cx - width / 2
+  return `M${x} ${y} H${x + width} V${y + dir * (h - r)} a${r} ${r} 0 0 ${dir === 1 ? 1 : 0} ${-r} ${dir * r} H${x + r} a${r} ${r} 0 0 ${dir === 1 ? 1 : 0} ${-r} ${-dir * r} Z`
+}
+
 export function PhonePreview({
   width,
   height,
@@ -44,15 +54,10 @@ export function PhonePreview({
       <rect x={w * 0.14} y={H * 0.2 + 9} width={w * 0.72} height="12" rx="3" fill="currentColor" opacity="0.1" />
       <rect x={w * 0.14} y={H * 0.2 + 25} width={w * 0.72} height="12" rx="3" fill="currentColor" opacity="0.1" />
       <rect x={mid - w * 0.12} y={H - 6} width={w * 0.24} height="2" rx="1" fill="currentColor" opacity="0.45" />
-      {cutout === "tall" && <rect x={mid - w * 0.14} y="1.5" width={w * 0.28} height="6" rx="3" fill="currentColor" />}
+      {(cutout === "tall" || cutout === "double") && <path d={notch(mid, w * 0.28, 2, 1)} fill="currentColor" />}
       {cutout === "hole" && <circle cx={mid} cy="7" r="2.8" fill="currentColor" />}
       {cutout === "corner" && <circle cx="8" cy="8" r="2.8" fill="currentColor" />}
-      {cutout === "double" && (
-        <>
-          <rect x={mid - w * 0.14} y="1.5" width={w * 0.28} height="6" rx="3" fill="currentColor" />
-          <rect x={mid - w * 0.14} y={H - 7.5} width={w * 0.28} height="6" rx="3" fill="currentColor" />
-        </>
-      )}
+      {cutout === "double" && <path d={notch(mid, w * 0.28, H - 2, -1)} fill="currentColor" />}
       {cutout === "waterfall" && (
         <>
           <path

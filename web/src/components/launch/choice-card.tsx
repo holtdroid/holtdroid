@@ -57,7 +57,7 @@ export function ChoiceCard({
       )}
     >
       {selected && (
-        <span className="bg-primary text-primary-foreground absolute top-2 right-2 grid size-5 place-items-center rounded-full">
+        <span className="bg-primary text-primary-foreground absolute top-2 right-2 z-10 grid size-5 place-items-center rounded-full">
           <CheckIcon className="size-3" />
         </span>
       )}

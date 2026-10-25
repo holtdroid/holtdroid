@@ -167,7 +167,7 @@ function LaunchFlow({ artifact, onClose }: { artifact: ArtifactView; onClose: ()
           <>
             {virtual && versions.length > 1 && (
               <Section title="Android version">
-                <ChoiceGroup label="Android version" className="grid-cols-2 sm:grid-cols-5">
+                <ChoiceGroup label="Android version" className="grid-cols-2 sm:grid-cols-3">
                   {versions.map((v) => (
                     <AndroidVersionCard
                       key={v}
