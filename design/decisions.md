@@ -2386,3 +2386,29 @@ build of the WebView app were no longer wanted.
 package until three newer releases push them out. The Gecko build is still
 published by the WebView repository's releases, only not mirrored.
 
+## 87. The launch dialog is two steps of cards
+
+**Context.** The dialog was a column of selects: provider, device, location,
+app data, plus capability badges. With virtual devices that have a screen and
+an Android version to pick, and sessions spread over several nodes, it was
+long and said little.
+
+**Decision.** Step one asks where to run, with a card per provider (what it is,
+how many slots are free) and the virtual device preselected as the flexible
+choice; it is skipped when there is only one provider. Step two depends on the
+provider. A virtual device gets Android version cards (default the newest), a
+screen picker with a preview of each phone including its emulated cutout,
+location buttons and app data cards, and no choice of node: the provider's
+fill order (#85) picks the slot. A real-phone provider gets a card per device
+(model, Android, availability) with "any available device" preselected. The
+capability badges (ABI, ADB, DevTools) are gone from the dialog. `Display`
+gains a short `label` and a `like` field (phones with that screen) for the
+cards. The sessions panel draws at most eight slot pills per provider, busy
+ones first, then `+N` and the free/total count, so a provider with many slots
+stays inside its block.
+
+**Consequences.** More clicks to reach Launch than before; the defaults
+(newest Android, the default screen and location, a fresh install) let the
+last step be one click. Quick launch is unchanged and uses the remembered
+screen and Android version.
+

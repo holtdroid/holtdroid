@@ -15,6 +15,61 @@ import { useNow } from "@/hooks/use-now"
 import { formatDuration } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
+const MAX_PILLS = 8
+
+type Slot = NonNullable<ReturnType<typeof useProviders>["data"]>[number]["capacity"]["slots"][number]
+
+const rank: Record<Slot["state"], number> = { busy: 0, maintenance: 1, free: 2, offline: 3 }
+
+function SlotPills({ slots }: { slots: Slot[] }) {
+  const ordered = slots.length > MAX_PILLS ? slots.toSorted((a, b) => rank[a.state] - rank[b.state]) : slots
+  const shown = ordered.slice(0, MAX_PILLS)
+  const hidden = ordered.slice(MAX_PILLS)
+  const count = (state: Slot["state"]) => slots.filter((s) => s.state === state).length
+  return (
+    <div className="flex min-w-0 flex-1 items-center gap-1">
+      {shown.map((slot) => (
+        <Tooltip key={slot.id}>
+          <TooltipTrigger asChild>
+            <span
+              className={cn(
+                "h-2.5 w-6 shrink rounded-full",
+                slot.state === "free" && "bg-emerald-500/70",
+                slot.state === "busy" && "bg-amber-500",
+                slot.state === "offline" && "bg-muted-foreground/30",
+                slot.state === "maintenance" && "bg-sky-500/70",
+                slot.state === "busy" && slot.maintenance && "ring-2 ring-sky-500/70",
+              )}
+            />
+          </TooltipTrigger>
+          <TooltipContent>
+            {slot.label}: {slot.state}
+            {slot.maintenance &&
+              `${slot.state === "busy" ? ", held for maintenance" : ""}${slot.maintenance.reason ? ` · ${slot.maintenance.reason}` : ""}`}
+          </TooltipContent>
+        </Tooltip>
+      ))}
+      {hidden.length > 0 && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="text-muted-foreground bg-muted rounded-full px-1.5 py-0.5 text-[10px] leading-none font-medium tabular-nums">
+              +{hidden.length}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>
+            {slots.length} slots: {count("free")} free, {count("busy")} busy
+            {count("maintenance") > 0 && `, ${count("maintenance")} held`}
+            {count("offline") > 0 && `, ${count("offline")} offline`}
+          </TooltipContent>
+        </Tooltip>
+      )}
+      <span className="text-muted-foreground ml-auto pl-1 whitespace-nowrap tabular-nums">
+        {count("free")}/{slots.length}
+      </span>
+    </div>
+  )
+}
+
 export function SessionsPanel() {
   const sessions = useSessions()
   const providers = useProviders()
@@ -35,29 +90,7 @@ export function SessionsPanel() {
             {p.error ? (
               <span className="text-destructive truncate">{p.error}</span>
             ) : (
-              <div className="flex gap-1">
-                {p.capacity.slots.map((slot) => (
-                  <Tooltip key={slot.id}>
-                    <TooltipTrigger asChild>
-                      <span
-                        className={cn(
-                          "h-2.5 w-6 rounded-full",
-                          slot.state === "free" && "bg-emerald-500/70",
-                          slot.state === "busy" && "bg-amber-500",
-                          slot.state === "offline" && "bg-muted-foreground/30",
-                          slot.state === "maintenance" && "bg-sky-500/70",
-                          slot.state === "busy" && slot.maintenance && "ring-2 ring-sky-500/70",
-                        )}
-                      />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {slot.label}: {slot.state}
-                      {slot.maintenance &&
-                        `${slot.state === "busy" ? ", held for maintenance" : ""}${slot.maintenance.reason ? ` · ${slot.maintenance.reason}` : ""}`}
-                    </TooltipContent>
-                  </Tooltip>
-                ))}
-              </div>
+              <SlotPills slots={p.capacity.slots} />
             )}
           </div>
         ))}

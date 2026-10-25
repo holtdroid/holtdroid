@@ -930,7 +930,10 @@ export interface components {
             /** Format: int64 */
             height: number;
             id: string;
+            /** @description a short name, e.g. HD+ */
             label: string;
+            /** @description phones with this screen, e.g. Galaxy A05, Redmi 13C */
+            like?: string;
             /** Format: int64 */
             width: number;
         };

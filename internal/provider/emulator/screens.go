@@ -16,13 +16,22 @@ import (
 // and the cheapest to stream.
 func DefaultScreens() []contract.Display {
 	return []contract.Display{
-		{ID: "hd", Label: "6.7″ HD+ 720×1600 · notch (Galaxy A05, Redmi 13C)", Width: 720, Height: 1600, DPI: 280, Cutout: "tall"},
-		{ID: "fhd-samsung", Label: "6.5″ FHD+ 1080×2340 · notch (Galaxy A15, A25, A35)", Width: 1080, Height: 2340, DPI: 420, Cutout: "tall"},
-		{ID: "fhd", Label: "6.1–6.7″ FHD+ 1080×2400 · punch hole (Pixel 6a–8a, Moto G54, Realme C67)", Width: 1080, Height: 2400, DPI: 420, Cutout: "hole"},
-		{ID: "fhd-tall", Label: "6.8″ FHD+ 1080×2460 · punch hole (Infinix Hot 40)", Width: 1080, Height: 2460, DPI: 420, Cutout: "hole"},
-		{ID: "1.5k", Label: "6.7″ 1.5K 1220×2712 · punch hole (Redmi Note 13 Pro, Poco X6)", Width: 1220, Height: 2712, DPI: 480, Cutout: "hole"},
-		{ID: "tablet", Label: "11″ tablet 1200×1920 (Galaxy Tab A9+)", Width: 1200, Height: 1920, DPI: 240, Cutout: "none"},
+		{ID: "hd", Label: "HD+", Like: "Galaxy A05, Redmi 13C", Width: 720, Height: 1600, DPI: 280, Cutout: "tall"},
+		{ID: "fhd-samsung", Label: "FHD+ 19.5:9", Like: "Galaxy A15, A25, A35", Width: 1080, Height: 2340, DPI: 420, Cutout: "tall"},
+		{ID: "fhd", Label: "FHD+ 20:9", Like: "Pixel 6a–8a, Moto G54, Realme C67", Width: 1080, Height: 2400, DPI: 420, Cutout: "hole"},
+		{ID: "fhd-tall", Label: "FHD+ tall", Like: "Infinix Hot 40", Width: 1080, Height: 2460, DPI: 420, Cutout: "hole"},
+		{ID: "1.5k", Label: "1.5K", Like: "Redmi Note 13 Pro, Poco X6", Width: 1220, Height: 2712, DPI: 480, Cutout: "hole"},
+		{ID: "tablet", Label: "Tablet", Like: "Galaxy Tab A9+", Width: 1200, Height: 1920, DPI: 240, Cutout: "none"},
 	}
+}
+
+// model names a screen for the session's capabilities.
+func model(d contract.Display) string {
+	m := fmt.Sprintf("%s %d×%d", d.Label, d.Width, d.Height)
+	if d.Like != "" {
+		m += " · " + d.Like
+	}
+	return m
 }
 
 func validateScreens(screens []contract.Display) error {

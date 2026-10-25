@@ -318,7 +318,7 @@ func (p *Provider) podSession(pod corev1.Pod) contract.Session {
 		AppData:  true,
 	}
 	if screen, err := p.cfg.Redroid.screen(a[annotationScreen]); err == nil {
-		caps.Model = screen.Label
+		caps.Model = model(screen)
 	}
 	return contract.Session{
 		ID:           pod.Labels[labelSession],

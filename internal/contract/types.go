@@ -44,7 +44,8 @@ type Capabilities struct {
 // cutout (none, or one of Android's DisplayCutoutEmulation overlays).
 type Display struct {
 	ID     string `json:"id" minLength:"1"`
-	Label  string `json:"label"`
+	Label  string `json:"label" doc:"a short name, e.g. HD+"`
+	Like   string `json:"like,omitempty" doc:"phones with this screen, e.g. Galaxy A05, Redmi 13C"`
 	Width  int    `json:"width" minimum:"1"`
 	Height int    `json:"height" minimum:"1"`
 	DPI    int    `json:"dpi" minimum:"1"`

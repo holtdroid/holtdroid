@@ -129,7 +129,7 @@ providers:
       # Android versions offered in the launch dialog, each pulled from
       # <repository>:<version>; the newest is the default.
       versions: ["15"]
-      # Screens offered in the launch dialog (id, label, width, height, dpi,
+      # Screens offered in the launch dialog (id, label, like, width, height, dpi,
       # cutout: none|corner|double|hole|tall|waterfall); the first is the
       # default. Empty takes the built-in presets of popular budget phones.
       screens: []
