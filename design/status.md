@@ -90,9 +90,9 @@ deployment"):
 - ADB in the browser (decision #51): one Tango connection per session page
   through the session proxy (`WS /adb`, `adb.browser`, `adb.ownerOnly`),
   with tabs next to DevTools for Logcat (app-only by uid, crash toast),
-  Files, Terminal, App (deep links, permissions, force stop, clear data,
-  doze, standby bucket) and Device (props, WebView provider, demo mode,
-  bug report zip and bugreportz). The
+  Files and Terminal, and app and device cards next to the phone (deep
+  links, permissions, force stop, clear data, doze, standby bucket; props,
+  WebView provider, bug report zip and bugreportz). The
   agent's adb relays refuse `reboot:`/`unroot:`/`remount:`/`tcpip:`/`usb:`.
   The fake provider has a small adbd. Works on the real emulator.
 - Holtdroid WebView (decision #62), a separate app in

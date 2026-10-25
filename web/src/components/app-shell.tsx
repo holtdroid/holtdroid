@@ -43,6 +43,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const matchRoute = useMatchRoute()
   const [slot, setSlot] = useState<HTMLElement | null>(null)
   const onRecording = Boolean(matchRoute({ to: "/recordings/$id" }))
+  const slotted = onRecording || Boolean(matchRoute({ to: "/session/$provider/$id" }))
   const onApps = Boolean(matchRoute({ to: "/" }) || matchRoute({ to: "/apps/$pkg", fuzzy: true }))
   const { resolvedTheme, setTheme } = useTheme()
   const identity = auth.data?.identity
@@ -52,7 +53,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-dvh flex-col">
       <header className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
-        {onRecording ? (
+        {slotted ? (
           <div ref={setSlot} className="flex min-w-0 flex-1 items-center" />
         ) : (
           <Link to="/" className="flex items-center gap-2 font-semibold tracking-tight">
@@ -198,7 +199,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </header>
       <main className="min-h-0 flex-1 overflow-hidden">
-        <HeaderSlotProvider value={onRecording ? slot : null}>{children}</HeaderSlotProvider>
+        <HeaderSlotProvider value={slotted ? slot : null}>{children}</HeaderSlotProvider>
       </main>
     </div>
   )

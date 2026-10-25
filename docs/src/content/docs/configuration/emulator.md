@@ -214,7 +214,7 @@ node's kernel. `redroid.shell` says what users' ADB — the browser tabs and
 the `holtdroid` client — may run there:
 
 - `allowlist` (default): only the read-only commands and package operations
-  behind the Logcat, Files, App and Device tabs (`getprop`, `logcat`, `pm`,
+  behind the Logcat and Files tabs and the app and device cards (`getprop`, `logcat`, `pm`,
   `am`, `cmd package`, `settings get`, a few `dumpsys`), plus file transfer
   and port forwards. The Terminal tab is not shown.
 - `full`: any command, and the Terminal tab appears. Only for clusters whose

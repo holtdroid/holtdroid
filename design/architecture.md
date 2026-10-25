@@ -730,9 +730,9 @@ browser (Tango) ──WS /s/…/adb──▶ api proxy ──WS /adb──▶ ag
 
 On that connection the page runs its tools: Logcat (binary `logcat -B`,
 filtered to the app's uid, a toast on crashes), Files (sync protocol),
-Terminal (shell v2 pty), App (deep links, permissions, force stop, clear
-data, doze, standby bucket) and Device (props, WebView provider, demo mode,
-bug reports). The connection opens when the device is first ready and lives
+Terminal (shell v2 pty), and the app card (deep links, permissions, force
+stop, clear data, doze, standby bucket) and device card (props, WebView
+provider, bug reports) next to the phone. The connection opens when the device is first ready and lives
 as long as the page, so logcat survives app restarts.
 
 ## Recordings

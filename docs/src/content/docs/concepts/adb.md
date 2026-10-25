@@ -1,6 +1,6 @@
 ---
 title: ADB tools
-description: Logcat, files, a terminal and app tools in the session page, over ADB in the browser.
+description: Logcat, files, a terminal and the app and device cards in the session page, over ADB in the browser.
 sidebar:
   order: 6
 ---
@@ -26,18 +26,20 @@ DevTools:
   editing). On emulators it only appears when the provider allows arbitrary
   commands (`redroid.shell: full`); by default it is off, because that shell
   is root on the node running the session.
-- **App** shows the installed version, opens deep links (`myapp://…` or
-  `https://…`, optionally only in your app, with a history kept in the
-  browser), grants and revokes runtime permissions, force-stops the app,
-  clears its data, puts the device into deep doze and moves the app between
-  standby buckets.
-- **Device** shows the model, Android version, ABIs and build, the WebView
-  version, and switches the WebView provider when the image has more than one
-  (restart the app afterwards). **Demo mode** gives a clean status bar for
-  screenshots: 12:00, full battery and signal, no notifications.
-  **Download bundle** builds a zip with a screenshot, the logcat collected in
-  the tab, device and app details, ready to attach to a bug; **Full Android bug
-  report** runs Android's own `bugreportz`.
+
+The **App** and **Device** cards next to the phone use the same connection:
+
+- **App** restarts or reinstalls the app and saves its data (these work
+  without ADB), and over ADB shows the installed version, opens deep links
+  (`myapp://…` or `https://…`, optionally only in your app, with a history
+  kept in the browser), grants and revokes runtime permissions, force-stops
+  the app, clears its data, puts the device into deep doze and moves the app
+  between standby buckets.
+- **Device** shows the model, Android version, ABIs and build, switches the
+  WebView provider when the image has more than one (restart the app
+  afterwards), and builds bug reports: **Bundle** is a zip with a screenshot,
+  the logcat collected in the tab, device and app details, ready to attach to
+  a bug; **Full report** runs Android's own `bugreportz`.
 
 Recording a session is done by the server, with logcat and the device's
 state next to the screen: see [Recordings](/holtdroid/concepts/recordings/).
@@ -70,7 +72,7 @@ commands with `adb.shell`.
 
 On emulators the same `redroid.shell` policy applies to the browser and the
 `holtdroid` client: `allowlist` (the default) runs only the commands behind
-the Logcat, Files, App and Device tabs, `full` runs anything and shows the
+the Logcat and Files tabs and the app and device cards, `full` runs anything and shows the
 Terminal tab, `off` refuses every shell command. See
 [Emulator provider](/holtdroid/configuration/emulator/#users-adb-inside-android).
 

@@ -126,7 +126,7 @@ keyboard settings, which the dialog opens.
   `adb shell cmd webviewupdate set-webview-implementation <package>` (the
   Engines dialog copies it for each installed provider), or use Developer
   options → WebView implementation. Holtdroid's
-  [ADB Device tab](/holtdroid/concepts/adb/) switches it too.
+  [device card](/holtdroid/concepts/adb/) switches it too.
 - **GeckoView** is Firefox's engine, built into the `-gecko` APK. Settings
   marked "WebView only" don't apply to it; the console can't evaluate
   scripts. Debug it from Firefox on a computer: `about:debugging` → USB

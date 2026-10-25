@@ -1,10 +1,13 @@
 import { LockIcon, PowerIcon } from "lucide-react"
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
-import { type Display, type Location, type Metrics, type Screen, sessionBase } from "@/api/client"
+import { type Display, type Location, type Metrics, type Screen, sessionBase, type SessionView } from "@/api/client"
 import { CutoutOverlay } from "@/components/session/cutout-overlay"
 import { displayURL, type LiveScreen, useDecodableCodecs } from "@/components/session/live-screen"
+import type { AdbSession } from "@/components/session/adb-session"
+import { AppWidget } from "@/components/session/app-widget"
 import { BatteryWidget } from "@/components/session/battery-widget"
+import { DeviceWidget } from "@/components/session/device-widget"
 import { ClipboardWidget } from "@/components/session/clipboard-widget"
 import { DisplayWidget } from "@/components/session/display-widget"
 import { GpsWidget } from "@/components/session/gps-widget"
@@ -103,6 +106,9 @@ export function DeviceScreen({
   recordedAt,
   manage,
   pkg,
+  session,
+  appRunning,
+  adb,
 }: {
   provider: string
   id: string
@@ -115,6 +121,9 @@ export function DeviceScreen({
   recordedAt?: string
   manage: boolean
   pkg: string
+  session: SessionView
+  appRunning: boolean
+  adb: AdbSession | null
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const supported = screenSupported()
@@ -287,6 +296,7 @@ export function DeviceScreen({
       data-inset-y={inset.y}
     >
       <WidgetColumn>
+        <AppWidget provider={provider} id={id} session={session} appRunning={appRunning} adb={adb} />
         <NetworkWidget provider={provider} id={id} locations={locations} metrics={metrics} />
         <GpsWidget provider={provider} id={id} vpn={locations.length > 0} />
         <StreamWidget provider={provider} id={id} live={live} />
@@ -296,6 +306,7 @@ export function DeviceScreen({
         <LanguageWidget provider={provider} id={id} />
         <TimeWidget provider={provider} id={id} />
         <RecordingWidget provider={provider} id={id} recording={recording} since={recordedAt} manage={manage} />
+        <DeviceWidget session={session} adb={adb} />
         <SSHWidget provider={provider} id={id} />
       </WidgetColumn>
       <div className="grid min-h-0 min-w-0 place-items-center" style={{ containerType: "size" }}>

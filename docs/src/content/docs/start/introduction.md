@@ -30,10 +30,10 @@ hybrid apps, support engineers reproducing a customer bug.
    runtime.
 4. The session page shows the device screen on the left and Chrome DevTools on
    the right, with a picker for the inspected target (any WebView page,
-   iframe or worker in any process). The header shows the app: click its
-   name and icon to switch to another build, and the icons next to it
-   restart or reinstall the app or save its data; **Extend** and **Stop**
-   sit on the right. The bar at the bottom shows the device's load. By default the screen's side follows the screen: it
+   iframe or worker in any process). The portal's header shows the app in place
+   of the logo: click its name and icon to switch to another build; the time
+   left, **Extend** and **Stop** sit on its right. Restarting, reinstalling
+   and saving the app's data are in the app card next to the phone. The bar at the bottom shows the device's load. By default the screen's side follows the screen: it
    grows or shrinks until the screen fills its height or the side reaches
    70% of the page. A landscape screen splits the page top and bottom
    instead, the screen above the tools. Dragging the divider sizes

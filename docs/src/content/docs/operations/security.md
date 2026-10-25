@@ -43,8 +43,8 @@ sidebar:
   [Connecting your computer](/holtdroid/concepts/ssh/).
 - **ADB tools in the browser** (on by default) give a session's owner and
   admins ADB on its device. On emulators that ADB is root on the node's
-  kernel, so by default it only runs the commands behind the Logcat, Files,
-  App and Device tabs (`redroid.shell: allowlist`); `redroid.shell: full`
+  kernel, so by default it only runs the commands behind the Logcat and Files
+  tabs and the app and device cards (`redroid.shell: allowlist`); `redroid.shell: full`
   adds a root Terminal and should stay off unless the session nodes hold
   nothing else. `adb.ownerOnly: false` extends the tools to everyone who may
   open the session, `adb.browser: false` turns them off; see

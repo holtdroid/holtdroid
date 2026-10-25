@@ -30,7 +30,7 @@ starts, the progress shows "Installing WebView …", which adds a few seconds.
 The session header then shows the installed version. To compare versions,
 start one session per version.
 
-The Device tab still shows the WebView provider and can switch it during a
+The device card still shows the WebView provider and can switch it during a
 session. Uninstalling the update with `pm uninstall com.android.webview`
 (over ADB, or in the Terminal tab where it is offered) brings back the
 built-in WebView.

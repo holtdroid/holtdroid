@@ -5,6 +5,7 @@ import { toast } from "sonner"
 import { sessionBase, type StatusEvent } from "@/api/client"
 import { canManage, useAppData, useExtendSession, useMe, useProviders, useSession, useStopSession } from "@/api/queries"
 import { AppIcon } from "@/components/app-icon"
+import { HeaderSlot } from "@/components/header-slot"
 import { useADBInfo, useAdbSession } from "@/components/session/adb-session"
 import { DeviceScreen } from "@/components/session/device-screen"
 import { useLiveScreen } from "@/components/session/live-screen"
@@ -13,7 +14,6 @@ import { useMetricsHistory } from "@/components/session/metrics"
 import { MetricsBar } from "@/components/session/metrics-bar"
 import { ShadeBounds } from "@/components/session/shade"
 import { ScreenSplit } from "@/components/session/screen-split"
-import { AppActions } from "@/components/session/session-toolbar"
 import { StartProgress } from "@/components/session/start-progress"
 import { ToolTabs } from "@/components/session/tool-tabs"
 import { VersionSwitcher } from "@/components/session/version-switcher"
@@ -72,6 +72,13 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
   if (!session) {
     return (
       <div className="grid h-full place-items-center p-6 text-center">
+        <HeaderSlot>
+          <Button variant="ghost" size="icon-sm" asChild>
+            <Link to="/" aria-label="Back">
+              <ArrowLeftIcon />
+            </Link>
+          </Button>
+        </HeaderSlot>
         <div className="grid gap-3">
           <p className="font-medium">This session has ended.</p>
           <p className="text-muted-foreground text-sm">It was stopped or reaped after being idle.</p>
@@ -88,69 +95,68 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex flex-wrap items-center gap-3 border-b px-3 py-2">
-        <Button variant="ghost" size="icon-sm" asChild>
-          <Link to="/" aria-label="Back">
-            <ArrowLeftIcon />
-          </Link>
-        </Button>
-        <div className="-ml-2 flex min-w-0 items-center gap-1">
-          <VersionSwitcher session={session} disabled={state !== "ready" || !manage}>
-            <AppIcon src={session.iconUrl} className="size-8" />
-            <span className="grid min-w-0">
-              <span className="flex items-center gap-2">
-                <span className="truncate font-medium">{session.label || session.package}</span>
-                <SessionStateBadge state={state ?? session.state} />
+      <HeaderSlot>
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <Button variant="ghost" size="icon-sm" asChild>
+            <Link to="/" aria-label="Back">
+              <ArrowLeftIcon />
+            </Link>
+          </Button>
+          <div className="-ml-2 flex min-w-0 items-center gap-1">
+            <VersionSwitcher session={session} disabled={state !== "ready" || !manage}>
+              <AppIcon src={session.iconUrl} className="size-9" />
+              <span className="grid min-w-0">
+                <span className="flex items-center gap-2">
+                  <span className="truncate font-medium">{session.label || session.package}</span>
+                  <SessionStateBadge state={state ?? session.state} />
+                </span>
+                <span className="text-muted-foreground truncate font-mono text-xs">
+                  {session.package}
+                  {session.versionName ? ` · ${session.versionName}` : ""} · {session.slot}
+                  {session.webview ? ` · WebView ${session.webview}` : ""}
+                </span>
               </span>
-              <span className="text-muted-foreground truncate font-mono text-xs">
-                {session.package}
-                {session.versionName ? ` · ${session.versionName}` : ""} · {session.slot}
-                {session.webview ? ` · WebView ${session.webview}` : ""}
-              </span>
-            </span>
-          </VersionSwitcher>
-          {state === "ready" && caps && (
-            <AppActions provider={provider} id={id} appRunning={status?.appRunning ?? true} />
-          )}
-        </div>
+            </VersionSwitcher>
+          </div>
 
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          <span className="text-muted-foreground inline-flex items-center gap-1 text-xs tabular-nums">
-            <ClockIcon className="size-3.5" />
-            {formatDuration(left)}
-          </span>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={!manage || extend.isPending}
-            onClick={() =>
-              extend.mutate(session, {
-                onSuccess: () => toast("Session extended"),
-                onError: (e) => toast.error("Could not extend", { description: e.message }),
-              })
-            }
-          >
-            <TimerResetIcon />
-            Extend
-          </Button>
-          <Button
-            size="sm"
-            variant="destructive"
-            disabled={!manage || stop.isPending}
-            onClick={() =>
-              stop.mutate(session, {
-                onSuccess: () => void navigate({ to: "/" }),
-                onError: (e) => toast.error("Could not stop", { description: e.message }),
-              })
-            }
-          >
-            {stop.isPending ? <Loader2Icon className="animate-spin" /> : <SquareIcon />}
-            {stop.isPending && appData.data?.enabled && session.capabilities?.appData !== false && state === "ready"
-              ? "Saving app data…"
-              : "Stop"}
-          </Button>
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            <span className="text-muted-foreground inline-flex items-center gap-1 text-xs tabular-nums">
+              <ClockIcon className="size-3.5" />
+              {formatDuration(left)}
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!manage || extend.isPending}
+              onClick={() =>
+                extend.mutate(session, {
+                  onSuccess: () => toast("Session extended"),
+                  onError: (e) => toast.error("Could not extend", { description: e.message }),
+                })
+              }
+            >
+              <TimerResetIcon />
+              Extend
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              disabled={!manage || stop.isPending}
+              onClick={() =>
+                stop.mutate(session, {
+                  onSuccess: () => void navigate({ to: "/" }),
+                  onError: (e) => toast.error("Could not stop", { description: e.message }),
+                })
+              }
+            >
+              {stop.isPending ? <Loader2Icon className="animate-spin" /> : <SquareIcon />}
+              {stop.isPending && appData.data?.enabled && session.capabilities?.appData !== false && state === "ready"
+                ? "Saving app data…"
+                : "Stop"}
+            </Button>
+          </div>
         </div>
-      </div>
+      </HeaderSlot>
 
       <div ref={setShadeBounds} className="flex min-h-0 flex-1 flex-col">
         <ShadeBounds value={shadeBounds}>
@@ -177,6 +183,9 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
                   recordedAt={status?.recordedAt}
                   manage={manage}
                   pkg={session.package}
+                  session={session}
+                  appRunning={status?.appRunning ?? true}
+                  adb={adbAllowed ? adb : null}
                 />
                 <ToolTabs tab={tab} onTab={setTab} adb={adbAllowed ? adb : null} session={session}>
                   {caps?.devtools ? (
