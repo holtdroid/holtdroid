@@ -132,3 +132,72 @@
     @apply font-sans;
   }
 }
+
+.geo-map .maplibregl-ctrl-attrib.maplibregl-compact {
+  margin: 6px;
+  background-color: color-mix(in oklab, var(--popover) 88%, transparent);
+  color: var(--muted-foreground);
+  font-size: 10px;
+  line-height: 16px;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.2);
+}
+.geo-map .maplibregl-ctrl-attrib a {
+  color: inherit;
+}
+.dark .geo-map .maplibregl-ctrl-attrib.maplibregl-compact::after,
+.dark .geo-map .maplibregl-ctrl-attrib-button {
+  filter: invert(1);
+}
+
+.geo-dot {
+  width: 20px;
+  height: 20px;
+  cursor: grab;
+}
+.geo-dot:active {
+  cursor: grabbing;
+}
+.geo-dot-halo,
+.geo-dot-beam,
+.geo-dot-core {
+  position: absolute;
+  border-radius: 9999px;
+  pointer-events: none;
+}
+.geo-dot-halo {
+  inset: -12px;
+  background: rgb(26 115 232 / 0.18);
+}
+.geo-dot-beam {
+  inset: -26px;
+  display: none;
+  background: radial-gradient(circle, rgb(26 115 232 / 0.55), rgb(26 115 232 / 0) 70%);
+  clip-path: polygon(50% 50%, 22% 0, 78% 0);
+}
+.geo-dot-core {
+  inset: 0;
+  background: #1a73e8;
+  border: 3px solid #fff;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.4);
+}
+.geo-dot[data-moving] .geo-dot-beam {
+  display: block;
+}
+.geo-dot[data-moving] .geo-dot-halo {
+  animation: geo-dot-pulse 2s ease-out infinite;
+}
+@keyframes geo-dot-pulse {
+  from {
+    transform: scale(0.5);
+    opacity: 1;
+  }
+  to {
+    transform: scale(1.3);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .geo-dot[data-moving] .geo-dot-halo {
+    animation: none;
+  }
+}

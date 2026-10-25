@@ -117,6 +117,7 @@ function GeoControl({ s, set, busy, vpnCountry }: Props & { vpnCountry?: string 
             map={map}
             point={here}
             line={line}
+            moving={!!route?.moving}
             disabled={busy}
             onPick={(p) => {
               if (plan) {

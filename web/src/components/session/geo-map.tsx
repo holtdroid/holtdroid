@@ -63,21 +63,54 @@ function drawRoute(m: MapLibre, line: Point[]) {
   })
 }
 
+function locationDot() {
+  const el = document.createElement("div")
+  el.className = "geo-dot"
+  for (const part of ["halo", "beam", "core"]) {
+    const span = document.createElement("span")
+    span.className = `geo-dot-${part}`
+    el.append(span)
+  }
+  return el
+}
+
+function bearing(a: Point, b: Point) {
+  const rad = Math.PI / 180
+  const y = Math.sin((b.longitude - a.longitude) * rad) * Math.cos(b.latitude * rad)
+  const x =
+    Math.cos(a.latitude * rad) * Math.sin(b.latitude * rad) -
+    Math.sin(a.latitude * rad) * Math.cos(b.latitude * rad) * Math.cos((b.longitude - a.longitude) * rad)
+  return Math.atan2(y, x) / rad
+}
+
+function collapseAttribution(m: MapLibre, el: HTMLElement) {
+  const collapse = () => {
+    const attribution = el.querySelector(".maplibregl-compact-show")
+    if (!attribution) return
+    attribution.classList.remove("maplibregl-compact-show")
+    attribution.removeAttribute("open")
+    m.off("sourcedata", collapse)
+  }
+  m.on("sourcedata", collapse)
+}
+
 export default function GeoMap({
   map,
   point,
   line = noLine,
+  moving = false,
   disabled,
   onPick,
 }: {
   map: MapView
   point: Point
   line?: Point[]
+  moving?: boolean
   disabled: boolean
   onPick: (p: Point) => void
 }) {
   const container = useRef<HTMLDivElement>(null)
-  const instance = useRef<{ map: MapLibre; marker: Marker; style: string } | null>(null)
+  const instance = useRef<{ map: MapLibre; marker: Marker; style: string; last: Point } | null>(null)
   const { resolvedTheme } = useTheme()
   const style = (resolvedTheme === "dark" ? map.darkStyle : map.style) ?? ""
   const pick = useEffectEvent((latitude: number, longitude: number) => {
@@ -102,14 +135,17 @@ export default function GeoMap({
       transformRequest: absolute,
     })
     m.touchZoomRotate.disableRotation()
-    const marker = new Marker({ draggable: true }).setLngLat(center).addTo(m)
+    collapseAttribution(m, el)
+    const marker = new Marker({ element: locationDot(), draggable: true, rotationAlignment: "map" })
+      .setLngLat(center)
+      .addTo(m)
     marker.on("dragend", () => {
       const p = marker.getLngLat()
       pick(p.lat, p.lng)
     })
     m.on("click", (e) => pick(e.lngLat.lat, e.lngLat.lng))
     m.on("style.load", () => redraw(m))
-    instance.current = { map: m, marker, style: start.style }
+    instance.current = { map: m, marker, style: start.style, last: { latitude: center[1], longitude: center[0] } }
     return () => {
       instance.current = null
       m.remove()
@@ -127,14 +163,20 @@ export default function GeoMap({
     const i = instance.current
     if (!i) return
     const lngLat: [number, number] = [point.longitude, point.latitude]
+    const dot = i.marker.getElement()
+    if (moving && (i.last.latitude !== point.latitude || i.last.longitude !== point.longitude)) {
+      i.marker.setRotation(bearing(i.last, point))
+    }
+    dot.toggleAttribute("data-moving", moving)
+    i.last = point
     i.marker.setLngLat(lngLat)
     if (!i.map.getBounds().contains(lngLat)) i.map.easeTo({ center: lngLat })
-  }, [point.latitude, point.longitude])
+  }, [point, moving])
 
   useEffect(() => {
     const i = instance.current
     if (i) drawRoute(i.map, line)
   }, [line])
 
-  return <div ref={container} className="bg-muted h-56 w-full overflow-hidden rounded-md" />
+  return <div ref={container} className="geo-map bg-muted h-56 w-full overflow-hidden rounded-md" />
 }
