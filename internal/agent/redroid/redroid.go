@@ -21,6 +21,8 @@ type Config struct {
 	// the destinations that stay on the Pod network.
 	VPN    bool
 	Bypass []string
+	// TunTimeout is how long to wait for the VPN sidecar's tun after boot.
+	TunTimeout time.Duration
 	// Cutout is the display cutout to emulate: one of Android's
 	// DisplayCutoutEmulation overlays (corner, double, hole, tall, waterfall).
 	Cutout string
@@ -31,6 +33,7 @@ func DefaultConfig() Config {
 		FridaServer: "/opt/holtdroid/frida-server",
 		BootTimeout: 3 * time.Minute,
 		Poll:        10 * time.Second,
+		TunTimeout:  time.Minute,
 		Bypass:      []string{"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"},
 	}
 }
@@ -105,7 +108,7 @@ func (r *Redroid) prepare(ctx context.Context) error {
 	if err := r.adb.Root(ctx); err != nil {
 		return fmt.Errorf("adb root: %w", err)
 	}
-	if err := r.route(ctx); err != nil {
+	if err := r.waitRoute(ctx); err != nil {
 		return fmt.Errorf("vpn routes: %w", err)
 	}
 	if c := r.cfg.Cutout; c != "" && c != "none" {
@@ -134,6 +137,26 @@ func (r *Redroid) prepare(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return fmt.Errorf("frida-server did not start: %w", ctx.Err())
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
+}
+
+// waitRoute retries route until the sidecar has created its tun: the
+// containers start in parallel and Android may boot first.
+func (r *Redroid) waitRoute(ctx context.Context) error {
+	deadline := time.Now().Add(r.cfg.TunTimeout)
+	for {
+		err := r.route(ctx)
+		if err == nil {
+			return nil
+		}
+		if !time.Now().Before(deadline) {
+			return fmt.Errorf("tun %s not ready after %s: %w", vpn.TunInterface, r.cfg.TunTimeout, err)
+		}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("tun %s not ready: %w", vpn.TunInterface, err)
 		case <-time.After(500 * time.Millisecond):
 		}
 	}

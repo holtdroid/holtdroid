@@ -2,15 +2,19 @@ package redroid
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
 type fakeADB struct {
 	calls  []string
 	pidofs int
+	// noTun fails this many route scripts, as before the sidecar's tun exists.
+	noTun int
 }
 
 func (f *fakeADB) WaitBoot(context.Context) error {
@@ -30,6 +34,10 @@ func (f *fakeADB) Push(_ context.Context, local, remote string) error {
 
 func (f *fakeADB) Shell(_ context.Context, cmd string) (string, error) {
 	f.calls = append(f.calls, cmd)
+	if strings.HasPrefix(cmd, "ip link show holtdroid0") && f.noTun > 0 {
+		f.noTun--
+		return "", errors.New(`Device "holtdroid0" does not exist.`)
+	}
 	if cmd == "pidof frida-server" {
 		f.pidofs++
 		if f.pidofs < 2 {
@@ -70,6 +78,45 @@ func TestPrepare(t *testing.T) {
 			)
 			if !slices.Equal(adb.calls, want) {
 				t.Fatalf("calls\n%s\nwant\n%s", strings.Join(adb.calls, "\n"), strings.Join(want, "\n"))
+			}
+		})
+	}
+}
+
+func TestPrepareWaitsForTun(t *testing.T) {
+	tests := []struct {
+		name    string
+		noTun   int
+		timeout time.Duration
+		wantErr bool
+	}{
+		{"late", 2, time.Minute, false},
+		{"never", 1000, 100 * time.Millisecond, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := DefaultConfig()
+			cfg.VPN = true
+			cfg.TunTimeout = tt.timeout
+			adb := &fakeADB{noTun: tt.noTun}
+			err := New(cfg, adb, slog.New(slog.DiscardHandler)).prepare(context.Background())
+			if tt.wantErr {
+				if err == nil || !strings.Contains(err.Error(), "tun holtdroid0 not ready after 100ms") {
+					t.Fatalf("err = %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			routes := 0
+			for _, c := range adb.calls {
+				if c == Routes(cfg.Bypass) {
+					routes++
+				}
+			}
+			if routes != 3 {
+				t.Fatalf("route scripts run %d times, want 3", routes)
 			}
 		})
 	}

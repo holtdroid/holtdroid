@@ -455,6 +455,12 @@ codecs and reports that it can't capture audio.
   replies return. Root traffic (the agent, sing-box, Android's root daemons)
   stays direct; the agent checks its egress IP through the sidecar's mixed
   inbound on `127.0.0.1:7890`. sing-box binds its outbounds to `eth0`.
+  The containers start together and redroid may finish booting before
+  sing-box has created the tun, so the first application is retried every
+  0.5 s for up to the agent's `redroid.tunTimeout` (1 min); after that the
+  session fails with `tun holtdroid0 not ready`. sing-box's `network: missing default
+  interface` at start is harmless: netd moves the Pod's default route out of
+  the main table into its `eth0` table, and the outbounds don't need it.
   Loopback is never routed, so `adb reverse` and the SSH tunnels are
   unaffected.
 - A location is `{id, label, outbound}` where `outbound` is any sing-box
