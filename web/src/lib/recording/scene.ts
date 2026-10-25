@@ -1,11 +1,50 @@
 import type { VideoSample } from "mediabunny"
+import type { RecordingManifest } from "@/api/client"
 import { logLevels, md, mono, sans, series } from "@/lib/recording/android"
 import { summarize, type Block, type Row, type Summary, type Tone } from "@/lib/recording/summary"
-import { clock, type LogLine, type Snapshot } from "@/lib/recording/timeline"
+import logoUrl from "@/logo.svg"
+import { clock, type Dims, type LogLine, type Rotation, type Snapshot } from "@/lib/recording/timeline"
 import { drawOverlay, type Overlay } from "@/lib/recording/touches"
 
-export const sceneWidth = 1920
-export const sceneHeight = 1080
+const headerH = 56
+const logicalH = 1080
+const outputScale = 1.2
+const minArea = 616
+const maxArea = 1360
+
+export type SceneLayout = {
+  /** pixels of the video */
+  width: number
+  height: number
+  scale: number
+  logicalW: number
+  logicalH: number
+  /** width of the middle column the phone is drawn in */
+  areaW: number
+}
+
+const even = (v: number) => Math.max(2, Math.round(v / 2) * 2)
+
+/**
+ * The video is 1296 pixels tall; its width follows the widest the screen got:
+ * a phone in portrait keeps it at 2304, a landscape phone or a tablet widens
+ * the middle column so the picture isn't tiny.
+ */
+export function sceneLayout(manifest: Pick<RecordingManifest, "epochs">): SceneLayout {
+  const panelH = logicalH - headerH - pad
+  const bezel = 10
+  const aspect = manifest.epochs.reduce((a, e) => (e.height > 0 ? Math.max(a, e.width / e.height) : a), 0.45)
+  const areaW = Math.min(maxArea, Math.max(minArea, Math.ceil((panelH - bezel * 2) * aspect + bezel * 2)))
+  const logicalW = pad * 2 + side * 2 + gap * 2 + areaW
+  return {
+    width: even(logicalW * outputScale),
+    height: even(logicalH * outputScale),
+    scale: outputScale,
+    logicalW,
+    logicalH,
+    areaW,
+  }
+}
 
 export type SceneApp = { title: string; subtitle: string; version?: string; icon?: HTMLImageElement | null }
 
@@ -17,6 +56,8 @@ export type SceneInput = {
   snap: Snapshot
   logcat: LogLine[]
   overlay?: Overlay
+  rotation?: Rotation | null
+  layout: SceneLayout
   app: SceneApp
 }
 
@@ -182,38 +223,60 @@ function drawLogcat(ctx: Ctx, x: number, y: number, w: number, h: number, lines:
   if (shown.length === 0) text(ctx, "No logcat yet", x + 20, top + 14, 15, md.outline)
 }
 
-function drawPhone(ctx: Ctx, x: number, y: number, w: number, h: number, frame: VideoSample | null, overlay?: Overlay) {
-  const fw = frame?.displayWidth ?? 9
-  const fh = frame?.displayHeight ?? 19.5
+function contain(src: Dims, w: number, h: number): Dims {
+  const k = Math.min(w / src.w, h / src.h)
+  return { w: src.w * k, h: src.h * k }
+}
+
+function drawPhone(
+  ctx: Ctx,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  frame: VideoSample | null,
+  overlay?: Overlay,
+  rotation?: Rotation | null,
+) {
   const bezel = 10
-  const scale = Math.min((w - bezel * 2) / fw, (h - bezel * 2) / fh)
-  const sw = fw * scale
-  const sh = fh * scale
-  const sx = x + (w - sw) / 2
-  const sy = y + (h - sh) / 2
-  const r = Math.min(sw, sh) * 0.07 + bezel
+  const natural: Dims = frame ? { w: frame.displayWidth, h: frame.displayHeight } : { w: 9, h: 19.5 }
+  const body = (d: Dims) => contain(d, w - bezel * 2, h - bezel * 2)
+  let box = body(natural)
+  if (rotation) {
+    const from = body(rotation.from)
+    const to = body(rotation.to)
+    box = { w: from.w + (to.w - from.w) * rotation.k, h: from.h + (to.h - from.h) * rotation.k }
+  }
+  const sx = x + (w - box.w) / 2
+  const sy = y + (h - box.h) / 2
+  const r = Math.min(box.w, box.h) * 0.07 + bezel
   ctx.save()
   ctx.shadowColor = "rgba(0, 0, 0, 0.6)"
   ctx.shadowBlur = 50
   ctx.shadowOffsetY = 20
   ctx.beginPath()
-  ctx.roundRect(sx - bezel, sy - bezel, sw + bezel * 2, sh + bezel * 2, r)
+  ctx.roundRect(sx - bezel, sy - bezel, box.w + bezel * 2, box.h + bezel * 2, r)
   ctx.fillStyle = "#000"
   ctx.fill()
   ctx.restore()
   ctx.beginPath()
-  ctx.roundRect(sx - bezel, sy - bezel, sw + bezel * 2, sh + bezel * 2, r)
+  ctx.roundRect(sx - bezel, sy - bezel, box.w + bezel * 2, box.h + bezel * 2, r)
   ctx.strokeStyle = md.outlineVariant
   ctx.lineWidth = 1.5
   ctx.stroke()
   ctx.save()
   ctx.beginPath()
-  ctx.roundRect(sx, sy, sw, sh, r - bezel)
+  ctx.roundRect(sx, sy, box.w, box.h, r - bezel)
   ctx.clip()
   ctx.fillStyle = "#000"
-  ctx.fillRect(sx, sy, sw, sh)
-  if (frame) frame.draw(ctx, sx, sy, sw, sh)
-  if (overlay) drawOverlay(ctx, sx, sy, sw, sh, overlay)
+  ctx.fillRect(sx, sy, box.w, box.h)
+  if (frame) {
+    const inner = contain(natural, box.w, box.h)
+    const fx = sx + (box.w - inner.w) / 2
+    const fy = sy + (box.h - inner.h) / 2
+    frame.draw(ctx, fx, fy, inner.w, inner.h)
+    if (overlay) drawOverlay(ctx, fx, fy, inner.w, inner.h, overlay)
+  }
   ctx.restore()
 }
 
@@ -329,12 +392,34 @@ function drawInfo(
   if (s.temperature) rows(ctx, x + 20, y + h - 18, inner, [s.temperature])
 }
 
+function drawHeader(ctx: Ctx, layout: SceneLayout) {
+  const size = 34
+  const base = headerH / 2 + 8
+  if (logoImage && logoImage.complete && logoImage.naturalWidth > 0) {
+    ctx.drawImage(logoImage, pad, (headerH - size) / 2 + 2, size, size)
+  }
+  text(ctx, "Holtdroid", pad + size + 12, base, 24, md.onSurface, 600)
+  font(ctx, 24, 600)
+  const word = ctx.measureText("Holtdroid").width
+  ctx.beginPath()
+  ctx.arc(pad + size + 12 + word + 18, base - 6, 3, 0, Math.PI * 2)
+  ctx.fillStyle = md.primary
+  ctx.fill()
+  text(ctx, "Android test session", pad + size + 12 + word + 30, base - 1, 15, md.outline)
+  ctx.textAlign = "right"
+  text(ctx, "github.com/holtdroid/holtdroid", layout.logicalW - pad, base - 1, 14, md.outlineVariant)
+  ctx.textAlign = "left"
+}
+
 export function drawScene(ctx: Ctx, input: SceneInput) {
+  const layout = input.layout
+  ctx.setTransform(layout.scale, 0, 0, layout.scale, 0, 0)
   ctx.textBaseline = "alphabetic"
   ctx.textAlign = "left"
   ctx.fillStyle = md.surface
-  ctx.fillRect(0, 0, sceneWidth, sceneHeight)
-  const h = sceneHeight - pad * 2
+  ctx.fillRect(0, 0, layout.logicalW + 4, layout.logicalH + 4)
+  drawHeader(ctx, layout)
+  const h = layout.logicalH - headerH - pad
   const summary = summarize({
     t: input.t,
     duration: input.duration,
@@ -342,11 +427,9 @@ export function drawScene(ctx: Ctx, input: SceneInput) {
     snap: input.snap,
     app: input.app,
   })
-  drawLogcat(ctx, pad, pad, side, h, input.logcat, input.t)
-  const cx = pad + side + gap
-  const cw = sceneWidth - (cx + side + gap + pad)
-  drawPhone(ctx, cx, pad, cw, h, input.frame, input.overlay)
-  drawInfo(ctx, sceneWidth - pad - side, pad, side, h, summary, input.app.icon)
+  drawLogcat(ctx, pad, headerH, side, h, input.logcat, input.t)
+  drawPhone(ctx, pad + side + gap, headerH, layout.areaW, h, input.frame, input.overlay, input.rotation)
+  drawInfo(ctx, layout.logicalW - pad - side, headerH, side, h, summary, input.app.icon)
 }
 
 export function loadIcon(src: string | undefined) {
@@ -356,3 +439,5 @@ export function loadIcon(src: string | undefined) {
   img.src = src
   return img
 }
+
+export const logoImage = typeof Image === "undefined" ? null : loadIcon(logoUrl)

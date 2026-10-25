@@ -15,6 +15,7 @@ export class Frames {
   constructor(
     readonly filesUrl: string,
     segments: Segment[],
+    readonly keep = 24,
   ) {
     this.segments = segments
   }
@@ -28,7 +29,7 @@ export class Frames {
       })
       p.catch(() => this.#files.delete(file))
       this.#files.set(file, p)
-      if (this.#files.size > 24) {
+      if (this.#files.size > this.keep) {
         const oldest = [...this.#files.keys()].find((k) => k.startsWith("seg-"))
         if (oldest && oldest !== file) this.#files.delete(oldest)
       }

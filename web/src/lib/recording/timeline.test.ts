@@ -1,6 +1,16 @@
 import { describe, expect, test } from "bun:test"
 import type { RecordingEvent, RecordingManifest } from "@/api/client"
-import { clock, parseLogcat, runEnd, runStart, segmentAt, segmentsOf, Telemetry } from "@/lib/recording/timeline"
+import {
+  clock,
+  parseLogcat,
+  rotationAt,
+  runEnd,
+  runStart,
+  segmentAt,
+  segmentsOf,
+  sizeChanges,
+  Telemetry,
+} from "@/lib/recording/timeline"
 
 describe("parseLogcat", () => {
   test("recording time and threadtime fields", () => {
@@ -108,4 +118,42 @@ describe("Telemetry", () => {
 test("clock", () => {
   expect(clock(65_432)).toBe("01:05")
   expect(clock(3_725_004, true)).toBe("1:02:05.004")
+})
+
+const shaped = (file: string, start: number, width: number, height: number) => ({
+  file,
+  init: "i",
+  key: true,
+  start,
+  duration: 1000,
+  size: 1,
+  width,
+  height,
+})
+
+describe("rotation", () => {
+  const changes = sizeChanges([
+    shaped("a", 0, 720, 1600),
+    shaped("b", 1000, 720, 1600),
+    shaped("c", 5000, 1600, 720),
+    shaped("d", 9000, 720, 1600),
+  ])
+
+  test("only a different size counts as a change", () => {
+    expect(changes.map((c) => [c.t, c.dims.w])).toEqual([
+      [0, 720],
+      [5000, 1600],
+      [9000, 720],
+    ])
+  })
+
+  test("the turn runs for a third of a second and then ends", () => {
+    expect(rotationAt(changes, 4000)).toBeNull()
+    expect(rotationAt(changes, 5000)).toMatchObject({ from: { w: 720 }, to: { w: 1600 }, k: 0 })
+    const mid = rotationAt(changes, 5160)
+    expect(mid?.k).toBeGreaterThan(0.4)
+    expect(mid?.k).toBeLessThan(0.6)
+    expect(rotationAt(changes, 5400)).toBeNull()
+    expect(rotationAt(changes, 9100)).toMatchObject({ from: { w: 1600 }, to: { w: 720 } })
+  })
 })

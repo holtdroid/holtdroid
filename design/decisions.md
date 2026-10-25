@@ -2846,8 +2846,17 @@ pass a recording to someone without an account.
   draws only the phone's frames on a canvas and everything else as HTML, so
   text can be selected and copied, logcat has level and text filters and a
   click on a time seeks. **Download video** draws the same summary and
-  logcat on a canvas scene (`scene.ts`) at 1920×1080, 30 fps, frame by frame
-  into an MP4 in OPFS, because a video can't hold page text. Segments are
+  logcat on a canvas scene (`scene.ts`), frame by frame into an MP4, because a
+  video can't hold page text. The scene is 1296 px tall and 30 fps (a design
+  of 1080 logical pixels scaled by 1.2: a bit above 1080p, short of 1440p) with
+  a header carrying the logo; its width follows the widest the screen got in
+  the recording (2304 for portrait, up to about 3200 for a landscape phone or
+  a tablet, whose middle column widens), and the phone's body tweens between
+  sizes over 320 ms when the picture changes size. The output goes straight
+  into a file the user picks (File System Access API, a stream that aborts
+  instead of committing when the render is cancelled) or, where that is
+  missing, into OPFS and a download at the end; only a few segments are kept
+  in memory while rendering. Segments are
   decoded with WebCodecs through mediabunny, one `init + segment` run at a
   time, so a seek fetches only the segment it needs. Share links open the
   player without sign-in and don't offer the download. Sharing also keeps

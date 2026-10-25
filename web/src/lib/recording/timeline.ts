@@ -20,6 +20,35 @@ export function segmentsOf(m: RecordingManifest | undefined): Segment[] {
     .toSorted((a, b) => a.start - b.start)
 }
 
+export type Dims = { w: number; h: number }
+export type Rotation = { from: Dims; to: Dims; k: number }
+
+const rotateMs = 320
+
+/** When the picture changed size, which is when the device turned or the stream restarted. */
+export function sizeChanges(segments: Segment[]): { t: number; dims: Dims }[] {
+  const out: { t: number; dims: Dims }[] = []
+  let last: Dims | undefined
+  for (const s of segments) {
+    if (last && last.w === s.width && last.h === s.height) continue
+    last = { w: s.width, h: s.height }
+    out.push({ t: s.start, dims: last })
+  }
+  return out
+}
+
+/** How far the screen has turned from its previous size at t, while it still is turning. */
+export function rotationAt(changes: { t: number; dims: Dims }[], t: number): Rotation | null {
+  for (let i = changes.length - 1; i > 0; i--) {
+    const c = changes[i]!
+    if (c.t > t) continue
+    const k = (t - c.t) / rotateMs
+    if (k >= 1) return null
+    return { from: changes[i - 1]!.dims, to: c.dims, k: k < 0.5 ? 4 * k ** 3 : 1 - (-2 * k + 2) ** 3 / 2 }
+  }
+  return null
+}
+
 /** The last segment that starts at or before t (ms), or -1. */
 export function segmentAt(segments: Segment[], t: number) {
   let lo = 0

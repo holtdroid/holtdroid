@@ -84,12 +84,21 @@ screen are next to it. <kbd>Space</kbd> plays and pauses, <kbd>←</kbd> and
 ## Downloading a video
 
 **Download video** renders the recording into an MP4 file in your browser,
-at 1920×1080 and 30 fps, drawn in the same style as the page (the text there is part of the picture, so it can't be selected). A progress bar
-over the recording's timeline shows how far it got, how fast it goes and
-how long is left; keep the tab open until it finishes. The file is written
-to the browser's private storage as it goes, so long recordings don't fill
-the memory, and downloaded when done. It needs a browser with WebCodecs
-(Chrome, Edge, Safari 17+, Firefox 130+).
+frame by frame, with the Holtdroid logo on top and the same panels as the page
+(the text is part of the picture, so it can't be selected). It is 1296 pixels
+tall and 30 fps: 2304×1296 for a phone held upright, 20% above 1080p. If the
+screen turned sideways in the recording or it is a tablet, the middle column
+is made wider and so is the video (up to about 3200 pixels), so the picture
+stays readable; the phone's frame turns smoothly when the device does. A
+progress bar over the recording's timeline shows how far it got, how fast it
+goes and how long is left; keep the tab open until it finishes.
+
+The video is never held in memory. In Chrome and Edge you first pick where to
+save it and it is written straight into that file as it renders; cancelling
+removes the half-written file. Other browsers collect it in their private
+storage as they go and download it at the end. It needs a browser with
+WebCodecs (Chrome, Edge, Safari 17+, Firefox 130+) that can encode a video this
+size.
 
 ## Sharing
 

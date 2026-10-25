@@ -151,7 +151,7 @@ export function RecordingPlayer({
       <div
         ref={grid}
         style={{ "--stage-h-lg": `${gridHeight}px` } as CSSProperties}
-        className="grid gap-3 [--stage-h:68dvh] lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)] lg:[--stage-h:var(--stage-h-lg,60dvh)]"
+        className="grid gap-3 [--phone-max-w:calc(100vw-4rem)] [--stage-h:68dvh] lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)] lg:[--phone-max-w:min(44vw,900px)] lg:[--stage-h:var(--stage-h-lg,60dvh)]"
       >
         <div className="order-3 flex h-[60dvh] min-h-0 flex-col lg:order-1 lg:h-auto [&>section]:flex-1">
           <LogcatView player={player} time={state.time} />
@@ -162,7 +162,7 @@ export function RecordingPlayer({
             className="relative box-content rounded-[44px] bg-black p-2.5 shadow-[0_0_0_1.5px_#404943,0_24px_60px_-20px_#000]"
             style={{
               aspectRatio: `${state.size.w} / ${state.size.h}`,
-              height: `min(calc(var(--stage-h) - 1.25rem), calc((100vw - 5.25rem) * ${state.size.h / state.size.w}))`,
+              height: `min(calc(var(--stage-h) - 1.25rem), calc((var(--phone-max-w) - 1.25rem) * ${state.size.h / state.size.w}))`,
             }}
           >
             <canvas

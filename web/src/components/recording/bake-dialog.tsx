@@ -13,14 +13,14 @@ import {
 } from "@/components/ui/dialog"
 import { download } from "@/lib/adb"
 import { formatBytes, formatDuration } from "@/lib/format"
-import { bake, bakeFps, type BakeProgress } from "@/lib/recording/bake"
-import { type SceneApp, sceneHeight, sceneWidth } from "@/lib/recording/scene"
+import { bake, bakeFps, type BakeProgress, canSaveToFile, openSink, type Sink } from "@/lib/recording/bake"
+import { type SceneApp, sceneLayout } from "@/lib/recording/scene"
 import { clock, segmentsOf, type Telemetry } from "@/lib/recording/timeline"
 
 type Stage =
   | { kind: "idle" }
   | { kind: "running"; progress: Omit<BakeProgress, "canvas"> | null }
-  | { kind: "done"; file: Blob; elapsed: number }
+  | { kind: "done"; file: Blob | null; size: number; elapsed: number }
   | { kind: "failed"; message: string }
 
 function ticks(duration: number) {
@@ -50,8 +50,15 @@ export function BakeDialog({
   const name = `${recording.package}-${recording.id}.mp4`
   const duration = manifest.duration
   const segments = segmentsOf(manifest)
+  const layout = sceneLayout(manifest)
 
-  const start = () => {
+  const start = async () => {
+    let sink: Sink
+    try {
+      sink = await openSink(name)
+    } catch {
+      return
+    }
     const ctrl = new AbortController()
     abort.current = ctrl
     setStage({ kind: "running", progress: null })
@@ -60,23 +67,28 @@ export function BakeDialog({
       manifest,
       telemetry,
       app,
-      name,
+      sink,
       signal: ctrl.signal,
       onProgress: ({ canvas, ...p }) => {
         const ctx = preview.current?.getContext("2d")
         ctx?.drawImage(canvas, 0, 0, preview.current!.width, preview.current!.height)
         setStage({ kind: "running", progress: p })
       },
-    }).then(
-      (file) => {
-        setStage((s) => ({ kind: "done", file, elapsed: s.kind === "running" ? (s.progress?.elapsed ?? 0) : 0 }))
-        download(file, name)
-      },
-      (e: unknown) => {
+    })
+      .then(async () => {
+        const file = await sink.file()
+        if (file) download(file, name)
+        setStage((s) => ({
+          kind: "done",
+          file,
+          size: file?.size ?? sink.size(),
+          elapsed: s.kind === "running" ? (s.progress?.elapsed ?? 0) : 0,
+        }))
+      })
+      .catch((e: unknown) => {
         if (ctrl.signal.aborted) setStage({ kind: "idle" })
         else setStage({ kind: "failed", message: e instanceof Error ? e.message : String(e) })
-      },
-    )
+      })
   }
 
   const close = () => {
@@ -96,13 +108,22 @@ export function BakeDialog({
         <DialogHeader>
           <DialogTitle>Download as a video</DialogTitle>
           <DialogDescription>
-            The recording is rendered here in your browser with the logcat, device and network panels, at {sceneWidth}×
-            {sceneHeight} and {bakeFps} fps. Keep this tab open until it finishes.
+            The recording is rendered here in your browser with the logcat, device and network panels, at {layout.width}
+            ×{layout.height} and {bakeFps} fps. Keep this tab open until it finishes.{" "}
+            {canSaveToFile()
+              ? "You pick where to save it first, and it is written to that file as it goes, so it doesn't fill the memory."
+              : "This browser can't write to a file you pick, so the video is collected in its private storage and downloaded at the end."}
           </DialogDescription>
         </DialogHeader>
 
         <div className="relative overflow-hidden rounded-lg border bg-black">
-          <canvas ref={preview} width={960} height={540} className="block aspect-video w-full" />
+          <canvas
+            ref={preview}
+            width={960}
+            height={Math.round((960 * layout.height) / layout.width)}
+            className="block w-full"
+            style={{ aspectRatio: `${layout.width} / ${layout.height}` }}
+          />
           {stage.kind === "idle" && (
             <div className="text-muted-foreground absolute inset-0 grid place-items-center text-sm">
               <ClapperboardIcon className="size-10 opacity-60" />
@@ -147,7 +168,8 @@ export function BakeDialog({
             {stage.kind === "done" && (
               <span className="text-muted-foreground inline-flex items-center gap-1">
                 <CheckIcon className="size-4 text-emerald-500" />
-                {formatBytes(stage.file.size)} in {formatDuration(stage.elapsed)}
+                {stage.file ? "" : "Saved to your file: "}
+                {formatBytes(stage.size)} in {formatDuration(stage.elapsed)}
               </span>
             )}
           </div>
@@ -164,12 +186,14 @@ export function BakeDialog({
             {stage.kind === "running" ? "Cancel" : "Close"}
           </Button>
           {stage.kind === "done" ? (
-            <Button onClick={() => download(stage.file, name)}>
-              <DownloadIcon />
-              Save again
-            </Button>
+            stage.file ? (
+              <Button onClick={() => download(stage.file!, name)}>
+                <DownloadIcon />
+                Save again
+              </Button>
+            ) : null
           ) : (
-            <Button disabled={stage.kind === "running"} onClick={start}>
+            <Button disabled={stage.kind === "running"} onClick={() => void start()}>
               {stage.kind === "running" ? <Loader2Icon className="animate-spin" /> : <ClapperboardIcon />}
               {stage.kind === "running" ? "Rendering…" : stage.kind === "failed" ? "Try again" : "Render"}
             </Button>
