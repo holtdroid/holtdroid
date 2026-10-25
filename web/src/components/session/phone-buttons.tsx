@@ -148,7 +148,7 @@ function CornerMenu({ corner, run }: { corner: Corner; run: Run }) {
                 <Button
                   key={k.action}
                   variant="ghost"
-                  className="h-auto flex-col gap-1 px-1 py-1.5 text-[11px] font-normal whitespace-normal"
+                  className="h-auto flex-col justify-start gap-1 px-1 py-1.5 text-[11px] font-normal whitespace-normal"
                   onClick={() => run(k.action)}
                 >
                   <k.icon />
