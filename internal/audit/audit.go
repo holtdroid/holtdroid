@@ -57,6 +57,8 @@ const (
 	RecordingRename  Action = "recording.rename"
 	RecordingShare   Action = "recording.share"
 	RecordingUnshare Action = "recording.unshare"
+	ReferenceUpload  Action = "reference.upload"
+	ReferenceDelete  Action = "reference.delete"
 	Maintenance      Action = "provider.maintenance"
 	UserSignUp       Action = "user.signup"
 	UserUpdate       Action = "user.update"

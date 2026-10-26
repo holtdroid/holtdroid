@@ -43,6 +43,7 @@ type Server struct {
 	cache          *Cache
 	appData        *appDataStore
 	recordings     *recordingStore
+	references     *referenceStore
 	webviews       *webviewCatalog
 	activity       *activity
 	warm           chan warmItem
@@ -165,6 +166,16 @@ func New(ctx context.Context, cfg Config, opts ...Option) (*Server, error) {
 				return nil, fmt.Errorf("recordings.storage: %w", err)
 			}
 			s.recordings = newRecordingStore(store, "")
+		}
+	}
+	if cfg.PixelPerfect.Enabled {
+		s.references = &referenceStore{store: s.store, prefix: referencesPrefix}
+		if cfg.PixelPerfect.Storage.Type != "" {
+			store, err := storage.New(ctx, cfg.PixelPerfect.Storage, s.secrets)
+			if err != nil {
+				return nil, fmt.Errorf("pixelPerfect.storage: %w", err)
+			}
+			s.references = &referenceStore{store: store}
 		}
 	}
 	if s.webviews, err = newWebViewCatalog(ctx, cfg.WebView, s); err != nil {
@@ -291,6 +302,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/recordings/{id}/logcat.txt", s.serveRecordingLogcat)
 	mux.HandleFunc("GET /api/v1/recordings/{id}/logcat.log", s.serveRecordingLogcat)
 	mux.HandleFunc("GET /api/v1/recordings/{id}/export", s.serveRecordingExport)
+	mux.HandleFunc("GET "+referencesPath+"/{id}/image", s.serveReferenceImage)
 	mux.HandleFunc("GET /api/v1/shared/{token}/files/{file}", s.serveRecordingFile)
 	mux.HandleFunc("GET /api/v1/shared/{token}/logcat.txt", s.serveRecordingLogcat)
 	mux.HandleFunc("GET /api/v1/shared/{token}/logcat.log", s.serveRecordingLogcat)

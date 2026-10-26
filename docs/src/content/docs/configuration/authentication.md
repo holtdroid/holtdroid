@@ -202,20 +202,21 @@ provider's groups.
 
 ### Limits
 
-Every user has four limits. An admin can set them per user on the Users page;
+Every user has five limits. An admin can set them per user on the Users page;
 an empty field uses the role's default from `auth.users.limits`, and a role
 without one uses the server-wide setting.
 
-| Limit             | Server-wide setting   | Meaning                                           |
-| ----------------- | --------------------- | ------------------------------------------------- |
-| `maxSessions`     | `sessions.maxPerUser` | Devices the user may run at once; 0 for no limit  |
-| `maxSessionTTL`   | `sessions.maxTTL`     | How long a session lives before it is reaped      |
-| `recordingsQuota` | `recordings.quota`    | Storage for the user's recordings; 0 for no limit |
-| `appDataMaxSize`  | `appData.maxSize`     | Largest app data save; 0 for no limit             |
+| Limit             | Server-wide setting   | Meaning                                                         |
+| ----------------- | --------------------- | --------------------------------------------------------------- |
+| `maxSessions`     | `sessions.maxPerUser` | Devices the user may run at once; 0 for no limit                |
+| `maxSessionTTL`   | `sessions.maxTTL`     | How long a session lives before it is reaped                    |
+| `recordingsQuota` | `recordings.quota`    | Storage for the user's recordings; 0 for no limit               |
+| `appDataMaxSize`  | `appData.maxSize`     | Largest app data save; 0 for no limit                           |
+| `referencesQuota` | `pixelPerfect.quota`  | Storage for the user's Pixel perfect references; 0 for no limit |
 
 Deleting a user signs them out at once and removes their passkeys. Devices
-they run keep going until stopped or reaped, and their recordings and app data
-stay until they expire.
+they run keep going until stopped or reaped, and their recordings, app data
+and references stay until they expire.
 
 ## Forward-auth headers
 

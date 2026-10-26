@@ -3222,3 +3222,72 @@ mobile data on the status bar shows Ethernet; a cellular icon needs a
 telephony stack. The node's kernel gains a test driver that any
 `CAP_NET_ADMIN` holder on it can use in its own namespace; sessions already
 are root on their node (#83), so it goes only on session nodes.
+
+## 106. Pixel perfect: references in storage, the comparison in the browser
+
+**Context.** Testers check builds against design mockups. The PerfectPixel
+browser extension does that for web pages: an image over the page, opacity,
+position, an inverted mode. On a phone screen streamed into the portal they
+wanted the same next to DevTools, plus what the extension can't do: find the
+differences, say what each one is, keep a transient element still long
+enough to check it, and send a report. Many of the apps put an interface over
+a video, which differs from any mockup everywhere the video plays.
+
+**Decision.**
+
+- **References are images in storage, per user, without a database**:
+  `pixel-perfect/<user hash>/<id>.json` (name, the app it was added for, size,
+  placement, ignored areas; written only by the api), `<id>.img` and
+  `<id>.used`, which the api rewrites when the image is opened, at most once
+  an hour. One listing of the user's prefix gives sizes and last uses, so the
+  quota and retention read no objects, and writers never share an object.
+  `pixelPerfect.storage` puts them elsewhere, like recordings and app data.
+  The image URL counts as a use; `?preview` (the list's thumbnails) doesn't,
+  or opening the tab would keep every reference forever.
+- **Quota and retention**: `pixelPerfect.quota` (1 GiB) per user, overridable
+  per role and per user like the other limits (`referencesQuota`, a new
+  `users` column); an upload that doesn't fit gets 507 and nothing is
+  deleted to make room, since references are named by hand, unlike
+  recordings. A reference unused for `pixelPerfect.maxAge` (30 days) is
+  deleted by a sweep. On by default: the images are small, and without a
+  storage of its own the feature still works (on the chart's cache volume
+  they don't survive a restart; the docs say so).
+- **Placement in the reference's own pixels**, with scale 1 meaning "the
+  screen's width, but no taller than the screen", top-aligned. A mockup at 1×
+  or 3× and a stream at any size then line up the same, and the placement
+  saved with a reference fits other devices of the same shape. Ignored areas
+  are fractions of the reference for the same reason.
+- **The overlay is HTML over the screen's canvas**: an `<img>` with CSS
+  opacity and `mix-blend-mode: difference` (the "negative") or `filter:
+  invert`, click-through unless Move or Draw is on, so the device stays
+  usable. Freeze frame shows the decoder's last frame (`snapshot()`) as an
+  image over the live canvas.
+- **The comparison runs in the browser** (`web/src/lib/pixel-perfect`): the
+  agent and the api stay out of it, and it needs the overlay's placement
+  anyway. The screen is a lossless `screencap` (or the frozen frame, which
+  comes from the stream); pixels are compared with pixelmatch (YIQ distance,
+  anti-aliasing detection) after compositing the reference over the screen,
+  so transparent parts and ignored areas compare equal. Differing pixels are
+  binned into 8 px cells, cells with at least two of them are joined across
+  two-cell gaps into regions, and regions under ten pixels are dropped as
+  noise. Each region is classified by cheap tests: moving the reference up
+  to 8 px around it (a shift when that removes two thirds of the misses),
+  luma spread on either side (missing or extra), and colour edges in both
+  (same shapes, another colour).
+- **Video under the interface is skipped by motion, not by recognising
+  video**: four frames 140 ms apart, 16 px cells where enough luma changed,
+  grown by a cell, are left out. It needs no knowledge of the app and also
+  skips animations and live maps. Manual ignored areas, saved with the
+  reference, cover a paused player. Freeze frame takes its three extra frames
+  right after the frozen one, so a frozen comparison skips motion too.
+- **The views are the ones code review sites use for image diffs**: side by
+  side, swipe, onion skin and difference, with a magnified crop per region.
+  The report is a PNG drawn on a canvas (logo, reference, difference,
+  screen, the list of regions), like the recordings' video scene.
+
+**Consequences.** Analysis of a 1080×2400 screen takes a few hundred
+milliseconds on the main thread; frames over 4.5 megapixels are scaled down.
+A frozen frame carries the stream's compression, so precise checks want a
+high stream quality or a live comparison. Motion detection can't tell a
+still frame of a video from the interface; that is what ignored areas are
+for. The api doesn't check that an image decodes beyond its header.

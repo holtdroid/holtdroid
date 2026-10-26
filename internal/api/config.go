@@ -97,6 +97,17 @@ type RecordingsConfig struct {
 	MinDuration   time.Duration
 }
 
+// PixelPerfectConfig controls the reference images compared with the screen
+// (decision #106).
+type PixelPerfectConfig struct {
+	Enabled       bool
+	Storage       storage.Config
+	Quota         config.ByteSize
+	MaxAge        time.Duration
+	MaxFileSize   config.ByteSize
+	SweepInterval time.Duration
+}
+
 // ADBConfig controls the browser's ADB connection to sessions (the portal's
 // logcat, files, terminal and app tools).
 type ADBConfig struct {
@@ -120,6 +131,7 @@ type Config struct {
 	Downloads      DownloadsConfig
 	AppData        AppDataConfig
 	Recordings     RecordingsConfig
+	PixelPerfect   PixelPerfectConfig
 	WebView        WebViewConfig
 	Map            MapConfig
 	Routing        RoutingConfig
@@ -155,6 +167,9 @@ func DefaultConfig() Config {
 		Recordings: RecordingsConfig{
 			Mode: RecordAlways, MaxAge: 7 * 24 * time.Hour, Share: true, MaxFileSize: 64 << 20, SweepInterval: 10 * time.Minute,
 			MinDuration: 20 * time.Second,
+		},
+		PixelPerfect: PixelPerfectConfig{
+			Enabled: true, Quota: 1 << 30, MaxAge: 30 * 24 * time.Hour, MaxFileSize: 25 << 20, SweepInterval: time.Hour,
 		},
 		Map:     MapConfig{URL: "https://tiles.openfreemap.org", Style: "styles/liberty", DarkStyle: "styles/dark"},
 		Routing: RoutingConfig{URL: "https://valhalla1.openstreetmap.de"},
@@ -259,6 +274,14 @@ func (c Config) Validate() error {
 		}
 		if c.Recordings.MaxFileSize == 0 || c.Recordings.SweepInterval <= 0 {
 			errs = append(errs, errors.New("recordings.maxFileSize and recordings.sweepInterval must be positive"))
+		}
+	}
+	if c.PixelPerfect.Enabled {
+		if c.PixelPerfect.MaxAge < 0 {
+			errs = append(errs, errors.New("pixelPerfect.maxAge must not be negative"))
+		}
+		if c.PixelPerfect.MaxFileSize == 0 || c.PixelPerfect.SweepInterval <= 0 {
+			errs = append(errs, errors.New("pixelPerfect.maxFileSize and pixelPerfect.sweepInterval must be positive"))
 		}
 	}
 	if c.Routing.URL != "" {

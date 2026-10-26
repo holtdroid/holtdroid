@@ -19,7 +19,7 @@ func (s *Service) List(ctx context.Context) ([]User, error) {
 	for _, r := range rows {
 		out = append(out, fromRow(db.User{
 			ID: r.ID, Handle: r.Handle, Email: r.Email, Name: r.Name, Role: r.Role, CreatedAt: r.CreatedAt, LastSeenAt: r.LastSeenAt,
-			MaxSessions: r.MaxSessions, MaxSessionTtl: r.MaxSessionTtl, RecordingsQuota: r.RecordingsQuota, AppDataQuota: r.AppDataQuota,
+			MaxSessions: r.MaxSessions, MaxSessionTtl: r.MaxSessionTtl, RecordingsQuota: r.RecordingsQuota, AppDataQuota: r.AppDataQuota, ReferencesQuota: r.ReferencesQuota,
 		}, r.Passkeys))
 	}
 	return out, nil
@@ -97,7 +97,7 @@ func (s *Service) Update(ctx context.Context, id string, in Update) (User, error
 	if !ValidRole(in.Role) {
 		return User{}, fmt.Errorf("%w: unknown role %q", ErrInvalid, in.Role)
 	}
-	for _, v := range []*int64{in.Limits.MaxSessions, in.Limits.MaxSessionTTL, in.Limits.RecordingsQuota, in.Limits.AppDataMaxSize} {
+	for _, v := range []*int64{in.Limits.MaxSessions, in.Limits.MaxSessionTTL, in.Limits.RecordingsQuota, in.Limits.AppDataMaxSize, in.Limits.ReferencesQuota} {
 		if v != nil && *v < 0 {
 			return User{}, fmt.Errorf("%w: limits can't be negative", ErrInvalid)
 		}
@@ -117,7 +117,8 @@ func (s *Service) Update(ctx context.Context, id string, in Update) (User, error
 		}
 		return q.UpdateUser(ctx, db.UpdateUserParams{
 			Email: email, Name: name, Role: in.Role, MaxSessions: in.Limits.MaxSessions, MaxSessionTtl: in.Limits.MaxSessionTTL,
-			RecordingsQuota: in.Limits.RecordingsQuota, AppDataQuota: in.Limits.AppDataMaxSize, ID: id,
+			RecordingsQuota: in.Limits.RecordingsQuota, AppDataQuota: in.Limits.AppDataMaxSize,
+			ReferencesQuota: in.Limits.ReferencesQuota, ID: id,
 		})
 	})
 	if err != nil {

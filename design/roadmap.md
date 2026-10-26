@@ -241,6 +241,16 @@ the portal and download them as a video (decision #96).
 - [x] Logcat in the player as selectable HTML with level and text filters, click to seek, hold while selecting; stats as HTML cards in an Android look, the video download keeps the canvas scene in the same style
 - [ ] Logcat filter for the app's own processes in the player
 
+## Phase 4.13 — Pixel perfect
+
+Lay design mockups over the screen and find where the app differs (decision #106).
+
+- [x] api: references per user in storage (`pixel-perfect/`), upload with type and size checks, rename, placement and ignored areas, delete, per-user quota with role and user overrides, retention by last use, audit events
+- [x] UI: the Pixel perfect tab (library with paste from the clipboard and drop, quota), overlay over the screen with opacity, difference and invert blends, Move with drag and arrow keys, freeze frame
+- [x] Comparison in the browser: pixelmatch, regions, guesses (shift, colour, missing, extra), motion mask for video under the interface, ignored areas; side by side, swipe, onion skin, difference and per-region crops; PNG report with the logo
+- [x] Tests: api end to end (upload, other users, update, quota, retention), web geometry and diff helpers
+- [ ] Try it on a redroid session with an app over a video
+
 ## Phase 5 — Packaging and docs
 
 - [x] Helm chart: add provider-emulator, RBAC, NetworkPolicy, prepull DaemonSet, values for nodeSelector/tolerations/slots/resources

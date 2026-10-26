@@ -56,4 +56,5 @@ type User struct {
 	MaxSessionTtl   *int64
 	RecordingsQuota *int64
 	AppDataQuota    *int64
+	ReferencesQuota *int64
 }

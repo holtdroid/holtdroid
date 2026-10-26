@@ -27,7 +27,7 @@ ORDER BY role = '' DESC, created_at;
 
 -- name: UpdateUser :exec
 UPDATE users
-SET email = ?, name = ?, role = ?, max_sessions = ?, max_session_ttl = ?, recordings_quota = ?, app_data_quota = ?
+SET email = ?, name = ?, role = ?, max_sessions = ?, max_session_ttl = ?, recordings_quota = ?, app_data_quota = ?, references_quota = ?
 WHERE id = ?;
 
 -- name: RenameUser :exec

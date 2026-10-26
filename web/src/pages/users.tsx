@@ -159,6 +159,7 @@ const limitFields: LimitField[] = [
   { key: "maxSessionTTL", label: "Session length", unit: "hours", scale: 3600 },
   { key: "recordingsQuota", label: "Recordings quota", unit: "GiB", scale: GiB },
   { key: "appDataMaxSize", label: "App data save size", unit: "MiB", scale: MiB },
+  { key: "referencesQuota", label: "Pixel perfect references", unit: "MiB", scale: MiB },
 ]
 
 function describeDefault(key: keyof Overrides, d: EffectiveLimits) {

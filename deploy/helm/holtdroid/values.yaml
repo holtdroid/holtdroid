@@ -55,6 +55,12 @@ config:
   recordings:
     enabled: false
     # mode: always  # always | auto | manual
+  # Design mockups for the Pixel perfect tab (docs: Concepts → Pixel
+  # perfect): 1 GiB per user, deleted after 30 days unused. Without a storage
+  # of its own they sit on the cache volume and are lost on restart.
+  pixelPerfect:
+    enabled: true
+    # storage: { type: s3, s3: { endpoint: …, bucket: …, prefix: pixel-perfect, … } }
   # WebView builds a launch can install over the built-in WebView, written by
   # holtdroid-webview-sync (docs: Concepts → WebView versions). Off without a
   # storage type.

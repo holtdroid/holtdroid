@@ -761,6 +761,23 @@ every `recordings.sweepInterval` and enforces the per-user quota when
 manifests arrive. Agents never get storage credentials; the upload URL's
 secret is checked against the recording's meta.
 
+## Pixel perfect
+
+Design mockups over the screen (decision #106, `internal/api/pixelperfect.go`,
+`web/src/lib/pixel-perfect`, `web/src/components/session/pixel-perfect`):
+
+```
+browser ─POST/PUT/DELETE /api/v1/pixel-perfect─▶ api ──▶ storage: pixel-perfect/<user>/<id>.json|.img|.used
+        ◀─GET /api/v1/pixel-perfect/{id}/image── api (rewrites .used at most hourly; ?preview doesn't)
+browser: <img> over the screen canvas (opacity, difference, invert); Freeze frame = the decoder's snapshot;
+         Find differences = GET /s/…/v1/device/screenshot (or the frozen frame) + a burst of stream frames
+         for the motion mask → pixelmatch → regions → views and a PNG report
+```
+
+The api only stores; quota (`pixelPerfect.quota`, per user) is checked on
+upload, and a sweep every `pixelPerfect.sweepInterval` deletes references not
+opened for `pixelPerfect.maxAge`.
+
 ## Security model
 
 - Sign-in is `auth.mode`: `anonymous` (random names), `password`, `oidc`,
@@ -776,7 +793,8 @@ secret is checked against the recording's meta.
   `/api/v1/auth*`. Passkey ceremonies keep their challenge in a short-lived
   signed cookie, not in the database. OIDC is an optional second sign-in
   that maps the provider's email to a directory user. Per-user limits
-  (devices at once, session TTL, recordings quota, app data save size) are
+  (devices at once, session TTL, recordings quota, app data save size,
+  Pixel perfect references) are
   resolved user → role (`auth.users.limits`) → server setting.
 - Session pods are **privileged** and Android shares the node's kernel, so
   root in a session (the agent's adbd, the browser's ADB shell) is root on

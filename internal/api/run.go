@@ -26,6 +26,9 @@ func (s *Server) Run(ctx context.Context) {
 	if s.recordings != nil {
 		go s.recordingsLoop(ctx)
 	}
+	if s.references != nil {
+		go s.referencesLoop(ctx)
+	}
 
 	for {
 		select {

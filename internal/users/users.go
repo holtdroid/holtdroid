@@ -100,12 +100,16 @@ type Overrides struct {
 	MaxSessionTTL   *int64 `json:"maxSessionTTL,omitempty" doc:"seconds"`
 	RecordingsQuota *int64 `json:"recordingsQuota,omitempty" doc:"bytes, 0 for no limit"`
 	AppDataMaxSize  *int64 `json:"appDataMaxSize,omitempty" doc:"bytes"`
+	ReferencesQuota *int64 `json:"referencesQuota,omitempty" doc:"bytes of pixel perfect references, 0 for no limit"`
 }
 
 func fromRow(u db.User, passkeys int64) User {
 	return User{
 		ID: u.ID, Email: u.Email, Name: u.Name, Role: u.Role, CreatedAt: u.CreatedAt, LastSeenAt: u.LastSeenAt, Passkeys: passkeys,
-		Limits: Overrides{MaxSessions: u.MaxSessions, MaxSessionTTL: u.MaxSessionTtl, RecordingsQuota: u.RecordingsQuota, AppDataMaxSize: u.AppDataQuota},
+		Limits: Overrides{
+			MaxSessions: u.MaxSessions, MaxSessionTTL: u.MaxSessionTtl, RecordingsQuota: u.RecordingsQuota, AppDataMaxSize: u.AppDataQuota,
+			ReferencesQuota: u.ReferencesQuota,
+		},
 	}
 }
 

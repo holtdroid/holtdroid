@@ -1,9 +1,12 @@
 import { type ReactNode, useState } from "react"
 import type { SessionView } from "@/api/client"
+import { useReferences } from "@/api/queries"
 import { AdbGate } from "@/components/session/adb-gate"
 import type { AdbSession } from "@/components/session/adb-session"
 import { FilesPanel } from "@/components/session/files-panel"
 import { LogcatPanel } from "@/components/session/logcat-panel"
+import { PixelPerfectPanel } from "@/components/session/pixel-perfect/panel"
+import type { PixelPerfect } from "@/components/session/pixel-perfect/state"
 import { TerminalPanel } from "@/components/session/terminal-panel"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
@@ -20,18 +23,22 @@ export function ToolTabs({
   onTab,
   adb,
   session,
+  pp,
   children,
 }: {
   tab: string
   onTab: (tab: string) => void
   adb: AdbSession | null
   session: SessionView
+  pp: PixelPerfect
   children: ReactNode
 }) {
   const [opened, setOpened] = useState(() => new Set([tab]))
   if (!opened.has(tab)) setOpened(new Set([...opened, tab]))
+  const pixelPerfect = useReferences().data?.enabled === true
   const tabs = adbTabs.filter((t) => t.value !== "terminal" || session.capabilities?.shell !== false)
-  const current = adb && tabs.some((t) => t.value === tab) ? tab : tab === "devtools" ? tab : "devtools"
+  const current =
+    (adb && tabs.some((t) => t.value === tab)) || (pixelPerfect && tab === "pixel-perfect") ? tab : "devtools"
 
   const panel = (value: string, adbSession: AdbSession) => {
     if (value === "logcat") return <LogcatPanel store={adbSession.logcat} />
@@ -44,16 +51,22 @@ export function ToolTabs({
 
   return (
     <Tabs value={current} onValueChange={onTab} className="h-full gap-0">
-      {adb && (
+      {(adb || pixelPerfect) && (
         <TabsList variant="line" className="h-9 w-full justify-start rounded-none border-b px-2">
           <TabsTrigger value="devtools" className="flex-none">
             DevTools
           </TabsTrigger>
-          {tabs.map((t) => (
-            <TabsTrigger key={t.value} value={t.value} className="flex-none">
-              {t.label}
+          {adb &&
+            tabs.map((t) => (
+              <TabsTrigger key={t.value} value={t.value} className="flex-none">
+                {t.label}
+              </TabsTrigger>
+            ))}
+          {pixelPerfect && (
+            <TabsTrigger value="pixel-perfect" className="flex-none">
+              Pixel perfect
             </TabsTrigger>
-          ))}
+          )}
         </TabsList>
       )}
       <TabsContent value="devtools" forceMount className="min-h-0 data-[state=inactive]:hidden">
@@ -67,6 +80,11 @@ export function ToolTabs({
             </TabsContent>
           ) : null,
         )}
+      {pixelPerfect && opened.has("pixel-perfect") && (
+        <TabsContent value="pixel-perfect" forceMount className="min-h-0 data-[state=inactive]:hidden">
+          <PixelPerfectPanel pp={pp} session={session} active={current === "pixel-perfect"} />
+        </TabsContent>
+      )}
     </Tabs>
   )
 }

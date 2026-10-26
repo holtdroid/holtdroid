@@ -120,6 +120,13 @@ deployment"):
   without sign-in and enforces a per-user quota and retention. Replaced the
   browser recording. Covered by tests with the fake provider; not yet tried
   on a redroid session.
+- Pixel perfect (decision #106, Phase 4.13): a tab next to DevTools with
+  per-user reference images in storage (1 GiB, deleted after 30 days
+  unused), an overlay over the screen (opacity, difference, invert, drag),
+  freeze frame, differences found in the browser (regions with guesses,
+  video skipped by motion, ignored areas), the views of image diffs and a
+  PNG report. Covered by api and web unit tests; not yet tried on a redroid
+  session.
 - Session load (decision #40), shown in the cards next to the phone since
   decision #94: the app card has fps, jank and CPU/PSS per process, the
   device card the device, storage, temperatures and the session Pod's

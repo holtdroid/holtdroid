@@ -11,6 +11,7 @@ import {
   type RecordingEvent,
   type RecordingManifest,
   type RecordingMarker,
+  type ReferenceView,
   type ArtifactView,
   type ArtifactsEvent,
   type SessionView,
@@ -34,6 +35,7 @@ export const keys = {
   shared: (token: string) => ["shared", token] as const,
   webviews: ["webviews"] as const,
   map: ["map"] as const,
+  references: ["pixel-perfect"] as const,
 }
 
 export function useAuth() {
@@ -438,4 +440,53 @@ export function useSessionRecording() {
       ? unwrap(api.POST("/api/v1/sessions/{provider}/{id}/recording", { params: { path: { provider, id } } }))
       : unwrap(api.DELETE("/api/v1/sessions/{provider}/{id}/recording", { params: { path: { provider, id } } })),
   )
+}
+
+export function useReferences() {
+  return useQuery({
+    queryKey: keys.references,
+    queryFn: () => unwrap(api.GET("/api/v1/pixel-perfect")),
+    staleTime: 30_000,
+  })
+}
+
+export function useUploadReference() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ file, name, pkg }: { file: Blob; name: string; pkg: string }) => {
+      const form = new FormData()
+      form.append("file", file, file instanceof File ? file.name : `${name}.png`)
+      form.append("name", name)
+      if (pkg) form.append("package", pkg)
+      return unwrap(
+        api.POST("/api/v1/pixel-perfect", {
+          body: { file: "", name, package: pkg },
+          bodySerializer: () => form,
+        }),
+      )
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.references }),
+  })
+}
+
+export function useUpdateReference() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ ref, name }: { ref: ReferenceView; name: string }) =>
+      unwrap(
+        api.PUT("/api/v1/pixel-perfect/{id}", {
+          params: { path: { id: ref.id } },
+          body: { name, placement: ref.placement, ignore: ref.ignore },
+        }),
+      ),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.references }),
+  })
+}
+
+export function useDeleteReference() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => unwrap(api.DELETE("/api/v1/pixel-perfect/{id}", { params: { path: { id } } })),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.references }),
+  })
 }

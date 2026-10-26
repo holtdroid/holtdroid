@@ -13,6 +13,8 @@ import { DisplayWidget } from "@/components/session/display-widget"
 import { GpsWidget } from "@/components/session/gps-widget"
 import { LanguageWidget } from "@/components/session/language-widget"
 import { NetworkWidget } from "@/components/session/network-widget"
+import { PixelOverlay } from "@/components/session/pixel-perfect/overlay"
+import type { PixelPerfect } from "@/components/session/pixel-perfect/state"
 import { RecordingWidget } from "@/components/session/recording-widget"
 import { widgetWidth } from "@/components/session/shade"
 import { SSHWidget } from "@/components/session/ssh-widget"
@@ -109,6 +111,7 @@ export function DeviceScreen({
   session,
   appRunning,
   adb,
+  pp,
 }: {
   provider: string
   id: string
@@ -124,6 +127,7 @@ export function DeviceScreen({
   session: SessionView
   appRunning: boolean
   adb: AdbSession | null
+  pp: PixelPerfect
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const supported = screenSupported()
@@ -334,6 +338,7 @@ export function DeviceScreen({
               onBlur={() => live.connection?.control.releaseKeys()}
               onContextMenu={(e) => e.preventDefault()}
             />
+            <PixelOverlay pp={pp} canvasRef={canvasRef} />
             {shape?.cutout && shape.cutout !== "none" && <CutoutOverlay canvasRef={canvasRef} screen={shape} />}
             {notice && (
               <div className="pointer-events-none absolute inset-0 grid place-items-center p-4">

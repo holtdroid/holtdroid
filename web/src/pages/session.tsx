@@ -9,6 +9,7 @@ import { HeaderSlot } from "@/components/header-slot"
 import { useADBInfo, useAdbSession } from "@/components/session/adb-session"
 import { DeviceScreen } from "@/components/session/device-screen"
 import { useLiveScreen } from "@/components/session/live-screen"
+import { usePixelPerfect } from "@/components/session/pixel-perfect/state"
 import { DevToolsPanel } from "@/components/session/devtools-panel"
 import { useMetricsHistory } from "@/components/session/metrics"
 import { ShadeBounds } from "@/components/session/shade"
@@ -38,6 +39,7 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
   const [wasReady, setWasReady] = useState(false)
   const [tab, setTab] = useState("devtools")
   const live = useLiveScreen()
+  const pp = usePixelPerfect(live, provider, id)
   const adbInfo = useADBInfo()
 
   const agentUp = session !== undefined && session.state !== "provisioning"
@@ -185,8 +187,9 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
                   session={session}
                   appRunning={status?.appRunning ?? true}
                   adb={adbAllowed ? adb : null}
+                  pp={pp}
                 />
-                <ToolTabs tab={tab} onTab={setTab} adb={adbAllowed ? adb : null} session={session}>
+                <ToolTabs tab={tab} onTab={setTab} adb={adbAllowed ? adb : null} session={session} pp={pp}>
                   {caps?.devtools ? (
                     <DevToolsPanel
                       provider={provider}

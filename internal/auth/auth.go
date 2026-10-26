@@ -95,6 +95,7 @@ type Limits struct {
 	MaxSessionTTL   time.Duration
 	RecordingsQuota config.ByteSize
 	AppDataMaxSize  config.ByteSize
+	ReferencesQuota config.ByteSize
 }
 
 func DefaultConfig() Config {

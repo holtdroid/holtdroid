@@ -105,7 +105,7 @@ function NameForm({ name: initial }: { name: string }) {
 
 export function LimitsSummary({ limits }: { limits: EffectiveLimits }) {
   return (
-    <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-4">
+    <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-5">
       <Limit label="Devices at once" value={limits.maxSessions > 0 ? String(limits.maxSessions) : "No limit"} />
       <Limit label="Session length" value={formatSpan(limits.maxSessionTTL)} />
       <Limit label="Recordings" value={limits.recordingsQuota > 0 ? formatBytes(limits.recordingsQuota) : "No limit"} />
@@ -113,6 +113,7 @@ export function LimitsSummary({ limits }: { limits: EffectiveLimits }) {
         label="App data save"
         value={limits.appDataMaxSize > 0 ? formatBytes(limits.appDataMaxSize) : "No limit"}
       />
+      <Limit label="References" value={limits.referencesQuota > 0 ? formatBytes(limits.referencesQuota) : "No limit"} />
     </dl>
   )
 }

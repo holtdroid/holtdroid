@@ -656,6 +656,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/pixel-perfect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The caller's pixel perfect reference images, most recently used first, and the server's rules for them. */
+        get: operations["listReferences"];
+        put?: never;
+        /** @description Adds a reference image (PNG, JPEG or WebP, at most pixelPerfect.maxFileSize). Fails with 507 when it would go over the caller's quota. */
+        post: operations["uploadReference"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pixel-perfect/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Renames the reference and stores where it sits over the screen and which areas the comparison skips. */
+        put: operations["updateReference"];
+        post?: never;
+        delete: operations["deleteReference"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/providers": {
         parameters: {
             query?: never;
@@ -1658,6 +1693,11 @@ export interface components {
              * @description bytes, 0 for no limit
              */
             recordingsQuota: number;
+            /**
+             * Format: int64
+             * @description bytes of pixel perfect references, 0 for no limit
+             */
+            referencesQuota: number;
         };
         Enroll: {
             arch: string;
@@ -2040,6 +2080,11 @@ export interface components {
              * @description bytes, 0 for no limit
              */
             recordingsQuota?: number;
+            /**
+             * Format: int64
+             * @description bytes of pixel perfect references, 0 for no limit
+             */
+            referencesQuota?: number;
         };
         Passkey: {
             /** Format: date-time */
@@ -2056,6 +2101,23 @@ export interface components {
             temporary?: boolean;
             /** @enum {string} */
             visibility?: "public" | "private";
+        };
+        Placement: {
+            /**
+             * Format: double
+             * @description 1 fits the image to the screen's width without overflowing its height
+             */
+            scale: number;
+            /**
+             * Format: double
+             * @description shift right in the image's own pixels
+             */
+            x: number;
+            /**
+             * Format: double
+             * @description shift down in the image's own pixels
+             */
+            y: number;
         };
         ProcessLoad: {
             /**
@@ -2310,6 +2372,81 @@ export interface components {
             expiresAt: string;
             /** @description shown only once */
             link: string;
+        };
+        Rect: {
+            /** Format: double */
+            h: number;
+            /** Format: double */
+            w: number;
+            /**
+             * Format: double
+             * @description left edge as a fraction of the image width
+             */
+            x: number;
+            /**
+             * Format: double
+             * @description top edge as a fraction of the image height
+             */
+            y: number;
+        };
+        ReferenceList: {
+            enabled: boolean;
+            items: components["schemas"]["ReferenceView"][];
+            /**
+             * Format: int64
+             * @description seconds a reference is kept after it was last opened, 0 for no limit
+             */
+            maxAge: number;
+            /**
+             * Format: int64
+             * @description bytes
+             */
+            maxFileSize: number;
+            /**
+             * Format: int64
+             * @description bytes a user's references may take, 0 for no limit
+             */
+            quota: number;
+            /**
+             * Format: int64
+             * @description bytes the caller's references take
+             */
+            used: number;
+        };
+        ReferenceUpdateInputBody: {
+            ignore: components["schemas"]["Rect"][];
+            name: string;
+            placement: components["schemas"]["Placement"];
+        };
+        ReferenceView: {
+            contentType: string;
+            /** Format: date-time */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @description deleted then unless it is opened again
+             */
+            expiresAt?: string;
+            /** Format: int64 */
+            height: number;
+            id: string;
+            /** @description areas the comparison skips, such as a video under the interface */
+            ignore: components["schemas"]["Rect"][];
+            /** @description opening it counts as a use; add ?preview for a thumbnail that doesn't */
+            imageUrl: string;
+            /** Format: date-time */
+            lastUsedAt: string;
+            name: string;
+            /** @description the app it was added for */
+            package?: string;
+            placement: components["schemas"]["Placement"];
+            /**
+             * Format: int64
+             * @description bytes
+             */
+            size: number;
+            /** Format: int64 */
+            width: number;
         };
         Refresh: {
             /** @description the key the refresh token was issued for */
@@ -4091,6 +4228,137 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Identity"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    listReferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferenceList"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    uploadReference: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                    name?: string;
+                    package?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferenceView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    updateReference: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReferenceUpdateInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferenceView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    deleteReference: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {
