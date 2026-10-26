@@ -851,4 +851,13 @@ func TestDevToolsFrontendWarmedForTaggedBuilds(t *testing.T) {
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
+	for {
+		if _, err := h.srv.store.Stat(context.Background(), "devtools-frontend/@0123456789abcdef0123456789abcdef01234567.tar.gz"); err == nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the crawled frontend was not archived in the api's storage")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 }

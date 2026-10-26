@@ -116,9 +116,6 @@ func New(ctx context.Context, cfg Config, opts ...Option) (*Server, error) {
 	if s.secrets == nil {
 		s.secrets = secrets.NewRegistry()
 	}
-	if cfg.DevToolsFrontend != "" {
-		s.frontend = frontend.New(cfg.DevToolsFrontend, filepath.Join(s.tmpDir, "holtdroid", "devtools-frontend"), s.store, s.log)
-	}
 	for _, sc := range cfg.Sources {
 		store, err := storage.New(ctx, sc.Storage(), s.secrets)
 		if err != nil {
@@ -201,6 +198,9 @@ func New(ctx context.Context, cfg Config, opts ...Option) (*Server, error) {
 	s.auth.OnSignIn = s.signedIn
 	s.activity = newActivity(s.now)
 	s.cache = NewCache(s.store, int64(cfg.Cache.MaxSize), s.openArtifact, s.openIcon)
+	if cfg.DevToolsFrontend != "" {
+		s.frontend = frontend.New(cfg.DevToolsFrontend, filepath.Join(s.tmpDir, "holtdroid", "devtools-frontend"), s.store, s.log)
+	}
 	return s, nil
 }
 
