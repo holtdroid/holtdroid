@@ -2580,6 +2580,8 @@ export interface components {
             lastActivity: string;
             location?: string;
             owner: string;
+            /** @description the owner's name in the users sign-in mode */
+            ownerName?: string;
             package: string;
             provider: string;
             reason?: string;

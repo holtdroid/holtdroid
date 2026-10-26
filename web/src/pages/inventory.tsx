@@ -220,7 +220,7 @@ function DeviceCard({
           </Link>
           {session && (
             <span className="text-muted-foreground min-w-0 truncate">
-              {session.label || session.package} · {session.owner}
+              {session.label || session.package} · {session.ownerName || session.owner}
             </span>
           )}
         </div>

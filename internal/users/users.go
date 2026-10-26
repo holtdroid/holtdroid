@@ -172,6 +172,14 @@ func (s *Service) Limits(ctx context.Context, id string) (auth.Limits, Overrides
 	return s.cfg.Limits[u.Role], fromRow(u, 0).Limits, true
 }
 
+func (s *Service) Name(ctx context.Context, id string) string {
+	u, err := s.db.GetUser(ctx, id)
+	if err != nil {
+		return ""
+	}
+	return u.Name
+}
+
 func (s *Service) checkEmail(raw string, inviteDomains []string) (string, error) {
 	addr, err := mail.ParseAddress(strings.TrimSpace(raw))
 	if err != nil || addr.Name != "" || !strings.Contains(addr.Address, "@") {

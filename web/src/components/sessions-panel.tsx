@@ -151,7 +151,7 @@ function SessionCard({ session: s, now }: { session: SessionView; now: number })
                 picture={me.data?.user === s.owner ? me.data.picture : undefined}
                 className="size-4"
               />
-              {s.owner}
+              {s.ownerName || s.owner}
             </span>
             <span>{s.slot}</span>
             <span>up {formatDuration(uptime)}</span>

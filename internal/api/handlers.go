@@ -37,6 +37,7 @@ type SessionView struct {
 	ID           string                     `json:"id"`
 	Slot         string                     `json:"slot"`
 	Owner        string                     `json:"owner"`
+	OwnerName    string                     `json:"ownerName,omitempty" doc:"the owner's name in the users sign-in mode"`
 	Package      string                     `json:"package"`
 	Source       string                     `json:"source"`
 	ArtifactID   string                     `json:"artifactId"`
@@ -397,6 +398,9 @@ func (s *Server) view(ctx context.Context, provider string, sess contract.Sessio
 		IdleDeadline: last.Add(s.cfg.Sessions.IdleTimeout),
 		TTLDeadline:  sess.CreatedAt.Add(s.limits(ctx, sess.Owner).MaxSessionTTL),
 		Capabilities: sess.Capabilities,
+	}
+	if s.users != nil && sess.Owner != "" {
+		v.OwnerName = s.users.Name(ctx, sess.Owner)
 	}
 	if e, ok := s.cache.Lookup(ctx, srcName, key, rev); ok {
 		v.Label = e.Meta.Label
