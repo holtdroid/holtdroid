@@ -111,7 +111,7 @@ func (r *Redroid) prepare(ctx context.Context) error {
 	if err := r.waitRoute(ctx); err != nil {
 		return fmt.Errorf("vpn routes: %w", err)
 	}
-	if c := r.cfg.Cutout; c != "" && c != "none" {
+	if c := r.cfg.Cutout; c != "" && c != "none" && !r.cutoutCrashesSystemUI(ctx, c) {
 		if _, err := r.adb.Shell(ctx, "cmd overlay enable --user 0 com.android.internal.display.cutout.emulation."+c); err != nil {
 			r.log.Warn("could not enable the display cutout", "cutout", c, "err", err)
 		}
@@ -140,6 +140,21 @@ func (r *Redroid) prepare(ctx context.Context) error {
 		case <-time.After(500 * time.Millisecond):
 		}
 	}
+}
+
+// cutoutCrashesSystemUI: on Android 12 the corner, hole and tall emulations
+// crash SystemUI's ScreenDecorations in a loop (a null bottomLeft rounded
+// corner), which leaves the screen black.
+func (r *Redroid) cutoutCrashesSystemUI(ctx context.Context, cutout string) bool {
+	if cutout != "corner" && cutout != "hole" && cutout != "tall" {
+		return false
+	}
+	out, err := r.adb.Shell(ctx, "getprop ro.build.version.sdk")
+	if err != nil || strings.TrimSpace(out) != "31" {
+		return false
+	}
+	r.log.Warn("display cutout not emulated on Android 12", "cutout", cutout)
+	return true
 }
 
 // waitRoute retries route until the sidecar has created its tun: the

@@ -244,6 +244,9 @@ Android in redroid runs on the node's kernel and its clock is the node's: a
 session can change its time zone but not its time, and the date and time
 card says so.
 
+Android 12 doesn't get the `corner`, `hole` and `tall` cutouts emulated:
+they crash its SystemUI. The portal still draws them on the phone frame.
+
 redroid builds Android with the lock screen off. Locking the screen from
 the power key turns it on: an overlay on Android 12 and later (swipe up to
 unlock), a temporary PIN `0000` on Android 11, which **Wake and unlock**

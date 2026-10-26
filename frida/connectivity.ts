@@ -97,9 +97,11 @@ function offline(cm: Java.Wrapper): boolean {
 // through untouched.
 function relabel() {
   const NC = Java.use("android.net.NetworkCapabilities")
+  // The real transports, read from the field: the methods are hooked.
+  const has = (caps: Java.Wrapper, t: number) => (Number(caps.mTransportTypes.value) & (1 << t)) !== 0
   const shownAs = (caps: Java.Wrapper): number | null => {
-    if (caps.hasTransport(TRANSPORT_VPN)) return TRANSPORT_WIFI
-    if (caps.hasTransport(TRANSPORT_ETHERNET)) return radio() === "mobile" ? TRANSPORT_CELLULAR : TRANSPORT_WIFI
+    if (has(caps, TRANSPORT_VPN)) return TRANSPORT_WIFI
+    if (has(caps, TRANSPORT_ETHERNET)) return radio() === "mobile" ? TRANSPORT_CELLULAR : TRANSPORT_WIFI
     return null
   }
   tryHook("hasTransport", () => {
@@ -134,18 +136,18 @@ function relabel() {
   })
   tryHook("getTypeName", () => {
     NI.getTypeName.implementation = function () {
-      const t = typeOf(this.getType())
+      const t = typeOf(this.mNetworkType.value)
       return t === TYPE_MOBILE ? "MOBILE" : t === TYPE_WIFI ? "WIFI" : this.getTypeName()
     }
   })
   tryHook("getSubtype", () => {
     NI.getSubtype.implementation = function () {
-      return this.getType() === TYPE_ETHERNET && radio() === "mobile" ? NETWORK_TYPE_LTE : this.getSubtype()
+      return this.mNetworkType.value === TYPE_ETHERNET && radio() === "mobile" ? NETWORK_TYPE_LTE : this.getSubtype()
     }
   })
   tryHook("getSubtypeName", () => {
     NI.getSubtypeName.implementation = function () {
-      return this.getType() === TYPE_ETHERNET && radio() === "mobile" ? "LTE" : this.getSubtypeName()
+      return this.mNetworkType.value === TYPE_ETHERNET && radio() === "mobile" ? "LTE" : this.getSubtypeName()
     }
   })
 }

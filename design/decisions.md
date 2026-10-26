@@ -3053,6 +3053,11 @@ app-op) and on Android 11 (`cmd location` has no providers command).
   `images/session/Geo.java` (in the dex of decision #59, now `tools.dex`)
   calls `ILocationManager`'s test-provider methods as the shell uid.
 
+- Android 12's SystemUI crashes in a loop (ScreenDecorations, a null
+  rounded corner) with the `corner`, `hole` and `tall` cutout emulations,
+  which left the screen black: the agent doesn't enable them on Android 12;
+  the portal still draws the cutout on its frame.
+
 **Consequences.** The status bar and quick settings of redroid still show
 Ethernet; only the app under test sees Wi-Fi or mobile data. The
 app-level view of the network is as good as the Frida hooks

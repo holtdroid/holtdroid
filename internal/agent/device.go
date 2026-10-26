@@ -242,7 +242,8 @@ func parseKV(out string) map[string]string {
 
 const brightnessRangeScript = `echo "sdk=$(getprop ro.build.version.sdk)"
 dumpsys display | grep -o -m1 'mCachedBrightnessInfo.brightnessMin=[0-9.]*'
-dumpsys power | grep -o -m1 'mScreenBrightnessSettingMinimumFloat=[0-9.]*'`
+dumpsys power | grep -o -m1 'mScreenBrightnessSettingMinimumFloat=[0-9.]*'
+true`
 
 // brightnessMin is the lowest brightness the shade's slider goes down to:
 // the display's current minimum since Android 12, the settings minimum
@@ -869,7 +870,8 @@ if cmd overlay list android | grep -q holtdroid_lock || cmd overlay fabricate --
 else
   locksettings set-pin ` + lockPINCode + ` >/dev/null 2>&1; echo pin
 fi
-input keyevent KEYCODE_SLEEP && sleep 1 && input keyevent KEYCODE_WAKEUP`
+input keyevent KEYCODE_SLEEP && sleep 1 && input keyevent KEYCODE_WAKEUP
+for i in 1 2 3; do sleep 1; dumpsys power | grep -q mWakefulness=Awake && break; input keyevent KEYCODE_WAKEUP; done; true`
 	unlockPINScript = `input keyevent KEYCODE_WAKEUP && wm dismiss-keyguard && sleep 1
 if dumpsys window | grep -q isKeyguardShowing=true; then input text ` + lockPINCode + ` && input keyevent KEYCODE_ENTER && sleep 1; fi
 locksettings clear --old ` + lockPINCode + ` >/dev/null 2>&1; true`
