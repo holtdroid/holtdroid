@@ -33,6 +33,20 @@ type Invite struct {
 	Token     *string
 }
 
+type NetworkBackend struct {
+	Owner     string
+	Package   string
+	Backends  string
+	UpdatedAt time.Time
+}
+
+type NetworkRoute struct {
+	Provider   string
+	Location   string
+	Route      string
+	MeasuredAt time.Time
+}
+
 type Passkey struct {
 	ID         []byte
 	UserID     string

@@ -311,6 +311,38 @@ func (q *Queries) GetInviteByHash(ctx context.Context, tokenHash []byte) (Invite
 	return i, err
 }
 
+const getNetworkBackends = `-- name: GetNetworkBackends :one
+SELECT backends FROM network_backends WHERE owner = ? AND package = ?
+`
+
+type GetNetworkBackendsParams struct {
+	Owner   string
+	Package string
+}
+
+func (q *Queries) GetNetworkBackends(ctx context.Context, arg GetNetworkBackendsParams) (string, error) {
+	row := q.db.QueryRowContext(ctx, getNetworkBackends, arg.Owner, arg.Package)
+	var backends string
+	err := row.Scan(&backends)
+	return backends, err
+}
+
+const getNetworkRoute = `-- name: GetNetworkRoute :one
+SELECT route FROM network_routes WHERE provider = ? AND location = ?
+`
+
+type GetNetworkRouteParams struct {
+	Provider string
+	Location string
+}
+
+func (q *Queries) GetNetworkRoute(ctx context.Context, arg GetNetworkRouteParams) (string, error) {
+	row := q.db.QueryRowContext(ctx, getNetworkRoute, arg.Provider, arg.Location)
+	var route string
+	err := row.Scan(&route)
+	return route, err
+}
+
 const getPasskey = `-- name: GetPasskey :one
 SELECT id, user_id, name, credential, created_at, last_used_at FROM passkeys WHERE id = ?
 `
@@ -613,6 +645,51 @@ func (q *Queries) ListUsers(ctx context.Context) ([]ListUsersRow, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const putNetworkBackends = `-- name: PutNetworkBackends :exec
+INSERT INTO network_backends (owner, package, backends, updated_at) VALUES (?, ?, ?, ?)
+ON CONFLICT (owner, package) DO UPDATE SET backends = excluded.backends, updated_at = excluded.updated_at
+`
+
+type PutNetworkBackendsParams struct {
+	Owner     string
+	Package   string
+	Backends  string
+	UpdatedAt time.Time
+}
+
+func (q *Queries) PutNetworkBackends(ctx context.Context, arg PutNetworkBackendsParams) error {
+	_, err := q.db.ExecContext(ctx, putNetworkBackends,
+		arg.Owner,
+		arg.Package,
+		arg.Backends,
+		arg.UpdatedAt,
+	)
+	return err
+}
+
+const putNetworkRoute = `-- name: PutNetworkRoute :exec
+INSERT INTO network_routes (provider, location, route, measured_at) VALUES (?, ?, ?, ?)
+ON CONFLICT (provider, location) DO UPDATE SET route = excluded.route, measured_at = excluded.measured_at
+WHERE excluded.measured_at > network_routes.measured_at
+`
+
+type PutNetworkRouteParams struct {
+	Provider   string
+	Location   string
+	Route      string
+	MeasuredAt time.Time
+}
+
+func (q *Queries) PutNetworkRoute(ctx context.Context, arg PutNetworkRouteParams) error {
+	_, err := q.db.ExecContext(ctx, putNetworkRoute,
+		arg.Provider,
+		arg.Location,
+		arg.Route,
+		arg.MeasuredAt,
+	)
+	return err
 }
 
 const renamePasskey = `-- name: RenamePasskey :execrows

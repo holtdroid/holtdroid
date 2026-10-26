@@ -5,6 +5,7 @@ package agent
 import (
 	"cmp"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -47,6 +48,8 @@ type Config struct {
 	ClashAPI     string
 	IPInfoURL    string
 	IPInfoProxy  string
+	// NetworkRoute is the route last measured through Location, as JSON.
+	NetworkRoute string
 	ChromiumDash string
 	CacheDir     string
 	Redroid      redroid.Config
@@ -225,7 +228,12 @@ func newControls(cfg Config, dev Device, log *slog.Logger) *Controls {
 	c.usbNetwork = cfg.USBNetwork
 	c.redroid = cfg.Root && !cfg.RootShell
 	if cfg.Redroid.VPN {
-		c.shaper = netem.NewShaper(vpn.TunInterface, vpn.TunNetwork, cfg.IPInfoProxy, log)
+		s := netem.NewShaper(vpn.TunInterface, vpn.TunNetwork, cfg.IPInfoProxy, log)
+		var route contract.NetworkRoute
+		if err := json.Unmarshal([]byte(cfg.NetworkRoute), &route); cfg.NetworkRoute != "" && err == nil {
+			s.Seed(route)
+		}
+		c.shaper = s
 	}
 	if cfg.AppLanguage && packageName.MatchString(cfg.Package) {
 		c.appLocales = cfg.Package
@@ -260,6 +268,7 @@ func (a *Agent) Run(parent context.Context) {
 	a.recMu.Lock()
 	a.recCtx = ctx
 	a.recMu.Unlock()
+	go a.controls.watchNetwork(ctx)
 	if a.resolver != nil {
 		go func() {
 			if err := a.resolver.ListenAndServe(ctx, vpn.DNSForwarder); err != nil {
@@ -798,7 +807,9 @@ func (a *Agent) WatchClipboard(ctx context.Context, send func(contract.Clipboard
 }
 
 func (a *Agent) Network(ctx context.Context) (contract.Network, error) {
-	return a.network.Get(ctx)
+	n, err := a.network.Get(ctx)
+	n.Route = a.controls.networkRoute()
+	return n, err
 }
 
 func (a *Agent) SetLocation(ctx context.Context, location string) (contract.Network, error) {

@@ -2,6 +2,7 @@ package emulator
 
 import (
 	"cmp"
+	"encoding/json"
 	"fmt"
 	"maps"
 	"net"
@@ -167,6 +168,9 @@ func (p *Provider) renderPod(id, slot, node string, req contract.CreateSession, 
 			corev1.EnvVar{Name: "HOLTDROID_REDROID__BYPASS", Value: strings.Join(p.cfg.VPN.BypassCIDRs, ",")},
 		)
 		env = append(env, geoEnv(p.cfg.VPN)...)
+		if r, err := json.Marshal(req.Route); req.Route != nil && err == nil {
+			env = append(env, corev1.EnvVar{Name: "HOLTDROID_NETWORKROUTE", Value: string(r)})
+		}
 		volumes = append(volumes,
 			corev1.Volume{Name: "tun", HostPath: &corev1.HostPathVolumeSource{Path: "/dev/net/tun", Type: new(corev1.HostPathCharDev)}},
 			corev1.Volume{Name: "vpn-config", Secret: &corev1.SecretVolumeSource{SecretName: name}},

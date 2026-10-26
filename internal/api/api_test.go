@@ -910,3 +910,60 @@ func TestDevToolsFrontendsAdmin(t *testing.T) {
 		t.Fatal("delete was not audited")
 	}
 }
+
+func TestNetworkRoutes(t *testing.T) {
+	h := newHarness(t, 2, func(c *fake.Config) { c.StepDelay = time.Millisecond })
+	ctx := t.Context()
+	first := h.create("otter")
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		sess, err := h.provider.Get(ctx, first.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if sess.State == contract.StateReady {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("session stuck in %s", sess.State)
+		}
+		time.Sleep(time.Millisecond)
+	}
+	measured := decode[contract.Network](t, h.do(http.MethodGet, "/s/fake/"+first.ID+"/v1/network", "otter", "", nil)).Route
+	if measured == nil || measured.At.IsZero() {
+		t.Fatalf("first session's route %+v", measured)
+	}
+	h.srv.collectRoutes(ctx)
+
+	second := h.create("otter")
+	got := decode[contract.Network](t, h.do(http.MethodGet, "/s/fake/"+second.ID+"/v1/network", "otter", "", nil)).Route
+	if got == nil || !got.At.Equal(measured.At) || got.Edge != measured.Edge {
+		t.Errorf("second session started from %+v, want %+v", got, measured)
+	}
+}
+
+func TestNetworkBackends(t *testing.T) {
+	h := newHarness(t, 1)
+	path := "/api/v1/network-backends/com.example.shop"
+	if nb := decode[NetworkBackends](t, h.do(http.MethodGet, path, "otter", "", nil)); nb.Persistent || len(nb.Backends) != 0 {
+		t.Fatalf("in memory: %+v", nb)
+	}
+	if rec := h.do(http.MethodPut, path, "otter", "", map[string]any{"backends": []string{"api.example.com"}}); rec.Code != http.StatusConflict {
+		t.Fatalf("put in memory: %d", rec.Code)
+	}
+
+	h.srv.cfg.Database.Type = "sqlite"
+	rec := h.do(http.MethodPut, path, "otter", "", map[string]any{"backends": []string{"API.example.com", "*.example.com", "api.example.com"}})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("put: %d %s", rec.Code, rec.Body.String())
+	}
+	if nb := decode[NetworkBackends](t, h.do(http.MethodGet, path, "otter", "", nil)); !nb.Persistent || strings.Join(nb.Backends, ",") != "api.example.com,*.example.com" {
+		t.Errorf("saved %+v", nb)
+	}
+	if nb := decode[NetworkBackends](t, h.do(http.MethodGet, path, "beaver", "", nil)); len(nb.Backends) != 0 {
+		t.Errorf("another user sees %+v", nb)
+	}
+	if rec := h.do(http.MethodPut, path, "otter", "", map[string]any{"backends": []string{"https://x"}}); rec.Code != http.StatusUnprocessableEntity {
+		t.Errorf("invalid backend: %d", rec.Code)
+	}
+}

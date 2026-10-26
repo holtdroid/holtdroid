@@ -107,3 +107,18 @@ WHERE id = ? AND owner = ?;
 
 -- name: DeleteDNSPreset :execrows
 DELETE FROM dns_presets WHERE id = ? AND owner = ?;
+
+-- name: GetNetworkRoute :one
+SELECT route FROM network_routes WHERE provider = ? AND location = ?;
+
+-- name: PutNetworkRoute :exec
+INSERT INTO network_routes (provider, location, route, measured_at) VALUES (?, ?, ?, ?)
+ON CONFLICT (provider, location) DO UPDATE SET route = excluded.route, measured_at = excluded.measured_at
+WHERE excluded.measured_at > network_routes.measured_at;
+
+-- name: GetNetworkBackends :one
+SELECT backends FROM network_backends WHERE owner = ? AND package = ?;
+
+-- name: PutNetworkBackends :exec
+INSERT INTO network_backends (owner, package, backends, updated_at) VALUES (?, ?, ?, ?)
+ON CONFLICT (owner, package) DO UPDATE SET backends = excluded.backends, updated_at = excluded.updated_at;

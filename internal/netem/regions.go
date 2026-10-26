@@ -179,19 +179,28 @@ func parseChoice(in contract.NetworkRegionSettings) (*choice, error) {
 			return nil, fmt.Errorf("%w: unknown server location %q", contract.ErrInvalid, in.Server)
 		}
 	}
-	c := &choice{region: r, server: srv}
-	for _, b := range in.Backends {
+	backends, err := CleanBackends(in.Backends)
+	if err != nil {
+		return nil, err
+	}
+	return &choice{region: r, server: srv, backends: backends}, nil
+}
+
+// CleanBackends normalizes a region's backends, dropping repeats.
+func CleanBackends(in []string) ([]string, error) {
+	var out []string
+	for _, b := range in {
 		b = normalize(b)
 		if a, err := netip.ParseAddr(b); err == nil && a.Is4() {
 			b = a.String()
 		} else if h := strings.TrimPrefix(b, "*."); !hostName.MatchString(h) || len(h) > 253 {
 			return nil, fmt.Errorf("%w: backend %q is not a host name, *.name or IPv4 address", contract.ErrInvalid, b)
 		}
-		if !slices.Contains(c.backends, b) {
-			c.backends = append(c.backends, b)
+		if !slices.Contains(out, b) {
+			out = append(out, b)
 		}
 	}
-	return c, nil
+	return out, nil
 }
 
 func normalize(name string) string {
@@ -241,12 +250,9 @@ func RegionState(in contract.NetworkRegionSettings, route *contract.NetworkRoute
 	if c == nil || err != nil {
 		return nil, err
 	}
-	m := measured{servers: map[string]time.Duration{}}
+	m := measured{}
 	if route != nil {
-		m.edge = time.Duration(route.Edge) * time.Millisecond
-		for _, s := range route.Servers {
-			m.servers[s.Server] = time.Duration(s.RTT) * time.Millisecond
-		}
+		m = seed(*route)
 	}
 	return c.state(m, nil), nil
 }

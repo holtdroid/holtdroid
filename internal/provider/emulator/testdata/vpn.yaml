@@ -105,6 +105,8 @@ spec:
       value: "21.0122"
     - name: HOLTDROID_GEO__PL__RADIUS
       value: "5000"
+    - name: HOLTDROID_NETWORKROUTE
+      value: '{"edge":7,"servers":[{"server":"frankfurt","rtt":33}],"down":85000,"at":"2026-10-17T12:00:00Z"}'
     image: ghcr.io/holtdroid/holtdroid-session:0123abc
     imagePullPolicy: IfNotPresent
     name: agent

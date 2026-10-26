@@ -776,6 +776,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/network-backends/{package}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The caller's backends for an app's network regions; empty unless the database is persistent. */
+        get: operations["getNetworkBackends"];
+        /** @description Saves the caller's backends for an app; 409 while the database is in memory. */
+        put: operations["putNetworkBackends"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/pixel-perfect": {
         parameters: {
             query?: never;
@@ -2522,6 +2540,16 @@ export interface components {
             country?: string;
             externalIp?: string;
             location: string;
+            /** @description the route through the location as last measured; empty on devices that don't measure it */
+            route?: components["schemas"]["NetworkRoute"];
+        };
+        NetworkBackends: {
+            backends: string[];
+            /** @description the database keeps them across restarts; when false the UI keeps them in the browser instead */
+            persistent: boolean;
+        };
+        NetworkBackendsPutBody: {
+            backends: string[];
         };
         NetworkLink: {
             /**
@@ -2631,10 +2659,20 @@ export interface components {
         };
         NetworkRoute: {
             /**
+             * Format: date-time
+             * @description when the round trips were measured
+             */
+            at: string;
+            /**
              * Format: int64
              * @description download kbit/s the route carried in a test; empty when it couldn't be measured
              */
             down?: number;
+            /**
+             * Format: date-time
+             * @description when the bandwidth was measured
+             */
+            downAt?: string;
             /**
              * Format: int64
              * @description round trip to the nearest Cloudflare edge, ms; empty when it couldn't be measured
@@ -5138,6 +5176,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Identity"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getNetworkBackends: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                package: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NetworkBackends"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    putNetworkBackends: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                package: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NetworkBackendsPutBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NetworkBackends"];
                 };
             };
             /** @description Error */

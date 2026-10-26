@@ -69,7 +69,10 @@ func (d *device) UpdateDevice(_ context.Context, in contract.DeviceSettings) (co
 	var region *contract.NetworkRegionState
 	if in.NetworkRegion != nil {
 		var err error
-		if region, err = netem.RegionState(*in.NetworkRegion, &fakeRoute); err != nil {
+		d.mu.Lock()
+		route := d.settings.NetworkRoute
+		d.mu.Unlock()
+		if region, err = netem.RegionState(*in.NetworkRegion, route); err != nil {
 			return contract.DeviceState{}, err
 		}
 	}
@@ -236,4 +239,18 @@ var fakeRoute = contract.NetworkRoute{
 		{Server: "singapore", RTT: 180},
 		{Server: "tokyo", RTT: 240},
 	},
+}
+
+// seedRoute starts from the route an earlier session measured, or the
+// simulated one measured now.
+func (d *device) seedRoute(r *contract.NetworkRoute) {
+	route := fakeRoute
+	if r != nil {
+		route = *r
+	} else {
+		route.At, route.DownAt = d.now().UTC(), d.now().UTC()
+	}
+	d.mu.Lock()
+	d.settings.NetworkRoute = &route
+	d.mu.Unlock()
 }

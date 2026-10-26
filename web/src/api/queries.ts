@@ -171,6 +171,23 @@ export function useUpdateApp() {
   })
 }
 
+export function useNetworkBackends(pkg: string) {
+  return useQuery({
+    queryKey: ["network-backends", pkg],
+    queryFn: () => unwrap(api.GET("/api/v1/network-backends/{package}", { params: { path: { package: pkg } } })),
+    staleTime: Infinity,
+  })
+}
+
+export function useSaveNetworkBackends(pkg: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (backends: string[]) =>
+      unwrap(api.PUT("/api/v1/network-backends/{package}", { params: { path: { package: pkg } }, body: { backends } })),
+    onSuccess: (nb) => qc.setQueryData(["network-backends", pkg], nb),
+  })
+}
+
 export function useProviders() {
   return useQuery({
     queryKey: keys.providers,

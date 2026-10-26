@@ -376,6 +376,12 @@ func (a *AgentClient) Tunnels(ctx context.Context) (Tunnels, error) {
 	return t, err
 }
 
+func (a *AgentClient) Network(ctx context.Context) (Network, error) {
+	var n Network
+	err := a.c.do(ctx, http.MethodGet, "/v1/network", nil, &n)
+	return n, err
+}
+
 func (a *AgentClient) Status(ctx context.Context) (StatusEvent, error) {
 	var s StatusEvent
 	err := a.c.do(ctx, http.MethodGet, "/v1/state", nil, &s)

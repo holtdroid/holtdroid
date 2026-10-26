@@ -244,6 +244,7 @@ func (s *Server) register(api huma.API) {
 	s.registerDevToolsFrontends(api)
 	s.registerMap(api)
 	s.registerDNSPresets(api)
+	s.registerNetwork(api)
 }
 
 var errForbidden = errors.New("only the owner or an admin can do this")
@@ -507,6 +508,7 @@ func (s *Server) createSession(ctx context.Context, who auth.Identity, req launc
 			WebView:     webview,
 			Frontend:    validFrontend(artifact.Meta.Tags["frontend"]),
 			Recording:   recTarget,
+			Route:       s.cachedRoute(ctx, target.provider, req.location),
 		})
 		return err
 	})

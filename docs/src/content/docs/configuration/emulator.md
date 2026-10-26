@@ -459,8 +459,10 @@ Backends are host names, `*.example.com` for every name below it, or IPv4
 addresses. The agent answers the device's DNS, so it takes the addresses
 the device gets when it looks a backend up, and shapes them about a second
 later; exact names are also resolved up front. The tab lists the addresses
-found so far. The list is saved for the app in the browser and filled in
-when a region is picked in its next session. A CDN often puts many of its
+found so far. The list is saved per user and app, in the database when it
+is [persistent](/holtdroid/configuration/database/) (`sqlite`) and in the
+browser otherwise, and filled in when a region is picked in the app's next
+session. A CDN often puts many of its
 customers' hosts on the same addresses, and those take the servers' path
 too once one of them is a backend.
 
@@ -471,10 +473,15 @@ VPN location, so the agent measures that route all the time, through the
 VPN sidecar (the shaping doesn't touch it): the round trip to Cloudflare's
 nearest edge (`https://1.1.1.1/cdn-cgi/trace`) and to each server location
 (AWS's regional DynamoDB endpoints), the quickest of three requests on a
-kept-alive connection, every minute; and the bandwidth, a 10 MB download
-from `speed.cloudflare.com` cut off after 10 seconds, when the session
-starts and after each location change. The Network tab shows the route at
-the top, and marks what it spoils:
+kept-alive connection, from the moment the agent starts (while Android
+still boots) and every minute; then the bandwidth, a 10 MB download from
+`speed.cloudflare.com` cut off after 10 seconds, after each location change
+and whenever the last test is over six hours old. Every 5 minutes the api
+keeps the route of each ready session per VPN location, and a new session
+starts from the last one measured through its location: the tab shows it
+right away (with its age), a region subtracts it from the first second, and
+a bandwidth test younger than six hours isn't repeated. The Network tab
+shows the route at the top, and marks what it spoils:
 
 - a network whose own round trip is shorter than the route's (5G or good
   4G behind a far VPN location): the route already takes longer than the

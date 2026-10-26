@@ -4098,3 +4098,30 @@ the region's lifetime, not expired with the DNS TTL. A backend the app
 reaches without DNS (a hard-coded IP, DNS over HTTPS) is matched only when
 listed by address. The list follows the browser, not the account.
 
+## 136. New sessions start from the last route measured through their location
+
+**Context.** With decision #134 the Network tab said "Measuring…" for the
+first 10–20 seconds after a session became ready, a region was applied
+without subtracting the route until then, and every session downloaded
+10 MB to measure a bandwidth that hardly changes. Region backends were kept
+only in the browser (decision #135).
+
+**Decision.** The agent measures the route from its start, while Android
+boots, and publishes the round trips before the bandwidth test. Every
+5 minutes the api asks ready sessions' agents for their route
+(`GET /v1/network` now carries it) and keeps the newest per provider and
+location in its database. Creating a session passes the cached route in
+`CreateSession.route`; the emulator provider hands it to the agent, which
+starts from it and skips the bandwidth test while the cached one is younger
+than six hours. Region backends are kept per user and app in the database
+when it is `sqlite` (`/api/v1/network-backends/{package}`) and in
+`localStorage` when it is `memory`, where they would be lost on the next
+restart.
+
+**Consequences.** The route cache is a cache: with `memory` it is gone
+after a restart and the next session measures from scratch, so no feature
+depends on it. A cached route can be up to 5 minutes plus its age old; the
+agent replaces the round trips within seconds. Phones measure no route, so
+they neither feed nor use the cache. Backends follow the account with
+`sqlite` and the browser with `memory`.
+

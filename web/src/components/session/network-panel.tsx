@@ -10,11 +10,13 @@ import type {
   NetworkRoute,
   NetworkServerInfo,
 } from "@/api/client"
+import { useNetworkBackends, useSaveNetworkBackends } from "@/api/queries"
 import { useDevice, useUpdateDevice } from "@/components/session/use-device"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
+import { useNow } from "@/hooks/use-now"
 import { countryFlag } from "@/lib/format"
 import { lastBackends, rememberBackends } from "@/lib/launch-prefs"
 import { cn } from "@/lib/utils"
@@ -25,6 +27,8 @@ const noRegion = "none"
 export function NetworkPanel({ provider, id, pkg }: { provider: string; id: string; pkg: string }) {
   const device = useDevice(provider, id)
   const update = useUpdateDevice(provider, id)
+  const saved = useNetworkBackends(pkg)
+  const save = useSaveNetworkBackends(pkg)
   const s = device.data
   if (!s?.networkProfiles) {
     return (
@@ -43,7 +47,7 @@ export function NetworkPanel({ provider, id, pkg }: { provider: string; id: stri
       networkRegion: {
         region: region?.region ?? "",
         server: region?.server,
-        backends: region ? region.backends : lastBackends(pkg),
+        backends: region ? region.backends : saved.data?.persistent ? saved.data.backends : lastBackends(pkg),
         ...patch,
       },
     })
@@ -141,8 +145,10 @@ export function NetworkPanel({ provider, id, pkg }: { provider: string; id: stri
                   backends={region.backends ?? []}
                   addresses={region.addresses ?? []}
                   busy={busy}
+                  persistent={!!saved.data?.persistent}
                   onSave={(backends) => {
-                    rememberBackends(pkg, backends)
+                    if (saved.data?.persistent) save.mutate(backends)
+                    else rememberBackends(pkg, backends)
                     setRegion({ backends })
                   }}
                 />
@@ -170,15 +176,28 @@ export function summary(s: DeviceState, info?: NetworkRegionInfo) {
   return info ? `${countryFlag(info.country)} ${info.name} · ${link}` : link
 }
 
+function ago(now: number, at?: string) {
+  if (!at) return ""
+  const min = Math.round((now - Date.parse(at)) / 60_000)
+  if (min < 2) return ""
+  return min < 120 ? `${min} min ago` : `${Math.round(min / 60)} h ago`
+}
+
 function Route({ route, servers }: { route?: NetworkRoute; servers: NetworkServerInfo[] }) {
+  const now = useNow(30_000)
   const name = (id: string) => servers.find((x) => x.id === id)?.name ?? id
+  const rttAge = ago(now, route?.at)
+  const downAge = ago(now, route?.downAt)
   return (
     <section className="bg-muted/40 grid gap-1 rounded-lg border px-3 py-2 text-xs">
       <span className="font-medium">The session&apos;s own route, through its VPN location</span>
       {route ? (
         <>
           <span className="font-mono">
-            {[route.edge && `CDN edge ${route.edge} ms`, route.down && `↓ ${bandwidth(route.down)}`]
+            {[
+              route.edge && `CDN edge ${route.edge} ms${rttAge && ` (${rttAge})`}`,
+              route.down && `↓ ${bandwidth(route.down)}${downAge && ` (${downAge})`}`,
+            ]
               .filter(Boolean)
               .join(" · ") || "CDN edge and bandwidth not measured"}
           </span>
@@ -189,7 +208,9 @@ function Route({ route, servers }: { route?: NetworkRoute; servers: NetworkServe
           )}
           <span className="text-muted-foreground">
             Every emulated network comes on top of it: a profile adds its delay to these, and can&apos;t get faster than
-            the route&apos;s bandwidth. Measured every minute, the bandwidth after a location change.
+            the route&apos;s bandwidth. Round trips are measured every minute; the bandwidth after a location change or
+            when the last test is over six hours old. A new session starts from the last route measured through its
+            location.
           </span>
         </>
       ) : (
@@ -301,11 +322,13 @@ function Paths({
 function Backends({
   backends,
   addresses,
+  persistent,
   busy,
   onSave,
 }: {
   backends: string[]
   addresses: string[]
+  persistent: boolean
   busy: boolean
   onSave: (backends: string[]) => void
 }) {
@@ -319,7 +342,7 @@ function Backends({
     <div className="grid gap-1.5">
       <Heading
         title="Backends behind a CDN"
-        note="Host names, or *.example.com for every name below it, whose traffic goes through to your servers even though a CDN fronts them, such as an API on Cloudflare. They are matched by the addresses the device gets when it looks them up; other hosts on the same CDN addresses take the servers' path too. Saved for this app in this browser."
+        note={`Host names, or *.example.com for every name below it, whose traffic goes through to your servers even though a CDN fronts them, such as an API on Cloudflare. They are matched by the addresses the device gets when it looks them up; other hosts on the same CDN addresses take the servers' path too. ${persistent ? "Saved for this app in your account." : "Saved for this app in this browser."}`}
       />
       <Textarea
         value={draft}

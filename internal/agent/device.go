@@ -63,14 +63,27 @@ type networkShaper interface {
 	Close(ctx context.Context) error
 }
 
-// resetNetwork drops shaping a previous agent left on the tun and starts
-// measuring the session's route.
+// resetNetwork drops shaping a previous agent left on the tun.
 func (c *Controls) resetNetwork(ctx context.Context) error {
 	if c.shaper == nil {
 		return nil
 	}
-	go c.shaper.Watch(ctx)
 	return c.shaper.Close(ctx)
+}
+
+// watchNetwork measures the session's route from the agent's start, while
+// Android still boots.
+func (c *Controls) watchNetwork(ctx context.Context) {
+	if c.shaper != nil {
+		c.shaper.Watch(ctx)
+	}
+}
+
+func (c *Controls) networkRoute() *contract.NetworkRoute {
+	if c.shaper == nil {
+		return nil
+	}
+	return c.shaper.Route()
 }
 
 // NewControls changes the system language by running toolsDex, a dex

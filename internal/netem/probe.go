@@ -22,13 +22,25 @@ import (
 const DownProbe = "https://speed.cloudflare.com/__down?bytes=10000000"
 
 // measured is the session's own route: round trips to the nearest CDN
-// edge and to each server location (0 when unknown), its download rate in
-// kbit/s and a region's backend addresses.
+// edge and to each server location (0 when unknown) taken at at, its
+// download rate in kbit/s taken at downAt, and a region's backend
+// addresses.
 type measured struct {
 	edge     time.Duration
 	servers  map[string]time.Duration
+	at       time.Time
 	down     int
+	downAt   time.Time
 	backends []netip.Addr
+}
+
+func (m measured) empty() bool {
+	for _, d := range m.servers {
+		if d > 0 {
+			return false
+		}
+	}
+	return m.edge == 0
 }
 
 // differs ignores the few milliseconds a round trip wanders, since every
@@ -50,7 +62,7 @@ func (m measured) route() *contract.NetworkRoute {
 	if m.edge == 0 && len(m.servers) == 0 && m.down == 0 {
 		return nil
 	}
-	r := &contract.NetworkRoute{Edge: int(m.edge.Milliseconds()), Down: m.down}
+	r := &contract.NetworkRoute{Edge: int(m.edge.Milliseconds()), Down: m.down, At: m.at, DownAt: m.downAt}
 	for _, s := range Servers {
 		if d := m.servers[s.ID]; d > 0 {
 			r.Servers = append(r.Servers, contract.NetworkServerRTT{Server: s.ID, RTT: int(d.Milliseconds())})
@@ -74,10 +86,9 @@ func (p prober) client(timeout time.Duration) *http.Client {
 	return &http.Client{Transport: t, Timeout: timeout}
 }
 
-// measure takes the round trips and, with bandwidth, the download rate;
-// what fails stays 0.
-func (p prober) measure(ctx context.Context, bandwidth bool) measured {
-	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+// measure takes the round trips; what fails stays 0.
+func (p prober) measure(ctx context.Context) measured {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	m := measured{servers: map[string]time.Duration{}}
 	var mu sync.Mutex
@@ -96,12 +107,17 @@ func (p prober) measure(ctx context.Context, bandwidth bool) measured {
 		wg.Go(func() { probe(s.Probe, func(d time.Duration) { m.servers[s.ID] = d }) })
 	}
 	wg.Wait()
-	if bandwidth {
-		down, err := p.down(ctx, DownProbe)
-		if err != nil {
-			p.log.Warn("network route: bandwidth", "err", err)
-		}
-		m.down = down
+	return m
+}
+
+// seed turns a route measured earlier back into a measurement.
+func seed(r contract.NetworkRoute) measured {
+	m := measured{
+		edge: time.Duration(r.Edge) * time.Millisecond, servers: map[string]time.Duration{}, at: r.At,
+		down: r.Down, downAt: r.DownAt,
+	}
+	for _, s := range r.Servers {
+		m.servers[s.Server] = time.Duration(s.RTT) * time.Millisecond
 	}
 	return m
 }

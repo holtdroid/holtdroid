@@ -1072,6 +1072,8 @@ export interface components {
             country?: string;
             externalIp?: string;
             location: string;
+            /** @description the route through the location as last measured; empty on devices that don't measure it */
+            route?: components["schemas"]["NetworkRoute"];
         };
         NetworkLink: {
             /**
@@ -1189,10 +1191,20 @@ export interface components {
         };
         NetworkRoute: {
             /**
+             * Format: date-time
+             * @description when the round trips were measured
+             */
+            at: string;
+            /**
              * Format: int64
              * @description download kbit/s the route carried in a test; empty when it couldn't be measured
              */
             down?: number;
+            /**
+             * Format: date-time
+             * @description when the bandwidth was measured
+             */
+            downAt?: string;
             /**
              * Format: int64
              * @description round trip to the nearest Cloudflare edge, ms; empty when it couldn't be measured

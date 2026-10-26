@@ -165,6 +165,7 @@ type CreateSession struct {
 	WebView     *WebViewInstall  `json:"webview,omitempty" doc:"a WebView build to install over the built-in one before the app; needs the provider's webview capability"`
 	Frontend    string           `json:"frontend,omitempty" pattern:"^[0-9a-f]{40}$" doc:"the Chromium commit whose DevTools frontend fits the app itself, from the build's frontend tag; for Chromium builds that report none of their own"`
 	Recording   *RecordingTarget `json:"recording,omitempty" doc:"record the session from the moment it is first ready"`
+	Route       *NetworkRoute    `json:"route,omitempty" doc:"the route last measured through the session's location, which the agent starts from"`
 }
 
 // WebViewInstall is a WebView build that serves every app for the session:
@@ -289,9 +290,10 @@ type Screen struct {
 }
 
 type Network struct {
-	Location   string `json:"location"`
-	ExternalIP string `json:"externalIp,omitempty"`
-	Country    string `json:"country,omitempty"`
+	Location   string        `json:"location"`
+	ExternalIP string        `json:"externalIp,omitempty"`
+	Country    string        `json:"country,omitempty"`
+	Route      *NetworkRoute `json:"route,omitempty" doc:"the route through the location as last measured; empty on devices that don't measure it"`
 }
 
 type SetLocation struct {
@@ -393,6 +395,8 @@ type NetworkRoute struct {
 	Edge    int                `json:"edge,omitempty" doc:"round trip to the nearest Cloudflare edge, ms; empty when it couldn't be measured"`
 	Servers []NetworkServerRTT `json:"servers,omitempty" doc:"round trips to the server locations that could be measured"`
 	Down    int                `json:"down,omitempty" doc:"download kbit/s the route carried in a test; empty when it couldn't be measured"`
+	At      time.Time          `json:"at" doc:"when the round trips were measured"`
+	DownAt  time.Time          `json:"downAt,omitzero" doc:"when the bandwidth was measured"`
 }
 
 type NetworkRegionState struct {

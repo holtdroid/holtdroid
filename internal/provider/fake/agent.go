@@ -102,7 +102,11 @@ func (d *device) WatchClipboard(ctx context.Context, send func(contract.Clipboar
 }
 
 func (d *device) Network(context.Context) (contract.Network, error) {
-	return network(d.session().Location), nil
+	n := network(d.session().Location)
+	d.mu.Lock()
+	n.Route = d.settings.NetworkRoute
+	d.mu.Unlock()
+	return n, nil
 }
 
 func (d *device) SetLocation(_ context.Context, location string) (contract.Network, error) {

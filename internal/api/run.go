@@ -19,6 +19,7 @@ func (s *Server) Run(ctx context.Context) {
 	defer flush.Stop()
 
 	go s.warmLoop(ctx)
+	go s.routesLoop(ctx)
 	go s.watchSources(ctx)
 	if s.appData != nil {
 		go s.appDataLoop(ctx)

@@ -110,12 +110,14 @@ func TestParseChoice(t *testing.T) {
 }
 
 type recorder struct {
-	mu        sync.Mutex
-	scripts   []string
-	fail      bool
-	tick      chan time.Time
-	bandwidth []bool
-	m         measured
+	mu       sync.Mutex
+	scripts  []string
+	fail     bool
+	tick     chan time.Time
+	measures int
+	downs    int
+	m        measured
+	down     int
 }
 
 func (r *recorder) run(_ context.Context, script string) error {
@@ -128,23 +130,33 @@ func (r *recorder) run(_ context.Context, script string) error {
 	return nil
 }
 
-func (r *recorder) measure(_ context.Context, bandwidth bool) measured {
+func (r *recorder) measure(context.Context) measured {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.bandwidth = append(r.bandwidth, bandwidth)
+	r.measures++
 	m := r.m
 	m.servers = maps.Clone(r.m.servers)
 	return m
+}
+
+func (r *recorder) bandwidth(context.Context) (int, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.downs++
+	if r.down == 0 {
+		return 0, errors.New("no rate")
+	}
+	return r.down, nil
 }
 
 func (r *recorder) resolve(context.Context, []string) []netip.Addr {
 	return []netip.Addr{netip.MustParseAddr("104.16.1.1")}
 }
 
-func (r *recorder) measures() []bool {
+func (r *recorder) counts() (measures, downs int) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return slices.Clone(r.bandwidth)
+	return r.measures, r.downs
 }
 
 func (r *recorder) got() []string {
@@ -156,7 +168,7 @@ func (r *recorder) got() []string {
 func newTestShaper() (*Shaper, *recorder) {
 	r := &recorder{tick: make(chan time.Time)}
 	s := NewShaper("holtdroid0", "198.18.0.0/30", "", slog.New(slog.DiscardHandler))
-	s.run, s.measure, s.resolve = r.run, r.measure, r.resolve
+	s.run, s.measure, s.down, s.resolve = r.run, r.measure, r.bandwidth, r.resolve
 	s.after = func(time.Duration) <-chan time.Time { return r.tick }
 	return s, r
 }
@@ -261,16 +273,16 @@ func TestSetRegion(t *testing.T) {
 func TestWatch(t *testing.T) {
 	s, r := newTestShaper()
 	ctx, cancel := context.WithCancel(t.Context())
-	r.m = measured{edge: 20 * ms, servers: map[string]time.Duration{"frankfurt": 400 * ms}, down: 50_000}
+	r.m, r.down = measured{edge: 20 * ms, servers: map[string]time.Duration{"frankfurt": 400 * ms}}, 50_000
 	done := make(chan struct{})
 	go func() {
 		s.Watch(ctx)
 		close(done)
 	}()
-	for s.Route() == nil {
+	for s.Route() == nil || s.Route().Down == 0 {
 		time.Sleep(time.Millisecond)
 	}
-	if rt := s.Route(); rt.Edge != 20 || rt.Down != 50_000 || len(rt.Servers) != 1 || rt.Servers[0] != (contract.NetworkServerRTT{Server: "frankfurt", RTT: 400}) {
+	if rt := s.Route(); rt.Edge != 20 || rt.Down != 50_000 || rt.At.IsZero() || rt.DownAt.IsZero() || len(rt.Servers) != 1 || rt.Servers[0] != (contract.NetworkServerRTT{Server: "frankfurt", RTT: 400}) {
 		t.Errorf("route = %+v", rt)
 	}
 	if err := s.SetRegion(ctx, contract.NetworkRegionSettings{Region: "bd"}); err != nil {
@@ -279,7 +291,7 @@ func TestWatch(t *testing.T) {
 	applied := len(r.got())
 
 	r.mu.Lock()
-	r.m.servers["frankfurt"], r.m.down = 100*ms, 0
+	r.m.servers["frankfurt"], r.down = 100*ms, 0
 	r.mu.Unlock()
 	r.tick <- time.Time{}
 	for s.Region().Paths[1].Added != 70 {
@@ -288,17 +300,54 @@ func TestWatch(t *testing.T) {
 	for len(r.got()) == applied {
 		time.Sleep(time.Millisecond)
 	}
-	if s.Route().Down != 50_000 {
-		t.Errorf("a failed bandwidth test dropped the last rate: %+v", s.Route())
+	if _, downs := r.counts(); downs != 1 || s.Route().Down != 50_000 {
+		t.Errorf("%d bandwidth tests, route %+v: want one, kept", downs, s.Route())
 	}
+	r.mu.Lock()
+	r.m = measured{}
+	r.mu.Unlock()
 	s.Refresh()
-	for len(r.measures()) < 3 {
+	for _, downs := r.counts(); downs < 2; _, downs = r.counts() {
 		time.Sleep(time.Millisecond)
+	}
+	if s.Route().Edge != 20 {
+		t.Errorf("a failed measurement dropped the route: %+v", s.Route())
 	}
 	cancel()
 	<-done
-	if got := r.measures(); got[0] != true || got[1] != false || got[2] != true {
-		t.Errorf("bandwidth measured %v, want at first and after a refresh", got)
+}
+
+func TestSeed(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		age   time.Duration
+		downs int
+	}{{"fresh", time.Hour, 0}, {"stale", 7 * time.Hour, 1}} {
+		t.Run(tc.name, func(t *testing.T) {
+			s, r := newTestShaper()
+			now := time.Date(2026, 10, 26, 12, 0, 0, 0, time.UTC)
+			s.now = func() time.Time { return now }
+			r.m, r.down = measured{edge: 8 * ms}, 40_000
+			s.Seed(contract.NetworkRoute{Edge: 30, Down: 20_000, At: now.Add(-tc.age), DownAt: now.Add(-tc.age)})
+			if rt := s.Route(); rt.Edge != 30 || rt.Down != 20_000 {
+				t.Fatalf("seeded route = %+v", rt)
+			}
+			ctx, cancel := context.WithCancel(t.Context())
+			done := make(chan struct{})
+			go func() {
+				s.Watch(ctx)
+				close(done)
+			}()
+			for measures, downs := r.counts(); measures == 0 || s.Route().Edge != 8 || downs < tc.downs; measures, downs = r.counts() {
+				time.Sleep(time.Millisecond)
+			}
+			time.Sleep(10 * time.Millisecond)
+			cancel()
+			<-done
+			if _, downs := r.counts(); downs != tc.downs {
+				t.Errorf("%d bandwidth tests, want %d", downs, tc.downs)
+			}
+		})
 	}
 }
 
@@ -310,7 +359,7 @@ func TestLearn(t *testing.T) {
 		s.Watch(ctx)
 		close(done)
 	}()
-	for len(r.measures()) == 0 {
+	for measures, _ := r.counts(); measures == 0; measures, _ = r.counts() {
 		time.Sleep(time.Millisecond)
 	}
 	learned := []netip.Addr{netip.MustParseAddr("104.16.9.9")}

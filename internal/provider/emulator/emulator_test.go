@@ -111,6 +111,9 @@ func TestRender(t *testing.T) {
 			r := req
 			r.AppData = tt.appData
 			r.WebView = tt.webview
+			if tt.location != "" {
+				r.Route = &contract.NetworkRoute{Edge: 7, Servers: []contract.NetworkServerRTT{{Server: "frankfurt", RTT: 33}}, Down: 85_000, At: epoch}
+			}
 			if tt.webview != nil {
 				r.Frontend = "8d486529e60e7be71049111bc75420a018caf6f1"
 			}
