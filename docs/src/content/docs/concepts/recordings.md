@@ -62,14 +62,25 @@ The screen is taken from what a viewer of the session already streams in
 H.264, so watching and recording cost one encoder on the device. When nobody
 watches, or the viewer picked H.265 or AV1, the agent runs a stream of its
 own for the recording: H.264, at most 1280 pixels on the long side, 30 fps,
-2 Mbit/s. A static screen costs next to nothing either way. Sound is not
-recorded.
+2 Mbit/s. A static screen costs next to nothing either way.
+
+The sound is taken the same way: the Opus stream of a viewer who listens, or a
+capture of its own for the recording when nobody does (phones capture sound all
+session long anyway). It is written as a separate track, 10 seconds a
+segment, 40 to 60 MB an hour. A device that can't capture sound, which is
+Android 11, is asked once and then left alone: its recordings are silent.
+When the device is silent, the recording is too.
 
 ## Watching
 
 **Recordings** in the header (the clapperboard) lists your recordings,
 newest first, with a preview, the app, the length and the size. A recording
 still in progress is marked and can be watched while it grows.
+
+When a recording has sound, a speaker button next to the speeds turns it on or off. It plays
+at 1× only, since at other speeds it would change its pitch; at 0.5×, 2× and 4× the
+player is silent. The downloaded video carries the sound (AAC, or Opus where
+the browser has no AAC encoder) and so does the `.holtdroid` file.
 
 Everything beside the phone is ordinary page text, so you can select and
 copy it. In the logcat panel:
@@ -155,6 +166,7 @@ server.
 
 In the archive: `holtdroid.json` (the format, the recording's details and
 its markers), `manifest.json`, `init-N.mp4` and `seg-N.m4s` (the video, as fragmented MP4),
+`ainit-N.mp4` and `aseg-N.m4s` (the sound, as Opus in fragmented MP4),
 `events-N.jsonl.gz` (one JSON event per line), `logcat-N.log.gz`,
 `thumb.jpg` and `icon.png`. To get a plain video of a recording without
 a new epoch (the screen didn't turn or restart), join an init file and its segments

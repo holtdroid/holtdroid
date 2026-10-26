@@ -602,5 +602,6 @@ data descriptors) written by `GET …/export` and read by the web client with
 | `holtdroid.json` | `{format: "holtdroid-recording", version: 1, exportedAt, recording: RecordingView, markers: [RecordingMarker]}`; the view has no URLs, owner, session, keep or share; readers refuse another `format` and a higher `version` |
 | `manifest.json` | the agent's `RecordingManifest` as uploaded |
 | `init-N.mp4`, `seg-N.m4s` | the video, as listed in the manifest |
+| `ainit-N.mp4`, `aseg-N.m4s` | the sound (Opus in fragmented MP4), as listed in the manifest's `audio`; older archives have none |
 | `events-N.jsonl.gz`, `logcat-N.log.gz` | gzipped event lines and logcat text |
 | `thumb.jpg`, `icon.png` | the preview and the app's icon, when there are any |

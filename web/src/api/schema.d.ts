@@ -2164,6 +2164,19 @@ export interface components {
         PublishedInputBody: {
             ports: number[];
         };
+        RecordingAudio: {
+            /** Format: int64 */
+            channels: number;
+            /** @enum {string} */
+            codec: "opus";
+            init: string;
+            /**
+             * Format: int64
+             * @description samples per second
+             */
+            rate: number;
+            segments: components["schemas"]["RecordingSegment"][];
+        };
         RecordingChunk: {
             /** Format: int64 */
             end: number;
@@ -2262,6 +2275,8 @@ export interface components {
             used: number;
         };
         RecordingManifest: {
+            /** @description the sound, apart from the video: its own epochs and segments, on the same clock */
+            audio: components["schemas"]["RecordingAudio"][];
             /** Format: int64 */
             duration: number;
             epochs: components["schemas"]["RecordingEpoch"][];

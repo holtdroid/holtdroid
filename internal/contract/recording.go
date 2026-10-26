@@ -44,6 +44,7 @@ type RecordingManifest struct {
 	Duration  int64            `json:"duration"`
 	Size      int64            `json:"size" doc:"bytes of every file but the manifest"`
 	Epochs    []RecordingEpoch `json:"epochs"`
+	Audio     []RecordingAudio `json:"audio" doc:"the sound, apart from the video: its own epochs and segments, on the same clock"`
 	Events    []RecordingChunk `json:"events" doc:"gzipped JSON lines of RecordingEvent"`
 	Logcat    []RecordingChunk `json:"logcat" doc:"gzipped text: the recording time (HH:MM:SS.mmm), two spaces, a logcat threadtime line"`
 	Thumbnail string           `json:"thumbnail,omitempty"`
@@ -54,6 +55,16 @@ type RecordingEpoch struct {
 	Codec    string             `json:"codec" doc:"RFC 6381, e.g. avc1.640028"`
 	Width    int                `json:"width"`
 	Height   int                `json:"height"`
+	Segments []RecordingSegment `json:"segments"`
+}
+
+// RecordingAudio is a run of Opus sound: an init file and segments of packets,
+// which can all be decoded on their own. It starts again when the capture does.
+type RecordingAudio struct {
+	Init     string             `json:"init"`
+	Codec    string             `json:"codec" enum:"opus"`
+	Channels int                `json:"channels"`
+	Rate     int                `json:"rate" doc:"samples per second"`
 	Segments []RecordingSegment `json:"segments"`
 }
 
@@ -131,7 +142,7 @@ type RecordingInfoData struct {
 	ArtifactRef  string `json:"artifactRef,omitempty"`
 }
 
-var recordingFile = regexp.MustCompile(`^(manifest\.json|thumb\.jpg|init-[0-9]{1,6}\.mp4|seg-[0-9]{1,7}\.m4s|events-[0-9]{1,6}\.jsonl\.gz|logcat-[0-9]{1,6}\.log\.gz)$`)
+var recordingFile = regexp.MustCompile(`^(manifest\.json|thumb\.jpg|a?init-[0-9]{1,6}\.mp4|a?seg-[0-9]{1,7}\.m4s|events-[0-9]{1,6}\.jsonl\.gz|logcat-[0-9]{1,6}\.log\.gz)$`)
 
 // RecordingFile reports whether name is a file an agent may upload.
 func RecordingFile(name string) bool { return recordingFile.MatchString(name) }

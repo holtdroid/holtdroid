@@ -2805,8 +2805,18 @@ pass a recording to someone without an account.
   and the player decodes a run from such a segment on. The agent taps the newest viewer's H.264 stream
   (`videoHub`), so watching and recording share one encoder on the device;
   with no such viewer it runs its own stream (H.264, 1280 px, 30 fps,
-  2 Mbit/s). Sound isn't recorded: a second capture would fight the
-  viewer's. Next to the video: events as gzipped JSON lines
+  2 Mbit/s). Sound is a track of its own (`ainit-N.mp4`, `aseg-N.m4s`, `manifest.audio`):
+  the Opus packets of the newest viewer who listens, or a capture for the
+  recording alone when nobody does, which stops once the device says it
+  can't (Android 11, or a device with no audio); phones feed the recording
+  from the capture they keep for the whole session. Opus packets are all
+  independent, so segments are cut by time (10 s) and each decodes by itself;
+  the packets' own times pace the sound and the first one is placed by the
+  recording's clock, since the audio and the video sockets of a viewer come
+  from two scrcpy servers whose times don't share an origin. The player
+  schedules decoded buffers on the Web Audio clock a few seconds ahead and
+  starts again on every seek, and is silent at other speeds than 1×
+  rather than change the pitch. Next to the video: events as gzipped JSON lines
   (`RecordingEvent`: device info and WebView version at start and after
   installs, `StatusEvent` changes, every metrics sample, the `DeviceState`
   after each change and every 30 s, the network after each switch) and

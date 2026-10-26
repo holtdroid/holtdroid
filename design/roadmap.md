@@ -238,7 +238,7 @@ the portal and download them as a video (decision #96).
 - [x] The video download: 1296 px tall, wider for landscape and tablets with a turning phone body, the logo in a header, written straight to a file the user picks
 - [x] Recording modes (always, auto, manual), the session page's recording card with markers, markers on the timeline, the coloured `.log` logcat
 - [x] `.holtdroid` recording files: a streamed ZIP export, played on the `/open` page from disk without uploading or loading it whole into memory
-- [ ] Sound in recordings, sharing one audio capture with viewers
+- [x] Sound in recordings: Opus from the viewer's audio stream or a capture of its own, a track in the manifest, played in step with the video (1× only) and mixed into the rendered video and the `.holtdroid` file
 - [x] Logcat in the player as selectable HTML with level and text filters, click to seek, hold while selecting; stats as HTML cards in an Android look, the video download keeps the canvas scene in the same style
 - [ ] Logcat filter for the app's own processes in the player
 

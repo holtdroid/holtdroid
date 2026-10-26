@@ -1,4 +1,5 @@
 import type { RecordingManifest } from "@/api/client"
+import { AudioPlayback } from "@/lib/recording/audio"
 import type { RecordingFiles } from "@/lib/recording/files"
 import { Cursor, Frames } from "@/lib/recording/frames"
 import { LogcatChunks, segmentsOf } from "@/lib/recording/timeline"
@@ -10,12 +11,16 @@ export type PlayerState = {
   rate: number
   duration: number
   size: { w: number; h: number }
+  /** the recording has sound */
+  sound: boolean
+  muted: boolean
 }
 
 /** Plays a recording's video onto a canvas; everything around it is the page's. */
 export class Player {
   readonly frames: Frames
   readonly logcat: LogcatChunks
+  readonly audio: AudioPlayback
   #cursor: Cursor
   #manifest: RecordingManifest
   #ctx: CanvasRenderingContext2D | null = null
@@ -36,10 +41,11 @@ export class Player {
     this.#manifest = manifest
     this.frames = new Frames(files, segmentsOf(manifest))
     this.logcat = new LogcatChunks(files, manifest.logcat)
+    this.audio = new AudioPlayback(files, manifest)
     this.#cursor = new Cursor(this.frames)
     const first = manifest.epochs[0]
     this.#size = { w: first?.width || 720, h: first?.height || 1600 }
-    this.#state = { time: 0, playing: false, rate: 1, duration: manifest.duration, size: this.#size }
+    this.#state = this.#snapshot()
   }
 
   subscribe = (fn: () => void) => {
@@ -53,14 +59,25 @@ export class Player {
     const time = Math.floor(this.#t / 100)
     if (!force && time === this.#published) return
     this.#published = time
-    this.#state = {
+    this.#state = this.#snapshot()
+    for (const fn of this.#listeners) fn()
+  }
+
+  #snapshot(): PlayerState {
+    return {
       time: this.#t,
       playing: this.#playing,
       rate: this.#rate,
       duration: this.#manifest.duration,
       size: this.#size,
+      sound: this.audio.available,
+      muted: this.audio.muted,
     }
-    for (const fn of this.#listeners) fn()
+  }
+
+  setMuted(muted: boolean) {
+    this.audio.setMuted(muted)
+    this.#publish(true)
   }
 
   /** Takes a newer manifest of a recording still in progress. */
@@ -69,6 +86,7 @@ export class Player {
     this.#manifest = manifest
     this.frames.segments = segmentsOf(manifest)
     this.logcat.update(manifest.logcat)
+    this.audio.update(manifest)
     if (grew && this.#cursor.ended) this.#cursor.seek(this.#t)
     this.#publish(true)
     this.#draw()
@@ -101,12 +119,14 @@ export class Player {
     this.#playing = true
     this.#wall = performance.now()
     this.#from = this.#t
+    this.audio.start(this.#t, this.#rate)
     this.#publish(true)
     this.#loop()
   }
 
   pause() {
     this.#playing = false
+    this.audio.stop()
     cancelAnimationFrame(this.#raf)
     this.#publish(true)
   }
@@ -120,6 +140,7 @@ export class Player {
     this.#from = this.#t
     this.#wall = performance.now()
     this.#rate = rate
+    if (this.#playing) this.audio.start(this.#t, rate)
     this.#publish(true)
   }
 
@@ -129,6 +150,7 @@ export class Player {
     this.#wall = performance.now()
     this.#cursor.seek(this.#t)
     void this.logcat.ensure(this.#t)
+    if (this.#playing) this.audio.start(this.#t, this.#rate)
     this.#publish(true)
     await this.#cursor.advance(this.#t)
     this.#draw()
@@ -170,6 +192,7 @@ export class Player {
   /** Stops playing and frees the decoder; a later seek or attach starts it again. */
   dispose() {
     this.pause()
+    this.audio.dispose()
     this.#cursor.close()
   }
 }

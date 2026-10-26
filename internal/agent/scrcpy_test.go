@@ -39,6 +39,7 @@ type fakeScrcpy struct {
 	clip     string
 	clipConn net.Conn
 	opus     bool
+	noSound  bool
 }
 
 func newFakeScrcpy(t *testing.T) *fakeScrcpy {
@@ -85,6 +86,13 @@ func (f *fakeScrcpy) serve(c net.Conn, role string) {
 		_, _ = c.Write([]byte("video-bytes"))
 		_, _ = io.Copy(io.Discard, c)
 	case "audio":
+		f.mu.Lock()
+		silent := f.noSound
+		f.mu.Unlock()
+		if silent {
+			_, _ = c.Write([]byte{0, 0, 0, 0})
+			return
+		}
 		if !f.opusStream() {
 			_, _ = c.Write([]byte("opus-bytes"))
 			_, _ = io.Copy(io.Discard, c)
@@ -214,6 +222,22 @@ func scrcpyServer(t *testing.T, dev *fakeScrcpy) string {
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 	return "ws" + strings.TrimPrefix(srv.URL, "http")
+}
+
+type scrcpyBase struct {
+	url    string
+	scrcpy *Scrcpy
+}
+
+// scrcpyServerWith is scrcpyServer that also gives the Scrcpy it serves.
+func scrcpyServerWith(t *testing.T, dev *fakeScrcpy) scrcpyBase {
+	t.Helper()
+	mux := http.NewServeMux()
+	s := NewScrcpy(DefaultScrcpyConfig(), dev, slog.New(slog.DiscardHandler))
+	s.Register(mux)
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	return scrcpyBase{url: "ws" + strings.TrimPrefix(srv.URL, "http"), scrcpy: s}
 }
 
 func dialWS(ctx context.Context, t *testing.T, u string) *websocket.Conn {

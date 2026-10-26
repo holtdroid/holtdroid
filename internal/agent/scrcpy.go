@@ -70,6 +70,7 @@ type Scrcpy struct {
 
 	audio    *audioHub
 	video    *videoHub
+	sound    *soundHub
 	mu       sync.Mutex
 	encoders []string
 }
@@ -77,6 +78,7 @@ type Scrcpy struct {
 func NewScrcpy(cfg ScrcpyConfig, dev ScrcpyDevice, log *slog.Logger) *Scrcpy {
 	s := &Scrcpy{cfg: cfg, dev: dev, log: log}
 	s.video = newVideoHub(s)
+	s.sound = newSoundHub(s, cfg.KeepAudio)
 	if cfg.KeepAudio {
 		s.audio = newAudioHub(s)
 	}
@@ -189,13 +191,17 @@ func (s *Scrcpy) serveAudio(w http.ResponseWriter, r *http.Request) {
 	}
 	defer cancel()
 	defer func() { _ = ws.CloseNow() }()
+	// a recording's own capture stops before the viewer's starts: two at once
+	// could leave one of them deaf
+	f := s.sound.open()
+	defer s.sound.close(f)
 	conns, err := s.start(ctx, "video=false audio=true control=false audio_codec=opus send_device_meta=false", 1)
 	if err != nil {
 		s.log.Warn("scrcpy audio start", "err", err)
 		_ = ws.Close(websocket.StatusTryAgainLater, "audio is not available yet")
 		return
 	}
-	bridge(ctx, cancel, ws, conns[0], conns[0], nil, nil)
+	bridge(ctx, cancel, ws, io.TeeReader(conns[0], &f.tap), conns[0], nil, nil)
 }
 
 func accept(w http.ResponseWriter, r *http.Request) (*websocket.Conn, context.Context, context.CancelFunc, bool) {

@@ -14,6 +14,8 @@ import {
   PointerIcon,
   SkipBackIcon,
   SkipForwardIcon,
+  Volume2Icon,
+  VolumeXIcon,
 } from "lucide-react"
 import {
   type ComponentProps,
@@ -276,6 +278,23 @@ export function RecordingPlayer({
               </button>
             ))}
           </div>
+          {state.sound && (
+            <IconButton
+              aria-label={state.muted ? "Turn the sound on" : "Turn the sound off"}
+              aria-pressed={state.muted}
+              title={
+                state.rate !== 1
+                  ? "There is no sound at other speeds than 1×"
+                  : state.muted
+                    ? "Turn the sound on"
+                    : "Turn the sound off"
+              }
+              className={cn(state.rate !== 1 && "opacity-50")}
+              onClick={() => player.setMuted(!state.muted)}
+            >
+              {state.muted || state.rate !== 1 ? <VolumeXIcon /> : <Volume2Icon />}
+            </IconButton>
+          )}
           {own && (
             <Tonal className="ml-2" title="Pin this moment on the timeline (M)" onClick={addMarker}>
               <PinIcon />

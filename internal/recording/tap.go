@@ -19,10 +19,22 @@ const maxPacket = 32 << 20
 type Tap struct {
 	OnPacket func(Packet)
 	Codec    string
+	// Audio reads an audio socket: a 4-byte codec id, then the packets.
+	Audio bool
 
 	buf    []byte
 	meta   bool
 	broken bool
+}
+
+// Ready reports whether the stream's header has been read, so Codec is known.
+func (t *Tap) Ready() bool { return t.meta }
+
+func (t *Tap) wanted() string {
+	if t.Audio {
+		return "opus"
+	}
+	return "h264"
 }
 
 func (t *Tap) Write(p []byte) (int, error) {
@@ -34,12 +46,20 @@ func (t *Tap) Write(p []byte) (int, error) {
 	for {
 		rest := t.buf[off:]
 		if !t.meta {
-			if len(rest) < 64+12 {
+			head := 64 + 12
+			if t.Audio {
+				head = 4
+			}
+			if len(rest) < head {
 				break
 			}
-			t.Codec = string(bytes.TrimRight(rest[64:68], "\x00"))
+			if t.Audio {
+				t.Codec = string(bytes.TrimRight(rest[:4], "\x00"))
+			} else {
+				t.Codec = string(bytes.TrimRight(rest[64:68], "\x00"))
+			}
 			t.meta = true
-			off += 64 + 12
+			off += head
 			continue
 		}
 		if len(rest) < 12 {
@@ -54,7 +74,7 @@ func (t *Tap) Write(p []byte) (int, error) {
 			break
 		}
 		flags := binary.BigEndian.Uint64(rest)
-		if t.OnPacket != nil && t.Codec == "h264" {
+		if t.OnPacket != nil && t.Codec == t.wanted() {
 			t.OnPacket(Packet{
 				Config: flags&(1<<63) != 0,
 				Key:    flags&(1<<62) != 0,

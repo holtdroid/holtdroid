@@ -69,6 +69,7 @@ type Recorder struct {
 	manifest contract.RecordingManifest
 	dirty    bool
 	video    video
+	aud      audio
 	events   chunk
 	logcat   chunk
 	moved    map[int]int64
@@ -100,9 +101,10 @@ func Start(target contract.RecordingTarget, cfg Config, log *slog.Logger, opts .
 	}
 	r.start = r.now()
 	r.video.epoch = -1
+	r.aud.epoch = -1
 	r.manifest = contract.RecordingManifest{
 		State: contract.RecordingActive, StartedAt: r.start.UTC(), UpdatedAt: r.start.UTC(),
-		Epochs: []contract.RecordingEpoch{}, Events: []contract.RecordingChunk{}, Logcat: []contract.RecordingChunk{},
+		Epochs: []contract.RecordingEpoch{}, Audio: []contract.RecordingAudio{}, Events: []contract.RecordingChunk{}, Logcat: []contract.RecordingChunk{},
 	}
 	r.dirty = true
 	go r.up.run(r.fail)
@@ -228,6 +230,7 @@ func (r *Recorder) fail(err error) {
 
 func (r *Recorder) finish(state contract.RecordingStatus, reason string) {
 	r.closeSegment()
+	r.closeAudioSegment()
 	r.flushChunks()
 	r.manifest.State = state
 	r.manifest.Reason = reason

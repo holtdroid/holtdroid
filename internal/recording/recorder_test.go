@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4"
+	"github.com/bluenviron/mediacommon/v2/pkg/formats/mp4/codecs"
 
 	"github.com/holtdroid/holtdroid/internal/contract"
 )
@@ -354,5 +355,126 @@ func TestRecorderKeepsTouchesWithoutFlooding(t *testing.T) {
 	}
 	if downs != 1 || ups != 1 || keys != 1 || moves < 6 || moves > 9 {
 		t.Fatalf("down %d move %d up %d key %d", downs, moves, ups, keys)
+	}
+}
+
+func opusHead(channels byte) []byte {
+	h := make([]byte, 19)
+	copy(h, "OpusHead")
+	h[8], h[9] = 1, channels
+	return h
+}
+
+// feedAudio sends n 20 ms packets whose times start at from µs.
+func feedAudio(r *Recorder, c *clock, from int64, n int) int64 {
+	pts := from
+	for range n {
+		r.Audio(Packet{PTS: pts, Data: bytes.Repeat([]byte{byte(pts / 20_000)}, 120)})
+		pts += 20_000
+		c.add(20 * time.Millisecond)
+	}
+	return pts
+}
+
+func TestRecorderWritesAudio(t *testing.T) {
+	b := &bucket{files: map[string][]byte{}}
+	c := &clock{t: time.Now()}
+	r := start(t, b, c)
+	c.add(300 * time.Millisecond)
+
+	r.Audio(Packet{Config: true, Data: opusHead(2)})
+	feedAudio(r, c, 7_000_000, 1250)
+	r.AudioBreak()
+	c.add(2 * time.Second)
+	r.Audio(Packet{Config: true, Data: opusHead(1)})
+	feedAudio(r, c, 90_000, 100)
+	r.Stop(context.Background())
+
+	var m contract.RecordingManifest
+	if err := json.Unmarshal(b.get(t, "manifest.json"), &m); err != nil {
+		t.Fatal(err)
+	}
+	if len(m.Audio) != 2 || m.Audio[0].Codec != "opus" || m.Audio[0].Channels != 2 || m.Audio[0].Rate != 48000 || m.Audio[1].Channels != 1 {
+		t.Fatalf("audio: %+v", m.Audio)
+	}
+	first := m.Audio[0].Segments
+	if len(first) != 3 || first[0].Start != 300 {
+		t.Fatalf("a 25 s run in 10 s segments starting at 300 ms: %+v", first)
+	}
+	for i, s := range first {
+		if !s.Key || s.Size == 0 || (i < 2 && s.Duration != 10_000) {
+			t.Fatalf("segment %d: %+v", i, s)
+		}
+		if i > 0 && s.Start != first[i-1].Start+first[i-1].Duration {
+			t.Fatalf("segment %d leaves a gap: %+v after %+v", i, s, first[i-1])
+		}
+	}
+	if second := m.Audio[1].Segments; len(second) != 1 || second[0].Start < first[2].Start+first[2].Duration+1500 {
+		t.Fatalf("the second run starts after the break: %+v", second)
+	}
+
+	var init fmp4.Init
+	if err := init.Unmarshal(bytes.NewReader(b.get(t, m.Audio[0].Init))); err != nil {
+		t.Fatal(err)
+	}
+	if op, ok := init.Tracks[0].Codec.(*codecs.Opus); !ok || op.ChannelCount != 2 || init.Tracks[0].TimeScale != 48000 {
+		t.Fatalf("init: %+v", init.Tracks[0])
+	}
+	var parts fmp4.Parts
+	if err := parts.Unmarshal(b.get(t, first[0].File)); err != nil {
+		t.Fatal(err)
+	}
+	var samples, ticks int
+	for _, tr := range parts[0].Tracks {
+		for _, s := range tr.Samples {
+			samples++
+			ticks += int(s.Duration)
+		}
+	}
+	if samples != 500 || ticks != 500*960 {
+		t.Fatalf("a segment holds %d packets of %d ticks", samples, ticks)
+	}
+}
+
+func TestRecorderIgnoresSoundBeforeItsConfig(t *testing.T) {
+	b := &bucket{files: map[string][]byte{}}
+	c := &clock{t: time.Now()}
+	r := start(t, b, c)
+	feedAudio(r, c, 0, 20)
+	r.Stop(context.Background())
+	var m contract.RecordingManifest
+	if err := json.Unmarshal(b.get(t, "manifest.json"), &m); err != nil {
+		t.Fatal(err)
+	}
+	if len(m.Audio) != 0 {
+		t.Fatalf("sound without a config: %+v", m.Audio)
+	}
+}
+
+func TestTapReadsAnAudioSocket(t *testing.T) {
+	var got []Packet
+	tap := &Tap{Audio: true, OnPacket: func(p Packet) { got = append(got, p) }}
+	stream := []byte("opus")
+	for _, p := range []Packet{{Config: true, Data: opusHead(2)}, {PTS: 20_000, Data: []byte("frame")}} {
+		h := make([]byte, 12)
+		flags := uint64(p.PTS)
+		if p.Config {
+			flags = 1 << 63
+		}
+		binary.BigEndian.PutUint64(h, flags)
+		binary.BigEndian.PutUint32(h[8:], uint32(len(p.Data)))
+		stream = append(append(stream, h...), p.Data...)
+	}
+	for i := range stream {
+		_, _ = tap.Write(stream[i : i+1])
+	}
+	if len(got) != 2 || !got[0].Config || got[1].PTS != 20_000 || string(got[1].Data) != "frame" {
+		t.Fatalf("packets: %+v", got)
+	}
+
+	quiet := &Tap{Audio: true, OnPacket: func(Packet) { t.Fatal("a stream with no audio produced a packet") }}
+	_, _ = quiet.Write([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
+	if quiet.Codec != "" {
+		t.Fatalf("codec of a disabled stream: %q", quiet.Codec)
 	}
 }

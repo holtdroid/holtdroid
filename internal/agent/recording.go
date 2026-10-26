@@ -70,6 +70,7 @@ func (a *Agent) startRecording(target contract.RecordingTarget) error {
 	}))
 	a.rec, a.recID, a.recCancel = rec, target.ID, cancel
 	a.screen.video.attach(ctx, rec)
+	a.screen.sound.attach(ctx, rec)
 	go a.feedRecording(ctx, rec)
 	a.mu.Lock()
 	a.status.Recording, a.status.RecordedAt = target.ID, rec.State().StartedAt
@@ -81,6 +82,7 @@ func (a *Agent) startRecording(target contract.RecordingTarget) error {
 
 func (a *Agent) recordingEnded(rec *recording.Recorder, s contract.RecordingState) {
 	a.screen.video.detach(rec)
+	a.screen.sound.detach(rec)
 	a.recMu.Lock()
 	if a.rec != rec {
 		a.recMu.Unlock()

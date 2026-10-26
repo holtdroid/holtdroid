@@ -1,6 +1,8 @@
 import {
+  AudioSampleSource,
   BufferTarget,
   CanvasSource,
+  getFirstEncodableAudioCodec,
   getFirstEncodableVideoCodec,
   Mp4OutputFormat,
   Output,
@@ -10,6 +12,7 @@ import {
   type Target,
 } from "mediabunny"
 import type { RecordingManifest, RecordingMarker } from "@/api/client"
+import { AudioFeeder, audioSegmentsOf } from "@/lib/recording/audio"
 import type { RecordingFiles } from "@/lib/recording/files"
 import { Cursor, Frames } from "@/lib/recording/frames"
 import { drawScene, logoImage, type SceneApp, sceneLayout } from "@/lib/recording/scene"
@@ -148,11 +151,21 @@ export async function bake(opts: {
   })
   const source = new CanvasSource(canvas, { codec, bitrate: QUALITY_HIGH, latencyMode: "quality" })
   output.addVideoTrack(source, { frameRate: bakeFps })
+  const audioSegments = audioSegmentsOf(manifest)
+  let sound: AudioSampleSource | null = null
+  if (audioSegments.length > 0) {
+    const audioCodec = await getFirstEncodableAudioCodec(["aac", "opus"], { numberOfChannels: 2, sampleRate: 48000 })
+    if (audioCodec) {
+      sound = new AudioSampleSource({ codec: audioCodec, bitrate: QUALITY_HIGH })
+      output.addAudioTrack(sound)
+    }
+  }
   await output.start()
 
   const segments = segmentsOf(manifest)
   const cursor = new Cursor(new Frames(opts.files, segments, 4))
   const logcat = new LogcatChunks(opts.files, manifest.logcat)
+  const feeder = sound ? new AudioFeeder(opts.files, audioSegments, sound) : null
   const changes = sizeChanges(segments)
   const startedAt = new Date(manifest.startedAt).getTime()
   const step = 1000 / bakeFps
@@ -179,12 +192,14 @@ export async function bake(opts: {
         app,
       })
       await source.add(t / 1000, step / 1000)
+      await feeder?.until(t / 1000 + 1)
       const now = performance.now()
       if (now - lastReport > 200) {
         lastReport = now
         opts.onProgress({ t, duration: manifest.duration, elapsed: now - began, canvas })
       }
     }
+    await feeder?.until(Number.POSITIVE_INFINITY)
     await output.finalize()
   } catch (e) {
     sink.discard()
@@ -192,6 +207,7 @@ export async function bake(opts: {
     throw e
   } finally {
     cursor.close()
+    feeder?.close()
   }
   opts.onProgress({ t: manifest.duration, duration: manifest.duration, elapsed: performance.now() - began, canvas })
 }

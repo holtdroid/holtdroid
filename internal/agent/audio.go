@@ -35,6 +35,7 @@ func (h *audioHub) run(ctx context.Context) {
 		if err := h.capture(ctx); err != nil && ctx.Err() == nil {
 			h.s.log.Warn("audio capture", "err", err)
 		}
+		h.s.sound.keptBroke()
 		select {
 		case <-ctx.Done():
 			return
@@ -69,6 +70,9 @@ func (h *audioHub) capture(ctx context.Context) error {
 		copy(packet, head)
 		if _, err := io.ReadFull(stream, packet[12:]); err != nil {
 			return err
+		}
+		if string(codec) == "opus" {
+			h.s.sound.kept(keptPacket(head, packet[12:]))
 		}
 		if binary.BigEndian.Uint64(head)&configFlag != 0 {
 			h.mu.Lock()
