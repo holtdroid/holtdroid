@@ -453,9 +453,14 @@ export function useReferences() {
 export function useUploadReference() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ file, name, pkg }: { file: Blob; name: string; pkg: string }) => {
+    mutationFn: ({ file, thumbnail, name, pkg }: { file: Blob; thumbnail: Blob | null; name: string; pkg: string }) => {
       const form = new FormData()
-      form.append("file", file, file instanceof File ? file.name : `${name}.png`)
+      form.append(
+        "file",
+        file,
+        file instanceof File ? file.name : `${name}.${file.type === "image/svg+xml" ? "svg" : "png"}`,
+      )
+      if (thumbnail) form.append("thumbnail", thumbnail, "thumbnail.jpg")
       form.append("name", name)
       if (pkg) form.append("package", pkg)
       return unwrap(

@@ -2,6 +2,7 @@ import {
   DownloadIcon,
   EyeIcon,
   EyeOffIcon,
+  ImageIcon,
   ImagePlusIcon,
   Loader2Icon,
   MoveIcon,
@@ -29,11 +30,12 @@ import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { download } from "@/lib/adb"
+import { makeThumbnail } from "@/lib/pixel-perfect/capture"
 import { formatBytes, formatRelative, formatSpan } from "@/lib/format"
 import { renderReport } from "@/lib/pixel-perfect/report"
 import { cn } from "@/lib/utils"
 
-const accepted = ["image/png", "image/jpeg", "image/webp"]
+const accepted = ["image/svg+xml", "image/png", "image/jpeg", "image/webp"]
 
 const blends: { value: Blend; label: string; hint: string }[] = [
   { value: "normal", label: "Normal", hint: "The reference as it is, see-through" },
@@ -62,13 +64,17 @@ export function PixelPerfectPanel({
   const items = refs.data?.items ?? []
   const ref = items.find((r) => r.id === state.referenceId) ?? null
 
-  const add = (file: Blob, name: string) => {
+  const [preparing, setPreparing] = useState(0)
+  const add = async (file: Blob, name: string) => {
     if (!accepted.includes(file.type)) {
-      toast.error("Only PNG, JPEG and WebP images can be references")
+      toast.error("Only SVG, PNG, JPEG and WebP images can be references")
       return
     }
+    setPreparing((n) => n + 1)
+    const thumbnail = await makeThumbnail(file)
+    setPreparing((n) => n - 1)
     upload.mutate(
-      { file, name, pkg: session.package },
+      { file, thumbnail, name, pkg: session.package },
       {
         onSuccess: (v) => pp.select(v.id),
         onError: (e) => toast.error("Could not add the reference", { description: e.message }),
@@ -79,9 +85,11 @@ export function PixelPerfectPanel({
   const onPaste = useEffectEvent((e: ClipboardEvent) => {
     if (e.target instanceof HTMLElement && e.target.closest("input, textarea, [contenteditable]")) return
     const file = Array.from(e.clipboardData?.files ?? []).find((f) => accepted.includes(f.type))
-    if (!file) return
+    const text = file ? "" : (e.clipboardData?.getData("text/plain") ?? "").trim()
+    const svg = /^(<\?xml[^>]*>\s*)?<svg[\s>]/i.test(text) ? new Blob([text], { type: "image/svg+xml" }) : null
+    if (!file && !svg) return
     e.preventDefault()
-    add(file, `Pasted ${new Date().toLocaleString()}`)
+    void add(file ?? (svg as Blob), `Pasted ${new Date().toLocaleString()}`)
   })
   useEffect(() => {
     if (!active) return undefined
@@ -93,7 +101,7 @@ export function PixelPerfectPanel({
   const onDrop = (e: DragEvent) => {
     e.preventDefault()
     setDragging(false)
-    for (const f of Array.from(e.dataTransfer.files)) add(f, f.name.replace(/\.[^.]+$/, ""))
+    for (const f of Array.from(e.dataTransfer.files)) void add(f, f.name.replace(/\.[^.]+$/, ""))
   }
 
   if (refs.data && !refs.data.enabled) {
@@ -125,7 +133,7 @@ export function PixelPerfectPanel({
         multiple
         hidden
         onChange={(e) => {
-          for (const f of Array.from(e.target.files ?? [])) add(f, f.name.replace(/\.[^.]+$/, ""))
+          for (const f of Array.from(e.target.files ?? [])) void add(f, f.name.replace(/\.[^.]+$/, ""))
           e.target.value = ""
         }}
       />
@@ -135,7 +143,7 @@ export function PixelPerfectPanel({
           items={items}
           selected={state.referenceId}
           pkg={session.package}
-          uploading={upload.isPending}
+          uploading={upload.isPending || preparing > 0}
           onAdd={() => input.current?.click()}
           rules={refs.data}
         />
@@ -170,6 +178,10 @@ function Empty({ onAdd, hasItems }: { onAdd: () => void; hasItems: boolean }) {
           ? "Pick a reference to lay it over the screen, or add another one."
           : "Add a design mockup to lay it over the screen."}{" "}
         Drop an image here, paste one copied from Figma (⌘V / Ctrl+V) or choose a file.
+      </p>
+      <p className="max-w-sm text-xs">
+        Tip: export frames from Figma as <strong>SVG</strong> (Export → SVG, or right-click → Copy as → Copy as SVG and
+        paste here). It stays sharp at any scale and lines up to the pixel; a PNG at 3× is the next best.
       </p>
       <Button size="sm" variant="outline" onClick={onAdd}>
         <ImagePlusIcon />
@@ -225,6 +237,7 @@ function Library({
           )}
           {rules.maxAge > 0 && <span>Images unused for {formatSpan(rules.maxAge)} are deleted.</span>}
           <span>Paste an image (⌘V / Ctrl+V) or drop it here to add it.</span>
+          <span>From Figma, SVG is sharpest: Copy as SVG and paste, or export SVG.</span>
         </div>
       )}
     </section>
@@ -270,7 +283,11 @@ function ReferenceItem({
         onClick={() => pp.select(active ? null : r.id)}
         aria-label={active ? `Hide ${r.name}` : `Use ${r.name}`}
       >
-        <img src={`${r.imageUrl}?preview`} alt="" loading="lazy" className="size-full object-cover object-top" />
+        {r.thumbnailUrl ? (
+          <img src={r.thumbnailUrl} alt="" loading="lazy" width={160} className="size-full object-cover object-top" />
+        ) : (
+          <ImageIcon className="text-muted-foreground m-auto size-5" />
+        )}
       </button>
       <div className="grid min-w-0 flex-1">
         {name !== null ? (

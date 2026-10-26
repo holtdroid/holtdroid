@@ -9,6 +9,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -26,12 +27,16 @@ func testPNG(t *testing.T, w, h int) []byte {
 	return buf.Bytes()
 }
 
-func (h *harness) uploadReference(user, name string, content []byte, fields map[string]string) *httptest.ResponseRecorder {
+func (h *harness) uploadReference(user, name string, content []byte, fields map[string]string, thumb ...[]byte) *httptest.ResponseRecorder {
 	h.t.Helper()
 	var buf bytes.Buffer
 	w := multipart.NewWriter(&buf)
 	part, _ := w.CreateFormFile("file", name)
 	_, _ = part.Write(content)
+	if len(thumb) > 0 {
+		tp, _ := w.CreateFormFile("thumbnail", "thumb.png")
+		_, _ = tp.Write(thumb[0])
+	}
 	for k, v := range fields {
 		_ = w.WriteField(k, v)
 	}
@@ -176,8 +181,8 @@ func TestReferenceRetention(t *testing.T) {
 
 	h.clock.Advance(20 * 24 * time.Hour)
 	h.srv.sweepReferences(context.Background())
-	if rec := h.do(http.MethodGet, old.ImageURL+"?preview", "alice", "", nil); rec.Code != http.StatusOK {
-		t.Fatalf("preview: %d", rec.Code)
+	if rec := h.do(http.MethodGet, old.ThumbURL, "alice", "", nil); rec.Code != http.StatusOK {
+		t.Fatalf("thumbnail: %d", rec.Code)
 	}
 	if n := len(h.references("alice").Items); n != 2 {
 		t.Fatalf("after 20 days: %d references", n)
@@ -194,5 +199,45 @@ func TestReferenceRetention(t *testing.T) {
 	}
 	if want := h.clock.Now().Add(-20 * 24 * time.Hour).Add(30 * 24 * time.Hour); !items[0].ExpiresAt.Equal(want) {
 		t.Fatalf("expires %v, want %v", items[0].ExpiresAt, want)
+	}
+}
+
+func TestReferenceThumbnailsAndSVG(t *testing.T) {
+	h := newHarness(t, 1)
+
+	raster := decode[ReferenceView](t, h.uploadReference("alice", "tall.png", testPNG(t, 360, 2000), nil))
+	rec := h.do(http.MethodGet, raster.ThumbURL, "alice", "", nil)
+	if rec.Code != http.StatusOK || rec.Header().Get("Content-Type") != "image/jpeg" {
+		t.Fatalf("raster thumbnail: %d %v", rec.Code, rec.Header())
+	}
+	if cfg, _, err := image.DecodeConfig(rec.Body); err != nil || cfg.Width != 160 || cfg.Height != 320 {
+		t.Fatalf("thumbnail size: %+v %v", cfg, err)
+	}
+
+	svg := []byte(`<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 390 844" fill="none"><rect width="390" height="844" fill="#fff"/></svg>`)
+	v := decode[ReferenceView](t, h.uploadReference("alice", "Home.svg", svg, nil))
+	if v.ContentType != "image/svg+xml" || v.Width != 390 || v.Height != 844 || v.Name != "Home" || v.ThumbURL != "" {
+		t.Fatalf("svg: %+v", v)
+	}
+	rec = h.do(http.MethodGet, v.ImageURL, "alice", "", nil)
+	if rec.Code != http.StatusOK || rec.Header().Get("Content-Type") != "image/svg+xml" || !strings.Contains(rec.Header().Get("Content-Security-Policy"), "sandbox") {
+		t.Fatalf("svg image: %d %v", rec.Code, rec.Header())
+	}
+
+	rec = h.uploadReference("alice", "Card.svg",
+		[]byte(`<svg xmlns="http://www.w3.org/2000/svg" width="320px" viewBox="0 0 160 90"></svg>`), nil, testPNG(t, 160, 90))
+	withThumb := decode[ReferenceView](t, rec)
+	if withThumb.Width != 320 || withThumb.Height != 180 || withThumb.ThumbURL == "" {
+		t.Fatalf("svg with a thumbnail: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := h.do(http.MethodGet, withThumb.ThumbURL, "alice", "", nil); rec.Code != http.StatusOK || rec.Header().Get("Content-Type") != "image/png" {
+		t.Fatalf("svg thumbnail: %d %v", rec.Code, rec.Header())
+	}
+
+	if rec := h.uploadReference("alice", "x.svg", []byte(`<svg xmlns="http://www.w3.org/2000/svg"></svg>`), nil); rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("svg without a size: %d", rec.Code)
+	}
+	if rec := h.uploadReference("alice", "x.svg", []byte(`<html><svg width="10" height="10"/></html>`), nil); rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("not an svg: %d", rec.Code)
 	}
 }

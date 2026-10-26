@@ -666,7 +666,7 @@ export interface paths {
         /** @description The caller's pixel perfect reference images, most recently used first, and the server's rules for them. */
         get: operations["listReferences"];
         put?: never;
-        /** @description Adds a reference image (PNG, JPEG or WebP, at most pixelPerfect.maxFileSize). Fails with 507 when it would go over the caller's quota. */
+        /** @description Adds a reference image (PNG, JPEG, WebP or SVG, at most pixelPerfect.maxFileSize). Fails with 507 when it would go over the caller's quota. */
         post: operations["uploadReference"];
         delete?: never;
         options?: never;
@@ -2438,7 +2438,7 @@ export interface components {
             id: string;
             /** @description areas the comparison skips, such as a video under the interface */
             ignore: components["schemas"]["Rect"][];
-            /** @description opening it counts as a use; add ?preview for a thumbnail that doesn't */
+            /** @description opening it counts as a use */
             imageUrl: string;
             /** Format: date-time */
             lastUsedAt: string;
@@ -2451,6 +2451,8 @@ export interface components {
              * @description bytes
              */
             size: number;
+            /** @description a small picture for lists, at most 160 px wide; opening it is not a use */
+            thumbnailUrl?: string;
             /** Format: int64 */
             width: number;
         };
@@ -4289,6 +4291,11 @@ export interface operations {
                     file: string;
                     name?: string;
                     package?: string;
+                    /**
+                     * Format: binary
+                     * @description a picture for lists at most 320×640, which SVGs need since the server doesn't render them
+                     */
+                    thumbnail?: string;
                 };
             };
         };

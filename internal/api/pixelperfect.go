@@ -69,6 +69,7 @@ type referenceMeta struct {
 //
 //	<user>/<id>.json  referenceMeta
 //	<user>/<id>.img   the image
+//	<user>/<id>.thumb a small JPEG (or the browser's picture of an SVG) for lists
 //	<user>/<id>.used  rewritten when the image is opened; its time is the last use
 //
 // so one listing gives sizes and last uses without reading anything.
@@ -83,6 +84,7 @@ type referenceEntry struct {
 	size     int64
 	lastUsed time.Time
 	meta     bool
+	thumb    bool
 }
 
 func (r *referenceStore) key(user, id, ext string) string { return r.prefix + user + "/" + id + ext }
@@ -118,6 +120,8 @@ func (r *referenceStore) list(ctx context.Context, user string) ([]*referenceEnt
 			e.size = o.Size
 		case "json":
 			e.meta = true
+		case "thumb":
+			e.thumb = true
 		}
 		if (ext == "used" || ext == "json") && o.Modified.After(e.lastUsed) {
 			e.lastUsed = o.Modified
@@ -127,7 +131,7 @@ func (r *referenceStore) list(ctx context.Context, user string) ([]*referenceEnt
 }
 
 func (r *referenceStore) remove(ctx context.Context, user, id string) error {
-	for _, ext := range []string{".json", ".img", ".used"} {
+	for _, ext := range []string{".json", ".img", ".thumb", ".used"} {
 		if err := r.store.Delete(ctx, r.key(user, id, ext)); err != nil && !errors.Is(err, storage.ErrNotExist) {
 			return err
 		}
@@ -152,7 +156,8 @@ type ReferenceView struct {
 	CreatedAt   time.Time  `json:"createdAt"`
 	LastUsedAt  time.Time  `json:"lastUsedAt"`
 	ExpiresAt   *time.Time `json:"expiresAt,omitempty" doc:"deleted then unless it is opened again"`
-	ImageURL    string     `json:"imageUrl" doc:"opening it counts as a use; add ?preview for a thumbnail that doesn't"`
+	ImageURL    string     `json:"imageUrl" doc:"opening it counts as a use"`
+	ThumbURL    string     `json:"thumbnailUrl,omitempty" doc:"a small picture for lists, at most 160 px wide; opening it is not a use"`
 }
 
 type ReferenceList struct {
@@ -172,6 +177,9 @@ func (s *Server) referenceView(m referenceMeta, e *referenceEntry) ReferenceView
 	}
 	if v.Ignore == nil {
 		v.Ignore = []Rect{}
+	}
+	if m.ContentType != svgType || e != nil && e.thumb {
+		v.ThumbURL = referencesPath + "/" + m.ID + "/thumbnail"
 	}
 	if e != nil {
 		v.Size = e.size
@@ -232,9 +240,10 @@ func validRects(rects []Rect) error {
 
 type referenceUploadInput struct {
 	RawBody huma.MultipartFormFiles[struct {
-		File    huma.FormFile `form:"file" contentType:"image/png,image/jpeg,image/webp,application/octet-stream" required:"true"`
-		Name    string        `form:"name" maxLength:"120" required:"false"`
-		Package string        `form:"package" maxLength:"255" required:"false"`
+		File      huma.FormFile `form:"file" contentType:"image/png,image/jpeg,image/webp,image/svg+xml,application/octet-stream" required:"true"`
+		Thumbnail huma.FormFile `form:"thumbnail" contentType:"image/jpeg,image/png,image/webp,application/octet-stream" required:"false" doc:"a picture for lists at most 320×640, which SVGs need since the server doesn't render them"`
+		Name      string        `form:"name" maxLength:"120" required:"false"`
+		Package   string        `form:"package" maxLength:"255" required:"false"`
 	}]
 }
 
@@ -269,8 +278,14 @@ func (s *Server) uploadReference(ctx context.Context, in *referenceUploadInput) 
 		return ReferenceView{}, fmt.Errorf("%w: the image is larger than %d bytes", contract.ErrTooLarge, max)
 	}
 	cfg, format, err := image.DecodeConfig(bytes.NewReader(raw))
-	if err != nil || referenceTypes[format] == "" {
-		return ReferenceView{}, fmt.Errorf("%w: not a PNG, JPEG or WebP image", contract.ErrInvalid)
+	contentType := referenceTypes[format]
+	if err != nil {
+		if w, h, ok := svgSize(raw); ok {
+			cfg, format, contentType = image.Config{Width: w, Height: h}, "svg", svgType
+		}
+	}
+	if contentType == "" {
+		return ReferenceView{}, fmt.Errorf("%w: not a PNG, JPEG, WebP or SVG image with a size", contract.ErrInvalid)
 	}
 	if cfg.Width <= 0 || cfg.Height <= 0 || cfg.Width*cfg.Height > 64<<20 {
 		return ReferenceView{}, fmt.Errorf("%w: the image is %d×%d; at most 64 megapixels", contract.ErrInvalid, cfg.Width, cfg.Height)
@@ -295,16 +310,32 @@ func (s *Server) uploadReference(ctx context.Context, in *referenceUploadInput) 
 	}
 	m := referenceMeta{
 		ID: newAppDataID(now), Owner: who.User, Name: cmp.Or(name, "Reference"), Package: strings.TrimSpace(form.Package),
-		ContentType: referenceTypes[format], Width: cfg.Width, Height: cfg.Height, Placement: Placement{Scale: 1}, CreatedAt: now,
+		ContentType: contentType, Width: cfg.Width, Height: cfg.Height, Placement: Placement{Scale: 1}, CreatedAt: now,
 	}
 	if err := s.references.store.Put(ctx, s.references.key(user, m.ID, ".img"), bytes.NewReader(raw), int64(len(raw))); err != nil {
 		return ReferenceView{}, err
+	}
+	var thumb []byte
+	if form.Thumbnail.IsSet {
+		defer form.Thumbnail.Close()
+		if b, err := io.ReadAll(io.LimitReader(form.Thumbnail, thumbMaxBytes+1)); err == nil && validThumbnail(b) {
+			thumb = b
+		}
+	}
+	if thumb == nil && contentType != svgType {
+		thumb, _ = makeThumbnail(raw)
+	}
+	if thumb != nil {
+		if err := s.references.store.Put(ctx, s.references.key(user, m.ID, ".thumb"), bytes.NewReader(thumb), int64(len(thumb))); err != nil {
+			s.log.Warn("reference: storing the thumbnail failed", "reference", m.ID, "err", err)
+			thumb = nil
+		}
 	}
 	if err := writeJSON(ctx, s.references.store, s.references.key(user, m.ID, ".json"), m); err != nil {
 		_ = s.references.remove(ctx, user, m.ID)
 		return ReferenceView{}, err
 	}
-	return s.referenceView(m, &referenceEntry{size: int64(len(raw)), lastUsed: now}), nil
+	return s.referenceView(m, &referenceEntry{size: int64(len(raw)), lastUsed: now, thumb: thumb != nil}), nil
 }
 
 func (s *Server) sweepReferences(ctx context.Context) {
@@ -382,7 +413,7 @@ func (s *Server) registerReferences(api huma.API) {
 	huma.Register(api, huma.Operation{
 		OperationID: "uploadReference", Method: http.MethodPost, Path: referencesPath, Tags: tags,
 		DefaultStatus: http.StatusCreated, MaxBodyBytes: int64(s.cfg.PixelPerfect.MaxFileSize) + 1<<20,
-		Description: "Adds a reference image (PNG, JPEG or WebP, at most pixelPerfect.maxFileSize). Fails with 507 when it would go over the caller's quota.",
+		Description: "Adds a reference image (PNG, JPEG, WebP or SVG, at most pixelPerfect.maxFileSize). Fails with 507 when it would go over the caller's quota.",
 	}, func(ctx context.Context, in *referenceUploadInput) (*out[ReferenceView], error) {
 		v, err := s.uploadReference(ctx, in)
 		s.emitResult(ctx, audit.Event{Action: audit.ReferenceUpload, Details: map[string]string{"reference": v.ID, "name": v.Name}}, err)
@@ -435,9 +466,8 @@ func (s *Server) registerReferences(api huma.API) {
 	})
 }
 
-// serveReferenceImage sends the owner their image and, unless it is only a
-// preview, counts it as a use at most once an hour, which pushes its
-// retention back.
+// serveReferenceImage sends the owner their image and counts it as a use at
+// most once an hour, which pushes its retention back.
 func (s *Server) serveReferenceImage(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	m, user, err := s.ownReference(ctx, r.PathValue("id"))
@@ -445,11 +475,9 @@ func (s *Server) serveReferenceImage(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	if !r.URL.Query().Has("preview") {
-		if used, err := s.references.store.Stat(ctx, s.references.key(user, m.ID, ".used")); err != nil || s.now().Sub(used.Modified) > referenceTouch {
-			if err := s.references.touch(ctx, user, m.ID); err != nil {
-				s.log.Warn("reference: marking as used failed", "reference", m.ID, "err", err)
-			}
+	if used, err := s.references.store.Stat(ctx, s.references.key(user, m.ID, ".used")); err != nil || s.now().Sub(used.Modified) > referenceTouch {
+		if err := s.references.touch(ctx, user, m.ID); err != nil {
+			s.log.Warn("reference: marking as used failed", "reference", m.ID, "err", err)
 		}
 	}
 	etag := `"` + m.ID + `"`
@@ -468,6 +496,51 @@ func (s *Server) serveReferenceImage(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rc.Close()
 	h.Set("Content-Type", m.ContentType)
+	if m.ContentType == svgType {
+		h.Set("Content-Security-Policy", "sandbox; default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src data:")
+	}
 	h.Set("Content-Length", strconv.FormatInt(size, 10))
 	_, _ = io.Copy(w, rc)
+}
+
+// serveReferenceThumbnail sends the list's picture of a reference, making it
+// for a raster image that has none yet. It doesn't count as a use.
+func (s *Server) serveReferenceThumbnail(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	m, user, err := s.ownReference(ctx, r.PathValue("id"))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	key := s.references.key(user, m.ID, ".thumb")
+	var thumb []byte
+	if rc, _, err := s.references.store.Get(ctx, key); err == nil {
+		thumb, err = io.ReadAll(io.LimitReader(rc, thumbMaxBytes+1))
+		rc.Close()
+		if err != nil {
+			thumb = nil
+		}
+	}
+	if thumb == nil && m.ContentType != svgType {
+		if rc, _, err := s.references.store.Get(ctx, s.references.key(user, m.ID, ".img")); err == nil {
+			raw, err := io.ReadAll(io.LimitReader(rc, int64(s.cfg.PixelPerfect.MaxFileSize)+1))
+			rc.Close()
+			if err == nil {
+				if b, ok := makeThumbnail(raw); ok {
+					thumb = b
+					_ = s.references.store.Put(ctx, key, bytes.NewReader(b), int64(len(b)))
+				}
+			}
+		}
+	}
+	if thumb == nil {
+		http.NotFound(w, r)
+		return
+	}
+	h := w.Header()
+	h.Set("Content-Type", http.DetectContentType(thumb))
+	h.Set("Content-Length", strconv.Itoa(len(thumb)))
+	h.Set("Cache-Control", "private, max-age=31536000, immutable")
+	h.Set("X-Content-Type-Options", "nosniff")
+	_, _ = w.Write(thumb)
 }

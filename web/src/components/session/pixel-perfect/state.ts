@@ -3,7 +3,7 @@ import { useEffect, useState, useSyncExternalStore } from "react"
 import { api, type Display, type ReferenceView, sessionBase, unwrap } from "@/api/client"
 import { keys } from "@/api/queries"
 import type { LiveScreen } from "@/components/session/live-screen"
-import { pixelsOf, referencePixels, toCanvas, workSize } from "@/lib/pixel-perfect/capture"
+import { loadImage, pixelsOf, referencePixels, toCanvas, workSize } from "@/lib/pixel-perfect/capture"
 import { type Analysis, analyze, boxMask, motionMask, type Pixels } from "@/lib/pixel-perfect/diff"
 import { type Box, onScreen, type Placement, placeReference, type Size } from "@/lib/pixel-perfect/geometry"
 import {
@@ -98,7 +98,7 @@ function frame() {
 export class PixelPerfect {
   #state: PixelState
   readonly #listeners = new Set<() => void>()
-  readonly #images = new Map<string, Promise<ImageBitmap>>()
+  readonly #images = new Map<string, Promise<HTMLImageElement>>()
   readonly #saves = new Map<string, number>()
   #rerun = 0
   #run = 0
@@ -221,12 +221,9 @@ export class PixelPerfect {
   image(ref: ReferenceView) {
     let p = this.#images.get(ref.id)
     if (!p) {
-      p = fetch(ref.imageUrl)
-        .then((r) => {
-          if (!r.ok) throw new Error(`Could not load the reference (${r.status})`)
-          return r.blob()
-        })
-        .then((b) => createImageBitmap(b))
+      p = loadImage(ref.imageUrl).catch(() => {
+        throw new Error("Could not load the reference")
+      })
       p.catch(() => this.#images.delete(ref.id))
       this.#images.set(ref.id, p)
     }
@@ -341,8 +338,9 @@ export class PixelPerfect {
       const size = { w: screen.width, h: screen.height }
       const image = await this.image(ref)
       const draft = this.draft(ref)
-      const reference = referencePixels(image, size, draft.placement)
-      const placed = placeReference(size, { w: image.width, h: image.height }, draft.placement)
+      const natural = { w: ref.width, h: ref.height }
+      const reference = referencePixels(image, natural, size, draft.placement)
+      const placed = placeReference(size, natural, draft.placement)
       const ignored = draft.ignore.map((r) => onScreen(placed, r))
       const d = this.#display
       const toDevice = d && d.width > 0 && d.height > 0 ? Math.max(d.width, d.height) / Math.max(size.w, size.h) : 1
@@ -381,7 +379,6 @@ export class PixelPerfect {
     this.#highlighter.close()
     window.clearTimeout(this.#rerun)
     for (const t of this.#saves.values()) window.clearTimeout(t)
-    for (const p of this.#images.values()) void p.then((b) => b.close()).catch(() => undefined)
     this.#images.clear()
   }
 }

@@ -771,8 +771,9 @@ Design mockups over the screen (decision #106, `internal/api/pixelperfect.go`,
 `web/src/lib/pixel-perfect`, `web/src/components/session/pixel-perfect`):
 
 ```
-browser ─POST/PUT/DELETE /api/v1/pixel-perfect─▶ api ──▶ storage: pixel-perfect/<user>/<id>.json|.img|.used
-        ◀─GET /api/v1/pixel-perfect/{id}/image── api (rewrites .used at most hourly; ?preview doesn't)
+browser ─POST/PUT/DELETE /api/v1/pixel-perfect─▶ api ──▶ storage: pixel-perfect/<user>/<id>.json|.img|.thumb|.used
+        ◀─GET /api/v1/pixel-perfect/{id}/image── api (rewrites .used at most hourly)
+        ◀─GET /api/v1/pixel-perfect/{id}/thumbnail── 160 px JPEG for lists, from the browser or made by the api (#109)
 browser: <img> over the screen canvas (opacity, difference, invert); Freeze frame = the decoder's snapshot;
          Find differences = GET /s/…/v1/device/screenshot (or the frozen frame) + a burst of stream frames
          for the motion mask → pixelmatch → regions → views and a PNG report;

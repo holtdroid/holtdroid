@@ -3247,7 +3247,7 @@ a video, which differs from any mockup everywhere the video plays.
   an hour. One listing of the user's prefix gives sizes and last uses, so the
   quota and retention read no objects, and writers never share an object.
   `pixelPerfect.storage` puts them elsewhere, like recordings and app data.
-  The image URL counts as a use; `?preview` (the list's thumbnails) doesn't,
+  The image URL counts as a use; the list's thumbnails (decision #109) don't,
   or opening the tab would keep every reference forever.
 - **Quota and retention**: `pixelPerfect.quota` (1 GiB) per user, overridable
   per role and per user like the other limits (`referencesQuota`, a new
@@ -3367,3 +3367,35 @@ still stored only as a hash and shown once.
 invite, which an admin could already hand out anyway; recovery links, which
 take over an existing account, stay unreadable. Invites created before the
 migration have no stored link.
+
+## 109. Pixel perfect takes SVG and keeps small thumbnails
+
+Extends #106.
+
+**Context.** Mockups come from Figma, where a PNG export is a resampled
+bitmap: scaled to the device's width it blurs and its edges fall between
+pixels. The list of references downloaded every full image (often several
+megabytes at 3×) just to show 48 px squares.
+
+**Decision.**
+
+- **SVG references.** The api accepts an SVG whose root is `<svg>` and takes
+  its size from `width`/`height` (unitless or `px`) or the `viewBox`; one
+  without a size is refused. It is stored as is and served with a sandboxing
+  CSP (`sandbox; default-src 'none'`), since a script in an SVG would run if
+  someone opened the image URL directly; inside `<img>` scripts never run.
+  The browser draws an SVG at the size it is needed, on the screen and into
+  the comparison, instead of scaling pixels. The tab recommends it: Export →
+  SVG, or Copy as SVG, which the tab takes as pasted text.
+- **Thumbnails** (`<id>.thumb`, `GET …/{id}/thumbnail`, immutable, not a
+  use): 160 px wide, at most 320 px tall (the top of a tall frame), JPEG on
+  white. The browser makes one when it uploads, since it renders SVG and
+  decodes big images cheaply; the api checks it decodes and is small. For
+  PNG, JPEG and WebP without one (other clients, older references) the api
+  makes it itself, up to 24 megapixels, and keeps it; an SVG without one has
+  none, since the api doesn't render SVG. This replaces `?preview` on the
+  image URL. Thumbnails don't count against the quota.
+
+**Consequences.** A Figma SVG with text kept as text depends on the browser
+having its fonts; Figma outlines text by default. SVGs with `foreignObject`
+taint the canvas, so their comparison fails with an error.

@@ -13,10 +13,22 @@ it.
 
 ## References
 
-A reference is an image: PNG, JPEG or WebP, up to `pixelPerfect.maxFileSize`
-(25 MiB). Add one by dropping it on the tab, choosing a file, or pasting it:
-copy a frame in Figma with **Copy as PNG** and press ⌘V / Ctrl+V while the tab
-is open. References belong to you, not to a session, so they are there in
+A reference is an image: SVG, PNG, JPEG or WebP, up to
+`pixelPerfect.maxFileSize` (25 MiB). Add one by dropping it on the tab,
+choosing a file, or pasting it with ⌘V / Ctrl+V while the tab is open.
+
+:::tip[Export SVG from Figma]
+SVG is the best format for a reference: it is drawn at whatever size the
+screen needs, so it stays sharp at any scale and its edges line up to the
+pixel, where a PNG is resampled and blurs. In Figma, select the frame and
+either **Export → SVG**, or right-click → **Copy as → Copy as SVG** and paste
+it into the tab. Keep the frame the size of the phone's screen in dp (for
+example 360 × 800); Holtdroid scales it to the screen's width. If a frame
+can't be an SVG (photos, heavy effects), export a PNG at 3×.
+:::
+
+An SVG needs a size: `width` and `height` on its root, or a `viewBox`, which
+Figma always writes. References belong to you, not to a session, so they are there in
 every session; the ones added for the current app come first.
 
 Double-click a name to rename it. Each reference also remembers where you put
@@ -27,6 +39,11 @@ They live in the server's storage (S3 or a folder). Each user has
 and a reference nobody opened for `pixelPerfect.maxAge` (30 days) is deleted;
 laying it over a screen counts as opening it, its thumbnail in the list
 doesn't.
+
+The list shows small previews (160 px wide, the top of tall frames) that the
+browser makes when you add an image, so opening the tab doesn't download the
+full images; the server makes them for PNG, JPEG and WebP it got without
+one.
 
 ## Over the screen
 
