@@ -452,8 +452,11 @@ codecs and reports that it can't capture audio.
   and `POST …/{rev}/fetch` (ahead of the queue), shown on the Inventory
   page's DevTools frontends tab (`/inventory/devtools`; the tabs sit under
   the site header, `/inventory` is the Devices one: a table per provider,
-  a row per slot, with the device, machine and sensors in a sheet on the
-  right).
+  a row per slot with its session's age, idle time, next deadline, VPN
+  location and WebView, and node conditions, with the device, machine,
+  sensors and the slot's capabilities in a sheet on the right; and
+  `/inventory/sessions` lists everyone's sessions with Stop, which uses
+  the owner-or-admin `DELETE /api/v1/sessions/{provider}/{id}`).
 - Everything is same-origin (`/s/{provider}/{id}/…` on the api host). This matters
   because forward-auth cookies (SameSite=Lax) are not sent on WebSockets
   opened from a cross-site iframe.

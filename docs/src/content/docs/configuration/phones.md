@@ -170,9 +170,11 @@ The admins' **Inventory** page lists every phone of `phones[]` with what adb
 tells about it without root: maker, model and code name, Android version and
 API level, build and security patch, ABIs, cores, memory, storage on
 `/data`, uptime, the battery (level, charging, health, temperature, voltage)
-and every sensor `dumpsys thermalservice` reports. A phone that isn't
+and every sensor `dumpsys thermalservice` reports, plus what sessions on it
+get (root, DevTools scope, ADB, shell, app data). A phone that isn't
 connected or authorized shows its adb state instead. The host the phones
-hang off is shown above them (CPU, memory, load, its sensors).
+hang off is summarized in the provider's header (load, memory, conditions).
+The page's **Sessions** tab lists everyone's devices with a **Stop** button.
 
 **Hold** a phone to keep sessions off it while you swap a cable, update it
 or let it cool down; a session already running finishes normally. Holds are

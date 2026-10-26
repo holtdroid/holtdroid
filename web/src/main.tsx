@@ -132,6 +132,14 @@ const inventoryRoute = createRoute({
   },
 })
 
+const inventorySessionsRoute = createRoute({
+  getParentRoute: () => portalRoute,
+  path: "/inventory/sessions",
+  component: function InventorySessions() {
+    return <InventoryPage tab="sessions" />
+  },
+})
+
 const inventoryDevToolsRoute = createRoute({
   getParentRoute: () => portalRoute,
   path: "/inventory/devtools",
@@ -171,6 +179,7 @@ const router = createRouter({
       computersRoute,
       auditRoute,
       inventoryRoute,
+      inventorySessionsRoute,
       inventoryDevToolsRoute,
       appDataRoute,
       accountRoute,

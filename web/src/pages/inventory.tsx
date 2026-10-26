@@ -1,11 +1,13 @@
 import { Link, useNavigate } from "@tanstack/react-router"
 import {
+  ActivityIcon,
   BatteryChargingIcon,
   BatteryIcon,
   BugIcon,
   ChevronRightIcon,
   ConstructionIcon,
   CpuIcon,
+  GlobeIcon,
   HardDriveIcon,
   Loader2Icon,
   type LucideIcon,
@@ -13,6 +15,7 @@ import {
   ServerIcon,
   ShieldAlertIcon,
   SmartphoneIcon,
+  SquareIcon,
   ThermometerIcon,
   TimerIcon,
   Trash2Icon,
@@ -41,7 +44,9 @@ import {
   useInventory,
   useSetMaintenance,
 } from "@/api/inventory"
-import { useMe, useSessions } from "@/api/queries"
+import { useMe, useSessions, useStopSession } from "@/api/queries"
+import { AppIcon } from "@/components/app-icon"
+import { SessionStateBadge } from "@/components/session-state-badge"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -60,8 +65,9 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { UserAvatar } from "@/components/user-avatar"
 import { useNow } from "@/hooks/use-now"
-import { formatBytes, formatDuration, formatRelative } from "@/lib/format"
+import { countryFlag, formatBytes, formatDuration, formatRelative } from "@/lib/format"
 import {
   celsius,
   hottest,
@@ -84,7 +90,13 @@ const stateBadge: Record<Slot["state"], string> = {
 
 const sessionKey = (provider: string, id: string) => `${provider}/${id}`
 
-export type InventoryTab = "devices" | "devtools"
+export type InventoryTab = "devices" | "sessions" | "devtools"
+
+const tabPaths: Record<InventoryTab, "/inventory" | "/inventory/sessions" | "/inventory/devtools"> = {
+  devices: "/inventory",
+  sessions: "/inventory/sessions",
+  devtools: "/inventory/devtools",
+}
 
 const stateDot: Record<Slot["state"], string> = {
   free: "bg-emerald-500",
@@ -101,7 +113,7 @@ export function InventoryPage({ tab }: { tab: InventoryTab }) {
   const admin = me.data?.admin === true
   const inventory = useInventory(admin && tab === "devices")
   const sessions = useSessions()
-  const now = useNow(30_000)
+  const now = useNow(10_000)
   const byID = new Map((sessions.data?.items ?? []).map((s) => [sessionKey(s.provider, s.id), s]))
   const [selected, setSelected] = useState<Selected | null>(null)
   const current = selected ? inventory.data?.providers.find((p) => p.name === selected.provider) : undefined
@@ -111,13 +123,17 @@ export function InventoryPage({ tab }: { tab: InventoryTab }) {
     <div className="flex h-full flex-col">
       <Tabs
         value={tab}
-        onValueChange={(v) => void navigate({ to: v === "devtools" ? "/inventory/devtools" : "/inventory" })}
+        onValueChange={(v) => void navigate({ to: tabPaths[v as InventoryTab] })}
         className="bg-background shrink-0 border-b px-4 lg:px-6"
       >
         <TabsList variant="line" className="h-11 gap-4">
           <TabsTrigger value="devices" className="gap-1.5">
             <SmartphoneIcon />
             Devices
+          </TabsTrigger>
+          <TabsTrigger value="sessions" className="gap-1.5">
+            <ActivityIcon />
+            Sessions
           </TabsTrigger>
           <TabsTrigger value="devtools" className="gap-1.5">
             <BugIcon />
@@ -134,6 +150,14 @@ export function InventoryPage({ tab }: { tab: InventoryTab }) {
                 Every slot of every provider, refreshed every 10 seconds. Open a row for the device, its machine and
                 sensors. A slot held for maintenance takes no new sessions; a session already running on it keeps going
                 until it ends.
+              </p>
+            </div>
+          ) : tab === "sessions" ? (
+            <div>
+              <h1 className="text-xl font-semibold tracking-tight">Sessions</h1>
+              <p className="text-muted-foreground max-w-2xl text-sm">
+                Everyone&apos;s running devices: who holds which slot, for how long, and when it ends on its own. Stop
+                one to free the slot now.
               </p>
             </div>
           ) : (
@@ -170,6 +194,9 @@ export function InventoryPage({ tab }: { tab: InventoryTab }) {
                 />
               ))}
             </>
+          )}
+          {tab === "sessions" && admin && (
+            <SessionsSection items={sessions.data?.items ?? []} loading={sessions.isPending} now={now} />
           )}
           {tab === "devtools" && admin && <DevToolsFrontendsSection now={now} />}
         </div>
@@ -317,6 +344,7 @@ function ProviderSection({
             ))}
         </div>
         <div className="ml-auto flex items-center gap-3">
+          {p.host && <Conditions conditions={p.host.conditions} />}
           {p.host && <HostSummary host={p.host} />}
           {!p.error && (
             <MaintenanceButton
@@ -366,6 +394,7 @@ function ProviderSection({
                   provider={p}
                   device={d}
                   session={d.session ? sessions.get(sessionKey(p.name, d.session)) : undefined}
+                  now={now}
                   onOpen={() => onOpen(d.slot.id)}
                 />
               ))}
@@ -413,11 +442,13 @@ function DeviceRow({
   provider: p,
   device: d,
   session,
+  now,
   onOpen,
 }: {
   provider: ProviderInventory
   device: InventoryDevice
   session: SessionView | undefined
+  now: number
   onOpen: () => void
 }) {
   const Icon = d.host && !d.device ? ServerIcon : SmartphoneIcon
@@ -430,7 +461,10 @@ function DeviceRow({
         <div className="flex items-center gap-2">
           <Icon className="text-muted-foreground size-4 shrink-0" />
           <div className="min-w-0">
-            <div className="truncate font-medium">{d.slot.label}</div>
+            <div className="flex items-center gap-1.5 font-medium">
+              <span className="truncate">{d.slot.label}</span>
+              {d.host && <Conditions conditions={d.host.conditions} />}
+            </div>
             {d.slot.label !== d.slot.id && (
               <div className="text-muted-foreground truncate font-mono text-[11px]">{d.slot.id}</div>
             )}
@@ -455,9 +489,12 @@ function DeviceRow({
               {d.session}
             </Link>
             {session && (
-              <div className="text-muted-foreground max-w-48 truncate text-[11px]">
-                {session.label || session.package} · {session.ownerName || session.owner}
-              </div>
+              <>
+                <div className="text-muted-foreground max-w-56 truncate text-[11px]">
+                  {session.label || session.package} · {session.ownerName || session.owner}
+                </div>
+                <SessionMeta session={session} now={now} />
+              </>
             )}
           </div>
         ) : (
@@ -604,13 +641,21 @@ function DeviceSheet({
             {d.session}
           </Link>
           {session && (
-            <span className="text-muted-foreground min-w-0 truncate">
-              {session.label || session.package} · {session.ownerName || session.owner}
-            </span>
+            <>
+              <span className="text-muted-foreground min-w-0 truncate">
+                {session.label || session.package} · {session.ownerName || session.owner}
+              </span>
+              <SessionMeta session={session} now={now} />
+            </>
           )}
         </div>
       )}
 
+      {d.slot.capabilities && (
+        <Section title="Capabilities">
+          <Capabilities caps={d.slot.capabilities} />
+        </Section>
+      )}
       {d.device && (
         <Section title="Device">
           <DeviceDetails device={d.device} />
@@ -656,6 +701,241 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
       </div>
       {children}
     </div>
+  )
+}
+
+function sessionTimes(s: SessionView, now: number) {
+  const idleLeft = new Date(s.idleDeadline).getTime() - now
+  const ttlLeft = new Date(s.ttlDeadline).getTime() - now
+  return {
+    up: now - new Date(s.createdAt).getTime(),
+    idle: now - new Date(s.lastActivity).getTime(),
+    left: Math.max(0, Math.min(idleLeft, ttlLeft)),
+    byIdle: idleLeft <= ttlLeft,
+  }
+}
+
+function SessionMeta({ session: s, now }: { session: SessionView; now: number }) {
+  const t = sessionTimes(s, now)
+  return (
+    <div className="text-muted-foreground flex flex-wrap items-center gap-x-2 text-[11px] tabular-nums">
+      <span>up {formatDuration(t.up)}</span>
+      <span>idle {formatDuration(t.idle)}</span>
+      <span className={cn(t.left < 5 * 60_000 && "text-amber-600 dark:text-amber-400")}>
+        {t.byIdle ? "idle stop" : "TTL"} in {formatDuration(t.left)}
+      </span>
+      {s.location && (
+        <span className="inline-flex items-center gap-0.5">
+          {countryFlag(s.location) || <GlobeIcon className="size-3" />}
+          {s.location}
+        </span>
+      )}
+      {s.webview && <span>WebView {s.webview}</span>}
+    </div>
+  )
+}
+
+function Conditions({ conditions }: { conditions: string[] }) {
+  if (conditions.length === 0) return null
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="text-destructive inline-flex shrink-0 items-center gap-0.5 text-xs">
+          <TriangleAlertIcon className="size-3.5" />
+          {conditions.length}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>{conditions.join(", ")}</TooltipContent>
+    </Tooltip>
+  )
+}
+
+function Capabilities({ caps: c }: { caps: NonNullable<Slot["capabilities"]> }) {
+  const chips = [
+    { label: c.root ? "Root" : "No root", on: c.root },
+    {
+      label: c.devtools === "all" ? "DevTools for every WebView" : "DevTools for debuggable builds",
+      on: c.devtools === "all",
+    },
+    { label: "ADB", on: c.adb },
+    { label: "Shell", on: c.shell },
+    { label: "App data", on: c.appData },
+  ]
+  const device = [c.model, c.android && `Android ${c.android}`].filter(Boolean).join(" · ")
+  return (
+    <div className="flex flex-wrap gap-1">
+      {device && <Badge variant="outline">{device}</Badge>}
+      {c.screen && (
+        <Badge variant="outline">
+          {c.screen.width}×{c.screen.height} · {c.screen.dpi} dpi
+        </Badge>
+      )}
+      {chips.map((ch) => (
+        <Badge
+          key={ch.label}
+          variant={ch.on ? "secondary" : "outline"}
+          className={cn(!ch.on && "text-muted-foreground")}
+        >
+          {ch.label}
+        </Badge>
+      ))}
+      {c.abis.length > 0 && <Badge variant="outline">{c.abis.join(", ")}</Badge>}
+    </div>
+  )
+}
+
+function SessionsSection({ items, loading, now }: { items: SessionView[]; loading: boolean; now: number }) {
+  const owners = new Set(items.map((s) => s.owner)).size
+  if (loading) return <Skeleton className="h-40 rounded-xl" />
+  if (items.length === 0) {
+    return (
+      <p className="text-muted-foreground rounded-xl border border-dashed py-8 text-center text-sm">
+        No device is running right now.
+      </p>
+    )
+  }
+  return (
+    <section className="grid gap-2">
+      <p className="text-muted-foreground text-xs tabular-nums">
+        {items.length} {items.length === 1 ? "session" : "sessions"} · {owners} {owners === 1 ? "user" : "users"}
+      </p>
+      <div className="overflow-x-auto rounded-xl border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>App</TableHead>
+              <TableHead>Owner</TableHead>
+              <TableHead>Slot</TableHead>
+              <TableHead>State</TableHead>
+              <TableHead className="text-right">Up</TableHead>
+              <TableHead className="text-right">Idle</TableHead>
+              <TableHead className="text-right">Ends in</TableHead>
+              <TableHead>Location</TableHead>
+              <TableHead />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {items.map((s) => (
+              <SessionRow key={sessionKey(s.provider, s.id)} session={s} now={now} />
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </section>
+  )
+}
+
+function SessionRow({ session: s, now }: { session: SessionView; now: number }) {
+  const t = sessionTimes(s, now)
+  return (
+    <TableRow>
+      <TableCell>
+        <div className="flex items-center gap-2">
+          <AppIcon src={s.iconUrl} className="size-7 shrink-0" />
+          <div className="min-w-0">
+            <Link
+              to="/session/$provider/$id"
+              params={{ provider: s.provider, id: s.id }}
+              className="block max-w-56 truncate font-medium underline-offset-2 hover:underline"
+            >
+              {s.label || s.package}
+            </Link>
+            <div className="text-muted-foreground max-w-56 truncate text-[11px]">
+              {[s.versionName, s.webview && `WebView ${s.webview}`].filter(Boolean).join(" · ") || s.package}
+            </div>
+          </div>
+        </div>
+      </TableCell>
+      <TableCell>
+        <span className="inline-flex items-center gap-1.5">
+          <UserAvatar user={s.owner} className="size-5" />
+          <span className="max-w-40 truncate">{s.ownerName || s.owner}</span>
+        </span>
+      </TableCell>
+      <TableCell>
+        <div className="min-w-0">
+          <div className="truncate">{s.slot}</div>
+          <div className="text-muted-foreground font-mono text-[11px]">
+            {s.provider} · {s.id}
+          </div>
+        </div>
+      </TableCell>
+      <TableCell>
+        <SessionStateBadge state={s.state} />
+        {s.reason && <div className="text-destructive mt-0.5 max-w-40 truncate text-[11px]">{s.reason}</div>}
+      </TableCell>
+      <TableCell className="text-right text-xs tabular-nums">{formatDuration(t.up)}</TableCell>
+      <TableCell className="text-right text-xs tabular-nums">{formatDuration(t.idle)}</TableCell>
+      <TableCell className="text-right text-xs tabular-nums">
+        <span className={cn(t.left < 5 * 60_000 && "text-amber-600 dark:text-amber-400")}>
+          {formatDuration(t.left)}
+        </span>
+        <div className="text-muted-foreground text-[11px]">{t.byIdle ? "idle timeout" : "max lifetime"}</div>
+      </TableCell>
+      <TableCell className="text-xs">
+        {s.location ? (
+          <span className="inline-flex items-center gap-1">
+            {countryFlag(s.location) || <GlobeIcon className="size-3" />}
+            {s.location}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )}
+      </TableCell>
+      <TableCell className="text-right">
+        <StopButton session={s} />
+      </TableCell>
+    </TableRow>
+  )
+}
+
+function StopButton({ session: s }: { session: SessionView }) {
+  const stop = useStopSession()
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <Button
+        variant="ghost"
+        size="xs"
+        className="text-destructive"
+        disabled={stop.isPending || s.state === "stopping"}
+        onClick={() => setOpen(true)}
+      >
+        <SquareIcon />
+        Stop
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Stop {s.ownerName || s.owner}&apos;s device?</DialogTitle>
+            <DialogDescription>
+              {s.label || s.package} on {s.slot} stops now and the slot frees up. Whatever they were doing in it is
+              gone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={stop.isPending}
+              onClick={() =>
+                stop.mutate(s, {
+                  onSuccess: () => {
+                    setOpen(false)
+                    toast.success("Stopped")
+                  },
+                  onError: (e) => toast.error("Could not stop the session", { description: e.message }),
+                })
+              }
+            >
+              Stop
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
 

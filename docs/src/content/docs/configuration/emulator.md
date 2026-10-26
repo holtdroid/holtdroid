@@ -301,7 +301,10 @@ it. With `nodeInfo` set, a small `holtdroid node-info` Pod on each node adds
 the CPU model, load, free memory, uptime and every temperature sensor the
 node exposes (thermal zones and hwmon: CPU package and cores, NVMe drives,
 chipsets). It reads `/proc` and `/sys`, which are host-wide inside an
-ordinary container, so it runs unprivileged as non-root.
+ordinary container, so it runs unprivileged as non-root. Each slot's row
+also shows the session on it (owner, age, idle time, when it stops on its
+own, VPN location, WebView), and the page's **Sessions** tab lists
+everyone's devices with a **Stop** button.
 
 **Hold for maintenance** keeps new sessions off a slot (or, from the
 provider's header, off every slot) until an admin releases it; a session
