@@ -45,7 +45,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const matchRoute = useMatchRoute()
   const [slot, setSlot] = useState<HTMLElement | null>(null)
   const onRecording = Boolean(matchRoute({ to: "/recordings/$id" }))
-  const slotted = onRecording || Boolean(matchRoute({ to: "/session/$provider/$id" }))
+  const slotted =
+    onRecording || Boolean(matchRoute({ to: "/session/$provider/$id" }) || matchRoute({ to: "/r/$token" }))
   const onApps = Boolean(matchRoute({ to: "/" }) || matchRoute({ to: "/apps/$pkg", fuzzy: true }))
   const { resolvedTheme, setTheme } = useTheme()
   const identity = auth.data?.identity

@@ -33,11 +33,11 @@ recording keeps more than the picture:
 
 Nothing is rendered on the server: the agent copies the video the device
 already encodes and writes the rest as small text files next to it. The
-portal draws the page from that data in an Android look: logcat and the
-WebViews' network, console and WebSockets in tabs on the left, the phone in
-the middle, and on the right the device clock like a status bar,
-the app, quick-settings style tiles for Wi-Fi, mobile data, airplane mode,
-Battery Saver and dark theme, the device, the network and the load.
+portal draws the page from that data like a session's page: small dark
+cards on the left for the device clock, the app, the device, the network and
+the load (hover one for its details), the phone in the middle, and on the
+right a panel like the session's DevTools panel with logcat and the WebViews'
+network, console and WebSockets in tabs.
 
 ## Recording a session
 
@@ -79,7 +79,10 @@ When the device is silent, the recording is too.
 ## Watching
 
 **Recordings** in the header (the clapperboard) lists your recordings,
-newest first, with a preview, the app, the length and the size. A recording
+newest first, with a preview, the app, the length and the size. The preview
+is the screen just before the touch nearest to the fifth second of the
+recording, so it shows what someone was about to tap, or the screen at the
+fifth second when nobody touched it. A recording
 still in progress is marked and can be watched while it grows.
 
 When a recording has sound, a speaker button next to the speeds turns it on or off. It plays
@@ -120,7 +123,7 @@ turn red when requests failed or the page logged errors.
   response is complete at that moment), method, name, host, size and time.
   Filter by URL, by type (Fetch/XHR, Doc, JS and so on) or to errors only.
   Click a request for its headers, query string and body (**Payload**), the
-  **Response** and its **Timing**, or copy it as cURL. Bodies are kept up to
+  **Response** and its **Timing**, or copy it as cURL or as a `fetch()` call. Bodies are kept up to
   1 MB; images, media and fonts are recorded without theirs.
 - **Console** has `console.*` calls, uncaught exceptions with their stack and
   the WebView's own messages (failed loads, violations, deprecations), with
@@ -152,7 +155,9 @@ nanoseconds, ISO 8601 and HTTP dates. Hover it for its distance from the
 device clock both now and when it was recorded, the same moment in UTC, in
 the device's time zone and in yours, as Unix seconds and milliseconds (click
 one to copy), and, when the device clock was set off real time, how it
-compares with real time. Plain numbers count as seconds only when the field's name
+compares with real time. When that moment lies within the recording,
+**Go to 00:12** jumps there, back or ahead. A value without a time zone is
+read as UTC. Plain numbers count as seconds only when the field's name
 says it is a time (`expiresAt`, `created_at`, `exp`, `ts`…) or they fall
 within five years of the recording.
 
@@ -195,13 +200,17 @@ in the recording, followed by the usual `threadtime` line.
 ## Downloading a video
 
 **Download → Video (.mp4)** renders the recording into an MP4 file in your browser,
-frame by frame, with the Holtdroid logo on top, the phone and the device
-panels from the right of the page (the text is part of the picture, so it
-can't be selected). Logcat and the WebViews' tabs stay on the page, where they
-can be read and searched. It is 1296 pixels tall and 30 fps: 1560×1296 for a
-phone held upright. If the screen turned sideways in the recording or it is a
-tablet, the phone's column is made wider and so is the video (up to about
-2450 pixels), so the picture
+frame by frame, with the Holtdroid logo on top (the text is part of the
+picture, so it can't be selected). It opens with a three-second card about
+the app (name, version, package) and the device (model, Android, WebView,
+screen), when it was recorded and how long it is; then the phone plays with
+a narrow column beside it for what changes: the device clock and the
+recording time, whether the app runs, the battery, quick settings, the
+network and the load. Logcat and the WebViews' tabs stay on the page, where
+they can be read and searched. It is 1296 pixels tall and 30 fps: 1262×1296
+for a phone held upright. If the screen turned sideways in the recording or
+it is a tablet, the phone's column is made wider and so is the video (up to
+about 2160 pixels), so the picture
 stays readable; the phone's frame turns smoothly when the device does. A
 progress bar over the recording's timeline shows how far it got, how fast it
 goes and how long is left; keep the tab open until it finishes.
@@ -262,7 +271,8 @@ time: `#t=46.2&tab=network&request=…` opens the recording there, on the same
 tab (Logcat, Network, Console or WebSockets), with the request, console
 message or socket frame you had open opened and scrolled to. `t` also takes
 `1m20s`. On a shared recording, **Link to 00:46** copies such a link for the
-page you are on.
+page you are on. Someone signed in to the portal who opens a share link sees it inside the
+portal, with its header and menus.
 
 ## Keeping and space
 

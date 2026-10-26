@@ -3627,3 +3627,46 @@ names (`TargetManager`, `RuntimeModel.ExecutionContext`, `Context`,
 `ViewManager`), checked against the revision WebView 128 serves; a revision
 that changes them makes the switch fail with a message, and the context menu
 remains.
+
+## 117. Iframes are found through the Console, sockets watched live, the recording page laid out like a session
+
+Supersedes #116.
+
+**Context.** Listing in-process iframes in the target selector and switching
+the frontend's Console context by reaching into its modules (#116) worked
+around something DevTools already offers, at the price of depending on the
+frontend's internals. Testers also wanted the WebSocket traffic while the
+session runs, not only in recordings, and to mark its moments on the
+recording; and the recording page and its video put long panels where a
+glance should do.
+
+**Decision.**
+
+- The target selector lists targets only and ends with a note on choosing an
+  iframe in the Console's context menu (`top ▾`); the agent no longer reads
+  frame trees and the frontend gets no script of ours.
+- The agent's DevTools watch fans its socket lines (targets, socket
+  states, frames) out to live watchers over `GET /v1/devtools/sockets` (SSE),
+  starting with what is open; each line has the agent's clock and, while
+  recording, the recording time and id. The session page shows them in a
+  **WebSockets** tab in DevTools' look (the stage colours remapped to the
+  portal's), keeping 5000 frames a socket in the browser. A frame's time
+  pins a marker at its recording time through the session marker endpoint,
+  which now takes `t` and `recording`.
+- The recording page puts the session's dark cards (clock, app, device,
+  network, load, each with details on hover) left of the phone and the
+  tools, styled like the session's DevTools panel, on the right. The video
+  opens with a three-second card of the app and the device and then shows
+  only what changes in a 360 px column beside the phone; its sound is
+  shifted by the opening card.
+- The preview is a `screencap` taken when a finger goes down, the one
+  nearest to the fifth second; without touches it stays the screen at the
+  fifth second, and the end no longer replaces it.
+- Times without a zone are read as UTC, and a time hint whose moment lies in
+  the recording offers to go there. Requests without HTTP status (`blob:`,
+  `data:`) show their scheme; requests copy as `fetch()` too. A shared
+  recording opens inside the portal's shell for someone signed in.
+
+**Consequences.** Live frames cost nothing while nobody watches; a watcher
+that falls 1024 lines behind misses some. A screencap at touch-down takes a
+few hundred milliseconds and can already show the press highlight.

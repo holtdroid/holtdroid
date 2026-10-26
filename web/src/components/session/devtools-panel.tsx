@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { BugIcon, RefreshCwIcon, RotateCwIcon, Settings2Icon } from "lucide-react"
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 import { agentClient, type DevToolsTarget, sessionBase, unwrap } from "@/api/client"
 import { CopyButton } from "@/components/copy-button"
@@ -14,6 +14,7 @@ import {
   SelectGroup,
   SelectItem,
   SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
@@ -25,22 +26,6 @@ import { prepareDevTools, styleDevTools } from "@/lib/devtools-style"
 import { cn } from "@/lib/utils"
 
 const key = (t: DevToolsTarget) => `${t.socket}/${t.id}`
-
-const frontendKey = (t: DevToolsTarget) => `${t.socket}/${t.page ?? t.id}`
-
-/**
- * Asks the DevTools frontend in the iframe to switch its Console to a frame's
- * context, through a module from this origin (the frontend's CSP allows only
- * its own origin's scripts) that reaches the frontend's own SDK modules.
- */
-function selectContext(el: HTMLIFrameElement, frameID: string, attempt: number) {
-  const doc = el.contentDocument
-  if (!doc?.head) return
-  const script = doc.createElement("script")
-  script.type = "module"
-  script.src = `/devtools-context.js?frame=${encodeURIComponent(frameID)}&n=${attempt}`
-  doc.head.append(script)
-}
 
 function pick(items: DevToolsTarget[], chosen: DevToolsTarget | null) {
   if (chosen) {
@@ -89,47 +74,13 @@ export function DevToolsPanel({
 
   const prefs = useDevToolsPrefs()
   const [frame, setFrame] = useState<HTMLIFrameElement | null>(null)
-  const asked = useRef<string | null>(null)
-  const attempts = useRef(0)
   const attachFrame = useCallback(
     (el: HTMLIFrameElement | null) => {
       frameRef(el)
       setFrame(el)
-      asked.current = null
     },
     [frameRef],
   )
-
-  const contextFrame = selected?.id
-  const inProcessFrame = !!selected?.page
-  useEffect(() => {
-    if (!frame || !contextFrame) return undefined
-    if (!inProcessFrame && (asked.current === null || asked.current === contextFrame)) return undefined
-    const run = () => {
-      asked.current = contextFrame
-      selectContext(frame, contextFrame, ++attempts.current)
-    }
-    const doc = frame.contentDocument
-    if (doc && doc.URL.includes("inspector.html") && doc.readyState !== "loading") {
-      run()
-      return undefined
-    }
-    frame.addEventListener("load", run, { once: true })
-    return () => frame.removeEventListener("load", run)
-  }, [frame, contextFrame, inProcessFrame])
-
-  useEffect(() => {
-    const onMessage = (e: MessageEvent) => {
-      const data = e.data as { type?: string; frame?: string; ok?: boolean } | null
-      if (e.origin !== window.location.origin || data?.type !== "holtdroid-devtools-context" || data.ok) return
-      if (data.frame !== asked.current) return
-      toast.error("Could not switch the Console to this iframe", {
-        description: "Pick it in the Console's context menu (top ▾) instead.",
-      })
-    }
-    window.addEventListener("message", onMessage)
-    return () => window.removeEventListener("message", onMessage)
-  }, [])
 
   useLayoutEffect(() => {
     if (selectedKey) prepareDevTools(prefs)
@@ -188,15 +139,22 @@ export function DevToolsPanel({
               <SelectGroup key={process}>
                 <SelectLabel>{process}</SelectLabel>
                 {group.map((t) => (
-                  <SelectItem key={key(t)} value={key(t)} className={cn(t.page && "pl-6")}>
-                    <span className="text-muted-foreground font-mono text-[10px] uppercase">
-                      {t.page ? "↳ iframe" : t.type}
-                    </span>
-                    <span className="truncate">{t.title ? `${t.title} · ${t.url}` : t.url}</span>
+                  <SelectItem key={key(t)} value={key(t)}>
+                    <span className="text-muted-foreground font-mono text-[10px] uppercase">{t.type}</span>
+                    <span className="truncate">{t.title || t.url}</span>
                   </SelectItem>
                 ))}
               </SelectGroup>
             ))}
+            <SelectSeparator />
+            <div className="text-muted-foreground grid max-w-80 gap-1 px-2 py-1.5 text-xs">
+              <span className="text-foreground font-medium">Looking for an iframe?</span>
+              <span>
+                WebView runs iframes inside their page, so they have no entry of their own. Pick the page, open the{" "}
+                <b>Console</b> tab in DevTools and choose the iframe in the context menu at the top left of the console,
+                which says <b>top ▾</b>. Elements, Sources and Network already show the iframe as part of the page.
+              </span>
+            </div>
           </SelectContent>
         </Select>
         {selected && (
@@ -231,7 +189,7 @@ export function DevToolsPanel({
       </div>
       {selected ? (
         <iframe
-          key={frontendKey(selected)}
+          key={key(selected)}
           ref={attachFrame}
           title="Chrome DevTools"
           src={devtoolsURL(provider, id, selected)}
@@ -281,7 +239,6 @@ function UrlBar({
   const [draft, setDraft] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const canNavigate = navigable.has(target.type)
-  const frameParam = target.page ? { frameId: target.id } : {}
 
   const run = (method: string, params?: object) => {
     setBusy(true)
@@ -300,7 +257,7 @@ function UrlBar({
       className="min-w-0 flex-[2]"
       onSubmit={(e) => {
         e.preventDefault()
-        if (draft?.trim()) run("Page.navigate", { url: normalizeURL(draft), ...frameParam })
+        if (draft?.trim()) run("Page.navigate", { url: normalizeURL(draft) })
       }}
     >
       <InputGroup className="h-8">
@@ -310,9 +267,7 @@ function UrlBar({
               size="icon-xs"
               aria-label="Reload the page"
               disabled={busy}
-              onClick={() =>
-                target.page ? run("Page.navigate", { url: target.url, ...frameParam }) : run("Page.reload")
-              }
+              onClick={() => run("Page.reload")}
             >
               <RotateCwIcon />
             </InputGroupButton>

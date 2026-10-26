@@ -178,6 +178,7 @@ type Agent struct {
 	rec       *recording.Recorder
 	recID     string
 	recCancel context.CancelFunc
+	recThumb  *thumbPicker
 	recLast   contract.RecordingState
 }
 
@@ -705,12 +706,12 @@ func (a *Agent) WatchStatus(ctx context.Context, send func(contract.StatusEvent)
 	}
 }
 
+func (a *Agent) WatchSockets(ctx context.Context, send func(contract.DevToolsEntry) error) error {
+	return a.watch.watchSockets(ctx, send)
+}
+
 func (a *Agent) Targets(ctx context.Context) ([]contract.DevToolsTarget, error) {
-	items, err := a.devtools.Targets(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return a.watch.withFrames(ctx, items), nil
+	return a.devtools.Targets(ctx)
 }
 
 func (a *Agent) Clipboard(context.Context) (string, error) {

@@ -42,8 +42,7 @@ import {
   useShareRecording,
 } from "@/api/queries"
 import { BakeDialog } from "@/components/recording/bake-dialog"
-import { FitHeight } from "@/components/recording/fit-height"
-import { InfoView } from "@/components/recording/info-view"
+import { SideCards } from "@/components/recording/side-cards"
 import { MarkerPin, newMarkerId } from "@/components/recording/markers"
 import { RecordingTools, savedTab } from "@/components/recording/tools-view"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -102,14 +101,6 @@ export function RecordingPlayer({
   const devtools = useRecordingDevTools(source, manifest.devtools.length)
   const devlog = useMemo(() => new DevToolsLog(devtools.data?.items ?? []), [devtools.data])
   const startedAt = new Date(manifest.startedAt).getTime()
-  const clocks = useMemo(
-    () => ({
-      startedAt,
-      offsetAt: (t: number) => telemetry.deviceAt(t)?.timeOffset ?? 0,
-      zoneAt: (t: number) => telemetry.deviceAt(t)?.timeZone,
-    }),
-    [startedAt, telemetry],
-  )
   const [app] = useState<SceneApp>(() => ({
     title: r.label || r.package,
     subtitle: r.package,
@@ -119,6 +110,16 @@ export function RecordingPlayer({
   const files = useMemo(() => (source.kind === "local" ? source.files : remoteFiles(r.filesUrl)), [source, r.filesUrl])
   const [player] = useState(() => new Player(files, manifest))
   const state = useSyncExternalStore(player.subscribe, player.getState)
+  const clocks = useMemo(
+    () => ({
+      startedAt,
+      offsetAt: (t: number) => telemetry.deviceAt(t)?.timeOffset ?? 0,
+      zoneAt: (t: number) => telemetry.deviceAt(t)?.timeZone,
+      duration: state.duration,
+      seek: (t: number) => void player.seek(t),
+    }),
+    [startedAt, telemetry, state.duration, player],
+  )
   const [baking, setBaking] = useState(false)
   const [linked] = useState(() => parseView(window.location.hash))
   const [view, setView] = useState<PlayerView>(() => ({ ...linked, tab: linked.tab ?? savedTab() }))
@@ -227,9 +228,13 @@ export function RecordingPlayer({
       <div
         ref={grid}
         style={{ "--stage-h-lg": `${gridHeight}px` } as CSSProperties}
-        className="grid gap-3 [--phone-max-w:calc(100vw-4rem)] [--stage-h:68dvh] lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1.45fr)_auto_minmax(280px,0.85fr)] lg:grid-rows-[minmax(0,1fr)] lg:[--phone-max-w:min(44vw,900px)] lg:[--stage-h:var(--stage-h-lg,60dvh)]"
+        className="grid gap-3 [--phone-max-w:calc(100vw-4rem)] [--stage-h:68dvh] lg:min-h-0 lg:flex-1 lg:grid-cols-[158px_auto_minmax(380px,1fr)] lg:grid-rows-[minmax(0,1fr)] lg:[--phone-max-w:min(40vw,900px)] lg:[--stage-h:var(--stage-h-lg,60dvh)]"
       >
-        <div className="order-3 flex h-[70dvh] min-h-0 flex-col lg:order-1 lg:h-auto">
+        <div className="order-2 min-h-0 overflow-x-auto pb-1 lg:order-1 lg:overflow-x-visible lg:overflow-y-auto lg:pb-0">
+          <SideCards summary={summary} iconUrl={r.iconUrl} />
+        </div>
+
+        <div className="order-3 flex h-[70dvh] min-h-0 flex-col lg:h-auto">
           <RecordingTools
             player={player}
             time={state.time}
@@ -265,10 +270,6 @@ export function RecordingPlayer({
             )}
           </div>
         </div>
-
-        <FitHeight className="order-2 lg:order-3">
-          <InfoView summary={summary} iconUrl={r.iconUrl} />
-        </FitHeight>
       </div>
 
       <div className="grid gap-2 rounded-[28px] bg-stage-surface-low px-5 py-3">

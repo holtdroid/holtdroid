@@ -516,3 +516,33 @@ func TestRecorderWritesDevTools(t *testing.T) {
 		t.Fatalf("lines: %+v", lines)
 	}
 }
+
+func TestRecorderTellsOfFingersGoingDown(t *testing.T) {
+	b := &bucket{files: map[string][]byte{}}
+	srv := httptest.NewServer(b)
+	t.Cleanup(srv.Close)
+	c := &clock{t: time.Now()}
+	downs := make(chan int64, 4)
+	cfg := DefaultConfig()
+	cfg.Flush = time.Hour
+	r := Start(contract.RecordingTarget{ID: "x", URL: srv.URL + "/rec"}, cfg, slog.New(slog.DiscardHandler), WithClock(c.now),
+		OnTouch(func(at int64) { downs <- at }))
+	c.add(1200 * time.Millisecond)
+	r.Control(touchMsg(0, 1, 100, 100))
+	r.Control(touchMsg(2, 1, 110, 100))
+	r.Control(touchMsg(1, 1, 120, 100))
+	select {
+	case at := <-downs:
+		if at != 1200 {
+			t.Fatalf("down at %d", at)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("no touch-down")
+	}
+	select {
+	case at := <-downs:
+		t.Fatalf("a second call at %d for moves or ups", at)
+	case <-time.After(50 * time.Millisecond):
+	}
+	r.Stop(context.Background())
+}

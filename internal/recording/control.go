@@ -92,6 +92,9 @@ func (r *Recorder) Control(msg []byte) {
 			}
 		}
 		r.moved[t.Pointer] = now
+		if t.Action == contract.TouchDown && r.onTouch != nil {
+			go r.onTouch(now)
+		}
 	}
 	r.eventLocked(ev)
 }

@@ -5,6 +5,7 @@ import { AdbGate } from "@/components/session/adb-gate"
 import type { AdbSession } from "@/components/session/adb-session"
 import { FilesPanel } from "@/components/session/files-panel"
 import { LogcatPanel } from "@/components/session/logcat-panel"
+import { SocketsPanel } from "@/components/session/sockets-panel"
 import { PixelPerfectPanel } from "@/components/session/pixel-perfect/panel"
 import type { PixelPerfect } from "@/components/session/pixel-perfect/state"
 import { TerminalPanel } from "@/components/session/terminal-panel"
@@ -24,6 +25,7 @@ export function ToolTabs({
   adb,
   session,
   pp,
+  devtools,
   children,
 }: {
   tab: string
@@ -31,6 +33,7 @@ export function ToolTabs({
   adb: AdbSession | null
   session: SessionView
   pp: PixelPerfect
+  devtools: boolean
   children: ReactNode
 }) {
   const [opened, setOpened] = useState(() => new Set([tab]))
@@ -38,7 +41,11 @@ export function ToolTabs({
   const pixelPerfect = useReferences().data?.enabled === true
   const tabs = adbTabs.filter((t) => t.value !== "terminal" || session.capabilities?.shell !== false)
   const current =
-    (adb && tabs.some((t) => t.value === tab)) || (pixelPerfect && tab === "pixel-perfect") ? tab : "devtools"
+    (adb && tabs.some((t) => t.value === tab)) ||
+    (pixelPerfect && tab === "pixel-perfect") ||
+    (devtools && tab === "websockets")
+      ? tab
+      : "devtools"
 
   const panel = (value: string, adbSession: AdbSession) => {
     if (value === "logcat") return <LogcatPanel store={adbSession.logcat} />
@@ -51,11 +58,16 @@ export function ToolTabs({
 
   return (
     <Tabs value={current} onValueChange={onTab} className="h-full gap-0">
-      {(adb || pixelPerfect) && (
+      {(adb || pixelPerfect || devtools) && (
         <TabsList variant="line" className="h-9 w-full justify-start rounded-none border-b px-2">
           <TabsTrigger value="devtools" className="flex-none">
             DevTools
           </TabsTrigger>
+          {devtools && (
+            <TabsTrigger value="websockets" className="flex-none">
+              WebSockets
+            </TabsTrigger>
+          )}
           {adb &&
             tabs.map((t) => (
               <TabsTrigger key={t.value} value={t.value} className="flex-none">
@@ -80,6 +92,11 @@ export function ToolTabs({
             </TabsContent>
           ) : null,
         )}
+      {devtools && opened.has("websockets") && (
+        <TabsContent value="websockets" forceMount className="min-h-0 data-[state=inactive]:hidden">
+          <SocketsPanel provider={session.provider} id={session.id} />
+        </TabsContent>
+      )}
       {pixelPerfect && opened.has("pixel-perfect") && (
         <TabsContent value="pixel-perfect" forceMount className="min-h-0 data-[state=inactive]:hidden">
           <PixelPerfectPanel pp={pp} session={session} active={current === "pixel-perfect"} />

@@ -5,6 +5,7 @@ import { ThemeProvider } from "next-themes"
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 import { ApiError } from "@/api/client"
+import { useAuth } from "@/api/queries"
 import { AppShell } from "@/components/app-shell"
 import { AuthGate } from "@/components/auth-gate"
 import { Toaster } from "@/components/ui/sonner"
@@ -57,11 +58,10 @@ const sharedRoute = createRoute({
   path: "/r/$token",
   component: function Shared() {
     const { token } = sharedRoute.useParams()
-    return (
-      <div className="h-dvh">
-        <RecordingPage key={token} source={{ kind: "shared", token }} />
-      </div>
-    )
+    const auth = useAuth()
+    const page = <RecordingPage key={token} source={{ kind: "shared", token }} />
+    if (auth.data?.identity && !auth.data.identity.pending) return <AppShell>{page}</AppShell>
+    return <div className="h-dvh">{page}</div>
   },
 })
 

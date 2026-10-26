@@ -93,8 +93,10 @@ type sessionMarkerInput struct {
 	Provider string `path:"provider"`
 	ID       string `path:"id"`
 	Body     struct {
-		Label string `json:"label,omitempty" maxLength:"120"`
-		Icon  string `json:"icon,omitempty" enum:"pin,bug,flag,star,alert,check"`
+		Label     string `json:"label,omitempty" maxLength:"120"`
+		Icon      string `json:"icon,omitempty" enum:"pin,bug,flag,star,alert,check"`
+		T         *int64 `json:"t,omitempty" minimum:"0" doc:"the recording time to put it at, such as a live DevTools line's t; now by default"`
+		Recording string `json:"recording,omitempty" doc:"the recording t belongs to; 422 when another one is running"`
 	}
 }
 
@@ -171,7 +173,14 @@ func (s *Server) addSessionMarker(ctx context.Context, in *sessionMarkerInput, e
 		return SessionMarker{}, fmt.Errorf("%w: recording %s", contract.ErrNotFound, st.ID)
 	}
 	ev.Details = map[string]string{"recording": st.ID}
-	added := RecordingMarker{ID: randomHex(4), T: st.Duration, Label: in.Body.Label, Icon: in.Body.Icon}
+	if in.Body.Recording != "" && in.Body.Recording != st.ID {
+		return SessionMarker{}, fmt.Errorf("%w: recording %s has ended", contract.ErrInvalid, in.Body.Recording)
+	}
+	at := st.Duration
+	if in.Body.T != nil {
+		at = min(*in.Body.T, st.Duration)
+	}
+	added := RecordingMarker{ID: randomHex(4), T: at, Label: in.Body.Label, Icon: in.Body.Icon}
 	items, err := cleanMarkers(append(s.recordings.markers(ctx, ref), added))
 	if err != nil {
 		return SessionMarker{}, err

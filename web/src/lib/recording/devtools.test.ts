@@ -1,7 +1,16 @@
 import { describe, expect, test } from "bun:test"
 import type { DevToolsEntry } from "@/api/client"
 import { hexDump, parseBody } from "@/lib/recording/body"
-import { curlOf, DevToolsLog, framesUntil, requestPhase, socketAt, toHar } from "@/lib/recording/devtools"
+import {
+  curlOf,
+  DevToolsLog,
+  fetchOf,
+  localScheme,
+  framesUntil,
+  requestPhase,
+  socketAt,
+  toHar,
+} from "@/lib/recording/devtools"
 
 const entries: DevToolsEntry[] = [
   { t: 0, type: "page", target: "P1", page: { url: "https://shop.example/", title: "Shop" } },
@@ -89,6 +98,34 @@ describe("DevToolsLog", () => {
     expect(cart!.request.queryString).toEqual([{ name: "id", value: "7" }])
     expect(cart!.response.content.text).toBe('{"error":"boom"}')
     expect(cart!.time).toBe(100)
+  })
+
+  test("fetch() keeps the headers a page may set", () => {
+    const f = fetchOf({
+      ...log.requests[0]!,
+      requestHeaders: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Cookie: "a=1",
+        Referer: "https://shop.example/",
+        Host: "api.example",
+      },
+    })
+    expect(f).toBe(
+      `fetch("https://api.example/login", ${JSON.stringify(
+        {
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          referrer: "https://shop.example/",
+          body: "a=1&b=2",
+          method: "POST",
+          mode: "cors",
+          credentials: "include",
+        },
+        null,
+        2,
+      )});`,
+    )
+    expect(localScheme("blob:https://example.com/9e8f")).toBe("blob")
+    expect(localScheme("https://example.com/")).toBeUndefined()
   })
 
   test("cURL quotes what the shell would break", () => {

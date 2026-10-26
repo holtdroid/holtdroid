@@ -34,6 +34,10 @@ type devtoolsSink interface {
 	Clock() int64
 	At(clock int64) int64
 	Recording() bool
+	// Watching says whether someone follows the sockets live; Live hands
+	// them a line, its times still the watch's clock.
+	Watching() bool
+	Live(e contract.DevToolsEntry)
 }
 
 // cdpPage turns one target's CDP events into recording lines: a page, an
@@ -83,12 +87,19 @@ func newCDPPage(target string, sink devtoolsSink) *cdpPage {
 // emit writes a line while a recording runs; its times are the watch's
 // clock until here, and a T of 0 is now.
 func (p *cdpPage) emit(e contract.DevToolsEntry) {
-	if !p.sink.Recording() {
+	live := p.sink.Watching() && (e.Type == contract.DevToolsPageEntry || e.Type == contract.DevToolsSocketEntry || e.Type == contract.DevToolsFrameEntry)
+	if !p.sink.Recording() && !live {
 		return
 	}
 	e.Target = p.target
 	if e.T <= 0 {
 		e.T = p.sink.Clock()
+	}
+	if live {
+		p.sink.Live(e)
+	}
+	if !p.sink.Recording() {
+		return
 	}
 	e.T = p.sink.At(e.T)
 	if e.Request != nil {
@@ -108,6 +119,12 @@ func (p *cdpPage) emit(e contract.DevToolsEntry) {
 // replay writes what a recording that starts now needs to know: the target
 // and the sockets already open.
 func (p *cdpPage) replay() {
+	for _, e := range p.current() {
+		p.emit(e)
+	}
+}
+
+func (p *cdpPage) current() []contract.DevToolsEntry {
 	p.mu.Lock()
 	page := p.page
 	sockets := make([]contract.DevToolsSocket, 0, len(p.sockets))
@@ -115,10 +132,11 @@ func (p *cdpPage) replay() {
 		sockets = append(sockets, s.DevToolsSocket)
 	}
 	p.mu.Unlock()
-	p.emit(contract.DevToolsEntry{Type: contract.DevToolsPageEntry, Page: &page})
+	out := []contract.DevToolsEntry{{Target: p.target, Type: contract.DevToolsPageEntry, Page: &page}}
 	for _, s := range sockets {
-		p.emit(contract.DevToolsEntry{Type: contract.DevToolsSocketEntry, Socket: &s})
+		out = append(out, contract.DevToolsEntry{Target: p.target, Type: contract.DevToolsSocketEntry, Socket: &s})
 	}
+	return out
 }
 
 func (p *cdpPage) describe(info contract.DevToolsPage) {

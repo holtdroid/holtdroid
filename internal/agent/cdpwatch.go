@@ -33,11 +33,13 @@ type devtoolsWatch struct {
 
 	mu    sync.Mutex
 	rec   recordingSink
+	recID string
 	procs map[string]*cdpProcess
+	subs  map[chan contract.DevToolsEntry]struct{}
 }
 
 func newDevToolsWatch(dt *DevTools, log *slog.Logger) *devtoolsWatch {
-	return &devtoolsWatch{dt: dt, log: log, start: time.Now(), procs: map[string]*cdpProcess{}}
+	return &devtoolsWatch{dt: dt, log: log, start: time.Now(), procs: map[string]*cdpProcess{}, subs: map[chan contract.DevToolsEntry]struct{}{}}
 }
 
 func (w *devtoolsWatch) Clock() int64 { return time.Since(w.start).Milliseconds() + 1 }
@@ -67,11 +69,78 @@ func (w *devtoolsWatch) DevTools(e contract.DevToolsEntry) {
 	}
 }
 
+func (w *devtoolsWatch) Watching() bool {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return len(w.subs) > 0
+}
+
+// Live stamps a line with the agent's clock and the recording time and
+// hands it to everyone watching; a watcher that falls behind misses lines.
+func (w *devtoolsWatch) Live(e contract.DevToolsEntry) {
+	w.mu.Lock()
+	e = w.stampLocked(e)
+	for ch := range w.subs {
+		select {
+		case ch <- e:
+		default:
+		}
+	}
+	w.mu.Unlock()
+}
+
+func (w *devtoolsWatch) stampLocked(e contract.DevToolsEntry) contract.DevToolsEntry {
+	clock := e.T
+	e.Wall = w.start.UnixMilli() + clock - 1
+	e.T = 0
+	if w.rec != nil {
+		e.T, e.Rec = max(1, w.rec.Elapsed()-(w.Clock()-clock)), w.recID
+	}
+	return e
+}
+
+// watchSockets sends the targets and their open sockets, then every change
+// and frame, until ctx ends or send fails.
+func (w *devtoolsWatch) watchSockets(ctx context.Context, send func(contract.DevToolsEntry) error) error {
+	var first []contract.DevToolsEntry
+	for _, p := range w.pages() {
+		first = append(first, p.current()...)
+	}
+	ch := make(chan contract.DevToolsEntry, 1024)
+	w.mu.Lock()
+	for i := range first {
+		first[i].T = w.Clock()
+		first[i] = w.stampLocked(first[i])
+	}
+	w.subs[ch] = struct{}{}
+	w.mu.Unlock()
+	defer func() {
+		w.mu.Lock()
+		delete(w.subs, ch)
+		w.mu.Unlock()
+	}()
+	for _, e := range first {
+		if err := send(e); err != nil {
+			return err
+		}
+	}
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case e := <-ch:
+			if err := send(e); err != nil {
+				return err
+			}
+		}
+	}
+}
+
 // record starts writing into rec, beginning with every target and the
 // sockets they have open.
-func (w *devtoolsWatch) record(rec recordingSink) {
+func (w *devtoolsWatch) record(rec recordingSink, id string) {
 	w.mu.Lock()
-	w.rec = rec
+	w.rec, w.recID = rec, id
 	w.mu.Unlock()
 	for _, p := range w.pages() {
 		p.replay()
@@ -91,7 +160,7 @@ func (w *devtoolsWatch) stop(rec recordingSink) {
 	}
 	w.mu.Lock()
 	if w.rec == rec {
-		w.rec = nil
+		w.rec, w.recID = nil, ""
 	}
 	w.mu.Unlock()
 }
@@ -462,90 +531,4 @@ func (c *cdpConn) read(ctx context.Context, handle func(session, method string, 
 			ch <- cdpReply{result: m.Result}
 		}
 	}
-}
-
-// withFrames puts every page's iframes that run in its process, which have
-// no target of their own, after the page: WebView renders even cross-site
-// iframes in the page's renderer.
-func (w *devtoolsWatch) withFrames(ctx context.Context, items []contract.DevToolsTarget) []contract.DevToolsTarget {
-	known := map[string]bool{}
-	for _, t := range items {
-		known[t.ID] = true
-	}
-	out := make([]contract.DevToolsTarget, 0, len(items))
-	for _, t := range items {
-		out = append(out, t)
-		if t.Type != "page" {
-			continue
-		}
-		pg := w.page(t.Socket, t.ID)
-		if pg == nil {
-			continue
-		}
-		call := pg.caller()
-		if call == nil {
-			continue
-		}
-		ctx, cancel := context.WithTimeout(ctx, time.Second)
-		raw, err := call(ctx, "Page.getFrameTree", nil)
-		cancel()
-		if err != nil {
-			continue
-		}
-		var tree struct {
-			FrameTree cdpFrameTree `json:"frameTree"`
-		}
-		if json.Unmarshal(raw, &tree) != nil {
-			continue
-		}
-		for _, f := range tree.FrameTree.children() {
-			if known[f.ID] || f.URL == "" || f.URL == "about:blank" {
-				continue
-			}
-			out = append(out, contract.DevToolsTarget{
-				Socket: t.Socket, PID: t.PID, Process: t.Process, ID: f.ID, Type: "iframe",
-				Title: f.Name, URL: f.URL, FrontendRev: t.FrontendRev, Page: t.ID,
-			})
-		}
-	}
-	return out
-}
-
-func (w *devtoolsWatch) page(socket, target string) *cdpPage {
-	w.mu.Lock()
-	p := w.procs[socket]
-	w.mu.Unlock()
-	if p == nil {
-		return nil
-	}
-	for _, pg := range p.list() {
-		if pg.target == target && pg.kind == "page" {
-			return pg
-		}
-	}
-	return nil
-}
-
-type cdpFrameTree struct {
-	Frame struct {
-		ID   string `json:"id"`
-		Name string `json:"name"`
-		URL  string `json:"url"`
-	} `json:"frame"`
-	ChildFrames []cdpFrameTree `json:"childFrames"`
-}
-
-func (t cdpFrameTree) children() []struct{ ID, Name, URL string } {
-	var out []struct{ ID, Name, URL string }
-	for _, c := range t.ChildFrames {
-		out = append(out, struct{ ID, Name, URL string }{c.Frame.ID, c.Frame.Name, c.Frame.URL})
-		out = append(out, c.children()...)
-	}
-	return out
-}
-
-func (p *cdpPage) caller() func(ctx context.Context, method string, params any) (json.RawMessage, error) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	return p.call
 }

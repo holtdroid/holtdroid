@@ -116,3 +116,49 @@ func (d *device) recordDevTools(ctx context.Context, rec *recording.Recorder) {
 		}
 	}
 }
+
+// WatchSockets makes up a live socket: the page, a JSON WebSocket and a
+// Socket.IO one with a frame every two seconds.
+func (d *device) WatchSockets(ctx context.Context, send func(contract.DevToolsEntry) error) error {
+	const target = "F1"
+	started := time.Now()
+	line := func(e contract.DevToolsEntry) error {
+		e.Target, e.Wall = target, time.Now().UnixMilli()
+		if id, at := d.recordingNow(); id != "" {
+			e.Rec, e.T = id, max(1, time.Since(at).Milliseconds())
+		}
+		return send(e)
+	}
+	for _, e := range []contract.DevToolsEntry{
+		{Type: contract.DevToolsPageEntry, Page: &contract.DevToolsPage{Type: "page", Process: d.session().Package, Title: "Shop", URL: "https://shop.example.com/"}},
+		{Type: contract.DevToolsSocketEntry, Socket: &contract.DevToolsSocket{ID: "ws.1", URL: "wss://rt.example.com/socket", State: "open", Status: 101}},
+		{Type: contract.DevToolsSocketEntry, Socket: &contract.DevToolsSocket{ID: "ws.3", URL: "wss://api.example.com/socket.io/?EIO=4&transport=websocket", State: "open", Status: 101}},
+	} {
+		if err := line(e); err != nil {
+			return err
+		}
+	}
+	tick := time.NewTicker(2 * time.Second)
+	defer tick.Stop()
+	for n := 1; ; n++ {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-tick.C:
+		}
+		now := time.Now()
+		frames := []contract.DevToolsFrame{
+			{Socket: "ws.1", Opcode: 1, Data: fmt.Sprintf(`{"type":"price","sku":"A-100","price":%d.5,"ts":%d}`, 10+n%5, now.UnixMilli())},
+			{Socket: "ws.3", Opcode: 1, Data: fmt.Sprintf(`42["cart:update",{"items":%d,"updatedAt":%q,"uptime":%d}]`, n%4, now.UTC().Format(time.RFC3339Nano), int(time.Since(started).Seconds()))},
+		}
+		if n%3 == 0 {
+			frames = append(frames, contract.DevToolsFrame{Socket: "ws.1", Sent: true, Opcode: 1, Data: `{"op":"ping"}`})
+		}
+		for _, f := range frames {
+			f.Size = len(f.Data)
+			if err := line(contract.DevToolsEntry{Type: contract.DevToolsFrameEntry, Frame: &f}); err != nil {
+				return err
+			}
+		}
+	}
+}

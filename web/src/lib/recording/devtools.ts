@@ -352,6 +352,44 @@ export function toHar(log: DevToolsLog, startedAt: number, creator: { name: stri
   return { log: { version: "1.2", creator, pages, entries } }
 }
 
+/** A URL scheme that isn't HTTP, for requests that have no status: blob, data, file… */
+export function localScheme(url: string) {
+  const m = /^([a-z][a-z0-9+.-]*):/i.exec(url)
+  const scheme = m?.[1]?.toLowerCase()
+  return scheme && scheme !== "http" && scheme !== "https" ? scheme : undefined
+}
+
+const fetchSkip = new Set([
+  "host",
+  "content-length",
+  "connection",
+  "user-agent",
+  "referer",
+  "cookie",
+  "accept-encoding",
+])
+
+/** The request as a fetch() call, as Chrome DevTools copies it. */
+export function fetchOf(r: DevToolsRequest) {
+  const headers: Record<string, string> = {}
+  let referrer: string | undefined
+  let cookies = false
+  for (const [k, v] of Object.entries(r.requestHeaders ?? {})) {
+    const name = k.toLowerCase()
+    if (name.startsWith(":")) continue
+    if (name === "referer") referrer = v
+    if (name === "cookie") cookies = true
+    if (!fetchSkip.has(name)) headers[k] = v
+  }
+  const init: Record<string, unknown> = { headers }
+  if (referrer) init.referrer = referrer
+  if (r.postData) init.body = r.postData
+  init.method = r.method
+  init.mode = "cors"
+  init.credentials = cookies ? "include" : "omit"
+  return `fetch(${JSON.stringify(r.url)}, ${JSON.stringify(init, null, 2)});`
+}
+
 const shellQuote = (s: string) => `'${s.replaceAll("'", `'\\''`)}'`
 
 export function curlOf(r: DevToolsRequest) {

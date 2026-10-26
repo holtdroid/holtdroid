@@ -117,6 +117,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/devtools/sockets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The WebViews' WebSockets and event streams live: first every target and the sockets open now, then each change and frame, with the agent's clock and, while recording, the recording time. */
+        get: operations["watchSockets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/devtools/targets": {
         parameters: {
             query?: never;
@@ -380,11 +397,171 @@ export interface components {
         Clipboard: {
             text: string;
         };
+        DevToolsConsole: {
+            args?: components["schemas"]["DevToolsValue"][];
+            /** Format: int64 */
+            column?: number;
+            /** @description the console call (log, table, assert, …) or the browser's source (network, violation, …) */
+            kind?: string;
+            /** @enum {string} */
+            level: "debug" | "info" | "warning" | "error";
+            /** Format: int64 */
+            line?: number;
+            /**
+             * @description the page's console API, an uncaught exception, or the browser itself (network errors, violations, …)
+             * @enum {string}
+             */
+            source: "console" | "exception" | "browser";
+            stack?: string;
+            text: string;
+            url?: string;
+            /**
+             * Format: int64
+             * @description the device clock, milliseconds since the epoch
+             */
+            wall?: number;
+        };
+        DevToolsEntry: {
+            console?: components["schemas"]["DevToolsConsole"];
+            /**
+             * Format: int64
+             * @description lines left out because one upload got too big
+             */
+            dropped?: number;
+            frame?: components["schemas"]["DevToolsFrame"];
+            page?: components["schemas"]["DevToolsPage"];
+            /** @description live stream only: the recording t belongs to */
+            recording?: string;
+            request?: components["schemas"]["DevToolsRequest"];
+            socket?: components["schemas"]["DevToolsSocket"];
+            /** Format: int64 */
+            t: number;
+            /** @description the DevTools target (page) it came from */
+            target?: string;
+            /** @enum {string} */
+            type: "page" | "request" | "console" | "socket" | "frame" | "dropped";
+            /**
+             * Format: int64
+             * @description live stream only: the agent's clock, milliseconds since the epoch; t is then the recording time, or 0 without a recording
+             */
+            wall?: number;
+        };
+        DevToolsFrame: {
+            /** @description the text, or base64 of a binary payload, cut at the limit */
+            data?: string;
+            /**
+             * Format: int64
+             * @description 1 text, 2 binary
+             */
+            opcode: number;
+            sent?: boolean;
+            /**
+             * Format: int64
+             * @description payload bytes
+             */
+            size: number;
+            socket: string;
+            truncated?: boolean;
+        };
+        DevToolsPage: {
+            closed?: boolean;
+            /** @description the target it belongs to: the page of an iframe or a dedicated worker */
+            parent?: string;
+            process?: string;
+            title?: string;
+            /**
+             * @description none in recordings made before it was recorded, which are pages
+             * @enum {string}
+             */
+            type?: "page" | "iframe" | "worker" | "shared_worker" | "service_worker";
+            url?: string;
+        };
+        DevToolsRequest: {
+            body?: string;
+            bodyBase64?: boolean;
+            /**
+             * @description why there is no body: a media, font, image, script or style resource, too big, or the WebView had none
+             * @enum {string}
+             */
+            bodySkipped?: "type" | "size" | "unavailable";
+            bodyTruncated?: boolean;
+            /** @enum {string} */
+            cached?: "memory" | "disk" | "service-worker" | "prefetch";
+            canceled?: boolean;
+            /**
+             * Format: int64
+             * @description recording time it finished or failed; none if it was still loading when the recording ended
+             */
+            end?: number;
+            error?: string;
+            id: string;
+            method: string;
+            mimeType?: string;
+            postData?: string;
+            postDataTruncated?: boolean;
+            protocol?: string;
+            /** @description the URL it was redirected to */
+            redirect?: string;
+            remoteAddress?: string;
+            requestHeaders?: {
+                [key: string]: string;
+            };
+            /** @description Document, XHR, Fetch, Script, Image, … */
+            resourceType?: string;
+            /**
+             * Format: int64
+             * @description recording time its response headers came
+             */
+            response?: number;
+            responseHeaders?: {
+                [key: string]: string;
+            };
+            /**
+             * Format: int64
+             * @description bytes on the wire
+             */
+            size?: number;
+            /**
+             * Format: int64
+             * @description recording time it was sent
+             */
+            start: number;
+            /** Format: int64 */
+            status?: number;
+            statusText?: string;
+            timing?: components["schemas"]["DevToolsTiming"];
+            url: string;
+            /**
+             * Format: int64
+             * @description the device clock when it was sent, milliseconds since the epoch
+             */
+            wall?: number;
+        };
+        DevToolsSocket: {
+            /** Format: int64 */
+            bytes?: number;
+            error?: string;
+            /**
+             * Format: int64
+             * @description frames so far, recorded or not
+             */
+            frames?: number;
+            id: string;
+            /**
+             * @description stream: its traffic looks like video or another media stream, so no more frames are recorded
+             * @enum {string}
+             */
+            state: "connecting" | "open" | "closed" | "error" | "stream";
+            /**
+             * Format: int64
+             * @description the handshake's HTTP status
+             */
+            status?: number;
+            url: string;
+        };
         DevToolsTarget: {
             frontendRev: string;
             id: string;
-            /** @description for an iframe that runs in its page's process: the page target it is inspected through; id is its frame */
-            page?: string;
             /** Format: int64 */
             pid: number;
             process: string;
@@ -395,6 +572,35 @@ export interface components {
         };
         DevToolsTargets: {
             items: components["schemas"]["DevToolsTarget"][];
+        };
+        DevToolsTiming: {
+            /** Format: double */
+            blocked: number;
+            /**
+             * Format: double
+             * @description includes ssl
+             */
+            connect: number;
+            /** Format: double */
+            dns: number;
+            /** Format: double */
+            receive: number;
+            /** Format: double */
+            send: number;
+            /** Format: double */
+            ssl: number;
+            /** Format: double */
+            wait: number;
+        };
+        DevToolsValue: {
+            /** @description the value as JSON when it has one, cut at 64 KB */
+            json?: string;
+            /** @description null, array, error, date, … */
+            subtype?: string;
+            /** @description a string's value, or what DevTools shows for it */
+            text: string;
+            /** @description string, number, boolean, undefined, object, function, symbol or bigint */
+            type: string;
         };
         DeviceLoad: {
             /** Format: int64 */
@@ -1146,6 +1352,46 @@ export interface operations {
                 };
                 content: {
                     "image/png": string;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    watchSockets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": {
+                        data: components["schemas"]["DevToolsEntry"];
+                        /**
+                         * @description The event name.
+                         * @constant
+                         */
+                        event: "line";
+                        /** @description The event ID. */
+                        id?: number;
+                        /** @description The retry time in milliseconds. */
+                        retry?: number;
+                    }[];
                 };
             };
             /** @description Error */

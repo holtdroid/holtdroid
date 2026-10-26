@@ -189,7 +189,14 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
                   adb={adbAllowed ? adb : null}
                   pp={pp}
                 />
-                <ToolTabs tab={tab} onTab={setTab} adb={adbAllowed ? adb : null} session={session} pp={pp}>
+                <ToolTabs
+                  tab={tab}
+                  onTab={setTab}
+                  adb={adbAllowed ? adb : null}
+                  session={session}
+                  pp={pp}
+                  devtools={!!caps?.devtools}
+                >
                   {caps?.devtools ? (
                     <DevToolsPanel
                       provider={provider}

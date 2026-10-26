@@ -8,6 +8,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/holtdroid/holtdroid/internal/contract"
@@ -46,13 +47,15 @@ func (a *Agent) StartRecording(_ context.Context, target contract.RecordingTarge
 
 func (a *Agent) StopRecording(ctx context.Context) (contract.RecordingState, error) {
 	a.recMu.Lock()
-	rec := a.rec
+	rec, thumb := a.rec, a.recThumb
 	a.recMu.Unlock()
 	if rec == nil {
 		return a.Recording(ctx), nil
 	}
 	a.watch.stop(rec)
-	a.thumbnail(ctx, rec)
+	if !thumb.picked() {
+		a.thumbnail(ctx, rec)
+	}
 	s := rec.Stop(ctx)
 	a.recordingEnded(rec, s)
 	return a.Recording(ctx), nil
@@ -66,14 +69,15 @@ func (a *Agent) startRecording(target contract.RecordingTarget) error {
 	}
 	ctx, cancel := context.WithCancel(a.recCtx)
 	var rec *recording.Recorder
-	rec = recording.Start(target, recording.DefaultConfig(), a.log, recording.OnStop(func(s contract.RecordingState) {
-		a.recordingEnded(rec, s)
-	}))
-	a.rec, a.recID, a.recCancel = rec, target.ID, cancel
-	a.watch.record(rec)
+	thumb := &thumbPicker{best: -1}
+	rec = recording.Start(target, recording.DefaultConfig(), a.log,
+		recording.OnStop(func(s contract.RecordingState) { a.recordingEnded(rec, s) }),
+		recording.OnTouch(func(t int64) { a.touchThumbnail(ctx, rec, thumb, t) }))
+	a.rec, a.recID, a.recCancel, a.recThumb = rec, target.ID, cancel, thumb
+	a.watch.record(rec, target.ID)
 	a.screen.video.attach(ctx, rec)
 	a.screen.sound.attach(ctx, rec)
-	go a.feedRecording(ctx, rec)
+	go a.feedRecording(ctx, rec, thumb)
 	a.mu.Lock()
 	a.status.Recording, a.status.RecordedAt = target.ID, rec.State().StartedAt
 	a.mu.Unlock()
@@ -119,13 +123,15 @@ func (a *Agent) record(ev contract.RecordingEvent) {
 	}
 }
 
-func (a *Agent) feedRecording(ctx context.Context, rec *recording.Recorder) {
+func (a *Agent) feedRecording(ctx context.Context, rec *recording.Recorder, thumb *thumbPicker) {
 	go a.recordLogcat(ctx, rec)
 	go func() {
 		select {
 		case <-ctx.Done():
-		case <-time.After(5 * time.Second):
-			a.thumbnail(ctx, rec)
+		case <-time.After(thumbnailAt):
+			if !thumb.picked() {
+				a.thumbnail(ctx, rec)
+			}
 		}
 	}()
 	a.recordInfo(ctx, rec)
@@ -182,6 +188,56 @@ func (a *Agent) recordInfo(ctx context.Context, rec *recording.Recorder) {
 	info.ArtifactRef = a.currentArtifact()
 	rec.Event(contract.RecordingEvent{Type: contract.EventInfo, Info: &info})
 }
+
+// thumbPicker makes the preview the screen just before the viewer's touch
+// nearest to thumbnailAt, taken when the finger goes down.
+type thumbPicker struct {
+	mu     sync.Mutex
+	best   int64
+	taking bool
+	done   bool
+}
+
+func (p *thumbPicker) picked() bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.best >= 0
+}
+
+const thumbnailAt = 5 * time.Second
+
+func (a *Agent) touchThumbnail(ctx context.Context, rec *recording.Recorder, p *thumbPicker, t int64) {
+	p.mu.Lock()
+	if p.done || p.taking {
+		p.mu.Unlock()
+		return
+	}
+	p.taking = true
+	p.mu.Unlock()
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	png, err := a.dev.Screencap(ctx)
+	var jpeg []byte
+	if err == nil {
+		jpeg, err = recording.Thumbnail(png, thumbnailWidth)
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.taking = false
+	if err != nil {
+		return
+	}
+	at := thumbnailAt.Milliseconds()
+	if p.best < 0 || abs64(t-at) < abs64(p.best-at) {
+		p.best = t
+		rec.Thumbnail(jpeg)
+	}
+	if t >= at {
+		p.done = true
+	}
+}
+
+func abs64(v int64) int64 { return max(v, -v) }
 
 func (a *Agent) thumbnail(ctx context.Context, rec *recording.Recorder) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)

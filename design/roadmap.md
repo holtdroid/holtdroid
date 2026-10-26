@@ -243,6 +243,7 @@ the portal and download them as a video (decision #96).
 - [x] The WebViews' DevTools in recordings (decision #112): the agent's own CDP client per page records requests with headers, bodies and timing, console messages and exceptions, WebSocket and EventSource frames (media streams counted, not stored); the player's Network, Console and WebSockets tabs follow the timeline, show JSON as trees and every time found in it against the device clock; HAR download; the video download leaves logcat out
 - [x] Every DevTools target in recordings (decision #114): an always-on browser-level CDP connection auto-attaches tabs, iframes and workers paused until set up, knows sockets opened before the recording; Socket.IO, SignalR, SSE and JSON Lines messages parsed into trees
 - [x] Recording links with the moment, the tab and the open item (decision #115); time chips against the playhead; text in binary frames
+- [x] Live WebSockets tab on the session page with markers at a frame's time; recording page with the session's cards and a DevTools-style tools panel; video with an opening card and a compact column; preview before the nearest touch (decision #117)
 - [ ] Logcat filter for the app's own processes in the player
 
 ## Phase 4.13 — Pixel perfect

@@ -19,6 +19,10 @@ import { drawScene, logoImage, type SceneApp, sceneLayout } from "@/lib/recordin
 import { loadSceneIcons } from "@/lib/recording/scene-icons"
 import { rotationAt, segmentsOf, sizeChanges, type Telemetry } from "@/lib/recording/timeline"
 
+/** The opening card with the app and the device, before the recording plays. */
+const introMs = 3000
+const introFade = 500
+
 export const bakeFps = 30
 
 export type BakeProgress = { t: number; duration: number; elapsed: number; canvas: HTMLCanvasElement }
@@ -164,7 +168,7 @@ export async function bake(opts: {
 
   const segments = segmentsOf(manifest)
   const cursor = new Cursor(new Frames(opts.files, segments, 4))
-  const feeder = sound ? new AudioFeeder(opts.files, audioSegments, sound) : null
+  const feeder = sound ? new AudioFeeder(opts.files, audioSegments, sound, introMs / 1000) : null
   const changes = sizeChanges(segments)
   const startedAt = new Date(manifest.startedAt).getTime()
   const step = 1000 / bakeFps
@@ -173,12 +177,14 @@ export async function bake(opts: {
   try {
     cursor.seek(0)
     for (let i = 0; ; i++) {
-      const t = i * step
+      const out = i * step
+      const t = Math.max(0, out - introMs)
       if (t > manifest.duration) break
       if (signal.aborted) throw signal.reason ?? new DOMException("Cancelled", "AbortError")
       await cursor.advance(t)
       drawScene(ctx, {
         t,
+        intro: out < introMs ? Math.min(1, (introMs - out) / introFade) : 0,
         duration: manifest.duration,
         startedAt,
         frame: cursor.frame?.sample ?? null,
@@ -189,8 +195,8 @@ export async function bake(opts: {
         layout,
         app,
       })
-      await source.add(t / 1000, step / 1000)
-      await feeder?.until(t / 1000 + 1)
+      await source.add(out / 1000, step / 1000)
+      await feeder?.until(out / 1000 + 1)
       const now = performance.now()
       if (now - lastReport > 200) {
         lastReport = now

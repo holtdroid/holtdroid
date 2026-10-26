@@ -59,12 +59,13 @@ var ErrStopped = errors.New("the recording has stopped")
 // Recorder writes one recording. Its methods are safe for concurrent use;
 // after Stop they do nothing.
 type Recorder struct {
-	cfg    Config
-	now    func() time.Time
-	log    *slog.Logger
-	up     *uploader
-	start  time.Time
-	onStop func(contract.RecordingState)
+	cfg     Config
+	now     func() time.Time
+	log     *slog.Logger
+	up      *uploader
+	start   time.Time
+	onStop  func(contract.RecordingState)
+	onTouch func(t int64)
 
 	mu       sync.Mutex
 	stopped  bool
@@ -86,6 +87,10 @@ type Option func(*Recorder)
 func WithClock(now func() time.Time) Option { return func(r *Recorder) { r.now = now } }
 
 func WithHTTPClient(hc *http.Client) Option { return func(r *Recorder) { r.up.hc = hc } }
+
+// OnTouch is called with the recording time of every finger put down on the
+// screen, outside the recorder's lock.
+func OnTouch(f func(t int64)) Option { return func(r *Recorder) { r.onTouch = f } }
 
 // OnStop is called once the recording has stopped, by Stop or on its own.
 func OnStop(f func(contract.RecordingState)) Option { return func(r *Recorder) { r.onStop = f } }

@@ -55,7 +55,7 @@ export function detectStamp(value: unknown, key?: string, ref?: number): Stamp |
       s
         .replace(" ", "T")
         .replace(",", ".")
-        .replace(/(\.\d{3})\d+/, "$1"),
+        .replace(/(\.\d{3})\d+/, "$1") + (iso[1] ? "" : "Z"),
     )
     return inRange(ms) ? { ms, unit: "iso", ...(iso[1] ? {} : { zoneless: true }) } : null
   }

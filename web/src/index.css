@@ -360,3 +360,21 @@
   border: 2px solid transparent;
   background-clip: content-box;
 }
+
+.devtools-skin {
+  --stage-surface-low: var(--background);
+  --stage-surface-container: var(--muted);
+  --stage-surface-container-hover: var(--accent);
+  --stage-surface-high: var(--muted);
+  --stage-outline-variant: var(--border);
+  --stage-outline: var(--muted-foreground);
+  --stage-outline-dim: var(--muted-foreground);
+  --stage-on-surface: var(--foreground);
+  --stage-on-surface-variant: var(--muted-foreground);
+  --stage-secondary-container: var(--accent);
+  --stage-secondary-container-hover: var(--accent);
+  --stage-on-secondary-container: var(--accent-foreground);
+  --stage-primary-container: var(--accent);
+  --stage-on-primary-container: var(--accent-foreground);
+  font-family: var(--font-sans);
+}

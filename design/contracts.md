@@ -341,7 +341,8 @@ static assets and WebSockets.
 | `GET` | `/v1/health` | 200 once `ready`, 503 before | `Status` |
 | `GET` | `/v1/state` | the current `{state, reason?, detail?, appRunning, recording?, recordedAt?}`; providers read it with `contract.AgentClient` | `Status` |
 | `GET` | `/v1/status` | SSE, `event: state` with `{state, reason?, detail?, appRunning, recording?, recordedAt?}`; first event is the current state. `appRunning` is false once the app is closed; the device stays `ready`. `recording` is the id of the recording in progress and `recordedAt` when it started | `WatchStatus` |
-| `GET` | `/v1/devtools/targets` | `{items: [{socket, pid, process, id, type, title, url, frontendRev, page?}]}`; after each page, its iframes that run in its process (`type: iframe`, `id` the frame, `page` the target to inspect it through, decision #116) | `Targets` |
+| `GET` | `/v1/devtools/targets` | `{items: [{socket, pid, process, id, type, title, url, frontendRev}]}` | `Targets` |
+| `GET` | `/v1/devtools/sockets` | SSE, `event: line` with `DevToolsEntry` (`page`, `socket` and `frame` only): first every target and the sockets open now, then each change and frame; `wall` is the agent's clock, `t` the recording time and `recording` its id while one runs (decision #117) | `WatchSockets` |
 | `GET` | `/v1/clipboard` | `{text}` | `Clipboard` |
 | `POST` | `/v1/clipboard` | `{text}` → 204 | `SetClipboard` |
 | `GET` | `/v1/clipboard/events` | SSE, `event: clip` with `{text}` on every device-side change | `WatchClipboard` |
@@ -478,7 +479,7 @@ keeping the provider in the path is what lets the api stay stateless.
 | `GET` | `/api/v1/app-data/{package}/{id}/download` | `application/zstd` attachment; 403 when `appData.export` is off |
 | `POST` | `/api/v1/sessions/{provider}/{id}/recording` | owner or admin; starts a new recording of a `ready` session → `RecordingView`; 403 when recordings are off, 423 while one runs, 507 when the owner's quota is full of kept recordings |
 | `DELETE` | `/api/v1/sessions/{provider}/{id}/recording` | owner or admin; stops the recording and waits for its last files → 204; 403 in `recordings.mode: always` |
-| `POST` | `/api/v1/sessions/{provider}/{id}/recording/markers` | owner or admin; `{label?, icon?}` → `{recording, marker}`: pins a marker on the session's running recording at the agent's own time (it reads `GET /v1/recording`); 422 when nothing is being recorded |
+| `POST` | `/api/v1/sessions/{provider}/{id}/recording/markers` | owner or admin; `{label?, icon?, t?, recording?}` → `{recording, marker}`: pins a marker on the session's running recording at `t` (a live DevTools line's recording time), or at the agent's own time (it reads `GET /v1/recording`); 422 when nothing is being recorded or `recording` isn't the one running |
 | `PUT` | `/api/v1/recordings/{id}/markers` | the owner; `{items: [{id?, t, label?, icon?}]}` replaces the recording's markers (at most 200, icons `pin,bug,flag,star,alert,check`) → `{items}` |
 | `GET` | `/api/v1/recordings/{id}/export` (and `/api/v1/shared/{token}/export`) | every file of the recording as one ZIP (`.holtdroid`, see "Recording archive" below), streamed from storage, entries stored; `RecordingView.exportUrl` |
 | `GET` | `/api/v1/recordings/{id}/logcat.log` (and `/api/v1/shared/{token}/logcat.log`) | the logcat with ANSI colours by level; `logcat.txt` is the same without them |

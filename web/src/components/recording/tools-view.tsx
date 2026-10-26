@@ -62,8 +62,8 @@ export function RecordingTools({
   ]
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[28px] bg-stage-surface-low">
-      <nav className="flex gap-1 overflow-x-auto px-3 pt-3 pb-2" aria-label="Recording tools">
+    <section className="devtools-skin flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border bg-background text-foreground">
+      <nav className="mb-2 flex h-9 shrink-0 gap-1 overflow-x-auto border-b px-2" aria-label="Recording tools">
         {tabs.map((t) => (
           <button
             key={t.id}
@@ -71,10 +71,10 @@ export function RecordingTools({
             aria-pressed={tab === t.id}
             onClick={() => pick(t.id)}
             className={cn(
-              "inline-flex h-9 shrink-0 items-center gap-2 rounded-full px-3.5 text-sm font-medium transition-colors [&_svg]:size-4",
+              "-mb-px inline-flex h-9 shrink-0 items-center gap-1.5 border-b-2 px-2.5 text-sm transition-colors [&_svg]:size-3.5",
               tab === t.id
-                ? "bg-stage-secondary-container text-stage-on-secondary-container"
-                : "text-stage-on-surface-variant hover:bg-stage-surface-container",
+                ? "border-foreground font-medium text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground",
             )}
           >
             <t.icon />
@@ -83,11 +83,7 @@ export function RecordingTools({
               <span
                 className={cn(
                   "min-w-5 rounded-full px-1.5 text-center text-[11px] leading-[18px] tabular-nums",
-                  t.alert
-                    ? "bg-stage-error text-stage-on-error"
-                    : tab === t.id
-                      ? "bg-stage-surface-low/70 text-stage-on-surface-variant"
-                      : "bg-stage-surface-high text-stage-outline",
+                  t.alert ? "bg-stage-error text-stage-on-error" : "bg-muted text-muted-foreground",
                 )}
                 title={t.alert ? `${t.alert} ${t.id === "network" ? "failed" : "errors"}` : undefined}
               >

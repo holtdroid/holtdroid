@@ -2,10 +2,9 @@ import type { DevToolsTarget } from "@/api/client"
 
 type Reply = { id?: number; result?: Record<string, unknown>; error?: { message: string } }
 
-/** The CDP socket of a target; an iframe in its page's process is reached through the page. */
 export function targetSocket(base: string, t: DevToolsTarget) {
   const scheme = window.location.protocol === "https:" ? "wss" : "ws"
-  return `${scheme}://${window.location.host}${base}/devtools/${encodeURIComponent(t.socket)}/page/${encodeURIComponent(t.page ?? t.id)}`
+  return `${scheme}://${window.location.host}${base}/devtools/${encodeURIComponent(t.socket)}/page/${encodeURIComponent(t.id)}`
 }
 
 /** One CDP connection for several calls; it closes when asked or when the page goes away. */

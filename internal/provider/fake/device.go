@@ -146,3 +146,9 @@ func (d *device) snapshot() (contract.Session, string, int) {
 	defer d.mu.Unlock()
 	return d.s, d.clip, d.targetGen
 }
+
+func (d *device) recordingNow() (string, time.Time) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.recID, d.recAt
+}

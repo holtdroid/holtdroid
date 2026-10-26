@@ -9,7 +9,7 @@ import logoUrl from "@/logo.svg"
 
 const pad = 32
 const gap = 12
-const side = 608
+const side = 360
 const radius = 28
 const headerH = 56
 const logicalH = 1080
@@ -70,6 +70,8 @@ export type SceneInput = {
   overlay?: Overlay
   rotation?: Rotation | null
   markers?: RecordingMarker[]
+  /** how much of the opening card covers the scene, 0 to 1 */
+  intro?: number
   layout: SceneLayout
   app: SceneApp
 }
@@ -254,31 +256,54 @@ function drawMarkers(ctx: Ctx, x: number, y: number, w: number, markers: Recordi
   })
 }
 
-function drawInfo(
-  ctx: Ctx,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  s: Summary,
-  icon: HTMLImageElement | null | undefined,
-) {
-  const inner = w - 44
+/** The state that changes during a recording, in a narrow column of small cards beside the phone. */
+function drawWidgets(ctx: Ctx, x: number, y: number, w: number, h: number, s: Summary) {
+  const inner = w - 40
   let cy = y
 
-  const clockH = 176
+  const clockH = 132
   card(ctx, x, cy, w, clockH)
-  text(ctx, s.clock.time, x + 20, cy + 66, 56, md.onSurface, 300)
-  text(ctx, `${s.clock.date}${s.clock.zone ? ` · ${s.clock.zone}` : ""}`, x + 24, cy + 94, 16, md.onSurfaceVariant)
+  text(ctx, s.clock.time, x + 18, cy + 56, 46, md.onSurface, 300)
+  font(ctx, 14)
+  text(
+    ctx,
+    ellipsize(ctx, `${s.clock.date}${s.clock.zone ? ` · ${s.clock.zone}` : ""}`, inner),
+    x + 20,
+    cy + 82,
+    14,
+    md.onSurfaceVariant,
+  )
   if (s.clock.offset) {
     text(
       ctx,
       `Clock ${s.clock.offset}`,
-      x + 24,
-      cy + 116,
-      15,
+      x + 20,
+      cy + 102,
+      13,
       s.clock.offsetTone ? toneColor[s.clock.offsetTone] : md.onSurface,
     )
+  }
+  drawIcon(ctx, "clock", md.outline, x + 20, cy + clockH - 28, 14)
+  text(ctx, `${s.elapsed.now} / ${s.elapsed.total}`, x + 40, cy + clockH - 16, 13, md.onSurfaceVariant, 400, mono)
+  cy += clockH + gap
+
+  const stateH = 56
+  card(ctx, x, cy, w, stateH)
+  if (s.app.state) {
+    font(ctx, 13, 500)
+    const sw = ctx.measureText(s.app.state).width + 24
+    box(ctx, x + 18, cy + 14, sw, 28, 14, s.app.running ? md.primaryContainer : md.containerHighest)
+    ctx.textAlign = "center"
+    text(
+      ctx,
+      s.app.state,
+      x + 18 + sw / 2,
+      cy + 33,
+      13,
+      s.app.running ? md.onPrimaryContainer : md.onSurfaceVariant,
+      500,
+    )
+    ctx.textAlign = "left"
   }
   if (s.battery) {
     const level = s.battery.level
@@ -291,88 +316,94 @@ function drawInfo(
           : "batteryLow"
     const fg = s.battery.saver ? md.warn : md.onSurfaceVariant
     const label = `${level}%`
-    font(ctx, 16, 500)
-    const bw = ctx.measureText(label).width + 62
-    box(ctx, x + w - 22 - bw, cy + 22, bw, 36, 18, s.battery.saver ? md.warnContainer : md.containerHigh)
-    drawIcon(ctx, name, fg, x + w - 22 - bw + 14, cy + 30, 20)
-    text(ctx, label, x + w - 22 - bw + 40, cy + 46, 16, fg, 500)
-  }
-  ctx.fillStyle = `${md.outlineVariant}99`
-  ctx.fillRect(x + 22, cy + 132, inner, 1)
-  drawIcon(ctx, "clock", md.outline, x + 22, cy + 142, 16)
-  text(ctx, `Recording ${s.elapsed.now} / ${s.elapsed.total}`, x + 46, cy + 155, 14, md.onSurfaceVariant, 400, mono)
-  ctx.textAlign = "right"
-  text(ctx, s.realTime, x + w - 22, cy + 155, 14, md.onSurfaceVariant)
-  ctx.textAlign = "left"
-  cy += clockH + gap
-
-  const appH = 84
-  card(ctx, x, cy, w, appH)
-  ctx.save()
-  box(ctx, x + 22, cy + 18, 48, 48, 14, md.containerHigh)
-  ctx.beginPath()
-  ctx.roundRect(x + 22, cy + 18, 48, 48, 14)
-  ctx.clip()
-  if (icon && icon.complete && icon.naturalWidth > 0) ctx.drawImage(icon, x + 22, cy + 18, 48, 48)
-  ctx.restore()
-  font(ctx, 13, 500)
-  const stateW = s.app.state ? ctx.measureText(s.app.state).width + 28 : 0
-  const nameRoom = inner - 60 - stateW
-  font(ctx, 18, 500)
-  text(ctx, ellipsize(ctx, s.app.title, nameRoom), x + 84, cy + 39, 18, md.onSurface, 500)
-  font(ctx, 13, 400, mono)
-  text(
-    ctx,
-    ellipsize(ctx, `${s.app.subtitle}${s.app.version ? ` · ${s.app.version}` : ""}`, nameRoom),
-    x + 84,
-    cy + 61,
-    13,
-    md.outline,
-    400,
-    mono,
-  )
-  if (s.app.state) {
-    box(ctx, x + w - 22 - stateW, cy + 28, stateW, 28, 14, s.app.running ? md.primaryContainer : md.containerHighest)
-    ctx.textAlign = "center"
-    text(
-      ctx,
-      s.app.state,
-      x + w - 22 - stateW / 2,
-      cy + 47,
-      13,
-      s.app.running ? md.onPrimaryContainer : md.onSurfaceVariant,
-      500,
-    )
+    font(ctx, 14, 500)
+    const lw = ctx.measureText(label).width
+    ctx.textAlign = "right"
+    text(ctx, label, x + w - 18, cy + 33, 14, fg, 500)
     ctx.textAlign = "left"
+    drawIcon(ctx, name, fg, x + w - 18 - lw - 24, cy + 19, 18)
   }
-  cy += appH + gap
+  cy += stateH + gap
 
   if (s.tiles.length > 0) {
     drawTiles(ctx, x, cy, w, s.tiles)
     cy += 64 + gap
   }
 
-  const deviceH = rowsHeight(s.device.length)
-  card(ctx, x, cy, w, deviceH, "Device", "device")
-  rows(ctx, x + 22, cy + 64, inner, s.device)
-  cy += deviceH + gap
-
   const networkH = rowsHeight(s.network.length)
   card(ctx, x, cy, w, networkH, "Network", "network")
-  rows(ctx, x + 22, cy + 64, inner, s.network)
+  rows(ctx, x + 20, cy + 64, inner, s.network)
   cy += networkH + gap
 
   const rest = y + h - cy
-  card(ctx, x, cy, w, rest, "Resources", "resources")
+  if (rest < 90) return
+  card(ctx, x, cy, w, rest, "Load", "resources")
   const tempH = s.temperature ? 34 : 0
   const area = rest - 50 - tempH - 8
-  const step = Math.min(58, area / s.resources.length)
-  s.resources.forEach((b, i) => meter(ctx, x + 22, cy + 52 + i * step, inner, b))
+  const step = Math.min(58, area / Math.max(1, s.resources.length))
+  s.resources.forEach((b, i) => meter(ctx, x + 20, cy + 52 + i * step, inner, b))
   if (s.temperature) {
     ctx.fillStyle = `${md.outlineVariant}99`
-    ctx.fillRect(x + 22, y + h - 46, inner, 1)
-    rows(ctx, x + 22, y + h - 20, inner, [s.temperature])
+    ctx.fillRect(x + 20, y + h - 46, inner, 1)
+    rows(ctx, x + 20, y + h - 20, inner, [s.temperature])
   }
+}
+
+/** The opening card: what was recorded and on what, before the recording starts. */
+function drawIntro(ctx: Ctx, layout: SceneLayout, s: Summary, app: SceneApp, startedAt: number, alpha: number) {
+  if (alpha <= 0) return
+  ctx.save()
+  ctx.globalAlpha = alpha
+  ctx.fillStyle = md.surface
+  ctx.fillRect(0, headerH, layout.logicalW, layout.logicalH - headerH)
+  const w = Math.min(720, layout.logicalW - pad * 2)
+  const x = (layout.logicalW - w) / 2
+  const list = [
+    ...s.device,
+    {
+      label: "Recorded",
+      value: new Date(startedAt).toLocaleString(undefined, { dateStyle: "long", timeStyle: "short" }),
+    },
+    { label: "Length", value: s.elapsed.total },
+  ]
+  const h = 200 + rowsHeight(list.length)
+  const y = headerH + (layout.logicalH - headerH - pad - h) / 2
+  card(ctx, x, y, w, h)
+  ctx.save()
+  box(ctx, x + 32, y + 36, 112, 112, 30, md.containerHigh)
+  ctx.beginPath()
+  ctx.roundRect(x + 32, y + 36, 112, 112, 30)
+  ctx.clip()
+  if (app.icon && app.icon.complete && app.icon.naturalWidth > 0) ctx.drawImage(app.icon, x + 32, y + 36, 112, 112)
+  ctx.restore()
+  const tx = x + 172
+  const room = w - 172 - 32
+  font(ctx, 34, 500)
+  text(ctx, ellipsize(ctx, app.recordingTitle || s.app.title, room), tx, y + 80, 34, md.onSurface, 500)
+  font(ctx, 17)
+  text(
+    ctx,
+    ellipsize(ctx, app.recordingTitle ? s.app.title : s.app.subtitle, room),
+    tx,
+    y + 112,
+    17,
+    md.onSurfaceVariant,
+  )
+  font(ctx, 15, 400, mono)
+  text(
+    ctx,
+    ellipsize(ctx, `${s.app.version ? `${s.app.version} · ` : ""}${s.app.subtitle}`, room),
+    tx,
+    y + 140,
+    15,
+    md.outline,
+    400,
+    mono,
+  )
+  ctx.fillStyle = `${md.outlineVariant}99`
+  ctx.fillRect(x + 32, y + 180, w - 64, 1)
+  rows(ctx, x + 32, y + 226, w - 64, list)
+  ctx.restore()
 }
 
 function drawHeader(ctx: Ctx, layout: SceneLayout, title?: string) {
@@ -419,10 +450,11 @@ export function drawScene(ctx: Ctx, input: SceneInput) {
     snap: input.snap,
     app: input.app,
   })
-  const phoneX = pad
+  const phoneX = pad + side + gap
+  drawWidgets(ctx, pad, headerH, side, h, summary)
   drawPhone(ctx, phoneX, headerH, layout.areaW, h, input.frame, input.overlay, input.rotation)
   if (input.markers?.length) drawMarkers(ctx, phoneX, headerH, layout.areaW, input.markers, input.t)
-  drawInfo(ctx, layout.logicalW - pad - side, headerH, side, h, summary, input.app.icon)
+  drawIntro(ctx, layout, summary, input.app, input.startedAt, input.intro ?? 0)
 }
 
 export function loadIcon(src: string | undefined) {

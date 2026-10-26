@@ -159,11 +159,12 @@ export class AudioFeeder {
     files: RecordingFiles,
     segments: AudioSegment[],
     readonly source: AudioSampleSource,
+    readonly offset = 0,
   ) {
     this.#chunks = audioBuffers(files, segments, 0)
   }
 
-  /** Adds everything that starts before `seconds`. */
+  /** Adds everything that starts before `seconds` of the output, the recording's sound shifted by offset seconds. */
   async until(seconds: number) {
     while (!this.#done) {
       let chunk = this.#pending
@@ -175,12 +176,12 @@ export class AudioFeeder {
         }
         chunk = next.value
       }
-      if (chunk.start / 1000 > seconds) {
+      if (chunk.start / 1000 + this.offset > seconds) {
         this.#pending = chunk
         return
       }
       this.#pending = null
-      const start = Math.max(chunk.start / 1000, this.#lastEnd)
+      const start = Math.max(chunk.start / 1000 + this.offset, this.#lastEnd)
       for (const sample of AudioSample.fromAudioBuffer(chunk.buffer, start)) {
         await this.source.add(sample)
         sample.close()

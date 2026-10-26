@@ -265,7 +265,6 @@ type DevToolsTarget struct {
 	Title       string `json:"title"`
 	URL         string `json:"url"`
 	FrontendRev string `json:"frontendRev"`
-	Page        string `json:"page,omitempty" doc:"for an iframe that runs in its page's process: the page target it is inspected through; id is its frame"`
 }
 
 type DevToolsTargets struct {

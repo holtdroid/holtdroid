@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -51,6 +50,10 @@ func (s *devtoolsLines) Recording() bool {
 }
 
 func (s *devtoolsLines) Elapsed() int64 { return s.Clock() }
+
+func (s *devtoolsLines) Watching() bool { return false }
+
+func (s *devtoolsLines) Live(contract.DevToolsEntry) {}
 
 func (s *devtoolsLines) advance(ms int64) {
 	s.mu.Lock()
@@ -130,8 +133,6 @@ func fakeWebView(t *testing.T, browser bool, events map[string][]string) int {
 			switch m.Method {
 			case "Network.getResponseBody":
 				result = `{"body":"{\"total\":3}","base64Encoded":false}`
-			case "Page.getFrameTree":
-				result = `{"frameTree":{"frame":{"id":"P1","url":"https://shop.example/cart"},"childFrames":[{"frame":{"id":"C1","name":"game","url":"https://game.example/"},"childFrames":[{"frame":{"id":"C2","url":"about:blank"}},{"frame":{"id":"C3","url":"https://ads.example/"}}]}]}}`
 			case "Runtime.callFunctionOn":
 				result = `{"result":{"type":"string","value":"{\"total\":3}"}}`
 			}
@@ -188,7 +189,7 @@ func watchFor(t *testing.T, browser bool, events map[string][]string) (*devtools
 	dt.mu.Unlock()
 	sink := &devtoolsLines{t: 1000}
 	w := newDevToolsWatch(dt, slog.New(slog.DiscardHandler))
-	w.record(sink)
+	w.record(sink, "rec-1")
 	go w.run(ctx, 20*time.Millisecond)
 	return w, sink, cancel
 }
@@ -241,27 +242,6 @@ func TestDevToolsWatchFollowsEveryTarget(t *testing.T) {
 	}
 	if c := byTarget["F1"]; c == nil || c.Text != "from the iframe" || c.Level != "warning" {
 		t.Fatalf("iframe console: %+v", c)
-	}
-}
-
-func TestDevToolsWatchListsInProcessIframes(t *testing.T) {
-	w, sink, cancel := watchFor(t, true, map[string][]string{"S1": pageEvents})
-	defer cancel()
-	waitLines(t, sink, func() bool { return len(sink.of(contract.DevToolsRequestEntry)) == 1 })
-	targets, err := w.dt.Targets(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-	got := w.withFrames(context.Background(), targets)
-	var frames []string
-	for _, f := range got[1:] {
-		if f.Page != "P1" || f.Type != "iframe" || f.Socket != got[0].Socket {
-			t.Fatalf("frame: %+v", f)
-		}
-		frames = append(frames, f.ID+" "+f.Title+" "+f.URL)
-	}
-	if want := []string{"C1 game https://game.example/", "C3  https://ads.example/"}; !slices.Equal(frames, want) {
-		t.Fatalf("frames %q, want %q", frames, want)
 	}
 }
 
@@ -398,5 +378,51 @@ func TestConsoleText(t *testing.T) {
 	}
 	if got, cut := cut(strings.Repeat("я", 10), 5); got != "яя" || !cut {
 		t.Errorf("cut = %q, %v", got, cut)
+	}
+}
+
+func TestDevToolsWatchStreamsSocketsLive(t *testing.T) {
+	w := newDevToolsWatch(nil, slog.New(slog.DiscardHandler))
+	pg := newCDPPage("P1", w)
+	w.procs["webview_devtools_remote_1"] = &cdpProcess{w: w, pages: map[string]*cdpPage{"S1": pg}}
+	cdpEvent(t, pg, "Network.webSocketCreated", `{"requestId":"s1","url":"wss://api.example.com/socket"}`)
+
+	got := make(chan contract.DevToolsEntry, 16)
+	ctx := t.Context()
+	go func() { _ = w.watchSockets(ctx, func(e contract.DevToolsEntry) error { got <- e; return nil }) }()
+	next := func() contract.DevToolsEntry {
+		t.Helper()
+		select {
+		case e := <-got:
+			return e
+		case <-time.After(2 * time.Second):
+			t.Fatal("no line")
+			return contract.DevToolsEntry{}
+		}
+	}
+	if e := next(); e.Type != contract.DevToolsPageEntry || e.Target != "P1" {
+		t.Fatalf("first: %+v", e)
+	}
+	if e := next(); e.Type != contract.DevToolsSocketEntry || e.Socket.URL != "wss://api.example.com/socket" || e.Wall == 0 {
+		t.Fatalf("open socket: %+v", e)
+	}
+	for !w.Watching() {
+		time.Sleep(time.Millisecond)
+	}
+	cdpEvent(t, pg, "Network.webSocketFrameReceived", `{"requestId":"s1","response":{"opcode":1,"payloadData":"hi"}}`)
+	if e := next(); e.Frame == nil || e.Frame.Data != "hi" || e.T != 0 || e.Rec != "" || e.Wall < time.Now().Add(-time.Minute).UnixMilli() {
+		t.Fatalf("frame without a recording: %+v", e)
+	}
+	rec := &devtoolsLines{t: 4200}
+	w.record(rec, "R1")
+	cdpEvent(t, pg, "Network.webSocketFrameSent", `{"requestId":"s1","response":{"opcode":1,"payloadData":"yo"}}`)
+	var e contract.DevToolsEntry
+	for e = next(); e.Type != contract.DevToolsFrameEntry; e = next() {
+	}
+	if e.Frame.Data != "yo" || e.Rec != "R1" || e.T < 4000 || e.T > 4200 {
+		t.Fatalf("frame while recording: %+v", e)
+	}
+	if lines := rec.of(contract.DevToolsFrameEntry); len(lines) != 1 || lines[0].Frame.Data != "yo" {
+		t.Fatalf("recorded frames: %+v", lines)
 	}
 }

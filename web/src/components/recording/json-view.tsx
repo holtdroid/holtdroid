@@ -13,6 +13,11 @@ export type Clocks = {
   startedAt: number
   offsetAt: (t: number) => number
   zoneAt: (t: number) => string | undefined
+  /** how a time on this clock is shown; the recording's clock by default */
+  label?: (t: number) => string
+  /** the recording's length and a way to go to a moment in it, when there is a player */
+  duration?: number
+  seek?: (t: number) => void
 }
 
 export const ClocksContext = createContext<Clocks>({ startedAt: 0, offsetAt: () => 0, zoneAt: () => undefined })
@@ -65,6 +70,9 @@ export function TimeHint({ stamp, children }: { stamp: Stamp; children: ReactNod
   const atEvent = stamp.ms - m.device
   const near = Math.abs(d) < 5000
   const offset = m.device - m.real
+  const at = Math.round(stamp.ms - clocks.offsetAt(now) - clocks.startedAt)
+  const inRecording =
+    !!clocks.seek && clocks.duration !== undefined && at >= 0 && at <= clocks.duration && Math.abs(at - now) >= 1000
   return (
     <HoverCard openDelay={120} closeDelay={60}>
       <HoverCardTrigger asChild>
@@ -91,10 +99,23 @@ export function TimeHint({ stamp, children }: { stamp: Stamp; children: ReactNod
         className="w-[24rem] rounded-[20px] border-0 bg-stage-surface-container p-4 font-sans text-stage-on-surface shadow-2xl ring-1 ring-black/10 dark:ring-white/10"
       >
         <p className="text-xs font-medium tracking-wide text-stage-outline uppercase">{unitNames[stamp.unit]}</p>
+        {inRecording && (
+          <button
+            type="button"
+            onClick={() => clocks.seek?.(at)}
+            className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-full bg-stage-secondary-container px-3 text-sm font-medium text-stage-on-secondary-container hover:bg-stage-secondary-container-hover"
+          >
+            <ClockIcon className="size-3.5" />
+            Go to {clock(at)} in the recording
+            <span className="font-normal opacity-70">
+              ({at < now ? `${formatSpan(now - at)} back` : `${formatSpan(at - now)} ahead`})
+            </span>
+          </button>
+        )}
         <dl className="mt-2 grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1">
-          <dt className="text-xs text-stage-outline">Now, {clock(now)}</dt>
+          <dt className="text-xs text-stage-outline">Now, {(clocks.label ?? clock)(now)}</dt>
           <dd className="text-base font-medium">{versus(d, "the device clock")}</dd>
-          <dt className="text-xs text-stage-outline">When seen, {clock(m.t)}</dt>
+          <dt className="text-xs text-stage-outline">When seen, {(clocks.label ?? clock)(m.t)}</dt>
           <dd className="text-sm">{versus(atEvent, "the device clock")}</dd>
           {Math.abs(offset) >= 1500 && (
             <>
@@ -110,7 +131,7 @@ export function TimeHint({ stamp, children }: { stamp: Stamp; children: ReactNod
         </dl>
         {stamp.zoneless && (
           <p className="mt-2 rounded-xl bg-stage-amber-container px-3 py-1.5 text-xs text-stage-on-surface">
-            No time zone in the value: read as your browser's.
+            No time zone in the value: read as UTC.
           </p>
         )}
         <dl className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">

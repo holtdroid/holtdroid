@@ -19,6 +19,8 @@ import { decodeBase64, parseJSON, parsePackets, textOf } from "@/lib/recording/b
 import {
   type ConsoleLine,
   curlOf,
+  fetchOf,
+  localScheme,
   type DevToolsLog,
   framesUntil,
   type NetRequest,
@@ -228,7 +230,16 @@ const phaseStyle: Record<RequestPhase, string> = {
 
 function StatusBadge({ r, t }: { r: DevToolsRequest; t: number }) {
   const phase = requestPhase(r, t)
-  const label = phase === "pending" ? "…" : phase === "failed" ? (r.canceled ? "canceled" : "failed") : String(r.status)
+  const label =
+    phase === "pending"
+      ? "…"
+      : phase === "failed"
+        ? r.canceled
+          ? "canceled"
+          : "failed"
+        : r.status
+          ? String(r.status)
+          : (localScheme(r.url) ?? "done")
   return (
     <span
       className={cn(
@@ -485,15 +496,26 @@ function RequestDetails({
         </div>
       }
       actions={
-        <button
-          type="button"
-          title="Copy as cURL"
-          onClick={() => copy(curlOf(r), "Copied as cURL")}
-          className="inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs text-stage-on-surface-variant hover:bg-stage-surface-container"
-        >
-          <CopyIcon className="size-3.5" />
-          cURL
-        </button>
+        <>
+          <button
+            type="button"
+            title="Copy as cURL"
+            onClick={() => copy(curlOf(r), "Copied as cURL")}
+            className="inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs text-stage-on-surface-variant hover:bg-stage-surface-container"
+          >
+            <CopyIcon className="size-3.5" />
+            cURL
+          </button>
+          <button
+            type="button"
+            title="Copy as fetch()"
+            onClick={() => copy(fetchOf(r), "Copied as fetch")}
+            className="inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs text-stage-on-surface-variant hover:bg-stage-surface-container"
+          >
+            <CopyIcon className="size-3.5" />
+            fetch
+          </button>
+        </>
       }
     >
       <div className="sticky top-0 z-10 -mx-4 mb-3 flex gap-1 bg-stage-surface-low px-4 pb-2">
@@ -561,7 +583,9 @@ function RequestDetails({
                   : r.bodySkipped === "size"
                     ? `The body (${formatBytes(r.size ?? 0)}) was over the 1 MB limit.`
                     : r.bodySkipped === "unavailable"
-                      ? "The WebView no longer had this body when it was asked for it."
+                      ? localScheme(r.url)
+                        ? `The WebView doesn't hand out the bodies of ${localScheme(r.url)}: URLs.`
+                        : "The WebView no longer had this body when it was asked for it."
                       : !r.end
                         ? "It was still loading when the recording ended."
                         : "No body."}
@@ -819,7 +843,7 @@ function summarize(f: SocketFrame): FrameLine {
   return out
 }
 
-function FrameSummary({ f }: { f: SocketFrame }) {
+export function FrameSummary({ f }: { f: SocketFrame }) {
   const s = summarize(f)
   return (
     <span className={cn("min-w-0 flex-1 truncate", s.bytes ? "text-stage-outline" : "text-stage-on-surface")}>

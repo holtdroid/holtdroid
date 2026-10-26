@@ -10,6 +10,7 @@ import {
   type RecordingDetail,
   type RecordingEvent,
   type DevToolsEntry,
+  type MarkerIcon,
   type RecordingManifest,
   type RecordingMarker,
   type ReferenceView,
@@ -446,11 +447,22 @@ export function useSetMarkers(id: string) {
 export function useAddSessionMarker() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ provider, id, label }: { provider: string; id: string; label?: string }) =>
+    mutationFn: ({
+      provider,
+      id,
+      ...body
+    }: {
+      provider: string
+      id: string
+      label?: string
+      icon?: MarkerIcon
+      t?: number
+      recording?: string
+    }) =>
       unwrap(
         api.POST("/api/v1/sessions/{provider}/{id}/recording/markers", {
           params: { path: { provider, id } },
-          body: { label },
+          body,
         }),
       ),
     onSuccess: (r) => void qc.invalidateQueries({ queryKey: keys.recording(r.recording) }),

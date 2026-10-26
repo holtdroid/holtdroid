@@ -148,7 +148,6 @@ func fakeTargets(s contract.Session, gen int) []contract.DevToolsTarget {
 	return []contract.DevToolsTarget{
 		{Socket: sock, PID: pid, Process: s.Package, ID: fmt.Sprintf("page-%d", gen), Type: "page", Title: "Checkout", URL: "https://example.com/checkout", FrontendRev: "fake"},
 		{Socket: sock, PID: pid, Process: s.Package, ID: fmt.Sprintf("frame-%d", gen), Type: "iframe", Title: "Payment widget", URL: "https://pay.example.com/widget", FrontendRev: "fake"},
-		{Socket: sock, PID: pid, Process: s.Package, ID: fmt.Sprintf("inner-%d", gen), Type: "iframe", Title: "game", URL: "https://game.example.net/?table=1", FrontendRev: "fake", Page: fmt.Sprintf("page-%d", gen)},
 		{Socket: "webview_devtools_remote_4300", PID: 4300, Process: s.Package + ":sandbox", ID: "sw-1", Type: "service_worker", Title: "sw.js", URL: "https://example.com/sw.js", FrontendRev: "fake"},
 	}
 }

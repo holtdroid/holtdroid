@@ -62,16 +62,21 @@ screencast off. Service workers and other non-page targets only show their
 URL.
 
 Android's WebView renders every iframe in its page's process, even one from
-another site, so an iframe is never a DevTools target of its own. The
-selector lists a page's iframes under it anyway (**↳ iframe**, with the
-frame's name and URL). Picking one opens the page's DevTools and switches
-its Console to that iframe's context, as if you had picked it in the
-Console's context menu (`top ▾`); Elements, Sources and Network show the
-whole page, the iframe included. If the switch doesn't take, a message
-says so and the menu still works. The address bar shows the iframe's URL,
-and typing another one or the reload button loads it into that iframe only.
-Picking the page again switches the Console back to it without reloading
-DevTools.
+another site, so an iframe is never a DevTools target of its own. Pick its
+page, open the **Console** tab and choose the iframe in the context menu at
+the console's top left, the one that reads `top ▾`; Elements, Sources and
+Network already show it as part of the page. The target selector says the
+same at the bottom of its list.
+
+The **WebSockets** tab next to DevTools shows the WebViews' WebSockets and
+event streams as they happen, in DevTools' own look: the sockets on the
+left, their frames with the direction, the payload (parsed like in a
+recording, with time hints) and the time. It works without DevTools open
+and keeps the last 5000 frames of each socket until you clear it or leave
+the page; pause stops it. Sockets streaming video are marked and their
+frames left out. While the session records, a frame's time is a marker
+button: a click pins that moment on the recording, hovering offers the
+other marker icons and **Open the recording from here**.
 
 The settings button next to the target selector holds two switches, saved
 in your browser:

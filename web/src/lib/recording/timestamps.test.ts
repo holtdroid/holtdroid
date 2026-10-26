@@ -33,7 +33,9 @@ describe("detectStamp", () => {
   })
 
   test("a time without a zone says so", () => {
-    expect(detectStamp("2026-10-26 12:00:00", undefined, ref)?.zoneless).toBe(true)
+    const s = detectStamp("2026-10-26 12:00:00", undefined, ref)
+    expect(s?.zoneless).toBe(true)
+    expect(s?.ms).toBe(Date.UTC(2026, 9, 26, 12))
   })
 })
 

@@ -1571,6 +1571,8 @@ export interface components {
             dropped?: number;
             frame?: components["schemas"]["DevToolsFrame"];
             page?: components["schemas"]["DevToolsPage"];
+            /** @description live stream only: the recording t belongs to */
+            recording?: string;
             request?: components["schemas"]["DevToolsRequest"];
             socket?: components["schemas"]["DevToolsSocket"];
             /** Format: int64 */
@@ -1579,6 +1581,11 @@ export interface components {
             target?: string;
             /** @enum {string} */
             type: "page" | "request" | "console" | "socket" | "frame" | "dropped";
+            /**
+             * Format: int64
+             * @description live stream only: the agent's clock, milliseconds since the epoch; t is then the recording time, or 0 without a recording
+             */
+            wall?: number;
         };
         DevToolsFrame: {
             /** @description the text, or base64 of a binary payload, cut at the limit */
@@ -2780,6 +2787,13 @@ export interface components {
             /** @enum {string} */
             icon?: "pin" | "bug" | "flag" | "star" | "alert" | "check";
             label?: string;
+            /** @description the recording t belongs to; 422 when another one is running */
+            recording?: string;
+            /**
+             * Format: int64
+             * @description the recording time to put it at, such as a live DevTools line's t; now by default
+             */
+            t?: number;
         };
         SessionView: {
             /**

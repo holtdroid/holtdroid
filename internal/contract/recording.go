@@ -174,6 +174,8 @@ type DevToolsEntry struct {
 	Socket  *DevToolsSocket   `json:"socket,omitempty"`
 	Frame   *DevToolsFrame    `json:"frame,omitempty"`
 	Dropped int               `json:"dropped,omitempty" doc:"lines left out because one upload got too big"`
+	Wall    int64             `json:"wall,omitempty" doc:"live stream only: the agent's clock, milliseconds since the epoch; t is then the recording time, or 0 without a recording"`
+	Rec     string            `json:"recording,omitempty" doc:"live stream only: the recording t belongs to"`
 }
 
 // DevToolsPage is a target the agent follows: a tab, an iframe in its own
