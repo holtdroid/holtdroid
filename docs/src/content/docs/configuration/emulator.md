@@ -201,7 +201,10 @@ Android versions are the keys of `redroid.images` (the chart: `versions`,
 each pulled from `<repository>:<version>`). holtdroid-redroid publishes one
 tag per Android major version it supports (11 to 15). Android 16 boots
 but its netd aborts on a mainline kernel (Android's BPF loader accepts only
-LTS kernels), so it is not offered.
+LTS kernels), so it is not offered. The Android 13 and 14 images have no
+Bluetooth: redroid's simulated Bluetooth controller crashes there as soon
+as Android enables it, so the images drop the feature and apps see a device
+without Bluetooth. Android 11, 12 and 15 keep a simulated one.
 
 With a WebView catalog (`webview.storage`), the launch dialog also offers a
 WebView build for the chosen Android version, which the agent installs over
