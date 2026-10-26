@@ -296,7 +296,7 @@ export function DeviceScreen({
       data-inset-y={inset.y}
     >
       <WidgetColumn>
-        <AppWidget provider={provider} id={id} session={session} appRunning={appRunning} adb={adb} />
+        <AppWidget provider={provider} id={id} session={session} appRunning={appRunning} adb={adb} metrics={metrics} />
         <NetworkWidget provider={provider} id={id} locations={locations} metrics={metrics} />
         <GpsWidget provider={provider} id={id} vpn={locations.length > 0} />
         <StreamWidget provider={provider} id={id} live={live} />
@@ -306,7 +306,7 @@ export function DeviceScreen({
         <LanguageWidget provider={provider} id={id} />
         <TimeWidget provider={provider} id={id} />
         <RecordingWidget provider={provider} id={id} recording={recording} since={recordedAt} manage={manage} />
-        <DeviceWidget session={session} adb={adb} />
+        <DeviceWidget session={session} adb={adb} metrics={metrics} />
         <SSHWidget provider={provider} id={id} />
       </WidgetColumn>
       <div className="grid min-h-0 min-w-0 place-items-center" style={{ containerType: "size" }}>

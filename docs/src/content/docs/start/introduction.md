@@ -33,7 +33,7 @@ hybrid apps, support engineers reproducing a customer bug.
    iframe or worker in any process). The portal's header shows the app in place
    of the logo: click its name and icon to switch to another build; the time
    left, **Extend** and **Stop** sit on its right. Restarting, reinstalling
-   and saving the app's data are in the app card next to the phone. The bar at the bottom shows the device's load. By default the screen's side follows the screen: it
+   and saving the app's data are in the app card next to the phone. By default the screen's side follows the screen: it
    grows or shrinks until the screen fills its height or the side reaches
    70% of the page. A landscape screen splits the page top and bottom
    instead, the screen above the tools. Dragging the divider sizes

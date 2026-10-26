@@ -60,7 +60,7 @@ type Config struct {
 	AppLanguage bool
 	USBNetwork  bool
 	// HostCgroup is where the node's cgroup tree is mounted read-only, so the
-	// metrics bar reads the whole session Pod (Android, the agent and the
+	// device card reads the whole session Pod (Android, the agent and the
 	// VPN sidecar) found by PodUID; empty leaves the Pod out of the metrics.
 	HostCgroup string
 	PodUID     string

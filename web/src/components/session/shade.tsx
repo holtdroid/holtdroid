@@ -395,11 +395,11 @@ export function ShadeButton({
   )
 }
 
-export function InfoList({ items }: { items: [string, ReactNode][] }) {
+export function InfoList({ items }: { items: [string, ReactNode, (string | number)?][] }) {
   return (
-    <dl className="grid gap-px overflow-hidden rounded-3xl bg-neutral-800 text-sm">
-      {items.map(([label, value]) => (
-        <div key={label} className="flex items-baseline justify-between gap-4 bg-neutral-800 px-4 py-2">
+    <dl className="grid grid-cols-[minmax(0,1fr)] gap-px overflow-hidden rounded-3xl bg-neutral-800 text-sm">
+      {items.map(([label, value, key]) => (
+        <div key={key ?? label} className="flex min-w-0 items-baseline justify-between gap-4 bg-neutral-800 px-4 py-2">
           <dt className="shrink-0 text-neutral-400">{label}</dt>
           <dd className="min-w-0 truncate text-right font-mono text-xs text-neutral-100">{value}</dd>
         </div>

@@ -115,9 +115,11 @@ deployment"):
   without sign-in and enforces a per-user quota and retention. Replaced the
   browser recording. Covered by tests with the fake provider; not yet tried
   on a redroid session.
-- A metrics bar at the bottom of the session page (decision #40): device,
-  app (fps, jank, CPU/PSS per process), network, storage, temperatures,
-  the session Pod's CPU/memory/throttling and the stream.
+- Session load (decision #40), shown in the cards next to the phone since
+  decision #94: the app card has fps, jank and CPU/PSS per process, the
+  device card the device, storage, temperatures and the session Pod's
+  CPU/memory/throttling; network is in the network card, the stream in the
+  stream card.
 - Audit log and telemetry (Phase 4.9, decision #44): audit events (schema 1)
   from the api and the ssh-gateway as JSON lines on stdout, optionally OTLP
   logs and a batched webhook; `session_events` fed from the same call;

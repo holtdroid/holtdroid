@@ -11,7 +11,6 @@ import { DeviceScreen } from "@/components/session/device-screen"
 import { useLiveScreen } from "@/components/session/live-screen"
 import { DevToolsPanel } from "@/components/session/devtools-panel"
 import { useMetricsHistory } from "@/components/session/metrics"
-import { MetricsBar } from "@/components/session/metrics-bar"
 import { ShadeBounds } from "@/components/session/shade"
 import { ScreenSplit } from "@/components/session/screen-split"
 import { StartProgress } from "@/components/session/start-progress"
@@ -204,7 +203,6 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
               </ScreenSplit>
             )}
           </div>
-          {state === "ready" && <MetricsBar history={metrics} />}
         </ShadeBounds>
       </div>
     </div>

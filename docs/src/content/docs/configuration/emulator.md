@@ -138,7 +138,7 @@ Each session Pod has three containers sharing one network namespace:
   It reaches Android's adbd at `127.0.0.1:5555` and frida-server at
   `127.0.0.1:27042`, roots adbd, enables the screen's cutout overlay,
   installs and instruments the app and serves the Agent API. The node's
-  `/sys/fs/cgroup` is mounted read-only at `/host/cgroup` so the metrics bar
+  `/sys/fs/cgroup` is mounted read-only at `/host/cgroup` so the device card
   can read the whole Pod's CPU and memory.
 - `vpn`: the sing-box sidecar, when locations are configured.
 

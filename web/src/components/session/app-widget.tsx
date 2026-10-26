@@ -1,7 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { Adb } from "@yume-chan/adb"
 import {
+  ActivityIcon,
   AppWindowIcon,
+  CpuIcon,
+  MemoryStickIcon,
   DatabaseIcon,
   EraserIcon,
   ExternalLinkIcon,
@@ -15,10 +18,11 @@ import {
 } from "lucide-react"
 import { type ReactNode, useMemo, useState } from "react"
 import { toast } from "sonner"
-import { agentClient, type SessionView, unwrap } from "@/api/client"
+import { agentClient, type Metrics, type SessionView, unwrap } from "@/api/client"
 import { useAppData, useSaveAppData } from "@/api/queries"
 import { AppIcon } from "@/components/app-icon"
 import { type AdbSession, useAdbStatus } from "@/components/session/adb-session"
+import { cpuLevel, MetricTile, percent, ProcessList, sum } from "@/components/session/load"
 import {
   CardLine,
   Chips,
@@ -36,6 +40,8 @@ import {
 import { HoverCardTrigger } from "@/components/ui/hover-card"
 import { run, shq } from "@/lib/adb"
 import { bucketNames, parsePackage, permissionLabel, standbyBuckets } from "@/lib/android"
+import { formatBytes } from "@/lib/format"
+import { level } from "@/lib/thermal"
 
 const historyKey = "holtdroid.deepLinks"
 
@@ -91,14 +97,17 @@ export function AppWidget({
   session,
   appRunning,
   adb,
+  metrics,
 }: {
   provider: string
   id: string
   session: SessionView
   appRunning: boolean
   adb: AdbSession | null
+  metrics: Metrics[]
 }) {
   const label = session.label || session.package
+  const app = metrics.at(-1)?.app
   return (
     <ShadeRoot>
       <HoverCardTrigger asChild>
@@ -109,11 +118,17 @@ export function AppWidget({
           </span>
           <CardLine icon={appRunning ? PlayIcon : OctagonXIcon}>{appRunning ? "Running" : "Closed"}</CardLine>
           {session.versionName && <CardLine icon={PackageIcon}>{session.versionName}</CardLine>}
+          {app && (
+            <CardLine icon={CpuIcon}>
+              {percent(sum(app.processes.map((p) => p.cpu)))} · {formatBytes(sum(app.processes.map((p) => p.memory)))}
+            </CardLine>
+          )}
         </ShadeCard>
       </HoverCardTrigger>
       <ShadePanel>
         <ShadeHeader title={label} summary={[session.package, session.versionName].filter(Boolean).join(" · ")} />
         <AppActions provider={provider} id={id} session={session} appRunning={appRunning} adbSession={adb} />
+        <AppLoad metrics={metrics} />
         <AdbNotice session={adb} />
         <WithAdb session={adb}>{(a) => <AppDetails adb={a} pkg={session.package} />}</WithAdb>
       </ShadePanel>
@@ -410,6 +425,48 @@ function DeepLinks({ adb, pkg }: { adb: Adb; pkg: string }) {
           {result}
         </pre>
       )}
+    </section>
+  )
+}
+
+function AppLoad({ metrics }: { metrics: Metrics[] }) {
+  const m = metrics.at(-1)
+  if (!m) return null
+  const app = m.app
+  if (!app) return <Note>The app isn&apos;t running, so it has no load to show.</Note>
+  const cpu = sum(app.processes.map((p) => p.cpu))
+  const jank = level(app.jank, 10, 25)
+  return (
+    <section className="grid gap-2">
+      <h4 className="px-1 text-xs font-medium text-neutral-400">Load</h4>
+      <div className="grid grid-cols-2 gap-2">
+        <MetricTile
+          icon={CpuIcon}
+          label="CPU"
+          value={percent(cpu)}
+          detail="of all cores"
+          level={cpuLevel(cpu)}
+          history={metrics.map((h) => sum(h.app?.processes.map((p) => p.cpu) ?? []))}
+          max={100}
+        />
+        <MetricTile
+          icon={MemoryStickIcon}
+          label="Memory"
+          value={formatBytes(sum(app.processes.map((p) => p.memory)))}
+          detail="PSS, all processes"
+        />
+        <MetricTile
+          icon={ActivityIcon}
+          label="Frames"
+          value={app.fps > 0 ? `${app.fps.toFixed(0)} fps` : "Idle"}
+          detail={app.fps > 0 ? `${percent(app.jank)} janky` : "Nothing on the screen changed"}
+          level={app.fps > 0 ? jank : "ok"}
+          history={metrics.map((h) => h.app?.fps ?? 0)}
+          max={60}
+          wide
+        />
+      </div>
+      <ProcessList m={m} />
     </section>
   )
 }

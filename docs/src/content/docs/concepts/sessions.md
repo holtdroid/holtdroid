@@ -63,12 +63,12 @@ fades away under the mouse and lets clicks through to the device.
 
 ## Metrics
 
-A bar at the bottom of the session page shows the load every two seconds:
-device CPU and memory, the app's own CPU and memory per process (WebView
-renderers included), the frames it renders and how many of them are janky,
-free space on `/data`, temperatures and, for emulators, the CPU, memory and throttling of the session
-Pod (Android, the agent and the VPN sidecar together). Hover an item for
-details. Android in redroid runs on the node's kernel, whose `/proc` shows
+The cards next to the phone show the load every two seconds. The app card
+has the app's own CPU and memory, per process too (WebView renderers
+included), and the frames it renders with how many of them are janky. The
+device card has the device's CPU and memory, free space on `/data`,
+temperatures and, for emulators, the CPU, memory and throttling of the
+session Pod (Android, the agent and the VPN sidecar together). Android in redroid runs on the node's kernel, whose `/proc` shows
 the whole node, so an emulator's device CPU and memory are the Pod's: its
 cores are the Pod's CPU limit, its memory the Pod's memory limit, and the
 app's CPU is a percent of that limit. Its sensor readings and the total of
