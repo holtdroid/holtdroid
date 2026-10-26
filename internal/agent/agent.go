@@ -267,6 +267,7 @@ func (a *Agent) Run(parent context.Context) {
 	go a.devtools.Run(ctx, 2*time.Second)
 	go a.screen.Run(ctx)
 	go a.clip.Run(ctx, a.onClip)
+	go a.controls.syncRadios(ctx, 2*time.Second, a.log)
 	if err := a.controls.resetNetwork(ctx); err != nil {
 		a.log.Warn("reset network profile", "err", err)
 	}

@@ -3163,3 +3163,62 @@ leaves streaming to the running api; `users create` and `users session` add
 passkey-less bot accounts and mint their cookies the same way, for whoever
 can exec into the api anyway.
 
+
+## 105. A real Wi-Fi in redroid sessions through mac80211_hwsim
+
+Supersedes the Wi-Fi half of #101.
+
+**Context.** #101 made Wi-Fi a virtual radio that only the app under test
+saw: Android's status bar and quick settings showed Ethernet, and on
+Android 11 the Wi-Fi tile flipped back off because the HAL failed
+(`Failed to initialize legacy HAL: NOT_SUPPORTED`). redroid ships no Wi-Fi
+HAL backend, no wpa_supplicant and no hostapd (Android 14 and 15 no HAL at
+all); the Android emulator's vendor image of the same API level has them
+all, for an nl80211 radio named `wlan0`.
+
+`virt_wifi` was ruled out: all its devices share one wiphy in the host's
+network namespace, which nl80211 hides from a Pod's. `mac80211_hwsim` fits:
+`HWSIM_CMD_NEW_RADIO` needs only `CAP_NET_ADMIN` over the caller's network
+namespace and puts the radio there, every namespace gets its own netgroup
+and frames, dumps and deletes stay inside it, and radios die with their
+namespace. Checked on k3s-1 on 2026-10-26: two Pods on the same channel
+saw only their own access point, couldn't join or delete each other's,
+and the node was left with no radios after they were deleted.
+
+**Decision.**
+- Session nodes load `mac80211_hwsim` with `radios=0` (the default adds two
+  radios to the host).
+- holtdroid-redroid copies the Wi-Fi HAL, `libwifi-hal.so`, wpa_supplicant
+  (with its init stanza) and `mac80211_create_radios` from the emulator
+  vendor image it already downloads for ARM translation, plus the
+  libraries they need that redroid's vendor partition lacks. At
+  `post-fs-data` a script creates two radios, moves the second into a
+  private router namespace held by the Android container (the only
+  container allowed to create one), and runs upstream hostapd (open
+  `HoltdroidWifi`) and dnsmasq there, with nftables masquerading into the
+  Pod namespace over a veth (`wifiup`). Android's own hostapd is the
+  AIDL HAL on 14+ and crashes outside VINTF; Android's iptables needs
+  legacy xtables, which the node kernel doesn't have, so hostapd and nft
+  come from Alpine with their musl libraries.
+- A static RRO sets `config_ethernet_iface_regex` to `eth1` (framework-res,
+  and `com.android.connectivity.resources` where Ethernet lives in the
+  Connectivity module): with the Pod's `eth0` adopted, Android never joins
+  Wi-Fi, because Ethernet already satisfies every request. A fabricated
+  overlay is refused for that resource.
+- Mobile data is `eth1`, a second veth into the router namespace that
+  Android takes for Ethernet and Frida shows the app as mobile data. The
+  agent keeps its router end up only while Android's Wi-Fi is off and
+  mobile data is on (checked every 2 s, so the shade's tile works too).
+- With Ethernet hidden, netd sends every unmarked socket of the Pod
+  namespace to Android's default network: the agent pins root (sing-box,
+  adbd) and its own uid to the Pod's routes, forwards `wifiup` to the VPN
+  tun, and keeps forwarding on through netd (`ndc ipfwd`), which owns
+  `ip_forward`.
+- Without the module the image does nothing and #101's virtual radios stay.
+
+**Consequences.** Android's Wi-Fi, status bar and quick settings are real
+on Android 11–15 and Wi-Fi off really cuts the network. With Wi-Fi off and
+mobile data on the status bar shows Ethernet; a cellular icon needs a
+telephony stack. The node's kernel gains a test driver that any
+`CAP_NET_ADMIN` holder on it can use in its own namespace; sessions already
+are root on their node (#83), so it goes only on session nodes.

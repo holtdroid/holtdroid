@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math"
 	"math/rand/v2"
 	"regexp"
@@ -45,6 +46,7 @@ type Controls struct {
 	lockPIN     bool
 	wifi        bool
 	mobileData  bool
+	simWiFi     bool
 }
 
 type networkShaper interface {
@@ -152,7 +154,10 @@ func (c *Controls) State(ctx context.Context) (contract.DeviceState, error) {
 	s.USBNetwork = c.usbNetwork
 	if c.redroid {
 		c.mu.Lock()
-		s.WiFi, s.MobileData = c.wifi, c.mobileData
+		if !c.simWiFi {
+			s.WiFi = c.wifi
+		}
+		s.MobileData = c.mobileData
 		c.mu.Unlock()
 		s.CanSetTime = false
 	}
@@ -299,10 +304,18 @@ func brightnessPercent(setting int, low float64) int {
 	return min(100, max(0, int(math.Round(linearToGamma(linear, low)*100))))
 }
 
-// radiosScript stands in for Wi-Fi and mobile data on redroid, which has
-// neither: the app under test sees the network as the radio that is on (the
-// Frida script reads debug.holtdroid.network), and with both off or in
-// airplane mode only root keeps a route.
+// radiosScript stands in for mobile data on redroid, which has no modem, and
+// for Wi-Fi when the image has no simulated one. The app under test sees the
+// network as the radio that is on (the Frida script reads
+// debug.holtdroid.network).
+//
+// With the simulated Wi-Fi (decision #105) Wi-Fi is Android's own; mobile
+// data is the router namespace's second uplink, eth1, which Android takes for
+// Ethernet and the app sees as mobile data. It is up only while Wi-Fi is off,
+// as a phone prefers Wi-Fi, and Ethernet would keep Android off the Wi-Fi.
+//
+// Without it the Ethernet network is shown as either radio, and with both off
+// or in airplane mode only root keeps a route.
 func (c *Controls) radiosScript() string {
 	c.mu.Lock()
 	wifi, data := c.wifi, c.mobileData
@@ -314,11 +327,53 @@ func (c *Controls) radiosScript() string {
 	case data:
 		mode = "mobile"
 	}
-	return "m=" + mode + `
-[ "$(settings get global airplane_mode_on)" = 1 ] && m=none
+	return "m=" + mode + " d=" + pick(data, "1", "0") + `
+a=$(settings get global airplane_mode_on)
+if [ "$(getprop vendor.holtdroid.wifi)" = 1 ]; then
+  case $(settings get global wifi_on) in 1|2) m=wifi ;; *) [ $d = 1 ] && [ "$a" != 1 ] && m=mobile || m=none ;; esac
+  nsenter -t $(cat /data/vendor/wifi/router.pid) -n -- ip link set mobile0 $([ $m = mobile ] && echo up || echo down)
+else
+  [ "$a" = 1 ] && m=none
+fi
 setprop debug.holtdroid.network $m
 while ip rule del pref 8990 2>/dev/null; do :; done
-[ $m != none ] || ip rule add pref 8990 not uidrange 0-0 unreachable`
+[ $m != none ] || [ "$(getprop vendor.holtdroid.wifi)" = 1 ] || ip rule add pref 8990 not uidrange 0-0 unreachable`
+}
+
+// syncRadios follows the simulated Wi-Fi when the image has one: the user
+// turns it on and off in Android's own quick settings too, and the mobile
+// uplink has to give way to it.
+func (c *Controls) syncRadios(ctx context.Context, every time.Duration, log *slog.Logger) {
+	if !c.redroid {
+		return
+	}
+	for {
+		out, err := c.dev.Shell(ctx, "getprop vendor.holtdroid.wifi")
+		if err == nil {
+			if strings.TrimSpace(out) != "1" {
+				return
+			}
+			c.mu.Lock()
+			c.simWiFi = true
+			c.mu.Unlock()
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(every):
+		}
+	}
+	for {
+		if _, err := c.dev.Shell(ctx, c.radiosScript()); err != nil && ctx.Err() == nil {
+			log.Warn("sync radios", "err", err)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(every):
+		}
+	}
 }
 
 // timeOffset compares the device clock with ours, taking the middle of the
@@ -367,17 +422,18 @@ func (c *Controls) Update(ctx context.Context, in contract.DeviceSettings) (cont
 	if in.AirplaneMode != nil {
 		add("cmd connectivity airplane-mode " + pick(*in.AirplaneMode, "enable", "disable"))
 	}
+	c.mu.Lock()
+	simWiFi := c.simWiFi
 	if c.redroid {
-		c.mu.Lock()
 		if in.WiFi != nil {
 			c.wifi = *in.WiFi
 		}
 		if in.MobileData != nil {
 			c.mobileData = *in.MobileData
 		}
-		c.mu.Unlock()
 	}
-	if !c.redroid && in.WiFi != nil {
+	c.mu.Unlock()
+	if (!c.redroid || simWiFi) && in.WiFi != nil {
 		add("svc wifi " + pick(*in.WiFi, "enable", "disable"))
 	}
 	if !c.redroid && in.MobileData != nil {

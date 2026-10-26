@@ -34,7 +34,7 @@ func (f *fakeADB) Push(_ context.Context, local, remote string) error {
 
 func (f *fakeADB) Shell(_ context.Context, cmd string) (string, error) {
 	f.calls = append(f.calls, cmd)
-	if strings.HasPrefix(cmd, "ip link show holtdroid0") && f.noTun > 0 {
+	if strings.Contains(cmd, "ip link show holtdroid0") && f.noTun > 0 {
 		f.noTun--
 		return "", errors.New(`Device "holtdroid0" does not exist.`)
 	}
@@ -61,14 +61,12 @@ func TestPrepare(t *testing.T) {
 			cfg := DefaultConfig()
 			cfg.VPN = tt.vpn
 			adb := &fakeADB{}
-			if err := New(cfg, adb, slog.New(slog.DiscardHandler)).prepare(context.Background()); err != nil {
+			r := New(cfg, adb, slog.New(slog.DiscardHandler))
+			if err := r.prepare(context.Background()); err != nil {
 				t.Fatal(err)
 			}
-			want := []string{"wait-boot", "root"}
-			if tt.vpn {
-				want = append(want, Routes(cfg.Bypass))
-			}
-			want = append(want,
+			want := []string{
+				"wait-boot", "root", Routes(cfg, r.uid), joinWiFi,
 				LockScreenOverlay,
 				allowHomeRotation,
 				"dumpsys battery set level 65 && dumpsys battery unplug && dumpsys battery set status 3 && dumpsys battery set present 1",
@@ -76,7 +74,7 @@ func TestPrepare(t *testing.T) {
 				"pkill -x frida-server; chmod 755 /data/local/tmp/frida-server && /data/local/tmp/frida-server -D </dev/null >/dev/null 2>&1",
 				"pidof frida-server",
 				"pidof frida-server",
-			)
+			}
 			if !slices.Equal(adb.calls, want) {
 				t.Fatalf("calls\n%s\nwant\n%s", strings.Join(adb.calls, "\n"), strings.Join(want, "\n"))
 			}
@@ -100,7 +98,8 @@ func TestPrepareWaitsForTun(t *testing.T) {
 			cfg.VPN = true
 			cfg.TunTimeout = tt.timeout
 			adb := &fakeADB{noTun: tt.noTun}
-			err := New(cfg, adb, slog.New(slog.DiscardHandler)).prepare(context.Background())
+			r := New(cfg, adb, slog.New(slog.DiscardHandler))
+			err := r.prepare(context.Background())
 			if tt.wantErr {
 				if err == nil || !strings.Contains(err.Error(), "tun holtdroid0 not ready after 100ms") {
 					t.Fatalf("err = %v", err)
@@ -112,7 +111,7 @@ func TestPrepareWaitsForTun(t *testing.T) {
 			}
 			routes := 0
 			for _, c := range adb.calls {
-				if c == Routes(cfg.Bypass) {
+				if c == Routes(cfg, r.uid) {
 					routes++
 				}
 			}
@@ -124,14 +123,38 @@ func TestPrepareWaitsForTun(t *testing.T) {
 }
 
 func TestRoutes(t *testing.T) {
-	got := Routes([]string{"10.0.0.0/8", "fc00::/7"})
-	want := "ip link show holtdroid0 >/dev/null && " +
-		"ip route replace default dev holtdroid0 table 2022 && " +
-		"ip route replace unreachable default metric 1000 table 2022 && " +
-		"ip route replace throw 10.0.0.0/8 table 2022 && " +
-		"{ ip rule list pref 8999 | grep -q . || ip rule add to 198.18.0.0/30 lookup 2022 pref 8999; } && " +
-		"{ ip rule list pref 9000 | grep -q . || ip rule add not uidrange 0-0 lookup 2022 pref 9000; }"
-	if got != want {
-		t.Fatalf("routes\n%s\nwant\n%s", got, want)
+	const (
+		wifi = "{ [ \"$w\" != 1 ] || { { ip rule list pref 9002 | grep -q . || ip rule add uidrange 0-0 fwmark 0x0/0xffff lookup main pref 9002; } && " +
+			"{ ip rule list pref 9500 | grep -q . || ip rule add iif wifiup lookup main pref 9500; } && " +
+			"{ ip rule list pref 9501 | grep -q . || ip rule add to 10.254.0.0/30 lookup main pref 9501; } && " +
+			"{ ndc ipfwd enable holtdroid >/dev/null || true; }"
+		agentMain = " && { ip rule list pref 9003 | grep -q . || ip rule add uidrange 65532-65532 lookup main pref 9003; }"
+		tun       = "ip link show holtdroid0 >/dev/null && " +
+			"ip route replace default dev holtdroid0 table 2022 && " +
+			"ip route replace unreachable default metric 1000 table 2022 && " +
+			"ip route replace throw 10.0.0.0/8 table 2022 && " +
+			"{ ip rule list pref 8999 | grep -q . || ip rule add to 198.18.0.0/30 lookup 2022 pref 8999; } && "
+	)
+	tests := []struct {
+		name string
+		vpn  bool
+		uid  int
+		want string
+	}{
+		{"direct", false, 65532, "w=$(getprop vendor.holtdroid.wifi) && " + wifi + agentMain + "; }; }"},
+		{"direct as root", false, 0, "w=$(getprop vendor.holtdroid.wifi) && " + wifi + "; }; }"},
+		{"vpn", true, 65532, "w=$(getprop vendor.holtdroid.wifi) && " + tun +
+			"if [ \"$w\" = 1 ]; then { ip rule list pref 9000 | grep -q . || ip rule add iif wifiup lookup 2022 pref 9000; } && " +
+			"{ ip rule list pref 9001 | grep -q . || ip rule add uidrange 65532-65532 lookup 2022 pref 9001; }; " +
+			"else { ip rule list pref 9000 | grep -q . || ip rule add not uidrange 0-0 lookup 2022 pref 9000; }; fi && " +
+			wifi + agentMain + "; }; }"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := Routes(Config{VPN: tt.vpn, Bypass: []string{"10.0.0.0/8", "fc00::/7"}}, tt.uid)
+			if got != tt.want {
+				t.Fatalf("routes\n%s\nwant\n%s", got, tt.want)
+			}
+		})
 	}
 }

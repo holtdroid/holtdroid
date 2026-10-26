@@ -13,10 +13,11 @@ import Java from "frida-java-bridge"
 // the real method first, so both are a no-op on a phone with an ordinary
 // network.
 //
-// redroid has neither Wi-Fi nor a modem, only Ethernet: the agent keeps the
-// radios the user turned on in debug.holtdroid.network (wifi, mobile or none)
-// and the Ethernet network is shown to the app as that radio, or as no
-// network at all.
+// redroid has no modem, and an image without the simulated Wi-Fi has only
+// Ethernet: the agent keeps the radio that is on in debug.holtdroid.network
+// (wifi, mobile or none) and an Ethernet network is shown to the app as that
+// radio. With the simulated Wi-Fi the only Ethernet left is the mobile
+// uplink, and the real Wi-Fi passes through untouched.
 
 const TYPE_MOBILE = 0
 const TYPE_WIFI = 1

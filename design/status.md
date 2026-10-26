@@ -43,7 +43,12 @@ deployment"):
   battery level and charging in the status bar, brightness matching the
   shade, fake GPS on 11–14, the stream card no longer flagged when the
   device has no audio; the clock can't move on redroid (time zone only).
-  The status bar still shows Ethernet.
+- A real Wi-Fi in redroid sessions (decision #105): the session nodes load
+  `mac80211_hwsim radios=0` (homelab.nixos `modules/k3s/default.nix`),
+  holtdroid-redroid ships the emulator's Wi-Fi stack and an access point in
+  a router namespace, and the agent drives Android's own Wi-Fi. Status bar
+  and quick settings show Wi-Fi; with Wi-Fi off and mobile data on they
+  show Ethernet (the mobile uplink).
 - WebView versions at launch (decision #88): the launch dialog offers a
   Chromium WebView build per milestone (catalog `webview.storage`, filled
   by `holtdroid-webview-sync` from Chromium's x86_64 snapshots, Chromium

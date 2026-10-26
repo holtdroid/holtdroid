@@ -522,7 +522,7 @@ func TestRedroidControls(t *testing.T) {
 	if _, err := c.Update(ctx, contract.DeviceSettings{WiFi: new(false), MobileData: new(false)}); err != nil {
 		t.Fatal(err)
 	}
-	if len(dev.cmds) != 1 || !strings.HasPrefix(dev.cmds[0], "m=none\n") || !strings.Contains(dev.cmds[0], "unreachable") {
+	if len(dev.cmds) != 1 || !strings.HasPrefix(dev.cmds[0], "m=none d=0\n") || !strings.Contains(dev.cmds[0], "unreachable") {
 		t.Fatalf("radios off: %q", dev.cmds)
 	}
 	dev.cmds = nil
@@ -530,7 +530,7 @@ func TestRedroidControls(t *testing.T) {
 	if err != nil || s.WiFi || !s.MobileData {
 		t.Fatalf("mobile data on: %+v, %v", s, err)
 	}
-	if len(dev.cmds) != 1 || !strings.HasPrefix(dev.cmds[0], "m=mobile\n") {
+	if len(dev.cmds) != 1 || !strings.HasPrefix(dev.cmds[0], "m=mobile d=1\n") {
 		t.Fatalf("mobile data on: %q", dev.cmds)
 	}
 	if _, err := c.Update(ctx, contract.DeviceSettings{TimeOffset: new(int64(60_000))}); !errors.Is(err, contract.ErrInvalid) {
@@ -552,6 +552,24 @@ func TestRedroidControls(t *testing.T) {
 	_ = c.Action(ctx, contract.DeviceUnlock)
 	if len(dev.cmds) != 2 || dev.cmds[1] != deviceKeys[contract.DeviceUnlock] {
 		t.Fatalf("lock with the overlay: %q", dev.cmds)
+	}
+}
+
+func TestRedroidSimulatedWiFi(t *testing.T) {
+	ctx := context.Background()
+	dev := &scriptedDevice{clock: "1760000000", state: "wifi=0\ndata=1\n"}
+	c := NewControls(dev, "", true, false)
+	c.redroid, c.simWiFi = true, true
+
+	s, err := c.State(ctx)
+	if err != nil || s.WiFi || !s.MobileData {
+		t.Fatalf("state follows Android's Wi-Fi: %+v, %v", s, err)
+	}
+	if _, err := c.Update(ctx, contract.DeviceSettings{WiFi: new(true)}); err != nil {
+		t.Fatal(err)
+	}
+	if len(dev.cmds) != 2 || dev.cmds[0] != "svc wifi enable" || !strings.Contains(dev.cmds[1], "ip link set mobile0") {
+		t.Fatalf("Wi-Fi on: %q", dev.cmds)
 	}
 }
 

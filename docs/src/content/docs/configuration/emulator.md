@@ -233,12 +233,32 @@ through a small `app_process` helper) and the battery through `dumpsys
 battery`. The brightness slider shows the same percentage as the device's
 own shade, which is on Android's gamma curve rather than linear.
 
-redroid has neither Wi-Fi nor a modem, only the Pod's Ethernet. The Wi-Fi
-and mobile data toggles are the session's own: a session starts with both
-on, the app under test sees its network as the radio that is on (the Frida
-script relabels it, Wi-Fi first), and with both off or in airplane mode it
+Android in a session has a real Wi-Fi when its node loads
+`mac80211_hwsim` with `radios=0` (`options mac80211_hwsim radios=0` in
+the node's modprobe configuration, and the module in its boot modules).
+The holtdroid-redroid image then creates two simulated radios in the
+session's own network namespace: Android joins the open network
+`HoltdroidWifi`, whose access point and DHCP run in a private namespace
+of the session, and the status bar, quick settings and the Wi-Fi tile
+behave as on a phone. Sessions can't see or join each other's radios, and
+the radios disappear with the session. The Wi-Fi toggle in the portal and
+the tile in Android's shade are the same switch.
+
+redroid has no modem. Mobile data is a second uplink that Android takes
+for Ethernet and the app under test sees as mobile data (the Frida script
+relabels it); it carries traffic only while Wi-Fi is off, as a phone
+prefers Wi-Fi, so with Wi-Fi off and mobile data on the status bar shows
+Ethernet.
+
+Without the module the Wi-Fi and mobile data toggles are the session's
+own: a session starts with both on, the app under test sees the Pod's
+Ethernet as the radio that is on, and with both off or in airplane mode it
 sees no network and only root keeps a route. Android's own status bar and
-quick settings still show Ethernet.
+quick settings show Ethernet then.
+
+The module is a kernel test driver: anything on the node with
+`CAP_NET_ADMIN` can create radios in its own network namespace. Load it on
+the nodes that run sessions.
 
 Android in redroid runs on the node's kernel and its clock is the node's: a
 session can change its time zone but not its time, and the date and time

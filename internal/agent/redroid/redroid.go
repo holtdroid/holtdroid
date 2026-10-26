@@ -1,12 +1,15 @@
 // Package redroid prepares a redroid container (Android on the node's
 // kernel, next to the agent in the session Pod) once it boots: root adbd,
-// frida-server and, with a VPN, the routes that send apps into its tun.
+// frida-server, the simulated Wi-Fi when the image has one, and the routes
+// that send apps into the VPN's tun.
 package redroid
 
 import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -50,14 +53,15 @@ type Redroid struct {
 	cfg Config
 	adb ADB
 	log *slog.Logger
+	uid int
 }
 
 func New(cfg Config, adb ADB, log *slog.Logger) *Redroid {
-	return &Redroid{cfg: cfg, adb: adb, log: log}
+	return &Redroid{cfg: cfg, adb: adb, log: log, uid: os.Getuid()}
 }
 
-// Run waits for Android, prepares it, calls booted and keeps the VPN routes
-// in place until ctx ends. Android itself is the Pod's other container, so a
+// Run waits for Android, prepares it, calls booted and keeps the routes in
+// place until ctx ends. Android itself is the Pod's other container, so a
 // crash there ends the Pod rather than this loop.
 func (r *Redroid) Run(ctx context.Context, booted func()) error {
 	bootCtx, cancel := context.WithTimeout(ctx, r.cfg.BootTimeout)
@@ -77,7 +81,7 @@ func (r *Redroid) Run(ctx context.Context, booted func()) error {
 		case <-time.After(r.cfg.Poll):
 		}
 		if err := r.route(ctx); err != nil && ctx.Err() == nil {
-			r.log.Warn("vpn routes", "err", err)
+			r.log.Warn("routes", "err", err)
 		}
 	}
 }
@@ -96,6 +100,18 @@ const allowHomeRotation = `for p in com.google.android.apps.nexuslauncher com.an
   fi
 done
 am start -a android.intent.action.MAIN -c android.intent.category.HOME >/dev/null`
+
+// WiFiProp is set by holtdroid-redroid once the image's simulated Wi-Fi is
+// up: two mac80211_hwsim radios, the access point and the mobile uplink in a
+// router namespace of their own (decision #105).
+const WiFiProp = "vendor.holtdroid.wifi"
+
+// joinWiFi turns the simulated Wi-Fi on and saves its open network, which
+// Android then rejoins by itself.
+const joinWiFi = `[ "$(getprop ` + WiFiProp + `)" = 1 ] || exit 0
+svc wifi enable
+for i in $(seq 40); do cmd wifi status 2>/dev/null | grep -q "Wifi is enabled" && break; sleep 0.25; done
+cmd wifi connect-network HoltdroidWifi open >/dev/null`
 
 // LockScreenOverlay turns off config_disableLockscreenByDefault, which
 // redroid builds with, so locking the screen shows a lock screen (Android 12
@@ -116,7 +132,10 @@ func (r *Redroid) prepare(ctx context.Context) error {
 		return fmt.Errorf("adb root: %w", err)
 	}
 	if err := r.waitRoute(ctx); err != nil {
-		return fmt.Errorf("vpn routes: %w", err)
+		return fmt.Errorf("routes: %w", err)
+	}
+	if _, err := r.adb.Shell(ctx, joinWiFi); err != nil {
+		r.log.Warn("could not join the simulated Wi-Fi", "err", err)
 	}
 	if c := r.cfg.Cutout; c != "" && c != "none" && !r.cutoutCrashesSystemUI(ctx, c) {
 		if _, err := r.adb.Shell(ctx, "cmd overlay enable --user 0 com.android.internal.display.cutout.emulation."+c); err != nil {
@@ -170,6 +189,9 @@ func (r *Redroid) cutoutCrashesSystemUI(ctx context.Context, cutout string) bool
 // waitRoute retries route until the sidecar has created its tun: the
 // containers start in parallel and Android may boot first.
 func (r *Redroid) waitRoute(ctx context.Context) error {
+	if !r.cfg.VPN {
+		return r.route(ctx)
+	}
 	deadline := time.Now().Add(r.cfg.TunTimeout)
 	for {
 		err := r.route(ctx)
@@ -188,35 +210,64 @@ func (r *Redroid) waitRoute(ctx context.Context) error {
 }
 
 // route runs Routes as root inside Android, which shares the Pod's network
-// namespace with the VPN sidecar.
+// namespace with the VPN sidecar and the agent.
 func (r *Redroid) route(ctx context.Context) error {
-	if !r.cfg.VPN {
-		return nil
-	}
-	_, err := r.adb.Shell(ctx, Routes(r.cfg.Bypass))
+	_, err := r.adb.Shell(ctx, Routes(r.cfg, r.uid))
 	return err
 }
 
-// Routes sends every uid but root into the VPN tun, except bypass and the
-// tun's own network, where the sing-box system stack answers. Android's netd
-// owns the policy routing and flushes rules it doesn't know when it starts,
-// so sing-box can't route by itself; the script is idempotent and re-run.
-func Routes(bypass []string) string {
+// Routes keeps the Pod's policy routing, which Android's netd owns: it
+// flushes rules it doesn't know when it starts, so the script is idempotent
+// and re-run.
+//
+// With a VPN every uid but root goes into the tun, except bypass and the
+// tun's own network, where the sing-box system stack answers.
+//
+// With the simulated Wi-Fi Android sees no Ethernet: its apps reach the Pod
+// through the Wi-Fi (or the mobile uplink) and the router namespace, which
+// arrives on wifiup, and netd sends every other unmarked socket to Android's
+// default network or nowhere. So root (sing-box, adbd's clients) and the
+// agent's uid, which answers the api, are pinned to the Pod's own routes.
+func Routes(cfg Config, agentUID int) string {
 	table := vpn.TunTable
-	cmds := []string{
-		"ip link show " + vpn.TunInterface + " >/dev/null",
-		"ip route replace default dev " + vpn.TunInterface + " table " + table,
-		"ip route replace unreachable default metric 1000 table " + table,
+	rule := func(pref int, sel string) string {
+		p := strconv.Itoa(pref)
+		return "{ ip rule list pref " + p + " | grep -q . || ip rule add " + sel + " pref " + p + "; }"
 	}
-	for _, cidr := range bypass {
-		if strings.Contains(cidr, ":") {
-			continue
+	agent := ""
+	if agentUID != 0 {
+		agent = "uidrange " + strconv.Itoa(agentUID) + "-" + strconv.Itoa(agentUID)
+	}
+	wifi := []string{
+		rule(9002, "uidrange 0-0 fwmark 0x0/0xffff lookup main"),
+		rule(9500, "iif wifiup lookup main"),
+		rule(9501, "to 10.254.0.0/30 lookup main"),
+		"{ ndc ipfwd enable holtdroid >/dev/null || true; }",
+	}
+	if agent != "" {
+		wifi = append(wifi, rule(9003, agent+" lookup main"))
+	}
+	cmds := []string{`w=$(getprop ` + WiFiProp + `)`}
+	if cfg.VPN {
+		cmds = append(cmds,
+			"ip link show "+vpn.TunInterface+" >/dev/null",
+			"ip route replace default dev "+vpn.TunInterface+" table "+table,
+			"ip route replace unreachable default metric 1000 table "+table,
+		)
+		for _, cidr := range cfg.Bypass {
+			if strings.Contains(cidr, ":") {
+				continue
+			}
+			cmds = append(cmds, "ip route replace throw "+cidr+" table "+table)
 		}
-		cmds = append(cmds, "ip route replace throw "+cidr+" table "+table)
+		cmds = append(cmds, rule(8999, "to "+vpn.TunNetwork+" lookup "+table))
+		viaWiFi := []string{rule(9000, "iif wifiup lookup "+table)}
+		if agent != "" {
+			viaWiFi = append(viaWiFi, rule(9001, agent+" lookup "+table))
+		}
+		cmds = append(cmds, `if [ "$w" = 1 ]; then `+strings.Join(viaWiFi, " && ")+
+			"; else "+rule(9000, "not uidrange 0-0 lookup "+table)+"; fi")
 	}
-	cmds = append(cmds,
-		"{ ip rule list pref 8999 | grep -q . || ip rule add to "+vpn.TunNetwork+" lookup "+table+" pref 8999; }",
-		"{ ip rule list pref 9000 | grep -q . || ip rule add not uidrange 0-0 lookup "+table+" pref 9000; }",
-	)
+	cmds = append(cmds, `{ [ "$w" != 1 ] || { `+strings.Join(wifi, " && ")+"; }; }")
 	return strings.Join(cmds, " && ")
 }
