@@ -15,12 +15,12 @@ import { clock } from "@/lib/recording/timeline"
 import { cn } from "@/lib/utils"
 
 export const markerIcons: Record<MarkerIcon, { icon: LucideIcon; name: string; tone: string }> = {
-  pin: { icon: PinIcon, name: "Pin", tone: "bg-[#78dc9a] text-[#003919]" },
-  bug: { icon: BugIcon, name: "Bug", tone: "bg-[#ffb4ab] text-[#690005]" },
-  flag: { icon: FlagIcon, name: "Flag", tone: "bg-[#a8c8ff] text-[#00315c]" },
-  star: { icon: StarIcon, name: "Star", tone: "bg-[#f2c162] text-[#3f2e00]" },
-  alert: { icon: TriangleAlertIcon, name: "Warning", tone: "bg-[#f2c162] text-[#3f2e00]" },
-  check: { icon: CheckIcon, name: "Done", tone: "bg-[#78dc9a] text-[#003919]" },
+  pin: { icon: PinIcon, name: "Pin", tone: "bg-stage-primary text-stage-on-primary" },
+  bug: { icon: BugIcon, name: "Bug", tone: "bg-stage-error text-stage-on-error" },
+  flag: { icon: FlagIcon, name: "Flag", tone: "bg-stage-blue text-stage-on-blue" },
+  star: { icon: StarIcon, name: "Star", tone: "bg-stage-amber text-stage-on-amber" },
+  alert: { icon: TriangleAlertIcon, name: "Warning", tone: "bg-stage-amber text-stage-on-amber" },
+  check: { icon: CheckIcon, name: "Done", tone: "bg-stage-primary text-stage-on-primary" },
 }
 
 export function newMarkerId() {
@@ -61,7 +61,7 @@ export function MarkerPin({
           type="button"
           title={`${clock(marker.t)}${marker.label ? ` · ${marker.label}` : ""}`}
           aria-label={marker.label || "Marker"}
-          className="absolute top-0 z-10 -translate-x-1/2 rounded-full ring-2 ring-[#1c211e] transition-transform hover:scale-125 focus-visible:scale-125 focus-visible:outline-none"
+          className="absolute top-0 z-10 -translate-x-1/2 rounded-full ring-2 ring-stage-surface-low transition-transform hover:scale-125 focus-visible:scale-125 focus-visible:outline-none"
           style={{ left }}
           onPointerDown={(e) => e.stopPropagation()}
           onClick={() => onOpen(!open)}
@@ -72,7 +72,7 @@ export function MarkerPin({
       <PopoverContent
         side="top"
         align="center"
-        className="w-72 gap-3 rounded-[24px] border-0 bg-[#262b28] p-4 text-[#e0e3de] shadow-2xl ring-1 ring-white/10"
+        className="w-72 gap-3 rounded-[24px] border-0 bg-stage-surface-container p-4 text-stage-on-surface shadow-2xl ring-1 ring-black/10 dark:ring-white/10"
       >
         <MarkerEditor marker={marker} onChange={onChange} onRemove={onRemove} />
       </PopoverContent>
@@ -95,9 +95,9 @@ function MarkerEditor({
   }
   return (
     <div className="grid gap-3">
-      <div className="flex items-center justify-between text-xs text-[#8a938c]">
+      <div className="flex items-center justify-between text-xs text-stage-outline">
         <span>Marker at</span>
-        <span className="font-mono text-sm text-[#e0e3de] tabular-nums">{clock(marker.t, true)}</span>
+        <span className="font-mono text-sm text-stage-on-surface tabular-nums">{clock(marker.t, true)}</span>
       </div>
       <input
         value={label}
@@ -113,7 +113,7 @@ function MarkerEditor({
           }
           e.stopPropagation()
         }}
-        className="rounded-full bg-[#1c211e] px-4 py-2 text-sm outline-none placeholder:text-[#6f7872] focus:ring-2 focus:ring-[#78dc9a]/60"
+        className="rounded-full bg-stage-surface-low px-4 py-2 text-sm outline-none placeholder:text-stage-outline-dim focus:ring-2 focus:ring-stage-primary/60"
       />
       <div className="flex flex-wrap gap-1.5" role="group" aria-label="Icon">
         {(Object.keys(markerIcons) as MarkerIcon[]).map((k) => (
@@ -125,7 +125,7 @@ function MarkerEditor({
             onClick={() => onChange({ ...marker, label: label.trim(), icon: k })}
             className={cn(
               "grid size-9 place-items-center rounded-full transition-colors",
-              marker.icon === k ? "bg-[#354b3b]" : "hover:bg-[#313633]",
+              marker.icon === k ? "bg-stage-secondary-container" : "hover:bg-stage-surface-high",
             )}
           >
             <MarkerBadge icon={k} className="size-6 [&_svg]:size-3.5" />
@@ -135,7 +135,7 @@ function MarkerEditor({
           type="button"
           title="Delete the marker"
           onClick={onRemove}
-          className="ml-auto grid size-9 place-items-center rounded-full text-[#ffb4ab] hover:bg-[#93000a]/40"
+          className="ml-auto grid size-9 place-items-center rounded-full text-stage-error hover:bg-stage-error-container/40"
         >
           <Trash2Icon className="size-4" />
         </button>
