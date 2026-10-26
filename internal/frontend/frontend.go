@@ -75,7 +75,7 @@ func (f *Cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	f.Warm(rev)
 	local := filepath.Join(f.dir, rev, filepath.FromSlash(file))
 	if _, err := os.Stat(local); err != nil {
-		_, err, _ := f.sf.Do(local, func() (any, error) { return nil, f.fetch(r.Context(), rev+file, local, false) })
+		_, err, _ := f.sf.Do(local, func() (any, error) { return nil, f.fetch(r.Context(), rev+file, local) })
 		switch {
 		case errors.Is(err, errUpstreamNotFound):
 			http.NotFound(w, r)
@@ -90,27 +90,21 @@ func (f *Cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, local)
 }
 
-// fetch takes one of 6 upstream slots; a crawl takes at most 3 of them, so
-// the browser's own requests always get the rest.
-func (f *Cache) fetch(ctx context.Context, rel, local string, crawl bool) error {
+func (f *Cache) fetch(ctx context.Context, rel, local string) error {
 	ctx = context.WithoutCancel(ctx)
 	var err error
 	for attempt := range f.attempts {
 		if attempt > 0 {
 			time.Sleep(f.backoff << (attempt - 1))
 		}
-		if err = f.fetchOnce(ctx, rel, local, crawl); !errors.As(err, new(retryableError)) {
+		if err = f.fetchOnce(ctx, rel, local); !errors.As(err, new(retryableError)) {
 			return err
 		}
 	}
 	return err
 }
 
-func (f *Cache) fetchOnce(ctx context.Context, rel, local string, crawl bool) error {
-	if crawl {
-		f.crawl <- struct{}{}
-		defer func() { <-f.crawl }()
-	}
+func (f *Cache) fetchOnce(ctx context.Context, rel, local string) error {
 	f.slots <- struct{}{}
 	defer func() { <-f.slots }()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, f.upstream+rel, nil)
@@ -160,7 +154,10 @@ var frontendRefRe = regexp.MustCompile(`["'(]((?:\.{1,2}/)?[\w@./-]+\.(?:js|css|
 
 // Warm makes a revision available in the background: from the store's
 // archive when there is one, else by crawling upstream from inspector.html
-// through every file it names, and archiving the result.
+// through every file it names, and archiving the result. A crawl runs at
+// most 3 fetches at once out of the 6 upstream slots and shares a fetch with
+// a browser request only once it holds one of them, so a browser never waits
+// behind another revision's crawl queue.
 func (f *Cache) Warm(rev string) {
 	if !revPathRe.MatchString(rev) {
 		rev = "@" + strings.TrimPrefix(rev, "@")
@@ -258,7 +255,9 @@ func (f *Cache) crawlRev(ctx context.Context, rev string) ([]string, bool) {
 			wg.Go(func() {
 				local := filepath.Join(f.dir, rev, filepath.FromSlash(file))
 				if _, err := os.Stat(local); err != nil {
-					_, err, _ := f.sf.Do(local, func() (any, error) { return nil, f.fetch(ctx, rev+file, local, true) })
+					f.crawl <- struct{}{}
+					_, err, _ := f.sf.Do(local, func() (any, error) { return nil, f.fetch(ctx, rev+file, local) })
+					<-f.crawl
 					if errors.Is(err, errUpstreamNotFound) {
 						return
 					}

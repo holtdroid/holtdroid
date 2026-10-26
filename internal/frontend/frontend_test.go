@@ -225,3 +225,35 @@ func TestFrontendArchivedAndRestoredThroughTheStore(t *testing.T) {
 		t.Fatalf("the second cache went upstream %d times", hits.Load()-upstreamHits)
 	}
 }
+
+func TestFrontendBrowserRequestsDontWaitForTheCrawl(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, "ok "+r.URL.Path)
+	}))
+	defer upstream.Close()
+
+	f := New(upstream.URL+"/serve_rev", t.TempDir(), nil, slog.New(slog.DiscardHandler))
+	for range 3 {
+		f.crawl <- struct{}{}
+	}
+	defer func() {
+		for range 3 {
+			<-f.crawl
+		}
+	}()
+	f.Warm("0123456789abcdef")
+
+	mux := http.NewServeMux()
+	mux.Handle("GET /devtools-frontend/{rev}/{file...}", f)
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	client := &http.Client{Timeout: 2 * time.Second}
+	resp, err := client.Get(srv.URL + "/devtools-frontend/@0123456789abcdef/inspector.html")
+	if err != nil {
+		t.Fatalf("the browser waited for the crawl: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("inspector.html: %d", resp.StatusCode)
+	}
+}
