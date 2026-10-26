@@ -317,6 +317,17 @@ func TestWatch(t *testing.T) {
 	<-done
 }
 
+func TestWait(t *testing.T) {
+	s, _ := newTestShaper()
+	if d := s.wait(); d != 3*time.Second {
+		t.Errorf("before a route: %v", d)
+	}
+	s.Seed(contract.NetworkRoute{Edge: 30})
+	if d := s.wait(); d != time.Minute {
+		t.Errorf("with a route: %v", d)
+	}
+}
+
 func TestSeed(t *testing.T) {
 	for _, tc := range []struct {
 		name  string

@@ -4107,7 +4107,9 @@ without subtracting the route until then, and every session downloaded
 only in the browser (decision #135).
 
 **Decision.** The agent measures the route from its start, while Android
-boots, and publishes the round trips before the bandwidth test. Every
+boots, retrying every 3 seconds until a measurement works (the agent starts
+before the sidecar's proxy listens), and publishes the round trips before
+the bandwidth test. Every
 5 minutes the api asks ready sessions' agents for their route
 (`GET /v1/network` now carries it) and keeps the newest per provider and
 location in its database. Creating a session passes the cached route in

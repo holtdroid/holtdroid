@@ -214,7 +214,7 @@ func (s *Shaper) Watch(ctx context.Context) {
 				return
 			case <-s.kick:
 				bandwidth = true
-			case <-s.after(s.every):
+			case <-s.after(s.wait()):
 				bandwidth = s.measured().down == 0
 			case <-s.learn:
 				learning = true
@@ -227,6 +227,15 @@ func (s *Shaper) Watch(ctx context.Context) {
 			}
 		}
 	}
+}
+
+// wait is a minute between measurements, a few seconds until the first
+// one worked: the agent starts before the VPN sidecar's proxy listens.
+func (s *Shaper) wait() time.Duration {
+	if s.measured().empty() {
+		return 3 * time.Second
+	}
+	return s.every
 }
 
 func (s *Shaper) reapply(ctx context.Context) {
