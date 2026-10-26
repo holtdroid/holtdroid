@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { cdpCall, normalizeURL } from "@/lib/cdp"
+import { cdpCall, normalizeURL, targetSocket } from "@/lib/cdp"
 import { setDevToolsPrefs, useDevToolsPrefs } from "@/lib/devtools-prefs"
 import { prepareDevTools, styleDevTools } from "@/lib/devtools-style"
 import { cn } from "@/lib/utils"
@@ -39,7 +39,7 @@ function pick(items: DevToolsTarget[], chosen: DevToolsTarget | null) {
 const wsScheme = () => (window.location.protocol === "https:" ? "wss" : "ws")
 
 function cdpSocket(provider: string, id: string, t: DevToolsTarget) {
-  return `${window.location.host}${sessionBase(provider, id)}/devtools/${encodeURIComponent(t.socket)}/page/${encodeURIComponent(t.id)}`
+  return targetSocket(sessionBase(provider, id), t).replace(/^wss?:\/\//, "")
 }
 
 export function devtoolsURL(provider: string, id: string, t: DevToolsTarget) {
@@ -151,7 +151,7 @@ export function DevToolsPanel({
           <UrlBar
             key={key(selected)}
             target={selected}
-            socketURL={`${wsScheme()}://${cdpSocket(provider, id, selected)}`}
+            socketURL={targetSocket(sessionBase(provider, id), selected)}
             onNavigated={() => void targets.refetch()}
           />
         )}

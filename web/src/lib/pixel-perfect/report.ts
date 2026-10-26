@@ -14,6 +14,9 @@ export type ReportInput = {
   title: string
   subtitle: string
   source: string
+  /** The page element of each region, when a WebView was found. */
+  elements: ({ label: string } | null)[]
+  media: Box[]
 }
 
 const pad = 40
@@ -117,7 +120,7 @@ export async function renderReport(input: ReportInput): Promise<Blob> {
         ctx.drawImage(toCanvas(differencePixels(screen, input.reference)), x, y, colW, colH)
         if (input.motion)
           ctx.drawImage(maskCanvas(input.motion, a.width, a.height, [56, 189, 248, 60]), x, y, colW, colH)
-        hatch(ctx, input.ignored, x, y, k)
+        hatch(ctx, [...input.ignored, ...input.media], x, y, k)
         boxes(ctx, a.regions, x, y, k)
       },
     },
@@ -169,6 +172,14 @@ export async function renderReport(input: ReportInput): Promise<Blob> {
         pad + 44 + colW + gap,
         y,
       )
+      const el = input.elements[i]
+      if (el) {
+        ctx.fillStyle = "#c4b5fd"
+        const max = colW + gap - 8
+        let label = el.label
+        while (label.length > 4 && ctx.measureText(label).width > max) label = `${label.slice(0, -2)}…`
+        ctx.fillText(label, pad + (colW + gap) * 2, y)
+      }
     })
     if (a.regions.length > maxRows) {
       ctx.fillStyle = "#71717a"

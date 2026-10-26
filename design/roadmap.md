@@ -249,6 +249,7 @@ Lay design mockups over the screen and find where the app differs (decision #106
 - [x] UI: the Pixel perfect tab (library with paste from the clipboard and drop, quota), overlay over the screen with opacity, difference and invert blends, Move with drag and arrow keys, freeze frame
 - [x] Comparison in the browser: pixelmatch, regions, guesses (shift, colour, missing, extra), motion mask for video under the interface, ignored areas; side by side, swipe, onion skin, difference and per-region crops; PNG report with the logo
 - [x] Tests: api end to end (upload, other users, update, quota, retention), web geometry and diff helpers
+- [x] WebView pages through their own CDP connection (decision #107): the page placed on the screen by matching its screenshot, differences named by element with selector, CSS shift and styles, highlighted on the device; video, canvas and frames skipped
 - [ ] Try it on a redroid session with an app over a video
 
 ## Phase 5 — Packaging and docs

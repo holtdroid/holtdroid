@@ -535,6 +535,22 @@ function Controls({ pp, reference: r, session }: { pp: PixelPerfect; reference: 
             </span>
           </Label>
         </div>
+        <div className="flex items-start gap-3">
+          <Switch
+            id="pp-media"
+            checked={state.ignoreMedia}
+            onCheckedChange={(v) => {
+              pp.set({ ignoreMedia: v })
+              if (state.result) void pp.analyze()
+            }}
+          />
+          <Label htmlFor="pp-media" className="grid gap-0.5 font-normal">
+            <span className="text-sm">Skip video, canvas and frames in WebViews</span>
+            <span className="text-muted-foreground text-xs">
+              Their boxes come from the page through DevTools, so a paused player is skipped too.
+            </span>
+          </Label>
+        </div>
         <p className="text-muted-foreground text-xs">
           Draw areas over the screen to always skip them for this reference, such as a player or a map.
         </p>
@@ -588,6 +604,14 @@ function Summary({ result }: { result: NonNullable<ReturnType<PixelPerfect["get"
       <span className="text-muted-foreground text-xs">
         compared with {from}
         {result.motion ? ", moving content skipped" : ""}
+        {result.media.length
+          ? `, ${result.media.length} media ${result.media.length === 1 ? "element" : "elements"} skipped`
+          : ""}
+      </span>
+      <span className="text-muted-foreground basis-full text-xs">
+        {result.webview
+          ? `WebView found: ${result.webview.target.title || result.webview.target.url}; differences inside it name their elements, pointing at one highlights it on the device.`
+          : "No inspectable WebView found on the screen, so differences aren't tied to page elements."}
       </span>
     </div>
   )

@@ -3295,3 +3295,52 @@ A frozen frame carries the stream's compression, so precise checks want a
 high stream quality or a live comparison. Motion detection can't tell a
 still frame of a video from the interface; that is what ignored areas are
 for. The api doesn't check that an image decodes beyond its header.
+
+## 107. Pixel perfect reads WebView pages through their own DevTools connection
+
+Extends #106.
+
+**Context.** Differences found by pixels say where, not what: "a box at
+240, 1180 moved 3 px down" leaves the tester to find the element and its
+styles in DevTools by hand. Most apps tested here draw their screens in a
+WebView, which the portal can already inspect, and a paused video in one
+isn't caught by the motion mask.
+
+**Decision.**
+
+- **The browser opens its own CDP connection** to each page target through
+  the agent's existing `/devtools/{socket}/page/{id}` proxy, next to the
+  DevTools frontend's (Chrome has allowed several clients per target since
+  version 63). No new agent or api endpoint.
+- **One snapshot instead of live lookups**: a `Runtime.evaluate` collects
+  every visible element (up to 3000) with its box, a selector, its own text
+  and a fixed set of computed styles, plus `devicePixelRatio` and the visual
+  viewport; `Page.captureScreenshot` adds a picture of the page. A frozen
+  frame takes the snapshot when it freezes, so the analysis can name a toast
+  that is already gone. `DOM.getNodeForLocation` per region would need the
+  page as it was.
+- **The WebView is placed by finding its screenshot in the device's**, not
+  by asking Android where the view is: the screenshot scaled to
+  `devicePixelRatio × scale` device pixels is searched for over the screen,
+  first both scaled down, then pixel-exactly around the best spot, scored by
+  the share of samples that disagree, so a native bar drawn over part of the
+  page still matches. That handles status bars, toolbars, cut-outs and
+  WebViews that don't fill the screen, and tells which of several pages is
+  the one on the screen; one that doesn't match (score ≥ 0.3) is ignored.
+- **A region belongs to the element maximising** (share of the region inside
+  the element) × (share of the element inside the region), which prefers the
+  tight element over its containers and a whole button over its label.
+- **Media elements become ignored areas**: `video`, `canvas`, `iframe`,
+  `embed` and `object` boxes, on by default, so a paused player or a map
+  drawn on a canvas no longer counts as a difference.
+- **Highlighting on the device** uses `Overlay.highlightNode` on a
+  connection kept open for it, finding the node again by its index in
+  `querySelectorAll("*")` and checking its tag, so a changed page highlights
+  nothing rather than the wrong element. Selecting the node in the DevTools
+  tab isn't possible from another client; the selector can be copied instead.
+
+**Consequences.** It works only where DevTools works: debuggable WebViews,
+or any WebView under Frida. Elements inside cross-origin frames and shadow
+roots aren't listed. A page that changed between its screenshot and the
+device's (an animation) can fail to match and then simply isn't used. The
+snapshot costs a few hundred milliseconds per open page, at most four pages.

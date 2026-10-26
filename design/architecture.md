@@ -771,7 +771,10 @@ browser ─POST/PUT/DELETE /api/v1/pixel-perfect─▶ api ──▶ storage: pi
         ◀─GET /api/v1/pixel-perfect/{id}/image── api (rewrites .used at most hourly; ?preview doesn't)
 browser: <img> over the screen canvas (opacity, difference, invert); Freeze frame = the decoder's snapshot;
          Find differences = GET /s/…/v1/device/screenshot (or the frozen frame) + a burst of stream frames
-         for the motion mask → pixelmatch → regions → views and a PNG report
+         for the motion mask → pixelmatch → regions → views and a PNG report;
+         WS /s/…/devtools/{socket}/page/{id} (its own CDP client): an element snapshot and
+         Page.captureScreenshot per page, found on the screen by image search, names the regions,
+         skips <video>/<canvas>/<iframe> and highlights elements on the device (decision #107)
 ```
 
 The api only stores; quota (`pixelPerfect.quota`, per user) is checked on

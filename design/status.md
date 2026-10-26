@@ -125,7 +125,9 @@ deployment"):
   unused), an overlay over the screen (opacity, difference, invert, drag),
   freeze frame, differences found in the browser (regions with guesses,
   video skipped by motion, ignored areas), the views of image diffs and a
-  PNG report. Covered by api and web unit tests; not yet tried on a redroid
+  PNG report. In WebViews (decision #107) differences name their element
+  with selector, CSS shift and styles and highlight it on the device, and
+  video, canvas and frames are skipped. Covered by api and web unit tests; not yet tried on a redroid
   session.
 - Session load (decision #40), shown in the cards next to the phone since
   decision #94: the app card has fps, jank and CPU/PSS per process, the

@@ -84,7 +84,7 @@ areas runs the comparison again at once, which helps line a mockup up.
 ### Interfaces over video
 
 An interface drawn over a video, a camera picture or a map would differ from
-any mockup everywhere the video is. Two things keep that out:
+any mockup everywhere the video is. Three things keep that out:
 
 - **Skip what moves** (on by default) takes a few frames a moment apart
   before comparing, marks the parts of the screen that changed between them
@@ -94,14 +94,45 @@ any mockup everywhere the video is. Two things keep that out:
 - **Ignored areas**: turn on **Draw** and drag over the screen to mark areas
   the comparison always skips for this reference, such as a player that may
   be paused.
+- **Skip video, canvas and frames in WebViews** (on by default): in a WebView
+  page, the boxes of `<video>`, `<canvas>`, `<iframe>`, `<embed>` and
+  `<object>` elements are left out, paused or not (see below). They are
+  hatched violet.
+
+### WebView pages
+
+When the screen shows a WebView that DevTools can inspect, the comparison
+also asks the page about itself, through its own DevTools connection next to
+the DevTools tab (Chrome serves several at once):
+
+1. It reads the visible elements of each open page: their boxes, a CSS
+   selector, their own text and a few computed styles, and takes a screenshot
+   of the page.
+2. It finds where that screenshot sits on the device's screen, which places
+   the page on it exactly: under the status bar and the app's own toolbar, or
+   wherever the app put its WebView. A WebView that isn't on the screen, or a
+   page in a background WebView, doesn't match and is left out. The page found
+   is outlined violet on the screen.
+3. Each difference gets the element that fits it best: the list shows
+   `button.submit “Pay”` under the difference, and the magnified crop adds
+   its selector (with a copy button), its size in CSS pixels, a shift in CSS
+   pixels as well as device pixels, and the styles that matter for that kind
+   of difference: margins, padding and transforms for a shift, colours and
+   borders for a colour difference, sizes and fonts otherwise.
+4. Pointing at a difference in the list highlights its element on the device
+   the way DevTools does, with margins, padding and its info box.
+
+With a frozen frame, the page is read the moment the frame is frozen, so a
+toast that is gone by the time you compare still names its element.
+Highlighting needs the element to still be there.
 
 ## Report
 
 **Report** downloads a PNG with the project's logo, the reference name, the
 app, its version, the screen and the time, the match, three columns (the
 reference, the difference with ignored areas, the screen) with the regions
-numbered on them, and the list of differences with their sizes and
-positions.
+numbered on them, and the list of differences with their sizes, positions
+and, in a WebView, their elements.
 
 ## Configuration
 

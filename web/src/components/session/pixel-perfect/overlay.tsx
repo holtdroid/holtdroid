@@ -173,6 +173,21 @@ export function PixelOverlay({ pp, canvasRef }: { pp: PixelPerfect; canvasRef: R
             )}
           </div>
         ))}
+      {result && state.showRegions && result.webview && (
+        <div
+          className="pointer-events-none absolute border border-dashed border-violet-400/70"
+          style={percentBox(result.webview.bounds, { w: result.analysis.width, h: result.analysis.height })}
+        />
+      )}
+      {result &&
+        state.showRegions &&
+        result.media.map((b) => (
+          <div
+            key={`${b.x}:${b.y}:${b.w}:${b.h}`}
+            className="pointer-events-none absolute bg-[repeating-linear-gradient(45deg,rgb(167_139_250/0.3)_0_6px,transparent_6px_12px)]"
+            style={percentBox(b, { w: result.analysis.width, h: result.analysis.height })}
+          />
+        ))}
       {result &&
         state.showRegions &&
         result.analysis.regions.map((r, i) => (

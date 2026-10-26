@@ -6,6 +6,15 @@ import type { LiveScreen } from "@/components/session/live-screen"
 import { pixelsOf, referencePixels, toCanvas, workSize } from "@/lib/pixel-perfect/capture"
 import { type Analysis, analyze, boxMask, motionMask, type Pixels } from "@/lib/pixel-perfect/diff"
 import { type Box, onScreen, type Placement, placeReference, type Size } from "@/lib/pixel-perfect/geometry"
+import {
+  Highlighter,
+  matchRegion,
+  matchWebView,
+  probeWebViews,
+  type ScreenElement,
+  type WebViewMatch,
+  type WebViewProbe,
+} from "@/lib/pixel-perfect/webview"
 
 export type Blend = "normal" | "difference" | "invert"
 export type Tool = "none" | "move" | "ignore"
@@ -23,6 +32,11 @@ export type Result = {
   referenceId: string
   source: "frozen" | "screenshot" | "stream"
   at: number
+  /** The WebView found on the screen, if any, with the element each region most likely belongs to. */
+  webview: WebViewMatch | null
+  elements: (ScreenElement | null)[]
+  /** Video, canvas and frames of the WebView left out of the comparison. */
+  media: Box[]
 }
 
 export type Draft = { placement: Placement; ignore: Box[] }
@@ -34,6 +48,7 @@ export type PixelState = {
   blend: Blend
   tool: Tool
   ignoreMotion: boolean
+  ignoreMedia: boolean
   showRegions: boolean
   drafts: Record<string, Draft>
   frozen: Frozen | null
@@ -44,10 +59,17 @@ export type PixelState = {
   error: string | null
 }
 
-type Prefs = Pick<PixelState, "visible" | "opacity" | "blend" | "ignoreMotion" | "showRegions">
+type Prefs = Pick<PixelState, "visible" | "opacity" | "blend" | "ignoreMotion" | "ignoreMedia" | "showRegions">
 
 const prefsKey = "holtdroid:pixel-perfect"
-const defaults: Prefs = { visible: true, opacity: 0.5, blend: "normal", ignoreMotion: true, showRegions: true }
+const defaults: Prefs = {
+  visible: true,
+  opacity: 0.5,
+  blend: "normal",
+  ignoreMotion: true,
+  ignoreMedia: true,
+  showRegions: true,
+}
 
 function loadPrefs(): Prefs {
   try {
@@ -76,6 +98,8 @@ export class PixelPerfect {
   #rerun = 0
   #run = 0
   #display: Display | undefined
+  #frozenProbes: Promise<WebViewProbe[]> | null = null
+  readonly #highlighter = new Highlighter()
   constructor(
     readonly live: LiveScreen,
     readonly provider: string,
@@ -110,6 +134,7 @@ export class PixelPerfect {
       opacity: this.#state.opacity,
       blend: this.#state.blend,
       ignoreMotion: this.#state.ignoreMotion,
+      ignoreMedia: this.#state.ignoreMedia,
       showRegions: this.#state.showRegions,
     }
     try {
@@ -126,6 +151,19 @@ export class PixelPerfect {
 
   reference(id = this.#state.referenceId) {
     return this.references.find((r) => r.id === id) ?? null
+  }
+
+  hover(index: number | null) {
+    if (index === this.#state.hovered) return
+    this.set({ hovered: index })
+    const result = this.#state.result
+    const el = index === null ? null : result?.elements[index]
+    if (!result?.webview) return
+    void this.#highlighter.show(result.webview.socket, el ? el.index : null, el?.tag).catch(() => undefined)
+  }
+
+  #probe() {
+    return probeWebViews(this.provider, this.id).catch(() => [] as WebViewProbe[])
   }
 
   draft(ref: ReferenceView): Draft {
@@ -208,9 +246,11 @@ export class PixelPerfect {
     this.set({ freezing: true, error: null })
     try {
       const first = await this.#snapshot()
+      const probes = this.#probe()
       const pixels = await pixelsOf(first)
       const url = URL.createObjectURL(first)
       this.#release()
+      this.#frozenProbes = probes
       this.set({ frozen: { url, pixels, motion: null, at: Date.now() }, result: null, hovered: null })
       const rest: Blob[] = []
       for (let i = 1; i < burst; i++) {
@@ -237,6 +277,8 @@ export class PixelPerfect {
 
   #release() {
     if (this.#state.frozen) URL.revokeObjectURL(this.#state.frozen.url)
+    this.#frozenProbes = null
+    void this.#highlighter.show("", null).catch(() => undefined)
   }
 
   async #screenshot() {
@@ -257,14 +299,18 @@ export class PixelPerfect {
       let screen: Pixels
       let motion: Uint8Array | null = null
       let source: Result["source"] = "frozen"
+      let probes: WebViewProbe[]
       if (frozen) {
         screen = frozen.pixels
         motion = frozen.motion
+        probes = (await this.#frozenProbes) ?? []
       } else {
-        const [shot, frames] = await Promise.all([
+        const [shot, frames, found] = await Promise.all([
           this.#screenshot().catch(() => null),
           this.#state.ignoreMotion ? this.#burst().catch(() => null) : null,
+          this.#probe(),
         ])
+        probes = found
         if (shot) {
           const bitmap = await createImageBitmap(shot)
           screen = await pixelsOf(bitmap, workSize({ w: bitmap.width, h: bitmap.height }))
@@ -291,12 +337,14 @@ export class PixelPerfect {
       const reference = referencePixels(image, size, draft.placement)
       const placed = placeReference(size, { w: image.width, h: image.height }, draft.placement)
       const ignored = draft.ignore.map((r) => onScreen(placed, r))
-      const ignore = boxMask(size.w, size.h, ignored)
+      const d = this.#display
+      const toDevice = d && d.width > 0 && d.height > 0 ? Math.max(d.width, d.height) / Math.max(size.w, size.h) : 1
+      const webview = await matchWebView(probes, screen, toDevice).catch(() => null)
+      const media = this.#state.ignoreMedia ? (webview?.media ?? []) : []
+      const ignore = boxMask(size.w, size.h, [...ignored, ...media])
       if (this.#state.ignoreMotion && motion) for (let i = 0; i < ignore.length; i++) ignore[i]! |= motion[i]!
       const analysis = analyze(screen, reference, ignore)
       if (run !== this.#run) return
-      const d = this.#display
-      const toDevice = d && d.width > 0 && d.height > 0 ? Math.max(d.width, d.height) / Math.max(size.w, size.h) : 1
       this.set({
         result: {
           analysis,
@@ -308,6 +356,9 @@ export class PixelPerfect {
           referenceId: ref.id,
           source,
           at: Date.now(),
+          webview,
+          elements: webview ? analysis.regions.map((r) => matchRegion(r, webview.elements)) : [],
+          media,
         },
         hovered: null,
       })
@@ -320,6 +371,7 @@ export class PixelPerfect {
 
   dispose() {
     this.#release()
+    this.#highlighter.close()
     window.clearTimeout(this.#rerun)
     for (const t of this.#saves.values()) window.clearTimeout(t)
     for (const p of this.#images.values()) void p.then((b) => b.close()).catch(() => undefined)
