@@ -805,7 +805,8 @@ the limit. The Pod also holds the agent and the VPN sidecar, which is
 accepted: they are small next to Android, and lxcfs or matching the
 `android` container's own cgroup would need either a node dependency or the
 container id, which the Pod can't see. `/data` is still `df` of the
-emptyDir, so its total is the node's disk.
+emptyDir, so its total is the node's disk. (Superseded by #111: the
+`android` container's cgroup, and `/data` against the emptyDir's limit.)
 
 **Consequences.** A watched session spends one adb round trip and two
 `dumpsys` calls every 2 s. An emulator's temperatures are made up by its
@@ -3421,3 +3422,25 @@ report nothing: vendors (Samsung) switch navigation their own way.
 **Consequences.** The portal's own back, home and recents buttons keep
 working under gestures, since they send key events. Switching restarts
 the navigation bar for a moment.
+
+## 111. Redroid's load is the `android` container, not the Pod
+
+**Context.** Decision #40 read the whole session Pod's cgroup. Its limits
+are the sum of its containers' limits only when every container has one;
+the VPN sidecar has none and Android has no CPU limit by default, so the
+Pod's `memory.max` and `cpu.max` were `max` and the device card fell back
+to the node: 16 cores, 31 GB and the node's disk, next to 1.6 GB in use.
+
+**Decision.** The agent picks the container cgroup under the Pod with the
+most `memory.current`: Android, by far, next to the agent, sing-box and
+pause. Its CPU limit (or the node's cores without one), working set and
+memory limit (3 GiB by default) describe the device. CPU deltas are only
+taken between samples of the same cgroup, so a restarted container skips
+one sample. The provider passes `redroid.dataSize` as `HOLTDROID_DATALIMIT`;
+with it the device's storage is `du -skx /data` (about 20 ms) of that limit
+instead of `df`, which shows the node's disk under an emptyDir.
+
+**Consequences.** Without a CPU limit in `emulator.resources` the device
+still reports every core of the node, which is what Android may use.
+Physical phones are unchanged: no Pod, no data limit.
+

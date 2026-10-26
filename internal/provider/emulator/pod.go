@@ -150,6 +150,7 @@ func (p *Provider) renderPod(id, slot, node string, req contract.CreateSession, 
 	data := &corev1.EmptyDirVolumeSource{}
 	if q, err := resource.ParseQuantity(p.cfg.Redroid.DataSize); p.cfg.Redroid.DataSize != "" && err == nil {
 		data.SizeLimit = &q
+		env = append(env, corev1.EnvVar{Name: "HOLTDROID_DATALIMIT", Value: strconv.FormatInt(q.Value(), 10)})
 	}
 	volumes := []corev1.Volume{
 		{Name: "data", EmptyDir: data},

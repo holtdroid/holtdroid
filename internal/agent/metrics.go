@@ -28,6 +28,7 @@ type Metrics struct {
 	cgroup    fs.FS
 	podUID    string
 	cgroupDir string
+	dataLimit int64
 	interval  time.Duration
 	now       func() time.Time
 	log       *slog.Logger
@@ -37,9 +38,9 @@ type Metrics struct {
 	stop context.CancelFunc
 }
 
-func NewMetrics(dev Device, pkg string, root, cgroup fs.FS, podUID string, log *slog.Logger) *Metrics {
+func NewMetrics(dev Device, pkg string, root, cgroup fs.FS, podUID string, dataLimit int64, log *slog.Logger) *Metrics {
 	return &Metrics{
-		dev: dev, pkg: pkg, root: root, cgroup: cgroup, podUID: podUID,
+		dev: dev, pkg: pkg, root: root, cgroup: cgroup, podUID: podUID, dataLimit: dataLimit,
 		interval: 2 * time.Second, now: time.Now, log: log, subs: map[chan contract.Metrics]struct{}{},
 	}
 }
@@ -128,6 +129,7 @@ type procSample struct {
 type frameSample struct{ total, janky uint64 }
 
 type hostSample struct {
+	dir              string
 	usage, throttled uint64
 	limit            float64
 	working, memMax  int64
@@ -146,8 +148,12 @@ type sample struct {
 	host                *hostSample
 }
 
-func metricsScript(pkg string) string {
-	return fmt.Sprintf(`echo '#stat'; head -n1 /proc/stat
+func metricsScript(pkg string, du bool) string {
+	script := ""
+	if du {
+		script = "echo '#du'; du -skx /data 2>/dev/null\n"
+	}
+	return script + fmt.Sprintf(`echo '#stat'; head -n1 /proc/stat
 echo '#cores'; grep -c ^processor /proc/cpuinfo
 echo '#mem'; grep -E '^(MemTotal|MemAvailable):' /proc/meminfo
 echo '#df'; df -k /data | tail -n1
@@ -161,13 +167,16 @@ echo '#thermal'; dumpsys thermalservice | grep -E 'Temperature\{|temperatures'`,
 }
 
 func (m *Metrics) sample(ctx context.Context) (*sample, error) {
-	out, err := m.dev.Shell(ctx, metricsScript(m.pkg))
+	out, err := m.dev.Shell(ctx, metricsScript(m.pkg, m.dataLimit > 0))
 	if err != nil {
 		return nil, err
 	}
 	s := parseDeviceSample(out)
 	s.at = m.now()
-	s.host = readHost(m.cgroup, m.podCgroup(), m.root)
+	if m.dataLimit > 0 {
+		s.dataTotal = m.dataLimit
+	}
+	s.host = readHost(m.cgroup, containerCgroup(m.cgroup, m.podCgroup()), m.root)
 	s.temps = append(s.temps, hostinfo.Zones(m.root)...)
 	return s, nil
 }
@@ -207,6 +216,12 @@ func parseDeviceSample(out string) *sample {
 			total, _ := strconv.ParseInt(f[1], 10, 64)
 			used, _ := strconv.ParseInt(f[2], 10, 64)
 			s.dataTotal, s.dataUsed = total<<10, used<<10
+		}
+	}
+	for _, line := range sections["du"] {
+		if f := strings.Fields(line); len(f) >= 1 {
+			kb, _ := strconv.ParseInt(f[0], 10, 64)
+			s.dataUsed = kb << 10
 		}
 	}
 	for _, line := range sections["net"] {
@@ -377,6 +392,26 @@ func podCgroup(root fs.FS, uid string) string {
 	return found
 }
 
+// containerCgroup picks the Pod's largest container by memory: Android, next
+// to the agent, the VPN sidecar and the pause container.
+func containerCgroup(root fs.FS, pod string) string {
+	if pod == "" {
+		return ""
+	}
+	entries, _ := fs.ReadDir(root, pod)
+	found, most := pod, int64(-1)
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		dir := pod + "/" + e.Name()
+		if n, err := readInt(root, dir+"/memory.current"); err == nil && n > most {
+			found, most = dir, n
+		}
+	}
+	return found
+}
+
 func readHost(root fs.FS, dir string, host fs.FS) *hostSample {
 	if dir == "" {
 		return nil
@@ -390,7 +425,7 @@ func readHost(root fs.FS, dir string, host fs.FS) *hostSample {
 	if err != nil {
 		return nil
 	}
-	h := &hostSample{usage: uint64(stat["usage_usec"]), throttled: uint64(stat["throttled_usec"]), limit: float64(runtime.NumCPU())}
+	h := &hostSample{dir: dir, usage: uint64(stat["usage_usec"]), throttled: uint64(stat["throttled_usec"]), limit: float64(runtime.NumCPU())}
 	if b, err := fs.ReadFile(root, cg+"cpu.max"); err == nil {
 		if f := strings.Fields(string(b)); len(f) == 2 && f[0] != "max" {
 			quota, _ := strconv.ParseFloat(f[0], 64)
@@ -482,7 +517,7 @@ func diff(prev, cur *sample) contract.Metrics {
 		}
 		out.App = app
 	}
-	if prev.host != nil && cur.host != nil && secs > 0 && cur.host.usage >= prev.host.usage && cur.host.throttled >= prev.host.throttled {
+	if prev.host != nil && cur.host != nil && prev.host.dir == cur.host.dir && secs > 0 && cur.host.usage >= prev.host.usage && cur.host.throttled >= prev.host.throttled {
 		usec := secs * 1e6
 		out.Host = &contract.HostLoad{
 			CPU:         math.Round(float64(cur.host.usage-prev.host.usage)/usec*100) / 100,
@@ -497,7 +532,7 @@ func diff(prev, cur *sample) contract.Metrics {
 }
 
 // podDevice describes a device that shares the node's kernel (redroid) by its
-// Pod: the guest's /proc shows the whole node.
+// container: the guest's /proc shows the whole node.
 func podDevice(m *contract.Metrics, nodeCores int) {
 	h := m.Host
 	if h.CPULimit <= 0 {

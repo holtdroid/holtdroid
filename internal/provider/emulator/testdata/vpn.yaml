@@ -87,6 +87,8 @@ spec:
       value: hole
     - name: HOLTDROID_LOCATION
       value: nl
+    - name: HOLTDROID_DATALIMIT
+      value: "8589934592"
     - name: HOLTDROID_CLASHAPI
       value: http://127.0.0.1:9090
     - name: HOLTDROID_IPINFOPROXY

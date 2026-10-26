@@ -13,7 +13,7 @@ export function ComputersPage() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto grid max-w-6xl gap-6 p-4 lg:grid-cols-[minmax(0,1fr)_380px] lg:p-6">
+      <div className="mx-auto grid max-w-7xl gap-6 p-4 lg:grid-cols-[minmax(0,1fr)_380px] lg:p-6">
         <div className="grid content-start gap-4">
           <div>
             <h1 className="text-xl font-semibold tracking-tight">Computers</h1>
@@ -50,7 +50,13 @@ export function ComputersPage() {
         </div>
 
         {info.data?.enabled && (
-          <aside className="grid content-start gap-4 self-start lg:sticky lg:top-6 lg:max-h-[calc(100dvh-6.5rem)] lg:overflow-y-auto">
+          <aside className="grid content-start gap-3 self-start rounded-xl border p-4 text-sm lg:sticky lg:top-6 lg:max-h-[calc(100dvh-6.5rem)] lg:overflow-y-auto">
+            <h2 className="font-semibold">Connect a computer</h2>
+            <p className="text-muted-foreground">
+              One command per computer, on macOS or Linux. It downloads the holtdroid client, which makes its own key
+              for this portal, publishes the ports you pick on every device you run and gives each device&apos;s ADB a
+              local port.
+            </p>
             <ConnectCard />
           </aside>
         )}

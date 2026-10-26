@@ -85,6 +85,8 @@ spec:
           fieldPath: metadata.uid
     - name: HOLTDROID_REDROID__CUTOUT
       value: tall
+    - name: HOLTDROID_DATALIMIT
+      value: "8589934592"
     image: ghcr.io/holtdroid/holtdroid-session:0123abc
     imagePullPolicy: IfNotPresent
     name: agent

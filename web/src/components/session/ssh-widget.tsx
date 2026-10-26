@@ -94,7 +94,7 @@ function SSHShade({ slug, tunnels }: { slug: string; tunnels: Tunnels }) {
       {computers.isSuccess && list.length === 0 ? (
         <Group title="Connect a computer">
           <div className="grid gap-2 rounded-3xl bg-neutral-800 px-4 py-3 text-neutral-100 [&_.bg-muted]:bg-neutral-900">
-            <ConnectCard compact />
+            <ConnectCard />
           </div>
           <Note>
             One command per computer, on macOS or Linux. It downloads the holtdroid client, which publishes the ports

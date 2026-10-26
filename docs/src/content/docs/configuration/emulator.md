@@ -139,7 +139,9 @@ Each session Pod has three containers sharing one network namespace:
   `127.0.0.1:27042`, roots adbd, enables the screen's cutout overlay,
   installs and instruments the app and serves the Agent API. The node's
   `/sys/fs/cgroup` is mounted read-only at `/host/cgroup` so the device card
-  can read the whole Pod's CPU and memory.
+  shows the `android` container's CPU and memory (its limits, or the node's
+  without them), and `/data` against `redroid.dataSize` rather than the
+  node's disk.
 - `vpn`: the sing-box sidecar, when locations are configured.
 
 adbd listens on every address of the Pod; keep `networkPolicy` on so only

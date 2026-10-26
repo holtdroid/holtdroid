@@ -61,10 +61,13 @@ type Config struct {
 	AppLanguage bool
 	USBNetwork  bool
 	// HostCgroup is where the node's cgroup tree is mounted read-only, so the
-	// device card reads the whole session Pod (Android, the agent and the
-	// VPN sidecar) found by PodUID; empty leaves the Pod out of the metrics.
+	// device card reads Android's container in the session Pod found by
+	// PodUID; empty leaves the Pod out of the metrics.
 	HostCgroup string
 	PodUID     string
+	// DataLimit is the size limit of redroid's /data emptyDir in bytes: the
+	// device's storage is that limit and du of /data instead of the node's disk.
+	DataLimit int64
 	// FridaHost is frida-server's address when the agent shares the
 	// device's network namespace (redroid); empty goes through adb.
 	FridaHost   string
@@ -197,7 +200,7 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 		frontend: NewFrontend(cfg.DevToolsFrontend, filepath.Join(cfg.CacheDir, "devtools-frontend"), log),
 		controls: newControls(cfg, dev, log),
 		tunnels:  NewTunnels(newADBTunnels(cfg, dev, log), cfg.ADBShell, log),
-		metrics:  NewMetrics(dev, cfg.Package, host, cgroup, cfg.PodUID, log),
+		metrics:  NewMetrics(dev, cfg.Package, host, cgroup, cfg.PodUID, cfg.DataLimit, log),
 		vibes:    NewVibrations(dev, log),
 		display:  NewScreenState(dev, log),
 		actions:  make(chan appRequest, 1),

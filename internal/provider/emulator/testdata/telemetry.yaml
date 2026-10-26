@@ -95,6 +95,8 @@ spec:
       value: "true"
     - name: HOLTDROID_TELEMETRY__TRACING__SAMPLERATIO
       value: "0.25"
+    - name: HOLTDROID_DATALIMIT
+      value: "8589934592"
     image: ghcr.io/holtdroid/holtdroid-session:0123abc
     imagePullPolicy: IfNotPresent
     name: agent

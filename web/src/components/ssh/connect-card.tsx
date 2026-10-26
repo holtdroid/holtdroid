@@ -2,10 +2,9 @@ import { TerminalIcon } from "lucide-react"
 import { connectCommand, useConnectCode, useSSHInfo } from "@/api/ssh"
 import { CopyBlock } from "@/components/copy-button"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useNow } from "@/hooks/use-now"
 
-export function ConnectCard({ compact = false }: { compact?: boolean }) {
+export function ConnectCard() {
   const code = useConnectCode()
   const insecureTLS = useSSHInfo().data?.insecureTLS ?? false
   const now = useNow(1000)
@@ -13,7 +12,7 @@ export function ConnectCard({ compact = false }: { compact?: boolean }) {
   const left = Math.max(0, Math.round((expiresAt - now) / 1000))
   const valid = code.data !== undefined && left > 0
 
-  const body = (
+  return (
     <div className="grid gap-2">
       {valid ? (
         <>
@@ -37,20 +36,5 @@ export function ConnectCard({ compact = false }: { compact?: boolean }) {
       )}
       {code.isError && <p className="text-destructive text-xs">{code.error.message}</p>}
     </div>
-  )
-  if (compact) return body
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Connect a computer</CardTitle>
-        <CardDescription>
-          One command per computer, on macOS or Linux. It downloads the holtdroid client, which makes its own key for
-          this portal, publishes the ports you pick on every device you run and gives each device&apos;s ADB a local
-          port.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>{body}</CardContent>
-    </Card>
   )
 }

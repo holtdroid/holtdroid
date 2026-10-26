@@ -28,7 +28,7 @@ export function AppDataPage() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto grid max-w-6xl gap-6 p-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:p-6">
+      <div className="mx-auto grid max-w-7xl gap-6 p-4 lg:grid-cols-[minmax(0,1fr)_380px] lg:p-6">
         <div className="grid content-start gap-4">
           <div>
             <h1 className="text-xl font-semibold tracking-tight">App data</h1>

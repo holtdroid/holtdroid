@@ -30,7 +30,7 @@ export function RecordingsPage() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto grid max-w-6xl gap-6 p-4 lg:grid-cols-[minmax(0,1fr)_300px] lg:p-6">
+      <div className="mx-auto grid max-w-7xl gap-6 p-4 lg:grid-cols-[minmax(0,1fr)_380px] lg:p-6">
         <div className="grid content-start gap-4">
           <div>
             <div className="flex flex-wrap items-center gap-3">

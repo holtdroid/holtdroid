@@ -299,7 +299,7 @@ Goal: several Android devices per node instead of one emulator per node.
 
 - [x] Image `ghcr.io/holtdroid/holtdroid-redroid` (own repository): redroid 15 with Codec2 software encoders on gralloc BLOBs, `libndk_translation`, a cgroup init wrapper for privileged pods
 - [x] `provider-emulator` renders redroid Pods (`android` + `agent` + `vpn`), `slotsPerNode` and per-node `slots`, slot ids `<node>-<n>`, Android and agent resources; AVD, VirtualGL and the emulator console removed
-- [x] Agent: adb over TCP with reconnects, `adb root`, frida-server reached at `127.0.0.1:27042`, launches from the device found by polling instead of spawn gating (gating stops every process of the node), GPS and battery without a console, the Pod's cgroup in the metrics bar, GPS and time zone that follow the VPN location
+- [x] Agent: adb over TCP with reconnects, `adb root`, frida-server reached at `127.0.0.1:27042`, launches from the device found by polling instead of spawn gating (gating stops every process of the node), GPS and battery without a console, the `android` container's cgroup in the metrics bar, GPS and time zone that follow the VPN location
 - [x] VPN without `auto_route`: policy routing added by the agent inside Android, root traffic direct, the agent's IP check through the sidecar's mixed inbound
 - [x] Session image slimmed to the agent, adb, frida-server and scrcpy-server; the pre-pull DaemonSet pulls the redroid image as an image volume
 - [x] Verified on a k3s node in a scratch namespace: boot in about 6 s, install, the app under Frida, VPN egress through the gateway

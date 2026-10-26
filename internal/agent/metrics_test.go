@@ -95,6 +95,13 @@ func TestMetricsDiff(t *testing.T) {
 	}
 }
 
+func TestMetricsRedroidData(t *testing.T) {
+	s := parseDeviceSample("#du\n278320\t/data\n" + deviceOutput(0, 0, 0, 0, 0, 0, 0))
+	if s.dataUsed != 278320<<10 || s.dataTotal != 6_000_000<<10 {
+		t.Errorf("data %d of %d", s.dataUsed, s.dataTotal)
+	}
+}
+
 func TestMetricsRestartedApp(t *testing.T) {
 	prev := parseDeviceSample(deviceOutput(1000, 3000, 9000, 9000, 500, 5000, 50))
 	cur := parseDeviceSample(deviceOutput(1300, 3500, 100, 100, 20, 30, 1))
@@ -123,27 +130,37 @@ func TestReadHost(t *testing.T) {
 			"kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod0a_1b.slice/memory.current": {Data: []byte("5000\n")},
 			"kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod0a_1b.slice/memory.stat":    {Data: []byte("anon 3000\ninactive_file 1000\n")},
 			"kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod0a_1b.slice/memory.max":     {Data: []byte("7000\n")},
-		}, &hostSample{usage: 1500, throttled: 300, limit: 4, working: 4000, memMax: 7000}},
+		}, &hostSample{dir: "kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod0a_1b.slice", usage: 1500, throttled: 300, limit: 4, working: 4000, memMax: 7000}},
 		{"cgroupfs driver", fstest.MapFS{
-			"cpu.stat":                                         {Data: []byte("usage_usec 999999\n")},
-			"kubepods/burstable/pod0a-1b/cpu.stat":             {Data: []byte("usage_usec 1500\nthrottled_usec 0\n")},
-			"kubepods/burstable/pod0a-1b/cpu.max":              {Data: []byte("200000 100000\n")},
-			"kubepods/burstable/pod0a-1b/memory.current":       {Data: []byte("5000\n")},
-			"kubepods/burstable/pod0a-1b/memory.max":           {Data: []byte("7000\n")},
-			"kubepods/burstable/pod0a-1b/cri-1/memory.max":     {Data: []byte("1\n")},
-			"kubepods/burstable/pod0a-1b/cri-1/memory.current": {Data: []byte("1\n")},
-		}, &hostSample{usage: 1500, limit: 2, working: 5000, memMax: 7000}},
+			"cpu.stat":                                   {Data: []byte("usage_usec 999999\n")},
+			"kubepods/burstable/pod0a-1b/cpu.stat":       {Data: []byte("usage_usec 1500\nthrottled_usec 0\n")},
+			"kubepods/burstable/pod0a-1b/cpu.max":        {Data: []byte("200000 100000\n")},
+			"kubepods/burstable/pod0a-1b/memory.current": {Data: []byte("5000\n")},
+			"kubepods/burstable/pod0a-1b/memory.max":     {Data: []byte("7000\n")},
+		}, &hostSample{dir: "kubepods/burstable/pod0a-1b", usage: 1500, limit: 2, working: 5000, memMax: 7000}},
+		{"android container", fstest.MapFS{
+			"kubepods/burstable/pod0a-1b/memory.current":         {Data: []byte("9000\n")},
+			"kubepods/burstable/pod0a-1b/memory.max":             {Data: []byte("max\n")},
+			"kubepods/burstable/pod0a-1b/pause/memory.current":   {Data: []byte("10\n")},
+			"kubepods/burstable/pod0a-1b/agent/memory.current":   {Data: []byte("2000\n")},
+			"kubepods/burstable/pod0a-1b/agent/cpu.stat":         {Data: []byte("usage_usec 100\n")},
+			"kubepods/burstable/pod0a-1b/android/cpu.stat":       {Data: []byte("usage_usec 1400\n")},
+			"kubepods/burstable/pod0a-1b/android/cpu.max":        {Data: []byte("max 100000\n")},
+			"kubepods/burstable/pod0a-1b/android/memory.current": {Data: []byte("6000\n")},
+			"kubepods/burstable/pod0a-1b/android/memory.stat":    {Data: []byte("inactive_file 1000\n")},
+			"kubepods/burstable/pod0a-1b/android/memory.max":     {Data: []byte("8000\n")},
+		}, &hostSample{dir: "kubepods/burstable/pod0a-1b/android", usage: 1400, limit: -1, working: 5000, memMax: 8000}},
 		{"unlimited", fstest.MapFS{
 			"kubepods.slice/pod0a_1b.slice/cpu.stat":       {Data: []byte("usage_usec 1500\n")},
 			"kubepods.slice/pod0a_1b.slice/cpu.max":        {Data: []byte("max 100000\n")},
 			"kubepods.slice/pod0a_1b.slice/memory.current": {Data: []byte("5000\n")},
 			"kubepods.slice/pod0a_1b.slice/memory.max":     {Data: []byte("max\n")},
-		}, &hostSample{usage: 1500, limit: -1, working: 5000, memMax: 32000 << 10}},
+		}, &hostSample{dir: "kubepods.slice/pod0a_1b.slice", usage: 1500, limit: -1, working: 5000, memMax: 32000 << 10}},
 	}
 	host := fstest.MapFS{"proc/meminfo": {Data: []byte("MemTotal:       32000 kB\nMemFree: 1 kB\n")}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := readHost(tt.fs, podCgroup(tt.fs, "0a-1b"), host)
+			got := readHost(tt.fs, containerCgroup(tt.fs, podCgroup(tt.fs, "0a-1b")), host)
 			if got != nil && tt.want != nil && tt.want.limit == -1 {
 				tt.want.limit = got.limit
 				if got.limit < 1 {
@@ -178,7 +195,7 @@ func (d *countingDevice) count() int {
 
 func TestMetricsSampleOnlyWhileWatched(t *testing.T) {
 	dev := &countingDevice{}
-	m := NewMetrics(dev, "com.example.app", fstest.MapFS{}, fstest.MapFS{}, "", slog.New(slog.NewTextHandler(io.Discard, nil)))
+	m := NewMetrics(dev, "com.example.app", fstest.MapFS{}, fstest.MapFS{}, "", 0, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	m.interval = 10 * time.Millisecond
 
 	ctx, cancel := context.WithCancel(t.Context())
