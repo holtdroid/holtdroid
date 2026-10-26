@@ -3690,3 +3690,34 @@ session Pod and ends with it, like the session; the api stays stateless.
 **Consequences.** Lines are stamped and kept even when nobody watches, a
 few microseconds a frame; frames of media streams are still not kept. A
 restarted agent starts an empty history.
+
+## 119. Redroid images run 32-bit x86 apps
+
+**Context.** Google Chrome from APKMirror crashed at startup on Android 12
+to 15 with `FATAL:webview_entry_point.cc` "WebView cannot be started with a
+browser process type", also with frida-server stopped, and ran on
+Android 11. Its x86 builds are 64/32 Monochrome: `use32bitAbi="true"`, the
+browser in `lib/x86/libmonochrome.so` and only WebView in the 64-bit one.
+holtdroid-redroid's Android 12–15 images were built on redroid's
+`*_64only` bases (`zygote64` only), so Chrome ran as a 64-bit process with
+the WebView library. The Android 11 image already used a base with 32-bit
+ABIs. Newer Chrome on APKMirror is arm64 only and segfaults under ARM
+translation.
+
+**Decision.** holtdroid-redroid builds every version on redroid's base with
+32-bit ABIs (`zygote64_32`). ARM translation stays the 64-bit
+`libndk_translation` from the emulator images, so the image drops
+`armeabi-v7a` and `armeabi` from the vendor and ODM ABI lists and
+`ro.dalvik.vm.isa.arm`. Those bases don't switch Codec2 on by themselves,
+so the image sets `ro.boot.use_redroid_c2=1` (not on Android 11, which
+stays on OMX) and runs redroid's switch from its own init file.
+
+**Consequences.** Google Chrome's x86 builds from APKMirror (the newest the
+sync found is 138) run on every Android version with Google's proprietary
+codecs: H.264 and AAC play, WebGL2 runs on Mesa in Chrome's 32-bit GPU
+process. 64-bit apps, Chromium snapshots and their Vulkan included, are
+unchanged. Every session starts a second zygote: about 40 MB PSS
+(180 MB RSS, mostly shared). On Android 12 to 15 apps with only 32-bit ARM
+libraries fail to install instead of crashing; Android 11's system
+`build.prop` still lists `armeabi-v7a`.
+

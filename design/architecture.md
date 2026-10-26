@@ -298,7 +298,8 @@ Why ARM-only APKs work: the redroid image carries `libndk_translation` from
 Google's Android 15 x86_64 emulator image, so ARM native libraries run
 translated inside app processes while ART itself stays x86_64 (Frida's Java
 hooks are unaffected). Separate ARM executables don't run: that would need
-`binfmt_misc`, which isn't namespaced.
+`binfmt_misc`, which isn't namespaced. The images also run 32-bit x86 apps
+(decision #119); 32-bit ARM is not translated.
 
 ### Screen
 

@@ -211,6 +211,14 @@ Bluetooth: redroid's simulated Bluetooth controller crashes there as soon
 as Android enables it, so the images drop the feature and apps see a device
 without Bluetooth. Android 11, 12 and 15 keep a simulated one.
 
+Every image runs 32-bit x86 apps next to 64-bit ones (`zygote64_32`).
+Google Chrome's x86 builds run their browser in 32 bits and keep only
+WebView in the 64-bit library, so on a 64-bit-only Android they abort at
+startup with "WebView cannot be started with a browser process type". ARM
+translation is 64-bit only: the Android 12 to 15 images list `arm64-v8a`
+but not `armeabi-v7a`, so an app whose native libraries are only 32-bit ARM
+doesn't install there (Android 11 lists it and the app crashes instead).
+
 With a WebView catalog (`webview.storage`), the launch dialog also offers a
 WebView build for the chosen Android version, which the agent installs over
 the built-in one. This needs holtdroid-redroid images that re-sign the
