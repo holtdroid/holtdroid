@@ -3112,3 +3112,49 @@ sync and lose the last second of writes. Litestream's S3 lease would close
 that gap but needs conditional writes that not every S3-compatible store
 supports, so it isn't used. The aws-sdk-go-v2 modules join minio-go in the
 api binary.
+
+## 103. A users auth mode: a directory with passkeys and invite links
+
+**Context.** The maintainer wanted to let people in without an identity
+provider: invite links with a preset role or an approval queue, passkeys
+instead of passwords, recovery when a passkey is lost, admin-managed roles and
+per-user limits, and optional email-domain rules. The other modes either have
+no accounts (anonymous, password) or take them from outside (oidc, header).
+
+**Decision.**
+- A new `auth.mode: users`, opt-in like every mode; `anonymous` stays the
+  default. `internal/users` holds the directory in the api's database
+  (`users`, `passkeys`, `invites`) and implements `auth.Directory`, the one
+  hook `internal/auth` calls.
+- The session cookie carries only the user id and is looked up on every
+  request, so a deletion or a role change applies at once. An empty role
+  means waiting for approval: signed in, 403 on everything but
+  `/api/v1/auth*`. At least one admin always remains.
+- Passkeys through `go-webauthn/webauthn`: discoverable credentials, so
+  sign-in needs no username; the RP id is `publicURL`'s host. The two steps
+  of a ceremony share the challenge through a five-minute signed cookie, not
+  the database. The browser side uses `@simplewebauthn/browser`.
+- Invite, recovery and first-admin links are random tokens of which only a
+  SHA-256 is stored, so a link is shown once. An invite has a role,
+  single-use or reusable, an optional expiry and optional domains on top of
+  `auth.users.allowedDomains`. A recovery link is single-use, lasts up to 30
+  days and cancels earlier ones. While no admin exists the api logs a
+  single-use admin link valid for 24 hours, replaced on every start.
+- OIDC is an optional second sign-in in this mode: the provider's email finds
+  the user; an unknown one signs up with `auth.users.oidcRole` (or admin when
+  in `auth.adminGroups`). The directory, not the provider's groups, decides
+  the role afterwards.
+- Limits per user (devices at once, session TTL, recordings quota, app data
+  save size) resolve user override → `auth.users.limits.<role>` → the
+  server-wide setting; a user's 0 means no limit. `sessions.maxPerUser` is
+  new and applies in every mode.
+
+**Consequences.** The `users` mode breaks the rule that losing the database
+signs no one out (#22, #102): with `memory` every restart forgets all
+accounts, so the docs and a startup warning point to `sqlite`, which limits
+the api to one replica until PostgreSQL. Domain rules check the address's
+shape only: no mail is sent, so anyone holding a link can claim an address
+in an allowed domain; email verification is a roadmap item. Deleting a user
+doesn't stop their running devices yet. Logging the first-admin link is
+deliberate: whoever reads the api's logs can already read its secrets.
+

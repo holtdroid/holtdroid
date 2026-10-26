@@ -6,3 +6,82 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 SELECT * FROM session_events
 WHERE provider = ? AND session_id = ?
 ORDER BY id;
+
+-- name: CreateUser :exec
+INSERT INTO users (id, handle, email, name, role, created_at)
+VALUES (?, ?, ?, ?, ?, ?);
+
+-- name: GetUser :one
+SELECT * FROM users WHERE id = ?;
+
+-- name: GetUserByEmail :one
+SELECT * FROM users WHERE email = ?;
+
+-- name: GetUserByHandle :one
+SELECT * FROM users WHERE handle = ?;
+
+-- name: ListUsers :many
+SELECT users.*, (SELECT COUNT(*) FROM passkeys WHERE passkeys.user_id = users.id) AS passkeys
+FROM users
+ORDER BY role = '' DESC, created_at;
+
+-- name: UpdateUser :exec
+UPDATE users
+SET email = ?, name = ?, role = ?, max_sessions = ?, max_session_ttl = ?, recordings_quota = ?, app_data_quota = ?
+WHERE id = ?;
+
+-- name: RenameUser :exec
+UPDATE users SET name = ? WHERE id = ?;
+
+-- name: TouchUser :exec
+UPDATE users SET last_seen_at = ? WHERE id = ?;
+
+-- name: DeleteUser :execrows
+DELETE FROM users WHERE id = ?;
+
+-- name: CountAdmins :one
+SELECT COUNT(*) FROM users WHERE role = 'admin';
+
+-- name: AddPasskey :exec
+INSERT INTO passkeys (id, user_id, name, credential, created_at)
+VALUES (?, ?, ?, ?, ?);
+
+-- name: GetPasskey :one
+SELECT * FROM passkeys WHERE id = ?;
+
+-- name: ListPasskeys :many
+SELECT * FROM passkeys WHERE user_id = ? ORDER BY created_at;
+
+-- name: UsePasskey :exec
+UPDATE passkeys SET credential = ?, last_used_at = ? WHERE id = ?;
+
+-- name: RenamePasskey :execrows
+UPDATE passkeys SET name = ? WHERE id = ? AND user_id = ?;
+
+-- name: DeletePasskey :execrows
+DELETE FROM passkeys WHERE id = ? AND user_id = ?;
+
+-- name: CountPasskeys :one
+SELECT COUNT(*) FROM passkeys WHERE user_id = ?;
+
+-- name: CreateInvite :exec
+INSERT INTO invites (id, token_hash, kind, role, user_id, domains, note, single_use, expires_at, created_by, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: GetInviteByHash :one
+SELECT * FROM invites WHERE token_hash = ?;
+
+-- name: ListInvites :many
+SELECT * FROM invites WHERE kind = 'invite' ORDER BY created_at DESC;
+
+-- name: UseInvite :exec
+UPDATE invites SET uses = uses + 1 WHERE id = ?;
+
+-- name: DeleteInvite :execrows
+DELETE FROM invites WHERE id = ? AND kind = 'invite';
+
+-- name: DeleteBootstrapInvites :exec
+DELETE FROM invites WHERE kind = 'bootstrap';
+
+-- name: DeleteRecoveryLinks :exec
+DELETE FROM invites WHERE kind = 'recovery' AND user_id = ?;

@@ -9,16 +9,19 @@ import { AppShell } from "@/components/app-shell"
 import { AuthGate } from "@/components/auth-gate"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { AccountPage } from "@/pages/account"
 import { AppDataPage } from "@/pages/app-data"
 import { AuditPage, validateAuditSearch } from "@/pages/audit"
 import { ComputersPage } from "@/pages/computers"
 import { HomePage } from "@/pages/home"
 import { InventoryPage } from "@/pages/inventory"
+import { InvitePage } from "@/pages/invite"
 import { LaunchPage, validateLaunchSearch } from "@/pages/launch"
 import { OpenRecordingPage } from "@/pages/open-recording"
 import { RecordingPage } from "@/pages/recording"
 import { RecordingsPage } from "@/pages/recordings"
 import { SessionPage } from "@/pages/session"
+import { UsersPage } from "@/pages/users"
 
 const onUnauthorized = (error: Error) => {
   if (error instanceof ApiError && error.status === 401) void queryClient.invalidateQueries({ queryKey: ["auth"] })
@@ -63,6 +66,15 @@ const sharedRoute = createRoute({
 })
 
 const openRoute = createRoute({ getParentRoute: () => rootRoute, path: "/open", component: OpenRecordingPage })
+
+const inviteRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/invite/$token",
+  component: function Invite() {
+    const { token } = inviteRoute.useParams()
+    return <InvitePage key={token} token={token} />
+  },
+})
 
 const homeRoute = createRoute({
   getParentRoute: () => portalRoute,
@@ -116,6 +128,10 @@ const inventoryRoute = createRoute({ getParentRoute: () => portalRoute, path: "/
 
 const appDataRoute = createRoute({ getParentRoute: () => portalRoute, path: "/app-data", component: AppDataPage })
 
+const accountRoute = createRoute({ getParentRoute: () => portalRoute, path: "/account", component: AccountPage })
+
+const usersRoute = createRoute({ getParentRoute: () => portalRoute, path: "/users", component: UsersPage })
+
 const recordingsRoute = createRoute({
   getParentRoute: () => portalRoute,
   path: "/recordings",
@@ -142,11 +158,14 @@ const router = createRouter({
       auditRoute,
       inventoryRoute,
       appDataRoute,
+      accountRoute,
+      usersRoute,
       recordingsRoute,
       recordingRoute,
     ]),
     sharedRoute,
     openRoute,
+    inviteRoute,
   ]),
 })
 

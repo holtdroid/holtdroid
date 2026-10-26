@@ -361,8 +361,7 @@ func (s *Server) recordingUsage(ctx context.Context, user string) (int64, []*rec
 
 // makeRoom deletes user's oldest recordings that are neither kept nor
 // running until need more bytes fit the quota, and reports whether they do.
-func (s *Server) makeRoom(ctx context.Context, user string, need int64, except string) (bool, error) {
-	quota := int64(s.cfg.Recordings.Quota)
+func (s *Server) makeRoom(ctx context.Context, user string, quota, need int64, except string) (bool, error) {
 	if quota <= 0 {
 		return true, nil
 	}
@@ -394,7 +393,7 @@ func (s *Server) makeRoom(ctx context.Context, user string, need int64, except s
 // (sess has no ID yet) and returns where its agent uploads.
 func (s *Server) newRecording(ctx context.Context, who auth.Identity, sess contract.Session, provider string) (*contract.RecordingTarget, recordingMeta, error) {
 	user := userDir(who.User)
-	if ok, err := s.makeRoom(ctx, user, 0, ""); err != nil || !ok {
+	if ok, err := s.makeRoom(ctx, user, s.limits(ctx, who.User).RecordingsQuota, 0, ""); err != nil || !ok {
 		return nil, recordingMeta{}, cmp.Or(err, errQuota)
 	}
 	now := s.now().UTC()
@@ -553,7 +552,7 @@ func (s *Server) takeManifest(ctx context.Context, ref recordingRef, m recording
 	if err := json.Unmarshal(data, &mf); err != nil {
 		return http.StatusBadRequest, err
 	}
-	if quota := int64(s.cfg.Recordings.Quota); quota > 0 && mf.State == contract.RecordingActive {
+	if quota := s.limits(ctx, m.Owner).RecordingsQuota; quota > 0 && mf.State == contract.RecordingActive {
 		s.recordings.mu.Lock()
 		u, fresh := s.recordings.usage[ref.user]
 		s.recordings.mu.Unlock()
@@ -563,7 +562,7 @@ func (s *Server) takeManifest(ctx context.Context, ref recordingRef, m recording
 			grown -= prev.Size
 		}
 		if !fresh || s.now().Sub(u.at) > recordingCache || u.bytes+grown > quota {
-			ok, err := s.makeRoom(ctx, ref.user, grown, ref.id)
+			ok, err := s.makeRoom(ctx, ref.user, quota, grown, ref.id)
 			if err != nil {
 				return http.StatusInternalServerError, err
 			}
@@ -852,9 +851,9 @@ func (s *Server) registerRecordings(api huma.API) {
 		if s.recordings == nil {
 			return &out[RecordingList]{l}, nil
 		}
-		l.Enabled, l.Mode, l.Share, l.Quota, l.MaxAge = true, cfg.Mode, cfg.Share, int64(cfg.Quota), int64(cfg.MaxAge/time.Second)
-		l.MinDuration = int64(cfg.MinDuration / time.Second)
 		who, _ := auth.FromContext(ctx)
+		l.Enabled, l.Mode, l.Share, l.Quota, l.MaxAge = true, cfg.Mode, cfg.Share, s.limits(ctx, who.User).RecordingsQuota, int64(cfg.MaxAge/time.Second)
+		l.MinDuration = int64(cfg.MinDuration / time.Second)
 		used, entries, err := s.recordingUsage(ctx, userDir(who.User))
 		if err != nil {
 			return nil, httpError(err)

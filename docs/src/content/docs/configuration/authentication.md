@@ -1,6 +1,6 @@
 ---
 title: Authentication
-description: Sign-in modes — anonymous names, a shared password, OIDC, or a forward-auth proxy.
+description: Sign-in modes — anonymous names, a shared password, OIDC, a forward-auth proxy, or users with passkeys and invite links.
 sidebar:
   order: 4
 ---
@@ -13,12 +13,13 @@ you. Pick one mode with `auth.mode`.
 | `anonymous` | Everyone who can reach the URL (default) | A random name like `big-cute-otter`           |
 | `password`  | Everyone who knows one shared password   | A random name, assigned after the password    |
 | `oidc`      | Users of your identity provider          | Username, name, email and groups from the IdP |
+| `users`     | People with an invite link and a passkey | A user in the api's database, with a role     |
 | `header`    | Whoever your forward-auth proxy lets in  | Taken from headers the proxy sets             |
 | `none`      | Everyone, as one local admin             | `local` — for development only                |
 
 ## Signed session cookies
 
-`anonymous`, `password` and `oidc` keep the signed-in identity in an HttpOnly
+`anonymous`, `password`, `oidc` and `users` keep the signed-in identity in an HttpOnly
 cookie holding a JWT signed with `auth.sessionKey`. Nothing is stored on the
 server, so any number of api replicas can verify it and it survives restarts
 and rescheduling — as long as they all share the same key.
@@ -107,6 +108,91 @@ identity_providers:
 ```
 
 </details>
+
+## Users and passkeys
+
+The `users` mode keeps its own user directory in the api's
+[database](/holtdroid/configuration/database/). People sign up through an
+invite link with their name and email and sign in with a **passkey** (Touch
+ID, Face ID, Windows Hello, a security key or a password manager); there are
+no passwords. Admins get a **Users** page: everyone's role, limits and
+passkeys, invite links, recovery links, and the people waiting for approval.
+
+```yaml
+publicURL: https://android.example.com # passkeys are bound to this host
+database:
+  type: sqlite # users must survive restarts
+auth:
+  mode: users
+  sessionKey: env:SESSION_KEY
+  users:
+    allowedDomains: [example.com, example.org] # optional: who may sign up
+    oidcRole: "" # role for new SSO sign-ins: "" waits for approval, or user
+    limits: # optional defaults per role
+      user: { maxSessions: 2, maxSessionTTL: 4h, recordingsQuota: 20GiB, appDataMaxSize: 512MiB }
+      admin: { maxSessions: 0 }
+```
+
+:::caution
+With the in-memory database every restart forgets all users and passkeys.
+Use `database.type: sqlite`, ideally with a replica.
+:::
+
+**The first admin.** While there is no admin, the api logs a single-use
+invite link with the admin role at startup, valid for 24 hours. Open it, enter
+your name and email and register a passkey. Every restart replaces the link
+until the first admin exists:
+
+```sh
+kubectl -n holtdroid logs deploy/holtdroid-api | grep "first admin"
+```
+
+**Roles.** `admin` manages users and sees the inventory and the audit log,
+`user` launches devices, and an empty role means _waiting for approval_: the
+person is signed in but sees only a waiting screen until an admin gives them a
+role. Holtdroid keeps at least one admin.
+
+**Invite links.** An admin creates them on the Users page with a role,
+single-use or reusable, expiring after a day, a week, a month or never, and
+optionally limited to some email domains (on top of `allowedDomains`). A
+reusable link with the _waiting for approval_ role is an open sign-up page
+whose newcomers you approve by hand. Only a hash of each link is stored, so it
+is shown once; revoke it there when it leaks.
+
+**Domains.** `allowedDomains` and an invite's domains check the email's
+domain when someone signs up, but nothing sends mail to verify the address:
+treat the check as a guard against typos and the wrong people using a shared
+link, not as proof of who someone is.
+
+**Passkeys and recovery.** Under **Account and passkeys** in the user menu,
+people add more passkeys, rename them and remove them; the last one stays. An
+admin can remove any passkey and create a **recovery link**, single-use and
+valid for up to 30 days, with which the user registers a new passkey on a new
+device. Creating one cancels earlier recovery links.
+
+**Signing in with SSO as well.** Set `auth.oidc` as for the `oidc` mode and
+the sign-in page also offers **Sign in with SSO**. The provider's email finds
+the user; an unknown email signs up with `auth.users.oidcRole`, or as admin
+when the user is in one of `auth.adminGroups`. `allowedDomains` applies to
+SSO sign-ups too. After that the role comes from the Users page, not from the
+provider's groups.
+
+### Limits
+
+Every user has four limits. An admin can set them per user on the Users page;
+an empty field uses the role's default from `auth.users.limits`, and a role
+without one uses the server-wide setting.
+
+| Limit             | Server-wide setting   | Meaning                                           |
+| ----------------- | --------------------- | ------------------------------------------------- |
+| `maxSessions`     | `sessions.maxPerUser` | Devices the user may run at once; 0 for no limit  |
+| `maxSessionTTL`   | `sessions.maxTTL`     | How long a session lives before it is reaped      |
+| `recordingsQuota` | `recordings.quota`    | Storage for the user's recordings; 0 for no limit |
+| `appDataMaxSize`  | `appData.maxSize`     | Largest app data save; 0 for no limit             |
+
+Deleting a user signs them out at once and removes their passkeys. Devices
+they run keep going until stopped or reaped, and their recordings and app data
+stay until they expire.
 
 ## Forward-auth headers
 
@@ -205,6 +291,9 @@ NetworkPolicy that only lets the ingress controller reach the api's port 8080.
 | -------------------- | ---------------- | --------------------------------------------- |
 | `auth.allowedGroups` | `oidc`, `header` | If set, only members of these groups get in   |
 | `auth.adminGroups`   | `oidc`, `header` | Members can stop and extend anyone's sessions |
+
+In the `users` mode roles come from the directory instead; `adminGroups` only
+decides the role of a first SSO sign-in.
 
 Everyone can see all sessions. Only the owner or an admin can stop or extend
 one.

@@ -58,12 +58,21 @@ const (
 	RecordingShare   Action = "recording.share"
 	RecordingUnshare Action = "recording.unshare"
 	Maintenance      Action = "provider.maintenance"
+	UserSignUp       Action = "user.signup"
+	UserUpdate       Action = "user.update"
+	UserDelete       Action = "user.delete"
+	UserRecovery     Action = "user.recovery"
+	InviteCreate     Action = "invite.create"
+	InviteDelete     Action = "invite.delete"
+	PasskeyAdd       Action = "passkey.add"
+	PasskeyDelete    Action = "passkey.delete"
 )
 
 var Actions = []Action{
 	SignIn, SignOut, SessionLaunch, SessionStop, SessionReap, SessionExtend, SessionInstall, SessionLocation,
 	SessionClipboard, ArtifactUpload, ArtifactUpdate, ArtifactDelete, ArtifactDownload, SSHEnroll, SSHConnect, SSHDisconnect, SSHTunnel,
-	ADBConnect, ADBDisconnect, AuditExport, Maintenance,
+	ADBConnect, ADBDisconnect, AuditExport, Maintenance, UserSignUp, UserUpdate, UserDelete, UserRecovery, InviteCreate, InviteDelete,
+	PasskeyAdd, PasskeyDelete,
 }
 
 type Result string

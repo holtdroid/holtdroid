@@ -12,7 +12,7 @@ import (
 )
 
 type AuthStatus struct {
-	Mode     string         `json:"mode" enum:"anonymous,password,oidc,header,none"`
+	Mode     string         `json:"mode" enum:"anonymous,password,oidc,header,none,users"`
 	Identity *auth.Identity `json:"identity,omitempty"`
 	LoginURL string         `json:"loginUrl,omitempty" doc:"Where to send the browser to sign in (oidc)"`
 }
@@ -40,7 +40,7 @@ func (s *Server) registerAuth(api huma.API) {
 		Description: "Who is signed in and how to sign in. In the anonymous mode this signs newcomers in.",
 	}, func(ctx context.Context, _ *struct{}) (*authOut, error) {
 		out := &authOut{Body: AuthStatus{Mode: s.auth.Mode()}}
-		if s.auth.Mode() == auth.ModeOIDC {
+		if s.auth.OIDCEnabled() {
 			out.Body.LoginURL = auth.OIDCLoginPath
 		}
 		if id, ok := auth.FromContext(ctx); ok {

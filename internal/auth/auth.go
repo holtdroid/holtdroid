@@ -18,6 +18,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 
+	"github.com/holtdroid/holtdroid/internal/config"
 	"github.com/holtdroid/holtdroid/internal/secrets"
 )
 
@@ -27,6 +28,7 @@ const (
 	ModeOIDC      = "oidc"
 	ModeHeader    = "header"
 	ModeNone      = "none"
+	ModeUsers     = "users"
 )
 
 type Identity struct {
@@ -36,6 +38,14 @@ type Identity struct {
 	Picture string   `json:"picture,omitempty" doc:"Avatar URL from the identity provider; the UI generates one from user when empty"`
 	Groups  []string `json:"groups"`
 	Admin   bool     `json:"admin"`
+	Pending bool     `json:"pending,omitempty" doc:"Signed up in the users mode and waiting for an admin to give them a role"`
+}
+
+// Directory resolves users of the users mode, whose role and existence live
+// in the api's database rather than in the session cookie.
+type Directory interface {
+	Lookup(ctx context.Context, user string) (Identity, error)
+	SignInOIDC(ctx context.Context, id Identity, admin bool) (Identity, error)
 }
 
 type HeaderConfig struct {
@@ -67,6 +77,24 @@ type Config struct {
 	Header        HeaderConfig
 	AllowedGroups []string
 	AdminGroups   []string
+	Users         UsersConfig
+}
+
+// UsersConfig configures the users mode: a user directory in the api's
+// database with passkeys and invite links.
+type UsersConfig struct {
+	AllowedDomains []string
+	OIDCRole       string
+	Limits         map[string]Limits
+}
+
+// Limits are per-user caps; zero values fall back to the next level (role,
+// then the server-wide setting).
+type Limits struct {
+	MaxSessions     int
+	MaxSessionTTL   time.Duration
+	RecordingsQuota config.ByteSize
+	AppDataMaxSize  config.ByteSize
 }
 
 func DefaultConfig() Config {
@@ -101,7 +129,8 @@ type Authenticator struct {
 	now      func() time.Time
 	log      *slog.Logger
 
-	OnSignIn func(ctx context.Context, method string, id Identity, err error)
+	OnSignIn  func(ctx context.Context, method string, id Identity, err error)
+	Directory Directory
 	// Bearer resolves an Authorization: Bearer token, for clients that
 	// don't hold a session cookie (the holtdroid client). Nil turns
 	// bearer tokens off.
@@ -143,7 +172,7 @@ func New(ctx context.Context, cfg Config, reg *secrets.Registry, publicURL strin
 		return a, nil
 	case ModeNone:
 		return a, nil
-	case ModeAnonymous, ModePassword, ModeOIDC:
+	case ModeAnonymous, ModePassword, ModeOIDC, ModeUsers:
 	default:
 		return nil, fmt.Errorf("auth: unknown mode %q", cfg.Mode)
 	}
@@ -176,7 +205,10 @@ func New(ctx context.Context, cfg Config, reg *secrets.Registry, publicURL strin
 			return nil, errors.New("auth.password must not be empty")
 		}
 		a.password = pw
-	case ModeOIDC:
+	case ModeOIDC, ModeUsers:
+		if cfg.Mode == ModeUsers && cfg.OIDC.Issuer == "" {
+			break
+		}
 		client, err := newOIDCClient(ctx, cfg.OIDC, reg, publicURL)
 		if err != nil {
 			return nil, err
@@ -198,8 +230,11 @@ func (a *Authenticator) Pseudonym(user string) string {
 }
 
 func (a *Authenticator) cookieBased() bool {
-	return a.cfg.Mode == ModeAnonymous || a.cfg.Mode == ModePassword || a.cfg.Mode == ModeOIDC
+	return a.cfg.Mode == ModeAnonymous || a.cfg.Mode == ModePassword || a.cfg.Mode == ModeOIDC || a.cfg.Mode == ModeUsers
 }
+
+// OIDCEnabled reports whether a "sign in with SSO" redirect is available.
+func (a *Authenticator) OIDCEnabled() bool { return a.oidc != nil }
 
 type sessionClaims struct {
 	jwt.RegisteredClaims
@@ -258,7 +293,7 @@ func (a *Authenticator) authorize(id Identity) (Identity, error) {
 		id.Groups = []string{}
 	}
 	id.Picture = safePicture(id.Picture)
-	if len(a.cfg.AllowedGroups) > 0 && a.cfg.Mode != ModeAnonymous && a.cfg.Mode != ModePassword &&
+	if len(a.cfg.AllowedGroups) > 0 && a.cfg.Mode != ModeAnonymous && a.cfg.Mode != ModePassword && a.cfg.Mode != ModeUsers &&
 		!intersects(id.Groups, a.cfg.AllowedGroups) {
 		return Identity{User: id.User}, ErrForbidden
 	}
@@ -281,13 +316,22 @@ func (a *Authenticator) fromCookie(r *http.Request) (Identity, time.Time, error)
 	if err != nil || claims.Mode != a.cfg.Mode || claims.Subject == "" {
 		return Identity{}, time.Time{}, ErrUnauthenticated
 	}
-	id, err := a.authorize(Identity{User: claims.Subject, Name: claims.Name, Email: claims.Email, Picture: claims.Picture, Groups: claims.Groups})
-	if err != nil {
-		return Identity{}, time.Time{}, err
-	}
 	issued := time.Time{}
 	if claims.IssuedAt != nil {
 		issued = claims.IssuedAt.Time
+	}
+	if a.cfg.Mode == ModeUsers {
+		id, err := a.Directory.Lookup(r.Context(), claims.Subject)
+		if err != nil {
+			return Identity{}, time.Time{}, err
+		}
+		id.Groups = []string{}
+		id.Picture = ""
+		return id, issued, nil
+	}
+	id, err := a.authorize(Identity{User: claims.Subject, Name: claims.Name, Email: claims.Email, Picture: claims.Picture, Groups: claims.Groups})
+	if err != nil {
+		return Identity{}, time.Time{}, err
 	}
 	return id, issued, nil
 }
@@ -379,6 +423,9 @@ func (a *Authenticator) Middleware(next http.Handler) http.Handler {
 			}
 		}
 		switch {
+		case err == nil && id.Pending:
+			http.Error(w, "waiting for an admin to approve the account", http.StatusForbidden)
+			return
 		case errors.Is(err, ErrForbidden):
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return

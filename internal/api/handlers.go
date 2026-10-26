@@ -234,6 +234,7 @@ func (s *Server) register(api huma.API) {
 	s.registerConnect(api)
 	s.registerADB(api)
 	s.registerAudit(api)
+	s.registerUsers(api)
 	s.registerAppData(api)
 	s.registerRecordings(api)
 	s.registerInventory(api)
@@ -257,6 +258,8 @@ func httpError(err error) error {
 		return huma.Error403Forbidden(err.Error())
 	case errors.Is(err, contract.ErrBusy):
 		return huma.Error423Locked(err.Error())
+	case errors.Is(err, errTooManySessions):
+		return huma.Error429TooManyRequests(err.Error())
 	case errors.Is(err, contract.ErrTooLarge):
 		return huma.Error413RequestEntityTooLarge(err.Error())
 	default:
@@ -390,7 +393,7 @@ func (s *Server) view(ctx context.Context, provider string, sess contract.Sessio
 		CreatedAt:    sess.CreatedAt,
 		LastActivity: last,
 		IdleDeadline: last.Add(s.cfg.Sessions.IdleTimeout),
-		TTLDeadline:  sess.CreatedAt.Add(s.cfg.Sessions.MaxTTL),
+		TTLDeadline:  sess.CreatedAt.Add(s.limits(ctx, sess.Owner).MaxSessionTTL),
 		Capabilities: sess.Capabilities,
 	}
 	if e, ok := s.cache.Lookup(ctx, srcName, key, rev); ok {
@@ -437,6 +440,9 @@ func (s *Server) createSession(ctx context.Context, who auth.Identity, req launc
 	}
 	if !artifact.VisibleTo(who.User, who.Admin) {
 		return SessionView{}, fmt.Errorf("%w: %s", contract.ErrNotFound, req.artifactID)
+	}
+	if err := s.checkSessionLimit(ctx, who.User); err != nil {
+		return SessionView{}, err
 	}
 	if req.location != "" {
 		if candidates = s.offering(ctx, candidates, req.location); len(candidates) == 0 {

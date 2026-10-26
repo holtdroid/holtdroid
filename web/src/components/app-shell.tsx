@@ -12,6 +12,8 @@ import {
   ShieldIcon,
   ShuffleIcon,
   SunIcon,
+  UserCogIcon,
+  UsersIcon,
 } from "lucide-react"
 import { useTheme } from "next-themes"
 import { type ReactNode, useState } from "react"
@@ -132,6 +134,19 @@ export function AppShell({ children }: { children: ReactNode }) {
               <TooltipContent>Inventory</TooltipContent>
             </Tooltip>
           )}
+          {identity?.admin && mode === "users" && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" asChild>
+                  <Link to="/users" activeProps={{ className: "bg-muted" }}>
+                    <UsersIcon />
+                    <span className="sr-only">Users</span>
+                  </Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Users</TooltipContent>
+            </Tooltip>
+          )}
           {identity?.admin && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -184,7 +199,18 @@ export function AppShell({ children }: { children: ReactNode }) {
                     </span>
                   )}
                 </DropdownMenuLabel>
-                {(mode === "anonymous" || mode === "password" || mode === "oidc") && (
+                {mode === "users" && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link to="/account">
+                        <UserCogIcon />
+                        Account and passkeys
+                      </Link>
+                    </DropdownMenuItem>
+                  </>
+                )}
+                {(mode === "anonymous" || mode === "password" || mode === "oidc" || mode === "users") && (
                   <>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onSelect={() => logout.mutate()}>

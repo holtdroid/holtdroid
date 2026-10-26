@@ -5,9 +5,10 @@ sidebar:
   order: 3
 ---
 
-The api keeps a small SQL database: session events now, and later data such
-as connected computers. Sessions, sign-ins, APKs, uploads and recordings
-don't live there, so losing it never stops sessions or signs anyone out.
+The api keeps a small SQL database: session events and, in the
+[`users` auth mode](/holtdroid/configuration/authentication/#users-and-passkeys),
+users, passkeys and invite links. Sessions, APKs, uploads and recordings don't live there, so losing it never
+stops sessions; in the `users` mode it does lose every account.
 
 ## In memory (default)
 

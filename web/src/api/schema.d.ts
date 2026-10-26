@@ -4,6 +4,72 @@
  */
 
 export interface paths {
+    "/api/v1/account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The caller's own account in the users mode: profile, limits and passkeys. */
+        get: operations["getAccount"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["updateAccount"];
+        trace?: never;
+    };
+    "/api/v1/account/passkeys/begin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["beginAddPasskey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/account/passkeys/finish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["finishAddPasskey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/account/passkeys/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description Remove one of the caller's passkeys; the last one stays. */
+        delete: operations["deletePasskey"];
+        options?: never;
+        head?: never;
+        patch: operations["renamePasskey"];
+        trace?: never;
+    };
     "/api/v1/adb": {
         parameters: {
             query?: never;
@@ -88,6 +154,39 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/invites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listInvites"];
+        put?: never;
+        /** @description An invite link: single-use or reusable, expiring or not, signing people up with a role (empty: waiting for approval). */
+        post: operations["createInvite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/invites/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["deleteInvite"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/providers/{provider}/maintenance": {
         parameters: {
             query?: never;
@@ -116,6 +215,75 @@ export interface paths {
         /** @description Holds one slot for maintenance, or releases it. A running session keeps going. Admins only. */
         put: operations["setSlotMaintenance"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Everyone in the users mode's directory, people waiting for approval first. Admins only. */
+        get: operations["listUsers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getUser"];
+        /** @description Replace a user's name, email, role (empty: waiting for approval) and own limits (null: role default). */
+        put: operations["updateUser"];
+        post?: never;
+        /** @description Delete a user and their passkeys; they are signed out on their next request. Their devices keep running until reaped. */
+        delete: operations["deleteUser"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{id}/passkeys/{passkey}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description Remove any passkey of a user, the last one included. */
+        delete: operations["deleteUserPasskey"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{id}/recovery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description A single-use link that lets the user register a new passkey. Replaces earlier ones. */
+        post: operations["createRecoveryLink"];
         delete?: never;
         options?: never;
         head?: never;
@@ -240,6 +408,56 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/invites/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description What an invite or recovery link is for, before registering a passkey with it. */
+        get: operations["getInvite"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/invites/{token}/begin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Start registering a passkey with an invite (name and email required) or a recovery link. */
+        post: operations["beginInviteRegistration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/invites/{token}/finish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["finishInviteRegistration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/login": {
         parameters: {
             query?: never;
@@ -267,6 +485,39 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/passkey/begin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Start signing in with a passkey (users mode). */
+        post: operations["beginPasskeySignIn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/passkey/finish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["finishPasskeySignIn"];
         delete?: never;
         options?: never;
         head?: never;
@@ -848,6 +1099,10 @@ export interface components {
             since: string;
             user: string;
         };
+        Account: {
+            passkeys: components["schemas"]["Passkey"][];
+            user: components["schemas"]["UserView"];
+        };
         AppDataChoice: {
             /** @description also restore its cache, if it has one */
             cache: boolean;
@@ -1009,7 +1264,7 @@ export interface components {
             /** @description Where to send the browser to sign in (oidc) */
             loginUrl?: string;
             /** @enum {string} */
-            mode: "anonymous" | "password" | "oidc" | "header" | "none";
+            mode: "anonymous" | "password" | "oidc" | "header" | "none" | "users";
         };
         Battery: {
             /** Format: double */
@@ -1031,6 +1286,10 @@ export interface components {
              */
             voltage?: number;
         };
+        BeginInviteRegistrationRequest: {
+            email?: string;
+            name?: string;
+        };
         Capabilities: {
             abis: string[];
             clipboard: boolean;
@@ -1051,6 +1310,10 @@ export interface components {
             /** @description the whole provider is held for maintenance */
             maintenance?: components["schemas"]["Maintenance"];
             slots: components["schemas"]["Slot"][];
+        };
+        CeremonyOutBody: {
+            /** @description PublicKeyCredentialRequestOptions or ...CreationOptions in their JSON form */
+            options: unknown;
         };
         Computer: {
             /** @description local ports the computer forwards to each session's ADB */
@@ -1105,6 +1368,26 @@ export interface components {
             Unparsed: string[];
             Value: string;
         };
+        CreateInviteRequest: {
+            domains?: string[];
+            note?: string;
+            /** @enum {string} */
+            role: "admin" | "user" | "";
+            singleUse: boolean;
+            /**
+             * Format: int64
+             * @description seconds until it expires, 0 for never
+             */
+            ttl?: number;
+        };
+        CreateRecoveryLinkRequest: {
+            /**
+             * Format: int64
+             * @description seconds
+             * @default 86400
+             */
+            ttl: number;
+        };
         CreateSessionInputBody: {
             /** @description an Android version of the provider (virtual devices); empty takes its newest */
             android?: string;
@@ -1125,6 +1408,12 @@ export interface components {
             source: string;
             /** @description a build from GET /api/v1/webviews to install over the built-in WebView; only providers with the webview capability take it */
             webview?: string;
+        };
+        CredentialBody: {
+            /** @description the PublicKeyCredential from the browser, as JSON */
+            credential: unknown;
+            /** @description a name for the new passkey */
+            name?: string;
         };
         Credentials: {
             /** @description Authorization: Bearer token for the portal's API and session proxy, valid as long as the certificate */
@@ -1348,6 +1637,28 @@ export interface components {
             /** Format: int64 */
             width: number;
         };
+        EffectiveLimits: {
+            /**
+             * Format: int64
+             * @description bytes, 0 for no limit
+             */
+            appDataMaxSize: number;
+            /**
+             * Format: int64
+             * @description seconds
+             */
+            maxSessionTTL: number;
+            /**
+             * Format: int64
+             * @description 0 for no limit
+             */
+            maxSessions: number;
+            /**
+             * Format: int64
+             * @description bytes, 0 for no limit
+             */
+            recordingsQuota: number;
+        };
         Enroll: {
             arch: string;
             code: string;
@@ -1503,6 +1814,8 @@ export interface components {
             email?: string;
             groups: string[];
             name?: string;
+            /** @description Signed up in the users mode and waiting for an admin to give them a role */
+            pending?: boolean;
             /** @description Avatar URL from the identity provider; the UI generates one from user when empty */
             picture?: string;
             user: string;
@@ -1526,6 +1839,41 @@ export interface components {
         };
         InventoryView: {
             providers: components["schemas"]["ProviderInventory"][];
+        };
+        Invite: {
+            /** Format: date-time */
+            createdAt: string;
+            createdBy: string;
+            /** @description email domains allowed on top of auth.users.allowedDomains; empty for any */
+            domains: string[];
+            /** Format: date-time */
+            expiresAt?: string;
+            id: string;
+            note: string;
+            /**
+             * @description empty: the new user waits for approval
+             * @enum {string}
+             */
+            role: "admin" | "user" | "";
+            singleUse: boolean;
+            /** Format: int64 */
+            uses: number;
+        };
+        InviteCreated: {
+            invite: components["schemas"]["Invite"];
+            /** @description shown only once */
+            link: string;
+        };
+        InviteInfo: {
+            /** @description allowed email domains, from the server and the invite */
+            domains: string[];
+            email?: string;
+            /** @enum {string} */
+            kind: "invite" | "recovery" | "bootstrap";
+            /** @description the user a recovery link is for */
+            name?: string;
+            /** @enum {string} */
+            role: "admin" | "user" | "";
         };
         Item: {
             /** @enum {string} */
@@ -1670,6 +2018,39 @@ export interface components {
              * @description upload kbit/s; empty is unlimited
              */
             up?: number;
+        };
+        Overrides: {
+            /**
+             * Format: int64
+             * @description bytes
+             */
+            appDataMaxSize?: number;
+            /**
+             * Format: int64
+             * @description seconds
+             */
+            maxSessionTTL?: number;
+            /**
+             * Format: int64
+             * @description 0 for no limit
+             */
+            maxSessions?: number;
+            /**
+             * Format: int64
+             * @description bytes, 0 for no limit
+             */
+            recordingsQuota?: number;
+        };
+        Passkey: {
+            /** Format: date-time */
+            createdAt: string;
+            /** @description base64url credential id */
+            id: string;
+            /** Format: date-time */
+            lastUsedAt?: string;
+            name: string;
+            /** @description backed up by a password manager or platform account */
+            synced: boolean;
         };
         PatchArtifactInputBody: {
             temporary?: boolean;
@@ -1924,12 +2305,21 @@ export interface components {
             versionName?: string;
             webview?: string;
         };
+        RecoveryLink: {
+            /** Format: date-time */
+            expiresAt: string;
+            /** @description shown only once */
+            link: string;
+        };
         Refresh: {
             /** @description the key the refresh token was issued for */
             publicKey: string;
             refreshToken: string;
         };
         RenameInputBody: {
+            name: string;
+        };
+        RenamePasskeyRequest: {
             name: string;
         };
         ReverseTunnel: {
@@ -2106,6 +2496,16 @@ export interface components {
             /** @description cpu, gpu, battery, skin, npu, … or the host's thermal zone type */
             type: string;
         };
+        UpdateAccountRequest: {
+            name: string;
+        };
+        UpdateUserRequest: {
+            email: string;
+            limits: components["schemas"]["Overrides"];
+            name: string;
+            /** @enum {string} */
+            role: "admin" | "user" | "";
+        };
         UploadsInfo: {
             enabled: boolean;
             /** Format: int64 */
@@ -2116,6 +2516,56 @@ export interface components {
              * @description Seconds a temporary build is kept after its last use
              */
             temporaryTtl: number;
+        };
+        UserDetail: {
+            /** Format: date-time */
+            createdAt: string;
+            /** @description the limits that apply, after role and server defaults */
+            effective: components["schemas"]["EffectiveLimits"];
+            email: string;
+            id: string;
+            /** Format: date-time */
+            lastSeenAt?: string;
+            limits: components["schemas"]["Overrides"];
+            name: string;
+            passkeys: components["schemas"]["Passkey"][];
+            /**
+             * @description empty while waiting for approval
+             * @enum {string}
+             */
+            role: "admin" | "user" | "";
+            /**
+             * Format: int64
+             * @description devices the user runs now
+             */
+            sessions: number;
+        };
+        UserList: {
+            allowedDomains: string[];
+            /** @description limits per role before a user's own overrides */
+            defaults: {
+                [key: string]: components["schemas"]["EffectiveLimits"];
+            };
+            items: components["schemas"]["UserView"][];
+        };
+        UserView: {
+            /** Format: date-time */
+            createdAt: string;
+            /** @description the limits that apply, after role and server defaults */
+            effective: components["schemas"]["EffectiveLimits"];
+            email: string;
+            id: string;
+            /** Format: date-time */
+            lastSeenAt?: string;
+            limits: components["schemas"]["Overrides"];
+            name: string;
+            /** Format: int64 */
+            passkeys: number;
+            /**
+             * @description empty while waiting for approval
+             * @enum {string}
+             */
+            role: "admin" | "user" | "";
         };
         WebViewView: {
             /** @description Android release channels this milestone is on now: stable, beta, dev, canary */
@@ -2144,6 +2594,200 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Account"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    updateAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAccountRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Account"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    beginAddPasskey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Set-Cookie"?: components["schemas"]["Cookie"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CeremonyOutBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    finishAddPasskey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                holtdroid_ceremony?: string;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CredentialBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Set-Cookie"?: components["schemas"]["Cookie"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Account"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    deletePasskey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Account"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    renamePasskey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenamePasskeyRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Account"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     getADB: {
         parameters: {
             query?: never;
@@ -2315,6 +2959,97 @@ export interface operations {
             };
         };
     };
+    listInvites: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Invite"][];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    createInvite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateInviteRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InviteCreated"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    deleteInvite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     setProviderMaintenance: {
         parameters: {
             query?: never;
@@ -2370,6 +3105,197 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    listUsers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserList"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserDetail"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    updateUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateUserRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserDetail"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    deleteUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    deleteUserPasskey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                passkey: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserDetail"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    createRecoveryLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateRecoveryLinkRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecoveryLink"];
+                };
             };
             /** @description Error */
             default: {
@@ -2676,6 +3602,111 @@ export interface operations {
             };
         };
     };
+    getInvite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InviteInfo"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    beginInviteRegistration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BeginInviteRegistrationRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Set-Cookie"?: components["schemas"]["Cookie"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CeremonyOutBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    finishInviteRegistration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: {
+                holtdroid_ceremony?: string;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CredentialBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthStatus"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     login: {
         parameters: {
             query?: never;
@@ -2726,6 +3757,72 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    beginPasskeySignIn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Set-Cookie"?: components["schemas"]["Cookie"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CeremonyOutBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    finishPasskeySignIn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                holtdroid_ceremony?: string;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CredentialBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthStatus"];
+                };
             };
             /** @description Error */
             default: {

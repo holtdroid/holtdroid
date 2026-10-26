@@ -41,7 +41,8 @@ make build && ./bin/holtdroid dev --apks ~/Downloads
 - **Per-session VPN.** Each device egresses through its own sing-box sidecar;
   switch country from the UI.
 - **Sign-in your way.** Anonymous animal names, one shared password, OIDC,
-  or a forward-auth proxy — all stateless.
+  a forward-auth proxy, or built-in users with passkeys, invite links,
+  approval and per-user limits.
 - **Sessions with a lifetime.** Bounded slots, idle timeout, max TTL, one
   click to extend.
 - **Builds from anywhere.** Sources are folders or S3 prefixes with an

@@ -264,9 +264,10 @@ func (s *Server) exportAppData(ctx context.Context, provider string, sess contra
 		return appDataMeta{}, err
 	}
 	cfg := s.cfg.AppData
+	maxSize := s.limits(ctx, sess.Owner).AppDataMaxSize
 	client := contract.NewAgentClient(u.String(), &http.Client{Transport: s.agentTransport})
 	info, rc, err := client.ExportAppData(ctx, contract.AppDataExport{
-		Cache: cfg.Cache, MaxCacheSize: int64(cfg.MaxCacheSize), MaxSize: int64(cfg.MaxSize), Restart: restart,
+		Cache: cfg.Cache, MaxCacheSize: int64(cfg.MaxCacheSize), MaxSize: maxSize, Restart: restart,
 	})
 	if err != nil {
 		return appDataMeta{}, err
@@ -280,8 +281,8 @@ func (s *Server) exportAppData(ctx context.Context, provider string, sess contra
 	defer os.Remove(tmp.Name())
 	defer tmp.Close()
 	var src io.Reader = rc
-	if cfg.MaxSize > 0 {
-		src = io.LimitReader(rc, 2*int64(cfg.MaxSize)+1<<20)
+	if maxSize > 0 {
+		src = io.LimitReader(rc, 2*maxSize+1<<20)
 	}
 	n, err := io.Copy(tmp, src)
 	if err != nil {

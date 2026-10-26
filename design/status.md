@@ -264,6 +264,10 @@ Collected from the design conversation; each is reflected in the docs listed.
 - **Open source, not homelab-specific.** Apache-2.0, public docs site.
 - **Stateless api**; session state as labels on what the provider runs.
   (decisions #5, #17, #18)
+- Optional **user directory** (`auth.mode: users`): invite links with a
+  preset role or an approval queue, passkeys instead of passwords, recovery
+  links, admin-managed roles and limits, optional email-domain rules, OIDC as
+  a second sign-in. (decision #103)
 - **Database**: `memory` (default, SQLite in-memory) or `sqlite` (a file,
   Litestream to S3, one api replica); PostgreSQL later; goose + sqlc.
   Migrations are **append-only**; otherwise no backward compatibility before

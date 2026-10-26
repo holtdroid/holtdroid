@@ -168,3 +168,16 @@ func (d *DB) Close() error {
 	err = errors.Join(err, d.sql.Close())
 	return errors.Join(err, d.store.Close(ctx))
 }
+
+// Tx runs fn in a transaction, committed when fn returns nil.
+func (d *DB) Tx(ctx context.Context, fn func(*Queries) error) error {
+	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	if err := fn(d.WithTx(tx)); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+	return tx.Commit()
+}

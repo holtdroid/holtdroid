@@ -19,6 +19,7 @@ import (
 	"github.com/holtdroid/holtdroid/internal/agent/redroid"
 	"github.com/holtdroid/holtdroid/internal/api"
 	"github.com/holtdroid/holtdroid/internal/audit"
+	"github.com/holtdroid/holtdroid/internal/auth"
 	"github.com/holtdroid/holtdroid/internal/contract"
 	"github.com/holtdroid/holtdroid/internal/hostinfo"
 	emulatorprovider "github.com/holtdroid/holtdroid/internal/provider/emulator"
@@ -273,6 +274,9 @@ func devCmd() *cobra.Command {
 			cfg := api.DefaultConfig()
 			cfg.Listen = listen
 			cfg.Auth.Mode = authMode
+			if authMode == auth.ModeUsers && cfg.PublicURL == "" {
+				cfg.PublicURL = "http://localhost" + listen
+			}
 			if password != "" {
 				_ = os.Setenv("HOLTDROID_DEV_PASSWORD", password)
 				cfg.Auth.Password = "env:HOLTDROID_DEV_PASSWORD"
@@ -338,7 +342,7 @@ func devCmd() *cobra.Command {
 	cmd.Flags().StringVar(&apks, "apks", "internal/apk/testdata", "read-only directory with APKs to list")
 	cmd.Flags().StringVar(&uploads, "uploads", "", "directory for uploaded APKs (default: a temporary directory)")
 	cmd.Flags().StringVar(&cacheDir, "cache", "", "APK cache directory (default: a temporary directory)")
-	cmd.Flags().StringVar(&authMode, "auth", "anonymous", "sign-in mode: anonymous, password or none")
+	cmd.Flags().StringVar(&authMode, "auth", "anonymous", "sign-in mode: anonymous, password, users (passkeys; the first admin link is logged) or none")
 	cmd.Flags().StringVar(&password, "password", "", "shared password for --auth password")
 	cmd.Flags().IntVar(&slots, "slots", 4, "number of fake device slots")
 	cmd.Flags().DurationVar(&idle, "idle-timeout", 30*time.Minute, "session idle timeout")

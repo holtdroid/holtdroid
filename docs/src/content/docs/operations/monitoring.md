@@ -129,7 +129,7 @@ while their regular logs go to stderr. Every audit line has
 
 | Action                 | Details                                                       | Notes                                                                                                                     |
 | ---------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `auth.signin`          | `method` (`anonymous`, `password`, `oidc`)                    | Header mode has no sign-in: your proxy did it                                                                             |
+| `auth.signin`          | `method` (`anonymous`, `password`, `oidc`, `passkey`)         | Header mode has no sign-in: your proxy did it                                                                             |
 | `auth.signout`         |                                                               |                                                                                                                           |
 | `session.launch`       | `package`, `location`, `appData`, `appDataCache`, `recording` | `appData` is the id of the save the session started from; `recording` the recording that started with it                  |
 | `session.stop`         |                                                               | Stopped by a user                                                                                                         |
@@ -160,6 +160,14 @@ while their regular logs go to stderr. Every audit line has
 | `adb.disconnect`       | `seconds`                                                     |                                                                                                                           |
 | `audit.export`         | `events`, `q`                                                 | An admin downloaded events from the audit page                                                                            |
 | `provider.maintenance` | `slot`, `enabled`, `reason`                                   | An admin held or released a slot (empty `slot`: the whole provider) on the Inventory page                                 |
+| `user.signup`          | `email`                                                       | Someone signed up with an invite link (`actor` is the new user)                                                           |
+| `user.update`          | `user`, `role`                                                | An admin changed a user's profile, role or limits                                                                         |
+| `user.delete`          | `user`                                                        | An admin deleted a user                                                                                                   |
+| `user.recovery`        | `user`, `step`                                                | An admin created a recovery link (`step: link`), or a user registered a passkey with one                                  |
+| `invite.create`        | `invite`, `role`                                              | An admin created an invite link                                                                                           |
+| `invite.delete`        | `invite`                                                      | An admin revoked an invite link                                                                                           |
+| `passkey.add`          | `user`                                                        | A user added a passkey                                                                                                    |
+| `passkey.delete`       | `user`                                                        | A user or an admin removed a passkey                                                                                      |
 
 Session actions are also kept in the api's
 [database](/holtdroid/configuration/database/).

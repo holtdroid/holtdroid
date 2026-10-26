@@ -102,6 +102,7 @@ providers:
 | `sessions.idleTimeout`  | `30m`            | Delete a session after this long without activity                                                     |
 | `sessions.maxTTL`       | `8h`             | Delete a session after this long regardless of activity                                               |
 | `sessions.reapInterval` | `30s`            | How often the reaper runs                                                                             |
+| `sessions.maxPerUser`   | `0`              | Devices one user may run at once, 0 for no limit; per user in the `users` auth mode                   |
 | `storage.*`             | filesystem       | See [Artifact storage](/holtdroid/configuration/storage/)                                             |
 | `cache.maxSize`         | `20GiB`          | Least recently used APKs are evicted beyond this                                                      |
 | `cache.warm`            | `10`             | Newest uncached APKs per listing to download and parse in the background                              |

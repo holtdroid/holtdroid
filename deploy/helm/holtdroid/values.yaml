@@ -22,6 +22,11 @@ existingSecret: ""
 #       readOnly: true
 #       s3: { endpoint: https://s3.example.com, bucket: apks, prefix: slack, accessKey: env:S3_KEY, secretKey: env:S3_SECRET }
 config:
+  # anonymous | password | oidc | header | users | none. users: invite links
+  # and passkeys, accounts in the database (use database.type sqlite), e.g.
+  #   mode: users
+  #   sessionKey: env:SESSION_KEY
+  #   users: { allowedDomains: [example.com] }
   auth:
     mode: anonymous
   uploads:

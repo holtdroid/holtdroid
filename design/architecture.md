@@ -764,10 +764,20 @@ secret is checked against the recording's meta.
 ## Security model
 
 - Sign-in is `auth.mode`: `anonymous` (random names), `password`, `oidc`,
-  `header` (trusted forward-auth proxy) or `none`. The first three use a
-  signed JWT cookie (decisions.md #17). `/api/v1/auth*` and the static UI are
-  public; everything else under `/api/` and `/s/` requires an identity.
-  `allowedGroups` restricts `oidc`/`header`.
+  `header` (trusted forward-auth proxy), `users` or `none`. All but `header`
+  and `none` use a signed JWT cookie (decisions.md #17). `/api/v1/auth*`,
+  `/invite/*` and the static UI are public; everything else under `/api/`
+  and `/s/` requires an identity. `allowedGroups` restricts `oidc`/`header`.
+- The `users` mode (decision #103, `internal/users`) keeps users, passkeys
+  (WebAuthn, go-webauthn) and invite/recovery links in the api's database.
+  Its cookie carries only the user id: every request looks the user up, so
+  deleting a user or changing a role takes effect at once, and a user with
+  an empty role (waiting for approval) gets 403 everywhere but
+  `/api/v1/auth*`. Passkey ceremonies keep their challenge in a short-lived
+  signed cookie, not in the database. OIDC is an optional second sign-in
+  that maps the provider's email to a directory user. Per-user limits
+  (devices at once, session TTL, recordings quota, app data save size) are
+  resolved user → role (`auth.users.limits`) → server setting.
 - Session pods are **privileged** and Android shares the node's kernel, so
   root in a session (the agent's adbd, the browser's ADB shell) is root on
   the node (decision #82). Run them in a dedicated namespace on nodes

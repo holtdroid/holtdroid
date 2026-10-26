@@ -8,6 +8,30 @@ import (
 	"time"
 )
 
+type Invite struct {
+	ID        string
+	TokenHash []byte
+	Kind      string
+	Role      string
+	UserID    *string
+	Domains   string
+	Note      string
+	SingleUse bool
+	ExpiresAt *time.Time
+	Uses      int64
+	CreatedBy string
+	CreatedAt time.Time
+}
+
+type Passkey struct {
+	ID         []byte
+	UserID     string
+	Name       string
+	Credential []byte
+	CreatedAt  time.Time
+	LastUsedAt *time.Time
+}
+
 type SessionEvent struct {
 	ID        int64
 	At        time.Time
@@ -18,4 +42,18 @@ type SessionEvent struct {
 	Actor     string
 	Artifact  string
 	Reason    string
+}
+
+type User struct {
+	ID              string
+	Handle          []byte
+	Email           string
+	Name            string
+	Role            string
+	CreatedAt       time.Time
+	LastSeenAt      *time.Time
+	MaxSessions     *int64
+	MaxSessionTtl   *int64
+	RecordingsQuota *int64
+	AppDataQuota    *int64
 }

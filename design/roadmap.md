@@ -29,6 +29,9 @@ silently drop any.
 
 - [x] Sign-in modes: anonymous (random animal names), shared password, OIDC (PKCE + userinfo), header, none — signed JWT cookie, stateless
 - [x] Login screen, user menu, sign-out / new name in the UI
+- [x] `users` mode (decision #103): user directory in the database, passkeys, invite links (role, single-use or reusable, expiry, email domains; an empty role waits for approval), recovery links, first-admin link in the logs, OIDC as a second sign-in, per-user limits, Users and Account pages
+- [ ] Email verification for sign-ups (needs an SMTP setting), so domain rules prove an address
+- [ ] Stop a deleted user's devices
 - [x] `internal/storage`: filesystem and S3 (minio-go) backends; APK cache on top of it
 - [x] `images/Dockerfile` (distroless, multi-arch) and release workflow: `ghcr.io/holtdroid/holtdroid:<sha>` on every push to `main`, chart to OCI on tags
 - [x] Helm chart `deploy/helm/holtdroid` (api with a data PVC for the `local` source and uploads, provider-fake, ingress, extraObjects)

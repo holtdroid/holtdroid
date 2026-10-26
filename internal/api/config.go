@@ -26,6 +26,7 @@ type Endpoint struct {
 type SessionsConfig struct {
 	IdleTimeout   time.Duration
 	MaxTTL        time.Duration
+	MaxPerUser    int
 	ReapInterval  time.Duration
 	FlushInterval time.Duration
 }

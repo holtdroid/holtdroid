@@ -168,6 +168,9 @@ func (a *Authenticator) oidcCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id, err := a.oidcIdentity(r.Context(), r.URL.Query().Get("code"), st)
+	if err == nil && a.cfg.Mode == ModeUsers {
+		id, err = a.Directory.SignInOIDC(r.Context(), id, intersects(id.Groups, a.cfg.AdminGroups))
+	}
 	if a.OnSignIn != nil {
 		a.OnSignIn(r.Context(), ModeOIDC, id, err)
 	}

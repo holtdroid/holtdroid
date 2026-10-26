@@ -57,7 +57,7 @@ func (s *Server) Reap(ctx context.Context) {
 			s.launches.observe(provider, sess, now)
 			reason, metric := "", ""
 			switch {
-			case now.Sub(sess.CreatedAt) > s.cfg.Sessions.MaxTTL:
+			case now.Sub(sess.CreatedAt) > s.limits(ctx, sess.Owner).MaxSessionTTL:
 				reason, metric = "max TTL reached", "ttl"
 			case now.Sub(s.lastActivity(provider, sess)) > s.cfg.Sessions.IdleTimeout:
 				reason, metric = "idle timeout", "idle"

@@ -25,6 +25,7 @@ import (
 	"github.com/holtdroid/holtdroid/internal/source"
 	"github.com/holtdroid/holtdroid/internal/storage"
 	"github.com/holtdroid/holtdroid/internal/telemetry"
+	"github.com/holtdroid/holtdroid/internal/users"
 )
 
 type Server struct {
@@ -33,6 +34,7 @@ type Server struct {
 	secrets        *secrets.Registry
 	store          storage.Store
 	db             *db.DB
+	users          *users.Service
 	sources        map[string]*source.Source
 	srcOrder       []string
 	providers      map[string]contract.Provider
@@ -128,6 +130,22 @@ func New(ctx context.Context, cfg Config, opts ...Option) (*Server, error) {
 	}
 	if s.db, err = db.Open(ctx, cfg.Database, s.secrets); err != nil {
 		return nil, err
+	}
+	if cfg.Auth.Mode == auth.ModeUsers {
+		if cfg.Database.Type != "sqlite" {
+			s.log.Warn("auth.mode is users but the database is in memory: users and passkeys are lost on every restart")
+		}
+		if s.users, err = users.New(s.db, cfg.Auth.Users, cfg.PublicURL, s.now); err != nil {
+			return nil, err
+		}
+		s.auth.Directory = s.users
+		link, first, err := s.users.Bootstrap(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if first {
+			s.log.Warn("no admin yet: open this single-use link within 24 hours to register the first admin", "link", link)
+		}
 	}
 	if cfg.AppData.Enabled {
 		s.appData = &appDataStore{store: s.store, prefix: appDataPrefix}

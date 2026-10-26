@@ -10,6 +10,30 @@ import (
 	"time"
 )
 
+const addPasskey = `-- name: AddPasskey :exec
+INSERT INTO passkeys (id, user_id, name, credential, created_at)
+VALUES (?, ?, ?, ?, ?)
+`
+
+type AddPasskeyParams struct {
+	ID         []byte
+	UserID     string
+	Name       string
+	Credential []byte
+	CreatedAt  time.Time
+}
+
+func (q *Queries) AddPasskey(ctx context.Context, arg AddPasskeyParams) error {
+	_, err := q.db.ExecContext(ctx, addPasskey,
+		arg.ID,
+		arg.UserID,
+		arg.Name,
+		arg.Credential,
+		arg.CreatedAt,
+	)
+	return err
+}
+
 const addSessionEvent = `-- name: AddSessionEvent :exec
 INSERT INTO session_events (at, provider, session_id, action, result, actor, artifact, reason)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -38,6 +62,334 @@ func (q *Queries) AddSessionEvent(ctx context.Context, arg AddSessionEventParams
 		arg.Reason,
 	)
 	return err
+}
+
+const countAdmins = `-- name: CountAdmins :one
+SELECT COUNT(*) FROM users WHERE role = 'admin'
+`
+
+func (q *Queries) CountAdmins(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countAdmins)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countPasskeys = `-- name: CountPasskeys :one
+SELECT COUNT(*) FROM passkeys WHERE user_id = ?
+`
+
+func (q *Queries) CountPasskeys(ctx context.Context, userID string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countPasskeys, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const createInvite = `-- name: CreateInvite :exec
+INSERT INTO invites (id, token_hash, kind, role, user_id, domains, note, single_use, expires_at, created_by, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type CreateInviteParams struct {
+	ID        string
+	TokenHash []byte
+	Kind      string
+	Role      string
+	UserID    *string
+	Domains   string
+	Note      string
+	SingleUse bool
+	ExpiresAt *time.Time
+	CreatedBy string
+	CreatedAt time.Time
+}
+
+func (q *Queries) CreateInvite(ctx context.Context, arg CreateInviteParams) error {
+	_, err := q.db.ExecContext(ctx, createInvite,
+		arg.ID,
+		arg.TokenHash,
+		arg.Kind,
+		arg.Role,
+		arg.UserID,
+		arg.Domains,
+		arg.Note,
+		arg.SingleUse,
+		arg.ExpiresAt,
+		arg.CreatedBy,
+		arg.CreatedAt,
+	)
+	return err
+}
+
+const createUser = `-- name: CreateUser :exec
+INSERT INTO users (id, handle, email, name, role, created_at)
+VALUES (?, ?, ?, ?, ?, ?)
+`
+
+type CreateUserParams struct {
+	ID        string
+	Handle    []byte
+	Email     string
+	Name      string
+	Role      string
+	CreatedAt time.Time
+}
+
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
+	_, err := q.db.ExecContext(ctx, createUser,
+		arg.ID,
+		arg.Handle,
+		arg.Email,
+		arg.Name,
+		arg.Role,
+		arg.CreatedAt,
+	)
+	return err
+}
+
+const deleteBootstrapInvites = `-- name: DeleteBootstrapInvites :exec
+DELETE FROM invites WHERE kind = 'bootstrap'
+`
+
+func (q *Queries) DeleteBootstrapInvites(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deleteBootstrapInvites)
+	return err
+}
+
+const deleteInvite = `-- name: DeleteInvite :execrows
+DELETE FROM invites WHERE id = ? AND kind = 'invite'
+`
+
+func (q *Queries) DeleteInvite(ctx context.Context, id string) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteInvite, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const deletePasskey = `-- name: DeletePasskey :execrows
+DELETE FROM passkeys WHERE id = ? AND user_id = ?
+`
+
+type DeletePasskeyParams struct {
+	ID     []byte
+	UserID string
+}
+
+func (q *Queries) DeletePasskey(ctx context.Context, arg DeletePasskeyParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deletePasskey, arg.ID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const deleteRecoveryLinks = `-- name: DeleteRecoveryLinks :exec
+DELETE FROM invites WHERE kind = 'recovery' AND user_id = ?
+`
+
+func (q *Queries) DeleteRecoveryLinks(ctx context.Context, userID *string) error {
+	_, err := q.db.ExecContext(ctx, deleteRecoveryLinks, userID)
+	return err
+}
+
+const deleteUser = `-- name: DeleteUser :execrows
+DELETE FROM users WHERE id = ?
+`
+
+func (q *Queries) DeleteUser(ctx context.Context, id string) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteUser, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const getInviteByHash = `-- name: GetInviteByHash :one
+SELECT id, token_hash, kind, role, user_id, domains, note, single_use, expires_at, uses, created_by, created_at FROM invites WHERE token_hash = ?
+`
+
+func (q *Queries) GetInviteByHash(ctx context.Context, tokenHash []byte) (Invite, error) {
+	row := q.db.QueryRowContext(ctx, getInviteByHash, tokenHash)
+	var i Invite
+	err := row.Scan(
+		&i.ID,
+		&i.TokenHash,
+		&i.Kind,
+		&i.Role,
+		&i.UserID,
+		&i.Domains,
+		&i.Note,
+		&i.SingleUse,
+		&i.ExpiresAt,
+		&i.Uses,
+		&i.CreatedBy,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getPasskey = `-- name: GetPasskey :one
+SELECT id, user_id, name, credential, created_at, last_used_at FROM passkeys WHERE id = ?
+`
+
+func (q *Queries) GetPasskey(ctx context.Context, id []byte) (Passkey, error) {
+	row := q.db.QueryRowContext(ctx, getPasskey, id)
+	var i Passkey
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
+		&i.Credential,
+		&i.CreatedAt,
+		&i.LastUsedAt,
+	)
+	return i, err
+}
+
+const getUser = `-- name: GetUser :one
+SELECT id, handle, email, name, role, created_at, last_seen_at, max_sessions, max_session_ttl, recordings_quota, app_data_quota FROM users WHERE id = ?
+`
+
+func (q *Queries) GetUser(ctx context.Context, id string) (User, error) {
+	row := q.db.QueryRowContext(ctx, getUser, id)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Handle,
+		&i.Email,
+		&i.Name,
+		&i.Role,
+		&i.CreatedAt,
+		&i.LastSeenAt,
+		&i.MaxSessions,
+		&i.MaxSessionTtl,
+		&i.RecordingsQuota,
+		&i.AppDataQuota,
+	)
+	return i, err
+}
+
+const getUserByEmail = `-- name: GetUserByEmail :one
+SELECT id, handle, email, name, role, created_at, last_seen_at, max_sessions, max_session_ttl, recordings_quota, app_data_quota FROM users WHERE email = ?
+`
+
+func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
+	row := q.db.QueryRowContext(ctx, getUserByEmail, email)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Handle,
+		&i.Email,
+		&i.Name,
+		&i.Role,
+		&i.CreatedAt,
+		&i.LastSeenAt,
+		&i.MaxSessions,
+		&i.MaxSessionTtl,
+		&i.RecordingsQuota,
+		&i.AppDataQuota,
+	)
+	return i, err
+}
+
+const getUserByHandle = `-- name: GetUserByHandle :one
+SELECT id, handle, email, name, role, created_at, last_seen_at, max_sessions, max_session_ttl, recordings_quota, app_data_quota FROM users WHERE handle = ?
+`
+
+func (q *Queries) GetUserByHandle(ctx context.Context, handle []byte) (User, error) {
+	row := q.db.QueryRowContext(ctx, getUserByHandle, handle)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Handle,
+		&i.Email,
+		&i.Name,
+		&i.Role,
+		&i.CreatedAt,
+		&i.LastSeenAt,
+		&i.MaxSessions,
+		&i.MaxSessionTtl,
+		&i.RecordingsQuota,
+		&i.AppDataQuota,
+	)
+	return i, err
+}
+
+const listInvites = `-- name: ListInvites :many
+SELECT id, token_hash, kind, role, user_id, domains, note, single_use, expires_at, uses, created_by, created_at FROM invites WHERE kind = 'invite' ORDER BY created_at DESC
+`
+
+func (q *Queries) ListInvites(ctx context.Context) ([]Invite, error) {
+	rows, err := q.db.QueryContext(ctx, listInvites)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Invite
+	for rows.Next() {
+		var i Invite
+		if err := rows.Scan(
+			&i.ID,
+			&i.TokenHash,
+			&i.Kind,
+			&i.Role,
+			&i.UserID,
+			&i.Domains,
+			&i.Note,
+			&i.SingleUse,
+			&i.ExpiresAt,
+			&i.Uses,
+			&i.CreatedBy,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPasskeys = `-- name: ListPasskeys :many
+SELECT id, user_id, name, credential, created_at, last_used_at FROM passkeys WHERE user_id = ? ORDER BY created_at
+`
+
+func (q *Queries) ListPasskeys(ctx context.Context, userID string) ([]Passkey, error) {
+	rows, err := q.db.QueryContext(ctx, listPasskeys, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Passkey
+	for rows.Next() {
+		var i Passkey
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Name,
+			&i.Credential,
+			&i.CreatedAt,
+			&i.LastUsedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listSessionEvents = `-- name: ListSessionEvents :many
@@ -82,4 +434,162 @@ func (q *Queries) ListSessionEvents(ctx context.Context, arg ListSessionEventsPa
 		return nil, err
 	}
 	return items, nil
+}
+
+const listUsers = `-- name: ListUsers :many
+SELECT users.id, users.handle, users.email, users.name, users.role, users.created_at, users.last_seen_at, users.max_sessions, users.max_session_ttl, users.recordings_quota, users.app_data_quota, (SELECT COUNT(*) FROM passkeys WHERE passkeys.user_id = users.id) AS passkeys
+FROM users
+ORDER BY role = '' DESC, created_at
+`
+
+type ListUsersRow struct {
+	ID              string
+	Handle          []byte
+	Email           string
+	Name            string
+	Role            string
+	CreatedAt       time.Time
+	LastSeenAt      *time.Time
+	MaxSessions     *int64
+	MaxSessionTtl   *int64
+	RecordingsQuota *int64
+	AppDataQuota    *int64
+	Passkeys        int64
+}
+
+func (q *Queries) ListUsers(ctx context.Context) ([]ListUsersRow, error) {
+	rows, err := q.db.QueryContext(ctx, listUsers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListUsersRow
+	for rows.Next() {
+		var i ListUsersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Handle,
+			&i.Email,
+			&i.Name,
+			&i.Role,
+			&i.CreatedAt,
+			&i.LastSeenAt,
+			&i.MaxSessions,
+			&i.MaxSessionTtl,
+			&i.RecordingsQuota,
+			&i.AppDataQuota,
+			&i.Passkeys,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const renamePasskey = `-- name: RenamePasskey :execrows
+UPDATE passkeys SET name = ? WHERE id = ? AND user_id = ?
+`
+
+type RenamePasskeyParams struct {
+	Name   string
+	ID     []byte
+	UserID string
+}
+
+func (q *Queries) RenamePasskey(ctx context.Context, arg RenamePasskeyParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, renamePasskey, arg.Name, arg.ID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const renameUser = `-- name: RenameUser :exec
+UPDATE users SET name = ? WHERE id = ?
+`
+
+type RenameUserParams struct {
+	Name string
+	ID   string
+}
+
+func (q *Queries) RenameUser(ctx context.Context, arg RenameUserParams) error {
+	_, err := q.db.ExecContext(ctx, renameUser, arg.Name, arg.ID)
+	return err
+}
+
+const touchUser = `-- name: TouchUser :exec
+UPDATE users SET last_seen_at = ? WHERE id = ?
+`
+
+type TouchUserParams struct {
+	LastSeenAt *time.Time
+	ID         string
+}
+
+func (q *Queries) TouchUser(ctx context.Context, arg TouchUserParams) error {
+	_, err := q.db.ExecContext(ctx, touchUser, arg.LastSeenAt, arg.ID)
+	return err
+}
+
+const updateUser = `-- name: UpdateUser :exec
+UPDATE users
+SET email = ?, name = ?, role = ?, max_sessions = ?, max_session_ttl = ?, recordings_quota = ?, app_data_quota = ?
+WHERE id = ?
+`
+
+type UpdateUserParams struct {
+	Email           string
+	Name            string
+	Role            string
+	MaxSessions     *int64
+	MaxSessionTtl   *int64
+	RecordingsQuota *int64
+	AppDataQuota    *int64
+	ID              string
+}
+
+func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) error {
+	_, err := q.db.ExecContext(ctx, updateUser,
+		arg.Email,
+		arg.Name,
+		arg.Role,
+		arg.MaxSessions,
+		arg.MaxSessionTtl,
+		arg.RecordingsQuota,
+		arg.AppDataQuota,
+		arg.ID,
+	)
+	return err
+}
+
+const useInvite = `-- name: UseInvite :exec
+UPDATE invites SET uses = uses + 1 WHERE id = ?
+`
+
+func (q *Queries) UseInvite(ctx context.Context, id string) error {
+	_, err := q.db.ExecContext(ctx, useInvite, id)
+	return err
+}
+
+const usePasskey = `-- name: UsePasskey :exec
+UPDATE passkeys SET credential = ?, last_used_at = ? WHERE id = ?
+`
+
+type UsePasskeyParams struct {
+	Credential []byte
+	LastUsedAt *time.Time
+	ID         []byte
+}
+
+func (q *Queries) UsePasskey(ctx context.Context, arg UsePasskeyParams) error {
+	_, err := q.db.ExecContext(ctx, usePasskey, arg.Credential, arg.LastUsedAt, arg.ID)
+	return err
 }
