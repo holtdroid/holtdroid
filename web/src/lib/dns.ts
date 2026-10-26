@@ -132,14 +132,94 @@ export function sameRewrites(a: DNSRewrite[], b: DNSRewrite[]) {
   return a.length === b.length && a.every((r, i) => rewriteKey(r) === rewriteKey(b[i]!))
 }
 
-export function firstAnswer(q: DNSQuery) {
-  const a = q.answers.find((x) => x.type === "A") ?? q.answers[0]
-  return a ? `${a.type === "A" ? "" : `${a.type} `}${a.data}` : ""
+/** One lookup of a name: the A, AAAA and HTTPS queries an app sends for it at once. */
+export type Lookup = { key: string; name: string; at: number; queries: DNSQuery[] }
+
+export function groupLookups(queries: DNSQuery[], window = 2000): Lookup[] {
+  const out: Lookup[] = []
+  const open = new Map<string, Lookup>()
+  for (const q of queries) {
+    const at = Date.parse(q.at)
+    const g = open.get(q.name)
+    if (g && Math.abs(at - g.at) <= window && !g.queries.some((x) => x.type === q.type)) {
+      g.queries.push(q)
+      g.at = Math.min(g.at, at)
+      continue
+    }
+    const n = { key: `${q.id}@${q.at}`, name: q.name, at, queries: [q] }
+    out.push(n)
+    open.set(q.name, n)
+  }
+  return out
 }
 
-export function ttlLabel(q: DNSQuery) {
-  if (q.answers.length === 0) return ""
-  const served = Math.min(...q.answers.map((a) => a.ttl))
-  const original = Math.min(...q.answers.map((a) => a.originalTtl))
-  return served === original ? `${served}s` : `${served}s (${original}s)`
+export type Tone = "rewrite" | "error" | "warn" | "muted"
+
+/** What stands out about a lookup; an ordinary answer has no badges. */
+export function lookupBadges(l: Lookup): { label: string; tone: Tone; title: string }[] {
+  const out: { label: string; tone: Tone; title: string }[] = []
+  const rule = l.queries.find((q) => q.rule)?.rule
+  if (rule) out.push({ label: "rewrite", tone: "rewrite", title: `Answered by the rewrite ${rule}` })
+  const failed = l.queries.find((q) => q.result === "failed")
+  if (failed)
+    out.push({ label: failed.rcode || "failed", tone: "error", title: failed.error ?? "The upstream didn't answer" })
+  if (l.queries.some((q) => q.rcode === "NXDOMAIN"))
+    out.push({ label: "NXDOMAIN", tone: "warn", title: "The name doesn't exist" })
+  else if (!failed && l.queries.every((q) => q.answers.length === 0))
+    out.push({ label: "no records", tone: "muted", title: "The name exists but has no records of these types" })
+  return out
+}
+
+const answers = (l: Lookup) => l.queries.flatMap((q) => q.answers)
+
+/** The addresses a lookup found, else where it points, else what its HTTPS record offers. */
+export function lookupAnswer(l: Lookup): { text: string; more: number } {
+  const all = answers(l)
+  const addrs = [...new Set(all.filter((a) => a.type === "A" || a.type === "AAAA").map((a) => a.data))]
+  if (addrs.length > 0) return { text: addrs[0]!, more: addrs.length - 1 }
+  const cname = all.findLast((a) => a.type === "CNAME")
+  if (cname) return { text: `→ ${cname.data}`, more: 0 }
+  const https = all.find((a) => a.type === "HTTPS" || a.type === "SVCB")
+  if (https) return { text: describeSVCB(https.data), more: 0 }
+  return { text: all[0]?.data ?? "", more: 0 }
+}
+
+/** `1 . alpn=h3,h2 ipv4hint=…` as `h3, h2`; an alias form as where it points. */
+export function describeSVCB(data: string) {
+  const [priority, target, ...params] = data.split(" ")
+  if (priority === "0") return `alias → ${target}`
+  const alpn = params
+    .find((p) => p.startsWith("alpn="))
+    ?.slice(5)
+    .split(",")
+    .join(", ")
+  const via = target && target !== "." ? `via ${target}` : ""
+  return [alpn ? `alpn ${alpn}` : "", via].filter(Boolean).join(" · ") || "service binding"
+}
+
+/** Seconds as the coarsest unit that still says it: 42s, 5m, 6h, 2d. */
+export function formatTTL(s: number) {
+  if (s < 60) return `${s}s`
+  if (s < 3600) return `${Math.round(s / 60)}m`
+  if (s < 86_400) return `${Math.round(s / 3600)}h`
+  return `${Math.round(s / 86_400)}d`
+}
+
+/** The shortest TTL of a lookup's addresses (or of all its records), as served and as the upstream sent it. */
+export function lookupTTL(l: Lookup): { served: number; original: number } | undefined {
+  const all = answers(l)
+  const addrs = all.filter((a) => a.type === "A" || a.type === "AAAA")
+  const pick = addrs.length > 0 ? addrs : all
+  if (pick.length === 0) return undefined
+  return { served: Math.min(...pick.map((a) => a.ttl)), original: Math.min(...pick.map((a) => a.originalTtl)) }
+}
+
+export function lookupMatches(l: Lookup, text: string, filter: "all" | "rewritten" | "failed" | "nxdomain") {
+  const byText = !text || l.name.includes(text) || answers(l).some((a) => a.data.includes(text))
+  const byResult =
+    filter === "all" ||
+    (filter === "rewritten" && l.queries.some((q) => q.result === "rewritten")) ||
+    (filter === "failed" && l.queries.some((q) => q.result === "failed")) ||
+    (filter === "nxdomain" && l.queries.some((q) => q.rcode === "NXDOMAIN"))
+  return byText && byResult
 }

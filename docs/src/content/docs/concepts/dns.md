@@ -15,17 +15,27 @@ The **DNS** tab next to DevTools has two views.
 
 ## Queries
 
-Every query the device sends, as it happens: the time, the name, the type
-(`A`, `AAAA`, `HTTPS`, …), the result, the first answer, the TTL and how long
-the answer took. The list survives a reload of the page (the agent keeps the
-last 2000 queries). Filter it by name or answer, or show only rewritten,
-failed or `NXDOMAIN` queries. A click on a query shows every answer with the
-TTL the device got next to the one the upstream sent.
+Every name the device looks up, as it happens. Apps ask for a name's `A`,
+`AAAA` and `HTTPS` records at once, so those queries share one row: the
+time, the name, the record types it asked for, the addresses it got (or
+where a `CNAME` points, or what an `HTTPS` record offers, such as
+`alpn h3, h2`), the TTL and how long the slowest answer took. A TTL like
+`0s / 5m` is what the device got next to what the upstream sent. The list
+survives a reload of the page (the agent keeps the last 2000 queries).
+Filter it by name or answer, or show only rewritten, failed or `NXDOMAIN`
+lookups.
 
-- **rewrite** marks a query that a rewrite answered;
-- **IPv4 only** marks `AAAA` queries: the sidecar resolves IPv4 only, so they
-  get an empty answer and apps connect over IPv4;
-- `SERVFAIL` in red is a query the upstream didn't answer.
+An ordinary answer has no marks; what stands out does:
+
+- **rewrite** (violet): a rewrite answered it;
+- **NXDOMAIN** (amber): the name doesn't exist;
+- **SERVFAIL** (red): the upstream didn't answer;
+- **no records**: the name exists but has none of these types.
+
+A dashed type means an empty answer: `AAAA` is always empty because the
+sidecar resolves IPv4 only, so apps connect over IPv4. A click on a row
+shows each query's records, with the `CNAME` chain and every `HTTPS`
+parameter.
 
 The wand at the end of a row, or **Rewrite this name…** in its details,
 opens a new rewrite for that name.

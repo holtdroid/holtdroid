@@ -300,3 +300,26 @@ func TestNetUpstream(t *testing.T) {
 		t.Errorf("protocol %q", e.Protocol)
 	}
 }
+
+func TestSVCBPresentation(t *testing.T) {
+	r := dnsmessage.SVCBResource{
+		Priority: 1,
+		Target:   dnsmessage.MustNewName("."),
+		Params: []dnsmessage.SVCParam{
+			{Key: dnsmessage.SVCParamMandatory, Value: []byte{0, 1}},
+			{Key: dnsmessage.SVCParamALPN, Value: []byte("\x02h3\x02h2")},
+			{Key: dnsmessage.SVCParamPort, Value: []byte{0x01, 0xbb}},
+			{Key: dnsmessage.SVCParamIPv4Hint, Value: []byte{142, 250, 1, 1, 142, 250, 1, 2}},
+			{Key: dnsmessage.SVCParamECH, Value: []byte{1, 2, 3}},
+			{Key: dnsmessage.SVCParamKey(99), Value: []byte{1}},
+		},
+	}
+	want := "1 . mandatory=alpn alpn=h3,h2 port=443 ipv4hint=142.250.1.1,142.250.1.2 ech key99"
+	if got := svcb(r); got != want {
+		t.Errorf("got  %q\nwant %q", got, want)
+	}
+	alias := dnsmessage.SVCBResource{Priority: 0, Target: dnsmessage.MustNewName("svc.example.com.")}
+	if got := svcb(alias); got != "0 svc.example.com" {
+		t.Errorf("alias %q", got)
+	}
+}

@@ -87,3 +87,22 @@ export function safeLink(raw: string | undefined) {
     return undefined
   }
 }
+
+const clockWithMillis = new Intl.DateTimeFormat(undefined, {
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  fractionalSecondDigits: 3,
+  hourCycle: "h23",
+})
+const clockSeconds = new Intl.DateTimeFormat(undefined, {
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hourCycle: "h23",
+})
+
+/** A moment as the time of day, 14:03:27.512, or without the milliseconds. */
+export function wallClock(at: number | string | Date, millis = true) {
+  return (millis ? clockWithMillis : clockSeconds).format(new Date(at))
+}

@@ -507,11 +507,64 @@ func data(b dnsmessage.ResourceBody) string {
 }
 
 func svcb(r dnsmessage.SVCBResource) string {
-	parts := []string{strconv.Itoa(int(r.Priority)), displayName(r.Target)}
+	target := displayName(r.Target)
+	if target == "" {
+		target = "."
+	}
+	parts := []string{strconv.Itoa(int(r.Priority)), target}
 	for _, p := range r.Params {
-		parts = append(parts, p.Key.String())
+		parts = append(parts, svcParam(p))
 	}
 	return strings.Join(parts, " ")
+}
+
+// svcParam is a parameter in the presentation format of RFC 9460.
+func svcParam(p dnsmessage.SVCParam) string {
+	v := p.Value
+	var vals []string
+	switch p.Key {
+	case dnsmessage.SVCParamALPN:
+		for len(v) > 0 && int(v[0]) < len(v) {
+			vals, v = append(vals, string(v[1:1+v[0]])), v[1+v[0]:]
+		}
+		return "alpn=" + strings.Join(vals, ",")
+	case dnsmessage.SVCParamPort:
+		if len(v) == 2 {
+			return "port=" + strconv.Itoa(int(binary.BigEndian.Uint16(v)))
+		}
+	case dnsmessage.SVCParamIPv4Hint, dnsmessage.SVCParamIPv6Hint:
+		size, key := 4, "ipv4hint="
+		if p.Key == dnsmessage.SVCParamIPv6Hint {
+			size, key = 16, "ipv6hint="
+		}
+		for ; len(v) >= size; v = v[size:] {
+			a, _ := netip.AddrFromSlice(v[:size])
+			vals = append(vals, a.String())
+		}
+		return key + strings.Join(vals, ",")
+	case dnsmessage.SVCParamNoDefaultALPN:
+		return "no-default-alpn"
+	case dnsmessage.SVCParamECH:
+		return "ech"
+	case dnsmessage.SVCParamMandatory:
+		for ; len(v) >= 2; v = v[2:] {
+			vals = append(vals, svcKey(dnsmessage.SVCParamKey(binary.BigEndian.Uint16(v))))
+		}
+		return "mandatory=" + strings.Join(vals, ",")
+	}
+	return svcKey(p.Key)
+}
+
+func svcKey(k dnsmessage.SVCParamKey) string {
+	switch k {
+	case dnsmessage.SVCParamDOHPath:
+		return "dohpath"
+	case dnsmessage.SVCParamOHTTP:
+		return "ohttp"
+	case dnsmessage.SVCParamALPN, dnsmessage.SVCParamPort, dnsmessage.SVCParamIPv4Hint, dnsmessage.SVCParamIPv6Hint, dnsmessage.SVCParamECH:
+		return strings.ToLower(k.String())
+	}
+	return "key" + strconv.Itoa(int(k))
 }
 
 // limitTTL caps the TTLs of an answer in place, the SOA minimum included,

@@ -1,6 +1,5 @@
 import {
   BookmarkIcon,
-  CopyIcon,
   DownloadIcon,
   EraserIcon,
   PauseIcon,
@@ -11,9 +10,10 @@ import {
   UploadIcon,
   WandSparklesIcon,
 } from "lucide-react"
-import { type ReactNode, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { type ReactNode, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
-import type { DNSPreset, DNSQuery, DNSRewrite, DNSSettings } from "@/api/client"
+import type { DNSPreset, DNSRewrite, DNSSettings } from "@/api/client"
+import { LookupTable, type LookupRow } from "@/components/session/dns-lookups"
 import {
   useDeleteDNSPreset,
   useDNS,
@@ -53,7 +53,9 @@ import {
   blocked,
   describeRewrite,
   exportSettings,
-  firstAnswer,
+  groupLookups,
+  type Lookup,
+  lookupMatches,
   importSettings,
   matches,
   mergeRewrites,
@@ -62,11 +64,11 @@ import {
   patternChoices,
   type RewriteAnswer,
   sameRewrites,
-  ttlLabel,
   validIPv4,
   validName,
   validPattern,
 } from "@/lib/dns"
+import { wallClock } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 const ttlChoices = ["keep", "0", "5", "30", "60", "300"]
@@ -79,14 +81,6 @@ const resultFilters = {
 } as const
 
 type ResultFilter = keyof typeof resultFilters
-
-const wallClock = (iso: string) =>
-  new Date(iso).toLocaleTimeString(undefined, {
-    hour12: false,
-    fractionalSecondDigits: 3,
-  } as Intl.DateTimeFormatOptions)
-
-const queryKey = (q: DNSQuery) => `${q.id}@${q.at}`
 
 type Editing = { initial?: DNSRewrite; name?: string }
 type Loaded = { id: string; name: string }
@@ -122,29 +116,33 @@ export function DNSPanel({ provider, id }: { provider: string; id: string }) {
     })
   }
 
+  const lookups = useMemo(() => groupLookups(queries), [queries])
   const hits = useMemo(() => {
     const m = new Map<string, number>()
-    for (const q of queries) if (q.rule) m.set(q.rule, (m.get(q.rule) ?? 0) + 1)
+    for (const l of lookups) {
+      const rule = l.queries.find((q) => q.rule)?.rule
+      if (rule) m.set(rule, (m.get(rule) ?? 0) + 1)
+    }
     return m
-  }, [queries])
+  }, [lookups])
   const names = useMemo(() => [...new Set(queries.map((q) => q.name))], [queries])
 
   const text = needle.trim().toLowerCase()
-  const shown = queries.filter(
-    (q) =>
-      (!text || q.name.includes(text) || q.answers.some((a) => a.data.includes(text))) &&
-      (filter === "all" ||
-        (filter === "rewritten" && q.result === "rewritten") ||
-        (filter === "failed" && q.result === "failed") ||
-        (filter === "nxdomain" && q.rcode === "NXDOMAIN")),
-  )
-  const selected = queries.find((q) => queryKey(q) === picked)
+  const rows: LookupRow[] = lookups
+    .filter((l) => lookupMatches(l, text, filter))
+    .slice(-1000)
+    .map((l) => ({ kind: "lookup", key: l.key, lookup: l, time: wallClock(l.at, false) }))
+  const rewriteLookup = (l: Lookup) => {
+    const rule = l.queries.find((q) => q.rule)?.rule
+    const r = rule ? rewrites.find((x) => x.pattern === rule) : undefined
+    setEditing(r ? { initial: r } : { name: l.name })
+  }
   const ttlValue = settings.ttlMode === "keep" ? "keep" : String(settings.maxTtl)
 
   return (
     <div className="devtools-skin flex h-full flex-col bg-background text-[12px]">
       <div className="flex h-8 shrink-0 items-center gap-1 overflow-x-auto border-b px-2 [scrollbar-width:none]">
-        <ViewTab active={view === "queries"} onClick={() => setView("queries")} count={queries.length}>
+        <ViewTab active={view === "queries"} onClick={() => setView("queries")} count={lookups.length}>
           Queries
         </ViewTab>
         <ViewTab active={view === "rewrites"} onClick={() => setView("rewrites")} count={rewrites.length}>
@@ -231,19 +229,22 @@ export function DNSPanel({ provider, id }: { provider: string; id: string }) {
       </div>
 
       {view === "queries" ? (
-        <QueryLog
-          queries={shown}
-          total={queries.length}
-          paused={paused}
-          picked={picked}
-          onPick={setPicked}
-          onRewrite={(q) => {
-            const r = q.rule ? rewrites.find((x) => x.pattern === q.rule) : undefined
-            setEditing(r ? { initial: r } : { name: q.name })
-          }}
-          selected={selected}
-          rewrites={rewrites}
-        />
+        lookups.length === 0 ? (
+          <div className="grid flex-1 place-items-center p-6 text-center text-sm text-muted-foreground">
+            {paused
+              ? "Paused."
+              : "No DNS query yet. Every name the device looks up shows up here, also after a reload."}
+          </div>
+        ) : (
+          <LookupTable
+            rows={rows}
+            picked={picked}
+            onPick={setPicked}
+            onRewrite={rewriteLookup}
+            rewrites={rewrites}
+            empty="Nothing matches the filter."
+          />
+        )
       ) : (
         <RewriteList
           rewrites={rewrites}
@@ -268,227 +269,6 @@ export function DNSPanel({ provider, id }: { provider: string; id: string }) {
           onSave={(r) => saveRewrite(r, editing.initial?.pattern)}
           onClose={() => setEditing(null)}
         />
-      )}
-    </div>
-  )
-}
-
-function QueryLog({
-  queries,
-  total,
-  paused,
-  picked,
-  onPick,
-  onRewrite,
-  selected,
-  rewrites,
-}: {
-  queries: DNSQuery[]
-  total: number
-  paused: boolean
-  picked: string | null
-  onPick: (key: string | null) => void
-  onRewrite: (q: DNSQuery) => void
-  selected: DNSQuery | undefined
-  rewrites: DNSRewrite[]
-}) {
-  const listRef = useRef<HTMLDivElement>(null)
-  const follow = useRef(true)
-  useLayoutEffect(() => {
-    const el = listRef.current
-    if (el && follow.current) el.scrollTop = el.scrollHeight
-  })
-
-  if (total === 0) {
-    return (
-      <div className="grid flex-1 place-items-center p-6 text-center text-sm text-muted-foreground">
-        {paused ? "Paused." : "No DNS query yet. Every name the device looks up shows up here, also after a reload."}
-      </div>
-    )
-  }
-  return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="grid shrink-0 grid-cols-[92px_minmax(0,2fr)_52px_88px_minmax(0,1.4fr)_88px_56px_28px] border-b bg-muted/40 px-2 py-1 text-muted-foreground">
-        <span>Time</span>
-        <span>Name</span>
-        <span>Type</span>
-        <span>Status</span>
-        <span>Answer</span>
-        <span>TTL</span>
-        <span className="text-right">ms</span>
-        <span />
-      </div>
-      <div
-        ref={listRef}
-        onScroll={(e) => {
-          const el = e.currentTarget
-          follow.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24
-        }}
-        className="min-h-0 flex-1 overflow-auto font-mono"
-      >
-        {queries.length === 0 && (
-          <p className="p-4 text-center font-sans text-muted-foreground">Nothing matches the filter.</p>
-        )}
-        {queries.map((q) => {
-          const key = queryKey(q)
-          return (
-            <div
-              key={key}
-              role="button"
-              tabIndex={0}
-              onClick={() => onPick(picked === key ? null : key)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") onPick(picked === key ? null : key)
-              }}
-              className={cn(
-                "group grid cursor-default grid-cols-[92px_minmax(0,2fr)_52px_88px_minmax(0,1.4fr)_88px_56px_28px] items-center border-b border-border/50 px-2 py-0.5 hover:bg-accent/50",
-                picked === key && "bg-accent",
-                q.result === "failed" && "text-stage-error",
-              )}
-            >
-              <span className="text-muted-foreground tabular-nums">{wallClock(q.at)}</span>
-              <span className="truncate" title={q.name}>
-                {q.name}
-              </span>
-              <span className="text-muted-foreground">{q.type}</span>
-              <Status q={q} />
-              <span className="truncate text-muted-foreground" title={q.answers.map((a) => a.data).join(", ")}>
-                {firstAnswer(q)}
-                {q.answers.length > 1 && <span className="opacity-60"> +{q.answers.length - 1}</span>}
-              </span>
-              <span className="truncate text-muted-foreground tabular-nums">{ttlLabel(q)}</span>
-              <span className="text-right text-muted-foreground tabular-nums">
-                {q.duration.toFixed(q.duration < 10 ? 1 : 0)}
-              </span>
-              <button
-                type="button"
-                title={q.rule ? `Edit the rewrite ${q.rule}` : "Rewrite this name"}
-                aria-label="Rewrite this name"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onRewrite(q)
-                }}
-                className="invisible grid size-5 place-items-center rounded-sm text-muted-foreground group-hover:visible hover:bg-background hover:text-foreground [&_svg]:size-3.5"
-              >
-                <WandSparklesIcon />
-              </button>
-            </div>
-          )
-        })}
-      </div>
-      {selected && <QueryDetails q={selected} rewrites={rewrites} onRewrite={() => onRewrite(selected)} />}
-    </div>
-  )
-}
-
-export function Status({ q }: { q: DNSQuery }) {
-  const tag =
-    q.result === "rewritten" ? (
-      <span className="rounded-sm bg-violet-500/15 px-1 text-violet-700 dark:text-violet-300">rewrite</span>
-    ) : q.result === "ipv4-only" ? (
-      <span className="rounded-sm bg-muted px-1 text-muted-foreground" title="The sidecar resolves IPv4 only">
-        IPv4 only
-      </span>
-    ) : null
-  return (
-    <span className="flex min-w-0 items-center gap-1 truncate">
-      {tag ?? (
-        <span
-          className={cn(
-            q.rcode === "NXDOMAIN" && "text-amber-700 dark:text-amber-400",
-            q.rcode === "SERVFAIL" && "text-stage-error",
-          )}
-        >
-          {q.rcode}
-        </span>
-      )}
-      {tag && q.rcode !== "NOERROR" && <span className="text-amber-700 dark:text-amber-400">{q.rcode}</span>}
-    </span>
-  )
-}
-
-export function QueryDetails({
-  q,
-  rewrites,
-  onRewrite,
-}: {
-  q: DNSQuery
-  rewrites?: DNSRewrite[]
-  onRewrite?: () => void
-}) {
-  const rule = q.rule ? rewrites?.find((r) => r.pattern === q.rule) : undefined
-  return (
-    <div className="max-h-[45%] shrink-0 overflow-auto border-t bg-muted/20 p-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="font-mono text-[13px] font-medium break-all">{q.name}</span>
-        <span className="text-muted-foreground">
-          {q.type} over {q.protocol.toUpperCase()} · {wallClock(q.at)} · {q.duration.toFixed(1)} ms
-        </span>
-        <div className="ml-auto flex gap-1">
-          <Button
-            size="xs"
-            variant="ghost"
-            onClick={() => void navigator.clipboard.writeText(q.name).then(() => toast.success("Name copied"))}
-          >
-            <CopyIcon />
-            Copy name
-          </Button>
-          {onRewrite && (
-            <Button size="xs" variant="outline" onClick={onRewrite}>
-              <WandSparklesIcon />
-              {q.rule ? "Edit the rewrite" : "Rewrite this name…"}
-            </Button>
-          )}
-        </div>
-      </div>
-      {q.rule && (
-        <p className="mt-1.5 text-violet-700 dark:text-violet-300">
-          Answered by the rewrite <span className="font-mono">{q.rule}</span>
-          {rule ? ` → ${describeRewrite(rule)}` : rewrites ? " (since changed)" : ""}
-        </p>
-      )}
-      {q.result === "ipv4-only" && (
-        <p className="mt-1.5 text-muted-foreground">
-          The sidecar resolves IPv4 only, so AAAA queries get an empty answer and apps connect over IPv4.
-        </p>
-      )}
-      {q.error && <p className="mt-1.5 text-stage-error">{q.error}</p>}
-      {q.answers.length > 0 ? (
-        <table className="mt-2 w-full font-mono">
-          <thead className="text-left text-muted-foreground">
-            <tr>
-              <th className="pr-3 font-normal">Name</th>
-              <th className="pr-3 font-normal">Type</th>
-              <th className="pr-3 font-normal">Data</th>
-              <th className="pr-3 text-right font-normal">TTL</th>
-              <th className="text-right font-normal">Upstream TTL</th>
-            </tr>
-          </thead>
-          <tbody>
-            {q.answers.map((a) => (
-              <tr key={`${a.name} ${a.type} ${a.data}`}>
-                <td className="pr-3 break-all">{a.name}</td>
-                <td className="pr-3 text-muted-foreground">{a.type}</td>
-                <td className="pr-3 break-all">{a.data}</td>
-                <td className="pr-3 text-right tabular-nums">{a.ttl}s</td>
-                <td
-                  className={cn(
-                    "text-right tabular-nums",
-                    a.ttl !== a.originalTtl && "text-muted-foreground line-through",
-                  )}
-                >
-                  {a.originalTtl}s
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : (
-        !q.error && (
-          <p className="mt-2 text-muted-foreground">
-            {q.rcode === "NXDOMAIN" ? "The name doesn't exist." : "No records."}
-          </p>
-        )
       )}
     </div>
   )

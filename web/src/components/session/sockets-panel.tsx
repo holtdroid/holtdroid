@@ -19,7 +19,7 @@ import { useDevice } from "@/components/session/use-device"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { useEventSource } from "@/hooks/use-event-source"
 import { useNow } from "@/hooks/use-now"
-import { formatBytes } from "@/lib/format"
+import { formatBytes, wallClock } from "@/lib/format"
 import type { SocketFrame } from "@/lib/recording/devtools"
 import { splitURL } from "@/lib/recording/devtools"
 import { viewHash } from "@/lib/recording/link"
@@ -30,9 +30,6 @@ const maxFrames = 5000
 
 type LiveFrame = SocketFrame & { wall: number; rec?: string; at?: number }
 type LiveSocket = { key: string; target: string; state: DevToolsSocket; frames: LiveFrame[] }
-
-const wallClock = (ms: number) =>
-  new Date(ms).toLocaleTimeString(undefined, { hour12: false, fractionalSecondDigits: 3 } as Intl.DateTimeFormatOptions)
 
 /**
  * The WebViews' WebSockets and event streams as they happen, in DevTools'
