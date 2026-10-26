@@ -3850,3 +3850,21 @@ Phones keep scrcpy's set-clipboard and their own launcher. The home screen
 edit relies on Launcher3's `favorites` schema, checked on 11 to 15; when it
 fails the session only keeps the stock home screen. Android 12's lock screen
 clock is drawn over the logo; Android 11 shows no lock screen without a PIN.
+
+## 127. Android version badges are drawn for Holtdroid, not taken from Google
+
+**Context.** The launch dialog's Android version cards showed a gradient
+with a generic robot. Google's per-release badges (a shield with a space
+scene and the version on a planet) would read better, but they are Google's
+artwork and trademarks, and this repository is Apache-2.0. Removing the
+ANDROID wordmark or replacing it with another name still leaves a derivative
+of that artwork.
+
+**Decision.** `AndroidBadge` in `web/src/components/launch/android-version.tsx`
+is an own inline SVG in a similar composition: a gradient shield in the
+release's colours, a dark panel with stars, the release's dessert drawn
+from its code name, and the version on a disc kept inside the shield. A
+version without an entry gets the grey shield without a dessert.
+
+**Consequences.** A new Android release needs a colour pair and a dessert
+drawing in the same file. No image files, no requests to third parties.
