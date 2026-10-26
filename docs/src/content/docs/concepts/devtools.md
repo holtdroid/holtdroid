@@ -41,7 +41,9 @@ named `webview_devtools_remote_<pid>`. The agent:
    serves that frontend from a cache of its own in its storage, fetched from
    Google's frontend host ahead of time for every Chromium and WebView build
    it lists, so a session's VPN, bandwidth limit or offline mode doesn't
-   affect it. Chromium snapshot builds report no revision, so
+   affect it. While a revision is still being fetched the panel says so
+   above DevTools, with the number of files so far; DevTools opens as its
+   files arrive. Chromium snapshot builds report no revision, so
    the agent uses the `frontend` tag
    of the [WebView build](/holtdroid/concepts/webview-versions/) or of the
    [Chromium build](/holtdroid/sources/chromium/) the session started with.

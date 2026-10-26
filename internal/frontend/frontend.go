@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -49,7 +50,25 @@ type Cache struct {
 	restored sync.Map
 	attempts int
 	backoff  time.Duration
+
+	mu     sync.Mutex
+	status map[string]*Status
 }
+
+// Status is how far a revision is: warming while the archive is restored or
+// upstream crawled, ready once every file is here, incomplete when some
+// could not be fetched. Files and Failed count the crawl so far.
+type Status struct {
+	State  string `json:"state"`
+	Files  int    `json:"files"`
+	Failed int    `json:"failed"`
+}
+
+const (
+	StateWarming    = "warming"
+	StateReady      = "ready"
+	StateIncomplete = "incomplete"
+)
 
 // New serves files of upstream from dir. store, when not nil, keeps crawled
 // revisions as archives under devtools-frontend/.
@@ -57,22 +76,51 @@ func New(upstream, dir string, store storage.Store, log *slog.Logger) *Cache {
 	return &Cache{
 		upstream: strings.TrimRight(upstream, "/") + "/", dir: dir, store: store, hc: &http.Client{Timeout: time.Minute}, log: log,
 		slots: make(chan struct{}, 6), crawl: make(chan struct{}, 3), attempts: 5, backoff: time.Second,
+		status: map[string]*Status{},
 	}
+}
+
+// Status reports a revision's progress.
+func (f *Cache) Status(rev string) Status {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if st, ok := f.status[rev]; ok {
+		return *st
+	}
+	return Status{State: StateWarming}
+}
+
+func (f *Cache) progress(rev string, update func(st *Status)) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	st, ok := f.status[rev]
+	if !ok {
+		st = &Status{State: StateWarming}
+		f.status[rev] = st
+	}
+	update(st)
 }
 
 type retryableError struct{ error }
 
 var revPathRe = regexp.MustCompile(`^@[0-9a-f]{7,40}$`)
 
-// ServeHTTP handles GET /devtools-frontend/{rev}/{file...}.
+// ServeHTTP handles GET /devtools-frontend/{rev}/{file...}; without a file
+// it answers the revision's Status as JSON.
 func (f *Cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rev, file := r.PathValue("rev"), path.Clean("/"+r.PathValue("file"))
-	if !revPathRe.MatchString(rev) || file == "/" {
+	if !revPathRe.MatchString(rev) {
 		http.NotFound(w, r)
 		return
 	}
 	f.restore(r.Context(), rev)
 	f.Warm(rev)
+	if file == "/" {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-store")
+		_ = json.NewEncoder(w).Encode(f.Status(rev))
+		return
+	}
 	local := filepath.Join(f.dir, rev, filepath.FromSlash(file))
 	if _, err := os.Stat(local); err != nil {
 		_, err, _ := f.sf.Do(local, func() (any, error) { return nil, f.fetch(r.Context(), rev+file, local) })
@@ -211,6 +259,7 @@ func (f *Cache) restoreOnce(ctx context.Context, rev string) bool {
 		f.log.Warn("devtools frontend archive broken", "rev", rev, "err", err)
 		return false
 	}
+	f.progress(rev, func(st *Status) { st.State, st.Files = StateReady, n })
 	f.log.Info("devtools frontend restored", "rev", rev, "files", n)
 	return true
 }
@@ -263,9 +312,11 @@ func (f *Cache) crawlRev(ctx context.Context, rev string) ([]string, bool) {
 					}
 					if err != nil {
 						failed.Add(1)
+						f.progress(rev, func(st *Status) { st.Failed++ })
 						return
 					}
 				}
+				f.progress(rev, func(st *Status) { st.Files++ })
 				mu.Lock()
 				defer mu.Unlock()
 				files = append(files, file)
@@ -297,6 +348,12 @@ func (f *Cache) crawlRev(ctx context.Context, rev string) ([]string, bool) {
 		queue = next
 	}
 	complete := failed.Load() == 0
+	f.progress(rev, func(st *Status) {
+		st.State = StateReady
+		if !complete {
+			st.State = StateIncomplete
+		}
+	})
 	f.log.Info("devtools frontend crawled", "rev", rev, "files", len(files), "failed", failed.Load())
 	return files, complete
 }

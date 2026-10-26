@@ -2,6 +2,7 @@ package frontend
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -255,5 +256,63 @@ func TestFrontendBrowserRequestsDontWaitForTheCrawl(t *testing.T) {
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("inspector.html: %d", resp.StatusCode)
+	}
+}
+
+func TestFrontendStatus(t *testing.T) {
+	files := map[string]string{
+		"/inspector.html": `<script src="./a.js"></script><script src="./down.js"></script>`,
+		"/a.js":           `1`,
+	}
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/down.js") {
+			http.Error(w, "overloaded", http.StatusServiceUnavailable)
+			return
+		}
+		body, ok := files[strings.TrimPrefix(r.URL.Path, "/serve_rev/@0123456789abcdef")]
+		if !ok {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = io.WriteString(w, body)
+	}))
+	defer upstream.Close()
+
+	f := New(upstream.URL+"/serve_rev", t.TempDir(), nil, slog.New(slog.DiscardHandler))
+	f.backoff = time.Millisecond
+	mux := http.NewServeMux()
+	mux.Handle("GET /devtools-frontend/{rev}/{file...}", f)
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	status := func() Status {
+		t.Helper()
+		resp, err := http.Get(srv.URL + "/devtools-frontend/@0123456789abcdef")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		var st Status
+		if err := json.NewDecoder(resp.Body).Decode(&st); err != nil {
+			t.Fatal(err)
+		}
+		return st
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		st := status()
+		if st.State == StateIncomplete {
+			if st.Files != 2 || st.Failed != 1 {
+				t.Fatalf("status %+v", st)
+			}
+			break
+		}
+		if st.State != StateWarming {
+			t.Fatalf("status %+v", st)
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("crawl never finished")
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 }

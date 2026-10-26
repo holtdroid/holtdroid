@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { BugIcon, RefreshCwIcon, RotateCwIcon, Settings2Icon } from "lucide-react"
+import { BugIcon, Loader2Icon, RefreshCwIcon, RotateCwIcon, Settings2Icon } from "lucide-react"
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 import { agentClient, type DevToolsTarget, sessionBase, unwrap } from "@/api/client"
@@ -48,6 +48,14 @@ export function devtoolsURL(provider: string, id: string, t: DevToolsTarget) {
   return `${base}/devtools-frontend/@${encodeURIComponent(t.frontendRev)}/inspector.html?${wsScheme()}=${cdpSocket(provider, id, t)}`
 }
 
+type FrontendStatus = { state: "warming" | "ready" | "incomplete"; files: number; failed: number }
+
+async function fetchFrontendStatus(provider: string, id: string, rev: string): Promise<FrontendStatus> {
+  const res = await fetch(`${sessionBase(provider, id)}/devtools-frontend/@${encodeURIComponent(rev)}`)
+  if (!res.ok) throw new Error(res.statusText)
+  return (await res.json()) as FrontendStatus
+}
+
 const navigable = new Set(["page", "iframe"])
 
 export function DevToolsPanel({
@@ -71,6 +79,14 @@ export function DevToolsPanel({
   const [chosen, setChosen] = useState<DevToolsTarget | null>(null)
   const selected = useMemo(() => pick(items, chosen), [items, chosen])
   const selectedKey = selected ? key(selected) : null
+  const rev = selected?.frontendRev ?? ""
+  const frontend = useQuery({
+    queryKey: ["devtools-frontend", provider, id, rev],
+    queryFn: () => fetchFrontendStatus(provider, id, rev),
+    enabled: rev !== "",
+    refetchInterval: (q) => (q.state.data?.state === "warming" ? 2_000 : false),
+  })
+  const [reloads, setReloads] = useState(0)
 
   const prefs = useDevToolsPrefs()
   const [frame, setFrame] = useState<HTMLIFrameElement | null>(null)
@@ -187,9 +203,32 @@ export function DevToolsPanel({
           </PopoverContent>
         </Popover>
       </div>
+      {selected && frontend.data && frontend.data.state !== "ready" && (
+        <div className="text-muted-foreground flex items-center gap-2 border-b px-3 py-1.5 text-xs">
+          {frontend.data.state === "warming" ? (
+            <>
+              <Loader2Icon className="size-3.5 shrink-0 animate-spin" />
+              <span className="min-w-0 flex-1 truncate">
+                Fetching the DevTools frontend for this WebView, {frontend.data.files} files so far. Panels open as
+                their files arrive.
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="min-w-0 flex-1 truncate">
+                {frontend.data.failed} of the DevTools frontend's files could not be fetched. Reload to try them again.
+              </span>
+              <Button variant="outline" size="xs" onClick={() => setReloads((n) => n + 1)}>
+                <RotateCwIcon />
+                Reload
+              </Button>
+            </>
+          )}
+        </div>
+      )}
       {selected ? (
         <iframe
-          key={key(selected)}
+          key={`${key(selected)}/${reloads}`}
           ref={attachFrame}
           title="Chrome DevTools"
           src={devtoolsURL(provider, id, selected)}

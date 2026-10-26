@@ -435,7 +435,11 @@ codecs and reports that it can't capture audio.
   crawling. Crawls start from the first request for a revision, from every
   artifact whose sidecar tags a `frontend` (Chromium builds) when a source
   is polled, and from the WebView catalog every 15 minutes, so a build is
-  ready to debug before its first session.
+  ready to debug before its first session. `GET …/devtools-frontend/@{rev}`
+  (no file) answers the revision's progress as JSON (`state` warming, ready
+  or incomplete; `files`, `failed`), which the DevTools panel polls every
+  2 s to show a "fetching the frontend, N files so far" line above the
+  iframe, and a Reload button when files failed.
 - Everything is same-origin (`/s/{provider}/{id}/…` on the api host). This matters
   because forward-auth cookies (SameSite=Lax) are not sent on WebSockets
   opened from a cross-site iframe.
