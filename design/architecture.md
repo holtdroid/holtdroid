@@ -75,9 +75,12 @@ timestamps are held in memory by the api and flushed to the provider
 (`POST /sessions/{id}/touch`) at most every 30 s, so an api restart loses at
 most 30 s of activity.
 
-The api also has a SQL database (decisions.md #22). For now it is in-memory
-SQLite only, so it holds nothing that must survive a restart; SQLite with
-Litestream replication to S3 and PostgreSQL come later.
+The api also has a SQL database (decisions.md #22, #102): in-memory SQLite
+by default, or a SQLite file (`database.type: sqlite`) that embedded
+Litestream restores from S3 when it is missing and streams back afterwards.
+With `sqlite` the api runs as one replica; PostgreSQL comes later for more.
+Features must still work with `memory`, where the data is gone after a
+restart.
 
 ## Request flow: launching a session
 

@@ -104,8 +104,9 @@ Directories that do not exist yet are planned — create them exactly there.
   - `net/http/httputil.ReverseProxy`;
   - `golang.org/x/sync` (`errgroup`, `singleflight`);
   - `golang.org/x/crypto/ssh` and `hashicorp/yamux` — SSH gateway and tunnels;
-  - `database/sql` with `modernc.org/sqlite` (in-memory, later file +
-    `benbjohnson/litestream` replication to S3) and `jackc/pgx/v5` (later),
+  - `database/sql` with `modernc.org/sqlite` (in-memory or a file) +
+    `benbjohnson/litestream` embedded for replication (decision #102),
+    `jackc/pgx/v5` (later),
     `pressly/goose` for migrations, `sqlc` for queries (decisions.md #22;
     only in-memory SQLite exists so far);
   - `log/slog` for logging;
@@ -151,14 +152,17 @@ Directories that do not exist yet are planned — create them exactly there.
   sources (folders or S3, decisions.md #27).
 - **Before the first release (`v*` tag) there is no backward compatibility.**
   Config keys, HTTP APIs, contracts, the database schema and stored data may
-  change freely: rewrite goose migrations in place instead of stacking
-  compat ones, drop old fields instead of deprecating them. Still keep the
+  change freely: drop old fields instead of deprecating them. Still keep the
   docs in sync with the code.
-- The api's database is **in-memory SQLite only** for now (decisions.md
-  #22): it is empty after every restart and per replica. Use it only for data
-  that may be lost; anything that must survive a restart still follows the
-  rule below until persistent backends (SQLite + Litestream, PostgreSQL) land.
-- The api is stateless and must stay that way: no persistent database, nothing only in
+- **Goose migrations are append-only** (decision #102): never edit one that
+  has been pushed, since deployments with `database.type: sqlite` already
+  applied it. Change the schema with a new migration; it may drop and
+  recreate tables without compat shims before the first release.
+- The api's database is in-memory SQLite by default and a replicated SQLite
+  file when configured (decisions #22, #102). Every feature must still work
+  with `memory`, where the data is gone after a restart; data whose loss
+  would stop sessions or sign people out never goes there.
+- The api is stateless and must stay that way: nothing only in
   memory or on local disk that a restart or a second replica would miss.
   Session state lives in the provider (emulator: Pod labels/annotations),
   identities in signed cookies (`auth.sessionKey`), activity is flushed to

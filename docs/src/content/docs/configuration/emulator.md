@@ -2,7 +2,7 @@
 title: Emulator provider
 description: Run sessions as redroid Pods (Android on the node's kernel) on Kubernetes, several per node.
 sidebar:
-  order: 5
+  order: 6
 ---
 
 The `provider-emulator` service runs every session as a Pod with

@@ -126,7 +126,7 @@ func New(ctx context.Context, cfg Config, opts ...Option) (*Server, error) {
 			return nil, err
 		}
 	}
-	if s.db, err = db.Open(ctx, cfg.Database); err != nil {
+	if s.db, err = db.Open(ctx, cfg.Database, s.secrets); err != nil {
 		return nil, err
 	}
 	if cfg.AppData.Enabled {

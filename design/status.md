@@ -151,8 +151,10 @@ deployment"):
   thermal zones and hwmon); hold a slot or a whole provider for
   maintenance (ConfigMap for emulators, the state file for phones).
   Not tried on the cluster yet.
-- In-memory SQLite database in the api (goose + sqlc, `internal/db`); it only
-  records session events so far and is empty after a restart (decision #22).
+- SQL database in the api (goose + sqlc, `internal/db`): in-memory by
+  default, or `database.type: sqlite`, a file that embedded Litestream
+  restores from and streams to S3 (decision #102). It only records session
+  events so far. Not enabled on the live deployment yet.
 - Phones without root (Phase 7, decision #67): `provider-physical` on the
   USB host with an inventory from its config, one in-process agent per
   session (scrcpy screen, audio, clipboard, installs, DevTools for
@@ -204,7 +206,8 @@ deployment"):
 **Not built yet**:
 
 - Traffic inspection proxy (Phase 4.7) and MCP server (Phase 4.8).
-- A persistent database: only in-memory SQLite exists (Phase 4.6).
+- PostgreSQL for the api's database (Phase 4.6), and the features waiting
+  for a persistent one: the `computers` table and revocation (4.11).
 - The rest of Phase 7 for phones: the layer-3 root hardening, cleanup
   verification and quarantine (threat model in
   architecture.md "Physical devices"); Docker-only provider — "Later".
@@ -258,10 +261,10 @@ Collected from the design conversation; each is reflected in the docs listed.
 - **Open source, not homelab-specific.** Apache-2.0, public docs site.
 - **Stateless api**; session state as labels on what the provider runs.
   (decisions #5, #17, #18)
-- **Database**: `memory` (default, SQLite in-memory), later SQLite with
-  Litestream to S3 and PostgreSQL; goose + sqlc. Only in-memory until the
-  first release, and **no backward compatibility before the first release**.
-  (decision #22)
+- **Database**: `memory` (default, SQLite in-memory) or `sqlite` (a file,
+  Litestream to S3, one api replica); PostgreSQL later; goose + sqlc.
+  Migrations are **append-only**; otherwise no backward compatibility before
+  the first release. (decisions #22, #102)
 - Sign-in: **anonymous random animal names**, **shared password**, **OIDC**;
   avatars from the IdP or **DiceBear voxel-art**. (decisions #17, #20)
 - **Computers**: one `curl … | sh` command per computer with a JWT-style

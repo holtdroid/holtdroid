@@ -130,9 +130,9 @@ Design: decisions.md #22. No backward compatibility before the first release.
 - [x] `internal/db`: `database.type` config (`memory` default), `modernc.org/sqlite` in-memory, goose migrations embedded and run at startup, `sqlc` config + generated queries, `make sqlc` and a drift check in `make check` and CI
 - [x] Wire it into the api and `holtdroid dev`; first table `session_events` (created/stopped/reaped, actor, artifact, reason), write-only for now; tests through `internal/api/api_test.go`
 - [ ] Read side for `session_events` (history in the UI) once there is a use for it
-- [ ] Later: `sqlite` file driver with embedded Litestream (restore on start, replicate to the `storage` S3 settings or its own), chart enforces `replicas: 1`
+- [x] `sqlite` file driver with embedded Litestream (restore on start when the file is missing, replicate to `database.replica`: S3 or a directory), chart enforces `replicas: 1` and no surge; migrations append-only from now on (decision #102)
 - [ ] Later: `postgres` driver (pgx), queries kept to the subset both engines accept, CI runs the db tests against both
-- [ ] Public docs: storage/architecture pages stop saying "no database" once anything persistent ships; configuration page for `database`
+- [x] Public docs: storage/architecture pages stop saying "no database"; configuration page for `database`
 
 ## Phase 4.11 — Connect client
 

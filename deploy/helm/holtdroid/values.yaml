@@ -62,8 +62,18 @@ config:
   # Valhalla server for GPS routes along roads; empty draws straight lines.
   # routing:
   #   url: https://valhalla1.openstreetmap.de
+  # memory: empty after every restart. sqlite: a file on the api data volume
+  # (api.persistence), one replica only; with a replica it is restored from
+  # S3 when the file is missing and streamed there continuously, so the data
+  # volume may even be an emptyDir.
   database:
     type: memory
+    # type: sqlite
+    # path: /var/lib/holtdroid/holtdroid.db
+    # replica:
+    #   type: s3
+    #   s3: { endpoint: https://s3.example.com, region: …, bucket: holtdroid, prefix: database, pathStyle: true,
+    #         accessKey: env:DB_S3_ACCESS_KEY, secretKey: env:DB_S3_SECRET_KEY }
   # ADB tools on the session page (logcat, files, terminal). On redroid
   # sessions that is a root shell on the session node's kernel for everyone
   # who may open the session.

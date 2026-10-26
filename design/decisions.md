@@ -276,6 +276,9 @@ and written in the SQL subset both engines accept. Until the first release
 only `memory` is implemented and there is no backward compatibility for the
 schema or data: migrations are edited in place.
 
+_The `sqlite` part is implemented by #102, which also makes migrations
+append-only._
+
 **Consequences.** With `memory` every restart and every replica starts empty,
 so for now only losable data may go there; sessions, identities and the APK
 cache keep their current homes. Litestream allows exactly one writer, so
@@ -3055,3 +3058,49 @@ app-level view of the network is as good as the Frida hooks
 11 a locked screen asks for `0000`. A shifted clock on redroid would have to
 be faked per process (Frida in the app, which can't reach the WebView's
 sandboxed renderer) and is not done.
+
+## 102. A SQLite file replicated by embedded Litestream; append-only migrations
+
+**Context.** Revoking a single connect computer, offline computers and
+session history need data that survives an api restart (#22, roadmap 4.6,
+4.11). #22 planned a `sqlite` driver with Litestream, and its migrations
+were edited in place, which only works while every database starts empty.
+
+**Decision.** Supersedes the "migrations are edited in place" part of #22.
+
+- `database.type: sqlite` opens `database.path` (default
+  `/var/lib/holtdroid/holtdroid.db`, the chart's api data volume) in WAL
+  mode with `busy_timeout`, `synchronous(normal)` and immediate
+  transactions. `memory` stays the default.
+- `database.replica` has the shape of `storage.Config`: `s3` or
+  `filesystem`. Litestream v0.5 runs as a library in the api: when the file
+  is missing the database is restored from the replica before the
+  migrations run, then the WAL is streamed to it. Litestream uses
+  `modernc.org/sqlite` itself, so the binary stays cgo-free. It brings its
+  own S3 client (aws-sdk-go-v2), so `credentialsURL` is rejected for the
+  replica; static keys or the AWS default credentials work.
+- The api syncs Litestream right after opening and before closing.
+  Litestream connects lazily and holds a read transaction only after its
+  first sync; without that, closing the api's last connection checkpoints
+  WAL frames Litestream never saw, and a write just before shutdown is
+  lost from the replica.
+- One writer: the chart fails to render `sqlite` with `api.replicas > 1`
+  and uses `maxSurge: 0` for it even without a ReadWriteOnce volume.
+- **Migrations are append-only** from now on: a pushed goose migration is
+  never edited, because deployments with `sqlite` have applied it. Schema
+  changes are new migrations; before the first release they may still drop
+  or reshape tables without compat shims. Resetting is deleting the file and
+  the replica's prefix.
+- Features keep working with `memory`; they lose their data on restart
+  there. Live state that sessions or sign-ins depend on stays where #5
+  puts it.
+
+**Consequences.** With `sqlite` the api can't scale out; PostgreSQL (still
+planned in #22) is the way to more replicas. `maxSurge: 0` doesn't wait for
+the old pod to finish terminating, so its shutdown can overlap the new
+pod's start: on a shared volume SQLite's locks keep the file consistent, but
+with an `emptyDir` and S3 the new pod may restore before the old pod's final
+sync and lose the last second of writes. Litestream's S3 lease would close
+that gap but needs conditional writes that not every S3-compatible store
+supports, so it isn't used. The aws-sdk-go-v2 modules join minio-go in the
+api binary.

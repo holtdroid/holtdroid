@@ -44,8 +44,8 @@ flowchart LR
 - **Contracts between services.** Providers and agents are HTTP APIs with a
   shared conformance suite; sources are a file layout. The api knows nothing
   about Slack, Kubernetes or ADB. See [Contracts](/holtdroid/extending/contracts/).
-- **Stateless api, no database.** Nothing the api needs lives only in its
-  memory or on its disk:
+- **Stateless api.** Nothing the api needs to keep sessions running lives
+  only in its memory or on its disk:
   - sessions belong to providers — the emulator provider keeps them as labels
     and annotations on the session Pods it creates, so listing Pods _is_
     listing sessions;
@@ -56,7 +56,9 @@ flowchart LR
     sources; uploads and their owner/visibility live as files in a source.
 
   Kill the api, reschedule it to another node or run three replicas — nobody
-  notices.
+  notices. The api's [database](/holtdroid/configuration/database/) holds
+  history, not live state: in memory by default, or a SQLite file replicated
+  to S3, which limits the api to one replica.
 
 - **Same origin for everything.** Browser traffic to a device goes through
   `https://<portal>/s/<session>/…`. That keeps forward-auth cookies working

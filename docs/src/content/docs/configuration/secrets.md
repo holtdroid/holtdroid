@@ -2,7 +2,7 @@
 title: Secrets
 description: Secret references and the supported backends — environment, files and OpenBao/Vault.
 sidebar:
-  order: 4
+  order: 5
 ---
 
 Credentials are never written into config files. Every secret field takes a

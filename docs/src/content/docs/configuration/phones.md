@@ -2,7 +2,7 @@
 title: Phone provider
 description: Run sessions on real Android phones plugged into a host over USB, with or without root.
 sidebar:
-  order: 6
+  order: 7
 ---
 
 The `provider-physical` service turns phones plugged into one host into

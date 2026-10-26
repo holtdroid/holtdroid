@@ -105,7 +105,7 @@ providers:
 | `storage.*`             | filesystem       | See [Artifact storage](/holtdroid/configuration/storage/)                                             |
 | `cache.maxSize`         | `20GiB`          | Least recently used APKs are evicted beyond this                                                      |
 | `cache.warm`            | `10`             | Newest uncached APKs per listing to download and parse in the background                              |
-| `database.type`         | `memory`         | Only `memory` for now: SQLite in RAM, empty after every restart                                       |
+| `database.*`            | `memory`         | SQLite in RAM, or a file replicated to S3, see [Database](/holtdroid/configuration/database/)         |
 | `sources[]`             | `local`          | Folders or S3 buckets with APKs, see [Artifact sources](/holtdroid/sources/overview/)                 |
 | `uploads.*`             | enabled          | Uploads from the UI, see [Artifact sources](/holtdroid/sources/overview/#uploads)                     |
 | `downloads.adminOnly`   | `false`          | Only admins may download APKs, see [Downloads](/holtdroid/sources/overview/#downloads)                |

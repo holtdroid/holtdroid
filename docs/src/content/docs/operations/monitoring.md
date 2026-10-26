@@ -161,8 +161,8 @@ while their regular logs go to stderr. Every audit line has
 | `audit.export`         | `events`, `q`                                                 | An admin downloaded events from the audit page                                                                            |
 | `provider.maintenance` | `slot`, `enabled`, `reason`                                   | An admin held or released a slot (empty `slot`: the whole provider) on the Inventory page                                 |
 
-Session actions are also kept in the api's database for the session's
-lifetime.
+Session actions are also kept in the api's
+[database](/holtdroid/configuration/database/).
 
 ### Other destinations
 

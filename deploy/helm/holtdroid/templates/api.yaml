@@ -36,6 +36,10 @@
   "refreshTTL" $g.refreshTTL) -}}
 {{- end -}}
 {{- $p := .Values.api.persistence -}}
+{{- $sqlite := eq ((.Values.config.database).type | default "memory") "sqlite" -}}
+{{- if and $sqlite (gt (int .Values.api.replicas) 1) -}}
+{{- fail "config.database.type sqlite allows one writer: set api.replicas to 1" }}
+{{- end -}}
 {{- if and $p.enabled (not $p.existingClaim) }}
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -75,7 +79,7 @@ metadata:
     app.kubernetes.io/component: api
 spec:
   replicas: {{ .Values.api.replicas }}
-  {{- if and $p.enabled (has "ReadWriteOnce" $p.accessModes) }}
+  {{- if or $sqlite (and $p.enabled (has "ReadWriteOnce" $p.accessModes)) }}
   strategy:
     type: RollingUpdate
     rollingUpdate: { maxSurge: 0, maxUnavailable: 1 }

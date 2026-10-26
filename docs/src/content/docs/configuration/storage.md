@@ -10,8 +10,8 @@ label, icon, ABIs) and keeps the file and metadata in an artifact store.
 Agents fetch the APK from the api, never from the source.
 
 The store is a **cache**: sources stay the source of truth, and anything
-missing is downloaded again on demand. That's why the api has no database and
-no persistent state of its own.
+missing is downloaded again on demand, so it needs no backup. The api's
+[database](/holtdroid/configuration/database/) is separate.
 
 ## Filesystem
 

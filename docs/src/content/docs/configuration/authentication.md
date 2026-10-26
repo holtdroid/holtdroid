@@ -2,7 +2,7 @@
 title: Authentication
 description: Sign-in modes — anonymous names, a shared password, OIDC, or a forward-auth proxy.
 sidebar:
-  order: 3
+  order: 4
 ---
 
 Holtdroid always knows _who_ owns a session, but how people sign in is up to
