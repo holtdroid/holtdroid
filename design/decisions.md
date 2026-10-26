@@ -3069,6 +3069,9 @@ app-op) and on Android 11 (`cmd location` has no providers command).
   rounded corner) with the `corner`, `hole` and `tall` cutout emulations,
   which left the screen black: the agent doesn't enable them on Android 12;
   the portal still draws the cutout on its frame.
+- Android 15's SystemUI keeps the status bar height it measured at boot, so
+  a cutout overlay enabled afterwards clipped the clock and icons: the agent
+  restarts SystemUI after enabling one on Android 15 and newer.
 
 **Consequences.** The status bar and quick settings of redroid still show
 Ethernet; only the app under test sees Wi-Fi or mobile data. The

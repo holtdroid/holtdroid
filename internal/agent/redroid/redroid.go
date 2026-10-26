@@ -162,10 +162,8 @@ func (r *Redroid) prepare(ctx context.Context) error {
 	if _, err := r.adb.Shell(ctx, joinWiFi); err != nil {
 		r.log.Warn("could not join the simulated Wi-Fi", "err", err)
 	}
-	if c := r.cfg.Cutout; c != "" && c != "none" && !r.cutoutCrashesSystemUI(ctx, c) {
-		if _, err := r.adb.Shell(ctx, "cmd overlay enable --user 0 com.android.internal.display.cutout.emulation."+c); err != nil {
-			r.log.Warn("could not enable the display cutout", "cutout", c, "err", err)
-		}
+	if c := r.cfg.Cutout; c != "" && c != "none" {
+		r.enableCutout(ctx, c)
 	}
 	if _, err := r.adb.Shell(ctx, defaultNavigation); err != nil {
 		r.log.Warn("could not turn on gesture navigation", "err", err)
@@ -199,19 +197,26 @@ func (r *Redroid) prepare(ctx context.Context) error {
 	}
 }
 
-// cutoutCrashesSystemUI: on Android 12 the corner, hole and tall emulations
-// crash SystemUI's ScreenDecorations in a loop (a null bottomLeft rounded
-// corner), which leaves the screen black.
-func (r *Redroid) cutoutCrashesSystemUI(ctx context.Context, cutout string) bool {
-	if cutout != "corner" && cutout != "hole" && cutout != "tall" {
-		return false
+// enableCutout skips the corner, hole and tall emulations on Android 12,
+// where they crash SystemUI's ScreenDecorations in a loop (a null bottomLeft
+// rounded corner) and leave the screen black. Android 15's SystemUI keeps the
+// status bar height it measured at boot, so it is restarted to fit the cutout.
+func (r *Redroid) enableCutout(ctx context.Context, cutout string) {
+	out, _ := r.adb.Shell(ctx, "getprop ro.build.version.sdk")
+	sdk, _ := strconv.Atoi(strings.TrimSpace(out))
+	if sdk == 31 && (cutout == "corner" || cutout == "hole" || cutout == "tall") {
+		r.log.Warn("display cutout not emulated on Android 12", "cutout", cutout)
+		return
 	}
-	out, err := r.adb.Shell(ctx, "getprop ro.build.version.sdk")
-	if err != nil || strings.TrimSpace(out) != "31" {
-		return false
+	if _, err := r.adb.Shell(ctx, "cmd overlay enable --user 0 com.android.internal.display.cutout.emulation."+cutout); err != nil {
+		r.log.Warn("could not enable the display cutout", "cutout", cutout, "err", err)
+		return
 	}
-	r.log.Warn("display cutout not emulated on Android 12", "cutout", cutout)
-	return true
+	if sdk >= 35 {
+		if _, err := r.adb.Shell(ctx, "kill $(pidof com.android.systemui)"); err != nil {
+			r.log.Warn("could not restart SystemUI", "err", err)
+		}
+	}
 }
 
 // waitRoute retries route until the sidecar has created its tun: the

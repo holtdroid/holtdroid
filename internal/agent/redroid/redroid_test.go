@@ -15,6 +15,7 @@ type fakeADB struct {
 	pidofs int
 	// noTun fails this many route scripts, as before the sidecar's tun exists.
 	noTun int
+	sdk   string
 }
 
 func (f *fakeADB) WaitBoot(context.Context) error {
@@ -37,6 +38,9 @@ func (f *fakeADB) Shell(_ context.Context, cmd string) (string, error) {
 	if strings.Contains(cmd, "ip link show holtdroid0") && f.noTun > 0 {
 		f.noTun--
 		return "", errors.New(`Device "holtdroid0" does not exist.`)
+	}
+	if cmd == "getprop ro.build.version.sdk" {
+		return f.sdk + "\n", nil
 	}
 	if cmd == "pidof frida-server" {
 		f.pidofs++
@@ -155,6 +159,31 @@ func TestRoutes(t *testing.T) {
 			got := Routes(Config{VPN: tt.vpn, Bypass: []string{"10.0.0.0/8", "fc00::/7"}}, tt.uid)
 			if got != tt.want {
 				t.Fatalf("routes\n%s\nwant\n%s", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestEnableCutout(t *testing.T) {
+	const enable = "cmd overlay enable --user 0 com.android.internal.display.cutout.emulation."
+	const restart = "kill $(pidof com.android.systemui)"
+	tests := []struct {
+		sdk, cutout string
+		want        []string
+	}{
+		{"31", "hole", nil},
+		{"31", "double", []string{enable + "double"}},
+		{"34", "hole", []string{enable + "hole"}},
+		{"35", "hole", []string{enable + "hole", restart}},
+		{"35", "tall", []string{enable + "tall", restart}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.sdk+"/"+tt.cutout, func(t *testing.T) {
+			adb := &fakeADB{sdk: tt.sdk}
+			New(DefaultConfig(), adb, slog.New(slog.DiscardHandler)).enableCutout(context.Background(), tt.cutout)
+			got := slices.DeleteFunc(adb.calls, func(c string) bool { return c == "getprop ro.build.version.sdk" })
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("calls = %q, want %q", got, tt.want)
 			}
 		})
 	}
