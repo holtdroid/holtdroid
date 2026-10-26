@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -101,7 +102,7 @@ func newHarnessWith(t *testing.T, slots int, configure func(*Config), opts ...fu
 		configure(&cfg)
 	}
 	aud, buf := testAudit(t, clk.Now)
-	srv, err := New(context.Background(), cfg, WithClock(clk.Now), WithProvider("fake", p), WithAudit(aud))
+	srv, err := New(context.Background(), cfg, WithClock(clk.Now), WithProvider("fake", p), WithAudit(aud), WithTempDir(t.TempDir()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -517,7 +518,7 @@ func TestRestartKeepsState(t *testing.T) {
 	h := newHarness(t, 2)
 	v := h.create("otter")
 
-	again, err := New(ctx, h.cfg, WithClock(h.clock.Now), WithProvider("fake", h.provider))
+	again, err := New(ctx, h.cfg, WithClock(h.clock.Now), WithProvider("fake", h.provider), WithTempDir(t.TempDir()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -823,5 +824,31 @@ func TestDevToolsFrontendServedByTheApi(t *testing.T) {
 	}
 	if rec := h.do(http.MethodGet, "/s/fake/missing/devtools-frontend/@0123456789abcdef/inspector.html", "otter", "", nil); rec.Code != http.StatusNotFound {
 		t.Fatalf("missing session: %d", rec.Code)
+	}
+}
+
+func TestDevToolsFrontendWarmedForTaggedBuilds(t *testing.T) {
+	var inspector atomic.Int32
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/inspector.html") {
+			inspector.Add(1)
+			_, _ = io.WriteString(w, "<!doctype html>")
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	t.Cleanup(upstream.Close)
+	h := newHarnessWith(t, 1, func(c *Config) { c.DevToolsFrontend = upstream.URL + "/serve_rev" })
+	meta := `{"tags":{"frontend":"0123456789abcdef0123456789abcdef01234567"}}`
+	if err := os.WriteFile(filepath.Join(h.apks, "hello.apk.meta.json"), []byte(meta), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h.srv.refreshSource(context.Background(), "local")
+	deadline := time.Now().Add(5 * time.Second)
+	for inspector.Load() == 0 {
+		if time.Now().After(deadline) {
+			t.Fatal("the tagged build's frontend was not warmed")
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 }

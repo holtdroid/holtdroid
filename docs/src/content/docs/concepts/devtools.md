@@ -38,9 +38,10 @@ named `webview_devtools_remote_<pid>`. The agent:
 4. proxies the DevTools WebSocket, rewriting the `Host` header to
    `localhost`, since the DevTools server rejects any other host;
 5. reports the DevTools frontend revision matching the WebView; the portal
-   serves that frontend from a cache of its own, fetching it from Google's
-   frontend host on first use, so a session's VPN, bandwidth limit or offline
-   mode doesn't affect it. Chromium snapshot builds report no revision, so
+   serves that frontend from a cache of its own in its storage, fetched from
+   Google's frontend host ahead of time for every Chromium and WebView build
+   it lists, so a session's VPN, bandwidth limit or offline mode doesn't
+   affect it. Chromium snapshot builds report no revision, so
    the agent uses the `frontend` tag
    of the [WebView build](/holtdroid/concepts/webview-versions/) or of the
    [Chromium build](/holtdroid/sources/chromium/) the session started with.

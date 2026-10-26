@@ -39,7 +39,6 @@ func (s *Server) proxy(w http.ResponseWriter, r *http.Request) {
 			rev, file, _ := strings.Cut(rest, "/")
 			r.SetPathValue("rev", rev)
 			r.SetPathValue("file", file)
-			s.frontend.Warm(rev)
 			s.frontend.ServeHTTP(w, r)
 			return
 		}

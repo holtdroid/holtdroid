@@ -615,6 +615,13 @@ func (s *Server) refreshSource(ctx context.Context, name string) {
 			s.enqueueWarm(name, a, n < s.cfg.Cache.Warm)
 			n++
 		}
+		s.warmFrontend(a)
+	}
+}
+
+func (s *Server) warmFrontend(a source.Artifact) {
+	if rev := validFrontend(a.Meta.Tags["frontend"]); rev != "" && s.frontend != nil {
+		s.frontend.Warm(rev)
 	}
 }
 

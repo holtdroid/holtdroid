@@ -3749,15 +3749,21 @@ DevTools could never load.
 **Decision.** `internal/frontend` (the cache moved out of the agent) runs in
 the api. The proxy answers `GET /s/{provider}/{id}/devtools-frontend/@{rev}/…`
 itself for an existing session, from `os.TempDir()/holtdroid/devtools-frontend`
-(a re-fillable cache, like the APK cache), and starts a background crawl of
-the revision from `inspector.html`. The agent and the physical provider lose
+(a re-fillable cache, like the APK cache). A revision is crawled in the
+background from `inspector.html` with lower priority than the browser's own
+requests, and a complete crawl is archived in the api's `storage`
+(`devtools-frontend/@{rev}.tar.gz`), where the next api process restores
+it from in seconds. Crawls also start ahead of any session: for every
+source artifact tagged with a `frontend` and for every WebView build in the
+catalog. The agent and the physical provider lose
 their `DevToolsFrontend` setting and route. `devToolsFrontend` (api config)
 set to empty keeps the old path: the request goes to the agent, which is how
 the fake provider serves its placeholder (`holtdroid dev` sets it empty).
 
-**Consequences.** Needs outbound HTTPS from the api only. The cache is per api
-replica and lost on restart; the first open of a revision after that is cold
-again, but no longer depends on the session.
+**Consequences.** Needs outbound HTTPS from the api only. The on-disk cache
+is per api replica and lost on restart, but the archive in `storage` makes
+a restart or a second replica warm again in seconds; only a revision nobody
+has crawled yet is cold (about a minute against upstream).
 
 ## 124. Eviction keeps parsed metadata; unparsed APKs are indexed without being kept
 

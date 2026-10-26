@@ -427,9 +427,15 @@ codecs and reports that it can't capture audio.
   many such requests at once, while DevTools loads hundreds of files on
   start, so the api fetches at most 6 files at a time and retries 429, 5xx
   and broken transfers up to 5 times with backoff (1, 2, 4, 8 s); a file that
-  still fails is a logged 502. The first request for a revision also starts
-  a background crawl from `inspector.html` that fetches every file it
-  references, so later files are already cached.
+  still fails is a logged 502. A revision is also crawled in the background
+  from `inspector.html` through every file it references (3 of the 6 slots
+  at most, so the browser's own requests come first), and a crawl that got
+  every file is archived as `devtools-frontend/@{rev}.tar.gz` in the api's
+  `storage`; a later api restores a revision from there instead of
+  crawling. Crawls start from the first request for a revision, from every
+  artifact whose sidecar tags a `frontend` (Chromium builds) when a source
+  is polled, and from the WebView catalog every 15 minutes, so a build is
+  ready to debug before its first session.
 - Everything is same-origin (`/s/{provider}/{id}/…` on the api host). This matters
   because forward-auth cookies (SameSite=Lax) are not sent on WebSockets
   opened from a cross-site iframe.

@@ -61,6 +61,7 @@ type Server struct {
 	queue          *launchQueue
 	agentTransport http.RoundTripper
 	frontend       *frontend.Cache
+	tmpDir         string
 	now            func() time.Time
 	log            *slog.Logger
 }
@@ -70,6 +71,8 @@ type Option func(*Server)
 func WithClock(now func() time.Time) Option { return func(s *Server) { s.now = now } }
 
 func WithUI(ui fs.FS) Option { return func(s *Server) { s.ui = ui } }
+
+func WithTempDir(dir string) Option { return func(s *Server) { s.tmpDir = dir } }
 
 func WithSecrets(reg *secrets.Registry) Option { return func(s *Server) { s.secrets = reg } }
 
@@ -100,6 +103,7 @@ func New(ctx context.Context, cfg Config, opts ...Option) (*Server, error) {
 		launches:       newLaunches(),
 		queue:          newLaunchQueue(2 * time.Second),
 		agentTransport: telemetry.Transport(nil),
+		tmpDir:         os.TempDir(),
 		log:            slog.Default().With("component", "api"),
 	}
 	s.agents = newAgentURLs(5*time.Second, func() time.Time { return s.now() })
@@ -113,7 +117,7 @@ func New(ctx context.Context, cfg Config, opts ...Option) (*Server, error) {
 		s.secrets = secrets.NewRegistry()
 	}
 	if cfg.DevToolsFrontend != "" {
-		s.frontend = frontend.New(cfg.DevToolsFrontend, filepath.Join(os.TempDir(), "holtdroid", "devtools-frontend"), s.log)
+		s.frontend = frontend.New(cfg.DevToolsFrontend, filepath.Join(s.tmpDir, "holtdroid", "devtools-frontend"), s.store, s.log)
 	}
 	for _, sc := range cfg.Sources {
 		store, err := storage.New(ctx, sc.Storage(), s.secrets)

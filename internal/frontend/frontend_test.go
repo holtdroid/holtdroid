@@ -1,6 +1,7 @@
 package frontend
 
 import (
+	"context"
 	"io"
 	"log/slog"
 	"net/http"
@@ -13,6 +14,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/holtdroid/holtdroid/internal/storage"
 )
 
 func TestFrontendCache(t *testing.T) {
@@ -29,7 +32,7 @@ func TestFrontendCache(t *testing.T) {
 
 	dir := t.TempDir()
 	mux := http.NewServeMux()
-	mux.Handle("GET /devtools-frontend/{rev}/{file...}", New(upstream.URL+"/serve_rev", dir, slog.New(slog.DiscardHandler)))
+	mux.Handle("GET /devtools-frontend/{rev}/{file...}", New(upstream.URL+"/serve_rev", dir, nil, slog.New(slog.DiscardHandler)))
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 
@@ -91,7 +94,7 @@ func TestFrontendRetriesAColdUpstream(t *testing.T) {
 	}))
 	defer upstream.Close()
 
-	f := New(upstream.URL+"/serve_rev", t.TempDir(), slog.New(slog.DiscardHandler))
+	f := New(upstream.URL+"/serve_rev", t.TempDir(), nil, slog.New(slog.DiscardHandler))
 	f.backoff = time.Millisecond
 	mux := http.NewServeMux()
 	mux.Handle("GET /devtools-frontend/{rev}/{file...}", f)
@@ -148,7 +151,7 @@ func TestFrontendWarm(t *testing.T) {
 	defer upstream.Close()
 
 	dir := t.TempDir()
-	f := New(upstream.URL+"/serve_rev", dir, slog.New(slog.DiscardHandler))
+	f := New(upstream.URL+"/serve_rev", dir, nil, slog.New(slog.DiscardHandler))
 	f.Warm("0123456789abcdef")
 	f.Warm("@0123456789abcdef")
 	for file := range files {
@@ -163,5 +166,62 @@ func TestFrontendWarm(t *testing.T) {
 			}
 			time.Sleep(10 * time.Millisecond)
 		}
+	}
+}
+
+func TestFrontendArchivedAndRestoredThroughTheStore(t *testing.T) {
+	files := map[string]string{
+		"/inspector.html":         `<script type="module" src="./entrypoints/app/app.js"></script>`,
+		"/entrypoints/app/app.js": `import "../../core/a.js"; import("../../missing.js")`,
+		"/core/a.js":              `export const a = 1`,
+	}
+	var hits atomic.Int32
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits.Add(1)
+		body, ok := files[strings.TrimPrefix(r.URL.Path, "/serve_rev/@0123456789abcdef")]
+		if !ok {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = io.WriteString(w, body)
+	}))
+	defer upstream.Close()
+	store, err := storage.NewFilesystem(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	first := New(upstream.URL+"/serve_rev", t.TempDir(), store, slog.New(slog.DiscardHandler))
+	first.Warm("0123456789abcdef")
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		if _, err := store.Stat(context.Background(), "devtools-frontend/@0123456789abcdef.tar.gz"); err == nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("revision was not archived")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	upstreamHits := hits.Load()
+
+	second := New(upstream.URL+"/serve_rev", t.TempDir(), store, slog.New(slog.DiscardHandler))
+	mux := http.NewServeMux()
+	mux.Handle("GET /devtools-frontend/{rev}/{file...}", second)
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	for _, file := range []string{"/inspector.html", "/core/a.js"} {
+		resp, err := http.Get(srv.URL + "/devtools-frontend/@0123456789abcdef" + file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK || string(body) != files[file] {
+			t.Fatalf("%s from the archive: %d %s", file, resp.StatusCode, body)
+		}
+	}
+	if hits.Load() != upstreamHits {
+		t.Fatalf("the second cache went upstream %d times", hits.Load()-upstreamHits)
 	}
 }

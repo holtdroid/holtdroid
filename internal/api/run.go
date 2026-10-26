@@ -29,6 +29,9 @@ func (s *Server) Run(ctx context.Context) {
 	if s.references != nil {
 		go s.referencesLoop(ctx)
 	}
+	if s.frontend != nil && s.webviews != nil {
+		go s.webviewFrontendLoop(ctx)
+	}
 
 	for {
 		select {
@@ -108,6 +111,29 @@ func (s *Server) Flush(ctx context.Context) {
 		}
 	}
 }
+
+// webviewFrontendLoop warms the DevTools frontend of every WebView build in
+// the catalog, so a build is ready to debug before anyone launches it.
+func (s *Server) webviewFrontendLoop(ctx context.Context) {
+	ticker := time.NewTicker(webviewFrontendInterval)
+	defer ticker.Stop()
+	for {
+		for _, src := range s.webviews.srcs {
+			if items, err := src.List(ctx); err == nil {
+				for _, a := range items {
+					s.warmFrontend(a)
+				}
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
+const webviewFrontendInterval = 15 * time.Minute
 
 func (s *Server) warmLoop(ctx context.Context) {
 	for {
