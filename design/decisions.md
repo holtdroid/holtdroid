@@ -3802,9 +3802,8 @@ in them are prefixed with the catalog's index, so the first catalog's IDs
 don't change. A sidecar's `package` tag names the provider;
 `WebViewInstall.package` carries it to the agent, which installs the build
 and runs `cmd webviewupdate set-webview-implementation` when it isn't
-`com.android.webview`. Quick launch keeps defaulting to the newest stable
-Chromium build (decision #121), or to the newest stable Google WebView build
-when the catalogs hold no Chromium ones.
+`com.android.webview`. Quick launch's default (decision #121) ignores the
+provider: it is the newest stable build of any catalog, Chromium or Google.
 
 **Consequences.** Sessions can test pages with proprietary codecs in a
 current WebView. Google builds follow APKMirror's uploads, so some

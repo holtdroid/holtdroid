@@ -59,9 +59,7 @@ export function useLaunchTarget(
   const catalog = useWebViews(webviewCapable)
   const level = android ? apiLevels[android] : undefined
   const webviews = webviewCapable ? (catalog.data ?? []).filter((w) => !level || w.minSdk <= level) : []
-  const chromium = webviews.filter((w) => w.package === "com.android.webview")
-  const preferred = chromium.length > 0 ? chromium : webviews
-  const newestStable = preferred.find((w) => w.channels.includes("stable")) ?? preferred[0]
+  const newestStable = webviews.find((w) => w.channels.includes("stable")) ?? webviews[0]
   const known = (id: string | null): id is string => id === "" || (id !== null && webviews.some((w) => w.id === id))
   const remembered = restoreWebView ? lastWebView(provider?.name ?? "") : null
   const webview = known(chosenWebView)
