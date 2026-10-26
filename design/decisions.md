@@ -3914,3 +3914,25 @@ the builds; the app's card shows the first two lines.
 limited to admins later, it's one check in the handler. Plain text only: no
 Markdown, so nothing to sanitize.
 
+
+## 130. Chrome and Chromium start without the welcome screens and as the default browser
+
+**Context.** Every session of a browser build (the `chromium` source, Google
+Chrome uploads) opened on Chrome's "Welcome to Chrome" flow: terms, sign-in,
+notifications, default browser. With a fresh device per session that is the
+same clicks every time, and links from other apps asked which browser to use.
+
+**Decision.** After each install of the session's APK the agent writes
+`chrome-command-line` with `--disable-fre --no-default-browser-check
+--disable-search-engine-choice-screen` to both `/data/local/tmp` (read by
+userdebug images and debuggable builds) and `/data/local` (read otherwise,
+root-only, so phones go through `su`), and runs
+`cmd role add-role-holder android.app.role.BROWSER <package>`. Both are
+best effort and harmless for apps that aren't browsers: the file is only read
+by Chrome and Chromium, and the role is refused for a package without a
+browser activity. Runtime permissions were already granted by `install -g`.
+
+**Consequences.** No APK change and no UI automation. The flags file stays on
+the device for the whole session, so a second browser installed by hand
+skips its welcome screens too. Per-site permission prompts (camera,
+location) still come from the page and stay.

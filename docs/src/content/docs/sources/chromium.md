@@ -92,6 +92,9 @@ The job needs outbound HTTPS to `chromiumdash.appspot.com` and
   passes the build's `frontend` tag (the milestone's Canary commit) to the
   session, so the DevTools panel opens the browser's tabs with that
   frontend. It can differ from the build by a few commits.
+- Sessions skip Chrome's welcome screens (`--disable-fre` in
+  `chrome-command-line`) and make the browser the default one, so links
+  from other apps open in it. Runtime permissions are granted at install.
 - Two builds of the same package can't be installed side by side: to
   compare milestones, start one session per milestone.
 - Chromium 157 and later draw only through Vulkan 1.3 features. The Android

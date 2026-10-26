@@ -259,7 +259,8 @@ func TestAgentLifecycle(t *testing.T) {
 	h.dev.mu.Lock()
 	installs, shells = h.dev.installs, strings.Join(h.dev.shells, ";")
 	h.dev.mu.Unlock()
-	if installs != 2 || !strings.Contains(shells, "pm uninstall com.example.shop") {
+	if installs != 2 || !strings.Contains(shells, "pm uninstall com.example.shop") ||
+		strings.Count(shells, "android.app.role.BROWSER com.example.shop") != 2 || !strings.Contains(shells, "--disable-fre") {
 		t.Fatalf("reinstall: installs %d, shells %s", installs, shells)
 	}
 

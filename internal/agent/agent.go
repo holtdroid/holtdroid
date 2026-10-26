@@ -323,7 +323,7 @@ func (a *Agent) run(ctx context.Context) error {
 	defer func() { os.Remove(apk) }()
 	if !a.cfg.Resume {
 		a.setStatus(contract.StateInstalling, "Installing the APK")
-		if err := a.dev.Install(ctx, apk); err != nil {
+		if err := a.installApp(ctx, apk); err != nil {
 			return err
 		}
 		if a.cfg.AppData.URL != "" {
@@ -447,7 +447,7 @@ func (a *Agent) handle(ctx context.Context, req appRequest, apk *string) error {
 	if _, err := a.dev.Shell(ctx, "pm uninstall "+a.cfg.Package); err != nil {
 		a.log.Warn("uninstall", "err", err)
 	}
-	return a.dev.Install(ctx, *apk)
+	return a.installApp(ctx, *apk)
 }
 
 // install replaces the app with another build. When that fails the previous
@@ -465,10 +465,10 @@ func (a *Agent) install(ctx context.Context, req contract.Install, apk *string) 
 		}
 	}
 	a.setStatus(contract.StateInstalling, "Installing the new build")
-	if err := a.dev.Install(ctx, next); err != nil {
+	if err := a.installApp(ctx, next); err != nil {
 		os.Remove(next)
 		if !req.KeepData {
-			if rerr := a.dev.Install(ctx, *apk); rerr != nil {
+			if rerr := a.installApp(ctx, *apk); rerr != nil {
 				a.log.Warn("put the previous build back", "err", rerr)
 			}
 		}
