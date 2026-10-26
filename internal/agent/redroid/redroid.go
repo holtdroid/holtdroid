@@ -97,6 +97,13 @@ const allowHomeRotation = `for p in com.google.android.apps.nexuslauncher com.an
 done
 am start -a android.intent.action.MAIN -c android.intent.category.HOME >/dev/null`
 
+// LockScreenOverlay turns off config_disableLockscreenByDefault, which
+// redroid builds with, so locking the screen shows a lock screen (Android 12
+// and later; Android 11 can't fabricate overlays and fails quietly). Done at
+// boot: the configuration change it causes put the screen back to sleep when
+// it came with the first lock.
+const LockScreenOverlay = `cmd overlay list android | grep -q holtdroid_lock || cmd overlay fabricate --target android --name holtdroid_lock android:bool/config_disableLockscreenByDefault 0x12 0 >/dev/null 2>&1 && cmd overlay enable --user 0 com.android.shell:holtdroid_lock; true`
+
 const fridaRemote = "/data/local/tmp/frida-server"
 
 func (r *Redroid) prepare(ctx context.Context) error {
@@ -115,6 +122,9 @@ func (r *Redroid) prepare(ctx context.Context) error {
 		if _, err := r.adb.Shell(ctx, "cmd overlay enable --user 0 com.android.internal.display.cutout.emulation."+c); err != nil {
 			r.log.Warn("could not enable the display cutout", "cutout", c, "err", err)
 		}
+	}
+	if _, err := r.adb.Shell(ctx, LockScreenOverlay); err != nil {
+		r.log.Warn("could not allow the lock screen", "err", err)
 	}
 	if _, err := r.adb.Shell(ctx, allowHomeRotation); err != nil {
 		r.log.Warn("could not allow home screen rotation", "err", err)

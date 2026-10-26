@@ -69,6 +69,7 @@ func TestPrepare(t *testing.T) {
 				want = append(want, Routes(cfg.Bypass))
 			}
 			want = append(want,
+				LockScreenOverlay,
 				allowHomeRotation,
 				"dumpsys battery set level 65 && dumpsys battery unplug && dumpsys battery set status 3 && dumpsys battery set present 1",
 				"push /opt/holtdroid/frida-server /data/local/tmp/frida-server",

@@ -3029,7 +3029,8 @@ app-op) and on Android 11 (`cmd location` has no providers command).
 **Decision.**
 - Lock: `cmd overlay fabricate` an overlay on `android` that turns
   `config_disableLockscreenByDefault` off (Android 12+, root may fabricate),
-  enabled on the first lock. Android 11 has no fabricated overlays, so the
+  enabled at boot: enabled with the first lock, its configuration change put
+  the screen back to sleep. Android 11 has no fabricated overlays, so the
   agent sets the PIN `0000` and unlock types it and clears it.
 - Wi-Fi and mobile data are the agent's own state on redroid, both on at
   start. The Frida script shows the Ethernet network to the app as Wi-Fi or
