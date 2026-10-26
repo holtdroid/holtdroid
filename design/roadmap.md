@@ -317,6 +317,7 @@ Goal: several Android devices per node instead of one emulator per node.
 - [x] Gesture navigation on redroid by default, switchable to the three buttons in the display card (decision #110)
 - [ ] redroid's status bar shows mobile data instead of Ethernet when only mobile data is on (no telephony stack)
 - [ ] The session wallpaper on redroid: find why attaching to `system_server` after the install breaks frida-server
+- [x] A quiet redroid home (decision #126): logo wallpaper and no search bar through holtdroid-redroid overlays, only the app under test on the home screen, browser clipboard without SystemUI's preview (`Clip.java`)
 - [ ] A session's root that can't reach the node: user namespaces were tried and dropped (decision #83); next candidates are a per-session binder allowlist from a node helper, token-authenticated frida-server and a non-root adbd for users
 
 ## Later

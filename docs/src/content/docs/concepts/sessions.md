@@ -42,6 +42,11 @@ again; restart, reinstall and **Save app data now** sit next to it. Starting
 it from the device's app drawer works as well; DevTools and clipboard sync
 attach either way.
 
+On emulator sessions the home screen holds only the app under test, on a
+wallpaper with the Holtdroid logo; the system apps are in the app drawer
+and there is no search bar. Text pasted from the browser lands in the
+device's clipboard without Android's clipboard preview popping up.
+
 **Switch version** (click the app's name and icon in the session header)
 lists every build with the same application ID and installs the chosen one into the
 running device:

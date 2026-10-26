@@ -246,6 +246,9 @@ The agent (`internal/agent/redroid`):
    lets later builds downgrade). The generated session wallpaper (`system.js`
    drawing with `Canvas` inside `system_server`) is off on redroid
    (`noWallpaper`): attaching to `system_server` there breaks frida-server.
+   holtdroid-redroid's overlays show a static logo wallpaper and no search
+   bar instead, and the agent leaves only the app on Launcher3's home screen
+   by editing `launcher.db` (decision #126).
 3. Spawns the package under `agent.js`, which the session image build
    bundles from `frida/agent.ts`:
    - forces `WebView.setWebContentsDebuggingEnabled(true)`: the setter is

@@ -3804,3 +3804,39 @@ current WebView. Google builds follow APKMirror's uploads, so some
 versions are missing. The holtdroid-apkmirror-sync job fills the catalog;
 other deployments need a job of their own.
 
+## 126. Redroid's home screen holds only the app; the browser's clipboard skips SystemUI's preview
+
+**Context.** On redroid the first home screen showed QuickSearchBox's search
+bar, Gallery and a hotseat of system apps but not the app under test, since
+Launcher3 adds icons only for installs a user made through a store. Every
+paste from the browser popped up SystemUI's clipboard preview on Android 13
+and later, because scrcpy's set-clipboard is an ordinary clipboard change.
+The session wallpaper is off on redroid (#82), so the default AOSP wallpaper
+showed.
+
+**Decision.**
+- holtdroid-redroid builds two more static overlays: one on `android`
+  replaces `drawable/default_wallpaper` with the logo on a dark background
+  (`build/wallpaper.svg`), which the home and lock screens use while no
+  wallpaper is set; one on `com.android.launcher3` turns
+  `layout/search_container_workspace` into an empty view, so the first
+  screen keeps an empty row instead of the search bar. Disabling
+  QuickSearchBox only swaps the bar for Launcher3's own "Search" field.
+- After the first install the agent waits for Launcher3's `launcher.db`,
+  stops the launcher, deletes every item on the home screen, in the hotseat
+  and in their folders, and adds the app's launcher activity at row 1 of
+  the first screen (row 0 is the search bar's), then goes home. sqlite3 is
+  part of redroid's userdebug images.
+- On redroid the browser's text goes through `Clip.java` in the tools dex,
+  run as uid 2000 (`com.android.shell`), with
+  `com.android.systemui.SUPPRESS_CLIPBOARD_OVERLAY` in the clip's extras.
+  SystemUI honours that extra only from the shell package; it exists for
+  the Android Studio emulator's clipboard sync. scrcpy still reports the
+  device's clipboard changes. `device_config put systemui
+  clipboard_overlay_enabled false` was tried and did nothing on 13, 14 or 15.
+
+**Consequences.** A paste from the browser costs two pushes and an
+`app_process` start instead of one scrcpy message. Phones keep scrcpy's
+set-clipboard and their own launcher. The home screen edit relies on
+Launcher3's `favorites` schema, checked on 13 to 15 (11 and 12 untested); when it fails
+the session only keeps the stock home screen.

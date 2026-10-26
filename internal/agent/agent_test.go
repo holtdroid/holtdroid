@@ -232,6 +232,15 @@ func TestAgentLifecycle(t *testing.T) {
 	if clip := <-clips; clip != "hello from the browser" {
 		t.Fatalf("clip event %q", clip)
 	}
+	h.dev.mu.Lock()
+	shells := strings.Join(h.dev.shells, ";")
+	h.dev.mu.Unlock()
+	if !strings.Contains(shells, `su 2000 sh -c "CLASSPATH=/data/local/tmp/holtdroid-tools.dex app_process / Clip /data/local/tmp/holtdroid-clip-`) {
+		t.Fatalf("redroid's clipboard must skip SystemUI's preview: %s", shells)
+	}
+	if !strings.Contains(shells, "databases/launcher.db") || !strings.Contains(shells, "-a android.intent.action.MAIN com.example.shop |") {
+		t.Fatalf("the app is not put on the home screen: %s", shells)
+	}
 
 	app, _ := h.inst.current()
 	if code, _ := h.do(http.MethodPost, "/v1/app/restart", ""); code != http.StatusAccepted {
@@ -245,7 +254,7 @@ func TestAgentLifecycle(t *testing.T) {
 	}
 	waitFor(t, func() bool { _, n := h.inst.current(); return n == 3 })
 	h.dev.mu.Lock()
-	installs, shells := h.dev.installs, strings.Join(h.dev.shells, ";")
+	installs, shells = h.dev.installs, strings.Join(h.dev.shells, ";")
 	h.dev.mu.Unlock()
 	if installs != 2 || !strings.Contains(shells, "pm uninstall com.example.shop") {
 		t.Fatalf("reinstall: installs %d, shells %s", installs, shells)

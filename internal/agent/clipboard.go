@@ -9,6 +9,8 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -127,6 +129,36 @@ func (c *Clipboard) Set(ctx context.Context, text string) error {
 	case <-time.After(5 * time.Second):
 		return errors.New("set clipboard: the device did not confirm")
 	}
+}
+
+// setClipboard sets the clipboard as the shell user with SystemUI's
+// SUPPRESS_CLIPBOARD_OVERLAY extra, so redroid's Android 13+ doesn't show its
+// clipboard preview as it does for scrcpy's set-clipboard (decision #126).
+func (c *Controls) setClipboard(ctx context.Context, text string) error {
+	if len(text) > clipboardMax {
+		return fmt.Errorf("%w: the text is longer than %d bytes", contract.ErrInvalid, clipboardMax)
+	}
+	f, err := os.CreateTemp("", "holtdroid-clip-*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(f.Name())
+	_, err = f.WriteString(text)
+	if err = errors.Join(err, f.Chmod(0o644), f.Close()); err != nil {
+		return err
+	}
+	remote := "/data/local/tmp/" + filepath.Base(f.Name())
+	if err := c.dev.Push(ctx, c.toolsDex, toolsRemote); err != nil {
+		return err
+	}
+	if err := c.dev.Push(ctx, f.Name(), remote); err != nil {
+		return err
+	}
+	if _, err := c.dev.Shell(ctx, `su 2000 sh -c "CLASSPATH=`+toolsRemote+` app_process / Clip `+remote+`"`); err != nil {
+		_, _ = c.dev.Shell(ctx, "rm -f "+remote)
+		return fmt.Errorf("set clipboard: %w", err)
+	}
+	return nil
 }
 
 // readDeviceMessages parses scrcpy device messages: clipboard text, clipboard

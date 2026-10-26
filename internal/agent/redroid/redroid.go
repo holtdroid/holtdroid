@@ -101,6 +101,21 @@ const allowHomeRotation = `for p in com.google.android.apps.nexuslauncher com.an
 done
 am start -a android.intent.action.MAIN -c android.intent.category.HOME >/dev/null`
 
+// Home leaves only pkg on Launcher3's home screen, below the row its first
+// screen keeps for the search bar that holtdroid-redroid's overlay blanks
+// (decision #126). Launcher3 doesn't add icons for adb installs.
+func Home(pkg string) string {
+	return `l=com.android.launcher3; db=/data/data/$l/databases/launcher.db
+[ -d /data/data/$l ] || exit 0
+for i in $(seq 40); do [ -f $db ] && sqlite3 $db 'select 1 from favorites limit 0' 2>/dev/null && break; [ $i = 40 ] && exit 0; sleep 0.25; done
+c=$(cmd package resolve-activity --brief -c android.intent.category.LAUNCHER -a android.intent.action.MAIN ` + pkg + ` | tail -1)
+am force-stop $l
+sqlite3 $db 'delete from favorites where container in (select _id from favorites where itemType=2); delete from favorites where container in (-100,-101)'
+case $c in */*) sqlite3 $db "insert into favorites (_id,title,intent,container,screen,cellX,cellY,spanX,spanY,itemType,profileId,rank,restored,options,modified)
+  values ((select coalesce(max(_id),0)+1 from favorites),'','#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;launchFlags=0x10200000;component=$c;end',-100,0,0,1,1,1,0,0,0,0,0,0)";; esac
+am start -a android.intent.action.MAIN -c android.intent.category.HOME >/dev/null`
+}
+
 // WiFiProp is set by holtdroid-redroid once the image's simulated Wi-Fi is
 // up: two mac80211_hwsim radios, the access point and the mobile uplink in a
 // router namespace of their own (decision #105).

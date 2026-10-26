@@ -332,6 +332,11 @@ func (a *Agent) run(ctx context.Context) error {
 			}
 		}
 		a.setWallpaper(ctx, a.cfg.Session.ArtifactRef, apk)
+		if a.controls.redroid && packageName.MatchString(a.cfg.Package) {
+			if _, err := a.dev.Shell(ctx, redroid.Home(a.cfg.Package)); err != nil {
+				a.log.Warn("could not put the app on the home screen", "err", err)
+			}
+		}
 	}
 	if a.cfg.Location != "" && a.cfg.ClashAPI != "" {
 		if _, err := a.network.SetLocation(ctx, a.cfg.Location); err != nil {
@@ -729,7 +734,11 @@ func (a *Agent) Clipboard(context.Context) (string, error) {
 }
 
 func (a *Agent) SetClipboard(ctx context.Context, text string) error {
-	if err := a.clip.Set(ctx, text); err != nil {
+	set := a.clip.Set
+	if a.controls.redroid {
+		set = a.controls.setClipboard
+	}
+	if err := set(ctx, text); err != nil {
 		return err
 	}
 	a.onClip(text)

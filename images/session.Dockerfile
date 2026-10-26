@@ -39,9 +39,10 @@ RUN set -eux; \
     mv scrcpy-server /out/opt/scrcpy/scrcpy-server; \
     rm -f frida-server.xz
 
-# Locales.java and Geo.java run on the device through app_process (decision
-# #59): the system language, and test location providers on Android 11 where
-# `cmd location` has no providers command.
+# Locales.java, Geo.java and Clip.java run on the device through app_process
+# (decision #59): the system language, test location providers on Android 11
+# where `cmd location` has no providers command, and redroid's clipboard
+# without SystemUI's preview (decision #126).
 FROM --platform=$BUILDPLATFORM ${JDK_IMAGE} AS dex
 ARG R8_VERSION=9.5.26
 ARG R8_SHA256=3502f087388ce95bbf5254555927f09385dc2636873964d0bd53f3eaf4fb49ad
