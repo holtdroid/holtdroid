@@ -66,7 +66,7 @@ export function StreamWidget({ provider, id, live }: { provider: string; id: str
 
   const size = `${st.quality}p`
   const changed =
-    (audio.supported && !audio.on) ||
+    (audio.supported && !audio.wanted) ||
     codec !== defaultScreenPrefs.codec ||
     prefs.bitRate !== defaultScreenPrefs.bitRate ||
     st.changed
@@ -102,6 +102,7 @@ export function StreamWidget({ provider, id, live }: { provider: string; id: str
                   setScreenPrefs({
                     codec: defaultScreenPrefs.codec,
                     bitRate: defaultScreenPrefs.bitRate,
+                    audio: defaultScreenPrefs.audio,
                     ...st.reset(),
                   })
               : undefined

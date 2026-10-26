@@ -39,7 +39,7 @@ type Config struct {
 	ADB              string
 	Serial           string
 	Script           string
-	LocalesDex       string
+	ToolsDex         string
 	Scrcpy           ScrcpyConfig
 	ClashAPI         string
 	IPInfoURL        string
@@ -84,7 +84,7 @@ func DefaultConfig() Config {
 		Serial:           "127.0.0.1:5555",
 		FridaHost:        "127.0.0.1:27042",
 		Script:           "/opt/holtdroid/script",
-		LocalesDex:       "/opt/holtdroid/locales.dex",
+		ToolsDex:         "/opt/holtdroid/tools.dex",
 		Scrcpy:           DefaultScrcpyConfig(),
 		IPInfoURL:        "https://ipinfo.io/json",
 		DevToolsFrontend: "https://chrome-devtools-frontend.appspot.com/serve_rev/",
@@ -208,8 +208,9 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 }
 
 func newControls(cfg Config, dev Device, log *slog.Logger) *Controls {
-	c := NewControls(dev, cfg.LocalesDex, cfg.Root, cfg.RootShell)
+	c := NewControls(dev, cfg.ToolsDex, cfg.Root, cfg.RootShell)
 	c.usbNetwork = cfg.USBNetwork
+	c.redroid = cfg.Root && !cfg.RootShell
 	if cfg.Redroid.VPN {
 		c.shaper = netem.NewShaper(vpn.TunInterface, vpn.TunNetwork, log)
 	}

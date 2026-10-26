@@ -37,6 +37,7 @@ func defaultSettings() contract.DeviceState {
 		Locales:            []string{"en-US"},
 		CanFakeGeo:         true,
 		CanSimulateBattery: true,
+		CanSetTime:         true,
 		LanguageScope:      contract.LanguageSystem,
 		AutoTime:           true,
 	}

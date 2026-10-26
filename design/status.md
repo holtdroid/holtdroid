@@ -4,7 +4,7 @@ Snapshot for whoever continues the work — human or agent. Update the
 "Where things stand" and "Next steps" sections whenever a phase moves; the
 rest changes rarely.
 
-_Last updated: 2026-10-25._
+_Last updated: 2026-10-26._
 
 ## Where things stand
 
@@ -37,6 +37,13 @@ deployment"):
   `holtdroid-session:main` (`pullPolicy: Always`) so a push doesn't leave
   them waiting for the per-commit build; the session image build caches
   layers in `ghcr.io/holtdroid/holtdroid-session:buildcache`.
+- Device controls checked on every redroid version (11–15) on 2026-10-26
+  and fixed (decision #101): a real lock screen (PIN `0000` on 11), Wi-Fi
+  and mobile data as virtual radios the app under test sees through Frida,
+  battery level and charging in the status bar, brightness matching the
+  shade, fake GPS on 11–14, the stream card no longer flagged when the
+  device has no audio; the clock can't move on redroid (time zone only).
+  The status bar still shows Ethernet.
 - WebView versions at launch (decision #88): the launch dialog offers a
   Chromium WebView build per milestone (catalog `webview.storage`, filled
   by `holtdroid-webview-sync` from Chromium's x86_64 snapshots, Chromium

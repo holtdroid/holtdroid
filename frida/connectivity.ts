@@ -2,7 +2,7 @@ import Java from "frida-java-bridge"
 
 // A rooted session reaches the internet through the VpnService tunnel, which
 // Android registers with the VPN transport — apps can see that and some refuse
-// a VPN. relabelVpn() rewrites the active network's transport from VPN to
+// a VPN. relabel() rewrites the active network's transport from VPN to
 // Wi-Fi for the app under test, so it sees an ordinary Wi-Fi connection while
 // the real VPN network keeps carrying its data and DNS.
 //
@@ -10,15 +10,41 @@ import Java from "frida-java-bridge"
 // no network at all, so getActiveNetwork() returns null and some apps crash in
 // a network callback; fillWhenOffline() presents a synthetic validated Wi-Fi
 // network whenever the system genuinely has none. Every hook calls through to
-// the real method first, so both are a no-op on the emulator and on a phone
-// with an ordinary network.
+// the real method first, so both are a no-op on a phone with an ordinary
+// network.
+//
+// redroid has neither Wi-Fi nor a modem, only Ethernet: the agent keeps the
+// radios the user turned on in debug.holtdroid.network (wifi, mobile or none)
+// and the Ethernet network is shown to the app as that radio, or as no
+// network at all.
 
+const TYPE_MOBILE = 0
 const TYPE_WIFI = 1
+const TYPE_ETHERNET = 9
 const TYPE_VPN = 17
+const TRANSPORT_CELLULAR = 0
 const TRANSPORT_WIFI = 1
+const TRANSPORT_ETHERNET = 3
 const TRANSPORT_VPN = 4
+const NET_CAPABILITY_NOT_METERED = 11
 const NET_CAPABILITY_NOT_VPN = 15
+const NETWORK_TYPE_LTE = 13
+const WIFI_STATE_DISABLED = 1
 const WIFI_STATE_ENABLED = 3
+
+type Radio = "wifi" | "mobile" | "none"
+
+let props: Java.Wrapper | null = null
+
+function radio(): Radio {
+  try {
+    props ??= Java.use("android.os.SystemProperties")
+    const v: string = props.get.overload("java.lang.String").call(props, "debug.holtdroid.network")
+    return v === "mobile" || v === "none" ? v : "wifi"
+  } catch {
+    return "wifi"
+  }
+}
 
 const CAPABILITIES = [
   11, // NOT_METERED
@@ -62,39 +88,64 @@ function offline(cm: Java.Wrapper): boolean {
   }
 }
 
-// relabelVpn rewrites a VPN-transport network as Wi-Fi: the active network
-// keeps carrying data and DNS, but the app under test sees Wi-Fi instead of a
-// VPN. It flips the transport and the NOT_VPN capability on any VPN
-// NetworkCapabilities, and the type on any VPN NetworkInfo, so every path the
-// app inspects (getActiveNetworkInfo, getNetworkCapabilities, network
-// callbacks) agrees. Non-VPN networks pass through untouched.
-function relabelVpn() {
+// relabel rewrites a VPN-transport network as Wi-Fi, and an Ethernet one as
+// the radio that is on: the active network keeps carrying data and DNS, but
+// the app under test sees Wi-Fi or mobile data. It flips the transport and the
+// NOT_VPN and NOT_METERED capabilities on NetworkCapabilities, and the type on
+// NetworkInfo, so every path the app inspects (getActiveNetworkInfo,
+// getNetworkCapabilities, network callbacks) agrees. Other networks pass
+// through untouched.
+function relabel() {
   const NC = Java.use("android.net.NetworkCapabilities")
+  const shownAs = (caps: Java.Wrapper): number | null => {
+    if (caps.hasTransport(TRANSPORT_VPN)) return TRANSPORT_WIFI
+    if (caps.hasTransport(TRANSPORT_ETHERNET)) return radio() === "mobile" ? TRANSPORT_CELLULAR : TRANSPORT_WIFI
+    return null
+  }
   tryHook("hasTransport", () => {
     NC.hasTransport.implementation = function (t: number) {
-      if (!this.hasTransport(TRANSPORT_VPN)) return this.hasTransport(t)
-      if (t === TRANSPORT_VPN) return false
-      if (t === TRANSPORT_WIFI) return true
-      return this.hasTransport(t)
+      const as = shownAs(this)
+      if (as === null) return this.hasTransport(t)
+      if (t === TRANSPORT_VPN || t === TRANSPORT_ETHERNET) return false
+      return t === as || this.hasTransport(t)
+    }
+  })
+  tryHook("getTransportTypes", () => {
+    NC.getTransportTypes.implementation = function () {
+      const as = shownAs(this)
+      return as === null ? this.getTransportTypes() : Java.array("int", [as])
     }
   })
   tryHook("hasCapability", () => {
     NC.hasCapability.implementation = function (c: number) {
       const real = this.hasCapability(c)
-      return c === NET_CAPABILITY_NOT_VPN && !real ? true : real
+      if (c === NET_CAPABILITY_NOT_VPN && !real) return true
+      if (c === NET_CAPABILITY_NOT_METERED && shownAs(this) === TRANSPORT_CELLULAR) return false
+      return real
     }
   })
   const NI = Java.use("android.net.NetworkInfo")
+  const typeOf = (t: number) =>
+    t === TYPE_VPN ? TYPE_WIFI : t === TYPE_ETHERNET ? (radio() === "mobile" ? TYPE_MOBILE : TYPE_WIFI) : t
   tryHook("getType", () => {
     NI.getType.implementation = function () {
-      const t = this.getType()
-      return t === TYPE_VPN ? TYPE_WIFI : t
+      return typeOf(this.getType())
     }
   })
   tryHook("getTypeName", () => {
     NI.getTypeName.implementation = function () {
-      const n = this.getTypeName()
-      return n === "VPN" ? "WIFI" : n
+      const t = typeOf(this.getType())
+      return t === TYPE_MOBILE ? "MOBILE" : t === TYPE_WIFI ? "WIFI" : this.getTypeName()
+    }
+  })
+  tryHook("getSubtype", () => {
+    NI.getSubtype.implementation = function () {
+      return this.getType() === TYPE_ETHERNET && radio() === "mobile" ? NETWORK_TYPE_LTE : this.getSubtype()
+    }
+  })
+  tryHook("getSubtypeName", () => {
+    NI.getSubtypeName.implementation = function () {
+      return this.getType() === TYPE_ETHERNET && radio() === "mobile" ? "LTE" : this.getSubtypeName()
     }
   })
 }
@@ -108,52 +159,59 @@ function relabelVpn() {
 function spoofWifi() {
   const WM = Java.use("android.net.wifi.WifiManager")
   tryHook("isWifiEnabled", () => {
-    WM.isWifiEnabled.implementation = () => true
+    WM.isWifiEnabled.implementation = () => radio() === "wifi"
   })
   tryHook("getWifiState", () => {
-    WM.getWifiState.implementation = () => WIFI_STATE_ENABLED
+    WM.getWifiState.implementation = () => (radio() === "wifi" ? WIFI_STATE_ENABLED : WIFI_STATE_DISABLED)
   })
 
   const WI = Java.use("android.net.wifi.WifiInfo")
   const completed = Java.use("android.net.wifi.SupplicantState").COMPLETED.value
   tryHook("WifiInfo.getSSID", () => {
     WI.getSSID.implementation = function () {
+      if (radio() !== "wifi") return this.getSSID()
       const s = this.getSSID()
       return s === null || s === "<unknown ssid>" || s === "" ? '"AndroidWifi"' : s
     }
   })
   tryHook("WifiInfo.getBSSID", () => {
     WI.getBSSID.implementation = function () {
+      if (radio() !== "wifi") return this.getBSSID()
       const b = this.getBSSID()
       return b === null || b === "02:00:00:00:00:00" ? "02:1a:11:a0:b0:c0" : b
     }
   })
   tryHook("WifiInfo.getNetworkId", () => {
     WI.getNetworkId.implementation = function () {
+      if (radio() !== "wifi") return this.getNetworkId()
       const n = this.getNetworkId()
       return n === -1 ? 1 : n
     }
   })
   tryHook("WifiInfo.getSupplicantState", () => {
     WI.getSupplicantState.implementation = function () {
+      if (radio() !== "wifi") return this.getSupplicantState()
       const s = this.getSupplicantState()
       return s !== null && s.toString() === "COMPLETED" ? s : completed
     }
   })
   tryHook("WifiInfo.getRssi", () => {
     WI.getRssi.implementation = function () {
+      if (radio() !== "wifi") return this.getRssi()
       const r = this.getRssi()
       return r <= -127 ? -55 : r
     }
   })
   tryHook("WifiInfo.getLinkSpeed", () => {
     WI.getLinkSpeed.implementation = function () {
+      if (radio() !== "wifi") return this.getLinkSpeed()
       const r = this.getLinkSpeed()
       return r < 0 ? 150 : r
     }
   })
   tryHook("WifiInfo.getFrequency", () => {
     WI.getFrequency.implementation = function () {
+      if (radio() !== "wifi") return this.getFrequency()
       const r = this.getFrequency()
       return r < 0 ? 2412 : r
     }
@@ -179,7 +237,7 @@ function hideVpnInterface() {
 }
 
 export function spoofConnectivity() {
-  relabelVpn()
+  relabel()
   spoofWifi()
   hideVpnInterface()
 
@@ -195,10 +253,12 @@ export function spoofConnectivity() {
   const CM = Java.use("android.net.ConnectivityManager")
 
   CM.getActiveNetwork.implementation = function () {
+    if (radio() === "none") return null
     const real = this.getActiveNetwork()
     return real !== null ? real : network
   }
   CM.getActiveNetworkInfo.implementation = function () {
+    if (radio() === "none") return null
     const real = this.getActiveNetworkInfo()
     return real !== null && real.isConnected() ? real : info
   }

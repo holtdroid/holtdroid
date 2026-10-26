@@ -39,19 +39,21 @@ RUN set -eux; \
     mv scrcpy-server /out/opt/scrcpy/scrcpy-server; \
     rm -f frida-server.xz
 
-# Locales.java runs on the device through app_process (decision #59).
+# Locales.java and Geo.java run on the device through app_process (decision
+# #59): the system language, and test location providers on Android 11 where
+# `cmd location` has no providers command.
 FROM --platform=$BUILDPLATFORM ${JDK_IMAGE} AS dex
 ARG R8_VERSION=9.5.26
 ARG R8_SHA256=3502f087388ce95bbf5254555927f09385dc2636873964d0bd53f3eaf4fb49ad
 WORKDIR /src
-COPY images/session/Locales.java ./
+COPY images/session/*.java ./
 RUN set -eux; \
     curl -fsSLo r8.jar "https://dl.google.com/dl/android/maven2/com/android/tools/r8/$R8_VERSION/r8-$R8_VERSION.jar"; \
     echo "$R8_SHA256  r8.jar" | sha256sum -c -; \
-    javac --release 11 -d classes Locales.java; \
+    javac --release 11 -d classes *.java; \
     mkdir -p dex /out/opt/holtdroid; \
-    java -cp r8.jar com.android.tools.r8.D8 --release --min-api 30 --lib "$JAVA_HOME" --output dex classes/Locales.class; \
-    mv dex/classes.dex /out/opt/holtdroid/locales.dex
+    java -cp r8.jar com.android.tools.r8.D8 --release --min-api 30 --lib "$JAVA_HOME" --output dex classes/*.class; \
+    mv dex/classes.dex /out/opt/holtdroid/tools.dex
 
 FROM --platform=$BUILDPLATFORM ${BUN_IMAGE} AS script
 WORKDIR /opt/holtdroid/script

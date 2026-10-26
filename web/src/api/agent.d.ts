@@ -492,6 +492,8 @@ export interface components {
              */
             brightness: number;
             canFakeGeo: boolean;
+            /** @description the device clock can be moved off real time; redroid shares the server's clock */
+            canSetTime: boolean;
             /** @description the battery level and charging can be set; battery saver works everywhere */
             canSimulateBattery: boolean;
             charging: boolean;

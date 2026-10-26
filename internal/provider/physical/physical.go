@@ -105,9 +105,9 @@ type AgentConfig struct {
 	Scrcpy           agent.ScrcpyConfig
 	DevToolsFrontend string
 	CacheDir         string
-	// LocalesDex sets the system language on rooted phones (app_process);
+	// ToolsDex sets the system language on rooted phones (app_process);
 	// non-root phones set only the app's language instead.
-	LocalesDex string
+	ToolsDex string
 	// FridaScript is the directory with the agent's Frida bundles
 	// (agent.js, system.js), used for root sessions.
 	FridaScript string
@@ -124,7 +124,7 @@ func DefaultConfig() Config {
 		Refresh:      5 * time.Second,
 		ResetTimeout: 5 * time.Minute,
 		Phone:        phone.DefaultConfig(),
-		Agent:        AgentConfig{Scrcpy: a.Scrcpy, DevToolsFrontend: a.DevToolsFrontend, CacheDir: a.CacheDir, LocalesDex: a.LocalesDex, FridaScript: a.Script},
+		Agent:        AgentConfig{Scrcpy: a.Scrcpy, DevToolsFrontend: a.DevToolsFrontend, CacheDir: a.CacheDir, ToolsDex: a.ToolsDex, FridaScript: a.Script},
 		VPN:          vpn.DefaultConfig(),
 		SingBox:      "sing-box",
 		Tunnel:       TunnelConfig{APK: "/opt/holtdroid/holtdroid-tunnel.apk", Port: 29180, IPv6: true},
@@ -584,13 +584,13 @@ func (p *Provider) start(s contract.Session, artifactURL string, rec *contract.R
 	cfg.Root = root
 	cfg.RootShell = root
 	if root {
-		cfg.LocalesDex = p.cfg.Agent.LocalesDex
+		cfg.ToolsDex = p.cfg.Agent.ToolsDex
 		cfg.Script = p.cfg.Agent.FridaScript
 		cfg.AppLanguage = false
 		cfg.Geo = geoFixes(p.cfg.VPN)
 		cfg.NoWallpaper = true
 	} else {
-		cfg.LocalesDex = ""
+		cfg.ToolsDex = ""
 		cfg.AppLanguage = true
 	}
 	cfg.Resume = resume

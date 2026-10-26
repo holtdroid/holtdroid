@@ -2,7 +2,7 @@
 # phones can be instrumented (decision #67). Carries adb from platform-tools,
 # scrcpy-server, sing-box and the Holtdroid Tunnel APK for every phone, plus
 # the device-side pieces root mode needs: an arm64 frida-server, a static
-# arm64 sing-box for the transparent tun, the locales dex and the Frida
+# arm64 sing-box for the transparent tun, the tools dex and the Frida
 # bundles. linux/amd64 only (platform-tools for Linux is x86_64 only).
 
 ARG GO_SOURCE=build
@@ -41,20 +41,21 @@ RUN set -eux; \
     chmod 755 /out/opt/holtdroid/frida-server; \
     rm -f platform-tools.zip sing-box.tar.gz frida-server.xz
 
-# Locales.java runs on the device through app_process (decision #59) for the
-# system language on rooted phones.
+# Locales.java and Geo.java run on the device through app_process (decision
+# #59): the system language on rooted phones, test location providers on
+# Android 11.
 FROM --platform=$BUILDPLATFORM ${JDK_IMAGE} AS dex
 ARG R8_VERSION=9.5.26
 ARG R8_SHA256=3502f087388ce95bbf5254555927f09385dc2636873964d0bd53f3eaf4fb49ad
 WORKDIR /src
-COPY images/session/Locales.java ./
+COPY images/session/*.java ./
 RUN set -eux; \
     curl -fsSLo r8.jar "https://dl.google.com/dl/android/maven2/com/android/tools/r8/$R8_VERSION/r8-$R8_VERSION.jar"; \
     echo "$R8_SHA256  r8.jar" | sha256sum -c -; \
-    javac --release 11 -d classes Locales.java; \
+    javac --release 11 -d classes *.java; \
     mkdir -p dex /out/opt/holtdroid; \
-    java -cp r8.jar com.android.tools.r8.D8 --release --min-api 30 --lib "$JAVA_HOME" --output dex classes/Locales.class; \
-    mv dex/classes.dex /out/opt/holtdroid/locales.dex
+    java -cp r8.jar com.android.tools.r8.D8 --release --min-api 30 --lib "$JAVA_HOME" --output dex classes/*.class; \
+    mv dex/classes.dex /out/opt/holtdroid/tools.dex
 
 # Static arm64 sing-box for the phone's transparent tun tunnel (root mode).
 # The official linux-arm64 release is glibc-dynamic and won't run on Android;

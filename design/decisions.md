@@ -3008,3 +3008,50 @@ car on a route with one corner, under 1% walking). The `Location` still has
 no speed field (decision #98); the speed only shows in how fast the position
 moves. Road speed limits and stops at junctions are not modelled.
 
+## 101. Device controls on redroid: virtual radios, a fabricated lock screen, no clock
+
+**Context.** Checked on every redroid version (11–15) on 2026-10-26: the
+lock key put the screen to sleep and woke it straight into the app, because
+redroid sets `config_disableLockscreenByDefault` and `locksettings
+set-disabled false` doesn't override a config default; the Wi-Fi toggle did
+nothing (no Wi-Fi HAL, only Ethernet) and `svc data` failed without a
+`phone` service; `dumpsys battery` reported `present: false`, so the status
+bar showed a question mark and ignored the level, and Android 11 and 12 have
+no `dumpsys battery get`; the brightness was written linearly while the
+shade's slider is on Android's HLG gamma curve (10% showed as about 40%);
+`cmd alarm set-time` silently does nothing; fake GPS failed on Android
+12–14 (the agent's adbd is uid 0, but only uid 2000 had the mock-location
+app-op) and on Android 11 (`cmd location` has no providers command).
+
+**Decision.**
+- Lock: `cmd overlay fabricate` an overlay on `android` that turns
+  `config_disableLockscreenByDefault` off (Android 12+, root may fabricate),
+  enabled on the first lock. Android 11 has no fabricated overlays, so the
+  agent sets the PIN `0000` and unlock types it and clears it.
+- Wi-Fi and mobile data are the agent's own state on redroid, both on at
+  start. The Frida script shows the Ethernet network to the app as Wi-Fi or
+  mobile data (`debug.holtdroid.network`, readable by apps), and with no
+  radio or in airplane mode an `ip rule` (`pref 8990`, every uid but root,
+  `unreachable`) takes the network away. A real Wi-Fi would need
+  `mac80211_hwsim` in the node's kernel, which is out of reach of a Pod.
+- Battery: `present 1` with every simulated change and at boot; state from
+  the full `dumpsys battery`.
+- Brightness: the percentage is the slider's (gamma) position, set with
+  `cmd display set-brightness` and the slider's minimum (the display's
+  current minimum since Android 12, the settings minimum on 11); the int
+  setting is too coarse at the low end, so the agent reports the last
+  percentage it set while the setting still matches it.
+- Time: the clock can't move without `CAP_SYS_TIME` on the node, and moving
+  it would move the node's clock, so `DeviceState.canSetTime` is false on
+  redroid and the UI offers only the time zone.
+- GPS: the mock-location app-op for uid 0 as well; on Android 11
+  `images/session/Geo.java` (in the dex of decision #59, now `tools.dex`)
+  calls `ILocationManager`'s test-provider methods as the shell uid.
+
+**Consequences.** The status bar and quick settings of redroid still show
+Ethernet; only the app under test sees Wi-Fi or mobile data. The
+app-level view of the network is as good as the Frida hooks
+(`NetworkCapabilities`, `NetworkInfo`, `WifiManager`, `WifiInfo`). On Android
+11 a locked screen asks for `0000`. A shifted clock on redroid would have to
+be faked per process (Frida in the app, which can't reach the WebView's
+sandboxed renderer) and is not done.

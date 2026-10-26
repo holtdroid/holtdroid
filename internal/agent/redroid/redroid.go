@@ -119,7 +119,7 @@ func (r *Redroid) prepare(ctx context.Context) error {
 	if _, err := r.adb.Shell(ctx, allowHomeRotation); err != nil {
 		r.log.Warn("could not allow home screen rotation", "err", err)
 	}
-	if _, err := r.adb.Shell(ctx, "dumpsys battery unplug && dumpsys battery set status 3 && dumpsys battery set level 65"); err != nil {
+	if _, err := r.adb.Shell(ctx, "dumpsys battery set present 1 && dumpsys battery unplug && dumpsys battery set status 3 && dumpsys battery set level 65"); err != nil {
 		r.log.Warn("could not set the battery", "err", err)
 	}
 	if err := r.adb.Push(ctx, r.cfg.FridaServer, fridaRemote); err != nil {

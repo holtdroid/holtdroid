@@ -73,6 +73,7 @@ export function useDeviceAudio(provider: string, id: string, live: LiveScreen) {
 
   return {
     supported: supported === true,
+    wanted,
     on,
     connected,
     status,

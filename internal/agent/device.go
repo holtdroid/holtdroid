@@ -21,11 +21,12 @@ import (
 // Controls reads and changes device settings through adb shell.
 type Controls struct {
 	dev        Device
-	localesDex string
+	toolsDex   string
 	appLocales string
 	usbNetwork bool
 	root       bool
 	su         bool
+	redroid    bool
 	now        func() time.Time
 
 	shaper    networkShaper
@@ -39,6 +40,11 @@ type Controls struct {
 	tzOverride  bool
 	vpnTZ       string
 	unmuteTo    int
+	brightness  int
+	apiLevel    int
+	lockPIN     bool
+	wifi        bool
+	mobileData  bool
 }
 
 type networkShaper interface {
@@ -55,13 +61,13 @@ func (c *Controls) resetNetwork(ctx context.Context) error {
 	return c.shaper.Close(ctx)
 }
 
-// NewControls changes the system language by running localesDex, a dex
+// NewControls changes the system language by running toolsDex, a dex
 // file on the agent's disk, with app_process; empty disables it.
 // NewControls fakes the GPS and simulates the battery when root is set;
 // su runs setting changes through su (a rooted phone), otherwise the shell is
 // already root (redroid) or the change needs none.
-func NewControls(dev Device, localesDex string, root, su bool) *Controls {
-	return &Controls{dev: dev, localesDex: localesDex, root: root || su, su: su, now: time.Now, routeTick: time.Second}
+func NewControls(dev Device, toolsDex string, root, su bool) *Controls {
+	return &Controls{dev: dev, toolsDex: toolsDex, root: root || su, su: su, now: time.Now, routeTick: time.Second, brightness: -1, wifi: true, mobileData: true}
 }
 
 // exec runs a setting-changing command, as root through su on a rooted phone.
@@ -76,9 +82,7 @@ const stateScript = `echo "airplane=$(settings get global airplane_mode_on)"
 echo "wifi=$(settings get global wifi_on)"
 echo "data=$(settings get global mobile_data)"
 echo "saver=$(settings get global low_power)"
-echo "level=$(dumpsys battery get level)"
-echo "ac=$(dumpsys battery get ac)"
-echo "usb=$(dumpsys battery get usb)"
+dumpsys battery | grep -E '^  (AC powered|USB powered|level):' | sed 's/^  /battery./; s/: /=/'
 echo "night=$(cmd uimode night)"
 echo "font=$(settings get system font_scale)"
 echo "brightness=$(settings get system screen_brightness)"
@@ -92,7 +96,11 @@ echo "productLocale=$(getprop ro.product.locale)"
 echo "locales=$(settings get system system_locales)"
 echo "autotime=$(settings get global auto_time)"
 echo "volume=$(cmd media_session volume --stream 3 --get 2>/dev/null | grep 'volume is')"
-echo "fps=$(dumpsys display | grep -o 'fps=[0-9.]*' | tr '\n' ' ')"
+display=$(dumpsys display)
+echo "fps=$(echo "$display" | grep -o 'fps=[0-9.]*' | tr '\n' ' ')"
+echo "$display" | grep -o -m1 'mCachedBrightnessInfo.brightnessMin=[0-9.]*'
+echo "sdk=$(getprop ro.build.version.sdk)"
+dumpsys power | grep -o -m1 'mScreenBrightnessSettingMinimumFloat=[0-9.]*'
 echo "musicMuted=$(dumpsys audio | grep -A1 -- '- STREAM_MUSIC:' | grep Muted)"`
 
 var (
@@ -122,23 +130,19 @@ func (c *Controls) State(ctx context.Context) (contract.DeviceState, error) {
 	if err != nil {
 		return contract.DeviceState{}, err
 	}
-	v := map[string]string{}
-	for line := range strings.SplitSeq(out, "\n") {
-		if k, val, ok := strings.Cut(strings.TrimSpace(line), "="); ok {
-			v[k] = strings.TrimSpace(val)
-		}
-	}
+	v := parseKV(out)
 	s := contract.DeviceState{
 		AirplaneMode: v["airplane"] == "1",
 		WiFi:         v["wifi"] == "1" || v["wifi"] == "2",
 		MobileData:   v["data"] != "0",
 		BatterySaver: v["saver"] == "1",
-		Charging:     v["ac"] == "true" || v["usb"] == "true",
+		Charging:     v["battery.AC powered"] == "true" || v["battery.USB powered"] == "true",
 		DarkMode:     strings.Contains(v["night"], ": yes"),
 		FontScale:    1,
 		TimeZone:     cmp.Or(v["tz"], "UTC"),
 		Locale:       cmp.Or(v["locale"], v["productLocale"], "en-US"),
 		AutoTime:     v["autotime"] != "0",
+		CanSetTime:   true,
 	}
 	for tag := range strings.SplitSeq(v["locales"], ",") {
 		if tag = strings.TrimSpace(tag); localeTagRe.MatchString(tag) && tag != "null" {
@@ -146,6 +150,12 @@ func (c *Controls) State(ctx context.Context) (contract.DeviceState, error) {
 		}
 	}
 	s.USBNetwork = c.usbNetwork
+	if c.redroid {
+		c.mu.Lock()
+		s.WiFi, s.MobileData = c.wifi, c.mobileData
+		c.mu.Unlock()
+		s.CanSetTime = false
+	}
 	c.mu.Lock()
 	s.TimeZoneOverride, s.VPNTimeZone = c.tzOverride, c.vpnTZ
 	c.mu.Unlock()
@@ -162,12 +172,18 @@ func (c *Controls) State(ctx context.Context) (contract.DeviceState, error) {
 	if len(s.Locales) == 0 {
 		s.Locales = []string{s.Locale}
 	}
-	s.BatteryLevel, _ = strconv.Atoi(v["level"])
+	s.BatteryLevel, _ = strconv.Atoi(v["battery.level"])
 	if f, err := strconv.ParseFloat(v["font"], 64); err == nil && f > 0 {
 		s.FontScale = f
 	}
 	if b, err := strconv.Atoi(v["brightness"]); err == nil {
-		s.Brightness = min(100, max(0, int(math.Round(float64(b)*100/255))))
+		low := brightnessMin(v)
+		c.mu.Lock()
+		s.Brightness = brightnessPercent(b, low)
+		if c.brightness >= 0 && brightnessSetting(c.brightness, low) == b {
+			s.Brightness = c.brightness
+		}
+		c.mu.Unlock()
 	}
 	s.AutoBrightness = v["autoBrightness"] == "1"
 	if m := physicalDensityRe.FindStringSubmatch(v["density"]); m != nil {
@@ -212,6 +228,96 @@ func (c *Controls) State(ctx context.Context) (contract.DeviceState, error) {
 		return contract.DeviceState{}, err
 	}
 	return s, nil
+}
+
+func parseKV(out string) map[string]string {
+	v := map[string]string{}
+	for line := range strings.SplitSeq(out, "\n") {
+		if k, val, ok := strings.Cut(strings.TrimSpace(line), "="); ok {
+			v[k] = strings.TrimSpace(val)
+		}
+	}
+	return v
+}
+
+const brightnessRangeScript = `echo "sdk=$(getprop ro.build.version.sdk)"
+dumpsys display | grep -o -m1 'mCachedBrightnessInfo.brightnessMin=[0-9.]*'
+dumpsys power | grep -o -m1 'mScreenBrightnessSettingMinimumFloat=[0-9.]*'`
+
+// brightnessMin is the lowest brightness the shade's slider goes down to:
+// the display's current minimum since Android 12, the settings minimum
+// before.
+func brightnessMin(v map[string]string) float64 {
+	key := "mCachedBrightnessInfo.brightnessMin"
+	if sdk, err := strconv.Atoi(v["sdk"]); err == nil && sdk <= 30 {
+		key = "mScreenBrightnessSettingMinimumFloat"
+	}
+	low, err := strconv.ParseFloat(v[key], 64)
+	if err != nil || low < 0 || low >= 1 {
+		return 0
+	}
+	return low
+}
+
+// The shade's brightness slider is in Android's gamma space (BrightnessUtils,
+// an HLG curve), so a percentage there is not a percentage of the linear
+// brightness the display and the settings store.
+const (
+	gammaR = 0.5
+	gammaA = 0.17883277
+	gammaB = 0.28466892
+	gammaC = 0.55991073
+)
+
+func gammaToLinear(gamma, low float64) float64 {
+	var r float64
+	if gamma <= gammaR {
+		r = (gamma / gammaR) * (gamma / gammaR)
+	} else {
+		r = math.Exp((gamma-gammaC)/gammaA) + gammaB
+	}
+	return low + (1-low)*min(max(r, 0), 12)/12
+}
+
+func linearToGamma(linear, low float64) float64 {
+	n := min(max((linear-low)/(1-low), 0), 1) * 12
+	if n <= 1 {
+		return math.Sqrt(n) * gammaR
+	}
+	return gammaA*math.Log(n-gammaB) + gammaC
+}
+
+// brightnessSetting is the 1–255 screen_brightness Android stores for a
+// slider percentage.
+func brightnessSetting(percent int, low float64) int {
+	return int(math.Round(1 + gammaToLinear(float64(percent)/100, low)*254))
+}
+
+func brightnessPercent(setting int, low float64) int {
+	linear := min(max(float64(setting-1)/254, 0), 1)
+	return min(100, max(0, int(math.Round(linearToGamma(linear, low)*100))))
+}
+
+// radiosScript stands in for Wi-Fi and mobile data on redroid, which has
+// neither: the app under test sees the network as the radio that is on (the
+// Frida script reads debug.holtdroid.network), and with both off or in
+// airplane mode only root keeps a route.
+func (c *Controls) radiosScript() string {
+	c.mu.Lock()
+	wifi, data := c.wifi, c.mobileData
+	c.mu.Unlock()
+	mode := "none"
+	switch {
+	case wifi:
+		mode = "wifi"
+	case data:
+		mode = "mobile"
+	}
+	return "m=" + mode + `
+[ "$(settings get global airplane_mode_on)" = 1 ] && m=none
+setprop debug.holtdroid.network $m
+while ip rule del pref 8990 2>/dev/null; do :; done
+[ $m != none ] || ip rule add pref 8990 not uidrange 0-0 unreachable`
 }
 
 // timeOffset compares the device clock with ours, taking the middle of the
@@ -260,10 +366,20 @@ func (c *Controls) Update(ctx context.Context, in contract.DeviceSettings) (cont
 	if in.AirplaneMode != nil {
 		add("cmd connectivity airplane-mode " + pick(*in.AirplaneMode, "enable", "disable"))
 	}
-	if in.WiFi != nil {
+	if c.redroid {
+		c.mu.Lock()
+		if in.WiFi != nil {
+			c.wifi = *in.WiFi
+		}
+		if in.MobileData != nil {
+			c.mobileData = *in.MobileData
+		}
+		c.mu.Unlock()
+	}
+	if !c.redroid && in.WiFi != nil {
 		add("svc wifi " + pick(*in.WiFi, "enable", "disable"))
 	}
-	if in.MobileData != nil {
+	if !c.redroid && in.MobileData != nil {
 		add("svc data " + pick(*in.MobileData, "enable", "disable"))
 	}
 	if !c.root && (in.Charging != nil || in.BatteryLevel != nil) {
@@ -272,6 +388,9 @@ func (c *Controls) Update(ctx context.Context, in contract.DeviceSettings) (cont
 	charging := in.Charging
 	if in.BatterySaver != nil && *in.BatterySaver && charging == nil {
 		charging = new(false)
+	}
+	if charging != nil || in.BatteryLevel != nil {
+		add("dumpsys battery set present 1")
 	}
 	if charging != nil {
 		if *charging {
@@ -306,7 +425,17 @@ func (c *Controls) Update(ctx context.Context, in contract.DeviceSettings) (cont
 		add("settings put system screen_brightness_mode 0")
 	}
 	if in.Brightness != nil {
-		add(fmt.Sprintf("settings put system screen_brightness %d", int(math.Round(float64(*in.Brightness)*255/100))))
+		out, err := c.dev.Shell(ctx, brightnessRangeScript)
+		if err != nil {
+			return contract.DeviceState{}, err
+		}
+		low := brightnessMin(parseKV(out))
+		level := gammaToLinear(float64(*in.Brightness)/100, low)
+		add(fmt.Sprintf("{ cmd display set-brightness %s >/dev/null 2>&1 || settings put system screen_brightness %d; }",
+			strconv.FormatFloat(level, 'f', 6, 64), brightnessSetting(*in.Brightness, low)))
+		c.mu.Lock()
+		c.brightness = *in.Brightness
+		c.mu.Unlock()
 	}
 	if in.Rotation != nil {
 		add(rotate(*in.Rotation)...)
@@ -314,8 +443,11 @@ func (c *Controls) Update(ctx context.Context, in contract.DeviceSettings) (cont
 	if in.TimeZone != nil {
 		add("settings put global auto_time_zone 0", "cmd alarm set-timezone "+*in.TimeZone)
 	}
-	if in.AutoTime != nil && !*in.AutoTime && in.TimeOffset == nil {
-		add("settings put global auto_time 0")
+	if c.redroid && in.TimeOffset != nil {
+		return contract.DeviceState{}, fmt.Errorf("%w: this device's clock is the server's and can't be changed", contract.ErrInvalid)
+	}
+	if in.AutoTime != nil && (c.redroid || !*in.AutoTime && in.TimeOffset == nil) {
+		add("settings put global auto_time " + pick(*in.AutoTime, "1", "0"))
 	}
 	if len(cmds) > 0 {
 		if _, err := c.exec(ctx, strings.Join(cmds, " && ")); err != nil {
@@ -323,7 +455,14 @@ func (c *Controls) Update(ctx context.Context, in contract.DeviceSettings) (cont
 		}
 	}
 
+	if c.redroid && (in.AirplaneMode != nil || in.WiFi != nil || in.MobileData != nil) {
+		if _, err := c.dev.Shell(ctx, c.radiosScript()); err != nil {
+			return contract.DeviceState{}, err
+		}
+	}
+
 	switch {
+	case c.redroid:
 	case in.AutoTime != nil && *in.AutoTime:
 		if err := c.setTime(ctx, 0, true); err != nil {
 			return contract.DeviceState{}, err
@@ -381,7 +520,7 @@ func (c *Controls) Update(ctx context.Context, in contract.DeviceSettings) (cont
 			return contract.DeviceState{}, fmt.Errorf("set the app's language: %w", err)
 		}
 	} else if len(in.Locales) > 0 {
-		if c.localesDex == "" {
+		if c.toolsDex == "" {
 			return contract.DeviceState{}, errors.New("changing the system language is not supported here")
 		}
 		var tags []string
@@ -416,13 +555,13 @@ func (c *Controls) appLanguages(ctx context.Context) []string {
 	return tags
 }
 
-const localesRemote = "/data/local/tmp/holtdroid-locales.dex"
+const toolsRemote = "/data/local/tmp/holtdroid-tools.dex"
 
 func (c *Controls) setLocales(ctx context.Context, tags string) error {
-	if err := c.dev.Push(ctx, c.localesDex, localesRemote); err != nil {
+	if err := c.dev.Push(ctx, c.toolsDex, toolsRemote); err != nil {
 		return err
 	}
-	_, err := c.exec(ctx, "CLASSPATH="+localesRemote+" app_process / Locales "+tags)
+	_, err := c.exec(ctx, "CLASSPATH="+toolsRemote+" app_process / Locales "+tags)
 	return err
 }
 
@@ -501,6 +640,9 @@ var mockProviders = []string{"gps", "network"}
 // setGeoRoot drives the location service's test providers, which Android lets
 // a caller with the mock_location app-op register. geo nil removes them.
 func (c *Controls) setGeoRoot(ctx context.Context, geo *contract.GeoPoint) error {
+	if c.legacyLocation(ctx) {
+		return c.setGeoDex(ctx, geo)
+	}
 	if geo == nil {
 		cmds := []string{}
 		for _, p := range mockProviders {
@@ -511,7 +653,7 @@ func (c *Controls) setGeoRoot(ctx context.Context, geo *contract.GeoPoint) error
 	}
 	lat := strconv.FormatFloat(geo.Latitude, 'f', -1, 64)
 	lng := strconv.FormatFloat(geo.Longitude, 'f', -1, 64)
-	cmds := []string{"appops set 2000 android:mock_location allow"}
+	cmds := []string{"appops set 2000 android:mock_location allow", "appops set 0 android:mock_location allow"}
 	for _, p := range mockProviders {
 		cmds = append(cmds,
 			"cmd location providers add-test-provider "+p+" >/dev/null 2>&1",
@@ -520,6 +662,36 @@ func (c *Controls) setGeoRoot(ctx context.Context, geo *contract.GeoPoint) error
 	}
 	_, err := c.dev.Shell(ctx, strings.Join(cmds, "\n"))
 	return err
+}
+
+// setGeoDex drives the test providers on Android 11, whose cmd location has
+// no providers command, through ILocationManager from the shell uid.
+func (c *Controls) setGeoDex(ctx context.Context, geo *contract.GeoPoint) error {
+	if err := c.dev.Push(ctx, c.toolsDex, toolsRemote); err != nil {
+		return err
+	}
+	args := "remove"
+	if geo != nil {
+		args = "set " + strconv.FormatFloat(geo.Latitude, 'f', 7, 64) + "," + strconv.FormatFloat(geo.Longitude, 'f', 7, 64)
+	}
+	_, err := c.exec(ctx, `appops set 2000 android:mock_location allow && su 2000 sh -c "CLASSPATH=`+toolsRemote+` app_process / Geo `+args+" "+strings.Join(mockProviders, " ")+`"`)
+	return err
+}
+
+func (c *Controls) legacyLocation(ctx context.Context) bool {
+	sdk := c.sdk(ctx)
+	return c.toolsDex != "" && sdk > 0 && sdk <= 30
+}
+
+// sdk is the device's API level, 0 when it can't be read.
+func (c *Controls) sdk(ctx context.Context) int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.apiLevel == 0 {
+		out, _ := c.dev.Shell(ctx, "getprop ro.build.version.sdk")
+		c.apiLevel, _ = strconv.Atoi(strings.TrimSpace(out))
+	}
+	return c.apiLevel
 }
 
 type routeRun struct {
@@ -584,6 +756,9 @@ func (c *Controls) drive(ctx context.Context, run *routeRun) {
 }
 
 func (c *Controls) moveGeoRoot(ctx context.Context, pt contract.GeoPoint) error {
+	if c.legacyLocation(ctx) {
+		return c.setGeoDex(ctx, &pt)
+	}
 	loc := strconv.FormatFloat(pt.Latitude, 'f', 7, 64) + "," + strconv.FormatFloat(pt.Longitude, 'f', 7, 64)
 	cmds := make([]string, 0, len(mockProviders))
 	for _, p := range mockProviders {
@@ -655,6 +830,12 @@ var deviceKeys = map[contract.DeviceAction]string{
 // Action presses a key or rotates the screen. Rotation values follow
 // Surface.ROTATION_*: turning the device left is +90°.
 func (c *Controls) Action(ctx context.Context, action contract.DeviceAction) error {
+	if c.redroid && action == contract.DeviceLock {
+		return c.lock(ctx)
+	}
+	if c.redroid && action == contract.DeviceUnlock {
+		return c.unlock(ctx)
+	}
 	if cmd, ok := deviceKeys[action]; ok {
 		_, err := c.dev.Shell(ctx, cmd)
 		return err
@@ -674,6 +855,49 @@ func (c *Controls) Action(ctx context.Context, action contract.DeviceAction) err
 	}
 	current, _ := strconv.Atoi(strings.TrimSpace(out))
 	_, err = c.dev.Shell(ctx, strings.Join(rotate((current+step)%4), " && "))
+	return err
+}
+
+// redroid builds Android with config_disableLockscreenByDefault, so there is
+// no lock screen unless a credential is set. Since Android 12 an overlay
+// fabricated from the shell turns that off; Android 11 gets lockPIN instead.
+const (
+	lockPINCode = "0000"
+	lockScript  = `locksettings set-disabled false >/dev/null 2>&1
+if cmd overlay list android | grep -q holtdroid_lock || cmd overlay fabricate --target android --name holtdroid_lock android:bool/config_disableLockscreenByDefault 0x12 0 >/dev/null 2>&1; then
+  cmd overlay enable --user 0 com.android.shell:holtdroid_lock && sleep 1
+else
+  locksettings set-pin ` + lockPINCode + ` >/dev/null 2>&1; echo pin
+fi
+input keyevent KEYCODE_SLEEP && sleep 1 && input keyevent KEYCODE_WAKEUP`
+	unlockPINScript = `input keyevent KEYCODE_WAKEUP && wm dismiss-keyguard && sleep 1
+if dumpsys window | grep -q isKeyguardShowing=true; then input text ` + lockPINCode + ` && input keyevent KEYCODE_ENTER && sleep 1; fi
+locksettings clear --old ` + lockPINCode + ` >/dev/null 2>&1; true`
+)
+
+func (c *Controls) lock(ctx context.Context) error {
+	out, err := c.dev.Shell(ctx, lockScript)
+	if err != nil {
+		return err
+	}
+	if strings.Contains(out, "pin") {
+		c.mu.Lock()
+		c.lockPIN = true
+		c.mu.Unlock()
+	}
+	return nil
+}
+
+func (c *Controls) unlock(ctx context.Context) error {
+	c.mu.Lock()
+	pin := c.lockPIN
+	c.lockPIN = false
+	c.mu.Unlock()
+	cmd := deviceKeys[contract.DeviceUnlock]
+	if pin {
+		cmd = unlockPINScript
+	}
+	_, err := c.dev.Shell(ctx, cmd)
 	return err
 }
 

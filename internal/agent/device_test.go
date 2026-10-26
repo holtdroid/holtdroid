@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"net/http"
 	"reflect"
@@ -20,6 +21,9 @@ type scriptedDevice struct {
 	fakeDevice
 	mu     sync.Mutex
 	state  string
+	bright string
+	lock   string
+	sdk    string
 	clock  string
 	volume string
 	cmds   []string
@@ -31,12 +35,19 @@ func (d *scriptedDevice) Shell(_ context.Context, cmd string) (string, error) {
 	switch cmd {
 	case stateScript:
 		return d.state, nil
+	case lockScript:
+		d.cmds = append(d.cmds, cmd)
+		return d.lock, nil
 	case "date +%s%N":
 		return d.clock, nil
 	case "settings get system user_rotation":
 		return "3\n", nil
 	case getVolume:
 		return d.volume, nil
+	case brightnessRangeScript:
+		return d.bright, nil
+	case "getprop ro.build.version.sdk":
+		return d.sdk, nil
 	case "cmd locale get-app-locales com.example.shop --user 0":
 		return "Locales for com.example.shop for user 0 are [lt-LT]\n", nil
 	}
@@ -51,12 +62,14 @@ func TestControlsState(t *testing.T) {
 wifi=1
 data=null
 saver=1
-level=42
-ac=false
-usb=false
+battery.AC powered=false
+battery.USB powered=false
+battery.level=42
 night=Night mode: yes
 font=1.3
 brightness=102
+mCachedBrightnessInfo.brightnessMin=0.0
+sdk=34
 autoBrightness=0
 density=Physical density: 320 Override density: 400 
 size=Physical size: 1440x3200 Override size: 1080x2400 
@@ -80,8 +93,8 @@ musicMuted=   Muted: true
 	}
 	want := contract.DeviceState{
 		WiFi: true, MobileData: true, BatterySaver: true, BatteryLevel: 42, DarkMode: true,
-		FontScale: 1.3, Brightness: 40, Density: 400, DefaultDensity: 320, Rotation: 1, ScreenWidth: 1080, ScreenHeight: 2400, RefreshRate: 120, Volume: 4, VolumeMax: 15, Muted: true,
-		TimeZone: "Europe/Warsaw", Locale: "en-US", Locales: []string{"en-US", "ru-RU"}, CanFakeGeo: true, CanSimulateBattery: true, LanguageScope: contract.LanguageSystem, TimeOffset: 3_600_000,
+		FontScale: 1.3, Brightness: 83, Density: 400, DefaultDensity: 320, Rotation: 1, ScreenWidth: 1080, ScreenHeight: 2400, RefreshRate: 120, Volume: 4, VolumeMax: 15, Muted: true,
+		TimeZone: "Europe/Warsaw", Locale: "en-US", Locales: []string{"en-US", "ru-RU"}, CanFakeGeo: true, CanSimulateBattery: true, CanSetTime: true, LanguageScope: contract.LanguageSystem, TimeOffset: 3_600_000,
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("state\n got %+v\nwant %+v", got, want)
@@ -115,17 +128,17 @@ func TestControlsUpdate(t *testing.T) {
 	}{
 		{"airplane", contract.DeviceSettings{AirplaneMode: new(true)}, []string{"cmd connectivity airplane-mode enable"}},
 		{"radios", contract.DeviceSettings{WiFi: new(false), MobileData: new(true)}, []string{"svc wifi disable && svc data enable"}},
-		{"battery saver unplugs", contract.DeviceSettings{BatterySaver: new(true)}, []string{"dumpsys battery unplug && dumpsys battery set status 3 && cmd power set-mode 1"}},
-		{"charging and level", contract.DeviceSettings{Charging: new(true), BatteryLevel: new(15)}, []string{"dumpsys battery set ac 1 && dumpsys battery set status 2 && dumpsys battery set level 15"}},
+		{"battery saver unplugs", contract.DeviceSettings{BatterySaver: new(true)}, []string{"dumpsys battery set present 1 && dumpsys battery unplug && dumpsys battery set status 3 && cmd power set-mode 1"}},
+		{"charging and level", contract.DeviceSettings{Charging: new(true), BatteryLevel: new(15)}, []string{"dumpsys battery set present 1 && dumpsys battery set ac 1 && dumpsys battery set status 2 && dumpsys battery set level 15"}},
 		{"display", contract.DeviceSettings{DarkMode: new(true), FontScale: new(1.15), Density: new(0)}, []string{"cmd uimode night yes && settings put system font_scale 1.15 && wm density reset"}},
-		{"brightness", contract.DeviceSettings{Brightness: new(40)}, []string{"settings put system screen_brightness_mode 0 && settings put system screen_brightness 102"}},
+		{"brightness", contract.DeviceSettings{Brightness: new(40)}, []string{"settings put system screen_brightness_mode 0 && { cmd display set-brightness 0.053333 >/dev/null 2>&1 || settings put system screen_brightness 15; }"}},
 		{"auto brightness", contract.DeviceSettings{AutoBrightness: new(true)}, []string{"settings put system screen_brightness_mode 1"}},
 		{"rotation", contract.DeviceSettings{Rotation: new(2)}, []string{"settings put system accelerometer_rotation 0 && settings put system user_rotation 2"}},
 		{"time zone", contract.DeviceSettings{TimeZone: new("Asia/Tokyo")}, []string{"settings put global auto_time_zone 0 && cmd alarm set-timezone Asia/Tokyo"}},
 		{"time offset", contract.DeviceSettings{TimeOffset: new(int64(-5000))}, []string{"settings put global auto_time 0 && cmd alarm set-time 1759999995000"}},
 		{"auto time", contract.DeviceSettings{AutoTime: new(true)}, []string{"settings put global auto_time 1 && cmd alarm set-time 1760000000000"}},
 		{"full network", contract.DeviceSettings{NetworkProfile: new(contract.NetworkFull)}, nil},
-		{"geo", contract.DeviceSettings{Geo: &contract.GeoPoint{Latitude: 52.2297, Longitude: 21.0122}}, []string{"appops set 2000 android:mock_location allow\n" +
+		{"geo", contract.DeviceSettings{Geo: &contract.GeoPoint{Latitude: 52.2297, Longitude: 21.0122}}, []string{"appops set 2000 android:mock_location allow\nappops set 0 android:mock_location allow\n" +
 			"cmd location providers add-test-provider gps >/dev/null 2>&1\ncmd location providers set-test-provider-enabled gps true\ncmd location providers set-test-provider-location gps --location 52.2297,21.0122\n" +
 			"cmd location providers add-test-provider network >/dev/null 2>&1\ncmd location providers set-test-provider-enabled network true\ncmd location providers set-test-provider-location network --location 52.2297,21.0122"}},
 		{"reset geo", contract.DeviceSettings{ResetGeo: true}, []string{"cmd location providers remove-test-provider gps >/dev/null 2>&1; cmd location providers remove-test-provider network >/dev/null 2>&1; true"}},
@@ -247,8 +260,11 @@ func TestAgentDeviceAPI(t *testing.T) {
 	if code, body := h.do(http.MethodGet, "/v1/device", ""); code != http.StatusOK || !strings.Contains(body, `"locale":"en-US"`) {
 		t.Fatalf("get device %d %s", code, body)
 	}
-	if code, body := h.do(http.MethodPatch, "/v1/device", `{"locales":["ru-RU","en-US","ru-RU"],"timeOffset":3600000}`); code != http.StatusOK {
+	if code, body := h.do(http.MethodPatch, "/v1/device", `{"locales":["ru-RU","en-US","ru-RU"],"timeZone":"Europe/Warsaw"}`); code != http.StatusOK {
 		t.Fatalf("patch device %d %s", code, body)
+	}
+	if code, _ := h.do(http.MethodPatch, "/v1/device", `{"timeOffset":3600000}`); code != http.StatusBadRequest {
+		t.Fatalf("redroid's clock moved: %d", code)
 	}
 	if code, _ := h.do(http.MethodPatch, "/v1/device", `{"timeZone":"Europe/Warsaw; reboot"}`); code != http.StatusUnprocessableEntity {
 		t.Fatalf("shell injection in time zone: %d", code)
@@ -262,7 +278,7 @@ func TestAgentDeviceAPI(t *testing.T) {
 	h.dev.mu.Lock()
 	shells := strings.Join(h.dev.shells, ";")
 	h.dev.mu.Unlock()
-	if !strings.Contains(shells, "CLASSPATH=/data/local/tmp/holtdroid-locales.dex app_process / Locales ru-RU,en-US") ||
+	if !strings.Contains(shells, "CLASSPATH=/data/local/tmp/holtdroid-tools.dex app_process / Locales ru-RU,en-US") ||
 		!strings.Contains(shells, "cmd alarm set-time") || !strings.Contains(shells, "KEYCODE_HOME") {
 		t.Fatalf("shells %s", shells)
 	}
@@ -451,5 +467,101 @@ func TestControlsRoute(t *testing.T) {
 	defer dev.mu.Unlock()
 	if s.Route != nil || !s.GeoOverride || s.Geo == nil || math.Abs(s.Geo.Longitude-want.Longitude) > 1e-6 || len(dev.cmds) != n {
 		t.Fatalf("after stop: route %+v geo %+v, %d more commands", s.Route, s.Geo, len(dev.cmds)-n)
+	}
+}
+
+func TestBrightnessGamma(t *testing.T) {
+	for _, low := range []float64{0, 0.035433073} {
+		for p := 10; p <= 100; p++ {
+			if got := brightnessPercent(brightnessSetting(p, low), low); got < p-2 || got > p+2 {
+				t.Errorf("low %v: %d%% reads back as %d%%", low, p, got)
+			}
+		}
+	}
+	for _, tc := range []struct{ linear, low, gamma float64 }{
+		{0.0833, 0, 0.5},
+		{0.0833, 0.035433073, 0.386},
+		{1, 0.035433073, 1},
+	} {
+		if got := linearToGamma(tc.linear, tc.low); math.Abs(got-tc.gamma) > 0.005 {
+			t.Errorf("linearToGamma(%v, %v) = %v, want %v", tc.linear, tc.low, got, tc.gamma)
+		}
+	}
+	if got := brightnessMin(map[string]string{"sdk": "30", "mScreenBrightnessSettingMinimumFloat": "0.035433073", "mCachedBrightnessInfo.brightnessMin": "0.0"}); got != 0.035433073 {
+		t.Errorf("Android 11 minimum %v", got)
+	}
+	if got := brightnessMin(map[string]string{"sdk": "35", "mScreenBrightnessSettingMinimumFloat": "0.035433073", "mCachedBrightnessInfo.brightnessMin": "0.0"}); got != 0 {
+		t.Errorf("Android 15 minimum %v", got)
+	}
+}
+
+func TestRequestedBrightnessReadsBack(t *testing.T) {
+	dev := &scriptedDevice{clock: "1760000000", bright: "sdk=30\nmScreenBrightnessSettingMinimumFloat=0.035433073\n"}
+	c := NewControls(dev, "", true, false)
+	if _, err := c.Update(context.Background(), contract.DeviceSettings{Brightness: new(10)}); err != nil {
+		t.Fatal(err)
+	}
+	dev.state = fmt.Sprintf("brightness=%d\nsdk=30\nmScreenBrightnessSettingMinimumFloat=0.035433073\n", brightnessSetting(10, 0.035433073))
+	s, err := c.State(context.Background())
+	if err != nil || s.Brightness != 10 {
+		t.Fatalf("brightness %d, %v", s.Brightness, err)
+	}
+}
+
+func TestRedroidControls(t *testing.T) {
+	ctx := context.Background()
+	dev := &scriptedDevice{clock: "1760000000", state: "wifi=0\ndata=1\n"}
+	c := NewControls(dev, "", true, false)
+	c.redroid = true
+
+	s, err := c.State(ctx)
+	if err != nil || !s.WiFi || !s.MobileData || s.CanSetTime {
+		t.Fatalf("fresh state %+v, %v", s, err)
+	}
+	if _, err := c.Update(ctx, contract.DeviceSettings{WiFi: new(false), MobileData: new(false)}); err != nil {
+		t.Fatal(err)
+	}
+	if len(dev.cmds) != 1 || !strings.HasPrefix(dev.cmds[0], "m=none\n") || !strings.Contains(dev.cmds[0], "unreachable") {
+		t.Fatalf("radios off: %q", dev.cmds)
+	}
+	dev.cmds = nil
+	s, err = c.Update(ctx, contract.DeviceSettings{MobileData: new(true)})
+	if err != nil || s.WiFi || !s.MobileData {
+		t.Fatalf("mobile data on: %+v, %v", s, err)
+	}
+	if len(dev.cmds) != 1 || !strings.HasPrefix(dev.cmds[0], "m=mobile\n") {
+		t.Fatalf("mobile data on: %q", dev.cmds)
+	}
+	if _, err := c.Update(ctx, contract.DeviceSettings{TimeOffset: new(int64(60_000))}); !errors.Is(err, contract.ErrInvalid) {
+		t.Fatalf("clock moved: %v", err)
+	}
+
+	dev.cmds, dev.lock = nil, "pin\n"
+	if err := c.Action(ctx, contract.DeviceLock); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Action(ctx, contract.DeviceUnlock); err != nil {
+		t.Fatal(err)
+	}
+	if len(dev.cmds) != 2 || dev.cmds[0] != lockScript || dev.cmds[1] != unlockPINScript {
+		t.Fatalf("lock with a PIN: %q", dev.cmds)
+	}
+	dev.cmds, dev.lock = nil, ""
+	_ = c.Action(ctx, contract.DeviceLock)
+	_ = c.Action(ctx, contract.DeviceUnlock)
+	if len(dev.cmds) != 2 || dev.cmds[1] != deviceKeys[contract.DeviceUnlock] {
+		t.Fatalf("lock with the overlay: %q", dev.cmds)
+	}
+}
+
+func TestGeoOnAndroid11(t *testing.T) {
+	dev := &scriptedDevice{clock: "1760000000", sdk: "30\n"}
+	c := NewControls(dev, "/tools.dex", true, false)
+	if _, err := c.Update(context.Background(), contract.DeviceSettings{Geo: &contract.GeoPoint{Latitude: 52.2297, Longitude: 21.0122}}); err != nil {
+		t.Fatal(err)
+	}
+	want := `appops set 2000 android:mock_location allow && su 2000 sh -c "CLASSPATH=/data/local/tmp/holtdroid-tools.dex app_process / Geo set 52.2297000,21.0122000 gps network"`
+	if len(dev.cmds) != 1 || dev.cmds[0] != want {
+		t.Fatalf("geo on Android 11: %q", dev.cmds)
 	}
 }

@@ -225,8 +225,29 @@ The agent's own adb is not affected. Requests that would cut the agent off
 (`reboot`, `unroot`, `remount`, `tcpip`, `usb`, `sideload`, verity) are
 always refused.
 
+### Device controls
+
 Without an emulator console, the GPS goes through Android's test location
-providers and the battery through `dumpsys battery`.
+providers (on Android 11, whose `cmd location` has no providers command,
+through a small `app_process` helper) and the battery through `dumpsys
+battery`. The brightness slider shows the same percentage as the device's
+own shade, which is on Android's gamma curve rather than linear.
+
+redroid has neither Wi-Fi nor a modem, only the Pod's Ethernet. The Wi-Fi
+and mobile data toggles are the session's own: a session starts with both
+on, the app under test sees its network as the radio that is on (the Frida
+script relabels it, Wi-Fi first), and with both off or in airplane mode it
+sees no network and only root keeps a route. Android's own status bar and
+quick settings still show Ethernet.
+
+Android in redroid runs on the node's kernel and its clock is the node's: a
+session can change its time zone but not its time, and the date and time
+card says so.
+
+redroid builds Android with the lock screen off. Locking the screen from
+the power key turns it on: an overlay on Android 12 and later (swipe up to
+unlock), a temporary PIN `0000` on Android 11, which **Wake and unlock**
+enters and removes.
 
 ## Inventory and maintenance
 

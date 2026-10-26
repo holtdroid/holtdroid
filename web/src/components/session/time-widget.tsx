@@ -70,7 +70,7 @@ export function TimeWidget({ provider, id }: { provider: string; id: string }) {
   const update = useUpdateDevice(provider, id)
   const s = device.data
   const shifted = !!s && Math.abs(s.timeOffset) >= 1500
-  const changed = !!s && (shifted || !s.autoTime || s.timeZoneOverride)
+  const changed = !!s && (shifted || (s.canSetTime && !s.autoTime) || s.timeZoneOverride)
 
   return (
     <>
@@ -152,18 +152,27 @@ function TimeShade({
         </span>
       </div>
 
-      <Tile
-        icon={ClockIcon}
-        label="Real time"
-        status={s.autoTime ? "Kept in sync with the actual time" : "Not kept in sync"}
-        on={s.autoTime}
-        disabled={busy}
-        wide
-        onClick={() => set({ autoTime: !s.autoTime })}
-      />
+      {s.canSetTime ? (
+        <>
+          <Tile
+            icon={ClockIcon}
+            label="Real time"
+            status={s.autoTime ? "Kept in sync with the actual time" : "Not kept in sync"}
+            on={s.autoTime}
+            disabled={busy}
+            wide
+            onClick={() => set({ autoTime: !s.autoTime })}
+          />
 
-      <TimeShift offset={s.timeOffset} disabled={busy} onShift={(timeOffset) => set({ timeOffset })} />
-      <ExactMoment s={s} busy={busy} set={set} />
+          <TimeShift offset={s.timeOffset} disabled={busy} onShift={(timeOffset) => set({ timeOffset })} />
+          <ExactMoment s={s} busy={busy} set={set} />
+        </>
+      ) : (
+        <Note>
+          This Android shares the server&apos;s kernel and its clock, so the time can&apos;t be moved here. The time
+          zone can.
+        </Note>
+      )}
 
       <TimeZones s={s} busy={busy} set={set} />
     </>

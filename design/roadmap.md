@@ -292,6 +292,8 @@ Goal: several Android devices per node instead of one emulator per node.
 - [x] Verified on the live deployment on 2026-10-25 (sessions on k3s-3: boot, install, Frida, DevTools target, screenshot, metrics, location switch, egress policy); clipboard, audio, app data and the ADB tabs still to be tried by hand in the browser
 - [x] WebView versions at launch (decision #88): holtdroid-redroid re-signs the built-in WebView with Chromium's debug key, `holtdroid-webview-sync` keeps x86_64 Chromium snapshot builds per milestone in a catalog, the api offers them (`webview.storage`, `GET /api/v1/webviews`), the agent installs the chosen one before the app, DevTools fall back to the Canary commit's frontend
 - [x] Network conditions through `tc netem` on the tun (decision #93): named networks and scenarios over time (`internal/netem`), `ifb` for downloads, offered with VPN locations
+- [x] Device controls checked on Android 11–15 (decision #101): lock screen through a fabricated overlay (PIN on 11), Wi-Fi and mobile data as virtual radios shown to the app through Frida, battery present, brightness on the shade's gamma curve, GPS for uid 0 and through `Geo.java` on 11, no clock changes on redroid
+- [ ] redroid's status bar shows Wi-Fi or mobile data instead of Ethernet (SystemUI demo mode, or a hook in SystemUI)
 - [ ] The session wallpaper on redroid: find why attaching to `system_server` after the install breaks frida-server
 - [ ] A session's root that can't reach the node: user namespaces were tried and dropped (decision #83); next candidates are a per-session binder allowlist from a node helper, token-authenticated frida-server and a non-root adbd for users
 

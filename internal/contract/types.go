@@ -368,6 +368,7 @@ type DeviceState struct {
 	Route              *GeoRouteState       `json:"route,omitempty" doc:"the route geo is moving along; empty while it stands still"`
 	CanFakeGeo         bool                 `json:"canFakeGeo"`
 	CanSimulateBattery bool                 `json:"canSimulateBattery" doc:"the battery level and charging can be set; battery saver works everywhere"`
+	CanSetTime         bool                 `json:"canSetTime" doc:"the device clock can be moved off real time; redroid shares the server's clock"`
 	USBNetwork         bool                 `json:"usbNetwork" doc:"the device reaches the internet over USB through the host, so Wi-Fi and mobile data are off on purpose"`
 	AutoTime           bool                 `json:"autoTime"`
 	TimeOffset         int64                `json:"timeOffset" doc:"device clock minus real time, in milliseconds"`
