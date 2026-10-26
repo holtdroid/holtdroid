@@ -1,7 +1,8 @@
-import { Link } from "@tanstack/react-router"
+import { Link, useNavigate } from "@tanstack/react-router"
 import {
   BatteryChargingIcon,
   BatteryIcon,
+  BugIcon,
   ConstructionIcon,
   CpuIcon,
   HardDriveIcon,
@@ -54,6 +55,7 @@ import {
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useNow } from "@/hooks/use-now"
@@ -70,42 +72,80 @@ const stateBadge: Record<Slot["state"], string> = {
 
 const sessionKey = (provider: string, id: string) => `${provider}/${id}`
 
-export function InventoryPage() {
+export type InventoryTab = "devices" | "devtools"
+
+export function validateInventorySearch(search: Record<string, unknown>): { tab?: InventoryTab } {
+  return { tab: search.tab === "devtools" ? "devtools" : undefined }
+}
+
+export function InventoryPage({ tab = "devices" }: { tab?: InventoryTab }) {
+  const navigate = useNavigate({ from: "/inventory" })
   const me = useMe()
   const admin = me.data?.admin === true
-  const inventory = useInventory(admin)
+  const inventory = useInventory(admin && tab === "devices")
   const sessions = useSessions()
   const now = useNow(30_000)
   const byID = new Map((sessions.data?.items ?? []).map((s) => [sessionKey(s.provider, s.id), s]))
 
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="mx-auto grid max-w-7xl content-start gap-6 p-4 lg:p-6">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Inventory</h1>
-          <p className="text-muted-foreground max-w-2xl text-sm">
-            Every device and machine of every provider, refreshed every 10 seconds. A slot held for maintenance takes no
-            new sessions; a session already running on it keeps going until it ends.
-          </p>
+    <div className="flex h-full flex-col">
+      <Tabs
+        value={tab}
+        onValueChange={(v) => void navigate({ search: v === "devtools" ? { tab: "devtools" } : {}, replace: true })}
+        className="bg-background shrink-0 border-b px-4 lg:px-6"
+      >
+        <TabsList variant="line" className="h-11 gap-4">
+          <TabsTrigger value="devices" className="gap-1.5">
+            <SmartphoneIcon />
+            Devices
+          </TabsTrigger>
+          <TabsTrigger value="devtools" className="gap-1.5">
+            <BugIcon />
+            DevTools frontends
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto grid max-w-7xl content-start gap-6 p-4 lg:p-6">
+          {tab === "devices" ? (
+            <div>
+              <h1 className="text-xl font-semibold tracking-tight">Devices</h1>
+              <p className="text-muted-foreground max-w-2xl text-sm">
+                Every device and machine of every provider, refreshed every 10 seconds. A slot held for maintenance
+                takes no new sessions; a session already running on it keeps going until it ends.
+              </p>
+            </div>
+          ) : (
+            <div>
+              <h1 className="text-xl font-semibold tracking-tight">DevTools frontends</h1>
+              <p className="text-muted-foreground max-w-2xl text-sm">
+                The Chrome DevTools builds the portal fetched for the WebViews it has seen, one per Chromium revision,
+                archived in its storage and restored after a restart. Delete one to fetch it afresh.
+              </p>
+            </div>
+          )}
+
+          {me.data && !admin && (
+            <Alert>
+              <ShieldAlertIcon />
+              <AlertTitle>Only admins can see the inventory</AlertTitle>
+            </Alert>
+          )}
+          {tab === "devices" && (
+            <>
+              {inventory.isError && (
+                <Alert variant="destructive">
+                  <AlertDescription>Could not load the inventory: {inventory.error.message}</AlertDescription>
+                </Alert>
+              )}
+              {admin && inventory.isPending && <Skeleton className="h-64 rounded-xl" />}
+              {inventory.data?.providers.map((p) => (
+                <ProviderSection key={p.name} provider={p} sessions={byID} now={now} />
+              ))}
+            </>
+          )}
+          {tab === "devtools" && admin && <DevToolsFrontendsSection now={now} />}
         </div>
-
-        {me.data && !admin && (
-          <Alert>
-            <ShieldAlertIcon />
-            <AlertTitle>Only admins can see the inventory</AlertTitle>
-          </Alert>
-        )}
-        {inventory.isError && (
-          <Alert variant="destructive">
-            <AlertDescription>Could not load the inventory: {inventory.error.message}</AlertDescription>
-          </Alert>
-        )}
-        {admin && inventory.isPending && <Skeleton className="h-64 rounded-xl" />}
-
-        {inventory.data?.providers.map((p) => (
-          <ProviderSection key={p.name} provider={p} sessions={byID} now={now} />
-        ))}
-        {admin && <DevToolsFrontendsSection now={now} />}
       </div>
     </div>
   )
@@ -121,21 +161,20 @@ function DevToolsFrontendsSection({ now }: { now: number }) {
   const frontends = useDevToolsFrontends(true)
   const remove = useDeleteDevToolsFrontend()
   const fetchAgain = useFetchDevToolsFrontend()
-  if (frontends.isError) return null
   const items = frontends.data?.items ?? []
   const act = (run: Promise<unknown>, done: string) =>
     run.then(() => toast.success(done)).catch((e: Error) => toast.error(e.message))
 
   return (
     <section className="grid gap-3">
-      <div>
-        <h2 className="text-lg font-semibold">DevTools frontends</h2>
-        <p className="text-muted-foreground max-w-2xl text-sm">
-          The Chrome DevTools builds the portal fetched for the WebViews it has seen, one per Chromium revision,
-          archived in {frontends.data?.storage ?? "its"} storage and restored after a restart. Delete one to fetch it
-          afresh.
-        </p>
-      </div>
+      {frontends.isError && (
+        <Alert>
+          <AlertDescription>{frontends.error.message}</AlertDescription>
+        </Alert>
+      )}
+      {frontends.data && (
+        <p className="text-muted-foreground text-xs">Archives live in {frontends.data.storage} storage.</p>
+      )}
       {frontends.isPending && <Skeleton className="h-24 rounded-xl" />}
       {frontends.data && items.length === 0 && (
         <p className="text-muted-foreground text-sm">Nothing fetched yet. Revisions appear as WebViews are seen.</p>

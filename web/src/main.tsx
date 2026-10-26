@@ -15,7 +15,7 @@ import { AppDataPage } from "@/pages/app-data"
 import { AuditPage, validateAuditSearch } from "@/pages/audit"
 import { ComputersPage } from "@/pages/computers"
 import { HomePage } from "@/pages/home"
-import { InventoryPage } from "@/pages/inventory"
+import { InventoryPage, validateInventorySearch } from "@/pages/inventory"
 import { InvitePage } from "@/pages/invite"
 import { LaunchPage, validateLaunchSearch } from "@/pages/launch"
 import { OpenRecordingPage } from "@/pages/open-recording"
@@ -124,7 +124,15 @@ const auditRoute = createRoute({
   component: AuditPage,
 })
 
-const inventoryRoute = createRoute({ getParentRoute: () => portalRoute, path: "/inventory", component: InventoryPage })
+const inventoryRoute = createRoute({
+  getParentRoute: () => portalRoute,
+  path: "/inventory",
+  validateSearch: validateInventorySearch,
+  component: function Inventory() {
+    const { tab } = inventoryRoute.useSearch()
+    return <InventoryPage tab={tab} />
+  },
+})
 
 const appDataRoute = createRoute({ getParentRoute: () => portalRoute, path: "/app-data", component: AppDataPage })
 

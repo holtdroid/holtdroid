@@ -43,8 +43,9 @@ named `webview_devtools_remote_<pid>`. The agent:
    it lists, so a session's VPN, bandwidth limit or offline mode doesn't
    affect it. While a revision is still being fetched the panel says so
    above DevTools, with the number of files so far; DevTools opens as its
-   files arrive. Admins see every fetched revision at the bottom of the
-   Inventory page, with its state, file count and archive, and can delete
+   files arrive. Admins see every fetched revision on the **DevTools
+   frontends** tab of the Inventory page, with its state, file count and
+   archive, and can delete
    one (it is fetched afresh on the next open) or fetch it ahead of the
    queue. Chromium snapshot builds report no revision, so
    the agent uses the `frontend` tag
