@@ -3757,11 +3757,13 @@ itself for an existing session, from `os.TempDir()/holtdroid/devtools-frontend`
 (a re-fillable cache, like the APK cache). A revision is crawled in the
 background from `inspector.html` with lower priority than the browser's own
 requests, and a complete crawl is archived in the api's `storage`
-(`devtools-frontend/@{rev}.tar.gz`), where the next api process restores
-it from in seconds. Crawls also start ahead of any session: for every
+(`devtools-frontend/@{rev}.tar.gz` in `devTools.storage`, the api's
+`storage` by default, which is a cache volume in the chart and so gets an
+S3 prefix in a deployment), where the next api process restores it from in
+seconds. Crawls also start ahead of any session: for every
 source artifact tagged with a `frontend` and for every WebView build in the
 catalog. The agent and the physical provider lose
-their `DevToolsFrontend` setting and route. `devToolsFrontend` (api config)
+their `DevToolsFrontend` setting and route. `devTools.frontend` (api config)
 set to empty keeps the old path: the request goes to the agent, which is how
 the fake provider serves its placeholder (`holtdroid dev` sets it empty).
 

@@ -418,7 +418,7 @@ codecs and reports that it can't capture audio.
   origins.
 - The DevTools frontend is not bundled in WebView. The api serves
   `https://chrome-devtools-frontend.appspot.com/serve_rev/@{rev}/…` (config
-  `devToolsFrontend`; empty leaves `/devtools-frontend/` to the agent, which
+  `devTools.frontend`; empty leaves `/devtools-frontend/` to the agent, which
   the fake provider uses) under `/s/{provider}/{id}/devtools-frontend/@{rev}/…`
   with an on-disk cache, for sessions that exist, without touching the
   agent: the session's VPN, throttling or offline mode can't break it
@@ -432,9 +432,10 @@ codecs and reports that it can't capture audio.
   time with the ones a browser asked for first, so each archive lands as
   soon as possible even when the api restarts often (3 of the 6 slots at
   most, so the browser's own requests come first), and a crawl that got
-  every file is archived as `devtools-frontend/@{rev}.tar.gz` in the api's
-  `storage`; a later api restores a revision from there instead of
-  crawling. Crawls start from the first request for a revision, from every
+  every file is archived as `devtools-frontend/@{rev}.tar.gz` in
+  `devTools.storage` (the api's `storage` by default, which the chart puts
+  on a cache volume lost on restart, so a deployment gives it an S3 prefix);
+  a later api restores a revision from there instead of crawling. Crawls start from the first request for a revision, from every
   artifact whose sidecar tags a `frontend` (Chromium builds) when a source
   is polled, and from the WebView catalog every 15 minutes, so a build is
   ready to debug before its first session. `GET …/devtools-frontend/@{rev}`

@@ -198,8 +198,14 @@ func New(ctx context.Context, cfg Config, opts ...Option) (*Server, error) {
 	s.auth.OnSignIn = s.signedIn
 	s.activity = newActivity(s.now)
 	s.cache = NewCache(s.store, int64(cfg.Cache.MaxSize), s.openArtifact, s.openIcon)
-	if cfg.DevToolsFrontend != "" {
-		s.frontend = frontend.New(cfg.DevToolsFrontend, filepath.Join(s.tmpDir, "holtdroid", "devtools-frontend"), s.store, s.log)
+	if cfg.DevTools.Frontend != "" {
+		store := s.store
+		if cfg.DevTools.Storage.Type != "" {
+			if store, err = storage.New(ctx, cfg.DevTools.Storage, s.secrets); err != nil {
+				return nil, fmt.Errorf("devTools.storage: %w", err)
+			}
+		}
+		s.frontend = frontend.New(cfg.DevTools.Frontend, filepath.Join(s.tmpDir, "holtdroid", "devtools-frontend"), store, s.log)
 	}
 	return s, nil
 }

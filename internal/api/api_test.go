@@ -90,7 +90,7 @@ func newHarnessWith(t *testing.T, slots int, configure func(*Config), opts ...fu
 	agents.Config.Handler = p.AgentHandler()
 
 	cfg := DefaultConfig()
-	cfg.DevToolsFrontend = ""
+	cfg.DevTools.Frontend = ""
 	cfg.Storage.Filesystem.Dir = t.TempDir()
 	cfg.Auth.Mode = auth.ModeHeader
 	cfg.Auth.AdminGroups = []string{"admins"}
@@ -815,7 +815,7 @@ func TestDevToolsFrontendServedByTheApi(t *testing.T) {
 		_, _ = io.WriteString(w, "<!doctype html>frontend")
 	}))
 	t.Cleanup(upstream.Close)
-	h := newHarnessWith(t, 1, func(c *Config) { c.DevToolsFrontend = upstream.URL + "/serve_rev" })
+	h := newHarnessWith(t, 1, func(c *Config) { c.DevTools.Frontend = upstream.URL + "/serve_rev" })
 	v := h.create("otter")
 
 	rec := h.do(http.MethodGet, "/s/fake/"+v.ID+"/devtools-frontend/@0123456789abcdef/inspector.html?wss=x", "otter", "", nil)
@@ -838,7 +838,7 @@ func TestDevToolsFrontendWarmedForTaggedBuilds(t *testing.T) {
 		http.NotFound(w, r)
 	}))
 	t.Cleanup(upstream.Close)
-	h := newHarnessWith(t, 1, func(c *Config) { c.DevToolsFrontend = upstream.URL + "/serve_rev" })
+	h := newHarnessWith(t, 1, func(c *Config) { c.DevTools.Frontend = upstream.URL + "/serve_rev" })
 	meta := `{"tags":{"frontend":"0123456789abcdef0123456789abcdef01234567"}}`
 	if err := os.WriteFile(filepath.Join(h.apks, "hello.apk.meta.json"), []byte(meta), 0o600); err != nil {
 		t.Fatal(err)

@@ -76,7 +76,8 @@ in the APK changes.
 ## DevTools panel stays blank
 
 The portal fetches the DevTools frontend from Google's frontend host and keeps
-it in its storage (`devtools-frontend/` next to the APK cache). It does so
+it in `devTools.storage` (the api's `storage` when unset; a cache volume there
+means a crawl after every restart, so point it at an S3 prefix). It does so
 ahead of sessions for every Chromium and WebView build it lists, and on the
 first open of any other revision, which can take a minute. The api needs
 outbound HTTPS for that; session Pods don't.

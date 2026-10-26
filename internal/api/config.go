@@ -64,6 +64,14 @@ type SSHConfig struct {
 	InsecureTLS             bool
 }
 
+// DevToolsConfig is where the portal fetches the DevTools frontend from and
+// where it archives crawled revisions; an empty Frontend leaves the
+// frontend to the session's agent, an empty Storage uses the api's storage.
+type DevToolsConfig struct {
+	Frontend string
+	Storage  storage.Config
+}
+
 type AppDataConfig struct {
 	Enabled      bool
 	Storage      storage.Config
@@ -116,37 +124,37 @@ type ADBConfig struct {
 }
 
 type Config struct {
-	Listen           string
-	InternalListen   string
-	PublicURL        string
-	InternalURL      string
-	Auth             auth.Config
-	Sessions         SessionsConfig
-	Storage          storage.Config
-	Database         db.Config
-	Cache            CacheConfig
-	SSH              SSHConfig
-	ADB              ADBConfig
-	Uploads          UploadsConfig
-	Downloads        DownloadsConfig
-	AppData          AppDataConfig
-	Recordings       RecordingsConfig
-	PixelPerfect     PixelPerfectConfig
-	DevToolsFrontend string
-	WebView          WebViewConfig
-	Map              MapConfig
-	Routing          RoutingConfig
-	Sources          []source.Config
-	Providers        []Endpoint
+	Listen         string
+	InternalListen string
+	PublicURL      string
+	InternalURL    string
+	Auth           auth.Config
+	Sessions       SessionsConfig
+	Storage        storage.Config
+	Database       db.Config
+	Cache          CacheConfig
+	SSH            SSHConfig
+	ADB            ADBConfig
+	Uploads        UploadsConfig
+	Downloads      DownloadsConfig
+	AppData        AppDataConfig
+	Recordings     RecordingsConfig
+	PixelPerfect   PixelPerfectConfig
+	DevTools       DevToolsConfig
+	WebView        WebViewConfig
+	Map            MapConfig
+	Routing        RoutingConfig
+	Sources        []source.Config
+	Providers      []Endpoint
 }
 
 func DefaultConfig() Config {
 	return Config{
-		Listen:           ":8080",
-		InternalListen:   ":8081",
-		InternalURL:      "http://localhost:8081",
-		DevToolsFrontend: "https://chrome-devtools-frontend.appspot.com/serve_rev/",
-		Auth:             auth.DefaultConfig(),
+		Listen:         ":8080",
+		InternalListen: ":8081",
+		InternalURL:    "http://localhost:8081",
+		DevTools:       DevToolsConfig{Frontend: "https://chrome-devtools-frontend.appspot.com/serve_rev/"},
+		Auth:           auth.DefaultConfig(),
 		Sessions: SessionsConfig{
 			IdleTimeout:   30 * time.Minute,
 			MaxTTL:        8 * time.Hour,

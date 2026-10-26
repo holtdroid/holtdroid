@@ -61,6 +61,11 @@ config:
   pixelPerfect:
     enabled: true
     # storage: { type: s3, s3: { endpoint: …, bucket: …, prefix: pixel-perfect, … } }
+  # Crawled DevTools frontends, one tar.gz per Chromium revision (docs:
+  # Concepts → DevTools). Without a storage of their own they sit on the
+  # cache volume and are crawled again after every restart.
+  # devTools:
+  #   storage: { type: s3, s3: { endpoint: …, bucket: …, prefix: devtools-frontend, … } }
   # WebView builds a launch can install over the built-in WebView, written by
   # holtdroid-webview-sync (docs: Concepts → WebView versions). Off without a
   # storage type.

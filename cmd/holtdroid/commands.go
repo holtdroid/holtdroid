@@ -276,7 +276,7 @@ func devCmd() *cobra.Command {
 
 			cfg := api.DefaultConfig()
 			cfg.Listen = listen
-			cfg.DevToolsFrontend = ""
+			cfg.DevTools.Frontend = ""
 			cfg.Auth.Mode = authMode
 			if authMode == auth.ModeUsers && cfg.PublicURL == "" {
 				cfg.PublicURL = "http://localhost" + listen
