@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { needsAndroid, parsePackage, parseProps, parseWebView } from "@/lib/android"
+import { needsAndroid, newestRunnable, parsePackage, parseProps, parseWebView } from "@/lib/android"
 
 describe("parsePackage", () => {
   test("version and runtime permissions", () => {
@@ -65,4 +65,25 @@ test("needsAndroid", () => {
   expect(needsAndroid(35)).toBe("Needs Android 15 or newer (API level 35)")
   expect(needsAndroid(32)).toBe("Needs Android 13 or newer (API level 32)")
   expect(needsAndroid(40)).toBe("Needs Android API level 40")
+})
+
+const build = (id: string, pkg: string, versionCode: number, minSdk: number) => ({
+  id,
+  minSdk,
+  app: { package: pkg, versionCode },
+})
+
+test("newestRunnable", () => {
+  const builds: { id: string; minSdk?: number; app?: { package: string; versionCode?: number } }[] = [
+    build("new", "com.android.chrome", 156, 34),
+    build("mid", "com.android.chrome", 140, 33),
+    build("old", "com.android.chrome", 120, 30),
+    build("other", "com.example.shop", 999, 21),
+    { id: "parsing" },
+  ]
+  expect(newestRunnable(builds, "com.android.chrome", 33)?.id).toBe("mid")
+  expect(newestRunnable(builds, "com.android.chrome", 31)?.id).toBe("old")
+  expect(newestRunnable(builds, "com.android.chrome", 35)?.id).toBe("new")
+  expect(newestRunnable(builds, "com.android.chrome", 29)).toBeUndefined()
+  expect(newestRunnable(builds, "com.android.chrome", undefined)).toBeUndefined()
 })

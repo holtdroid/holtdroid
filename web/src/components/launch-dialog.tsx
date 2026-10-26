@@ -14,11 +14,11 @@ import {
 } from "lucide-react"
 import { useMemo, useState } from "react"
 import type { ArtifactView, Display, ProviderView } from "@/api/client"
-import { useAppDataFor, useProviders, useRecordings } from "@/api/queries"
+import { useAppDataFor, useArtifacts, useProviders, useRecordings } from "@/api/queries"
 import { AppIcon } from "@/components/app-icon"
 import { artifactTitle } from "@/components/artifact-list"
 import { AndroidVersionCard } from "@/components/launch/android-version"
-import { needsAndroid } from "@/lib/android"
+import { apiLevels, needsAndroid, newestRunnable } from "@/lib/android"
 import { ChoiceCard, ChoiceGroup, Section } from "@/components/launch/choice-card"
 import { DevicePicker } from "@/components/launch/device-picker"
 import { ScreenCard } from "@/components/launch/screen-card"
@@ -79,19 +79,48 @@ const isVirtual = (p: ProviderView) =>
 
 const freeSlots = (p: ProviderView) => p.capacity.slots.filter((s) => s.state === "free").length
 
-export function LaunchDialog({ artifact, onClose }: { artifact: ArtifactView | null; onClose: () => void }) {
+export function LaunchDialog({
+  artifact,
+  onSwitch,
+  onClose,
+}: {
+  artifact: ArtifactView | null
+  onSwitch: (artifact: ArtifactView) => void
+  onClose: () => void
+}) {
   const [shown, setShown] = useState(artifact)
+  const [visible, setVisible] = useState(!!artifact)
+  const [round, setRound] = useState(0)
+  if (!!artifact !== visible) {
+    setVisible(!!artifact)
+    if (artifact) setRound(round + 1)
+  }
   if (artifact && artifact !== shown) setShown(artifact)
   return (
     <Dialog open={!!artifact} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[92vh] grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)_auto] sm:max-w-[772px]">
-        {shown && <LaunchFlow key={`${shown.source}/${shown.id}`} artifact={shown} onClose={onClose} />}
+        {shown && (
+          <LaunchFlow
+            key={`${round}/${shown.app?.package ?? `${shown.source}/${shown.id}`}`}
+            artifact={shown}
+            onSwitch={onSwitch}
+            onClose={onClose}
+          />
+        )}
       </DialogContent>
     </Dialog>
   )
 }
 
-function LaunchFlow({ artifact, onClose }: { artifact: ArtifactView; onClose: () => void }) {
+function LaunchFlow({
+  artifact,
+  onSwitch,
+  onClose,
+}: {
+  artifact: ArtifactView
+  onSwitch: (artifact: ArtifactView) => void
+  onClose: () => void
+}) {
   const providers = useProviders()
   const usable = useMemo(() => (providers.data ?? []).filter((p) => !p.error), [providers.data])
   const [picked, setPicked] = useState<string | null>(null)
@@ -135,6 +164,9 @@ function LaunchFlow({ artifact, onClose }: { artifact: ArtifactView; onClose: ()
     false,
   )
   const launch = useStartSession()
+  const builds = useArtifacts("").data?.items ?? []
+  const alternativeFor = (v: string) =>
+    runs(v) || !artifact.app ? undefined : newestRunnable(builds, artifact.app.package, apiLevels[v])
   const appData = useAppDataFor(artifact.app?.package)
   const recordings = useRecordings()
   const [record, setRecord] = useState(recordPreference)
@@ -225,15 +257,22 @@ function LaunchFlow({ artifact, onClose }: { artifact: ArtifactView; onClose: ()
                 hint={versions.some((v) => !runs(v)) ? `${needsAndroid(artifact.minSdk ?? 0)}.` : undefined}
               >
                 <ChoiceGroup label="Android version" className="grid-cols-2 sm:grid-cols-5">
-                  {versions.map((v) => (
-                    <AndroidVersionCard
-                      key={v}
-                      version={v}
-                      selected={v === android}
-                      blockedBy={runs(v) ? undefined : needsAndroid(artifact.minSdk ?? 0)}
-                      onSelect={() => setChosenAndroid(v)}
-                    />
-                  ))}
+                  {versions.map((v) => {
+                    const alternative = alternativeFor(v)
+                    return (
+                      <AndroidVersionCard
+                        key={v}
+                        version={v}
+                        selected={v === android}
+                        blockedBy={runs(v) ? undefined : needsAndroid(artifact.minSdk ?? 0)}
+                        alternative={alternative && (alternative.app?.versionName || artifactTitle(alternative))}
+                        onSelect={() => {
+                          setChosenAndroid(v)
+                          if (alternative) onSwitch(alternative)
+                        }}
+                      />
+                    )
+                  })}
                 </ChoiceGroup>
               </Section>
             )}

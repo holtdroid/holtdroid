@@ -1,4 +1,5 @@
 import { ChoiceCard } from "@/components/launch/choice-card"
+import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 const releases: Record<string, { name: string; from: string; to: string }> = {
@@ -27,16 +28,23 @@ export function AndroidVersionCard({
   version,
   selected,
   blockedBy,
+  alternative,
   onSelect,
 }: {
   version: string
   selected: boolean
   blockedBy?: string
+  alternative?: string
   onSelect: () => void
 }) {
   const r = releases[version] ?? fallback
   const card = (
-    <ChoiceCard selected={selected} onSelect={onSelect} disabled={!!blockedBy} className="gap-2.5 p-2.5">
+    <ChoiceCard
+      selected={selected}
+      onSelect={onSelect}
+      disabled={!!blockedBy && !alternative}
+      className={cn("gap-2.5 p-2.5", blockedBy && alternative && "opacity-70")}
+    >
       <div
         className="relative flex h-16 items-center justify-between overflow-hidden rounded-lg px-3 text-white"
         style={{ backgroundImage: `linear-gradient(135deg, ${r.from}, ${r.to})` }}
@@ -47,7 +55,11 @@ export function AndroidVersionCard({
       </div>
       <div className="px-0.5">
         <div className="text-sm font-medium">Android {version}</div>
-        {r.name && <div className="text-muted-foreground truncate text-xs">{r.name}</div>}
+        {blockedBy && alternative ? (
+          <div className="text-muted-foreground truncate text-xs">Use {alternative}</div>
+        ) : (
+          r.name && <div className="text-muted-foreground truncate text-xs">{r.name}</div>
+        )}
       </div>
     </ChoiceCard>
   )
@@ -59,7 +71,10 @@ export function AndroidVersionCard({
           {card}
         </span>
       </TooltipTrigger>
-      <TooltipContent>{blockedBy}</TooltipContent>
+      <TooltipContent>
+        {blockedBy}
+        {alternative && `. Switches to ${alternative}, the newest build that runs on it.`}
+      </TooltipContent>
     </Tooltip>
   )
 }

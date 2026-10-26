@@ -37,6 +37,15 @@ export function needsAndroid(minSdk: number) {
   return version ? `Needs Android ${version} or newer (API level ${minSdk})` : `Needs Android API level ${minSdk}`
 }
 
+type Build = { minSdk?: number; app?: { package: string; versionCode?: number } }
+
+export function newestRunnable<T extends Build>(builds: T[], pkg: string, level: number | undefined): T | undefined {
+  if (!level) return undefined
+  return builds
+    .filter((b) => b.app?.package === pkg && (b.minSdk ?? 0) <= level)
+    .toSorted((a, b) => (b.app?.versionCode ?? 0) - (a.app?.versionCode ?? 0))[0]
+}
+
 export type WebViewInfo = {
   current?: { pkg: string; version: string }
   valid: { pkg: string; version: string }[]

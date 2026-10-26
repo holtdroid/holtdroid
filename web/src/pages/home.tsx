@@ -55,6 +55,7 @@ export function HomePage({ pkg }: { pkg?: string }) {
         {search.quick && linked.data && <QuickLauncher artifact={linked.data} onFallback={dropQuick} />}
         <LaunchDialog
           artifact={launching ?? (search.launch && !search.quick ? (linked.data ?? null) : null)}
+          onSwitch={setLaunching}
           onClose={close}
         />
       </div>

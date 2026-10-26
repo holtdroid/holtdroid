@@ -46,7 +46,8 @@ the tags `milestone`, `version`, `channel`, `revision`, `minSdk`,
 `targetSdk`, `requiresSdk` and `frontend`. Chromium 149 to 156 are tagged
 `requiresSdk: 34`: they abort at startup on Android 11 to 13. Chromium 157
 and later are tagged `requiresSdk: 35`, see below. The launch dialog greys
-out the Android versions below `requiresSdk` and the api refuses them.
+out the Android versions below `requiresSdk`, offering the newest Chromium
+that runs there instead, and the api refuses them.
 
 ## Deploying
 

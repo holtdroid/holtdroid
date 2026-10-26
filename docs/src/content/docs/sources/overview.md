@@ -109,7 +109,9 @@ A build runs on Android versions at or above its APK's `minSdk` and, when the
 sidecar sets it, the `requiresSdk` tag (an API level, e.g. `"35"` for
 Android 15): for builds that declare an older `minSdk` but break on older
 Android. The launch dialog greys out the Android versions below that (the
-tooltip says why), quick launch picks a version that fits or stays
+tooltip says why). When another build of the same app runs on such a
+version, the card stays clickable, names the newest of those builds and
+switches the dialog to it, keeping the other choices. Quick launch picks a version that fits or stays
 disabled, and the api answers 422 for them.
 
 Write the sidecar **before** the APK when the visibility matters — the api
