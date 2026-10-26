@@ -3,6 +3,7 @@ import {
   BatteryChargingIcon,
   BatteryIcon,
   BugIcon,
+  ChevronRightIcon,
   ConstructionIcon,
   CpuIcon,
   HardDriveIcon,
@@ -55,12 +56,23 @@ import {
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useNow } from "@/hooks/use-now"
 import { formatBytes, formatDuration, formatRelative } from "@/lib/format"
-import { celsius, type Level, level, levelFill, levelText, sensorLabel, temperatureLevel, worst } from "@/lib/thermal"
+import {
+  celsius,
+  hottest,
+  type Level,
+  level,
+  levelFill,
+  levelText,
+  sensorLabel,
+  temperatureLevel,
+  worst,
+} from "@/lib/thermal"
 import { cn } from "@/lib/utils"
 
 const stateBadge: Record<Slot["state"], string> = {
@@ -74,24 +86,32 @@ const sessionKey = (provider: string, id: string) => `${provider}/${id}`
 
 export type InventoryTab = "devices" | "devtools"
 
-export function validateInventorySearch(search: Record<string, unknown>): { tab?: InventoryTab } {
-  return { tab: search.tab === "devtools" ? "devtools" : undefined }
+const stateDot: Record<Slot["state"], string> = {
+  free: "bg-emerald-500",
+  busy: "bg-amber-500",
+  offline: "bg-muted-foreground/40",
+  maintenance: "bg-sky-500",
 }
 
-export function InventoryPage({ tab = "devices" }: { tab?: InventoryTab }) {
-  const navigate = useNavigate({ from: "/inventory" })
+type Selected = { provider: string; slot: string }
+
+export function InventoryPage({ tab }: { tab: InventoryTab }) {
+  const navigate = useNavigate()
   const me = useMe()
   const admin = me.data?.admin === true
   const inventory = useInventory(admin && tab === "devices")
   const sessions = useSessions()
   const now = useNow(30_000)
   const byID = new Map((sessions.data?.items ?? []).map((s) => [sessionKey(s.provider, s.id), s]))
+  const [selected, setSelected] = useState<Selected | null>(null)
+  const current = selected ? inventory.data?.providers.find((p) => p.name === selected.provider) : undefined
+  const device = current?.devices.find((d) => d.slot.id === selected?.slot)
 
   return (
     <div className="flex h-full flex-col">
       <Tabs
         value={tab}
-        onValueChange={(v) => void navigate({ search: v === "devtools" ? { tab: "devtools" } : {}, replace: true })}
+        onValueChange={(v) => void navigate({ to: v === "devtools" ? "/inventory/devtools" : "/inventory" })}
         className="bg-background shrink-0 border-b px-4 lg:px-6"
       >
         <TabsList variant="line" className="h-11 gap-4">
@@ -106,13 +126,14 @@ export function InventoryPage({ tab = "devices" }: { tab?: InventoryTab }) {
         </TabsList>
       </Tabs>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto grid max-w-7xl content-start gap-6 p-4 lg:p-6">
+        <div className="mx-auto grid max-w-6xl content-start gap-6 p-4 lg:p-6">
           {tab === "devices" ? (
             <div>
               <h1 className="text-xl font-semibold tracking-tight">Devices</h1>
               <p className="text-muted-foreground max-w-2xl text-sm">
-                Every device and machine of every provider, refreshed every 10 seconds. A slot held for maintenance
-                takes no new sessions; a session already running on it keeps going until it ends.
+                Every slot of every provider, refreshed every 10 seconds. Open a row for the device, its machine and
+                sensors. A slot held for maintenance takes no new sessions; a session already running on it keeps going
+                until it ends.
               </p>
             </div>
           ) : (
@@ -140,13 +161,31 @@ export function InventoryPage({ tab = "devices" }: { tab?: InventoryTab }) {
               )}
               {admin && inventory.isPending && <Skeleton className="h-64 rounded-xl" />}
               {inventory.data?.providers.map((p) => (
-                <ProviderSection key={p.name} provider={p} sessions={byID} now={now} />
+                <ProviderSection
+                  key={p.name}
+                  provider={p}
+                  sessions={byID}
+                  now={now}
+                  onOpen={(slot) => setSelected({ provider: p.name, slot })}
+                />
               ))}
             </>
           )}
           {tab === "devtools" && admin && <DevToolsFrontendsSection now={now} />}
         </div>
       </div>
+      <Sheet open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
+        <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
+          {current && device && (
+            <DeviceSheet
+              provider={current}
+              device={device}
+              session={device.session ? byID.get(sessionKey(current.name, device.session)) : undefined}
+              now={now}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }
@@ -251,27 +290,34 @@ function ProviderSection({
   provider: p,
   sessions,
   now,
+  onOpen,
 }: {
   provider: ProviderInventory
   sessions: Map<string, SessionView>
   now: number
+  onOpen: (slot: string) => void
 }) {
   const counts = new Map<Slot["state"], number>()
   for (const d of p.devices) counts.set(d.slot.state, (counts.get(d.slot.state) ?? 0) + 1)
+  const machines = p.devices.some((d) => d.host && !d.device)
 
   return (
-    <section className="grid gap-3">
+    <section className="grid gap-2">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <h2 className="text-lg font-semibold">{p.name}</h2>
+        <h2 className="text-base font-semibold">{p.name}</h2>
         {p.kind && <Badge variant="outline">{p.kind}</Badge>}
-        <span className="text-muted-foreground text-xs">
-          {p.devices.length} {p.devices.length === 1 ? "slot" : "slots"}
+        <div className="text-muted-foreground flex items-center gap-2.5 text-xs">
           {(["free", "busy", "maintenance", "offline"] as const)
             .filter((s) => counts.get(s))
-            .map((s) => ` · ${counts.get(s)} ${s}`)
-            .join("")}
-        </span>
-        <div className="ml-auto">
+            .map((s) => (
+              <span key={s} className="inline-flex items-center gap-1 tabular-nums">
+                <span className={cn("size-1.5 rounded-full", stateDot[s])} />
+                {counts.get(s)} {s}
+              </span>
+            ))}
+        </div>
+        <div className="ml-auto flex items-center gap-3">
+          {p.host && <HostSummary host={p.host} />}
           {!p.error && (
             <MaintenanceButton
               target={{ provider: p.name }}
@@ -280,6 +326,7 @@ function ProviderSection({
               description="No new sessions start on any of its slots until you release it. Running sessions keep going."
               label="Hold provider"
               releaseLabel="Release provider"
+              size="sm"
             />
           )}
         </div>
@@ -293,40 +340,229 @@ function ProviderSection({
           <AlertDescription>{p.error}</AlertDescription>
         </Alert>
       )}
-      {p.host && (
-        <div className="bg-card grid gap-3 rounded-xl border p-3">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <UsbIcon className="text-muted-foreground size-4" />
-            Host {p.host.hostname && <span className="font-mono text-xs">{p.host.hostname}</span>}
-          </div>
-          <HostDetails host={p.host} />
-        </div>
-      )}
       {!p.error && p.devices.length === 0 && (
         <p className="text-muted-foreground rounded-xl border border-dashed py-8 text-center text-sm">
           No slots: nothing matches the provider&apos;s configuration right now.
         </p>
       )}
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {p.devices.map((d) => (
-          <DeviceCard
-            key={d.slot.id}
-            provider={p}
-            device={d}
-            session={d.session ? sessions.get(sessionKey(p.name, d.session)) : undefined}
-            now={now}
-          />
-        ))}
-      </div>
+      {p.devices.length > 0 && (
+        <div className="overflow-x-auto rounded-xl border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Slot</TableHead>
+                <TableHead>State</TableHead>
+                <TableHead>Session</TableHead>
+                <TableHead>{machines ? "Machine" : "Device"}</TableHead>
+                <TableHead className="text-right">{machines ? "Load · RAM" : "Battery · Storage"}</TableHead>
+                <TableHead className="text-right">Temp</TableHead>
+                <TableHead className="w-8" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {p.devices.map((d) => (
+                <DeviceRow
+                  key={d.slot.id}
+                  provider={p}
+                  device={d}
+                  session={d.session ? sessions.get(sessionKey(p.name, d.session)) : undefined}
+                  onOpen={() => onOpen(d.slot.id)}
+                />
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </section>
   )
+}
+
+function HostSummary({ host: h }: { host: HostInfo }) {
+  const load = h.cores ? h.load1 / h.cores : 0
+  const mem = h.memoryTotal && h.memoryAvailable ? (h.memoryTotal - h.memoryAvailable) / h.memoryTotal : 0
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="text-muted-foreground hidden items-center gap-2 text-xs tabular-nums sm:inline-flex">
+          <UsbIcon className="size-3.5" />
+          {h.hostname && <span className="font-mono">{h.hostname}</span>}
+          {h.cores ? <Stat level={level(load, 0.8, 1.2)}>load {Math.round(load * 100)}%</Stat> : null}
+          {mem ? <Stat level={level(mem, 0.85, 0.95)}>RAM {Math.round(mem * 100)}%</Stat> : null}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent className="w-72">
+        <HostDetails host={h} />
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
+function Stat({ level: l, children }: { level: Level; children: ReactNode }) {
+  return <span className={cn(l !== "ok" && levelText[l])}>{children}</span>
 }
 
 function sameHold(a: Maintenance | undefined, b: Maintenance | undefined) {
   return !!a && !!b && a.since === b.since && a.reason === b.reason && a.by === b.by
 }
 
-function DeviceCard({
+function thermalOf(d: InventoryDevice) {
+  return [...(d.device?.thermal ?? []), ...(d.host?.thermal ?? [])]
+}
+
+function DeviceRow({
+  provider: p,
+  device: d,
+  session,
+  onOpen,
+}: {
+  provider: ProviderInventory
+  device: InventoryDevice
+  session: SessionView | undefined
+  onOpen: () => void
+}) {
+  const Icon = d.host && !d.device ? ServerIcon : SmartphoneIcon
+  const hot = hottest(thermalOf(d))
+  const hold = d.slot.maintenance
+
+  return (
+    <TableRow className="cursor-pointer" onClick={onOpen}>
+      <TableCell>
+        <div className="flex items-center gap-2">
+          <Icon className="text-muted-foreground size-4 shrink-0" />
+          <div className="min-w-0">
+            <div className="truncate font-medium">{d.slot.label}</div>
+            {d.slot.label !== d.slot.id && (
+              <div className="text-muted-foreground truncate font-mono text-[11px]">{d.slot.id}</div>
+            )}
+          </div>
+        </div>
+      </TableCell>
+      <TableCell>
+        <Badge className={cn("capitalize", stateBadge[d.slot.state])}>{d.slot.state}</Badge>
+        {hold?.reason && (
+          <div className="text-muted-foreground mt-0.5 max-w-40 truncate text-[11px]">{hold.reason}</div>
+        )}
+      </TableCell>
+      <TableCell>
+        {d.session ? (
+          <div className="min-w-0">
+            <Link
+              to="/session/$provider/$id"
+              params={{ provider: p.name, id: d.session }}
+              className="font-mono text-xs underline-offset-2 hover:underline"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {d.session}
+            </Link>
+            {session && (
+              <div className="text-muted-foreground max-w-48 truncate text-[11px]">
+                {session.label || session.package} · {session.ownerName || session.owner}
+              </div>
+            )}
+          </div>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )}
+      </TableCell>
+      <TableCell>
+        {d.device ? (
+          <div className="min-w-0">
+            <div className="truncate">{[d.device.manufacturer, d.device.model].filter(Boolean).join(" ") || "—"}</div>
+            {d.device.android && (
+              <div className="text-muted-foreground text-[11px]">
+                Android {d.device.android}
+                {d.device.sdk ? ` · API ${d.device.sdk}` : ""}
+              </div>
+            )}
+          </div>
+        ) : d.host ? (
+          <div className="min-w-0">
+            <div className="truncate">{d.host.os || d.host.hostname || "—"}</div>
+            <div className="text-muted-foreground text-[11px]">
+              {[d.host.cores && `${d.host.cores} cores`, d.host.memoryTotal && formatBytes(d.host.memoryTotal)]
+                .filter(Boolean)
+                .join(" · ")}
+            </div>
+          </div>
+        ) : (
+          <span className="text-muted-foreground text-xs">{d.error || "—"}</span>
+        )}
+      </TableCell>
+      <TableCell className="text-right text-xs tabular-nums">
+        <Resources device={d} />
+      </TableCell>
+      <TableCell className="text-right text-xs tabular-nums">
+        {hot ? (
+          <Stat level={temperatureLevel(hot)}>{celsius(hot.celsius)}</Stat>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )}
+      </TableCell>
+      <TableCell className="pr-2">
+        <ChevronRightIcon className="text-muted-foreground size-4" />
+      </TableCell>
+    </TableRow>
+  )
+}
+
+function Resources({ device: d }: { device: InventoryDevice }) {
+  if (d.device) {
+    const b = d.device.battery
+    const storage = d.device.storageTotal ? (d.device.storageUsed ?? 0) / d.device.storageTotal : 0
+    return (
+      <span className="inline-flex items-center gap-2">
+        {b && (
+          <Stat level={level(b.celsius, 40, 45)}>
+            <span className="inline-flex items-center gap-0.5">
+              {b.status === "charging" ? (
+                <BatteryChargingIcon className="size-3.5" />
+              ) : (
+                <BatteryIcon className="size-3.5" />
+              )}
+              {b.level}%
+            </span>
+          </Stat>
+        )}
+        {d.device.storageTotal ? (
+          <Stat level={level(storage, 0.85, 0.95)}>
+            <span className="inline-flex items-center gap-0.5">
+              <HardDriveIcon className="size-3.5" />
+              {Math.round(storage * 100)}%
+            </span>
+          </Stat>
+        ) : null}
+      </span>
+    )
+  }
+  if (d.host) {
+    const h = d.host
+    const load = h.cores ? h.load1 / h.cores : 0
+    const mem = h.memoryTotal && h.memoryAvailable ? (h.memoryTotal - h.memoryAvailable) / h.memoryTotal : 0
+    return (
+      <span className="inline-flex items-center gap-2">
+        {h.cores ? (
+          <Stat level={level(load, 0.8, 1.2)}>
+            <span className="inline-flex items-center gap-0.5">
+              <CpuIcon className="size-3.5" />
+              {Math.round(load * 100)}%
+            </span>
+          </Stat>
+        ) : null}
+        {mem ? (
+          <Stat level={level(mem, 0.85, 0.95)}>
+            <span className="inline-flex items-center gap-0.5">
+              <MemoryStickIcon className="size-3.5" />
+              {Math.round(mem * 100)}%
+            </span>
+          </Stat>
+        ) : null}
+      </span>
+    )
+  }
+  return <span className="text-muted-foreground">—</span>
+}
+
+function DeviceSheet({
   provider: p,
   device: d,
   session,
@@ -339,26 +575,26 @@ function DeviceCard({
 }) {
   const hold = d.slot.maintenance
   const inherited = sameHold(hold, p.maintenance)
-  const thermal = [...(d.device?.thermal ?? []), ...(d.host?.thermal ?? [])]
-  const Icon = d.host ? ServerIcon : SmartphoneIcon
+  const thermal = thermalOf(d)
+  const Icon = d.host && !d.device ? ServerIcon : SmartphoneIcon
 
   return (
-    <article className="bg-card flex flex-col gap-3 rounded-xl border p-3">
-      <header className="flex items-start gap-2">
-        <Icon className="text-muted-foreground mt-0.5 size-5 shrink-0" />
-        <div className="min-w-0 flex-1">
-          <div className="truncate font-medium">{d.slot.label}</div>
-          {d.slot.label !== d.slot.id && (
-            <div className="text-muted-foreground truncate font-mono text-xs">{d.slot.id}</div>
-          )}
-        </div>
-        <Badge className={cn("capitalize", stateBadge[d.slot.state])}>{d.slot.state}</Badge>
-      </header>
+    <div className="grid gap-5 p-4">
+      <SheetHeader className="p-0">
+        <SheetTitle className="flex items-center gap-2">
+          <Icon className="text-muted-foreground size-5" />
+          <span className="min-w-0 truncate">{d.slot.label}</span>
+          <Badge className={cn("capitalize", stateBadge[d.slot.state])}>{d.slot.state}</Badge>
+        </SheetTitle>
+        <SheetDescription className="font-mono text-xs">
+          {p.name} · {d.slot.id}
+        </SheetDescription>
+      </SheetHeader>
 
       {hold && <HoldNote hold={hold} now={now} what={inherited ? "Held with the whole provider" : "Held"} compact />}
 
       {d.session && (
-        <div className="bg-muted/50 flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs">
+        <div className="bg-muted/50 grid gap-0.5 rounded-lg px-3 py-2 text-xs">
           <span className="text-muted-foreground">Session</span>
           <Link
             to="/session/$provider/$id"
@@ -375,12 +611,20 @@ function DeviceCard({
         </div>
       )}
 
-      {d.device && <DeviceDetails device={d.device} />}
-      {d.host && <HostDetails host={d.host} />}
+      {d.device && (
+        <Section title="Device">
+          <DeviceDetails device={d.device} />
+        </Section>
+      )}
+      {d.host && (
+        <Section title={d.device ? "Host" : "Machine"} hint={d.host.hostname}>
+          <HostDetails host={d.host} />
+        </Section>
+      )}
       {thermal.length > 0 && <Sensors thermal={thermal} emulated={!!d.host && !!d.device} />}
       {d.error && <p className="text-muted-foreground text-xs">{d.error}</p>}
 
-      <div className="mt-auto flex justify-end pt-1">
+      <div className="flex justify-end">
         {inherited ? (
           <span className="text-muted-foreground text-xs">Release the provider to free it</span>
         ) : (
@@ -393,13 +637,25 @@ function DeviceCard({
                 ? "The running session keeps going; once it ends, no new session starts here until you release it."
                 : "No new session starts here until you release it."
             }
-            label="Hold"
+            label="Hold for maintenance"
             releaseLabel="Release"
             size="sm"
           />
         )}
       </div>
-    </article>
+    </div>
+  )
+}
+
+function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
+  return (
+    <div className="grid gap-2">
+      <div className="flex items-baseline gap-2 text-sm font-medium">
+        {title}
+        {hint && <span className="text-muted-foreground font-mono text-xs font-normal">{hint}</span>}
+      </div>
+      {children}
+    </div>
   )
 }
 

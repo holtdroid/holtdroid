@@ -15,7 +15,7 @@ import { AppDataPage } from "@/pages/app-data"
 import { AuditPage, validateAuditSearch } from "@/pages/audit"
 import { ComputersPage } from "@/pages/computers"
 import { HomePage } from "@/pages/home"
-import { InventoryPage, validateInventorySearch } from "@/pages/inventory"
+import { InventoryPage } from "@/pages/inventory"
 import { InvitePage } from "@/pages/invite"
 import { LaunchPage, validateLaunchSearch } from "@/pages/launch"
 import { OpenRecordingPage } from "@/pages/open-recording"
@@ -127,10 +127,16 @@ const auditRoute = createRoute({
 const inventoryRoute = createRoute({
   getParentRoute: () => portalRoute,
   path: "/inventory",
-  validateSearch: validateInventorySearch,
   component: function Inventory() {
-    const { tab } = inventoryRoute.useSearch()
-    return <InventoryPage tab={tab} />
+    return <InventoryPage tab="devices" />
+  },
+})
+
+const inventoryDevToolsRoute = createRoute({
+  getParentRoute: () => portalRoute,
+  path: "/inventory/devtools",
+  component: function InventoryDevTools() {
+    return <InventoryPage tab="devtools" />
   },
 })
 
@@ -165,6 +171,7 @@ const router = createRouter({
       computersRoute,
       auditRoute,
       inventoryRoute,
+      inventoryDevToolsRoute,
       appDataRoute,
       accountRoute,
       usersRoute,

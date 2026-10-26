@@ -450,8 +450,10 @@ codecs and reports that it can't capture audio.
   seen merged with the store's archives), `DELETE …/{rev}` (archive and
   local files; 409 during a crawl; audited as `devtools.frontend.delete`)
   and `POST …/{rev}/fetch` (ahead of the queue), shown on the Inventory
-  page's DevTools frontends tab (`/inventory?tab=devtools`; the tabs sit
-  under the site header, Devices is the other one).
+  page's DevTools frontends tab (`/inventory/devtools`; the tabs sit under
+  the site header, `/inventory` is the Devices one: a table per provider,
+  a row per slot, with the device, machine and sensors in a sheet on the
+  right).
 - Everything is same-origin (`/s/{provider}/{id}/…` on the api host). This matters
   because forward-auth cookies (SameSite=Lax) are not sent on WebSockets
   opened from a cross-site iframe.
