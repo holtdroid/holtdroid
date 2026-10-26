@@ -3777,3 +3777,30 @@ key hashes source, file and revision (the ETag, a content hash on S3) and
 **Consequences.** Metadata for deleted artifacts is a few KiB and is never
 evicted. After an upgrade that bumps the parser, every APK is downloaded once
 more in the background. `cache.maxSize` now counts only APKs.
+
+## 125. Google WebView in a second catalog, made the WebView by the agent
+
+**Context.** Chromium's WebView snapshots have no proprietary codecs, so
+pages with H.264 or AAC media fail in every catalog build, although they
+play in the images' built-in WebView. Google's Android System WebView has
+the codecs and APKMirror carries standalone x86_64 APKs of it (no Trichrome
+Library). It is `com.google.android.webview`, signed by Google, so it can't
+update the built-in `com.android.webview`, and redroid lists only that one
+as a WebView provider. holtdroid-webview-sync prunes every APK in its prefix
+that it didn't choose, so the Google builds can't share it.
+
+**Decision.** holtdroid-redroid adds a static overlay that lists
+`com.google.android.webview` as a provider, not available by default.
+`webview.catalogs` adds catalogs next to `webview.storage`; IDs of builds
+in them are prefixed with the catalog's index, so the first catalog's IDs
+don't change. A sidecar's `package` tag names the provider;
+`WebViewInstall.package` carries it to the agent, which installs the build
+and runs `cmd webviewupdate set-webview-implementation` when it isn't
+`com.android.webview`. Quick launch keeps defaulting to the newest stable
+Chromium build (decision #121).
+
+**Consequences.** Sessions can test pages with proprietary codecs in a
+current WebView. Google builds follow APKMirror's uploads, so some
+versions are missing. The holtdroid-apkmirror-sync job fills the catalog;
+other deployments need a job of their own.
+

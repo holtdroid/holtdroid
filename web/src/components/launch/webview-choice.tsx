@@ -32,7 +32,7 @@ export function WebViewChoice({
   return (
     <Section
       title="WebView"
-      hint="Chromium builds installed over the device's own WebView before the app starts. Each adds a few seconds to the launch."
+      hint="Chromium builds installed over the device's own WebView, or Google's WebView with proprietary codecs (H.264, AAC), before the app starts. Each adds a few seconds to the launch."
     >
       <ChoiceGroup label="WebView" className="grid-cols-2 sm:grid-cols-4">
         <ChoiceCard selected={selected === ""} onSelect={() => onSelect("")} className="gap-1.5 p-2.5">

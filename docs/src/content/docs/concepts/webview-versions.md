@@ -1,6 +1,6 @@
 ---
 title: WebView versions
-description: Start a virtual device with a chosen Chromium WebView instead of the one built into Android.
+description: Start a virtual device with a chosen Chromium or Google WebView instead of the one built into Android.
 sidebar:
   order: 3
 ---
@@ -19,12 +19,14 @@ Android version. It lists:
 
 - **Built-in**, the WebView shipped with the Android image;
 - one card per Chromium milestone in the catalog, marked with the release
-  channels it is on today (Stable, Beta, Dev, Canary).
+  channels it is on today (Stable, Beta, Dev, Canary);
+- with a Google WebView catalog, one card per Google WebView build, titled
+  _Google WebView_.
 
 The launch dialog starts on **Built-in** and remembers nothing. Quick launch
-uses the version you last launched with, or the newest milestone on the Stable
-channel that works on the chosen Android version, or the newest milestone when
-none is on Stable. Choosing **Built-in** is remembered like any other choice.
+uses the version you last launched with, or the newest Chromium milestone on
+the Stable channel that works on the chosen Android version, or the newest
+Chromium milestone when none is on Stable. Choosing **Built-in** is remembered like any other choice.
 
 Only builds that work on the chosen Android version are shown. Chromium 149
 and later need Android 14 or 15. On Android 11, 12 and 13 they abort as
@@ -65,6 +67,39 @@ available as the built-in WebView of some Android image.
 DevTools work as usual. Snapshot builds don't report which DevTools frontend
 fits them, so the catalog records the commit of that milestone's Canary
 release and the agent serves that frontend.
+
+## Google WebView
+
+Chromium's snapshots are built without proprietary codecs: H.264, AAC and
+HEVC in `<video>` and Media Source Extensions don't play in them. The
+WebView built into the Android images does play them, and so does Google's
+Android System WebView, `com.google.android.webview`, which a second
+catalog can hold: the x86_64 APKs of Google WebView from APKMirror, with the
+same tags as the Chromium catalog plus `package`.
+
+A Google WebView build doesn't replace the built-in one. The agent installs
+it next to `com.android.webview` and makes it the device's WebView with
+`cmd webviewupdate set-webview-implementation`. Android accepts it because
+the [holtdroid-redroid](https://github.com/holtdroid/holtdroid-redroid)
+images list it as a WebView provider (not a default one, so a session
+without a choice keeps the built-in WebView). Uninstalling
+`com.google.android.webview` brings the built-in one back.
+
+Fill it with a job of your own that writes APKs and sidecars to a prefix of
+its own (each job prunes its prefix), and list that prefix under
+`webview.catalogs`:
+
+```yaml
+# holtdroid chart, config:
+webview:
+  storage: { type: s3, s3: { …, prefix: webview } }
+  catalogs:
+    - { type: s3, s3: { …, prefix: apkmirror/google-inc/android-system-webview } }
+```
+
+A build's sidecar needs the tags `version` and `milestone`, `package:
+com.google.android.webview`, and `minSdk` or `requiresSdk` for the Android
+versions it runs on.
 
 ## Filling the catalog
 
@@ -123,6 +158,7 @@ cache.
 
 - Virtual devices only. Phones keep their own WebView, which is signed by
   Google, so a snapshot can't replace it.
+- Chromium builds have no proprietary codecs; Google WebView builds do.
 - x86_64 builds from Chromium 129 on; earlier versions only as a built-in
   WebView.
 - Chromium 149 and later only on Android 14 and 15. The sync job's

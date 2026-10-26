@@ -3,6 +3,7 @@
 package agent
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -500,8 +502,11 @@ func (a *Agent) fail(err error) {
 	a.notify()
 }
 
+const builtinWebView = "com.android.webview"
+
 // installWebView installs a com.android.webview build as an update of the
-// built-in WebView, which then serves every app.
+// built-in WebView, which then serves every app. A build of another package
+// is installed next to it and made the WebView implementation.
 func (a *Agent) installWebView(ctx context.Context, w contract.WebViewInstall) error {
 	a.setStatus(contract.StateInstalling, "Downloading WebView "+w.Version)
 	file, err := a.fetch(ctx, w.URL, "holtdroid-webview-*.apk", "WebView")
@@ -513,7 +518,16 @@ func (a *Agent) installWebView(ctx context.Context, w contract.WebViewInstall) e
 	if err := a.dev.Install(ctx, file); err != nil {
 		return err
 	}
-	a.log.Info("installed WebView", "version", w.Version)
+	if w.Package != "" && w.Package != builtinWebView {
+		out, err := a.dev.Shell(ctx, "cmd webviewupdate set-webview-implementation "+w.Package)
+		if err != nil {
+			return err
+		}
+		if !strings.Contains(out, "Success") {
+			return fmt.Errorf("make %s the WebView: %s", w.Package, strings.TrimSpace(out))
+		}
+	}
+	a.log.Info("installed WebView", "version", w.Version, "package", cmp.Or(w.Package, builtinWebView))
 	return nil
 }
 

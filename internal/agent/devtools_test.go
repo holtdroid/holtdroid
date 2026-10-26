@@ -85,6 +85,8 @@ func (d *fakeDevice) Shell(_ context.Context, cmd string) (string, error) {
 		return "root /data/data/com.example.shop 10234 u:object_r:app_data_file:s0:c234,c256,c512,c768\n", nil
 	case strings.HasPrefix(cmd, "tar -xf "+restoreFile):
 		return "rc=0\n", nil
+	case strings.HasPrefix(cmd, "cmd webviewupdate set-webview-implementation "):
+		return "Success\n", nil
 	}
 	return "", nil
 }

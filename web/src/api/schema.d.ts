@@ -2986,6 +2986,8 @@ export interface components {
              * @description the oldest Android API level it works on: the APK's minSdk, or the catalog's requiresSdk when that is higher
              */
             minSdk: number;
+            /** @description the WebView provider: com.android.webview (Chromium builds) or com.google.android.webview (Google's, with proprietary codecs) */
+            package: string;
             /** Format: date-time */
             released: string;
             /** Format: int64 */

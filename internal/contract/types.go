@@ -167,11 +167,13 @@ type CreateSession struct {
 	Recording   *RecordingTarget `json:"recording,omitempty" doc:"record the session from the moment it is first ready"`
 }
 
-// WebViewInstall is a build of com.android.webview that replaces the
-// device's built-in WebView for the session.
+// WebViewInstall is a WebView build that serves every app for the session:
+// a com.android.webview build updates the built-in WebView, another package
+// is installed next to it and made the device's WebView implementation.
 type WebViewInstall struct {
 	URL      string `json:"url" format:"uri"`
 	Version  string `json:"version" minLength:"1" doc:"e.g. 158.0.8123.0"`
+	Package  string `json:"package,omitempty" doc:"the build's package; empty means com.android.webview. Any other one (com.google.android.webview) must be a WebView provider the image allows"`
 	Frontend string `json:"frontend,omitempty" pattern:"^[0-9a-f]{40}$" doc:"the Chromium commit whose DevTools frontend fits this build; Chromium snapshot builds report none of their own"`
 }
 

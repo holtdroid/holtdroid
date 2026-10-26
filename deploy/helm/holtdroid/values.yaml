@@ -66,6 +66,7 @@ config:
   # storage type.
   # webview:
   #   storage: { type: s3, s3: { endpoint: …, bucket: …, prefix: webview, … } }
+  #   catalogs: [] # more catalogs, e.g. Google WebView builds in a prefix of their own
   # Tile server for the GPS map, proxied by the api (docs: Configuration →
   # Overview → GPS map). Empty url turns the map off.
   # map:

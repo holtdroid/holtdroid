@@ -708,8 +708,8 @@ func TestAppFrontend(t *testing.T) {
 }
 
 func TestWebViewCatalog(t *testing.T) {
-	dir := t.TempDir()
-	write := func(name, body, meta string) {
+	dir, google := t.TempDir(), t.TempDir()
+	writeIn := func(dir, name, body, meta string) {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o600); err != nil {
 			t.Fatal(err)
 		}
@@ -719,20 +719,24 @@ func TestWebViewCatalog(t *testing.T) {
 			}
 		}
 	}
+	write := func(name, body, meta string) { writeIn(dir, name, body, meta) }
 	write("chromium-157.apk", "webview 157", `{"title":"Chromium 157","tags":{"milestone":"157","version":"157.0.8000.0","minSdk":"29","channel":"beta"}}`)
 	write("chromium-158.apk", "webview 158", `{"title":"Chromium 158","tags":{"milestone":"158","version":"158.0.8123.0","minSdk":"29","requiresSdk":"34","channel":"dev,canary","frontend":"7d74334854bbfcbaf1c955e86589d8b7cc9acc31"}}`)
+	writeIn(google, "chromium-157.apk", "google webview 156", `{"title":"Google WebView 156","tags":{"package":"com.google.android.webview","milestone":"156","version":"156.0.8078.47","requiresSdk":"34","channel":"stable"}}`)
 	write("stray.apk", "not a webview", "")
 
 	h := newHarnessWith(t, 2, func(c *Config) {
 		c.WebView.Storage = storage.Config{Type: "filesystem", Filesystem: storage.FilesystemConfig{Dir: dir}}
+		c.WebView.Catalogs = []storage.Config{{Type: "filesystem", Filesystem: storage.FilesystemConfig{Dir: google}}}
 	})
 	h.srv.providers["phones"] = noWebView{fake.New(fake.Config{Slots: 1, StepDelay: time.Hour, PublicURL: "http://agents"})}
 	h.srv.provOrder = append([]string{"phones"}, h.srv.provOrder...)
 
 	rec := h.do(http.MethodGet, "/api/v1/webviews", "otter", "", nil)
 	list := decode[[]WebViewView](t, rec)
-	if rec.Code != http.StatusOK || len(list) != 2 || list[0].Milestone != 158 || list[0].Version != "158.0.8123.0" ||
-		!slices.Equal(list[0].Channels, []string{"dev", "canary"}) || list[0].MinSDK != 34 || list[1].MinSDK != 29 || list[1].Title != "Chromium 157" {
+	if rec.Code != http.StatusOK || len(list) != 3 || list[0].Milestone != 158 || list[0].Version != "158.0.8123.0" ||
+		!slices.Equal(list[0].Channels, []string{"dev", "canary"}) || list[0].MinSDK != 34 || list[1].MinSDK != 29 || list[1].Title != "Chromium 157" ||
+		list[0].Package != "com.android.webview" || list[2].Package != "com.google.android.webview" || list[2].Title != "Google WebView 156" {
 		t.Fatalf("webviews %d %+v", rec.Code, list)
 	}
 	id := list[0].ID
@@ -765,10 +769,15 @@ func TestWebViewCatalog(t *testing.T) {
 		t.Fatalf("built-in WebView on any provider: %d %s", rec.Code, rec.Body.String())
 	}
 
-	for path, want := range map[string]int{"/internal/webview/" + id: http.StatusOK, "/internal/webview/" + encodeID("stray.apk"): http.StatusNotFound} {
+	for path, want := range map[string]string{
+		"/internal/webview/" + id:                      "webview 158",
+		"/internal/webview/" + list[2].ID:              "google webview 156",
+		"/internal/webview/" + encodeID("stray.apk"):   "",
+		"/internal/webview/" + encodeID("1:stray.apk"): "",
+	} {
 		rec := httptest.NewRecorder()
 		h.internal.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
-		if rec.Code != want || (want == http.StatusOK && rec.Body.String() != "webview 158") {
+		if (want == "" && rec.Code != http.StatusNotFound) || (want != "" && (rec.Code != http.StatusOK || rec.Body.String() != want)) {
 			t.Fatalf("%s: %d %q", path, rec.Code, rec.Body.String())
 		}
 	}

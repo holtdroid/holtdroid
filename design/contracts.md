@@ -275,13 +275,17 @@ type RecordingTarget struct {
 	URL string // api-internal, /internal/recordings/{user hash}/{id}/{secret}
 }
 
-// The agent installs url (a com.android.webview build) over the built-in
-// WebView before the app; a failed install fails the session. Frontend is
-// the Chromium commit whose DevTools frontend fits it, used for WebViews
-// that report an all-zero revision.
+// The agent installs url before the app; a failed install fails the
+// session. A com.android.webview build (package empty) updates the built-in
+// WebView; another package (com.google.android.webview) is installed next
+// to it and made the WebView with `cmd webviewupdate
+// set-webview-implementation`, which fails the session unless the image
+// lists it as a provider. Frontend is the Chromium commit whose DevTools
+// frontend fits it, used for WebViews that report an all-zero revision.
 type WebViewInstall struct {
 	URL      string // api-internal, /internal/webview/{id}
 	Version  string // "158.0.8123.0"
+	Package  string // optional, "com.google.android.webview"
 	Frontend string // optional, 40 hex digits
 }
 

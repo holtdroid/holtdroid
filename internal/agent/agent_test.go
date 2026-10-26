@@ -315,12 +315,14 @@ func TestAgentWebView(t *testing.T) {
 		name   string
 		resume bool
 		path   string
+		pkg    string
 		apks   []string
 		state  contract.SessionState
 	}{
-		{"before the app", false, "/internal/webview/chromium-158.apk", []string{"PK /internal/webview/chromium-158.apk", "PK /internal/artifacts/local/app.apk"}, contract.StateReady},
-		{"not again on resume", true, "/internal/webview/chromium-158.apk", nil, contract.StateReady},
-		{"a failed install fails the session", false, "/internal/webview/broken.apk", nil, contract.StateFailed},
+		{"before the app", false, "/internal/webview/chromium-158.apk", "", []string{"PK /internal/webview/chromium-158.apk", "PK /internal/artifacts/local/app.apk"}, contract.StateReady},
+		{"not again on resume", true, "/internal/webview/chromium-158.apk", "", nil, contract.StateReady},
+		{"a failed install fails the session", false, "/internal/webview/broken.apk", "", nil, contract.StateFailed},
+		{"another provider becomes the WebView", false, "/internal/webview/google-156.apk", "com.google.android.webview", []string{"PK /internal/webview/google-156.apk", "PK /internal/artifacts/local/app.apk"}, contract.StateReady},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var base string
@@ -330,7 +332,7 @@ func TestAgentWebView(t *testing.T) {
 				return nil
 			}, func(c *Config) {
 				base = strings.TrimSuffix(c.ArtifactURL, "/internal/artifacts/local/app.apk")
-				c.WebView = contract.WebViewInstall{URL: base + tc.path, Version: "158.0.8123.0"}
+				c.WebView = contract.WebViewInstall{URL: base + tc.path, Version: "158.0.8123.0", Package: tc.pkg}
 				c.Resume = tc.resume
 			})
 			s := h.waitState(tc.state)
@@ -342,6 +344,12 @@ func TestAgentWebView(t *testing.T) {
 			}
 			if tc.state == contract.StateFailed && !strings.Contains(s.Reason, "install WebView 158.0.8123.0") {
 				t.Fatalf("reason %q", s.Reason)
+			}
+			h.dev.mu.Lock()
+			switched := slices.Contains(h.dev.shells, "cmd webviewupdate set-webview-implementation com.google.android.webview")
+			h.dev.mu.Unlock()
+			if switched != (tc.pkg != "") {
+				t.Fatalf("set-webview-implementation run: %v, package %q", switched, tc.pkg)
 			}
 		})
 	}

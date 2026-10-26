@@ -18,11 +18,15 @@ import (
 	"github.com/holtdroid/holtdroid/internal/storage"
 )
 
-// WebViewConfig points at the WebView catalog that holtdroid-webview-sync
-// writes: com.android.webview builds with sidecars whose tags carry the
-// version, milestone, channels, SDK levels and DevTools frontend revision.
+// WebViewConfig points at the WebView catalog: com.android.webview builds
+// from holtdroid-webview-sync and, tagged with their package, builds of
+// other WebView providers such as com.google.android.webview. Sidecar tags
+// carry the version, milestone, channels, SDK levels and DevTools frontend.
 type WebViewConfig struct {
 	Storage storage.Config
+	// Catalogs are more catalogs listed next to Storage, one per job that
+	// fills one, since each job prunes its own prefix.
+	Catalogs []storage.Config
 }
 
 type WebViewView struct {
@@ -30,6 +34,7 @@ type WebViewView struct {
 	Title     string    `json:"title"`
 	Version   string    `json:"version"`
 	Milestone int       `json:"milestone"`
+	Package   string    `json:"package" doc:"the WebView provider: com.android.webview (Chromium builds) or com.google.android.webview (Google's, with proprietary codecs)"`
 	Channels  []string  `json:"channels" doc:"Android release channels this milestone is on now: stable, beta, dev, canary"`
 	MinSDK    int       `json:"minSdk" doc:"the oldest Android API level it works on: the APK's minSdk, or the catalog's requiresSdk when that is higher"`
 	Released  time.Time `json:"released"`
@@ -37,18 +42,37 @@ type WebViewView struct {
 }
 
 type webviewCatalog struct {
-	src *source.Source
+	srcs []*source.Source
 }
 
 func newWebViewCatalog(ctx context.Context, cfg WebViewConfig, s *Server) (*webviewCatalog, error) {
-	if cfg.Storage.Type == "" {
+	var srcs []*source.Source
+	for i, c := range append([]storage.Config{cfg.Storage}, cfg.Catalogs...) {
+		if c.Type == "" {
+			continue
+		}
+		store, err := storage.New(ctx, c, s.secrets)
+		if err != nil {
+			if i == 0 {
+				return nil, fmt.Errorf("webview.storage: %w", err)
+			}
+			return nil, fmt.Errorf("webview.catalogs[%d]: %w", i-1, err)
+		}
+		srcs = append(srcs, source.New(store, true, rules.Rules{}))
+	}
+	if len(srcs) == 0 {
 		return nil, nil
 	}
-	store, err := storage.New(ctx, cfg.Storage, s.secrets)
-	if err != nil {
-		return nil, fmt.Errorf("webview.storage: %w", err)
+	return &webviewCatalog{srcs: srcs}, nil
+}
+
+// webviewKey prefixes the keys of every catalog but the first with its
+// index, so the first one's IDs stay as they were.
+func webviewKey(i int, key string) string {
+	if i == 0 {
+		return key
 	}
-	return &webviewCatalog{src: source.New(store, true, rules.Rules{})}, nil
+	return strconv.Itoa(i) + ":" + key
 }
 
 type webviewBuild struct {
@@ -56,7 +80,9 @@ type webviewBuild struct {
 	frontend string
 }
 
-func webviewOf(a source.Artifact) (webviewBuild, bool) {
+const chromiumWebView = "com.android.webview"
+
+func webviewOf(id string, a source.Artifact) (webviewBuild, bool) {
 	t := a.Meta.Tags
 	version := t["version"]
 	if version == "" {
@@ -73,7 +99,8 @@ func webviewOf(a source.Artifact) (webviewBuild, bool) {
 	}
 	return webviewBuild{
 		view: WebViewView{
-			ID: encodeID(a.ID), Title: cmp.Or(a.Meta.Title, "WebView "+version), Version: version, Milestone: milestone,
+			ID: id, Title: cmp.Or(a.Meta.Title, "WebView "+version), Version: version, Milestone: milestone,
+			Package:  cmp.Or(t["package"], chromiumWebView),
 			Channels: channels, MinSDK: max(minSDK, requires), Released: a.UploadedAt(), Size: a.Size,
 		},
 		frontend: t["frontend"],
@@ -85,13 +112,15 @@ func (c *webviewCatalog) list(ctx context.Context) ([]WebViewView, error) {
 	if c == nil {
 		return out, nil
 	}
-	items, err := c.src.List(ctx)
-	if err != nil {
-		return nil, err
-	}
-	for _, a := range items {
-		if b, ok := webviewOf(a); ok {
-			out = append(out, b.view)
+	for i, src := range c.srcs {
+		items, err := src.List(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, a := range items {
+			if b, ok := webviewOf(encodeID(webviewKey(i, a.ID)), a); ok {
+				out = append(out, b.view)
+			}
 		}
 	}
 	slices.SortFunc(out, func(a, b WebViewView) int {
@@ -100,23 +129,29 @@ func (c *webviewCatalog) list(ctx context.Context) ([]WebViewView, error) {
 	return out, nil
 }
 
-func (c *webviewCatalog) get(ctx context.Context, id string) (string, webviewBuild, error) {
+func (c *webviewCatalog) get(ctx context.Context, id string) (*source.Source, string, webviewBuild, error) {
 	if c == nil {
-		return "", webviewBuild{}, fmt.Errorf("%w: no WebView catalog is configured", contract.ErrInvalid)
+		return nil, "", webviewBuild{}, fmt.Errorf("%w: no WebView catalog is configured", contract.ErrInvalid)
 	}
 	key, err := decodeID(id)
 	if err != nil {
-		return "", webviewBuild{}, fmt.Errorf("%w: WebView %q", contract.ErrNotFound, id)
+		return nil, "", webviewBuild{}, fmt.Errorf("%w: WebView %q", contract.ErrNotFound, id)
 	}
-	a, err := c.src.Get(ctx, key)
+	src := c.srcs[0]
+	if n, rest, ok := strings.Cut(key, ":"); ok {
+		if i, err := strconv.Atoi(n); err == nil && i > 0 && i < len(c.srcs) {
+			src, key = c.srcs[i], rest
+		}
+	}
+	a, err := src.Get(ctx, key)
 	if err != nil {
-		return "", webviewBuild{}, fmt.Errorf("WebView %q: %w", id, err)
+		return nil, "", webviewBuild{}, fmt.Errorf("WebView %q: %w", id, err)
 	}
-	b, ok := webviewOf(a)
+	b, ok := webviewOf(id, a)
 	if !ok {
-		return "", webviewBuild{}, fmt.Errorf("%w: WebView %q", contract.ErrNotFound, id)
+		return nil, "", webviewBuild{}, fmt.Errorf("%w: WebView %q", contract.ErrNotFound, id)
 	}
-	return key, b, nil
+	return src, key, b, nil
 }
 
 // apiLevels are the Android versions virtual devices offer.
@@ -128,7 +163,7 @@ func (s *Server) webviewFor(ctx context.Context, id, android string, candidates 
 	if id == "" {
 		return nil, candidates, nil
 	}
-	_, b, err := s.webviews.get(ctx, id)
+	_, _, b, err := s.webviews.get(ctx, id)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -147,6 +182,7 @@ func (s *Server) webviewFor(ctx context.Context, id, android string, candidates 
 	return &contract.WebViewInstall{
 		URL:      strings.TrimRight(s.cfg.InternalURL, "/") + "/internal/webview/" + b.view.ID,
 		Version:  b.view.Version,
+		Package:  b.view.Package,
 		Frontend: validFrontend(b.frontend),
 	}, able, nil
 }
@@ -159,7 +195,7 @@ func validFrontend(rev string) string {
 }
 
 func (s *Server) serveInternalWebView(w http.ResponseWriter, r *http.Request) {
-	key, _, err := s.webviews.get(r.Context(), r.PathValue("id"))
+	src, key, _, err := s.webviews.get(r.Context(), r.PathValue("id"))
 	if err != nil {
 		code := http.StatusNotFound
 		if !errors.Is(err, contract.ErrNotFound) && !errors.Is(err, contract.ErrInvalid) {
@@ -168,7 +204,7 @@ func (s *Server) serveInternalWebView(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), code)
 		return
 	}
-	rc, size, err := s.webviews.src.Open(r.Context(), key)
+	rc, size, err := src.Open(r.Context(), key)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadGateway)
 		return
