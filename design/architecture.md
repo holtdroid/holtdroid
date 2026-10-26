@@ -753,14 +753,24 @@ Sessions are recorded by their agent and rendered by the browser
 
 ```
 device ─scrcpy H.264─▶ agent ──tee──▶ viewer's WebSocket
-                         │ fMP4 segments, events.jsonl.gz, logcat.log.gz, thumb.jpg, manifest.json
+                         │ fMP4 segments, events.jsonl.gz, logcat.log.gz, devtools.jsonl.gz, thumb.jpg, manifest.json
                          ▼ PUT /internal/recordings/{user}/{id}/{secret}/{file}
                         api ──▶ storage: recordings/meta/…, recordings/files/…, recordings/shares/…
-                         ▲ GET /api/v1/recordings/{id}/files/…, /events (or /api/v1/shared/{token}/…)
-browser: mediabunny decodes one init+segment at a time, the canvas scene draws
-         logcat | phone | app, time, device, network, load — the player and the
-         MP4 download (WebCodecs encode into OPFS) share it
+                         ▲ GET /api/v1/recordings/{id}/files/…, /events, /devtools (or /api/v1/shared/{token}/…)
+browser: mediabunny decodes one init+segment at a time; the player shows the
+         tools (logcat, network, console, WebSockets) | phone | app, time, device,
+         network, load as HTML, and the MP4 download (WebCodecs encode into OPFS)
+         draws phone | panels on a canvas
 ```
+
+The agent's `devtoolsRecorder` (`internal/agent/cdprecord.go`, decision #112)
+opens a CDP connection of its own to every WebView page the DevTools scan
+finds while a recording runs, enables `Network`, `Runtime` and `Log`, and
+writes requests (with bodies up to 1 MB, except images, media and fonts),
+console messages with their objects as JSON, exceptions, browser messages,
+and WebSocket and EventSource frames. A socket whose frames look like video
+or another media stream (container or picture signatures, or a steady flow
+over a few seconds) is marked `stream` and its frames are only counted.
 
 The api creates the recording at launch (`CreateSession.recording`, the
 agent starts at its first `ready`) or on request (`POST /v1/recording`),

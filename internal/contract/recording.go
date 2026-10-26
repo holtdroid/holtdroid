@@ -47,6 +47,7 @@ type RecordingManifest struct {
 	Audio     []RecordingAudio `json:"audio" doc:"the sound, apart from the video: its own epochs and segments, on the same clock"`
 	Events    []RecordingChunk `json:"events" doc:"gzipped JSON lines of RecordingEvent"`
 	Logcat    []RecordingChunk `json:"logcat" doc:"gzipped text: the recording time (HH:MM:SS.mmm), two spaces, a logcat threadtime line"`
+	DevTools  []RecordingChunk `json:"devtools" doc:"gzipped JSON lines of DevToolsEntry: the WebViews' network, console and WebSockets"`
 	Thumbnail string           `json:"thumbnail,omitempty"`
 }
 
@@ -142,7 +143,123 @@ type RecordingInfoData struct {
 	ArtifactRef  string `json:"artifactRef,omitempty"`
 }
 
-var recordingFile = regexp.MustCompile(`^(manifest\.json|thumb\.jpg|a?init-[0-9]{1,6}\.mp4|a?seg-[0-9]{1,7}\.m4s|events-[0-9]{1,6}\.jsonl\.gz|logcat-[0-9]{1,6}\.log\.gz)$`)
+var recordingFile = regexp.MustCompile(`^(manifest\.json|thumb\.jpg|a?init-[0-9]{1,6}\.mp4|a?seg-[0-9]{1,7}\.m4s|events-[0-9]{1,6}\.jsonl\.gz|logcat-[0-9]{1,6}\.log\.gz|devtools-[0-9]{1,6}\.jsonl\.gz)$`)
 
 // RecordingFile reports whether name is a file an agent may upload.
 func RecordingFile(name string) bool { return recordingFile.MatchString(name) }
+
+type DevToolsEntryType string
+
+const (
+	DevToolsPageEntry    DevToolsEntryType = "page"
+	DevToolsRequestEntry DevToolsEntryType = "request"
+	DevToolsConsoleEntry DevToolsEntryType = "console"
+	DevToolsSocketEntry  DevToolsEntryType = "socket"
+	DevToolsFrameEntry   DevToolsEntryType = "frame"
+	DevToolsDroppedEntry DevToolsEntryType = "dropped"
+)
+
+// DevToolsEntry is one line of a recording's devtools files, written by the
+// agent's own CDP client to every WebView page. T is milliseconds since the
+// recording started, and exactly one of the payloads is set. A request is
+// written once it ends (or when the recording does), with the times of its
+// stages; a WebSocket's state and each of its frames get lines of their own.
+type DevToolsEntry struct {
+	T       int64             `json:"t"`
+	Type    DevToolsEntryType `json:"type" enum:"page,request,console,socket,frame,dropped"`
+	Target  string            `json:"target,omitempty" doc:"the DevTools target (page) it came from"`
+	Page    *DevToolsPage     `json:"page,omitempty"`
+	Request *DevToolsRequest  `json:"request,omitempty"`
+	Console *DevToolsConsole  `json:"console,omitempty"`
+	Socket  *DevToolsSocket   `json:"socket,omitempty"`
+	Frame   *DevToolsFrame    `json:"frame,omitempty"`
+	Dropped int               `json:"dropped,omitempty" doc:"lines left out because one upload got too big"`
+}
+
+type DevToolsPage struct {
+	Process string `json:"process,omitempty"`
+	Title   string `json:"title,omitempty"`
+	URL     string `json:"url,omitempty"`
+	Closed  bool   `json:"closed,omitempty"`
+}
+
+type DevToolsRequest struct {
+	ID                string            `json:"id"`
+	Start             int64             `json:"start" doc:"recording time it was sent"`
+	Response          int64             `json:"response,omitempty" doc:"recording time its response headers came"`
+	End               int64             `json:"end,omitempty" doc:"recording time it finished or failed; none if it was still loading when the recording ended"`
+	Wall              int64             `json:"wall,omitempty" doc:"the device clock when it was sent, milliseconds since the epoch"`
+	Method            string            `json:"method"`
+	URL               string            `json:"url"`
+	ResourceType      string            `json:"resourceType,omitempty" doc:"Document, XHR, Fetch, Script, Image, …"`
+	RequestHeaders    map[string]string `json:"requestHeaders,omitempty"`
+	PostData          string            `json:"postData,omitempty"`
+	PostDataTruncated bool              `json:"postDataTruncated,omitempty"`
+	Status            int               `json:"status,omitempty"`
+	StatusText        string            `json:"statusText,omitempty"`
+	ResponseHeaders   map[string]string `json:"responseHeaders,omitempty"`
+	MimeType          string            `json:"mimeType,omitempty"`
+	Protocol          string            `json:"protocol,omitempty"`
+	RemoteAddress     string            `json:"remoteAddress,omitempty"`
+	Cached            string            `json:"cached,omitempty" enum:"memory,disk,service-worker,prefetch"`
+	Size              int64             `json:"size,omitempty" doc:"bytes on the wire"`
+	Body              string            `json:"body,omitempty"`
+	BodyBase64        bool              `json:"bodyBase64,omitempty"`
+	BodyTruncated     bool              `json:"bodyTruncated,omitempty"`
+	BodySkipped       string            `json:"bodySkipped,omitempty" enum:"type,size,unavailable" doc:"why there is no body: a media, font, image, script or style resource, too big, or the WebView had none"`
+	Redirect          string            `json:"redirect,omitempty" doc:"the URL it was redirected to"`
+	Error             string            `json:"error,omitempty"`
+	Canceled          bool              `json:"canceled,omitempty"`
+	Timing            *DevToolsTiming   `json:"timing,omitempty"`
+}
+
+// DevToolsTiming is how long each stage of a request took, in milliseconds,
+// -1 for a stage it didn't have (HAR's timings).
+type DevToolsTiming struct {
+	Blocked float64 `json:"blocked"`
+	DNS     float64 `json:"dns"`
+	Connect float64 `json:"connect" doc:"includes ssl"`
+	SSL     float64 `json:"ssl"`
+	Send    float64 `json:"send"`
+	Wait    float64 `json:"wait"`
+	Receive float64 `json:"receive"`
+}
+
+type DevToolsConsole struct {
+	Source string          `json:"source" enum:"console,exception,browser" doc:"the page's console API, an uncaught exception, or the browser itself (network errors, violations, …)"`
+	Level  string          `json:"level" enum:"debug,info,warning,error"`
+	Kind   string          `json:"kind,omitempty" doc:"the console call (log, table, assert, …) or the browser's source (network, violation, …)"`
+	Text   string          `json:"text"`
+	Args   []DevToolsValue `json:"args,omitempty"`
+	URL    string          `json:"url,omitempty"`
+	Line   int             `json:"line,omitempty"`
+	Column int             `json:"column,omitempty"`
+	Stack  string          `json:"stack,omitempty"`
+	Wall   int64           `json:"wall,omitempty" doc:"the device clock, milliseconds since the epoch"`
+}
+
+type DevToolsValue struct {
+	Type    string `json:"type" doc:"string, number, boolean, undefined, object, function, symbol or bigint"`
+	Subtype string `json:"subtype,omitempty" doc:"null, array, error, date, …"`
+	Text    string `json:"text" doc:"a string's value, or what DevTools shows for it"`
+	JSON    string `json:"json,omitempty" doc:"the value as JSON when it has one, cut at 64 KB"`
+}
+
+type DevToolsSocket struct {
+	ID     string `json:"id"`
+	URL    string `json:"url"`
+	State  string `json:"state" enum:"connecting,open,closed,error,stream" doc:"stream: its traffic looks like video or another media stream, so no more frames are recorded"`
+	Status int    `json:"status,omitempty" doc:"the handshake's HTTP status"`
+	Error  string `json:"error,omitempty"`
+	Frames int    `json:"frames,omitempty" doc:"frames so far, recorded or not"`
+	Bytes  int64  `json:"bytes,omitempty"`
+}
+
+type DevToolsFrame struct {
+	Socket    string `json:"socket"`
+	Sent      bool   `json:"sent,omitempty"`
+	Opcode    int    `json:"opcode" doc:"1 text, 2 binary"`
+	Size      int    `json:"size" doc:"payload bytes"`
+	Data      string `json:"data,omitempty" doc:"the text, or base64 of a binary payload, cut at the limit"`
+	Truncated bool   `json:"truncated,omitempty"`
+}

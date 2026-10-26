@@ -46,11 +46,12 @@ func (a *Agent) StartRecording(_ context.Context, target contract.RecordingTarge
 
 func (a *Agent) StopRecording(ctx context.Context) (contract.RecordingState, error) {
 	a.recMu.Lock()
-	rec := a.rec
+	rec, devtools := a.rec, a.recDevTools
 	a.recMu.Unlock()
 	if rec == nil {
 		return a.Recording(ctx), nil
 	}
+	devtools.flush()
 	a.thumbnail(ctx, rec)
 	s := rec.Stop(ctx)
 	a.recordingEnded(rec, s)
@@ -69,6 +70,8 @@ func (a *Agent) startRecording(target contract.RecordingTarget) error {
 		a.recordingEnded(rec, s)
 	}))
 	a.rec, a.recID, a.recCancel = rec, target.ID, cancel
+	a.recDevTools = newDevToolsRecorder(a.devtools, rec, a.log)
+	go a.recDevTools.run(ctx, 2*time.Second)
 	a.screen.video.attach(ctx, rec)
 	a.screen.sound.attach(ctx, rec)
 	go a.feedRecording(ctx, rec)

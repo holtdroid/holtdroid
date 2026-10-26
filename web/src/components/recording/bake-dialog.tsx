@@ -114,8 +114,8 @@ export function BakeDialog({
         <DialogHeader>
           <DialogTitle>Download as a video</DialogTitle>
           <DialogDescription>
-            The recording is rendered here in your browser with the logcat, device and network panels, at {layout.width}
-            ×{layout.height} and {bakeFps} fps. Keep this tab open until it finishes.{" "}
+            The recording is rendered here in your browser with the device and network panels, at {layout.width}×
+            {layout.height} and {bakeFps} fps. Keep this tab open until it finishes.{" "}
             {canSaveToFile()
               ? "You pick where to save it first, and it is written to that file as it goes, so it doesn't fill the memory."
               : "This browser can't write to a file you pick, so the video is collected in its private storage and downloaded at the end."}

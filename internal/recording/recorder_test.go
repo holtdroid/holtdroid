@@ -478,3 +478,41 @@ func TestTapReadsAnAudioSocket(t *testing.T) {
 		t.Fatalf("codec of a disabled stream: %q", quiet.Codec)
 	}
 }
+
+func TestRecorderWritesDevTools(t *testing.T) {
+	b := &bucket{files: map[string][]byte{}}
+	c := &clock{t: time.Date(2026, 10, 25, 12, 0, 0, 0, time.UTC)}
+	srv := httptest.NewServer(b)
+	t.Cleanup(srv.Close)
+	cfg := DefaultConfig()
+	cfg.Flush, cfg.MaxDevTools = time.Hour, 400
+	r := Start(contract.RecordingTarget{ID: "x", URL: srv.URL + "/rec"}, cfg, slog.New(slog.DiscardHandler), WithClock(c.now))
+
+	c.add(3 * time.Second)
+	r.DevTools(contract.DevToolsEntry{Type: contract.DevToolsPageEntry, Page: &contract.DevToolsPage{URL: "https://shop.example/"}})
+	r.DevTools(contract.DevToolsEntry{T: 1200, Type: contract.DevToolsRequestEntry, Request: &contract.DevToolsRequest{ID: "1", Start: 1000, End: 1200, URL: "https://shop.example/a"}})
+	for range 10 {
+		r.DevTools(contract.DevToolsEntry{Type: contract.DevToolsConsoleEntry, Console: &contract.DevToolsConsole{Text: strings.Repeat("x", 60)}})
+	}
+	r.Stop(context.Background())
+
+	var m contract.RecordingManifest
+	if err := json.Unmarshal(b.get(t, "manifest.json"), &m); err != nil {
+		t.Fatal(err)
+	}
+	if len(m.DevTools) != 1 || m.DevTools[0].File != "devtools-1.jsonl.gz" || m.DevTools[0].Start != 1200 || m.DevTools[0].End != 3000 {
+		t.Fatalf("devtools chunks: %+v", m.DevTools)
+	}
+	var lines []contract.DevToolsEntry
+	for line := range strings.Lines(gunzip(t, b.get(t, m.DevTools[0].File))) {
+		var e contract.DevToolsEntry
+		if err := json.Unmarshal([]byte(line), &e); err != nil {
+			t.Fatalf("%q: %v", line, err)
+		}
+		lines = append(lines, e)
+	}
+	last := lines[len(lines)-1]
+	if lines[0].T != 3000 || lines[1].T != 1200 || last.Type != contract.DevToolsDroppedEntry || last.Dropped == 0 {
+		t.Fatalf("lines: %+v", lines)
+	}
+}

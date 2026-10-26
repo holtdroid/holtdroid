@@ -17,7 +17,7 @@ import type { RecordingFiles } from "@/lib/recording/files"
 import { Cursor, Frames } from "@/lib/recording/frames"
 import { drawScene, logoImage, type SceneApp, sceneLayout } from "@/lib/recording/scene"
 import { loadSceneIcons } from "@/lib/recording/scene-icons"
-import { LogcatChunks, rotationAt, segmentsOf, sizeChanges, type Telemetry } from "@/lib/recording/timeline"
+import { rotationAt, segmentsOf, sizeChanges, type Telemetry } from "@/lib/recording/timeline"
 
 export const bakeFps = 30
 
@@ -164,7 +164,6 @@ export async function bake(opts: {
 
   const segments = segmentsOf(manifest)
   const cursor = new Cursor(new Frames(opts.files, segments, 4))
-  const logcat = new LogcatChunks(opts.files, manifest.logcat)
   const feeder = sound ? new AudioFeeder(opts.files, audioSegments, sound) : null
   const changes = sizeChanges(segments)
   const startedAt = new Date(manifest.startedAt).getTime()
@@ -177,14 +176,13 @@ export async function bake(opts: {
       const t = i * step
       if (t > manifest.duration) break
       if (signal.aborted) throw signal.reason ?? new DOMException("Cancelled", "AbortError")
-      await Promise.all([cursor.advance(t), logcat.ensure(t)])
+      await cursor.advance(t)
       drawScene(ctx, {
         t,
         duration: manifest.duration,
         startedAt,
         frame: cursor.frame?.sample ?? null,
         snap: telemetry.at(t),
-        logcat: logcat.before(t, 60),
         overlay: telemetry.touches.at(t),
         rotation: rotationAt(changes, t),
         markers,

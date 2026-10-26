@@ -84,6 +84,10 @@ func TestRecordingOfASession(t *testing.T) {
 	if len(events) == 0 || events[0].Type != contract.EventInfo || events[0].Info.Package == "" {
 		t.Fatalf("events: %+v", events)
 	}
+	devtools := decode[RecordingDevTools](t, h.do(http.MethodGet, "/api/v1/recordings/"+r.ID+"/devtools", "alice", "", nil)).Items
+	if len(devtools) == 0 || devtools[0].Type != contract.DevToolsPageEntry || devtools[0].Page.URL == "" {
+		t.Fatalf("devtools: %+v", devtools)
+	}
 	if rec := h.do(http.MethodGet, r.FilesURL+"manifest.json", "bob", "", nil); rec.Code != http.StatusNotFound {
 		t.Fatalf("bob reads alice's files: %d", rec.Code)
 	}
@@ -112,6 +116,9 @@ func TestRecordingOfASession(t *testing.T) {
 	}
 	if rec := h.do(http.MethodGet, sd.Recording.FilesURL+seg, "", "", nil); rec.Code != http.StatusOK {
 		t.Fatalf("shared segment: %d", rec.Code)
+	}
+	if items := decode[RecordingDevTools](t, h.do(http.MethodGet, "/api/v1/shared/"+shared.Share.Token+"/devtools", "", "", nil)).Items; len(items) == 0 {
+		t.Fatal("no devtools lines through the share link")
 	}
 	if un := decode[RecordingView](t, h.do(http.MethodDelete, "/api/v1/recordings/"+r.ID+"/share", "alice", "", nil)); !un.Keep {
 		t.Fatal("turning sharing off dropped the keep")

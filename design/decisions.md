@@ -3454,3 +3454,66 @@ instead of `df`, which shows the node's disk under an emptyDir.
 still reports every core of the node, which is what Android may use.
 Physical phones are unchanged: no Pod, no data limit.
 
+
+## 112. Recordings keep the WebViews' DevTools traffic, recorded by the agent's own CDP client
+
+**Context.** A recording showed the screen, the device and logcat, but not
+what the app's WebViews did: which requests went out and what came back,
+what the page logged, which WebSocket messages arrived. Testers asked to
+look at that afterwards in step with the video, as in DevTools. Replaying
+the recording into the real DevTools frontend (a fake CDP backend) would
+give the familiar panels but only Network and Console would work: objects
+couldn't be expanded, Elements and Sources would need snapshots of
+everything, every seek back would reload the frontend, and the frontend's
+protocol changes with each revision.
+
+**Decision.**
+
+- **The agent records** over CDP connections of its own
+  (`internal/agent/cdprecord.go`), one per `page` target the DevTools scan
+  finds while a recording runs, independent of whoever has DevTools open.
+  It enables `Network` (post data up to 256 KB), `Runtime` and `Log`.
+- **Requests** are written once they end, as one `DevToolsEntry` with the
+  recording times they were sent, got headers and ended, the device clock
+  when sent, headers, status, remote address, protocol, cache, HAR timings
+  from `ResourceTiming`, and the body from `Network.getResponseBody` up to
+  1 MB (cut beyond) except for images, media and fonts. Redirects are a
+  request each. Requests still loading are written when the recording or
+  the page ends, without an end.
+- **Console**: `console.*` calls with each argument's text and, for objects,
+  their JSON (`JSON.stringify` through `Runtime.callFunctionOn`, up to
+  64 KB), format specifiers applied; uncaught exceptions with their stack;
+  the browser's own messages (`Log.entryAdded`).
+- **WebSockets and EventSource**: a socket's states and every frame, text up
+  to 128 KB and binary up to 16 KB (base64). Video or another media stream
+  is not wanted: a socket whose binary frames start like a media container
+  or a picture (H.264 start codes, MP4 boxes, WebM, Ogg, JPEG, PNG, RIFF,
+  FLV) three times, or that carries 1 MB or 60 binary frames in four
+  seconds once it has run for two, is marked `stream`; its frames after
+  that are only counted.
+- Headers, cookies and bodies are recorded as they are; nothing is
+  redacted. A share link shows them like the rest of the recording.
+- Lines go into `devtools-N.jsonl.gz` chunks next to the events, at most
+  32 MB of lines per 10 s flush; the rest is dropped with a `dropped` line.
+  The api reads them back as one list (`/devtools`), like the events.
+- **The player** puts logcat, Network, Console and WebSockets in tabs on the
+  left. Each follows the timeline (a request is shown from when it was sent
+  and is pending until it ended), filters, and opens a row in a lower pane:
+  JSON as a tree (also JSON inside strings), forms as pairs, bytes as a hex
+  dump, cURL, timing bars. Every value that reads as a time (Unix seconds,
+  milliseconds, microseconds or nanoseconds between 2000 and 2100, seconds
+  only under a key that names a time or within five years of the moment;
+  ISO 8601 and HTTP dates) gets a chip with its distance from the device
+  clock at that moment and, on hover, UTC, the device's and the viewer's
+  zones and Unix values. **Download → Network (.har)** writes HAR 1.2 with
+  bodies and Chrome's `_webSocketMessages`.
+- **The video download leaves logcat and DevTools out** (supersedes that
+  part of #96): it is the phone and the device panels, 1560×1296 for a phone
+  held upright. Text that long belongs on the page, where it can be read
+  and searched.
+
+**Consequences.** A WebView that loads a lot of JSON adds megabytes per hour
+to a recording; bodies count against the quota like the video. What happens
+before the agent attaches to a page (its first two seconds, or the console
+lines `Runtime.enable` replays) is stamped with the time of attaching.
+Service workers and other non-page targets are not followed.

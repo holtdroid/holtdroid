@@ -119,7 +119,11 @@ deployment"):
   load), renders MP4 downloads in the browser, keeps, shares by link
   without sign-in and enforces a per-user quota and retention. Replaced the
   browser recording. Covered by tests with the fake provider; not yet tried
-  on a redroid session.
+  on a redroid session. Since decision #112 the agent also records the
+  WebViews' network, console and WebSockets over its own CDP connections;
+  the player shows them in tabs next to logcat, and the video download no
+  longer has logcat. Tested with a fake CDP server and the fake provider;
+  not yet tried against a real WebView.
 - Pixel perfect (decisions #106, #109, Phase 4.13): a tab next to DevTools with
   per-user reference images (SVG, PNG, JPEG, WebP; small thumbnails for the list) in storage (1 GiB, deleted after 30 days
   unused), an overlay over the screen (opacity, difference, invert, drag),

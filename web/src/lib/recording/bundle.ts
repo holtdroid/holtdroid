@@ -1,4 +1,11 @@
-import type { RecordingManifest, RecordingMarker, RecordingView, RecordingEvent } from "@/api/client"
+import type {
+  DevToolsEntry,
+  RecordingChunk,
+  RecordingEvent,
+  RecordingManifest,
+  RecordingMarker,
+  RecordingView,
+} from "@/api/client"
 import { gunzipText, type RecordingFiles } from "@/lib/recording/files"
 
 export const bundleFormat = "holtdroid-recording"
@@ -159,7 +166,9 @@ export async function openBundle(file: Blob): Promise<Bundle> {
   if (typeof meta.version !== "number" || meta.version > 1) {
     throw new BundleError("This recording was made by a newer Holtdroid; update the portal to open it")
   }
-  const manifest = JSON.parse(await zip.text("manifest.json")) as RecordingManifest
+  const parsed = JSON.parse(await zip.text("manifest.json")) as Partial<RecordingManifest> &
+    Omit<RecordingManifest, "devtools">
+  const manifest: RecordingManifest = { ...parsed, devtools: parsed.devtools ?? [] }
   const iconUrl = zip.has("icon.png") ? URL.createObjectURL(await zip.blob("icon.png")) : undefined
   const r = meta.recording ?? {}
   const recording: RecordingView = {
@@ -191,9 +200,17 @@ export async function openBundle(file: Blob): Promise<Bundle> {
 }
 
 /** Every event of a recording, in order, from its event files. */
-export async function readEvents(files: RecordingFiles, manifest: RecordingManifest): Promise<RecordingEvent[]> {
-  const out: RecordingEvent[] = []
-  for (const chunk of manifest.events) {
+export function readEvents(files: RecordingFiles, manifest: RecordingManifest): Promise<RecordingEvent[]> {
+  return readLines<RecordingEvent>(files, manifest.events)
+}
+
+export function readDevTools(files: RecordingFiles, manifest: RecordingManifest): Promise<DevToolsEntry[]> {
+  return readLines<DevToolsEntry>(files, manifest.devtools)
+}
+
+async function readLines<T>(files: RecordingFiles, chunks: RecordingChunk[]): Promise<T[]> {
+  const out: T[] = []
+  for (const chunk of chunks) {
     let text = ""
     try {
       text = await files.text(chunk.file)
@@ -203,7 +220,7 @@ export async function readEvents(files: RecordingFiles, manifest: RecordingManif
     for (const line of text.split("\n")) {
       if (!line) continue
       try {
-        out.push(JSON.parse(line) as RecordingEvent)
+        out.push(JSON.parse(line) as T)
       } catch {
         continue
       }

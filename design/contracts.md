@@ -357,7 +357,7 @@ static assets and WebSockets.
 | `POST` | `/v1/device/actions/{volume-up\|volume-down\|mute\|screen-off\|lock\|unlock\|back\|home\|recents\|notifications\|quick-settings\|rotate-left\|rotate-right}` | 204 | `DeviceAction` |
 | `GET` | `/v1/device/screenshot` | `image/png` of the current screen | `Screenshot` |
 | `GET` | `/v1/recording` | `RecordingState` `{active, id?, startedAt?, duration, size, error?}`: the recording in progress, or the last one with why it stopped on its own | `Recording` |
-| `POST` | `/v1/recording` | `RecordingTarget` → `RecordingState`; starts recording the screen, events and logcat to the target (decision #96). 400 before the session is ready, 423 while another recording runs | `StartRecording` |
+| `POST` | `/v1/recording` | `RecordingTarget` → `RecordingState`; starts recording the screen, events, logcat and the WebViews' DevTools traffic to the target (decisions #96, #112). 400 before the session is ready, 423 while another recording runs | `StartRecording` |
 | `DELETE` | `/v1/recording` | → `RecordingState` once the last files are uploaded (the api waits up to a minute); a no-op without a recording | `StopRecording` |
 | `GET` | `/v1/tunnels?probe=` | SSE, `event: tunnels` with `{adb: [{user, client, since}], reverse: [{port, user, since, connections, state}]}` — what the ssh-gateway (`client: ssh`) and browsers (`client: browser`) have open into the device; the first event is the current set. `state` (`unknown`, `up`, `down`) says whether a server answers behind the port on the publisher's machine; `probe=true` makes the agent check it while the stream is open (decision #52) | `WatchTunnels` |
 | `GET` | `/v1/tunnels/current` | the same `Tunnels` once, as JSON, for the api | `Tunnels` |
@@ -485,13 +485,14 @@ keeping the provider in the path is what lets the api stay stateless.
 | `GET` | `/api/v1/recordings` | the caller's recordings, newest first: `{enabled, mode (always\|auto\|manual), share, quota, used, maxAge, minDuration, items: [RecordingView]}`; a `RecordingView` has `{id, package, label?, versionName?, source, artifactId, provider?, session?, location?, webview?, state (pending\|recording\|done\|failed\|interrupted), reason?, createdAt, startedAt?, duration, size, filesUrl, iconUrl?, thumbnailUrl?, logcatUrl, keep, expiresAt?, share?: {token, url}}` |
 | `GET` | `/api/v1/recordings/{id}` | `{recording, markers, manifest?, shared: false}`; the manifest is the agent's `RecordingManifest` |
 | `GET` | `/api/v1/recordings/{id}/events` | `{items: [RecordingEvent]}`: every event of the recording in order |
+| `GET` | `/api/v1/recordings/{id}/devtools` | `{items: [DevToolsEntry]}`: every DevTools line of the recording (pages, requests, console, WebSocket states and frames, `dropped` notes), in the order written; a request is one line written when it ended, with `start`, `response` and `end` times (decision #112) |
 | `GET` | `/api/v1/recordings/{id}/files/{file}` | a file the manifest lists, `icon.png` or `thumb.jpg`; `.gz` chunks are sent with `Content-Encoding: gzip` |
 | `GET` | `/api/v1/recordings/{id}/logcat.txt` | the whole logcat as one text attachment |
 | `PUT` | `/api/v1/recordings/{id}/name` | the owner; `{name}` (at most 120 characters, whitespace tidied) → `RecordingView` with `title`; an empty name goes back to the app's |
 | `PUT` | `/api/v1/recordings/{id}/keep` | `{keep}` → `RecordingView`; a kept recording is exempt from `recordings.maxAge`, not from the quota |
 | `POST`, `DELETE` | `/api/v1/recordings/{id}/share` | make (or return the existing) share link, or turn it off → `RecordingView`; 403 when `recordings.share` is off |
 | `DELETE` | `/api/v1/recordings/{id}` | → 204; the caller's own recordings only |
-| `GET` | `/api/v1/shared/{token}`, `…/events`, `…/files/{file}`, `…/logcat.txt` | the same for a share link, **without sign-in**; `shared: true`, the owner's name, no `share` or session |
+| `GET` | `/api/v1/shared/{token}`, `…/events`, `…/devtools`, `…/files/{file}`, `…/logcat.txt` | the same for a share link, **without sign-in**; `shared: true`, the owner's name, no `share` or session |
 | `POST` | `/api/v1/sessions/{provider}/{id}/extend` | owner or admin only; counts as activity |
 | `POST` | `/api/v1/sessions/{provider}/{id}/heartbeat` | `{active}`; sent every 30 s by a visible session tab, `active` = the user gave input since the previous heartbeat |
 | `GET` | `/api/v1/admin/audit` | admins only (403 otherwise): `{enabled, events, oldest?, maxEvents, maxAge (s), persistent, actors, actions}` of the api's audit store |
@@ -505,7 +506,7 @@ keeping the provider in the path is what lets the api stay stateless.
 | `GET` | `/internal/artifacts/{key}` | APK download for agents by cache key, **internal port only** |
 | `GET` | `/internal/app-data/{key}` | app data download for agents, **internal port only**; `key` is `{user hash}/{package}/{id}.tar.zst`, ids carry 96 random bits |
 | `GET` | `/internal/webview/{id}` | a WebView build from the catalog for agents, **internal port only**, streamed from `webview.storage` (decision #88) |
-| `PUT` | `/internal/recordings/{user hash}/{id}/{secret}/{file}` | recording uploads from agents, **internal port only** (decision #96): 404 unless the secret's SHA-256 matches the recording's meta; `file` is `init-N.mp4`, `seg-N.m4s`, `events-N.jsonl.gz`, `logcat-N.log.gz`, `thumb.jpg` or `manifest.json`, at most `recordings.maxFileSize`. A manifest updates the recording's state and, while it records, checks the owner's quota: 507 when nothing more can be deleted to make room |
+| `PUT` | `/internal/recordings/{user hash}/{id}/{secret}/{file}` | recording uploads from agents, **internal port only** (decision #96): 404 unless the secret's SHA-256 matches the recording's meta; `file` is `init-N.mp4`, `seg-N.m4s`, `ainit-N.mp4`, `aseg-N.m4s`, `events-N.jsonl.gz`, `logcat-N.log.gz`, `devtools-N.jsonl.gz`, `thumb.jpg` or `manifest.json`, at most `recordings.maxFileSize`. A manifest updates the recording's state and, while it records, checks the owner's quota: 507 when nothing more can be deleted to make room |
 | `GET` | `/internal/ssh/authority` | gateway only, **internal port**: `{publicKey}` of the CA that signs connect clients' certificates; 404 when SSH is disabled |
 | `POST` | `/internal/sessions/{slug}/activity` | gateway only, **internal port**: tunnel traffic counts as activity → 204; 404 for an unknown session |
 | `GET` | `/internal/users/{handle}/sessions` | gateway only, **internal port**: `{sessions: [SSHSession]}` (`{provider, id, owner, state, tunnelUrl?, package?, label?, versionName?}`), every session (any state) whose owner has this `user-…` handle; empty for an unknown handle; 500 if a provider can't list, so the gateway keeps what it has |
@@ -604,4 +605,5 @@ data descriptors) written by `GET …/export` and read by the web client with
 | `init-N.mp4`, `seg-N.m4s` | the video, as listed in the manifest |
 | `ainit-N.mp4`, `aseg-N.m4s` | the sound (Opus in fragmented MP4), as listed in the manifest's `audio`; older archives have none |
 | `events-N.jsonl.gz`, `logcat-N.log.gz` | gzipped event lines and logcat text |
+| `devtools-N.jsonl.gz` | gzipped `DevToolsEntry` lines, as listed in the manifest's `devtools`; older archives have none |
 | `thumb.jpg`, `icon.png` | the preview and the app's icon, when there are any |

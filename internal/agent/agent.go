@@ -172,12 +172,13 @@ type Agent struct {
 	artifact string
 	subs     map[chan struct{}]struct{}
 
-	recMu     sync.Mutex
-	recCtx    context.Context
-	rec       *recording.Recorder
-	recID     string
-	recCancel context.CancelFunc
-	recLast   contract.RecordingState
+	recMu       sync.Mutex
+	recCtx      context.Context
+	rec         *recording.Recorder
+	recID       string
+	recCancel   context.CancelFunc
+	recDevTools *devtoolsRecorder
+	recLast     contract.RecordingState
 }
 
 func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Logger) *Agent {

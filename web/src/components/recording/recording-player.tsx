@@ -4,6 +4,7 @@ import {
   ClapperboardIcon,
   DownloadIcon,
   FileTextIcon,
+  GlobeIcon,
   type LucideIcon,
   Link2OffIcon,
   LinkIcon,
@@ -35,6 +36,7 @@ import type { RecordingMarker } from "@/api/client"
 import {
   type RecordingSource,
   useKeepRecording,
+  useRecordingDevTools,
   useRecordingEvents,
   useSetMarkers,
   useShareRecording,
@@ -42,10 +44,11 @@ import {
 import { BakeDialog } from "@/components/recording/bake-dialog"
 import { FitHeight } from "@/components/recording/fit-height"
 import { InfoView } from "@/components/recording/info-view"
-import { LogcatView } from "@/components/recording/logcat-view"
 import { MarkerPin, newMarkerId } from "@/components/recording/markers"
+import { RecordingTools } from "@/components/recording/tools-view"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { bakingSupported } from "@/lib/recording/bake"
+import { DevToolsLog, toHar } from "@/lib/recording/devtools"
 import { remoteFiles } from "@/lib/recording/files"
 import { buildLogcat } from "@/lib/recording/logfile"
 import { Player } from "@/lib/recording/player"
@@ -95,6 +98,17 @@ export function RecordingPlayer({
   const r = detail.recording
   const events = useRecordingEvents(source, manifest.events.length)
   const telemetry = useMemo(() => new Telemetry(events.data?.items ?? []), [events.data])
+  const devtools = useRecordingDevTools(source, manifest.devtools.length)
+  const devlog = useMemo(() => new DevToolsLog(devtools.data?.items ?? []), [devtools.data])
+  const startedAt = new Date(manifest.startedAt).getTime()
+  const clocks = useMemo(
+    () => ({
+      startedAt,
+      offsetAt: (t: number) => telemetry.deviceAt(t)?.timeOffset ?? 0,
+      zoneAt: (t: number) => telemetry.deviceAt(t)?.timeZone,
+    }),
+    [startedAt, telemetry],
+  )
   const [app] = useState<SceneApp>(() => ({
     title: r.label || r.package,
     subtitle: r.package,
@@ -156,6 +170,11 @@ export function RecordingPlayer({
     }
   }
 
+  const saveHar = () => {
+    const har = toHar(devlog, startedAt, { name: "Holtdroid", version: "1" })
+    download(new Blob([JSON.stringify(har, null, 2)], { type: "application/json" }), `${r.package}-${r.id}.har`)
+  }
+
   const setMarkers = (items: RecordingMarker[]) => saveMarkers.mutate(items)
   const addMarker = () => {
     const marker: RecordingMarker = { id: newMarkerId(), t: Math.round(state.time), label: "", icon: "pin" }
@@ -177,7 +196,7 @@ export function RecordingPlayer({
   const summary = summarize({
     t: state.time,
     duration: state.duration,
-    startedAt: new Date(manifest.startedAt).getTime(),
+    startedAt,
     snap: telemetry.at(state.time),
     app,
   })
@@ -194,8 +213,8 @@ export function RecordingPlayer({
         style={{ "--stage-h-lg": `${gridHeight}px` } as CSSProperties}
         className="grid gap-3 [--phone-max-w:calc(100vw-4rem)] [--stage-h:68dvh] lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1.45fr)_auto_minmax(280px,0.85fr)] lg:grid-rows-[minmax(0,1fr)] lg:[--phone-max-w:min(44vw,900px)] lg:[--stage-h:var(--stage-h-lg,60dvh)]"
       >
-        <div className="order-3 flex h-[60dvh] min-h-0 flex-col lg:order-1 lg:h-auto [&>section]:flex-1">
-          <LogcatView player={player} time={state.time} />
+        <div className="order-3 flex h-[70dvh] min-h-0 flex-col lg:order-1 lg:h-auto">
+          <RecordingTools player={player} time={state.time} log={devlog} clocks={clocks} />
         </div>
 
         <div className="order-1 grid min-h-0 place-items-center lg:order-2">
@@ -360,7 +379,7 @@ export function RecordingPlayer({
                   <MenuItem
                     icon={ClapperboardIcon}
                     title="Video (.mp4)"
-                    hint="Rendered in your browser with the panels, in 1296p"
+                    hint="Rendered in your browser with the device panels, in 1296p"
                     disabled={r.state === "recording"}
                     onSelect={() => setBaking(true)}
                   />
@@ -371,6 +390,14 @@ export function RecordingPlayer({
                     title="Recording file (.holtdroid)"
                     hint="Everything in one file; open it on the Open page, no server needed"
                     href={r.exportUrl}
+                  />
+                )}
+                {!devlog.empty && (
+                  <MenuItem
+                    icon={GlobeIcon}
+                    title="Network (.har)"
+                    hint="The WebViews' requests with bodies and the WebSockets; opens in Chrome DevTools"
+                    onSelect={saveHar}
                   />
                 )}
                 <MenuItem

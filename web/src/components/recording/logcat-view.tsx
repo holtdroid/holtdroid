@@ -73,11 +73,9 @@ export function LogcatView({ player, time }: { player: Player; time: number }) {
   }
 
   return (
-    <section className="flex min-h-0 flex-col overflow-hidden rounded-[28px] bg-stage-surface-low">
-      <header className="flex flex-wrap items-center gap-2 px-5 pt-4 pb-2">
-        <h2 className="mr-auto text-sm font-medium tracking-wide text-stage-on-surface-variant">
-          Logcat <span className="font-normal text-stage-outline-dim">· {lines.length} lines</span>
-        </h2>
+    <>
+      <header className="flex flex-wrap items-center gap-2 px-5 pb-2">
+        <span className="mr-auto text-sm text-stage-outline-dim">{lines.length} lines</span>
         <label className="relative">
           <span className="sr-only">Minimum level</span>
           <select
@@ -126,7 +124,7 @@ export function LogcatView({ player, time }: { player: Player; time: number }) {
           lines.map((l) => <Line key={l.id} line={l} onSeek={(t) => void player.seek(t)} />)
         )}
       </div>
-    </section>
+    </>
   )
 }
 

@@ -776,6 +776,9 @@ func (s *Server) recordingDetail(ctx context.Context, e *recordingEntry, base st
 		d.Recording.Owner = e.meta.Owner
 	}
 	if mf, err := readJSON[contract.RecordingManifest](ctx, s.recordings.store, s.recordings.fileKey(e.ref, "manifest.json")); err == nil {
+		if mf.DevTools == nil {
+			mf.DevTools = []contract.RecordingChunk{}
+		}
 		d.Manifest = &mf
 	}
 	return d
@@ -785,16 +788,36 @@ type RecordingEvents struct {
 	Items []contract.RecordingEvent `json:"items"`
 }
 
+type RecordingDevTools struct {
+	Items []contract.DevToolsEntry `json:"items"`
+}
+
 func (s *Server) recordingEvents(ctx context.Context, e *recordingEntry) (*out[RecordingEvents], error) {
-	l := RecordingEvents{Items: []contract.RecordingEvent{}}
+	items, err := recordingLines(ctx, s, e, func(mf contract.RecordingManifest) []contract.RecordingChunk { return mf.Events }, []contract.RecordingEvent{})
+	if err != nil {
+		return nil, err
+	}
+	return &out[RecordingEvents]{RecordingEvents{items}}, nil
+}
+
+func (s *Server) recordingDevTools(ctx context.Context, e *recordingEntry) (*out[RecordingDevTools], error) {
+	items, err := recordingLines(ctx, s, e, func(mf contract.RecordingManifest) []contract.RecordingChunk { return mf.DevTools }, []contract.DevToolsEntry{})
+	if err != nil {
+		return nil, err
+	}
+	return &out[RecordingDevTools]{RecordingDevTools{items}}, nil
+}
+
+// recordingLines reads every JSON line of a recording's gzipped chunks.
+func recordingLines[T any](ctx context.Context, s *Server, e *recordingEntry, chunks func(contract.RecordingManifest) []contract.RecordingChunk, items []T) ([]T, error) {
 	mf, err := readJSON[contract.RecordingManifest](ctx, s.recordings.store, s.recordings.fileKey(e.ref, "manifest.json"))
 	if errors.Is(err, contract.ErrNotFound) {
-		return &out[RecordingEvents]{l}, nil
+		return items, nil
 	}
 	if err != nil {
 		return nil, httpError(err)
 	}
-	for _, c := range mf.Events {
+	for _, c := range chunks(mf) {
 		if !contract.RecordingFile(c.File) {
 			continue
 		}
@@ -805,16 +828,16 @@ func (s *Server) recordingEvents(ctx context.Context, e *recordingEntry) (*out[R
 		if zr, err := gzip.NewReader(rc); err == nil {
 			dec := json.NewDecoder(zr)
 			for {
-				var ev contract.RecordingEvent
-				if dec.Decode(&ev) != nil {
+				var v T
+				if dec.Decode(&v) != nil {
 					break
 				}
-				l.Items = append(l.Items, ev)
+				items = append(items, v)
 			}
 		}
 		rc.Close()
 	}
-	return &out[RecordingEvents]{l}, nil
+	return items, nil
 }
 
 type recordingPath struct {
@@ -909,6 +932,27 @@ func (s *Server) registerRecordings(api huma.API) {
 			return nil, httpError(err)
 		}
 		return s.recordingEvents(ctx, e)
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "getRecordingDevTools", Method: http.MethodGet, Path: "/api/v1/recordings/{id}/devtools", Tags: tags,
+		Description: "Every DevTools line of the recording (the WebViews' requests, console and WebSockets), from all its devtools files.",
+	}, func(ctx context.Context, in *recordingPath) (*out[RecordingDevTools], error) {
+		e, err := s.ownRecording(ctx, in.ID)
+		if err != nil {
+			return nil, httpError(err)
+		}
+		return s.recordingDevTools(ctx, e)
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "getSharedRecordingDevTools", Method: http.MethodGet, Path: "/api/v1/shared/{token}/devtools", Tags: tags,
+	}, func(ctx context.Context, in *sharePath) (*out[RecordingDevTools], error) {
+		e, err := s.sharedRecording(ctx, in.Token)
+		if err != nil {
+			return nil, httpError(err)
+		}
+		return s.recordingDevTools(ctx, e)
 	})
 
 	s.registerMarkers(api)
@@ -1124,7 +1168,7 @@ func (s *Server) serveRecordingFile(w http.ResponseWriter, r *http.Request) {
 		h.Set("Content-Type", "image/png")
 		h.Set("Cache-Control", "private, max-age=31536000, immutable")
 	case strings.HasSuffix(name, ".gz"):
-		h.Set("Content-Type", map[bool]string{true: "application/x-ndjson", false: "text/plain; charset=utf-8"}[strings.HasPrefix(name, "events-")])
+		h.Set("Content-Type", map[bool]string{true: "application/x-ndjson", false: "text/plain; charset=utf-8"}[strings.HasPrefix(name, "events-") || strings.HasPrefix(name, "devtools-")])
 		h.Set("Content-Encoding", "gzip")
 		h.Set("Cache-Control", "private, max-age=31536000, immutable")
 	default:

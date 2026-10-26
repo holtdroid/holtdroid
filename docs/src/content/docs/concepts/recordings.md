@@ -1,6 +1,6 @@
 ---
 title: Recordings
-description: Sessions recorded on the server with logcat, device, network and load next to the screen, to watch, download or share.
+description: Sessions recorded on the server with logcat, the WebViews' network, console and WebSockets, device, network and load next to the screen, to watch, download or share.
 sidebar:
   order: 7
 ---
@@ -11,6 +11,10 @@ recording keeps more than the picture:
 - the **screen**, as the device encoded it;
 - **logcat** of the whole device, every line stamped with the time since the
   recording started;
+- the app's **WebViews**, as DevTools would show them: every request with its
+  headers, body, response and timing, console messages and uncaught
+  exceptions with their objects, and WebSocket and event-stream messages
+  (see [Network, console and WebSockets](#network-console-and-websockets));
 - the **device**: model, Android, build, the WebView version, screen size and
   density, language, theme, battery;
 - the **network**: the VPN location with its external IP and country, the
@@ -29,8 +33,9 @@ recording keeps more than the picture:
 
 Nothing is rendered on the server: the agent copies the video the device
 already encodes and writes the rest as small text files next to it. The
-portal draws the page from that data in an Android look: logcat on the left,
-the phone in the middle, and on the right the device clock like a status bar,
+portal draws the page from that data in an Android look: logcat and the
+WebViews' network, console and WebSockets in tabs on the left, the phone in
+the middle, and on the right the device clock like a status bar,
 the app, quick-settings style tiles for Wi-Fi, mobile data, airplane mode,
 Battery Saver and dark theme, the device, the network and the load.
 
@@ -94,6 +99,54 @@ copy it. In the logcat panel:
   below downloads the whole logcat as one text file, each line starting with
   its time in the recording.
 
+### Network, console and WebSockets
+
+The agent watches every WebView page of the app over a DevTools connection
+of its own, whether or not anyone has DevTools open, and the tabs next to
+**Logcat** show what it saw up to the moment you are at. Counters on the tabs
+turn red when requests failed or the page logged errors.
+
+- **Network** lists requests as they were sent: status (pending until the
+  response is complete at that moment), method, name, host, size and time.
+  Filter by URL, by type (Fetch/XHR, Doc, JS and so on) or to errors only.
+  Click a request for its headers, query string and body (**Payload**), the
+  **Response** and its **Timing**, or copy it as cURL. Bodies are kept up to
+  1 MB; images, media and fonts are recorded without theirs.
+- **Console** has `console.*` calls, uncaught exceptions with their stack and
+  the WebView's own messages (failed loads, violations, deprecations), with
+  level filters and search. Click a message to open the objects it logged
+  and its stack.
+- **WebSockets** lists the sockets and event streams; pick one for its frames,
+  sent ↑ and received ↓, and click a frame for its contents. A socket that
+  carries video or another media stream (its frames look like H.264, MP4,
+  WebM, JPEG and the like, or it moves a steady flow of data) is marked
+  **media stream**: from then on its frames are counted but not recorded.
+
+JSON is shown as a tree you can open and close, also when it sits in a
+string field; forms as name and value pairs, binary payloads as a hex dump.
+**Pretty** and **Raw** switch between the tree and the text, and the copy
+button copies it.
+
+Values that look like a point in time get a chip with how far they are from
+the **device clock at that moment of the recording** (“3.2 s ago”, “in 1 h”,
+“now”): Unix time in seconds, milliseconds, microseconds or nanoseconds,
+ISO 8601 and HTTP dates. Hover it for the same moment in UTC, in the
+device's time zone and in yours, as Unix seconds and milliseconds (click one
+to copy), and, when the device clock was set off real time, how it compares
+with real time. Plain numbers count as seconds only when the field's name
+says it is a time (`expiresAt`, `created_at`, `exp`, `ts`…) or they fall
+within five years of the recording.
+
+:::caution
+Headers, cookies and bodies are recorded as the app sent and received them,
+tokens included, and anyone with a share link or the `.holtdroid` file sees
+them.
+:::
+
+**Download → Network (.har)** saves the requests, with their bodies, and the
+WebSocket messages as a HAR file; Chrome DevTools opens it in its Network
+panel (drop it there), and so do Charles, Fiddler or HAR viewers.
+
 Taps and swipes show on the phone as green circles with a fading trail, and
 the navigation keys as a label at the bottom. The pointer button in the player's controls hides them (it only appears when something was touched);
 the downloaded video always has them.
@@ -123,11 +176,13 @@ in the recording, followed by the usual `threadtime` line.
 ## Downloading a video
 
 **Download → Video (.mp4)** renders the recording into an MP4 file in your browser,
-frame by frame, with the Holtdroid logo on top and the same panels as the page
-(the text is part of the picture, so it can't be selected). It is 1296 pixels
-tall and 30 fps: 2304×1296 for a phone held upright, 20% above 1080p. If the
-screen turned sideways in the recording or it is a tablet, the middle column
-is made wider and so is the video (up to about 3200 pixels), so the picture
+frame by frame, with the Holtdroid logo on top, the phone and the device
+panels from the right of the page (the text is part of the picture, so it
+can't be selected). Logcat and the WebViews' tabs stay on the page, where they
+can be read and searched. It is 1296 pixels tall and 30 fps: 1560×1296 for a
+phone held upright. If the screen turned sideways in the recording or it is a
+tablet, the phone's column is made wider and so is the video (up to about
+2450 pixels), so the picture
 stays readable; the phone's frame turns smoothly when the device does. A
 progress bar over the recording's timeline shows how far it got, how fast it
 goes and how long is left; keep the tab open until it finishes.
@@ -151,7 +206,7 @@ header.
 
 **Download → Recording file (.holtdroid)** saves everything in one file: the
 video segments, the events (device state, network, load, taps), the logcat, the
-markers, the preview and the app's icon. It is an ordinary ZIP archive whose
+WebViews' requests, console and WebSockets, the markers, the preview and the app's icon. It is an ordinary ZIP archive whose
 video and logs are stored as they are, so any archiver opens it. It points back
 at nothing on the server.
 
@@ -168,6 +223,8 @@ In the archive: `holtdroid.json` (the format, the recording's details and
 its markers), `manifest.json`, `init-N.mp4` and `seg-N.m4s` (the video, as fragmented MP4),
 `ainit-N.mp4` and `aseg-N.m4s` (the sound, as Opus in fragmented MP4),
 `events-N.jsonl.gz` (one JSON event per line), `logcat-N.log.gz`,
+`devtools-N.jsonl.gz` (one JSON line per request, console message, socket
+change or frame),
 `thumb.jpg` and `icon.png`. To get a plain video of a recording without
 a new epoch (the screen didn't turn or restart), join an init file and its segments
 in order: `cat init-0.mp4 seg-1.m4s seg-2.m4s … > video.mp4`.
@@ -196,7 +253,8 @@ running one stops. Kept recordings count against the quota too.
 
 As a rough guide, a recording takes 0.2 to 2 GB per hour of an app in use (the viewer’s stream quality decides),
 less for mostly static screens; logcat and the device data add a few
-megabytes per hour.
+megabytes per hour, and the WebViews' traffic as much as its bodies weigh
+(a page busy with JSON APIs can add tens of megabytes).
 
 ## Configuration
 

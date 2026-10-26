@@ -740,6 +740,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/recordings/{id}/devtools": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Every DevTools line of the recording (the WebViews' requests, console and WebSockets), from all its devtools files. */
+        get: operations["getRecordingDevTools"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/recordings/{id}/events": {
         parameters: {
             query?: never;
@@ -968,6 +985,22 @@ export interface paths {
         };
         /** @description A recording opened through a share link; needs no sign-in. */
         get: operations["getSharedRecording"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shared/{token}/devtools": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getSharedRecordingDevTools"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1504,6 +1537,183 @@ export interface components {
             top: number;
             /** Format: double */
             width: number;
+        };
+        DevToolsConsole: {
+            args?: components["schemas"]["DevToolsValue"][];
+            /** Format: int64 */
+            column?: number;
+            /** @description the console call (log, table, assert, …) or the browser's source (network, violation, …) */
+            kind?: string;
+            /** @enum {string} */
+            level: "debug" | "info" | "warning" | "error";
+            /** Format: int64 */
+            line?: number;
+            /**
+             * @description the page's console API, an uncaught exception, or the browser itself (network errors, violations, …)
+             * @enum {string}
+             */
+            source: "console" | "exception" | "browser";
+            stack?: string;
+            text: string;
+            url?: string;
+            /**
+             * Format: int64
+             * @description the device clock, milliseconds since the epoch
+             */
+            wall?: number;
+        };
+        DevToolsEntry: {
+            console?: components["schemas"]["DevToolsConsole"];
+            /**
+             * Format: int64
+             * @description lines left out because one upload got too big
+             */
+            dropped?: number;
+            frame?: components["schemas"]["DevToolsFrame"];
+            page?: components["schemas"]["DevToolsPage"];
+            request?: components["schemas"]["DevToolsRequest"];
+            socket?: components["schemas"]["DevToolsSocket"];
+            /** Format: int64 */
+            t: number;
+            /** @description the DevTools target (page) it came from */
+            target?: string;
+            /** @enum {string} */
+            type: "page" | "request" | "console" | "socket" | "frame" | "dropped";
+        };
+        DevToolsFrame: {
+            /** @description the text, or base64 of a binary payload, cut at the limit */
+            data?: string;
+            /**
+             * Format: int64
+             * @description 1 text, 2 binary
+             */
+            opcode: number;
+            sent?: boolean;
+            /**
+             * Format: int64
+             * @description payload bytes
+             */
+            size: number;
+            socket: string;
+            truncated?: boolean;
+        };
+        DevToolsPage: {
+            closed?: boolean;
+            process?: string;
+            title?: string;
+            url?: string;
+        };
+        DevToolsRequest: {
+            body?: string;
+            bodyBase64?: boolean;
+            /**
+             * @description why there is no body: a media, font, image, script or style resource, too big, or the WebView had none
+             * @enum {string}
+             */
+            bodySkipped?: "type" | "size" | "unavailable";
+            bodyTruncated?: boolean;
+            /** @enum {string} */
+            cached?: "memory" | "disk" | "service-worker" | "prefetch";
+            canceled?: boolean;
+            /**
+             * Format: int64
+             * @description recording time it finished or failed; none if it was still loading when the recording ended
+             */
+            end?: number;
+            error?: string;
+            id: string;
+            method: string;
+            mimeType?: string;
+            postData?: string;
+            postDataTruncated?: boolean;
+            protocol?: string;
+            /** @description the URL it was redirected to */
+            redirect?: string;
+            remoteAddress?: string;
+            requestHeaders?: {
+                [key: string]: string;
+            };
+            /** @description Document, XHR, Fetch, Script, Image, … */
+            resourceType?: string;
+            /**
+             * Format: int64
+             * @description recording time its response headers came
+             */
+            response?: number;
+            responseHeaders?: {
+                [key: string]: string;
+            };
+            /**
+             * Format: int64
+             * @description bytes on the wire
+             */
+            size?: number;
+            /**
+             * Format: int64
+             * @description recording time it was sent
+             */
+            start: number;
+            /** Format: int64 */
+            status?: number;
+            statusText?: string;
+            timing?: components["schemas"]["DevToolsTiming"];
+            url: string;
+            /**
+             * Format: int64
+             * @description the device clock when it was sent, milliseconds since the epoch
+             */
+            wall?: number;
+        };
+        DevToolsSocket: {
+            /** Format: int64 */
+            bytes?: number;
+            error?: string;
+            /**
+             * Format: int64
+             * @description frames so far, recorded or not
+             */
+            frames?: number;
+            id: string;
+            /**
+             * @description stream: its traffic looks like video or another media stream, so no more frames are recorded
+             * @enum {string}
+             */
+            state: "connecting" | "open" | "closed" | "error" | "stream";
+            /**
+             * Format: int64
+             * @description the handshake's HTTP status
+             */
+            status?: number;
+            url: string;
+        };
+        DevToolsTiming: {
+            /** Format: double */
+            blocked: number;
+            /**
+             * Format: double
+             * @description includes ssl
+             */
+            connect: number;
+            /** Format: double */
+            dns: number;
+            /** Format: double */
+            receive: number;
+            /** Format: double */
+            send: number;
+            /** Format: double */
+            ssl: number;
+            /** Format: double */
+            wait: number;
+        };
+        DevToolsValue: {
+            /** @description the value as JSON when it has one, cut at 64 KB */
+            json?: string;
+            /** @description null, array, error, date, … */
+            subtype?: string;
+            /** @description a string's value, or what DevTools shows for it */
+            text: string;
+            /** @description string, number, boolean, undefined, object, function, symbol or bigint */
+            type: string;
         };
         DeviceInfo: {
             abis: string[];
@@ -2197,6 +2407,9 @@ export interface components {
             /** @description opened through a share link */
             shared: boolean;
         };
+        RecordingDevTools: {
+            items: components["schemas"]["DevToolsEntry"][];
+        };
         RecordingEpoch: {
             /** @description RFC 6381, e.g. avc1.640028 */
             codec: string;
@@ -2277,6 +2490,8 @@ export interface components {
         RecordingManifest: {
             /** @description the sound, apart from the video: its own epochs and segments, on the same clock */
             audio: components["schemas"]["RecordingAudio"][];
+            /** @description gzipped JSON lines of DevToolsEntry: the WebViews' network, console and WebSockets */
+            devtools: components["schemas"]["RecordingChunk"][];
             /** Format: int64 */
             duration: number;
             epochs: components["schemas"]["RecordingEpoch"][];
@@ -4524,6 +4739,37 @@ export interface operations {
             };
         };
     };
+    getRecordingDevTools: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordingDevTools"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     getRecordingEvents: {
         parameters: {
             query?: never;
@@ -5096,6 +5342,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecordingDetail"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getSharedRecordingDevTools: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordingDevTools"];
                 };
             };
             /** @description Error */

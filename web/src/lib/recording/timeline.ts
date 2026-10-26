@@ -129,6 +129,10 @@ export class Telemetry {
     }
   }
 
+  deviceAt(t: number) {
+    return lastAt(this.device, t)?.v ?? this.device[0]?.v
+  }
+
   at(t: number, span = 60_000): Snapshot {
     const end = lastAt(this.metrics, t)
     const history: At<Metrics>[] = []

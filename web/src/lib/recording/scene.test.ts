@@ -6,22 +6,22 @@ const epochs = (...sizes: [number, number][]) => ({
 })
 
 describe("sceneLayout", () => {
-  test("a phone held upright renders at 2304×1296, 20% above 1080p", () => {
+  test("a phone held upright renders at 1560×1296, 20% above 1080p in height", () => {
     const l = sceneLayout(epochs([720, 1600]))
-    expect([l.width, l.height]).toEqual([2304, 1296])
+    expect([l.width, l.height]).toEqual([1560, 1296])
     expect(l.areaW).toBe(616)
   })
 
   test("a phone that turned sideways gets a wide middle column", () => {
     const l = sceneLayout(epochs([720, 1600], [1600, 720]))
     expect(l.areaW).toBe(1360)
-    expect([l.width, l.height]).toEqual([3196, 1296])
+    expect([l.width, l.height]).toEqual([2452, 1296])
   })
 
   test("a tablet in portrait widens it a little", () => {
     const l = sceneLayout(epochs([1200, 1600]))
     expect(l.areaW).toBe(749)
-    expect(l.width).toBe(2464)
+    expect(l.width).toBe(1720)
   })
 
   test("sizes stay even so every encoder takes them", () => {
@@ -37,6 +37,6 @@ describe("sceneLayout", () => {
   })
 
   test("an empty recording still has a layout", () => {
-    expect(sceneLayout(epochs()).width).toBe(2304)
+    expect(sceneLayout(epochs()).width).toBe(1560)
   })
 })

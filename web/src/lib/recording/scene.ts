@@ -1,9 +1,9 @@
 import type { VideoSample } from "mediabunny"
 import type { RecordingManifest, RecordingMarker } from "@/api/client"
-import { logLevels, md, mono, sans, series } from "@/lib/recording/android"
+import { md, mono, sans, series } from "@/lib/recording/android"
 import { drawIcon, type SceneIconName } from "@/lib/recording/scene-icons"
 import { type Block, type Row, summarize, type Summary, type Tone } from "@/lib/recording/summary"
-import { clock, type Dims, type LogLine, type Rotation, type Snapshot } from "@/lib/recording/timeline"
+import type { Dims, Rotation, Snapshot } from "@/lib/recording/timeline"
 import { drawOverlay, type Overlay } from "@/lib/recording/touches"
 import logoUrl from "@/logo.svg"
 
@@ -33,15 +33,15 @@ const even = (v: number) => Math.max(2, Math.round(v / 2) * 2)
 
 /**
  * The video is 1296 pixels tall; its width follows the widest the screen got:
- * a phone in portrait keeps it at 2304, a landscape phone or a tablet widens
- * the middle column so the picture isn't tiny.
+ * a phone in portrait keeps it at 1560, a landscape phone or a tablet widens
+ * the phone's column so the picture isn't tiny.
  */
 export function sceneLayout(manifest: Pick<RecordingManifest, "epochs">): SceneLayout {
   const panelH = logicalH - headerH - pad
   const bezel = 10
   const aspect = manifest.epochs.reduce((a, e) => (e.height > 0 ? Math.max(a, e.width / e.height) : a), 0.45)
   const areaW = Math.min(maxArea, Math.max(minArea, Math.ceil((panelH - bezel * 2) * aspect + bezel * 2)))
-  const logicalW = pad * 2 + side * 2 + gap * 2 + areaW
+  const logicalW = pad * 2 + side + gap + areaW
   return {
     width: even(logicalW * outputScale),
     height: even(logicalH * outputScale),
@@ -67,7 +67,6 @@ export type SceneInput = {
   startedAt: number
   frame: VideoSample | null
   snap: Snapshot
-  logcat: LogLine[]
   overlay?: Overlay
   rotation?: Rotation | null
   markers?: RecordingMarker[]
@@ -163,51 +162,6 @@ function drawTiles(ctx: Ctx, x: number, y: number, w: number, tiles: Summary["ti
     text(ctx, t.label, tx + tw / 2, y + 53, 13, fg, 500)
     ctx.textAlign = "left"
   })
-}
-
-function drawLogcat(ctx: Ctx, x: number, y: number, w: number, h: number, lines: LogLine[], t: number) {
-  card(ctx, x, y, w, h, "Logcat", "logcat")
-  const lh = 21
-  const top = y + 58
-  const room = Math.floor((h - 70) / lh)
-  const shown = lines.slice(-room)
-  ctx.save()
-  ctx.beginPath()
-  ctx.rect(x + 8, top - 6, w - 16, h - 62)
-  ctx.clip()
-  shown.forEach((l, i) => {
-    const ly = top + i * lh
-    const color = logLevels[l.level]?.color ?? "#bbbbbb"
-    const loud = l.level === "W" || l.level === "E" || l.level === "F" || l.level === "A"
-    const age = t - l.t
-    if (age >= 0 && age < 1200) {
-      ctx.globalAlpha = 0.16 * (1 - age / 1200)
-      box(ctx, x + 8, ly - 3, w - 16, lh, 8, color)
-      ctx.globalAlpha = 1
-    }
-    text(ctx, clock(l.t), x + 20, ly + 12, 13, "#6f7872", 400, mono)
-    box(ctx, x + 70, ly - 1, 18, 18, 5, `${color}26`)
-    ctx.textAlign = "center"
-    text(ctx, l.level, x + 79, ly + 12.5, 12, color, 700, mono)
-    ctx.textAlign = "left"
-    const tag = l.tag ? `${l.tag} ` : ""
-    font(ctx, 13, 400, mono)
-    const tagW = Math.min(150, ctx.measureText(ellipsize(ctx, tag, 150)).width)
-    text(ctx, ellipsize(ctx, tag, 150), x + 98, ly + 12, 13, loud ? color : "#7fb2e5", 400, mono)
-    font(ctx, 13, 400, mono)
-    text(
-      ctx,
-      ellipsize(ctx, l.message, w - 98 - tagW - 24),
-      x + 98 + tagW,
-      ly + 12,
-      13,
-      loud ? color : md.onSurface,
-      400,
-      mono,
-    )
-  })
-  ctx.restore()
-  if (shown.length === 0) text(ctx, "No logcat yet", x + 22, top + 14, 15, md.outline)
 }
 
 function contain(src: Dims, w: number, h: number): Dims {
@@ -465,8 +419,7 @@ export function drawScene(ctx: Ctx, input: SceneInput) {
     snap: input.snap,
     app: input.app,
   })
-  const phoneX = pad + side + gap
-  drawLogcat(ctx, pad, headerH, side, h, input.logcat, input.t)
+  const phoneX = pad
   drawPhone(ctx, phoneX, headerH, layout.areaW, h, input.frame, input.overlay, input.rotation)
   if (input.markers?.length) drawMarkers(ctx, phoneX, headerH, layout.areaW, input.markers, input.t)
   drawInfo(ctx, layout.logicalW - pad - side, headerH, side, h, summary, input.app.icon)

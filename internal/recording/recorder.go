@@ -1,6 +1,7 @@
 // Package recording records a session on the agent's side: the screen as
 // fragmented MP4 segments taken from a scrcpy H.264 stream, the device's
-// state as JSON lines and logcat as text, all uploaded to the api as they
+// state as JSON lines, logcat as text and the WebViews' DevTools traffic as
+// JSON lines, all uploaded to the api as they
 // are written (decision #96).
 package recording
 
@@ -33,12 +34,14 @@ type Config struct {
 	// MaxLogcat caps the logcat kept per flush; the rest is dropped with a
 	// note.
 	MaxLogcat int
+	// MaxDevTools does the same for the DevTools lines.
+	MaxDevTools int
 }
 
 func DefaultConfig() Config {
 	return Config{
 		Segment: 2 * time.Second, MaxSegment: 20 * time.Second, MaxSegmentSize: 16 << 20,
-		Flush: 10 * time.Second, MaxBacklog: 256 << 20, MaxLogcat: 8 << 20,
+		Flush: 10 * time.Second, MaxBacklog: 256 << 20, MaxLogcat: 8 << 20, MaxDevTools: 32 << 20,
 	}
 }
 
@@ -72,6 +75,7 @@ type Recorder struct {
 	aud      audio
 	events   chunk
 	logcat   chunk
+	devtools chunk
 	moved    map[int]int64
 	quit     chan struct{}
 	loopDone chan struct{}
@@ -92,6 +96,7 @@ func Start(target contract.RecordingTarget, cfg Config, log *slog.Logger, opts .
 		now:      time.Now,
 		log:      log.With("recording", target.ID),
 		moved:    map[int]int64{},
+		devtools: chunk{note: devtoolsNote},
 		quit:     make(chan struct{}),
 		loopDone: make(chan struct{}),
 	}
@@ -104,7 +109,7 @@ func Start(target contract.RecordingTarget, cfg Config, log *slog.Logger, opts .
 	r.aud.epoch = -1
 	r.manifest = contract.RecordingManifest{
 		State: contract.RecordingActive, StartedAt: r.start.UTC(), UpdatedAt: r.start.UTC(),
-		Epochs: []contract.RecordingEpoch{}, Audio: []contract.RecordingAudio{}, Events: []contract.RecordingChunk{}, Logcat: []contract.RecordingChunk{},
+		Epochs: []contract.RecordingEpoch{}, Audio: []contract.RecordingAudio{}, Events: []contract.RecordingChunk{}, Logcat: []contract.RecordingChunk{}, DevTools: []contract.RecordingChunk{},
 	}
 	r.dirty = true
 	go r.up.run(r.fail)
@@ -113,6 +118,9 @@ func Start(target contract.RecordingTarget, cfg Config, log *slog.Logger, opts .
 }
 
 func (r *Recorder) elapsed() int64 { return r.now().Sub(r.start).Milliseconds() }
+
+// Elapsed is the recording time now, in milliseconds.
+func (r *Recorder) Elapsed() int64 { return r.elapsed() }
 
 func (r *Recorder) State() contract.RecordingState {
 	r.mu.Lock()
@@ -183,6 +191,29 @@ func (r *Recorder) Logcat(line string) {
 	}
 	t := r.elapsed()
 	r.logcat.write(t, []byte(Clock(t)+"  "+line+"\n"), r.cfg.MaxLogcat)
+}
+
+// DevTools adds a DevTools line, at the current recording time unless it
+// has one.
+func (r *Recorder) DevTools(e contract.DevToolsEntry) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.stopped {
+		return
+	}
+	if e.T <= 0 {
+		e.T = r.elapsed()
+	}
+	line, err := json.Marshal(e)
+	if err != nil {
+		return
+	}
+	r.devtools.write(e.T, append(line, '\n'), r.cfg.MaxDevTools)
+}
+
+func devtoolsNote(t int64, dropped, _ int) []byte {
+	line, _ := json.Marshal(contract.DevToolsEntry{T: t, Type: contract.DevToolsDroppedEntry, Dropped: dropped})
+	return append(line, '\n')
 }
 
 // Clock formats milliseconds as HH:MM:SS.mmm.
@@ -277,6 +308,7 @@ type chunk struct {
 	raw     int
 	dropped int
 	seq     int
+	note    func(t int64, dropped, raw int) []byte
 }
 
 func (c *chunk) write(t int64, line []byte, limit int) {
@@ -287,19 +319,22 @@ func (c *chunk) write(t int64, line []byte, limit int) {
 	if c.zw == nil {
 		c.buf.Reset()
 		c.zw, _ = gzip.NewWriterLevel(&c.buf, gzip.BestSpeed)
-		c.start = t
+		c.start, c.end = t, t
 	}
 	_, _ = c.zw.Write(line)
-	c.end = t
+	c.start, c.end = min(c.start, t), max(c.end, t)
 	c.lines++
 	c.raw += len(line)
 }
 
 func (c *chunk) take(t int64) (data []byte, meta contract.RecordingChunk, ok bool) {
 	if c.dropped > 0 {
-		note := fmt.Sprintf("%s  -- %d lines dropped: more than %d bytes in one upload --\n", Clock(t), c.dropped, c.raw)
+		note := []byte(fmt.Sprintf("%s  -- %d lines dropped: more than %d bytes in one upload --\n", Clock(t), c.dropped, c.raw))
+		if c.note != nil {
+			note = c.note(t, c.dropped, c.raw)
+		}
 		c.dropped = 0
-		c.write(t, []byte(note), 0)
+		c.write(t, note, 0)
 	}
 	if c.zw == nil {
 		return nil, meta, false
@@ -326,6 +361,12 @@ func (r *Recorder) flushChunks() {
 		meta.File = fmt.Sprintf("logcat-%d.log.gz", r.logcat.seq)
 		r.put(meta.File, data)
 		r.manifest.Logcat = append(r.manifest.Logcat, meta)
+		r.dirty = true
+	}
+	if data, meta, ok := r.devtools.take(t); ok {
+		meta.File = fmt.Sprintf("devtools-%d.jsonl.gz", r.devtools.seq)
+		r.put(meta.File, data)
+		r.manifest.DevTools = append(r.manifest.DevTools, meta)
 		r.dirty = true
 	}
 }
