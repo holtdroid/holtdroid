@@ -3037,8 +3037,10 @@ app-op) and on Android 11 (`cmd location` has no providers command).
   radio or in airplane mode an `ip rule` (`pref 8990`, every uid but root,
   `unreachable`) takes the network away. A real Wi-Fi would need
   `mac80211_hwsim` in the node's kernel, which is out of reach of a Pod.
-- Battery: `present 1` with every simulated change and at boot; state from
-  the full `dumpsys battery`.
+- Battery: `present 1` with every simulated change and at boot, always
+  after the level: a present battery at 0% unplugged makes Android shut
+  down, which ends the redroid container, so a level of 0 is set as 1. State
+  from the full `dumpsys battery`.
 - Brightness: the percentage is the slider's (gamma) position, set with
   `cmd display set-brightness` and the slider's minimum (the display's
   current minimum since Android 12, the settings minimum on 11); the int

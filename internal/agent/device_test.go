@@ -128,8 +128,9 @@ func TestControlsUpdate(t *testing.T) {
 	}{
 		{"airplane", contract.DeviceSettings{AirplaneMode: new(true)}, []string{"cmd connectivity airplane-mode enable"}},
 		{"radios", contract.DeviceSettings{WiFi: new(false), MobileData: new(true)}, []string{"svc wifi disable && svc data enable"}},
-		{"battery saver unplugs", contract.DeviceSettings{BatterySaver: new(true)}, []string{"dumpsys battery set present 1 && dumpsys battery unplug && dumpsys battery set status 3 && cmd power set-mode 1"}},
-		{"charging and level", contract.DeviceSettings{Charging: new(true), BatteryLevel: new(15)}, []string{"dumpsys battery set present 1 && dumpsys battery set ac 1 && dumpsys battery set status 2 && dumpsys battery set level 15"}},
+		{"battery saver unplugs", contract.DeviceSettings{BatterySaver: new(true)}, []string{"dumpsys battery unplug && dumpsys battery set status 3 && dumpsys battery set present 1 && cmd power set-mode 1"}},
+		{"charging and level", contract.DeviceSettings{Charging: new(true), BatteryLevel: new(15)}, []string{"dumpsys battery set level 15 && dumpsys battery set ac 1 && dumpsys battery set status 2 && dumpsys battery set present 1"}},
+		{"empty battery stays on", contract.DeviceSettings{BatteryLevel: new(0)}, []string{"dumpsys battery set level 1 && dumpsys battery set present 1"}},
 		{"display", contract.DeviceSettings{DarkMode: new(true), FontScale: new(1.15), Density: new(0)}, []string{"cmd uimode night yes && settings put system font_scale 1.15 && wm density reset"}},
 		{"brightness", contract.DeviceSettings{Brightness: new(40)}, []string{"settings put system screen_brightness_mode 0 && { cmd display set-brightness 0.053333 >/dev/null 2>&1 || settings put system screen_brightness 15; }"}},
 		{"auto brightness", contract.DeviceSettings{AutoBrightness: new(true)}, []string{"settings put system screen_brightness_mode 1"}},

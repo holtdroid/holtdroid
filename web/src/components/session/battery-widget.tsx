@@ -134,6 +134,7 @@ function BatteryShade({ s, busy, set }: { s: DeviceState; busy: boolean; set: (p
             icon={batteryIcon(s)}
             label="Charge level"
             value={s.batteryLevel}
+            min={1}
             max={100}
             unit="%"
             disabled={busy}

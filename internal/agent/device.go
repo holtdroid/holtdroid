@@ -389,8 +389,8 @@ func (c *Controls) Update(ctx context.Context, in contract.DeviceSettings) (cont
 	if in.BatterySaver != nil && *in.BatterySaver && charging == nil {
 		charging = new(false)
 	}
-	if charging != nil || in.BatteryLevel != nil {
-		add("dumpsys battery set present 1")
+	if in.BatteryLevel != nil {
+		add(fmt.Sprintf("dumpsys battery set level %d", max(*in.BatteryLevel, 1)))
 	}
 	if charging != nil {
 		if *charging {
@@ -399,8 +399,8 @@ func (c *Controls) Update(ctx context.Context, in contract.DeviceSettings) (cont
 			add("dumpsys battery unplug", "dumpsys battery set status 3")
 		}
 	}
-	if in.BatteryLevel != nil {
-		add(fmt.Sprintf("dumpsys battery set level %d", *in.BatteryLevel))
+	if charging != nil || in.BatteryLevel != nil {
+		add("dumpsys battery set present 1")
 	}
 	if in.BatterySaver != nil {
 		add("cmd power set-mode " + pick(*in.BatterySaver, "1", "0"))

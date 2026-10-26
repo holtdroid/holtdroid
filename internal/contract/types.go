@@ -392,7 +392,7 @@ type DeviceSettings struct {
 	WiFi           *bool           `json:"wifi,omitempty"`
 	MobileData     *bool           `json:"mobileData,omitempty"`
 	BatterySaver   *bool           `json:"batterySaver,omitempty"`
-	BatteryLevel   *int            `json:"batteryLevel,omitempty" minimum:"0" maximum:"100"`
+	BatteryLevel   *int            `json:"batteryLevel,omitempty" minimum:"0" maximum:"100" doc:"0 is taken as 1: Android shuts down on an empty battery"`
 	Charging       *bool           `json:"charging,omitempty"`
 	DarkMode       *bool           `json:"darkMode,omitempty"`
 	FontScale      *float64        `json:"fontScale,omitempty" minimum:"0.5" maximum:"3"`

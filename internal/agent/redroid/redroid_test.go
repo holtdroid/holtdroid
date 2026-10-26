@@ -70,7 +70,7 @@ func TestPrepare(t *testing.T) {
 			}
 			want = append(want,
 				allowHomeRotation,
-				"dumpsys battery set present 1 && dumpsys battery unplug && dumpsys battery set status 3 && dumpsys battery set level 65",
+				"dumpsys battery set level 65 && dumpsys battery unplug && dumpsys battery set status 3 && dumpsys battery set present 1",
 				"push /opt/holtdroid/frida-server /data/local/tmp/frida-server",
 				"pkill -x frida-server; chmod 755 /data/local/tmp/frida-server && /data/local/tmp/frida-server -D </dev/null >/dev/null 2>&1",
 				"pidof frida-server",

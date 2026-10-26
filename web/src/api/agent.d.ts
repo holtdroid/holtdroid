@@ -429,7 +429,10 @@ export interface components {
             autoBrightness?: boolean;
             /** @description true syncs the clock with real time and keeps it synced */
             autoTime?: boolean;
-            /** Format: int64 */
+            /**
+             * Format: int64
+             * @description 0 is taken as 1: Android shuts down on an empty battery
+             */
             batteryLevel?: number;
             batterySaver?: boolean;
             /**
