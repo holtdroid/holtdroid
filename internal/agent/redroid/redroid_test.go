@@ -124,7 +124,7 @@ func TestPrepareWaitsForTun(t *testing.T) {
 
 func TestRoutes(t *testing.T) {
 	const (
-		wifi = "{ [ \"$w\" != 1 ] || { { ip rule list pref 9002 | grep -q . || ip rule add uidrange 0-0 fwmark 0x0/0xffff lookup main pref 9002; } && " +
+		wifi = "{ [ \"$r\" != 1 ] || { { ip rule list pref 9002 | grep -q . || ip rule add uidrange 0-0 fwmark 0x0/0xffff lookup main pref 9002; } && " +
 			"{ ip rule list pref 9500 | grep -q . || ip rule add iif wifiup lookup main pref 9500; } && " +
 			"{ ip rule list pref 9501 | grep -q . || ip rule add to 10.254.0.0/30 lookup main pref 9501; } && " +
 			"{ ndc ipfwd enable holtdroid >/dev/null || true; }"
@@ -141,10 +141,10 @@ func TestRoutes(t *testing.T) {
 		uid  int
 		want string
 	}{
-		{"direct", false, 65532, "w=$(getprop vendor.holtdroid.wifi) && " + wifi + agentMain + "; }; }"},
-		{"direct as root", false, 0, "w=$(getprop vendor.holtdroid.wifi) && " + wifi + "; }; }"},
-		{"vpn", true, 65532, "w=$(getprop vendor.holtdroid.wifi) && " + tun +
-			"if [ \"$w\" = 1 ]; then { ip rule list pref 9000 | grep -q . || ip rule add iif wifiup lookup 2022 pref 9000; } && " +
+		{"direct", false, 65532, "r=$([ -e /sys/class/net/wifiup ] && echo 1) && " + wifi + agentMain + "; }; }"},
+		{"direct as root", false, 0, "r=$([ -e /sys/class/net/wifiup ] && echo 1) && " + wifi + "; }; }"},
+		{"vpn", true, 65532, "r=$([ -e /sys/class/net/wifiup ] && echo 1) && " + tun +
+			"if [ \"$r\" = 1 ]; then { ip rule list pref 9000 | grep -q . || ip rule add iif wifiup lookup 2022 pref 9000; } && " +
 			"{ ip rule list pref 9001 | grep -q . || ip rule add uidrange 65532-65532 lookup 2022 pref 9001; }; " +
 			"else { ip rule list pref 9000 | grep -q . || ip rule add not uidrange 0-0 lookup 2022 pref 9000; }; fi && " +
 			wifi + agentMain + "; }; }"},

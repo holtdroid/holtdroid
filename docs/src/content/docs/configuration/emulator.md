@@ -251,7 +251,7 @@ prefers Wi-Fi, so with Wi-Fi off and mobile data on the status bar shows
 Ethernet.
 
 Without the module the Wi-Fi and mobile data toggles are the session's
-own: a session starts with both on, the app under test sees the Pod's
+own: a session starts with both on, the app under test sees Android's
 Ethernet as the radio that is on, and with both off or in airplane mode it
 sees no network and only root keeps a route. Android's own status bar and
 quick settings show Ethernet then.

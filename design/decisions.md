@@ -3214,7 +3214,11 @@ and the node was left with no radios after they were deleted.
   adbd) and its own uid to the Pod's routes, forwards `wifiup` to the VPN
   tun, and keeps forwarding on through netd (`ndc ipfwd`), which owns
   `ip_forward`.
-- Without the module the image does nothing and #101's virtual radios stay.
+- The router namespace and `eth1` exist on every node; without the module
+  the image creates no radios and keeps `eth1` up as plain Ethernet, so
+  #101's virtual radios work as before.
+- toybox's `nsenter -t PID` enters `/proc/0` on Android 14 (toybox 0.8.9);
+  the scripts use `nsenter --net=/proc/PID/ns/net`.
 
 **Consequences.** Android's Wi-Fi, status bar and quick settings are real
 on Android 11–15 and Wi-Fi off really cuts the network. With Wi-Fi off and

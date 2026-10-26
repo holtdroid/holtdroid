@@ -223,11 +223,12 @@ func (r *Redroid) route(ctx context.Context) error {
 // With a VPN every uid but root goes into the tun, except bypass and the
 // tun's own network, where the sing-box system stack answers.
 //
-// With the simulated Wi-Fi Android sees no Ethernet: its apps reach the Pod
-// through the Wi-Fi (or the mobile uplink) and the router namespace, which
-// arrives on wifiup, and netd sends every other unmarked socket to Android's
-// default network or nowhere. So root (sing-box, adbd's clients) and the
-// agent's uid, which answers the api, are pinned to the Pod's own routes.
+// With holtdroid-redroid's router namespace (decision #105) Android doesn't
+// see the Pod's eth0: its apps reach the Pod through the simulated Wi-Fi or
+// the eth1 uplink and the router, which arrives on wifiup, and netd sends
+// every other unmarked socket to Android's default network or nowhere. So
+// root (sing-box, adbd's clients) and the agent's uid, which answers the
+// api, are pinned to the Pod's own routes.
 func Routes(cfg Config, agentUID int) string {
 	table := vpn.TunTable
 	rule := func(pref int, sel string) string {
@@ -238,16 +239,16 @@ func Routes(cfg Config, agentUID int) string {
 	if agentUID != 0 {
 		agent = "uidrange " + strconv.Itoa(agentUID) + "-" + strconv.Itoa(agentUID)
 	}
-	wifi := []string{
+	router := []string{
 		rule(9002, "uidrange 0-0 fwmark 0x0/0xffff lookup main"),
 		rule(9500, "iif wifiup lookup main"),
 		rule(9501, "to 10.254.0.0/30 lookup main"),
 		"{ ndc ipfwd enable holtdroid >/dev/null || true; }",
 	}
 	if agent != "" {
-		wifi = append(wifi, rule(9003, agent+" lookup main"))
+		router = append(router, rule(9003, agent+" lookup main"))
 	}
-	cmds := []string{`w=$(getprop ` + WiFiProp + `)`}
+	cmds := []string{`r=$([ -e /sys/class/net/wifiup ] && echo 1)`}
 	if cfg.VPN {
 		cmds = append(cmds,
 			"ip link show "+vpn.TunInterface+" >/dev/null",
@@ -265,9 +266,9 @@ func Routes(cfg Config, agentUID int) string {
 		if agent != "" {
 			viaWiFi = append(viaWiFi, rule(9001, agent+" lookup "+table))
 		}
-		cmds = append(cmds, `if [ "$w" = 1 ]; then `+strings.Join(viaWiFi, " && ")+
+		cmds = append(cmds, `if [ "$r" = 1 ]; then `+strings.Join(viaWiFi, " && ")+
 			"; else "+rule(9000, "not uidrange 0-0 lookup "+table)+"; fi")
 	}
-	cmds = append(cmds, `{ [ "$w" != 1 ] || { `+strings.Join(wifi, " && ")+"; }; }")
+	cmds = append(cmds, `{ [ "$r" != 1 ] || { `+strings.Join(router, " && ")+"; }; }")
 	return strings.Join(cmds, " && ")
 }

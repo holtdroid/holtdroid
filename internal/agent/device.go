@@ -331,7 +331,7 @@ func (c *Controls) radiosScript() string {
 a=$(settings get global airplane_mode_on)
 if [ "$(getprop vendor.holtdroid.wifi)" = 1 ]; then
   case $(settings get global wifi_on) in 1|2) m=wifi ;; *) [ $d = 1 ] && [ "$a" != 1 ] && m=mobile || m=none ;; esac
-  nsenter -t $(cat /data/vendor/wifi/router.pid) -n -- ip link set mobile0 $([ $m = mobile ] && echo up || echo down)
+  nsenter --net=/proc/$(cat /data/vendor/wifi/router.pid)/ns/net -- ip link set mobile0 $([ $m = mobile ] && echo up || echo down)
 else
   [ "$a" = 1 ] && m=none
 fi
