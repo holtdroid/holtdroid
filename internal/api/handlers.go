@@ -241,6 +241,7 @@ func (s *Server) register(api huma.API) {
 	s.registerRecordings(api)
 	s.registerReferences(api)
 	s.registerInventory(api)
+	s.registerDevToolsFrontends(api)
 	s.registerMap(api)
 }
 

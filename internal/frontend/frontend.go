@@ -213,11 +213,19 @@ var frontendRefRe = regexp.MustCompile(`["'(]((?:\.{1,2}/)?[\w@./-]+\.(?:js|css|
 // only once it holds one of them, so a browser never waits behind the queue.
 func (f *Cache) Warm(rev string) { f.enqueue(rev, false) }
 
-func (f *Cache) enqueue(rev string, urgent bool) {
+// Fetch crawls a revision ahead of the queue.
+func (f *Cache) Fetch(rev string) { f.enqueue(rev, true) }
+
+func normRev(rev string) (string, bool) {
 	if !revPathRe.MatchString(rev) {
 		rev = "@" + strings.TrimPrefix(rev, "@")
 	}
-	if !revPathRe.MatchString(rev) {
+	return rev, revPathRe.MatchString(rev)
+}
+
+func (f *Cache) enqueue(rev string, urgent bool) {
+	rev, ok := normRev(rev)
+	if !ok {
 		return
 	}
 	if _, loaded := f.warmed.LoadOrStore(rev, true); loaded && !urgent {
@@ -441,4 +449,72 @@ func pack(w io.Writer, dir string, files []string) error {
 		return err
 	}
 	return gz.Close()
+}
+
+// Archive is a revision kept in the store.
+type Archive struct {
+	Rev        string
+	Size       int64
+	ArchivedAt time.Time
+}
+
+// Archives lists the revisions archived in the store.
+func (f *Cache) Archives(ctx context.Context) ([]Archive, error) {
+	if f.store == nil {
+		return nil, nil
+	}
+	objs, err := f.store.List(ctx, archivePrefix)
+	if err != nil {
+		return nil, err
+	}
+	out := []Archive{}
+	for _, o := range objs {
+		rev, ok := strings.CutSuffix(strings.TrimPrefix(o.Key, archivePrefix), ".tar.gz")
+		if !ok || !revPathRe.MatchString(rev) {
+			continue
+		}
+		out = append(out, Archive{Rev: rev, Size: o.Size, ArchivedAt: o.Modified})
+	}
+	return out, nil
+}
+
+// Statuses is every revision this process has seen, with how far it is.
+func (f *Cache) Statuses() map[string]Status {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make(map[string]Status, len(f.status))
+	for rev, st := range f.status {
+		out[rev] = *st
+	}
+	return out
+}
+
+// ErrBusy is Delete's answer while the revision is being crawled.
+var ErrBusy = errors.New("the revision is being fetched")
+
+// Delete drops a revision's archive and local files, so the next request
+// fetches it anew.
+func (f *Cache) Delete(ctx context.Context, rev string) error {
+	rev, ok := normRev(rev)
+	if !ok {
+		return storage.ErrNotExist
+	}
+	f.mu.Lock()
+	st, known := f.status[rev]
+	_, running := f.started.Load(rev)
+	if known && running && st.State == StateWarming {
+		f.mu.Unlock()
+		return ErrBusy
+	}
+	delete(f.status, rev)
+	f.mu.Unlock()
+	f.warmed.Delete(rev)
+	f.started.Delete(rev)
+	f.restored.Delete(rev)
+	if f.store != nil {
+		if err := f.store.Delete(ctx, archivePrefix+rev+".tar.gz"); err != nil && !errors.Is(err, storage.ErrNotExist) {
+			return err
+		}
+	}
+	return os.RemoveAll(filepath.Join(f.dir, rev))
 }

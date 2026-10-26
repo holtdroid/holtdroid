@@ -137,6 +137,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/devtools-frontends": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The DevTools frontends the portal fetched, one per Chromium revision: how far each fetch is and which are archived. Admins only; 404 when session agents serve the frontend. */
+        get: operations["listDevToolsFrontends"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/devtools-frontends/{rev}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description Drops a revision's archive and cached files; the next DevTools open fetches it anew. 409 while it is being fetched. Admins only. */
+        delete: operations["deleteDevToolsFrontend"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/devtools-frontends/{rev}/fetch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Fetches a revision ahead of the queue, from the archive when there is one. Admins only. */
+        post: operations["fetchDevToolsFrontend"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/inventory": {
         parameters: {
             query?: never;
@@ -1653,6 +1704,36 @@ export interface components {
             size: number;
             socket: string;
             truncated?: boolean;
+        };
+        DevToolsFrontendList: {
+            items: components["schemas"]["DevToolsFrontendView"][];
+            /** @description the storage type holding the archives */
+            storage: string;
+        };
+        DevToolsFrontendView: {
+            /** @description kept in the store, so it survives a restart */
+            archived: boolean;
+            /** Format: date-time */
+            archivedAt?: string;
+            /** Format: int64 */
+            failed: number;
+            /**
+             * Format: int64
+             * @description files fetched so far, or in the archive
+             */
+            files: number;
+            /** @description the Chromium commit the frontend was built at */
+            rev: string;
+            /**
+             * Format: int64
+             * @description the archive's size
+             */
+            size?: number;
+            /**
+             * @description warming while being fetched, incomplete when some files failed
+             * @enum {string}
+             */
+            state: "warming" | "ready" | "incomplete";
         };
         DevToolsPage: {
             closed?: boolean;
@@ -3377,6 +3458,93 @@ export interface operations {
                 content: {
                     "application/x-ndjson": unknown;
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    listDevToolsFrontends: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DevToolsFrontendList"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    deleteDevToolsFrontend: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rev: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    fetchDevToolsFrontend: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rev: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

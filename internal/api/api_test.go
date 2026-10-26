@@ -861,3 +861,52 @@ func TestDevToolsFrontendWarmedForTaggedBuilds(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 }
+
+func TestDevToolsFrontendsAdmin(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/inspector.html") {
+			_, _ = io.WriteString(w, "<!doctype html>")
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	t.Cleanup(upstream.Close)
+	h := newHarnessWith(t, 1, func(c *Config) { c.DevTools.Frontend = upstream.URL + "/serve_rev" })
+	rev := "0123456789abcdef0123456789abcdef01234567"
+	if rec := h.do(http.MethodGet, "/api/v1/admin/devtools-frontends", "otter", "", nil); rec.Code != http.StatusForbidden {
+		t.Fatalf("non-admin: %d", rec.Code)
+	}
+	if rec := h.do(http.MethodPost, "/api/v1/admin/devtools-frontends/"+rev+"/fetch", "root", "admins", nil); rec.Code != http.StatusNoContent {
+		t.Fatalf("fetch: %d %s", rec.Code, rec.Body.String())
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	var item DevToolsFrontendView
+	for {
+		rec := h.do(http.MethodGet, "/api/v1/admin/devtools-frontends", "root", "admins", nil)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("list: %d %s", rec.Code, rec.Body.String())
+		}
+		list := decode[DevToolsFrontendList](t, rec)
+		if len(list.Items) == 1 && list.Items[0].Archived {
+			item = list.Items[0]
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("never archived: %+v", list)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if item.Rev != rev || item.State != "ready" || item.Files != 1 || item.Size == 0 {
+		t.Fatalf("item %+v", item)
+	}
+	if rec := h.do(http.MethodDelete, "/api/v1/admin/devtools-frontends/"+rev, "root", "admins", nil); rec.Code != http.StatusNoContent {
+		t.Fatalf("delete: %d %s", rec.Code, rec.Body.String())
+	}
+	rec := h.do(http.MethodGet, "/api/v1/admin/devtools-frontends", "root", "admins", nil)
+	if list := decode[DevToolsFrontendList](t, rec); len(list.Items) != 0 {
+		t.Fatalf("after delete: %+v", list.Items)
+	}
+	if !strings.Contains(h.audit.String(), `"devtools.frontend.delete"`) {
+		t.Fatal("delete was not audited")
+	}
+}

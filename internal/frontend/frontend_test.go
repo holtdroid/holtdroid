@@ -3,6 +3,7 @@ package frontend
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -374,5 +375,54 @@ func TestFrontendCrawlsOneRevisionAtATimeBrowserFirst(t *testing.T) {
 			t.Fatalf("crawls did not finish: %v", got)
 		}
 		time.Sleep(time.Millisecond)
+	}
+}
+
+func TestFrontendArchivesListedAndDeleted(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, "<!doctype html>")
+	}))
+	defer upstream.Close()
+	store, err := storage.NewFilesystem(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := New(upstream.URL+"/serve_rev", t.TempDir(), store, slog.New(slog.DiscardHandler))
+	f.Warm("0123456789abcdef")
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		items, err := f.Archives(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(items) == 1 {
+			if items[0].Rev != "@0123456789abcdef" || items[0].Size == 0 {
+				t.Fatalf("archives %+v", items)
+			}
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("never archived")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if st := f.Statuses()["@0123456789abcdef"]; st.State != StateReady || st.Files != 1 {
+		t.Fatalf("status %+v", st)
+	}
+	if err := f.Delete(context.Background(), "0123456789abcdef"); err != nil {
+		t.Fatal(err)
+	}
+	items, _ := f.Archives(context.Background())
+	if len(items) != 0 {
+		t.Fatalf("archives after delete: %+v", items)
+	}
+	if _, err := os.Stat(filepath.Join(f.dir, "@0123456789abcdef")); err == nil {
+		t.Fatal("local files survived the delete")
+	}
+	if st := f.Status("@0123456789abcdef"); st.State != StateWarming || st.Files != 0 {
+		t.Fatalf("status after delete %+v", st)
+	}
+	if err := f.Delete(context.Background(), "not a rev"); !errors.Is(err, storage.ErrNotExist) {
+		t.Fatalf("delete of a bad rev: %v", err)
 	}
 }

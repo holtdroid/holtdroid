@@ -36,3 +36,33 @@ export function useSetMaintenance() {
     },
   })
 }
+
+const frontendsKey = ["devtools-frontends"] as const
+
+export function useDevToolsFrontends(enabled: boolean) {
+  return useQuery({
+    queryKey: frontendsKey,
+    queryFn: () => unwrap(api.GET("/api/v1/admin/devtools-frontends")),
+    enabled,
+    refetchInterval: 5_000,
+    retry: false,
+  })
+}
+
+export function useDeleteDevToolsFrontend() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (rev: string) =>
+      unwrap(api.DELETE("/api/v1/admin/devtools-frontends/{rev}", { params: { path: { rev } } })),
+    onSettled: () => void qc.invalidateQueries({ queryKey: frontendsKey }),
+  })
+}
+
+export function useFetchDevToolsFrontend() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (rev: string) =>
+      unwrap(api.POST("/api/v1/admin/devtools-frontends/{rev}/fetch", { params: { path: { rev } } })),
+    onSettled: () => void qc.invalidateQueries({ queryKey: frontendsKey }),
+  })
+}

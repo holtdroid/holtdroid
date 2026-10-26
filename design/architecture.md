@@ -444,7 +444,12 @@ codecs and reports that it can't capture audio.
   2 s to show a "fetching the frontend, N files so far" line above the
   iframe, and a Reload button when files failed, until the iframe's `load`
   event: a crawl keeps going through panels nobody opened long after
-  DevTools is usable.
+  DevTools is usable. Admins manage the cache through
+  `GET /api/v1/admin/devtools-frontends` (every revision this process has
+  seen merged with the store's archives), `DELETE …/{rev}` (archive and
+  local files; 409 during a crawl; audited as `devtools.frontend.delete`)
+  and `POST …/{rev}/fetch` (ahead of the queue), shown at the bottom of
+  the Inventory page.
 - Everything is same-origin (`/s/{provider}/{id}/…` on the api host). This matters
   because forward-auth cookies (SameSite=Lax) are not sent on WebSockets
   opened from a cross-site iframe.

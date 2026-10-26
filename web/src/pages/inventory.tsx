@@ -5,6 +5,7 @@ import {
   ConstructionIcon,
   CpuIcon,
   HardDriveIcon,
+  Loader2Icon,
   type LucideIcon,
   MemoryStickIcon,
   ServerIcon,
@@ -12,13 +13,16 @@ import {
   SmartphoneIcon,
   ThermometerIcon,
   TimerIcon,
+  Trash2Icon,
   TriangleAlertIcon,
   UsbIcon,
+  WrenchIcon,
 } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import { toast } from "sonner"
 import type {
   DeviceInfo,
+  DevToolsFrontendView,
   HostInfo,
   InventoryDevice,
   Maintenance,
@@ -27,7 +31,14 @@ import type {
   Slot,
   Temperature,
 } from "@/api/client"
-import { type MaintenanceTarget, useInventory, useSetMaintenance } from "@/api/inventory"
+import {
+  type MaintenanceTarget,
+  useDeleteDevToolsFrontend,
+  useDevToolsFrontends,
+  useFetchDevToolsFrontend,
+  useInventory,
+  useSetMaintenance,
+} from "@/api/inventory"
 import { useMe, useSessions } from "@/api/queries"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -42,6 +53,7 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useNow } from "@/hooks/use-now"
@@ -93,8 +105,106 @@ export function InventoryPage() {
         {inventory.data?.providers.map((p) => (
           <ProviderSection key={p.name} provider={p} sessions={byID} now={now} />
         ))}
+        {admin && <DevToolsFrontendsSection now={now} />}
       </div>
     </div>
+  )
+}
+
+const frontendState: Record<DevToolsFrontendView["state"], string> = {
+  warming: "bg-amber-500 text-white",
+  ready: "bg-emerald-600 text-white dark:bg-emerald-500",
+  incomplete: "bg-destructive text-white",
+}
+
+function DevToolsFrontendsSection({ now }: { now: number }) {
+  const frontends = useDevToolsFrontends(true)
+  const remove = useDeleteDevToolsFrontend()
+  const fetchAgain = useFetchDevToolsFrontend()
+  if (frontends.isError) return null
+  const items = frontends.data?.items ?? []
+  const act = (run: Promise<unknown>, done: string) =>
+    run.then(() => toast.success(done)).catch((e: Error) => toast.error(e.message))
+
+  return (
+    <section className="grid gap-3">
+      <div>
+        <h2 className="text-lg font-semibold">DevTools frontends</h2>
+        <p className="text-muted-foreground max-w-2xl text-sm">
+          The Chrome DevTools builds the portal fetched for the WebViews it has seen, one per Chromium revision,
+          archived in {frontends.data?.storage ?? "its"} storage and restored after a restart. Delete one to fetch it
+          afresh.
+        </p>
+      </div>
+      {frontends.isPending && <Skeleton className="h-24 rounded-xl" />}
+      {frontends.data && items.length === 0 && (
+        <p className="text-muted-foreground text-sm">Nothing fetched yet. Revisions appear as WebViews are seen.</p>
+      )}
+      {items.length > 0 && (
+        <div className="overflow-x-auto rounded-xl border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Revision</TableHead>
+                <TableHead>State</TableHead>
+                <TableHead className="text-right">Files</TableHead>
+                <TableHead className="text-right">Archive</TableHead>
+                <TableHead>Archived</TableHead>
+                <TableHead />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {items.map((f) => (
+                <TableRow key={f.rev}>
+                  <TableCell className="font-mono text-xs" title={f.rev}>
+                    {f.rev.slice(0, 12)}
+                  </TableCell>
+                  <TableCell>
+                    <Badge className={cn("gap-1", frontendState[f.state])}>
+                      {f.state === "warming" && <Loader2Icon className="size-3 animate-spin" />}
+                      {f.state}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {f.files}
+                    {f.failed > 0 && <span className="text-destructive"> · {f.failed} failed</span>}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {f.archived ? formatBytes(f.size ?? 0) : "—"}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-xs">
+                    {f.archivedAt ? formatRelative(f.archivedAt, now) : "—"}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="xs"
+                        disabled={f.state === "warming"}
+                        onClick={() => void act(fetchAgain.mutateAsync(f.rev), "Fetching " + f.rev.slice(0, 12))}
+                      >
+                        <WrenchIcon />
+                        Fetch
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="xs"
+                        className="text-destructive"
+                        disabled={f.state === "warming"}
+                        onClick={() => void act(remove.mutateAsync(f.rev), "Deleted " + f.rev.slice(0, 12))}
+                      >
+                        <Trash2Icon />
+                        Delete
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </section>
   )
 }
 

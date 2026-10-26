@@ -69,6 +69,7 @@ const (
 	PasskeyAdd       Action = "passkey.add"
 	PasskeyDelete    Action = "passkey.delete"
 	AppUpdate        Action = "app.update"
+	FrontendDelete   Action = "devtools.frontend.delete"
 )
 
 var Actions = []Action{
