@@ -50,7 +50,7 @@ export function ComputersPage() {
         </div>
 
         {info.data?.enabled && (
-          <aside className="grid content-start gap-4">
+          <aside className="grid content-start gap-4 self-start lg:sticky lg:top-6 lg:max-h-[calc(100dvh-6.5rem)] lg:overflow-y-auto">
             <ConnectCard />
           </aside>
         )}

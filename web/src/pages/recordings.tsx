@@ -77,7 +77,7 @@ export function RecordingsPage() {
         </div>
 
         {rules?.enabled && (
-          <aside className="grid content-start gap-3 self-start rounded-xl border p-4 text-sm">
+          <aside className="grid content-start gap-3 self-start rounded-xl border p-4 text-sm lg:sticky lg:top-6 lg:max-h-[calc(100dvh-6.5rem)] lg:overflow-y-auto">
             <h2 className="font-semibold">Storage</h2>
             {rules.quota > 0 ? (
               <div className="grid gap-1.5">
