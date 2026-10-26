@@ -439,7 +439,9 @@ codecs and reports that it can't capture audio.
   (no file) answers the revision's progress as JSON (`state` warming, ready
   or incomplete; `files`, `failed`), which the DevTools panel polls every
   2 s to show a "fetching the frontend, N files so far" line above the
-  iframe, and a Reload button when files failed.
+  iframe, and a Reload button when files failed, until the iframe's `load`
+  event: a crawl keeps going through panels nobody opened long after
+  DevTools is usable.
 - Everything is same-origin (`/s/{provider}/{id}/…` on the api host). This matters
   because forward-auth cookies (SameSite=Lax) are not sent on WebSockets
   opened from a cross-site iframe.

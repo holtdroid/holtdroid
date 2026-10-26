@@ -90,10 +90,12 @@ export function DevToolsPanel({
 
   const prefs = useDevToolsPrefs()
   const [frame, setFrame] = useState<HTMLIFrameElement | null>(null)
+  const [frameLoaded, setFrameLoaded] = useState(false)
   const attachFrame = useCallback(
     (el: HTMLIFrameElement | null) => {
       frameRef(el)
       setFrame(el)
+      setFrameLoaded(false)
     },
     [frameRef],
   )
@@ -106,8 +108,12 @@ export function DevToolsPanel({
     if (!frame) return undefined
     const apply = () => styleDevTools(frame, prefs)
     apply()
-    frame.addEventListener("load", apply)
-    return () => frame.removeEventListener("load", apply)
+    const loaded = () => {
+      apply()
+      setFrameLoaded(true)
+    }
+    frame.addEventListener("load", loaded)
+    return () => frame.removeEventListener("load", loaded)
   }, [frame, prefs])
 
   const byProcess = useMemo(() => {
@@ -203,7 +209,7 @@ export function DevToolsPanel({
           </PopoverContent>
         </Popover>
       </div>
-      {selected && frontend.data && frontend.data.state !== "ready" && (
+      {selected && !frameLoaded && frontend.data && frontend.data.state !== "ready" && (
         <div className="text-muted-foreground flex items-center gap-2 border-b px-3 py-1.5 text-xs">
           {frontend.data.state === "warming" ? (
             <>
