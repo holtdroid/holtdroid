@@ -31,8 +31,11 @@ deployment"):
 2026-10-25 (`edge` ping 507 ms for 500 ± 150, `lte` download 8.6 Mbit/s of
 10, `slow-upload` 15.6 Mbit/s of 20 with slow start). Regions (decision
   #132) moved the conditions into a Network tab and shape per path (CDN
-  edge or servers) under an htb class; the generated scripts were run on a
-  Linux 7.0 kernel, not yet in a live session. Verified on 2026-10-25 with a
+  edge or servers) under an htb class; verified in a live session on `core`
+  on 2026-10-26 (Bangladesh, servers in Frankfurt, VPN in Latvia: route
+  measured at 7 ms to Cloudflare and 33 ms to Frankfurt, so 22 and 136 ms
+  added; device ping 73 ms to 1.1.1.1, 80 ms to 8.8.8.8, 190 ms to 9.9.9.9
+  for 191 expected). Verified on 2026-10-25 with a
   dev release of the chart on k3s-3: boot to ready in about 25 s, install,
   the app under Frida, DevTools target of a WebView page, screenshot, the
   metrics bar with the Pod's cgroup, VPN location switch (PL → UA with GPS
