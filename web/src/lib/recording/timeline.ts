@@ -1,5 +1,6 @@
 import type {
   DeviceState,
+  DNSEvent,
   Metrics,
   Network,
   RecordingChunk,
@@ -98,7 +99,7 @@ function lastAt<T extends { t: number }>(items: T[], t: number): T | undefined {
   return found
 }
 
-type At<T> = { t: number; v: T }
+export type At<T> = { t: number; v: T }
 
 export type Snapshot = {
   info?: RecordingInfo
@@ -117,6 +118,7 @@ export class Telemetry {
   readonly device: At<DeviceState>[] = []
   readonly network: At<Network>[] = []
   readonly metrics: At<Metrics>[] = []
+  readonly dns: At<DNSEvent>[] = []
 
   constructor(events: RecordingEvent[]) {
     this.touches = new TouchTrack(events)
@@ -126,7 +128,13 @@ export class Telemetry {
       if (e.device) this.device.push({ t: e.t, v: e.device })
       if (e.network) this.network.push({ t: e.t, v: e.network })
       if (e.metrics) this.metrics.push({ t: e.t, v: e.metrics })
+      if (e.dns) this.dns.push({ t: e.t, v: e.dns })
     }
+  }
+
+  /** DNS settings changes after the first and cache clears, for the timeline. */
+  get dnsChanges() {
+    return this.dns.filter((e, i) => e.v.flushed || (e.v.settings && this.dns.findIndex((x) => x.v.settings) !== i))
   }
 
   deviceAt(t: number) {

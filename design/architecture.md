@@ -516,9 +516,20 @@ codecs and reports that it can't capture audio.
   location id, plus `direct` (unless `vpn.direct: false`) behind a
   `selector` (`interrupt_exist_connections`). Holtdroid has no VPN vendor
   code.
-- DNS: apps' queries (to Android's resolver, plain or DNS-over-TLS) enter
-  the tun with the app's uid; the sidecar hijacks plain DNS and answers
-  through a resolver that dials `vpn.dns` via the selector. Server names inside outbounds are
+- DNS (decision #133): apps' queries enter the tun with the app's uid; the
+  agent turns Private DNS off, so they are plain DNS. The sidecar sniffs
+  them and routes them unchanged to the agent's forwarder
+  (`internal/agent/dns`, `127.0.0.1:10053`, UDP and TCP) through a `direct`
+  outbound bound to `lo`. The forwarder logs each query (the last 2000,
+  `GET /v1/dns/events`, and into the recording as `dns` events), answers
+  rewrites and `AAAA` (empty: IPv4 only, decision #55) itself, caps TTLs
+  (the `SOA` minimum too) and forwards the rest to the sidecar's `direct`
+  inbound on `127.0.0.1:10054`, which overrides the destination to
+  `vpn.dns:53` and routes it through the selector. Android's cache is
+  cleared with `service call dnsresolver 11` (`flushNetworkCache`) per
+  network id from `dumpsys dnsresolver`. Saved sets of rewrites are rows of
+  `dns_presets` in the api's database, per user, and only reach a session
+  when the user loads one. Server names inside outbounds are
   resolved by the Pod's resolver (`local`), or by `vpn.resolver` when set —
   needed for `*.cluster.local` names, which sing-box's `local` sends to mDNS.
 - The clash API listens on `127.0.0.1:9090`. `PUT /network/location` on

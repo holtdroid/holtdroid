@@ -23,8 +23,10 @@ in the Pod's network namespace, which Android shares:
 - each location is a sing-box outbound, plus `direct`, behind a selector;
 - switching location changes the selector through sing-box's local API, so
   the switch is instant and needs no restart;
-- the device's DNS queries are captured from the tunnel and resolved through
-  the selected location, so lookups don't leak;
+- the device's DNS queries are captured from the tunnel and handed to the
+  session's agent, which logs them, answers your rewrites and resolves the
+  rest through the selected location, so lookups don't leak (see
+  [DNS log and rewrites](/holtdroid/concepts/dns/));
 - those lookups return IPv4 addresses only (`AAAA` answers are empty), so
   the device never tries IPv6 through a location that can't carry it.
 
@@ -39,7 +41,8 @@ The same tunnel carries the session's [network conditions](/holtdroid/configurat
 latency, bandwidth limits, packet loss and outages applied with `tc netem`,
 and regions with their own round trips to CDN edges and to servers.
 
-Android itself is not configured at all; to apps it looks like a normal
+Android itself is barely configured (only Private DNS is turned off, so
+lookups stay visible to the agent); to apps it looks like a normal
 network. Port forwarding (`adb reverse`, [your connected computer](/holtdroid/concepts/ssh/))
 runs over loopback and is unaffected by the VPN.
 

@@ -71,6 +71,7 @@ func (d *device) startRecording(target contract.RecordingTarget) error {
 	go d.recordState(ctx, rec)
 	go d.recordLogs(ctx, rec)
 	go d.recordDevTools(ctx, rec)
+	go d.recordDNS(ctx, rec)
 	go func() {
 		select {
 		case <-ctx.Done():

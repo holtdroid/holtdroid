@@ -21,6 +21,8 @@ recording keeps more than the picture:
   emulated network conditions (throttling: added delay, bandwidth, loss,
   scenarios; a region with what it adds to CDN and server round trips) and
   which links are on;
+- the **DNS** log: every query with its answers and TTLs, and when rewrites,
+  the TTL limit or the cache changed (see [DNS log and rewrites](/holtdroid/concepts/dns/));
 - the **time**: real time next to the device clock, with its time zone and
   how far it was set off real time;
 - the **load** every two seconds: device and app CPU, memory, frames and
@@ -273,7 +275,7 @@ download the logcat, but the page has no video download.
 
 The link you copy carries the moment you are at, like a video link with a
 time: `#t=46.2&tab=network&request=…` opens the recording there, on the same
-tab (Logcat, Network, Console or WebSockets), with the request, console
+tab (Logcat, Network, Console, WebSockets or DNS), with the request, console
 message or socket frame you had open opened and scrolled to. `t` also takes
 `1m20s`. On a shared recording, **Link to 00:46** copies such a link for the
 page you are on. Someone signed in to the portal who opens a share link sees it inside the

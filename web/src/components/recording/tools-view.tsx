@@ -1,9 +1,12 @@
-import { CableIcon, GlobeIcon, type LucideIcon, SquareTerminalIcon, TerminalIcon } from "lucide-react"
+import { CableIcon, GlobeIcon, type LucideIcon, SignpostIcon, SquareTerminalIcon, TerminalIcon } from "lucide-react"
+import type { DNSEvent } from "@/api/client"
+import { DNSView } from "@/components/recording/dns-view"
 import { ClocksContext, type Clocks, PlayheadContext } from "@/components/recording/json-view"
 import { ConsoleView, NetworkView, SocketsView } from "@/components/recording/devtools-view"
 import { LogcatView } from "@/components/recording/logcat-view"
 import { type DevToolsLog, requestPhase } from "@/lib/recording/devtools"
 import { type PlayerView, type ToolTab, toolTabs } from "@/lib/recording/link"
+import type { At } from "@/lib/recording/timeline"
 import type { Player } from "@/lib/recording/player"
 import { cn } from "@/lib/utils"
 
@@ -27,6 +30,7 @@ export function RecordingTools({
   player,
   time,
   log,
+  dns,
   clocks,
   view,
   onView,
@@ -34,6 +38,7 @@ export function RecordingTools({
   player: Player
   time: number
   log: DevToolsLog
+  dns: At<DNSEvent>[]
   clocks: Clocks
   view: PlayerView
   onView: (patch: PlayerView) => void
@@ -60,6 +65,16 @@ export function RecordingTools({
     { id: "console", label: "Console", icon: TerminalIcon, count: messages.length, alert: errors },
     { id: "sockets", label: "WebSockets", icon: CableIcon, count: log.socketsUntil(time).length },
   ]
+  if (dns.length > 0) {
+    const queries = dns.filter((e) => e.v.query && e.t <= time)
+    tabs.push({
+      id: "dns",
+      label: "DNS",
+      icon: SignpostIcon,
+      count: queries.length,
+      alert: queries.filter((e) => e.v.query?.result === "failed").length,
+    })
+  }
 
   return (
     <section className="devtools-skin flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border bg-background text-foreground">
@@ -118,6 +133,7 @@ export function RecordingTools({
                 onPick={(message) => onView({ message })}
               />
             )}
+            {tab === "dns" && <DNSView events={dns} time={time} onSeek={seek} />}
             {tab === "sockets" && (
               <SocketsView
                 log={log}

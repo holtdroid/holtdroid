@@ -18,6 +18,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/holtdroid/holtdroid/internal/agent/dns"
 	"github.com/holtdroid/holtdroid/internal/agent/redroid"
 	"github.com/holtdroid/holtdroid/internal/contract"
 	"github.com/holtdroid/holtdroid/internal/netem"
@@ -154,6 +155,7 @@ type Agent struct {
 	devtools *DevTools
 	watch    *devtoolsWatch
 	network  *Network
+	resolver *dns.Server
 	screen   *Scrcpy
 	clip     clipboardSync
 	controls *Controls
@@ -188,7 +190,7 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 		host, cgroup = os.DirFS("/"), os.DirFS(cfg.HostCgroup)
 	}
 	devtools := NewDevTools(dev, Frontends{Package: cfg.Package, App: cfg.Frontend, WebView: cfg.WebView.Frontend}, cfg.ChromiumDash, log)
-	return &Agent{
+	a := &Agent{
 		cfg:      cfg,
 		dev:      dev,
 		inst:     inst,
@@ -212,6 +214,10 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 		subs:     map[chan struct{}]struct{}{},
 		recCtx:   context.Background(),
 	}
+	if cfg.Redroid.VPN {
+		a.resolver = dns.New(dns.NetUpstream{Addr: vpn.DNSUpstream}, a.flushDNS, log)
+	}
+	return a
 }
 
 func newControls(cfg Config, dev Device, log *slog.Logger) *Controls {
@@ -254,6 +260,13 @@ func (a *Agent) Run(parent context.Context) {
 	a.recMu.Lock()
 	a.recCtx = ctx
 	a.recMu.Unlock()
+	if a.resolver != nil {
+		go func() {
+			if err := a.resolver.ListenAndServe(ctx, vpn.DNSForwarder); err != nil {
+				a.log.Error("dns forwarder", "err", err)
+			}
+		}()
+	}
 
 	a.setStatus(contract.StateBooting, "Booting Android")
 	booted := make(chan struct{})
@@ -277,6 +290,11 @@ func (a *Agent) Run(parent context.Context) {
 	go a.controls.syncRadios(ctx, 2*time.Second, a.log)
 	if err := a.controls.resetNetwork(ctx); err != nil {
 		a.log.Warn("reset network profile", "err", err)
+	}
+	if a.resolver != nil {
+		if _, err := a.dev.Shell(ctx, "settings put global private_dns_mode off"); err != nil {
+			a.log.Warn("turn private DNS off", "err", err)
+		}
 	}
 
 	if err := a.run(ctx); err != nil {
@@ -896,4 +914,47 @@ func (a *Agent) WatchScreen(ctx context.Context, send func(contract.Screen) erro
 
 func (a *Agent) WatchMetrics(ctx context.Context, send func(contract.Metrics) error) error {
 	return a.metrics.Watch(ctx, send)
+}
+
+var errNoDNS = fmt.Errorf("%w: this device's DNS doesn't go through the agent", contract.ErrInvalid)
+
+func (a *Agent) DNS(context.Context) contract.DNSState {
+	if a.resolver == nil {
+		return contract.DNSState{Settings: contract.DNSSettings{TTLMode: contract.DNSTTLKeep, Rewrites: []contract.DNSRewrite{}}}
+	}
+	return contract.DNSState{Available: true, Settings: a.resolver.Settings()}
+}
+
+func (a *Agent) SetDNS(ctx context.Context, settings contract.DNSSettings) (contract.DNSState, error) {
+	if a.resolver == nil {
+		return contract.DNSState{}, errNoDNS
+	}
+	if _, err := a.resolver.Set(ctx, settings); err != nil {
+		return contract.DNSState{}, err
+	}
+	return a.DNS(ctx), nil
+}
+
+func (a *Agent) FlushDNS(ctx context.Context) error {
+	if a.resolver == nil {
+		return errNoDNS
+	}
+	return a.resolver.Flush(ctx)
+}
+
+func (a *Agent) WatchDNS(ctx context.Context, send func(contract.DNSEvent) error) error {
+	if a.resolver == nil {
+		return errNoDNS
+	}
+	return a.resolver.Watch(ctx, send)
+}
+
+// flushScript clears the resolver cache of every network through
+// IDnsResolver.flushNetworkCache, transaction 11 of the stable AIDL (Android
+// 11+); netd has no shell command for it.
+const flushScript = `for n in $(dumpsys dnsresolver | sed -n 's/^NetId: //p'); do service call dnsresolver 11 i32 "$n" >/dev/null || exit 1; done`
+
+func (a *Agent) flushDNS(ctx context.Context) error {
+	_, err := a.dev.Shell(ctx, flushScript)
+	return err
 }

@@ -321,6 +321,8 @@ Goal: several Android devices per node instead of one emulator per node.
 - [ ] The session wallpaper on redroid: find why attaching to `system_server` after the install breaks frida-server
 - [x] A quiet redroid home (decision #126): logo wallpaper and no search bar through holtdroid-redroid overlays, only the app under test on the home screen, browser clipboard without SystemUI's preview on 13+ (`Clip.java`, scrcpy as the fallback); checked on 11 to 15
 - [ ] A session's root that can't reach the node: user namespaces were tried and dropped (decision #83); next candidates are a per-session binder allowlist from a node helper, token-authenticated frida-server and a non-root adbd for users
+- [x] DNS tab (decision #133): the agent answers the device's DNS behind the sidecar, with a live log, rewrites (address, block, CNAME, NXDOMAIN; exact and `*.` names), a TTL limit, clearing Android's cache, `dns` events in recordings and per-user saved sets in the api's database
+- [ ] DNS log and rewrites on physical phones (their sing-box runs on the host, `RenderProxy`)
 
 ## Later
 

@@ -1,6 +1,6 @@
-export type ToolTab = "logcat" | "network" | "console" | "sockets"
+export type ToolTab = "logcat" | "network" | "console" | "sockets" | "dns"
 
-export const toolTabs: ToolTab[] = ["logcat", "network", "console", "sockets"]
+export const toolTabs: ToolTab[] = ["logcat", "network", "console", "sockets", "dns"]
 
 /** What a link to a recording opens: a moment, a tab and the request, message, socket or frame open in it. */
 export type PlayerView = {
@@ -42,6 +42,7 @@ export function viewHash(view: PlayerView) {
     network: ["request"],
     console: ["message"],
     sockets: ["socket", "frame"],
+    dns: [],
   }
   for (const f of view.tab ? keep[view.tab] : []) {
     const v = view[f]

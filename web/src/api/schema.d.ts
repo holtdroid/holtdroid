@@ -660,6 +660,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dns-presets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The caller's saved DNS rewrite sets, most recently changed first. */
+        get: operations["listDNSPresets"];
+        put?: never;
+        /** @description Saves a set of DNS rewrites and a TTL limit; at most 100 per user. */
+        post: operations["createDNSPreset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dns-presets/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Renames a saved DNS set or replaces what it holds. */
+        put: operations["updateDNSPreset"];
+        post?: never;
+        delete: operations["deleteDNSPreset"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/events": {
         parameters: {
             query?: never;
@@ -1633,6 +1668,94 @@ export interface components {
             top: number;
             /** Format: double */
             width: number;
+        };
+        DNSAnswer: {
+            data: string;
+            name: string;
+            /**
+             * Format: int32
+             * @description what the upstream answered; the rule's TTL for a rewrite
+             */
+            originalTtl: number;
+            /**
+             * Format: int32
+             * @description seconds the device was told to keep it
+             */
+            ttl: number;
+            type: string;
+        };
+        DNSEvent: {
+            /** Format: date-time */
+            at: string;
+            flushed?: boolean;
+            query?: components["schemas"]["DNSQuery"];
+            settings?: components["schemas"]["DNSSettings"];
+        };
+        DNSPreset: {
+            /** Format: date-time */
+            createdAt: string;
+            id: string;
+            name: string;
+            settings: components["schemas"]["DNSSettings"];
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        DNSPresetInput: {
+            name: string;
+            settings: components["schemas"]["DNSSettings"];
+        };
+        DNSPresetList: {
+            items: components["schemas"]["DNSPreset"][];
+        };
+        DNSQuery: {
+            answers: components["schemas"]["DNSAnswer"][];
+            /** Format: date-time */
+            at: string;
+            /**
+             * Format: double
+             * @description milliseconds until the answer
+             */
+            duration: number;
+            error?: string;
+            /** Format: int64 */
+            id: number;
+            name: string;
+            /** @enum {string} */
+            protocol: "udp" | "tcp";
+            /** @description NOERROR, NXDOMAIN, SERVFAIL, … */
+            rcode: string;
+            /** @enum {string} */
+            result: "answered" | "rewritten" | "ipv4-only" | "failed";
+            /** @description the pattern of the rewrite that answered */
+            rule?: string;
+            /** @description A, AAAA, HTTPS, … or TYPE<n> */
+            type: string;
+        };
+        DNSRewrite: {
+            /** @description IPv4 addresses answered to A queries (kind address); 0.0.0.0 blocks the name */
+            addresses?: string[];
+            enabled: boolean;
+            /** @enum {string} */
+            kind: "address" | "cname" | "nxdomain";
+            /** @description a name such as api.example.com, or *.example.com for every name under example.com */
+            pattern: string;
+            /** @description the name answered as a CNAME and resolved in its place (kind cname) */
+            target?: string;
+            /**
+             * Format: int32
+             * @description seconds the device may keep the answer
+             */
+            ttl: number;
+        };
+        DNSSettings: {
+            /** Format: int32 */
+            maxTtl: number;
+            rewrites: components["schemas"]["DNSRewrite"][];
+            /**
+             * @description limit caps every TTL the device gets at maxTtl; 0 keeps Android from caching
+             * @enum {string}
+             */
+            ttlMode: "keep" | "limit";
         };
         DevToolsConsole: {
             args?: components["schemas"]["DevToolsValue"][];
@@ -2660,6 +2783,7 @@ export interface components {
         };
         RecordingEvent: {
             device?: components["schemas"]["DeviceState"];
+            dns?: components["schemas"]["DNSEvent"];
             info?: components["schemas"]["RecordingInfoData"];
             /**
              * @description a device button pressed in the portal (DeviceAction); typed text is never recorded
@@ -2673,7 +2797,7 @@ export interface components {
             t: number;
             touch?: components["schemas"]["RecordingTouch"];
             /** @enum {string} */
-            type: "info" | "status" | "metrics" | "device" | "network" | "touch" | "key";
+            type: "info" | "status" | "metrics" | "device" | "network" | "touch" | "key" | "dns";
         };
         RecordingEvents: {
             items: components["schemas"]["RecordingEvent"][];
@@ -4698,6 +4822,132 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Credentials"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    listDNSPresets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DNSPresetList"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    createDNSPreset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DNSPresetInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DNSPreset"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    updateDNSPreset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DNSPresetInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DNSPreset"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    deleteDNSPreset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

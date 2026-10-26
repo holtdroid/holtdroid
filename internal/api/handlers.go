@@ -243,6 +243,7 @@ func (s *Server) register(api huma.API) {
 	s.registerInventory(api)
 	s.registerDevToolsFrontends(api)
 	s.registerMap(api)
+	s.registerDNSPresets(api)
 }
 
 var errForbidden = errors.New("only the owner or an admin can do this")

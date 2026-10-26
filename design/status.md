@@ -11,6 +11,11 @@ _Last updated: 2026-10-26._
 **Works today** (deployed at https://holtdroid.homelab.example, see "Maintainer's
 deployment"):
 
+- The DNS tab (decision #133): the agent answers redroid sessions' DNS
+  behind the sidecar with a live log, rewrites, a TTL limit and cache
+  clearing; saved sets live in the api's database. The sidecar config was
+  checked with sing-box 1.14.2 and a tun in Docker and the cache flush on
+  Android 15 in a live session; the whole path not yet in a live session.
 - Sessions run redroid instead of the Android emulator (decision #82,
   Phase 8): `provider-emulator` starts Pods with an `android` container from
   `ghcr.io/holtdroid/holtdroid-redroid:<version>` next to the agent and the

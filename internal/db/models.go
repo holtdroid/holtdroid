@@ -8,6 +8,15 @@ import (
 	"time"
 )
 
+type DnsPreset struct {
+	ID        string
+	Owner     string
+	Name      string
+	Settings  string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
 type Invite struct {
 	ID        string
 	TokenHash []byte

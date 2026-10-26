@@ -85,3 +85,25 @@ DELETE FROM invites WHERE kind = 'bootstrap';
 
 -- name: DeleteRecoveryLinks :exec
 DELETE FROM invites WHERE kind = 'recovery' AND user_id = ?;
+
+-- name: ListDNSPresets :many
+SELECT * FROM dns_presets
+WHERE owner = ?
+ORDER BY updated_at DESC, id;
+
+-- name: GetDNSPreset :one
+SELECT * FROM dns_presets WHERE id = ? AND owner = ?;
+
+-- name: CountDNSPresets :one
+SELECT count(*) FROM dns_presets WHERE owner = ?;
+
+-- name: CreateDNSPreset :exec
+INSERT INTO dns_presets (id, owner, name, settings, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?);
+
+-- name: UpdateDNSPreset :execrows
+UPDATE dns_presets SET name = ?, settings = ?, updated_at = ?
+WHERE id = ? AND owner = ?;
+
+-- name: DeleteDNSPreset :execrows
+DELETE FROM dns_presets WHERE id = ? AND owner = ?;

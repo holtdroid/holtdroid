@@ -37,6 +37,10 @@ type Agent interface {
 	Recording(ctx context.Context) RecordingState
 	StartRecording(ctx context.Context, target RecordingTarget) (RecordingState, error)
 	StopRecording(ctx context.Context) (RecordingState, error)
+	DNS(ctx context.Context) DNSState
+	SetDNS(ctx context.Context, settings DNSSettings) (DNSState, error)
+	FlushDNS(ctx context.Context) error
+	WatchDNS(ctx context.Context, send func(DNSEvent) error) error
 }
 
 type AppAction string
@@ -78,6 +82,10 @@ const (
 
 type recordingInput struct {
 	Body RecordingTarget
+}
+
+type dnsSettingsInput struct {
+	Body DNSSettings
 }
 
 type deviceSettingsInput struct {
@@ -282,6 +290,39 @@ func RegisterAgent(api huma.API, a Agent) {
 		}
 		return &body[RecordingState]{r}, nil
 	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "getDNS", Method: http.MethodGet, Path: "/v1/dns", Tags: tags,
+		Description: "Whether the device's DNS goes through the agent, and its rewrites and TTL limit.",
+	}, func(ctx context.Context, _ *struct{}) (*body[DNSState], error) {
+		return &body[DNSState]{a.DNS(ctx)}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "setDNS", Method: http.MethodPut, Path: "/v1/dns", Tags: tags,
+		Description: "Replaces the rewrites and the TTL limit. A change of the rewrites clears the device's DNS cache.",
+	}, func(ctx context.Context, in *dnsSettingsInput) (*body[DNSState], error) {
+		s, err := a.SetDNS(ctx, in.Body)
+		if err != nil {
+			return nil, toHuma(err)
+		}
+		return &body[DNSState]{s}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "flushDNS", Method: http.MethodPost, Path: "/v1/dns/flush", Tags: tags, DefaultStatus: http.StatusNoContent,
+		Description: "Clears Android's DNS cache. Apps' own caches (a WebView keeps names for up to a minute) stay.",
+	}, func(ctx context.Context, _ *struct{}) (*struct{}, error) {
+		return nil, toHuma(a.FlushDNS(ctx))
+	})
+
+	sse.Register(api, huma.Operation{
+		OperationID: "watchDNS", Method: http.MethodGet, Path: "/v1/dns/events", Tags: tags,
+		Description: "The DNS log: first the settings and the queries kept (the last 2000), then each query, settings change and cache clear.",
+	}, map[string]any{"dns": DNSEvent{}},
+		func(ctx context.Context, _ *struct{}, send sse.Sender) {
+			_ = a.WatchDNS(ctx, func(e DNSEvent) error { return send.Data(e) })
+		})
 
 	huma.Register(api, huma.Operation{OperationID: "getDevice", Method: http.MethodGet, Path: "/v1/device", Tags: tags},
 		func(ctx context.Context, _ *struct{}) (*body[DeviceState], error) {

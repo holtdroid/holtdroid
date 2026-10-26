@@ -239,6 +239,7 @@ export function RecordingPlayer({
             player={player}
             time={state.time}
             log={devlog}
+            dns={telemetry.dns}
             clocks={clocks}
             view={view}
             onView={changeView}
@@ -551,6 +552,7 @@ function Timeline({
   const [hover, setHover] = useState<number | null>(null)
   const segments = useMemo(() => segmentsOf(manifest), [manifest])
   const closes = telemetry.status.filter((s, i, all) => !s.v.appRunning && all[i - 1]?.v.appRunning)
+  const dnsChanges = telemetry.dnsChanges
   const pct = (t: number) => `${duration > 0 ? (t / duration) * 100 : 0}%`
   const at = (e: PointerEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect()
@@ -591,6 +593,14 @@ function Timeline({
           key={c.t}
           title={`App closed at ${clock(c.t)}`}
           className="absolute top-[24px] h-3.5 w-1 -translate-x-1/2 rounded-full bg-stage-error"
+          style={{ left: pct(c.t) }}
+        />
+      ))}
+      {dnsChanges.map((c) => (
+        <span
+          key={`dns-${c.t}`}
+          title={`${c.v.flushed ? "DNS cache cleared" : "DNS rewrites or TTL changed"} at ${clock(c.t)}`}
+          className="absolute top-[24px] h-3.5 w-1 -translate-x-1/2 rounded-full bg-violet-500"
           style={{ left: pct(c.t) }}
         />
       ))}

@@ -26,6 +26,12 @@ const (
 	// that must leave through the location (its traffic skips the tun).
 	Proxy = "127.0.0.1:7890"
 
+	// DNSForwarder is where the agent answers the device's DNS queries, and
+	// DNSUpstream the sidecar's inbound that carries the agent's own queries
+	// to vpn.dns through the location.
+	DNSForwarder = "127.0.0.1:10053"
+	DNSUpstream  = "127.0.0.1:10054"
+
 	TunInterface = "holtdroid0"
 	TunNetwork   = "198.18.0.0/30"
 	TunTable     = "2022"
@@ -187,15 +193,29 @@ func (c Config) Render(ctx context.Context, sec Secrets, location string) ([]byt
 			"auto_route":     false,
 		},
 		{"type": "mixed", "tag": "agent", "listen": "127.0.0.1", "listen_port": 7890},
+		{
+			"type":             "direct",
+			"tag":              dnsUpstream,
+			"listen":           "127.0.0.1",
+			"listen_port":      10054,
+			"override_address": c.DNS,
+			"override_port":    53,
+		},
 	}
 	rules := []obj{
+		{"inbound": dnsUpstream, "action": "route", "outbound": Selector},
 		{"action": "sniff"},
-		{"protocol": "dns", "action": "hijack-dns"},
+		{"protocol": "dns", "action": "route", "outbound": dnsForwarder, "override_address": "127.0.0.1", "override_port": 10053},
 	}
-	return c.render(ctx, sec, location, inbounds, rules, nil, ClashAPI, "eth0")
+	extra := []obj{{"type": "direct", "tag": dnsForwarder, "bind_interface": "lo"}}
+	return c.render(ctx, sec, location, inbounds, rules, extra, ClashAPI, "eth0")
 }
 
-const bypass = "bypass"
+const (
+	bypass       = "bypass"
+	dnsUpstream  = "dns-upstream"
+	dnsForwarder = "dns-forwarder"
+)
 
 // tunnelDNS are the DNS servers Holtdroid Tunnel announces to apps; nothing
 // answers them, so anything but plain DNS (Android's private DNS probe on

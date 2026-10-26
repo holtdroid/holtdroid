@@ -3995,3 +3995,47 @@ also need `sch_htb`. `cdn.txt` is refreshed by hand from the three
 providers' lists. Per-request latency of particular endpoints (server
 think time, errors) is a different layer and not part of this.
 
+
+## 133. The agent answers a session's DNS: a log, rewrites, a TTL limit and saved sets
+
+**Context.** Testers wanted to see which names an app looks up and when, to
+point an API at another server or make a host fail without touching the
+APK, and to keep Android from answering out of its cache. The sidecar
+hijacked DNS into sing-box's own resolver, which caches and logs nothing a
+user can see; Android in redroid also used DNS over TLS to `vpn.dns`
+(Private DNS is opportunistic by default), which no hijack sees.
+
+**Decision.**
+- sing-box no longer answers DNS: a route rule sends sniffed DNS unchanged
+  (`override_address` 127.0.0.1:10053) through a `direct` outbound bound to
+  `lo` to the agent, and a `direct` inbound on 127.0.0.1:10054 with
+  `override_address: vpn.dns` routed to the selector carries the agent's
+  own queries out through the location. Checked with sing-box 1.14.2 and a
+  tun in Docker.
+- The forwarder is `internal/agent/dns` on `golang.org/x/net/dns/dnsmessage`
+  (already a dependency, no new library): it logs every query, answers
+  rewrites (addresses, block as `0.0.0.0`, CNAME with the target's `A`
+  records looked up upstream, NXDOMAIN) and `AAAA` itself, caps TTLs in the
+  wire message in place (the `SOA` minimum too, for negative caching) and
+  forwards the rest over UDP or TCP as it came. It keeps no cache: Android's
+  is the only one, and the TTL limit decides what it keeps.
+- Android's cache is cleared through `IDnsResolver.flushNetworkCache`, which
+  has no shell command: `service call dnsresolver 11 i32 <netId>` as root.
+  11 is its place in the stable AIDL (append-only, Android 11+). Checked on
+  Android 15 in a live session: the next lookup went to the upstream again.
+  Changing the rewrites clears it, so a rule applies at once.
+- The agent turns Private DNS off at boot in these sessions.
+- Saved sets are per-user rows of `dns_presets` in the api's database
+  (validated with the agent's rules) and never load by themselves: a new
+  session starts with an empty cache and no rewrites. With `database.type:
+  memory` they are gone after a restart, which loses no session.
+- Recordings get `dns` events: the settings at the start and after each
+  change, every query and each cache clear.
+
+**Consequences.** Every device lookup now takes a hop through the agent
+(well under a millisecond; the upstream round trip dominates), and DNS
+stops while the agent restarts. Only redroid sessions with a VPN sidecar
+have it: physical phones resolve through their own sing-box
+(`RenderProxy`), and sessions without a VPN go straight to the Pod's
+resolver. Apps' own caches (Chromium's host cache in WebViews, about a
+minute) and open connections aren't affected by a flush.

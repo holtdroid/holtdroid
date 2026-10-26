@@ -7,7 +7,8 @@ sidebar:
 
 The api keeps a small SQL database: session events and, in the
 [`users` auth mode](/holtdroid/configuration/authentication/#users-and-passkeys),
-users, passkeys and invite links. Sessions, APKs, uploads and recordings don't live there, so losing it never
+users, passkeys and invite links, and everyone's saved
+[DNS rewrite sets](/holtdroid/concepts/dns/#saved-sets) (gone after a restart with `memory`). Sessions, APKs, uploads and recordings don't live there, so losing it never
 stops sessions; in the `users` mode it does lose every account.
 
 ## In memory (default)

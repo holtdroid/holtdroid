@@ -75,6 +75,17 @@ func (q *Queries) CountAdmins(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const countDNSPresets = `-- name: CountDNSPresets :one
+SELECT count(*) FROM dns_presets WHERE owner = ?
+`
+
+func (q *Queries) CountDNSPresets(ctx context.Context, owner string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countDNSPresets, owner)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countPasskeys = `-- name: CountPasskeys :one
 SELECT COUNT(*) FROM passkeys WHERE user_id = ?
 `
@@ -84,6 +95,32 @@ func (q *Queries) CountPasskeys(ctx context.Context, userID string) (int64, erro
 	var count int64
 	err := row.Scan(&count)
 	return count, err
+}
+
+const createDNSPreset = `-- name: CreateDNSPreset :exec
+INSERT INTO dns_presets (id, owner, name, settings, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?)
+`
+
+type CreateDNSPresetParams struct {
+	ID        string
+	Owner     string
+	Name      string
+	Settings  string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+func (q *Queries) CreateDNSPreset(ctx context.Context, arg CreateDNSPresetParams) error {
+	_, err := q.db.ExecContext(ctx, createDNSPreset,
+		arg.ID,
+		arg.Owner,
+		arg.Name,
+		arg.Settings,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	return err
 }
 
 const createInvite = `-- name: CreateInvite :exec
@@ -159,6 +196,23 @@ func (q *Queries) DeleteBootstrapInvites(ctx context.Context) error {
 	return err
 }
 
+const deleteDNSPreset = `-- name: DeleteDNSPreset :execrows
+DELETE FROM dns_presets WHERE id = ? AND owner = ?
+`
+
+type DeleteDNSPresetParams struct {
+	ID    string
+	Owner string
+}
+
+func (q *Queries) DeleteDNSPreset(ctx context.Context, arg DeleteDNSPresetParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteDNSPreset, arg.ID, arg.Owner)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const deleteInvite = `-- name: DeleteInvite :execrows
 DELETE FROM invites WHERE id = ? AND kind = 'invite'
 `
@@ -207,6 +261,29 @@ func (q *Queries) DeleteUser(ctx context.Context, id string) (int64, error) {
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const getDNSPreset = `-- name: GetDNSPreset :one
+SELECT id, owner, name, settings, created_at, updated_at FROM dns_presets WHERE id = ? AND owner = ?
+`
+
+type GetDNSPresetParams struct {
+	ID    string
+	Owner string
+}
+
+func (q *Queries) GetDNSPreset(ctx context.Context, arg GetDNSPresetParams) (DnsPreset, error) {
+	row := q.db.QueryRowContext(ctx, getDNSPreset, arg.ID, arg.Owner)
+	var i DnsPreset
+	err := row.Scan(
+		&i.ID,
+		&i.Owner,
+		&i.Name,
+		&i.Settings,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const getInviteByHash = `-- name: GetInviteByHash :one
@@ -322,6 +399,42 @@ func (q *Queries) GetUserByHandle(ctx context.Context, handle []byte) (User, err
 		&i.ReferencesQuota,
 	)
 	return i, err
+}
+
+const listDNSPresets = `-- name: ListDNSPresets :many
+SELECT id, owner, name, settings, created_at, updated_at FROM dns_presets
+WHERE owner = ?
+ORDER BY updated_at DESC, id
+`
+
+func (q *Queries) ListDNSPresets(ctx context.Context, owner string) ([]DnsPreset, error) {
+	rows, err := q.db.QueryContext(ctx, listDNSPresets, owner)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []DnsPreset
+	for rows.Next() {
+		var i DnsPreset
+		if err := rows.Scan(
+			&i.ID,
+			&i.Owner,
+			&i.Name,
+			&i.Settings,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listInvites = `-- name: ListInvites :many
@@ -546,6 +659,33 @@ type TouchUserParams struct {
 func (q *Queries) TouchUser(ctx context.Context, arg TouchUserParams) error {
 	_, err := q.db.ExecContext(ctx, touchUser, arg.LastSeenAt, arg.ID)
 	return err
+}
+
+const updateDNSPreset = `-- name: UpdateDNSPreset :execrows
+UPDATE dns_presets SET name = ?, settings = ?, updated_at = ?
+WHERE id = ? AND owner = ?
+`
+
+type UpdateDNSPresetParams struct {
+	Name      string
+	Settings  string
+	UpdatedAt time.Time
+	ID        string
+	Owner     string
+}
+
+func (q *Queries) UpdateDNSPreset(ctx context.Context, arg UpdateDNSPresetParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, updateDNSPreset,
+		arg.Name,
+		arg.Settings,
+		arg.UpdatedAt,
+		arg.ID,
+		arg.Owner,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const updateUser = `-- name: UpdateUser :exec

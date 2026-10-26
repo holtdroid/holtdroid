@@ -150,6 +150,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/dns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Whether the device's DNS goes through the agent, and its rewrites and TTL limit. */
+        get: operations["getDNS"];
+        /** @description Replaces the rewrites and the TTL limit. A change of the rewrites clears the device's DNS cache. */
+        put: operations["setDNS"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dns/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The DNS log: first the settings and the queries kept (the last 2000), then each query, settings change and cache clear. */
+        get: operations["watchDNS"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dns/flush": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Clears Android's DNS cache. Apps' own caches (a WebView keeps names for up to a minute) stay. */
+        post: operations["flushDNS"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/health": {
         parameters: {
             query?: never;
@@ -396,6 +448,83 @@ export interface components {
         };
         Clipboard: {
             text: string;
+        };
+        DNSAnswer: {
+            data: string;
+            name: string;
+            /**
+             * Format: int32
+             * @description what the upstream answered; the rule's TTL for a rewrite
+             */
+            originalTtl: number;
+            /**
+             * Format: int32
+             * @description seconds the device was told to keep it
+             */
+            ttl: number;
+            type: string;
+        };
+        DNSEvent: {
+            /** Format: date-time */
+            at: string;
+            flushed?: boolean;
+            query?: components["schemas"]["DNSQuery"];
+            settings?: components["schemas"]["DNSSettings"];
+        };
+        DNSQuery: {
+            answers: components["schemas"]["DNSAnswer"][];
+            /** Format: date-time */
+            at: string;
+            /**
+             * Format: double
+             * @description milliseconds until the answer
+             */
+            duration: number;
+            error?: string;
+            /** Format: int64 */
+            id: number;
+            name: string;
+            /** @enum {string} */
+            protocol: "udp" | "tcp";
+            /** @description NOERROR, NXDOMAIN, SERVFAIL, … */
+            rcode: string;
+            /** @enum {string} */
+            result: "answered" | "rewritten" | "ipv4-only" | "failed";
+            /** @description the pattern of the rewrite that answered */
+            rule?: string;
+            /** @description A, AAAA, HTTPS, … or TYPE<n> */
+            type: string;
+        };
+        DNSRewrite: {
+            /** @description IPv4 addresses answered to A queries (kind address); 0.0.0.0 blocks the name */
+            addresses?: string[];
+            enabled: boolean;
+            /** @enum {string} */
+            kind: "address" | "cname" | "nxdomain";
+            /** @description a name such as api.example.com, or *.example.com for every name under example.com */
+            pattern: string;
+            /** @description the name answered as a CNAME and resolved in its place (kind cname) */
+            target?: string;
+            /**
+             * Format: int32
+             * @description seconds the device may keep the answer
+             */
+            ttl: number;
+        };
+        DNSSettings: {
+            /** Format: int32 */
+            maxTtl: number;
+            rewrites: components["schemas"]["DNSRewrite"][];
+            /**
+             * @description limit caps every TTL the device gets at maxTtl; 0 keeps Android from caching
+             * @enum {string}
+             */
+            ttlMode: "keep" | "limit";
+        };
+        DNSState: {
+            /** @description the device's DNS goes through the agent; false without a VPN sidecar */
+            available: boolean;
+            settings: components["schemas"]["DNSSettings"];
         };
         DevToolsConsole: {
             args?: components["schemas"]["DevToolsValue"][];
@@ -1526,6 +1655,135 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["DevToolsTargets"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getDNS: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DNSState"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    setDNS: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DNSSettings"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DNSState"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    watchDNS: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": {
+                        data: components["schemas"]["DNSEvent"];
+                        /**
+                         * @description The event name.
+                         * @constant
+                         */
+                        event: "dns";
+                        /** @description The event ID. */
+                        id?: number;
+                        /** @description The retry time in milliseconds. */
+                        retry?: number;
+                    }[];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    flushDNS: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

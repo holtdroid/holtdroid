@@ -234,6 +234,14 @@ stringData:
           "listen_port": 7890,
           "tag": "agent",
           "type": "mixed"
+        },
+        {
+          "listen": "127.0.0.1",
+          "listen_port": 10054,
+          "override_address": "1.1.1.1",
+          "override_port": 53,
+          "tag": "dns-upstream",
+          "type": "direct"
         }
       ],
       "outbounds": [
@@ -266,6 +274,11 @@ stringData:
           ],
           "tag": "select",
           "type": "selector"
+        },
+        {
+          "bind_interface": "lo",
+          "tag": "dns-forwarder",
+          "type": "direct"
         }
       ],
       "route": {
@@ -274,10 +287,18 @@ stringData:
         "final": "select",
         "rules": [
           {
+            "action": "route",
+            "inbound": "dns-upstream",
+            "outbound": "select"
+          },
+          {
             "action": "sniff"
           },
           {
-            "action": "hijack-dns",
+            "action": "route",
+            "outbound": "dns-forwarder",
+            "override_address": "127.0.0.1",
+            "override_port": 10053,
             "protocol": "dns"
           }
         ]

@@ -61,7 +61,9 @@ hybrid apps, support engineers reproducing a customer bug.
    holds the emulated network conditions: slow or lossy networks and
    scenarios such as a subway ride, each with its description, and regions
    such as Bangladesh that add the round trips to CDN edges and to your
-   servers there. A
+   servers there. The **DNS** tab beside it lists every name the device
+   looks up and rewrites names to your own addresses, with a TTL limit and
+   saved sets of rewrites (see [DNS log and rewrites](/holtdroid/concepts/dns/)). A
    small handle above the phone slides out a bar with the notifications,
    quick settings and a screenshot on hover, and one on the phone's bottom
    edge slides out Android's back, home and recent apps buttons; in

@@ -152,6 +152,12 @@ func (a *Agent) feedRecording(ctx context.Context, rec *recording.Recorder, thum
 	pollDevice()
 	metrics, stopMetrics := a.metrics.subscribe()
 	defer stopMetrics()
+	var dnsEvents <-chan contract.DNSEvent
+	if a.resolver != nil {
+		var stop func()
+		dnsEvents, stop = a.resolver.Subscribe()
+		defer stop()
+	}
 	updates, stopUpdates := a.subscribe()
 	defer stopUpdates()
 	var last contract.StatusEvent
@@ -172,6 +178,8 @@ func (a *Agent) feedRecording(ctx context.Context, rec *recording.Recorder, thum
 			return
 		case m := <-metrics:
 			rec.Event(contract.RecordingEvent{Type: contract.EventMetrics, Metrics: &m})
+		case ev := <-dnsEvents:
+			rec.Event(contract.RecordingEvent{Type: contract.EventDNS, DNS: &ev})
 		case <-updates:
 			sendStatus()
 		case <-tick.C:

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/holtdroid/holtdroid/internal/agent"
+	"github.com/holtdroid/holtdroid/internal/agent/dns"
 	"github.com/holtdroid/holtdroid/internal/contract"
 )
 
@@ -23,6 +24,7 @@ var progression = []contract.SessionState{
 type device struct {
 	handler   http.Handler
 	tunnels   *agent.Tunnels
+	resolver  *dns.Server
 	ports     *fakePorts
 	mu        sync.Mutex
 	s         contract.Session
@@ -59,8 +61,10 @@ func newDevice(s contract.Session, step time.Duration, offers func(string) bool,
 	d.settings.TimeZone = cmp.Or(d.settings.VPNTimeZone, d.settings.TimeZone)
 	d.ports = &fakePorts{adbd: d.serveADB}
 	d.tunnels = agent.NewTunnels(d.ports, agent.ShellFull, slog.Default().With("component", "fake-agent", "session", s.ID))
+	d.resolver = dns.New(fakeUpstream{}, nil, slog.Default().With("component", "fake-agent", "session", s.ID))
 	d.handler = d.buildHandler()
 	go d.run(step)
+	go d.simulateDNS()
 	go d.generateLogs()
 	return d
 }
