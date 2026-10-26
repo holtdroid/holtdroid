@@ -61,11 +61,7 @@ export function useLaunchTarget(
   const newestStable = webviews.find((w) => w.channels.includes("stable")) ?? webviews[0]
   const known = (id: string | null): id is string => id === "" || (id !== null && webviews.some((w) => w.id === id))
   const remembered = lastWebView(provider?.name ?? "")
-  const webview = known(chosenWebView)
-    ? chosenWebView
-    : known(remembered)
-      ? remembered
-      : (newestStable?.id ?? "")
+  const webview = known(chosenWebView) ? chosenWebView : known(remembered) ? remembered : (newestStable?.id ?? "")
 
   return {
     loaded: providers.isSuccess,
