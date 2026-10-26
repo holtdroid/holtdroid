@@ -26,7 +26,7 @@ export function ShadeCard({
     <button
       type="button"
       className={cn(
-        "relative grid gap-1.5 rounded-2xl bg-neutral-900 p-3 text-left text-neutral-100 shadow-lg ring-1 ring-black/50 transition-colors outline-none hover:bg-neutral-800 focus-visible:ring-2 focus-visible:ring-sky-300 dark:ring-white/15",
+        "shade-surface relative grid gap-1.5 rounded-2xl bg-neutral-900 p-3 text-left text-neutral-100 shadow-lg ring-1 ring-black/10 transition-colors outline-none hover:bg-neutral-800 focus-visible:ring-2 focus-visible:ring-sky-300 dark:ring-white/15",
         props.onClick ? "cursor-pointer disabled:cursor-default" : "cursor-default",
         className,
       )}
@@ -130,7 +130,7 @@ export function ShadePanel({ className, ...props }: ComponentProps<typeof HoverC
       onPointerDownOutside={close}
       onEscapeKeyDown={close}
       className={cn(
-        "flex max-h-(--radix-hover-card-content-available-height) w-96 flex-col gap-4 overflow-y-auto rounded-[28px] border-0 bg-neutral-900 p-4 text-neutral-100 shadow-2xl ring-1 ring-white/10",
+        "shade-surface flex max-h-(--radix-hover-card-content-available-height) w-96 flex-col gap-4 overflow-y-auto rounded-[28px] border-0 bg-neutral-900 p-4 text-neutral-100 shadow-2xl ring-1 ring-black/10 dark:ring-white/10",
         className,
       )}
       {...props}

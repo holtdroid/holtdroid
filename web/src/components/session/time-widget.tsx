@@ -452,7 +452,7 @@ function MomentInput({
         required
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-10 rounded-full bg-neutral-900 px-3 text-sm text-neutral-100 tabular-nums [color-scheme:dark] outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
+        className="h-10 rounded-full bg-neutral-900 px-3 text-sm text-neutral-100 tabular-nums dark:[color-scheme:dark] outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
       />
     </label>
   )
