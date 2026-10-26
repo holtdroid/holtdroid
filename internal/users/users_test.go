@@ -3,6 +3,7 @@ package users
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 	"time"
 
@@ -93,6 +94,9 @@ func TestInviteRules(t *testing.T) {
 		})
 	}
 	_, link, _ := s.CreateInvite(ctx, NewInvite{Role: RoleUser, TTL: time.Hour})
+	if list, err := s.Invites(ctx); err != nil || !slices.ContainsFunc(list, func(i Invite) bool { return i.Link == link }) {
+		t.Fatalf("listed link = %+v %v, want %q", list, err, link)
+	}
 	s.now = func() time.Time { return time.Date(2026, 1, 1, 13, 0, 0, 0, time.UTC) }
 	if _, err := s.InviteInfo(ctx, link[len("https://holtdroid.test/invite/"):]); !errors.Is(err, ErrExpired) {
 		t.Fatalf("expired invite: %v", err)

@@ -65,8 +65,8 @@ DELETE FROM passkeys WHERE id = ? AND user_id = ?;
 SELECT COUNT(*) FROM passkeys WHERE user_id = ?;
 
 -- name: CreateInvite :exec
-INSERT INTO invites (id, token_hash, kind, role, user_id, domains, note, single_use, expires_at, created_by, created_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO invites (id, token_hash, token, kind, role, user_id, domains, note, single_use, expires_at, created_by, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: GetInviteByHash :one
 SELECT * FROM invites WHERE token_hash = ?;

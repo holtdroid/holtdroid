@@ -156,8 +156,8 @@ role. Holtdroid keeps at least one admin.
 single-use or reusable, expiring after a day, a week, a month or never, and
 optionally limited to some email domains (on top of `allowedDomains`). A
 reusable link with the _waiting for approval_ role is an open sign-up page
-whose newcomers you approve by hand. Only a hash of each link is stored, so it
-is shown once; revoke it there when it leaks.
+whose newcomers you approve by hand. Each link stays in the list with a copy
+button until it expires or is used up; revoke it there when it leaks.
 
 **Domains.** `allowedDomains` and an invite's domains check the email's
 domain when someone signs up, but nothing sends mail to verify the address:

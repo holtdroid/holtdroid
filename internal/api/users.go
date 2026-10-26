@@ -91,7 +91,7 @@ type UserPasskeyPath struct {
 
 type InviteCreated struct {
 	Invite users.Invite `json:"invite"`
-	Link   string       `json:"link" doc:"shown only once"`
+	Link   string       `json:"link"`
 }
 
 type RecoveryLink struct {

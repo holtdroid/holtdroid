@@ -87,13 +87,14 @@ func (q *Queries) CountPasskeys(ctx context.Context, userID string) (int64, erro
 }
 
 const createInvite = `-- name: CreateInvite :exec
-INSERT INTO invites (id, token_hash, kind, role, user_id, domains, note, single_use, expires_at, created_by, created_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO invites (id, token_hash, token, kind, role, user_id, domains, note, single_use, expires_at, created_by, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateInviteParams struct {
 	ID        string
 	TokenHash []byte
+	Token     *string
 	Kind      string
 	Role      string
 	UserID    *string
@@ -109,6 +110,7 @@ func (q *Queries) CreateInvite(ctx context.Context, arg CreateInviteParams) erro
 	_, err := q.db.ExecContext(ctx, createInvite,
 		arg.ID,
 		arg.TokenHash,
+		arg.Token,
 		arg.Kind,
 		arg.Role,
 		arg.UserID,
@@ -208,7 +210,7 @@ func (q *Queries) DeleteUser(ctx context.Context, id string) (int64, error) {
 }
 
 const getInviteByHash = `-- name: GetInviteByHash :one
-SELECT id, token_hash, kind, role, user_id, domains, note, single_use, expires_at, uses, created_by, created_at FROM invites WHERE token_hash = ?
+SELECT id, token_hash, kind, role, user_id, domains, note, single_use, expires_at, uses, created_by, created_at, token FROM invites WHERE token_hash = ?
 `
 
 func (q *Queries) GetInviteByHash(ctx context.Context, tokenHash []byte) (Invite, error) {
@@ -227,6 +229,7 @@ func (q *Queries) GetInviteByHash(ctx context.Context, tokenHash []byte) (Invite
 		&i.Uses,
 		&i.CreatedBy,
 		&i.CreatedAt,
+		&i.Token,
 	)
 	return i, err
 }
@@ -322,7 +325,7 @@ func (q *Queries) GetUserByHandle(ctx context.Context, handle []byte) (User, err
 }
 
 const listInvites = `-- name: ListInvites :many
-SELECT id, token_hash, kind, role, user_id, domains, note, single_use, expires_at, uses, created_by, created_at FROM invites WHERE kind = 'invite' ORDER BY created_at DESC
+SELECT id, token_hash, kind, role, user_id, domains, note, single_use, expires_at, uses, created_by, created_at, token FROM invites WHERE kind = 'invite' ORDER BY created_at DESC
 `
 
 func (q *Queries) ListInvites(ctx context.Context) ([]Invite, error) {
@@ -347,6 +350,7 @@ func (q *Queries) ListInvites(ctx context.Context) ([]Invite, error) {
 			&i.Uses,
 			&i.CreatedBy,
 			&i.CreatedAt,
+			&i.Token,
 		); err != nil {
 			return nil, err
 		}

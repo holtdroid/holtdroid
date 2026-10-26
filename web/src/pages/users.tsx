@@ -371,7 +371,12 @@ function RecoverySection({ id }: { id: string }) {
           Create
         </Button>
       </div>
-      {recovery.data && <LinkBox link={recovery.data.link} note="Single use; earlier recovery links stop working." />}
+      {recovery.data && (
+        <LinkBox
+          link={recovery.data.link}
+          note="Single use; earlier recovery links stop working. It is shown only now."
+        />
+      )}
       {recovery.isError && <p className="text-destructive text-sm">{recovery.error.message}</p>}
     </div>
   )
@@ -379,12 +384,12 @@ function RecoverySection({ id }: { id: string }) {
 
 function LinkBox({ link, note }: { link: string; note: string }) {
   return (
-    <div className="grid gap-1">
-      <div className="bg-muted flex items-center gap-1 rounded-md px-2 py-1">
+    <div className="grid min-w-0 gap-1">
+      <div className="bg-muted flex min-w-0 items-center gap-1 rounded-md px-2 py-1">
         <code className="min-w-0 flex-1 truncate text-xs">{link}</code>
         <CopyButton text={link} label="Copy link" />
       </div>
-      <p className="text-muted-foreground text-xs">{note} It is shown only now.</p>
+      <p className="text-muted-foreground text-xs">{note}</p>
     </div>
   )
 }
@@ -481,6 +486,7 @@ function InviteList({ invites, now, loading }: { invites: Invite[]; now: number;
                     <span>created {formatRelative(inv.createdAt, now)}</span>
                   </div>
                 </div>
+                {inv.link && !expired && <CopyButton text={inv.link} label="Copy link" className="size-9" />}
                 <Button
                   size="icon"
                   variant="ghost"
@@ -508,9 +514,9 @@ function NewInvite() {
   const [domains, setDomains] = useState("")
   const [note, setNote] = useState("")
 
-  const close = (next: boolean) => {
-    setOpen(next)
-    if (!next) create.reset()
+  const start = () => {
+    create.reset()
+    setOpen(true)
   }
   const submit = (e: FormEvent) => {
     e.preventDefault()
@@ -528,12 +534,12 @@ function NewInvite() {
 
   return (
     <>
-      <Button size="sm" onClick={() => setOpen(true)}>
+      <Button size="sm" onClick={start}>
         <PlusIcon />
         New invite
       </Button>
-      <Dialog open={open} onOpenChange={close}>
-        <DialogContent>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="grid-cols-[minmax(0,1fr)]">
           <DialogHeader>
             <DialogTitle>New invite link</DialogTitle>
             <DialogDescription>Anyone with the link can sign up while it is valid.</DialogDescription>
@@ -603,9 +609,11 @@ function NewInvite() {
           )}
           <DialogFooter>
             {create.data ? (
-              <Button onClick={() => close(false)}>Done</Button>
+              <Button key="done" type="button" onClick={() => setOpen(false)}>
+                Done
+              </Button>
             ) : (
-              <Button type="submit" form="new-invite" disabled={create.isPending}>
+              <Button key="create" type="submit" form="new-invite" disabled={create.isPending}>
                 <UserPlusIcon />
                 Create link
               </Button>

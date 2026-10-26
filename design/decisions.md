@@ -3135,7 +3135,8 @@ no accounts (anonymous, password) or take them from outside (oidc, header).
   of a ceremony share the challenge through a five-minute signed cookie, not
   the database. The browser side uses `@simplewebauthn/browser`.
 - Invite, recovery and first-admin links are random tokens of which only a
-  SHA-256 is stored, so a link is shown once. An invite has a role,
+  SHA-256 is stored, so a link is shown once (invite links since #108 are
+  kept). An invite has a role,
   single-use or reusable, an optional expiry and optional domains on top of
   `auth.users.allowedDomains`. A recovery link is single-use, lasts up to 30
   days and cancels earlier ones. While no admin exists the api logs a
@@ -3348,3 +3349,21 @@ or any WebView under Frida. Elements inside cross-origin frames and shadow
 roots aren't listed. A page that changed between its screenshot and the
 device's (an animation) can fail to match and then simply isn't used. The
 snapshot costs a few hundred milliseconds per open page, at most four pages.
+
+## 108. Invite links are kept so admins can copy them again
+
+**Status:** accepted. Supersedes the invite part of #103.
+
+**Context.** An invite link was shown only right after it was created; an
+admin who closed the dialog before sending it had to revoke it and make a
+new one.
+
+**Decision.** `invites.token` keeps the token of invite links, and
+`GET /api/v1/admin/invites` returns each one's `link`; the Users page has a
+copy button on every link still valid. Recovery and first-admin links are
+still stored only as a hash and shown once.
+
+**Consequences.** Anyone who reads the database can sign up with an open
+invite, which an admin could already hand out anyway; recovery links, which
+take over an existing account, stay unreadable. Invites created before the
+migration have no stored link.

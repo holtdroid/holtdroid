@@ -16,6 +16,7 @@ type Invite struct {
 	Role      string     `json:"role" enum:"admin,user," doc:"empty: the new user waits for approval"`
 	Domains   []string   `json:"domains" doc:"email domains allowed on top of auth.users.allowedDomains; empty for any"`
 	Note      string     `json:"note"`
+	Link      string     `json:"link,omitempty" doc:"empty for links created before they were kept"`
 	SingleUse bool       `json:"singleUse"`
 	ExpiresAt *time.Time `json:"expiresAt,omitempty"`
 	Uses      int64      `json:"uses"`
@@ -41,9 +42,13 @@ type NewInvite struct {
 	CreatedBy string
 }
 
-func toInvite(r db.Invite) Invite {
+func (s *Service) toInvite(r db.Invite) Invite {
+	link := ""
+	if r.Token != nil {
+		link = s.Link(*r.Token)
+	}
 	return Invite{
-		ID: r.ID, Role: r.Role, Domains: splitDomains(r.Domains), Note: r.Note, SingleUse: r.SingleUse, ExpiresAt: r.ExpiresAt,
+		ID: r.ID, Link: link, Role: r.Role, Domains: splitDomains(r.Domains), Note: r.Note, SingleUse: r.SingleUse, ExpiresAt: r.ExpiresAt,
 		Uses: r.Uses, CreatedBy: r.CreatedBy, CreatedAt: r.CreatedAt,
 	}
 }
@@ -68,13 +73,11 @@ func (s *Service) Invites(ctx context.Context) ([]Invite, error) {
 	}
 	out := make([]Invite, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, toInvite(r))
+		out = append(out, s.toInvite(r))
 	}
 	return out, nil
 }
 
-// CreateInvite returns the invite and its link; only a hash of the token is
-// stored, so the link can't be shown again.
 func (s *Service) CreateInvite(ctx context.Context, in NewInvite) (Invite, string, error) {
 	if !ValidRole(in.Role) {
 		return Invite{}, "", fmt.Errorf("%w: unknown role %q", ErrInvalid, in.Role)
@@ -98,6 +101,10 @@ func (s *Service) CreateInvite(ctx context.Context, in NewInvite) (Invite, strin
 
 func (s *Service) createLink(ctx context.Context, q *db.Queries, kind, role string, user *string, domains, note string, single bool, ttl time.Duration, by string) (Invite, string, error) {
 	token, hash := newToken()
+	var kept *string
+	if kind == KindInvite {
+		kept = &token
+	}
 	now := s.now()
 	var expires *time.Time
 	if ttl > 0 {
@@ -108,14 +115,14 @@ func (s *Service) createLink(ctx context.Context, q *db.Queries, kind, role stri
 		note = note[:200]
 	}
 	row := db.CreateInviteParams{
-		ID: strings.ToLower(lowerBase32.EncodeToString(randomBytes(6))), TokenHash: hash, Kind: kind, Role: role, UserID: user,
+		ID: strings.ToLower(lowerBase32.EncodeToString(randomBytes(6))), TokenHash: hash, Token: kept, Kind: kind, Role: role, UserID: user,
 		Domains: domains, Note: strings.TrimSpace(note), SingleUse: single, ExpiresAt: expires, CreatedBy: by, CreatedAt: now,
 	}
 	if err := q.CreateInvite(ctx, row); err != nil {
 		return Invite{}, "", err
 	}
-	return toInvite(db.Invite{
-		ID: row.ID, Kind: kind, Role: role, UserID: user, Domains: domains, Note: row.Note, SingleUse: single, ExpiresAt: expires,
+	return s.toInvite(db.Invite{
+		ID: row.ID, Token: kept, Kind: kind, Role: role, UserID: user, Domains: domains, Note: row.Note, SingleUse: single, ExpiresAt: expires,
 		CreatedBy: by, CreatedAt: now,
 	}), s.Link(token), nil
 }

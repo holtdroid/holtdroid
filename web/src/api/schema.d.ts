@@ -1889,6 +1889,8 @@ export interface components {
             /** Format: date-time */
             expiresAt?: string;
             id: string;
+            /** @description empty for links created before they were kept */
+            link?: string;
             note: string;
             /**
              * @description empty: the new user waits for approval
@@ -1901,7 +1903,6 @@ export interface components {
         };
         InviteCreated: {
             invite: components["schemas"]["Invite"];
-            /** @description shown only once */
             link: string;
         };
         InviteInfo: {

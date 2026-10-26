@@ -21,6 +21,7 @@ type Invite struct {
 	Uses      int64
 	CreatedBy string
 	CreatedAt time.Time
+	Token     *string
 }
 
 type Passkey struct {
