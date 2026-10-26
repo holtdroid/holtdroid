@@ -132,6 +132,7 @@ function LaunchFlow({ artifact, onClose }: { artifact: ArtifactView; onClose: ()
     chosenAndroid,
     chosenWebView,
     artifact.minSdk,
+    false,
   )
   const launch = useStartSession()
   const appData = useAppDataFor(artifact.app?.package)

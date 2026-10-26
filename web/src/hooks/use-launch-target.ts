@@ -29,6 +29,7 @@ export function useLaunchTarget(
   chosenAndroid: string | null = null,
   chosenWebView: string | null = null,
   minSdk = 0,
+  restoreWebView = true,
 ) {
   const providers = useProviders()
   const usable = useMemo(() => (providers.data ?? []).filter((p) => !p.error), [providers.data])
@@ -59,12 +60,15 @@ export function useLaunchTarget(
   const level = android ? apiLevels[android] : undefined
   const webviews = webviewCapable ? (catalog.data ?? []).filter((w) => !level || w.minSdk <= level) : []
   const newestStable = webviews.find((w) => w.channels.includes("stable")) ?? webviews[0]
-  const webview =
-    [chosenWebView, lastWebView(provider?.name ?? "")].find(
-      (id): id is string => id === "" || (id !== null && webviews.some((w) => w.id === id)),
-    ) ??
-    newestStable?.id ??
-    ""
+  const known = (id: string | null): id is string => id === "" || (id !== null && webviews.some((w) => w.id === id))
+  const remembered = restoreWebView ? lastWebView(provider?.name ?? "") : null
+  const webview = known(chosenWebView)
+    ? chosenWebView
+    : known(remembered)
+      ? remembered
+      : restoreWebView
+        ? (newestStable?.id ?? "")
+        : ""
 
   return {
     loaded: providers.isSuccess,
