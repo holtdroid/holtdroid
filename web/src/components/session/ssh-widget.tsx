@@ -25,6 +25,7 @@ export function SSHWidget({ provider, id }: { provider: string; id: string }) {
   })
 
   if (!info.data?.enabled || (!info.data.allowADB && !info.data.allowReverse)) return null
+  const { allowADB, allowReverse } = info.data
   const ports = tunnels.reverse.length
   const connected = tunnels.adb.length + ports > 0
 
@@ -47,14 +48,16 @@ export function SSHWidget({ provider, id }: { provider: string; id: string }) {
         </ShadeCard>
       </HoverCardTrigger>
       <ShadePanel>
-        <ShadeHeader
-          title="SSH"
-          summary={connected ? describe(tunnels) : "ADB and your computer's ports, through the holtdroid client"}
-        />
-        <SSHShade slug={`${provider}-${id}`} tunnels={tunnels} />
+        <ShadeHeader title="SSH" summary={connected ? describe(tunnels) : summaryOf(allowADB, allowReverse)} />
+        <SSHShade slug={`${provider}-${id}`} tunnels={tunnels} allowADB={allowADB} allowReverse={allowReverse} />
       </ShadePanel>
     </ShadeRoot>
   )
+}
+
+function summaryOf(allowADB: boolean, allowReverse: boolean) {
+  if (allowADB && allowReverse) return "ADB and your computer's localhost, through the holtdroid client"
+  return allowADB ? "ADB through the holtdroid client" : "Your computer's localhost, through the holtdroid client"
 }
 
 function describe(t: Tunnels) {
@@ -66,16 +69,35 @@ function describe(t: Tunnels) {
     .join(" · ")
 }
 
-function SSHShade({ slug, tunnels }: { slug: string; tunnels: Tunnels }) {
+function SSHShade({
+  slug,
+  tunnels,
+  allowADB,
+  allowReverse,
+}: {
+  slug: string
+  tunnels: Tunnels
+  allowADB: boolean
+  allowReverse: boolean
+}) {
   const computers = useComputers()
   const list = computers.data?.computers ?? []
-  const adb = list.flatMap((c) =>
+  const adb = (allowADB ? list : []).flatMap((c) =>
     c.adb.filter((a) => a.session === slug).map((a) => ({ port: a.port, hostname: c.hostname })),
   )
 
   return (
     <div className="dark contents">
       <Connections tunnels={tunnels} />
+
+      {allowReverse && (
+        <Note>
+          SSH forwards your computer&apos;s localhost to this device: a dev server on your computer opens in the app as
+          http://localhost:&lt;port&gt;, so no tunnels or IP addresses are needed.
+        </Note>
+      )}
+      {!allowADB && <Note>ADB over SSH is turned off on this portal.</Note>}
+      {!allowReverse && <Note>Publishing your computer&apos;s localhost is turned off on this portal.</Note>}
 
       {adb.length > 0 && (
         <Group title="ADB on your computer">
@@ -97,19 +119,21 @@ function SSHShade({ slug, tunnels }: { slug: string; tunnels: Tunnels }) {
             <ConnectCard />
           </div>
           <Note>
-            One command per computer, on macOS or Linux. It downloads the holtdroid client, which publishes the ports
-            you pick on every device you run and gives each device&apos;s ADB a local port.
+            One command per computer, on macOS or Linux. It downloads the holtdroid client, which{" "}
+            {allowReverse ? "publishes your dev servers on every device you run" : ""}
+            {allowReverse && allowADB ? " and " : ""}
+            {allowADB ? "gives each device's ADB a local port" : ""}.
           </Note>
         </Group>
-      ) : (
+      ) : allowReverse ? (
         <Note>
-          Pick the published ports on the{" "}
+          Dev servers are published automatically; pin other ports on the{" "}
           <Link to="/computers" className="font-medium text-sky-200 underline underline-offset-2">
             Computers
           </Link>{" "}
           page. Apps on the device reach them as http://localhost:&lt;port&gt;.
         </Note>
-      )}
+      ) : null}
     </div>
   )
 }
