@@ -188,7 +188,9 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 	if cfg.HostCgroup != "" {
 		host, cgroup = os.DirFS("/"), os.DirFS(cfg.HostCgroup)
 	}
+	frontend := NewFrontend(cfg.DevToolsFrontend, filepath.Join(cfg.CacheDir, "devtools-frontend"), log)
 	devtools := NewDevTools(dev, Frontends{Package: cfg.Package, App: cfg.Frontend, WebView: cfg.WebView.Frontend}, cfg.ChromiumDash, log)
+	devtools.onRev = frontend.Warm
 	return &Agent{
 		cfg:      cfg,
 		dev:      dev,
@@ -201,7 +203,7 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 		network:  NewNetwork(cfg.ClashAPI, cfg.IPInfoURL, cfg.IPInfoProxy),
 		screen:   screen,
 		clip:     NewClipboard(screen, log),
-		frontend: NewFrontend(cfg.DevToolsFrontend, filepath.Join(cfg.CacheDir, "devtools-frontend"), log),
+		frontend: frontend,
 		controls: newControls(cfg, dev, log),
 		tunnels:  NewTunnels(newADBTunnels(cfg, dev, log), cfg.ADBShell, log),
 		metrics:  NewMetrics(dev, cfg.Package, host, cgroup, cfg.PodUID, cfg.DataLimit, log),

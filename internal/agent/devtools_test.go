@@ -523,3 +523,39 @@ func TestFrontendRetriesAColdUpstream(t *testing.T) {
 		t.Errorf("upstream down: %d after %d tries", resp.StatusCode, tries["/serve_rev/@0123456789abcdef/down.js"])
 	}
 }
+
+func TestFrontendWarm(t *testing.T) {
+	files := map[string]string{
+		"/devtools_app.html":      `<script type="module" src="./entrypoints/app/app.js"></script>`,
+		"/entrypoints/app/app.js": `import "../../core/a.js"; import("../../panels/b/b.js"); x("https://example.com/x.js")`,
+		"/core/a.js":              `export const a = 1`,
+		"/panels/b/b.js":          `export const b = 2`,
+	}
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, ok := files[strings.TrimPrefix(r.URL.Path, "/serve_rev/@0123456789abcdef")]
+		if !ok {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = io.WriteString(w, body)
+	}))
+	defer upstream.Close()
+
+	dir := t.TempDir()
+	f := NewFrontend(upstream.URL+"/serve_rev", dir, slog.New(slog.DiscardHandler))
+	f.Warm("0123456789abcdef")
+	f.Warm("@0123456789abcdef")
+	for file := range files {
+		local := filepath.Join(dir, "@0123456789abcdef", filepath.FromSlash(file))
+		deadline := time.Now().Add(5 * time.Second)
+		for {
+			if _, err := os.Stat(local); err == nil {
+				break
+			}
+			if time.Now().After(deadline) {
+				t.Fatalf("%s was not warmed", file)
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+}

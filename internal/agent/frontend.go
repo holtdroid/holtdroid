@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/sync/singleflight"
@@ -33,6 +34,7 @@ type Frontend struct {
 	log      *slog.Logger
 	sf       singleflight.Group
 	slots    chan struct{}
+	warmed   sync.Map
 	attempts int
 	backoff  time.Duration
 }
@@ -123,4 +125,71 @@ func (f *Frontend) fetchOnce(ctx context.Context, rel, local string) error {
 		return err
 	}
 	return os.Rename(tmp.Name(), local)
+}
+
+var frontendRefRe = regexp.MustCompile(`["'(]((?:\.{1,2}/)?[\w@./-]+\.(?:js|css|json|html|svg|png|mjs))["')]`)
+
+// Warm fetches the frontend of a revision in the background, starting at
+// devtools_app.html and following the files it names, so the first
+// DevTools open finds everything cached instead of waiting on a cold upstream.
+func (f *Frontend) Warm(rev string) {
+	if !revPathRe.MatchString(rev) {
+		rev = "@" + strings.TrimPrefix(rev, "@")
+	}
+	if !revPathRe.MatchString(rev) {
+		return
+	}
+	if _, loaded := f.warmed.LoadOrStore(rev, true); loaded {
+		return
+	}
+	go f.warm(rev)
+}
+
+func (f *Frontend) warm(rev string) {
+	ctx := context.Background()
+	seen := map[string]bool{"/devtools_app.html": true}
+	queue := []string{"/devtools_app.html"}
+	for len(queue) > 0 {
+		var wg sync.WaitGroup
+		var mu sync.Mutex
+		var next []string
+		for _, file := range queue {
+			wg.Go(func() {
+				local := filepath.Join(f.dir, rev, filepath.FromSlash(file))
+				if _, err := os.Stat(local); err != nil {
+					_, err, _ := f.sf.Do(local, func() (any, error) { return nil, f.fetch(ctx, rev+file, local) })
+					if err != nil {
+						return
+					}
+				}
+				if ext := path.Ext(file); ext != ".js" && ext != ".html" && ext != ".css" && ext != ".mjs" {
+					return
+				}
+				data, err := os.ReadFile(local)
+				if err != nil {
+					return
+				}
+				mu.Lock()
+				defer mu.Unlock()
+				for _, m := range frontendRefRe.FindAllSubmatch(data, -1) {
+					ref := string(m[1])
+					if strings.Contains(ref, "://") {
+						continue
+					}
+					target := path.Clean(path.Join(path.Dir(file), ref))
+					if strings.HasPrefix(ref, "/") {
+						target = path.Clean(ref)
+					}
+					if !strings.HasPrefix(target, "/") || seen[target] {
+						continue
+					}
+					seen[target] = true
+					next = append(next, target)
+				}
+			})
+		}
+		wg.Wait()
+		queue = next
+	}
+	f.log.Info("devtools frontend warmed", "rev", rev, "files", len(seen))
 }
