@@ -1,6 +1,7 @@
 import {
   DownloadIcon,
   EllipsisVerticalIcon,
+  ChevronRightIcon,
   ExternalLinkIcon,
   EyeIcon,
   HourglassIcon,
@@ -113,6 +114,9 @@ export function ArtifactList({ onLaunch, pkg }: { onLaunch: (artifact: ArtifactV
     () => (pkg ? [] : groupByPackage(all).filter((g) => !q || g.items.some((a) => matches(a, q)))),
     [all, pkg, q],
   )
+  const ready = useMemo(() => groups.filter((g) => g.pkg), [groups])
+  const parsing = useMemo(() => groups.filter((g) => !g.pkg), [groups])
+  const [showParsing, setShowParsing] = useState(false)
   const empty = pkg ? items.length === 0 : groups.length === 0
 
   return (
@@ -194,9 +198,29 @@ export function ArtifactList({ onLaunch, pkg }: { onLaunch: (artifact: ArtifactV
           </p>
         ) : !pkg ? (
           <ul className="grid gap-2 @2xl:grid-cols-2">
-            {groups.map((g) => (
+            {ready.map((g) => (
               <AppCard key={g.key} group={g} now={now} onLaunch={onLaunch} />
             ))}
+            {parsing.length > 0 && (
+              <li className="@2xl:col-span-2">
+                <button
+                  type="button"
+                  aria-expanded={showParsing}
+                  onClick={() => setShowParsing((v) => !v)}
+                  className="text-muted-foreground hover:bg-accent/40 flex w-full items-center gap-2 rounded-xl border border-dashed p-3 text-left text-sm transition-colors"
+                >
+                  <ChevronRightIcon className={cn("size-4 transition-transform", showParsing && "rotate-90")} />
+                  Reading package info for {parsing.length} more {parsing.length === 1 ? "app" : "apps"}…
+                </button>
+                {showParsing && (
+                  <ul className="mt-2 grid gap-2 @2xl:grid-cols-2">
+                    {parsing.map((g) => (
+                      <AppCard key={g.key} group={g} now={now} onLaunch={onLaunch} />
+                    ))}
+                  </ul>
+                )}
+              </li>
+            )}
           </ul>
         ) : (
           <ul className="grid gap-2">
