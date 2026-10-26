@@ -166,7 +166,7 @@ function DevToolsFrontendsSection({ now }: { now: number }) {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {f.files}
+                    {f.files > 0 || !f.archived ? f.files : "—"}
                     {f.failed > 0 && <span className="text-destructive"> · {f.failed} failed</span>}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
