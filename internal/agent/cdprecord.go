@@ -562,6 +562,9 @@ func (p *cdpPage) handle(method string, raw json.RawMessage) {
 			return
 		}
 		l := e.Entry
+		if l.Source == "worker" {
+			return
+		}
 		level := l.Level
 		if level == "verbose" {
 			level = "debug"

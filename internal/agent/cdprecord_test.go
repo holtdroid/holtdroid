@@ -289,6 +289,11 @@ func TestDevToolsRecorderRedirectsAndFailures(t *testing.T) {
 	sink.advance(30)
 	cdpEvent(t, p, "Network.loadingFailed", `{"requestId":"7","timestamp":1.05,"errorText":"net::ERR_CONNECTION_RESET"}`)
 	cdpEvent(t, p, "Network.requestWillBeSent", `{"requestId":"8","timestamp":2,"type":"XHR","request":{"url":"https://shop.example/poll","method":"GET"}}`)
+	cdpEvent(t, p, "Log.entryAdded", `{"entry":{"source":"worker","level":"info","text":"worker up [object Object]"}}`)
+	cdpEvent(t, p, "Log.entryAdded", `{"entry":{"source":"network","level":"error","text":"Failed to load resource"}}`)
+	if c := sink.of(contract.DevToolsConsoleEntry); len(c) != 1 || c[0].Console.Kind != "network" {
+		t.Fatalf("browser messages: %+v", c)
+	}
 	p.flush()
 
 	reqs := sink.of(contract.DevToolsRequestEntry)

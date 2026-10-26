@@ -3562,7 +3562,8 @@ and messages of common protocols were shown as plain text: Socket.IO's
   never saw open still get a socket, without a URL.
 - Targets are lines of their own with a `type` and a `parent`; the player
   filters Network and Console by context and tags lines from iframes and
-  workers.
+  workers. A worker's console is taken from the worker, and the copy Chrome
+  passes to its page (`Log.entryAdded` from `worker`) is skipped.
 - Message and body parsing finds Socket.IO and Engine.IO packets (with the
   event name), SignalR and Engine.IO polling records, Server-Sent Events and
   JSON Lines, each shown as a list of trees with time hints; Raw shows the
