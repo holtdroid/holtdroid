@@ -23,8 +23,9 @@ Android version. It lists:
 - with a Google WebView catalog, one card per Google WebView build, titled
   _Google WebView_.
 
-The launch dialog and quick launch preselect the version you last launched
-with, or the newest build on the Stable channel that works on the chosen Android version, or the newest build when
+The launch dialog preselects the newest build on the Stable channel and
+restores nothing. Quick launch uses the version you last launched with, or the
+newest build on the Stable channel that works on the chosen Android version, or the newest build when
 none is on Stable. It doesn't matter whether a build is Chromium or Google
 WebView. Choosing **Built-in** is remembered like any other choice.
 

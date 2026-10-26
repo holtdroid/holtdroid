@@ -29,29 +29,33 @@ export function useLaunchTarget(
   chosenAndroid: string | null = null,
   chosenWebView: string | null = null,
   minSdk = 0,
+  restore = true,
 ) {
   const providers = useProviders()
   const usable = useMemo(() => (providers.data ?? []).filter((p) => !p.error), [providers.data])
-  const wanted = chosenProvider ?? lastProvider() ?? ""
+  const wanted = chosenProvider ?? (restore ? lastProvider() : null) ?? ""
   const provider = wanted ? usable.find((p) => p.name === wanted) : undefined
   const pool = provider ? [provider] : usable
   const locations = pool
     .flatMap((p) => p.capabilities.locations)
     .filter((l, i, all) => all.findIndex((o) => o.id === l.id) === i)
   const defaultLocation = pool.find((p) => p.capabilities.defaultLocation)?.capabilities.defaultLocation
-  const location = [chosenLocation, lastLocation(provider?.name ?? ""), defaultLocation, locations[0]?.id].find(
-    (id): id is string => !!id && locations.some((l) => l.id === id),
-  )
+  const location = [
+    chosenLocation,
+    restore ? lastLocation(provider?.name ?? "") : null,
+    defaultLocation,
+    locations[0]?.id,
+  ].find((id): id is string => !!id && locations.some((l) => l.id === id))
   const slot = provider?.capacity.slots.find((s) => s.id === chosenSlot)
   const candidates = pool.filter((p) => offers(p, location))
   const screens = distinct(pool.flatMap((p) => p.capabilities.screens ?? []))
-  const screen = [chosenScreen, lastScreen(provider?.name ?? ""), screens[0]?.id].find(
+  const screen = [chosenScreen, restore ? lastScreen(provider?.name ?? "") : null, screens[0]?.id].find(
     (id): id is string => !!id && screens.some((s) => s.id === id),
   )
   const versions = [...new Set(pool.flatMap((p) => p.capabilities.versions ?? []))]
   const runs = (v: string) => !minSdk || (apiLevels[v] ?? Infinity) >= minSdk
   const runnable = versions.filter(runs)
-  const android = [chosenAndroid, lastAndroid(provider?.name ?? ""), runnable[0]].find(
+  const android = [chosenAndroid, restore ? lastAndroid(provider?.name ?? "") : null, runnable[0]].find(
     (v): v is string => !!v && runnable.includes(v),
   )
   const webviewCapable = pool.some((p) => p.capabilities.webview)
@@ -60,7 +64,7 @@ export function useLaunchTarget(
   const webviews = webviewCapable ? (catalog.data ?? []).filter((w) => !level || w.minSdk <= level) : []
   const newestStable = webviews.find((w) => w.channels.includes("stable")) ?? webviews[0]
   const known = (id: string | null): id is string => id === "" || (id !== null && webviews.some((w) => w.id === id))
-  const remembered = lastWebView(provider?.name ?? "")
+  const remembered = restore ? lastWebView(provider?.name ?? "") : null
   const webview = known(chosenWebView) ? chosenWebView : known(remembered) ? remembered : (newestStable?.id ?? "")
 
   return {

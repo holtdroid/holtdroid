@@ -3722,17 +3722,19 @@ libraries fail to install instead of crashing; Android 11's system
 `build.prop` still lists `armeabi-v7a`.
 
 
-## 121. The launch dialog and quick launch default to the newest stable Chromium WebView
+## 121. Quick launch defaults to the newest stable Chromium WebView
 
 **Context.** With a WebView catalog configured, a session started with the
 Android image's built-in WebView unless someone picked a build, so most
 launches tested an old Chromium.
 
-**Decision.** The launch dialog and quick launch use the build last launched
-with, including Built-in, and otherwise the newest catalog build on the Stable channel that the
+**Decision.** Quick launch uses the build last launched with, including
+Built-in, and otherwise the newest catalog build on the Stable channel that the
 chosen Android version can run, or the newest build when none is on Stable. The
-API is unchanged: a launch request without `webview` still uses the built-in
-one.
+launch dialog restores no remembered choice (WebView, provider, location,
+screen, Android) and preselects the newest stable build; what is chosen there
+is still remembered for quick launch. The API is unchanged: a launch request
+without `webview` still uses the built-in one.
 
 **Consequences.** A launch installs a WebView by default (a few seconds
 longer) once the catalog has loaded. Providers without the `webview`

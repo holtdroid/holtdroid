@@ -57,8 +57,7 @@ deployment"):
   spike on a live session on 2026-10-25: snapshot 158 installed in about
   2 s over the re-signed built-in 128 on Android 15, rendered pages, and
   DevTools listed the page. Snapshots report an all-zero frontend revision,
-  so the catalog carries the Canary commit's. The launch dialog and quick launch use
-  the last choice, else the newest Stable build, else the newest (decision #121).
+  so the catalog carries the Canary commit's. Quick launch uses the last choice, else the newest Stable build, else the newest (decision #121).
 - Chromium browser builds (decision #91): `holtdroid-chromium-sync` in
   holtdroid-sync writes `ChromePublic.apk` per milestone (channels, newest
   10, every 2nd, every 5th past the newest 24) into an ordinary source.
