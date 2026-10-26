@@ -26,7 +26,8 @@ Android version. It lists:
 The launch dialog starts on **Built-in** and remembers nothing. Quick launch
 uses the version you last launched with, or the newest Chromium milestone on
 the Stable channel that works on the chosen Android version, or the newest
-Chromium milestone when none is on Stable. Choosing **Built-in** is remembered like any other choice.
+Chromium milestone when none is on Stable. A portal whose catalogs hold only
+Google WebView builds picks among those the same way. Choosing **Built-in** is remembered like any other choice.
 
 Only builds that work on the chosen Android version are shown. Chromium 149
 and later need Android 14 or 15. On Android 11, 12 and 13 they abort as
