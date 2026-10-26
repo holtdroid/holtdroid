@@ -366,10 +366,11 @@ func (s *Server) listArtifacts(ctx context.Context, only, cursor string, limit i
 	}
 	n := 0
 	for _, e := range all[offset:end] {
-		if n < s.cfg.Cache.Warm && !s.cached(ctx, e.source, e.a) {
-			s.enqueueWarm(e.source, e.a)
-			n++
+		if s.cached(ctx, e.source, e.a) {
+			continue
 		}
+		s.enqueueWarm(e.source, e.a, n < s.cfg.Cache.Warm)
+		n++
 	}
 	return list, nil
 }
@@ -429,11 +430,12 @@ func (s *Server) cached(ctx context.Context, name string, a source.Artifact) boo
 type warmItem struct {
 	source   string
 	artifact source.Artifact
+	keepAPK  bool
 }
 
-func (s *Server) enqueueWarm(name string, a source.Artifact) {
+func (s *Server) enqueueWarm(name string, a source.Artifact, keepAPK bool) {
 	select {
-	case s.warm <- warmItem{name, a}:
+	case s.warm <- warmItem{name, a, keepAPK}:
 	default:
 	}
 }
@@ -491,7 +493,7 @@ func (s *Server) upload(ctx context.Context, in *uploadInput) (ArtifactView, err
 	if err != nil {
 		return ArtifactView{}, err
 	}
-	if _, err := s.cache.put(ctx, name, a, tmp.Name(), meta, icon); err != nil {
+	if _, err := s.cache.put(ctx, name, a, tmp.Name(), meta, icon, true); err != nil {
 		s.log.Warn("could not cache uploaded APK", "source", name, "artifact", a.ID, "err", err)
 	}
 	s.emit(ctx, audit.Event{Action: audit.ArtifactUpload, Artifact: name + "/" + a.ID, Details: map[string]string{
@@ -609,11 +611,8 @@ func (s *Server) refreshSource(ctx context.Context, name string) {
 	s.library.set(name, fingerprint(items))
 	n := 0
 	for _, a := range items {
-		if n >= s.cfg.Cache.Warm {
-			break
-		}
 		if !s.cached(ctx, name, a) {
-			s.enqueueWarm(name, a)
+			s.enqueueWarm(name, a, n < s.cfg.Cache.Warm)
 			n++
 		}
 	}

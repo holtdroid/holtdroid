@@ -44,7 +44,9 @@ const (
 
 // Cache keeps downloaded APKs and their parsed metadata in a Store, one
 // prefix per artifact revision, so a replaced file gets a fresh entry.
-// meta.json is written last and marks a complete entry.
+// meta.json is written last and marks a complete entry. Eviction removes
+// only app.apk: the metadata and icon stay, so listings keep their app
+// names and icons, and a restart finds them without parsing anything.
 type Cache struct {
 	store    storage.Store
 	tmpDir   string
@@ -123,12 +125,14 @@ func (c *Cache) Icon(ctx context.Context, key string) ([]byte, error) {
 func (c *Cache) Ensure(ctx context.Context, source string, a src.Artifact) (CacheEntry, error) {
 	key := cacheKey(source, a.ID, a.Revision)
 	if e, ok := c.LookupKey(ctx, key); ok {
-		cacheRequests.WithLabelValues("hit").Inc()
-		return e, nil
+		if _, err := c.store.Stat(ctx, path.Join(key, apkObject)); err == nil {
+			cacheRequests.WithLabelValues("hit").Inc()
+			return e, nil
+		}
 	}
 	cacheRequests.WithLabelValues("miss").Inc()
 	v, err, _ := c.sf.Do(key, func() (any, error) {
-		return c.fetch(context.WithoutCancel(ctx), source, a)
+		return c.fetch(context.WithoutCancel(ctx), source, a, true)
 	})
 	if err != nil {
 		return CacheEntry{}, err
@@ -136,7 +140,20 @@ func (c *Cache) Ensure(ctx context.Context, source string, a src.Artifact) (Cach
 	return v.(CacheEntry), nil
 }
 
-func (c *Cache) fetch(ctx context.Context, source string, a src.Artifact) (CacheEntry, error) {
+// Index parses an artifact and stores only its metadata and icon, so the
+// listing can name it without keeping a copy of the APK.
+func (c *Cache) Index(ctx context.Context, source string, a src.Artifact) error {
+	key := cacheKey(source, a.ID, a.Revision)
+	if _, ok := c.LookupKey(ctx, key); ok {
+		return nil
+	}
+	_, err, _ := c.sf.Do("index:"+key, func() (any, error) {
+		return c.fetch(context.WithoutCancel(ctx), source, a, false)
+	})
+	return err
+}
+
+func (c *Cache) fetch(ctx context.Context, source string, a src.Artifact, keepAPK bool) (CacheEntry, error) {
 	rc, err := c.open(ctx, source, a.ID)
 	if err != nil {
 		return CacheEntry{}, err
@@ -163,7 +180,7 @@ func (c *Cache) fetch(ctx context.Context, source string, a src.Artifact) (Cache
 	if side := c.sidecarIcon(ctx, source, a.ID); side != nil {
 		icon = side
 	}
-	return c.put(ctx, source, a, tmp.Name(), meta, icon)
+	return c.put(ctx, source, a, tmp.Name(), meta, icon, keepAPK)
 }
 
 func (c *Cache) sidecarIcon(ctx context.Context, source, id string) []byte {
@@ -186,7 +203,7 @@ func (c *Cache) sidecarIcon(ctx context.Context, source, id string) []byte {
 	return raw
 }
 
-func (c *Cache) put(ctx context.Context, source string, a src.Artifact, file string, meta apk.Metadata, icon []byte) (CacheEntry, error) {
+func (c *Cache) put(ctx context.Context, source string, a src.Artifact, file string, meta apk.Metadata, icon []byte, keepAPK bool) (CacheEntry, error) {
 	f, err := os.Open(file)
 	if err != nil {
 		return CacheEntry{}, err
@@ -199,8 +216,10 @@ func (c *Cache) put(ctx context.Context, source string, a src.Artifact, file str
 	key := cacheKey(source, a.ID, a.Revision)
 	entry := CacheEntry{Key: key, Source: source, ID: a.ID, Revision: a.Revision, Meta: meta, HasIcon: icon != nil, Size: info.Size(), Parser: apk.ParserVersion}
 
-	if err := c.store.Put(ctx, path.Join(key, apkObject), f, info.Size()); err != nil {
-		return CacheEntry{}, fmt.Errorf("store apk: %w", err)
+	if keepAPK {
+		if err := c.store.Put(ctx, path.Join(key, apkObject), f, info.Size()); err != nil {
+			return CacheEntry{}, fmt.Errorf("store apk: %w", err)
+		}
 	}
 	if icon != nil {
 		if err := c.store.Put(ctx, path.Join(key, iconObject), bytes.NewReader(icon), int64(len(icon))); err != nil {
@@ -224,10 +243,9 @@ func (c *Cache) put(ctx context.Context, source string, a src.Artifact, file str
 }
 
 type cacheItem struct {
-	prefix string
-	size   int64
-	used   time.Time
-	keys   []string
+	key  string
+	size int64
+	used time.Time
 }
 
 func (c *Cache) evict(ctx context.Context) {
@@ -239,53 +257,23 @@ func (c *Cache) evict(ctx context.Context) {
 		c.log.Warn("cache eviction: list failed", "err", err)
 		return
 	}
-	byPrefix := map[string]*cacheItem{}
+	var items []cacheItem
 	var total int64
 	for _, o := range objs {
-		if strings.HasPrefix(o.Key, appDataPrefix) {
+		if strings.HasPrefix(o.Key, appDataPrefix) || path.Base(o.Key) != apkObject {
 			continue
 		}
-		prefix, name := path.Split(o.Key)
-		it := byPrefix[prefix]
-		if it == nil {
-			it = &cacheItem{prefix: prefix}
-			byPrefix[prefix] = it
-		}
-		it.keys = append(it.keys, o.Key)
-		it.size += o.Size
+		items = append(items, cacheItem{key: o.Key, size: o.Size, used: o.Modified})
 		total += o.Size
-		if name == apkObject {
-			it.used = o.Modified
-		}
 	}
-	items := make([]*cacheItem, 0, len(byPrefix))
-	for _, it := range byPrefix {
-		items = append(items, it)
-	}
-	slices.SortFunc(items, func(a, b *cacheItem) int { return a.used.Compare(b.used) })
+	slices.SortFunc(items, func(a, b cacheItem) int { return a.used.Compare(b.used) })
 
 	for _, it := range items {
 		if total <= c.maxSize {
 			return
 		}
-		c.mu.Lock()
-		delete(c.mem, path.Clean(it.prefix))
-		c.mu.Unlock()
-		slices.SortFunc(it.keys, func(a, b string) int {
-			if path.Base(a) == metaObject {
-				return -1
-			}
-			if path.Base(b) == metaObject {
-				return 1
-			}
-			return 0
-		})
-		var errs []error
-		for _, key := range it.keys {
-			errs = append(errs, c.store.Delete(ctx, key))
-		}
-		if err := errors.Join(errs...); err != nil {
-			c.log.Warn("cache eviction failed", "entry", it.prefix, "err", err)
+		if err := c.store.Delete(ctx, it.key); err != nil {
+			c.log.Warn("cache eviction failed", "entry", it.key, "err", err)
 			continue
 		}
 		total -= it.size

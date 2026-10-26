@@ -119,7 +119,13 @@ func (s *Server) warmLoop(ctx context.Context) {
 				continue
 			}
 			wctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
-			if _, err := s.cache.Ensure(wctx, item.source, item.artifact); err != nil {
+			var err error
+			if item.keepAPK {
+				_, err = s.cache.Ensure(wctx, item.source, item.artifact)
+			} else {
+				err = s.cache.Index(wctx, item.source, item.artifact)
+			}
+			if err != nil {
 				s.log.Debug("cache warm failed", "source", item.source, "artifact", item.artifact.ID, "err", err)
 			}
 			cancel()

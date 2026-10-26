@@ -3758,3 +3758,22 @@ the fake provider serves its placeholder (`holtdroid dev` sets it empty).
 **Consequences.** Needs outbound HTTPS from the api only. The cache is per api
 replica and lost on restart; the first open of a revision after that is cold
 again, but no longer depends on the session.
+
+## 124. Eviction keeps parsed metadata; unparsed APKs are indexed without being kept
+
+**Context.** The APK cache (decision #63) deleted a whole entry on eviction and
+warmed only the newest `cache.warm` APKs, so after a restart or on a bucket of
+large builds the older apps stayed on "Reading package info…" until someone
+launched them.
+
+**Decision.** Eviction deletes only `app.apk`; `meta.json` and `icon.png`
+stay, so `Lookup` still answers and the listing shows names and icons.
+`Cache.Ensure` re-downloads when the APK is missing. Uncached artifacts beyond
+the first `cache.warm` are downloaded in the background and parsed by
+`Cache.Index`, which stores only metadata and icon. Validity is unchanged: the
+key hashes source, file and revision (the ETag, a content hash on S3) and
+`apk.ParserVersion` must match, otherwise the entry is parsed again.
+
+**Consequences.** Metadata for deleted artifacts is a few KiB and is never
+evicted. After an upgrade that bumps the parser, every APK is downloaded once
+more in the background. `cache.maxSize` now counts only APKs.

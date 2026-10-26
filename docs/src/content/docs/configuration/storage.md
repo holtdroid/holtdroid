@@ -64,13 +64,20 @@ the bucket/prefix.
 
 ## Size limit and warm-up
 
-| Key             | Default | Meaning                                                                  |
-| --------------- | ------- | ------------------------------------------------------------------------ |
-| `cache.maxSize` | `20GiB` | Beyond this the least recently used APKs are evicted                     |
-| `cache.warm`    | `10`    | Newest uncached APKs per listing to download and parse in the background |
+| Key             | Default | Meaning                                                                 |
+| --------------- | ------- | ----------------------------------------------------------------------- |
+| `cache.maxSize` | `20GiB` | Beyond this the least recently used APKs are evicted                    |
+| `cache.warm`    | `10`    | Newest uncached APKs per listing to download and keep in the background |
 
 On S3, "least recently used" means "oldest upload", since objects can't be
 touched cheaply; a bucket lifecycle rule is a fine alternative to `maxSize`.
+
+Eviction removes only the APK. An app's name, version and icon stay in the
+cache, so after a restart (or an eviction) the list shows every app at once.
+APKs that have no metadata yet are downloaded once in the background and
+parsed without being kept; only the newest `cache.warm` are kept. An entry
+is valid while the file's revision (its ETag, a content hash on S3) and the
+parser version match, otherwise the APK is parsed again.
 
 ## Layout
 
@@ -78,7 +85,7 @@ One prefix per artifact revision, named after a hash of source, file and
 revision — a replaced file gets a fresh entry:
 
 ```
-<hash>/app.apk
+<hash>/app.apk      # may be missing after eviction; downloaded again on launch
 <hash>/icon.png     # when the launcher icon could be rendered
 <hash>/meta.json    # written last; marks the entry complete
 ```
