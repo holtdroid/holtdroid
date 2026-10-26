@@ -62,7 +62,9 @@ describe("DevToolsLog", () => {
     const r = log.requests[1]!
     expect(requestPhase(r, 850)).toBe("pending")
     expect(requestPhase(r, 900)).toBe("server-error")
-    expect(requestPhase({ ...r, error: "net::ERR_FAILED" }, 900)).toBe("failed")
+    expect(requestPhase({ ...r, error: "net::ERR_FAILED", status: undefined }, 900)).toBe("failed")
+    expect(requestPhase({ ...r, status: 404, error: "net::ERR_ABORTED" }, 900)).toBe("client-error")
+    expect(requestPhase({ ...r, error: "net::ERR_ABORTED", canceled: true }, 900)).toBe("failed")
   })
 
   test("sockets keep their states and frames", () => {

@@ -267,7 +267,11 @@ export function NetworkView({ log, time, onSeek }: { log: DevToolsLog; time: num
                 <StatusBadge r={r} t={time} />
                 <span className="w-10 shrink-0 font-mono text-[11.5px] text-stage-outline">{r.method}</span>
                 <span className="min-w-0 flex-1 truncate" title={r.url}>
-                  <span className={cn(r.error ? "text-stage-error" : "text-stage-on-surface")}>{u.name}</span>
+                  <span
+                    className={cn(requestPhase(r, time) === "failed" ? "text-stage-error" : "text-stage-on-surface")}
+                  >
+                    {u.name}
+                  </span>
                   <span className="ml-2 text-stage-outline-dim">{u.host}</span>
                 </span>
                 <span className="hidden w-16 shrink-0 text-right text-xs text-stage-outline tabular-nums sm:block">
@@ -368,7 +372,7 @@ function RequestDetails({
   const general: [string, string][] = [
     ["URL", r.url],
     ["Method", r.method],
-    ["Status", r.error ? r.error : `${r.status} ${r.statusText ?? ""}`.trim()],
+    ["Status", [r.status ? `${r.status} ${r.statusText ?? ""}`.trim() : "", r.error ?? ""].filter(Boolean).join(" · ")],
     ...(r.redirect ? ([["Redirected to", r.redirect]] as [string, string][]) : []),
     ...(r.resourceType ? ([["Type", r.resourceType]] as [string, string][]) : []),
     ...(r.remoteAddress ? ([["Remote address", r.remoteAddress]] as [string, string][]) : []),

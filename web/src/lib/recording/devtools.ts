@@ -139,7 +139,7 @@ export type RequestPhase = "pending" | "failed" | "redirect" | "ok" | "client-er
 export function requestPhase(r: DevToolsRequest, t: number): RequestPhase {
   const status = r.status ?? 0
   if (!r.end || r.end > t) return "pending"
-  if (r.error) return "failed"
+  if (r.error && (!status || r.canceled)) return "failed"
   if (r.redirect || (status >= 300 && status < 400)) return "redirect"
   if (status >= 500) return "server-error"
   if (status >= 400) return "client-error"
