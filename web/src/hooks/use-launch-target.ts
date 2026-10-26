@@ -58,10 +58,13 @@ export function useLaunchTarget(
   const catalog = useWebViews(webviewCapable)
   const level = android ? apiLevels[android] : undefined
   const webviews = webviewCapable ? (catalog.data ?? []).filter((w) => !level || w.minSdk <= level) : []
+  const newestStable = webviews.find((w) => w.channels.includes("stable")) ?? webviews[0]
   const webview =
     [chosenWebView, lastWebView(provider?.name ?? "")].find(
       (id): id is string => id === "" || (id !== null && webviews.some((w) => w.id === id)),
-    ) ?? ""
+    ) ??
+    newestStable?.id ??
+    ""
 
   return {
     loaded: providers.isSuccess,

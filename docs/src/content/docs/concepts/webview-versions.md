@@ -17,9 +17,13 @@ device, including yours, uses it.
 On a virtual device, the launch dialog shows a **WebView** step under the
 Android version. It lists:
 
-- **Built-in**, the default;
+- **Built-in**, the WebView shipped with the Android image;
 - one card per Chromium milestone in the catalog, marked with the release
   channels it is on today (Stable, Beta, Dev, Canary).
+
+The default is the newest milestone on the Stable channel that works on the
+chosen Android version, or the newest milestone when none is on Stable.
+Choosing **Built-in** is remembered like any other choice.
 
 Only builds that work on the chosen Android version are shown. Chromium 149
 and later need Android 14 or 15. On Android 11, 12 and 13 they abort as

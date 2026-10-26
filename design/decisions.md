@@ -3721,3 +3721,18 @@ unchanged. Every session starts a second zygote: about 40 MB PSS
 libraries fail to install instead of crashing; Android 11's system
 `build.prop` still lists `armeabi-v7a`.
 
+
+## 121. The launch dialog defaults to the newest stable Chromium WebView
+
+**Context.** With a WebView catalog configured, a session started with the
+Android image's built-in WebView unless someone picked a build, so most
+launches tested an old Chromium.
+
+**Decision.** The web UI preselects the newest catalog build on the Stable
+channel that the chosen Android version can run, or the newest build when none
+is on Stable. A remembered choice, including Built-in, wins. The API is
+unchanged: a launch request without `webview` still uses the built-in one.
+
+**Consequences.** Quick launch installs a WebView by default (a few seconds
+longer) once the catalog has loaded. Providers without the `webview`
+capability and portals without a catalog behave as before.
