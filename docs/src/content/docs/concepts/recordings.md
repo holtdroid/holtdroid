@@ -147,10 +147,14 @@ and value pairs, binary payloads a hex dump. **Pretty** and **Raw** switch
 between the parsed view and the text as it was sent, and the copy button
 copies it.
 
-Values that look like a point in time get a chip with how far they are from
-the **device clock at the player's position** (“now”, “3.2 s ago”, “in 1 h”),
-so a timestamp that was “now” when it arrived reads “3 s ago” three seconds
-of video later: Unix time in seconds, milliseconds, microseconds or
+Values that look like a point in time get two chips: the first (a clock
+with an arrow back) says how far they were from the **device clock when the
+line was recorded**, the second how far they are from it **at the player's
+position** (“now”, “3.2 s ago”, “in 1 h”), so a timestamp that was “now”
+when it arrived keeps “now” in the first chip and reads “3 s ago” in the
+second three seconds of video later. The live WebSockets tab of a session
+shows the same two chips, the second against the clock right now. Times are
+found in Unix time in seconds, milliseconds, microseconds or
 nanoseconds, ISO 8601 and HTTP dates. Hover it for its distance from the
 device clock both now and when it was recorded, the same moment in UTC, in
 the device's time zone and in yours, as Unix seconds and milliseconds (click

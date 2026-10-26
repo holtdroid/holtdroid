@@ -228,9 +228,9 @@ export function RecordingPlayer({
       <div
         ref={grid}
         style={{ "--stage-h-lg": `${gridHeight}px` } as CSSProperties}
-        className="grid gap-3 [--phone-max-w:calc(100vw-4rem)] [--stage-h:68dvh] lg:min-h-0 lg:flex-1 lg:grid-cols-[158px_auto_minmax(380px,1fr)] lg:grid-rows-[minmax(0,1fr)] lg:[--phone-max-w:min(40vw,900px)] lg:[--stage-h:var(--stage-h-lg,60dvh)]"
+        className="grid gap-3 [--phone-max-w:calc(100vw-4rem)] [--stage-h:68dvh] lg:min-h-0 lg:flex-1 lg:grid-cols-[208px_auto_minmax(380px,1fr)] lg:grid-rows-[minmax(0,1fr)] lg:[--phone-max-w:min(40vw,900px)] lg:[--stage-h:var(--stage-h-lg,60dvh)]"
       >
-        <div className="order-2 min-h-0 overflow-x-auto pb-1 lg:order-1 lg:overflow-x-visible lg:overflow-y-auto lg:pb-0">
+        <div className="order-2 -m-1 min-h-0 overflow-x-auto p-1 lg:order-1 lg:overflow-x-visible lg:overflow-y-auto">
           <SideCards summary={summary} iconUrl={r.iconUrl} />
         </div>
 

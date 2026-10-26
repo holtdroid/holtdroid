@@ -63,7 +63,10 @@ export function RecordingTools({
 
   return (
     <section className="devtools-skin flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border bg-background text-foreground">
-      <nav className="mb-2 flex h-9 shrink-0 gap-1 overflow-x-auto border-b px-2" aria-label="Recording tools">
+      <nav
+        className="mb-2 flex h-9 shrink-0 gap-1 overflow-x-auto overflow-y-hidden border-b px-2 [scrollbar-width:none]"
+        aria-label="Recording tools"
+      >
         {tabs.map((t) => (
           <button
             key={t.id}
@@ -71,7 +74,7 @@ export function RecordingTools({
             aria-pressed={tab === t.id}
             onClick={() => pick(t.id)}
             className={cn(
-              "-mb-px inline-flex h-9 shrink-0 items-center gap-1.5 border-b-2 px-2.5 text-sm transition-colors [&_svg]:size-3.5",
+              "inline-flex h-full shrink-0 items-center gap-1.5 border-b-2 px-2.5 text-sm transition-colors [&_svg]:size-3.5",
               tab === t.id
                 ? "border-foreground font-medium text-foreground"
                 : "border-transparent text-muted-foreground hover:text-foreground",

@@ -1,4 +1,4 @@
-import { ChevronRightIcon, ClockIcon, CopyIcon } from "lucide-react"
+import { ChevronRightIcon, ClockIcon, CopyIcon, HistoryIcon, type LucideIcon } from "lucide-react"
 import { createContext, type ReactNode, useContext, useMemo, useState } from "react"
 import { toast } from "sonner"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
@@ -52,6 +52,25 @@ export function useStamp(value: unknown, key?: string): Stamp | null {
 }
 
 /** A value that is a point in time: dotted, with how far it is from the device clock then and every format on hover. */
+function Chip({ d, icon: Icon, title }: { d: number; icon: LucideIcon; title: string }) {
+  return (
+    <span
+      title={title}
+      className={cn(
+        "ml-1 inline-flex translate-y-[-1px] items-center gap-0.5 rounded-full px-1.5 align-middle font-sans text-[10.5px] leading-4 font-medium whitespace-nowrap no-underline first-of-type:ml-1.5",
+        Math.abs(d) < 5000
+          ? "bg-stage-primary-container text-stage-on-primary-container"
+          : d > 0
+            ? "bg-stage-secondary-container text-stage-on-secondary-container"
+            : "bg-stage-surface-high text-stage-on-surface-variant",
+      )}
+    >
+      <Icon className="size-2.5" />
+      {relative(d, 0)}
+    </span>
+  )
+}
+
 function versus(d: number, clock: string) {
   return Math.abs(d) < 1000 ? `same as ${clock}` : `${formatSpan(d)} ${d < 0 ? "before" : "after"} ${clock}`
 }
@@ -68,7 +87,6 @@ export function TimeHint({ stamp, children }: { stamp: Stamp; children: ReactNod
   const playhead = clocks.startedAt + now + clocks.offsetAt(now)
   const d = stamp.ms - playhead
   const atEvent = stamp.ms - m.device
-  const near = Math.abs(d) < 5000
   const offset = m.device - m.real
   const at = Math.round(stamp.ms - clocks.offsetAt(now) - clocks.startedAt)
   const inRecording =
@@ -78,19 +96,12 @@ export function TimeHint({ stamp, children }: { stamp: Stamp; children: ReactNod
       <HoverCardTrigger asChild>
         <span className="cursor-help underline decoration-stage-outline decoration-dotted underline-offset-[3px]">
           {children}
-          <span
-            className={cn(
-              "ml-1.5 inline-flex translate-y-[-1px] items-center gap-0.5 rounded-full px-1.5 align-middle font-sans text-[10.5px] leading-4 font-medium whitespace-nowrap no-underline",
-              near
-                ? "bg-stage-primary-container text-stage-on-primary-container"
-                : d > 0
-                  ? "bg-stage-secondary-container text-stage-on-secondary-container"
-                  : "bg-stage-surface-high text-stage-on-surface-variant",
-            )}
-          >
-            <ClockIcon className="size-2.5" />
-            {relative(stamp.ms, playhead)}
-          </span>
+          <Chip
+            d={atEvent}
+            icon={HistoryIcon}
+            title={`Against the device clock when it was seen (${(clocks.label ?? clock)(m.t)})`}
+          />
+          <Chip d={d} icon={ClockIcon} title={`Against the device clock now (${(clocks.label ?? clock)(now)})`} />
         </span>
       </HoverCardTrigger>
       <HoverCardContent

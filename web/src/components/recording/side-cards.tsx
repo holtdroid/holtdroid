@@ -18,6 +18,8 @@ import { series } from "@/lib/recording/android"
 import type { Block, Row, Summary, Tone } from "@/lib/recording/summary"
 import { cn } from "@/lib/utils"
 
+export const cardWidth = 200
+
 const tones: Record<Tone, string> = { warn: "text-amber-300", bad: "text-red-300" }
 
 function Rows({ rows }: { rows: Row[] }) {
@@ -108,7 +110,7 @@ export function SideCards({
     <div className={cn("flex gap-2.5 lg:flex-col", className)}>
       <ShadeRoot>
         <HoverCardTrigger asChild>
-          <ShadeCard aria-label="Time" changed={!!s.clock.offset}>
+          <ShadeCard style={{ width: cardWidth }} aria-label="Time" changed={!!s.clock.offset}>
             <span className="text-2xl leading-none font-medium tabular-nums">{s.clock.time}</span>
             <span className="truncate text-xs text-neutral-300">{s.clock.date}</span>
             <CardLine icon={ClockIcon}>
@@ -133,15 +135,17 @@ export function SideCards({
 
       <ShadeRoot>
         <HoverCardTrigger asChild>
-          <ShadeCard aria-label="App" changed={!s.app.running && !!s.app.state}>
+          <ShadeCard style={{ width: cardWidth }} aria-label="App" changed={!s.app.running && !!s.app.state}>
             <span className="flex min-w-0 items-center gap-2">
               <AppIcon src={iconUrl} className="size-6 shrink-0" />
               <span className="truncate text-sm font-medium">{s.app.title}</span>
             </span>
             {s.app.version && <span className="truncate font-mono text-[11px] text-neutral-400">{s.app.version}</span>}
-            <span className={cn("text-xs", s.app.running ? "text-emerald-300" : "text-amber-300")}>
-              {s.app.state || "—"}
-            </span>
+            {s.app.state && (
+              <span className={cn("text-xs", s.app.running ? "text-emerald-300" : "text-amber-300")}>
+                {s.app.state}
+              </span>
+            )}
           </ShadeCard>
         </HoverCardTrigger>
         <ShadePanel>
@@ -160,7 +164,7 @@ export function SideCards({
 
       <ShadeRoot>
         <HoverCardTrigger asChild>
-          <ShadeCard aria-label="Device">
+          <ShadeCard style={{ width: cardWidth }} aria-label="Device">
             <span className="truncate text-sm font-medium">{s.device[0]?.value ?? "Device"}</span>
             <span className="truncate text-xs text-neutral-300">Android {s.device[1]?.value ?? "—"}</span>
             {s.battery && (
@@ -195,7 +199,7 @@ export function SideCards({
 
       <ShadeRoot>
         <HoverCardTrigger asChild>
-          <ShadeCard aria-label="Network" changed={s.network.some((r) => r.tone)}>
+          <ShadeCard style={{ width: cardWidth }} aria-label="Network" changed={s.network.some((r) => r.tone)}>
             <span className="truncate text-sm font-medium">{s.network[0]?.value ?? "—"}</span>
             {s.network
               .slice(1)
@@ -220,12 +224,16 @@ export function SideCards({
       {s.resources.length > 0 && (
         <ShadeRoot>
           <HoverCardTrigger asChild>
-            <ShadeCard aria-label="Load" changed={s.resources.some((b) => b.tone === "bad")}>
+            <ShadeCard
+              style={{ width: cardWidth }}
+              aria-label="Load"
+              changed={s.resources.some((b) => b.tone === "bad")}
+            >
               {[cpu, memory].filter(Boolean).map((b) => (
                 <span key={b!.label} className="grid gap-1">
-                  <span className="flex justify-between gap-2 text-xs text-neutral-300">
-                    <span className="truncate">{b!.label}</span>
-                    <span className="tabular-nums">{b!.value}</span>
+                  <span className="flex items-baseline justify-between gap-2 text-xs text-neutral-300">
+                    <span className="min-w-0 truncate">{b!.label}</span>
+                    <span className="shrink-0 whitespace-nowrap tabular-nums">{b!.value}</span>
                   </span>
                   <span className="h-1 overflow-hidden rounded-full bg-neutral-700">
                     <span
