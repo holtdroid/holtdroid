@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -314,5 +315,64 @@ func TestFrontendStatus(t *testing.T) {
 			t.Fatal("crawl never finished")
 		}
 		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+func TestFrontendCrawlsOneRevisionAtATimeBrowserFirst(t *testing.T) {
+	var mu sync.Mutex
+	var order []string
+	block := make(chan struct{})
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		rev := strings.TrimPrefix(strings.Split(r.URL.Path, "/")[2], "@")
+		mu.Lock()
+		order = append(order, rev)
+		mu.Unlock()
+		if rev == "aaaaaaaaaaaaaaaa" {
+			<-block
+		}
+		_, _ = io.WriteString(w, "<!doctype html>")
+	}))
+	defer upstream.Close()
+
+	f := New(upstream.URL+"/serve_rev", t.TempDir(), nil, slog.New(slog.DiscardHandler))
+	f.Warm("aaaaaaaaaaaaaaaa")
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		mu.Lock()
+		n := len(order)
+		mu.Unlock()
+		if n == 1 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("first crawl did not start")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	f.Warm("bbbbbbbbbbbbbbbb")
+	f.enqueue("cccccccccccccccc", true)
+	time.Sleep(50 * time.Millisecond)
+	mu.Lock()
+	if len(order) != 1 {
+		t.Fatalf("crawls ran in parallel: %v", order)
+	}
+	mu.Unlock()
+	close(block)
+	deadline = time.Now().Add(2 * time.Second)
+	for {
+		mu.Lock()
+		done := len(order) == 3
+		got := slices.Clone(order)
+		mu.Unlock()
+		if done {
+			if got[1] != "cccccccccccccccc" || got[2] != "bbbbbbbbbbbbbbbb" {
+				t.Fatalf("order %v, want the browser's revision before the prefetched one", got)
+			}
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("crawls did not finish: %v", got)
+		}
+		time.Sleep(time.Millisecond)
 	}
 }

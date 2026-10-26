@@ -428,8 +428,10 @@ codecs and reports that it can't capture audio.
   start, so the api fetches at most 6 files at a time and retries 429, 5xx
   and broken transfers up to 5 times with backoff (1, 2, 4, 8 s); a file that
   still fails is a logged 502. A revision is also crawled in the background
-  from `inspector.html` through every file it references (3 of the 6 slots
-  at most, so the browser's own requests come first), and a crawl that got
+  from `inspector.html` through every file it references, one revision at a
+  time with the ones a browser asked for first, so each archive lands as
+  soon as possible even when the api restarts often (3 of the 6 slots at
+  most, so the browser's own requests come first), and a crawl that got
   every file is archived as `devtools-frontend/@{rev}.tar.gz` in the api's
   `storage`; a later api restores a revision from there instead of
   crawling. Crawls start from the first request for a revision, from every

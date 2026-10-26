@@ -47,7 +47,11 @@ type Cache struct {
 	slots    chan struct{}
 	crawl    chan struct{}
 	warmed   sync.Map
+	started  sync.Map
 	restored sync.Map
+	queue    chan string
+	urgent   chan string
+	worker   sync.Once
 	attempts int
 	backoff  time.Duration
 
@@ -76,7 +80,7 @@ func New(upstream, dir string, store storage.Store, log *slog.Logger) *Cache {
 	return &Cache{
 		upstream: strings.TrimRight(upstream, "/") + "/", dir: dir, store: store, hc: &http.Client{Timeout: time.Minute}, log: log,
 		slots: make(chan struct{}, 6), crawl: make(chan struct{}, 3), attempts: 5, backoff: time.Second,
-		status: map[string]*Status{},
+		queue: make(chan string, 256), urgent: make(chan string, 256), status: map[string]*Status{},
 	}
 }
 
@@ -114,7 +118,7 @@ func (f *Cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	f.restore(r.Context(), rev)
-	f.Warm(rev)
+	f.enqueue(rev, true)
 	if file == "/" {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Cache-Control", "no-store")
@@ -202,29 +206,59 @@ var frontendRefRe = regexp.MustCompile(`["'(]((?:\.{1,2}/)?[\w@./-]+\.(?:js|css|
 
 // Warm makes a revision available in the background: from the store's
 // archive when there is one, else by crawling upstream from inspector.html
-// through every file it names, and archiving the result. A crawl runs at
-// most 3 fetches at once out of the 6 upstream slots and shares a fetch with
-// a browser request only once it holds one of them, so a browser never waits
-// behind another revision's crawl queue.
-func (f *Cache) Warm(rev string) {
+// through every file it names, and archiving the result. Revisions are
+// crawled one at a time, the ones a browser asked for first, so each one
+// reaches its archive as soon as possible; a crawl runs at most 3 fetches at
+// once out of the 6 upstream slots and shares a fetch with a browser request
+// only once it holds one of them, so a browser never waits behind the queue.
+func (f *Cache) Warm(rev string) { f.enqueue(rev, false) }
+
+func (f *Cache) enqueue(rev string, urgent bool) {
 	if !revPathRe.MatchString(rev) {
 		rev = "@" + strings.TrimPrefix(rev, "@")
 	}
 	if !revPathRe.MatchString(rev) {
 		return
 	}
-	if _, loaded := f.warmed.LoadOrStore(rev, true); loaded {
+	if _, loaded := f.warmed.LoadOrStore(rev, true); loaded && !urgent {
 		return
 	}
-	go func() {
+	if _, running := f.started.Load(rev); running {
+		return
+	}
+	f.worker.Do(func() { go f.work() })
+	ch := f.queue
+	if urgent {
+		ch = f.urgent
+	}
+	select {
+	case ch <- rev:
+	default:
+	}
+}
+
+func (f *Cache) work() {
+	for {
+		var rev string
+		select {
+		case rev = <-f.urgent:
+		default:
+			select {
+			case rev = <-f.urgent:
+			case rev = <-f.queue:
+			}
+		}
+		if _, loaded := f.started.LoadOrStore(rev, true); loaded {
+			continue
+		}
 		ctx := context.Background()
 		if f.restore(ctx, rev) {
-			return
+			continue
 		}
 		if files, complete := f.crawlRev(ctx, rev); complete {
 			f.archive(ctx, rev, files)
 		}
-	}()
+	}
 }
 
 // restore unpacks the revision's archive from the store, once; true when the
