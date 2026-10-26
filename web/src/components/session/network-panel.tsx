@@ -16,12 +16,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
 import { countryFlag } from "@/lib/format"
+import { lastBackends, rememberBackends } from "@/lib/launch-prefs"
 import { cn } from "@/lib/utils"
 
 const noRegion = "none"
 
 /** Network conditions: the access link or a scenario, and a region's paths to CDNs and servers. */
-export function NetworkPanel({ provider, id }: { provider: string; id: string }) {
+export function NetworkPanel({ provider, id, pkg }: { provider: string; id: string; pkg: string }) {
   const device = useDevice(provider, id)
   const update = useUpdateDevice(provider, id)
   const s = device.data
@@ -39,7 +40,12 @@ export function NetworkPanel({ provider, id }: { provider: string; id: string })
   const changed = (!!s.networkProfile && s.networkProfile !== "full") || !!region
   const setRegion = (patch: Partial<NetworkRegionSettings>) =>
     update.mutate({
-      networkRegion: { region: region?.region ?? "", server: region?.server, backends: region?.backends, ...patch },
+      networkRegion: {
+        region: region?.region ?? "",
+        server: region?.server,
+        backends: region ? region.backends : lastBackends(pkg),
+        ...patch,
+      },
     })
 
   return (
@@ -133,8 +139,12 @@ export function NetworkPanel({ provider, id }: { provider: string; id: string })
                 <Backends
                   key={(region.backends ?? []).join("\n")}
                   backends={region.backends ?? []}
+                  addresses={region.addresses ?? []}
                   busy={busy}
-                  onSave={(backends) => setRegion({ backends })}
+                  onSave={(backends) => {
+                    rememberBackends(pkg, backends)
+                    setRegion({ backends })
+                  }}
                 />
               </>
             )}
@@ -290,10 +300,12 @@ function Paths({
 
 function Backends({
   backends,
+  addresses,
   busy,
   onSave,
 }: {
   backends: string[]
+  addresses: string[]
   busy: boolean
   onSave: (backends: string[]) => void
 }) {
@@ -307,15 +319,20 @@ function Backends({
     <div className="grid gap-1.5">
       <Heading
         title="Backends behind a CDN"
-        note="Host names whose traffic goes through to your servers even though a CDN fronts them, such as an API on Cloudflare. Other hosts on the same CDN addresses take the servers' path too."
+        note="Host names, or *.example.com for every name below it, whose traffic goes through to your servers even though a CDN fronts them, such as an API on Cloudflare. They are matched by the addresses the device gets when it looks them up; other hosts on the same CDN addresses take the servers' path too. Saved for this app in this browser."
       />
       <Textarea
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
-        placeholder="api.example.com"
+        placeholder={"api.example.com\n*.example.com"}
         rows={2}
         className="font-mono text-xs"
       />
+      {addresses.length > 0 && (
+        <p className="text-muted-foreground font-mono text-[11px]">
+          {addresses.length === 1 ? "1 address" : `${addresses.length} addresses`}: {addresses.join(", ")}
+        </p>
+      )}
       {dirty && (
         <Button size="sm" className="justify-self-start" disabled={busy} onClick={() => onSave(parsed)}>
           Save backends

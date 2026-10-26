@@ -292,6 +292,7 @@ func (a *Agent) Run(parent context.Context) {
 		a.log.Warn("reset network profile", "err", err)
 	}
 	if a.resolver != nil {
+		go a.learnBackends(ctx)
 		if _, err := a.dev.Shell(ctx, "settings put global private_dns_mode off"); err != nil {
 			a.log.Warn("turn private DNS off", "err", err)
 		}
@@ -957,4 +958,21 @@ const flushScript = `for n in $(dumpsys dnsresolver | sed -n 's/^NetId: //p'); d
 func (a *Agent) flushDNS(ctx context.Context) error {
 	_, err := a.dev.Shell(ctx, flushScript)
 	return err
+}
+
+// learnBackends follows the device's DNS answers for a network region's
+// backends.
+func (a *Agent) learnBackends(ctx context.Context) {
+	events, stop := a.resolver.Subscribe()
+	defer stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case ev := <-events:
+			if ev.Query != nil {
+				a.controls.learnDNS(*ev.Query)
+			}
+		}
+	}
 }

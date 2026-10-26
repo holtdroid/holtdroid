@@ -181,11 +181,11 @@ func parseChoice(in contract.NetworkRegionSettings) (*choice, error) {
 	}
 	c := &choice{region: r, server: srv}
 	for _, b := range in.Backends {
-		b = strings.TrimSuffix(strings.ToLower(strings.TrimSpace(b)), ".")
+		b = normalize(b)
 		if a, err := netip.ParseAddr(b); err == nil && a.Is4() {
 			b = a.String()
-		} else if !hostName.MatchString(b) || len(b) > 253 {
-			return nil, fmt.Errorf("%w: backend %q is not a host name or IPv4 address", contract.ErrInvalid, b)
+		} else if h := strings.TrimPrefix(b, "*."); !hostName.MatchString(h) || len(h) > 253 {
+			return nil, fmt.Errorf("%w: backend %q is not a host name, *.name or IPv4 address", contract.ErrInvalid, b)
 		}
 		if !slices.Contains(c.backends, b) {
 			c.backends = append(c.backends, b)
@@ -194,12 +194,30 @@ func parseChoice(in contract.NetworkRegionSettings) (*choice, error) {
 	return c, nil
 }
 
+func normalize(name string) string {
+	return strings.TrimSuffix(strings.ToLower(strings.TrimSpace(name)), ".")
+}
+
+// matches is whether a name the device looked up is one of the backends:
+// the name itself, or below a *.name.
+func (c *choice) matches(name string) bool {
+	for _, b := range c.backends {
+		if b == name {
+			return true
+		}
+		if suffix, ok := strings.CutPrefix(b, "*"); ok && strings.HasSuffix(name, suffix) {
+			return true
+		}
+	}
+	return false
+}
+
 // extra is what a path adds once the route's own round trip is taken off.
 func extra(path, baseline time.Duration) time.Duration {
 	return max(0, path-baseline)
 }
 
-func (c *choice) state(m measured) *contract.NetworkRegionState {
+func (c *choice) state(m measured, learned []netip.Addr) *contract.NetworkRegionState {
 	path := func(class contract.NetworkPathClass, target, base time.Duration) contract.NetworkPath {
 		return contract.NetworkPath{
 			Class: class, Target: int(target.Milliseconds()), Baseline: int(base.Milliseconds()),
@@ -208,6 +226,7 @@ func (c *choice) state(m measured) *contract.NetworkRegionState {
 	}
 	return &contract.NetworkRegionState{
 		Region: c.region.ID, Server: c.server.ID, Backends: slices.Clone(c.backends),
+		Addresses: addrStrings(union(m.backends, learned)),
 		Paths: []contract.NetworkPath{
 			path(contract.NetworkPathEdge, c.region.EdgeRTT, m.edge),
 			path(contract.NetworkPathOrigin, c.region.Servers[c.server.ID], m.servers[c.server.ID]),
@@ -229,7 +248,21 @@ func RegionState(in contract.NetworkRegionSettings, route *contract.NetworkRoute
 			m.servers[s.Server] = time.Duration(s.RTT) * time.Millisecond
 		}
 	}
-	return c.state(m), nil
+	return c.state(m, nil), nil
+}
+
+func union(a, b []netip.Addr) []netip.Addr {
+	out := slices.Concat(a, b)
+	slices.SortFunc(out, func(x, y netip.Addr) int { return x.Compare(y) })
+	return slices.Compact(out)
+}
+
+func addrStrings(addrs []netip.Addr) []string {
+	out := make([]string, 0, len(addrs))
+	for _, a := range addrs {
+		out = append(out, a.String())
+	}
+	return out
 }
 
 func linkInfo(l Link) contract.NetworkLink {

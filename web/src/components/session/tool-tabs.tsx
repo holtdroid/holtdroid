@@ -117,7 +117,7 @@ export function ToolTabs({
       )}
       {network && opened.has("network") && (
         <TabsContent value="network" forceMount className="min-h-0 data-[state=inactive]:hidden">
-          <NetworkPanel provider={session.provider} id={session.id} />
+          <NetworkPanel provider={session.provider} id={session.id} pkg={session.package} />
         </TabsContent>
       )}
       {dns && opened.has("dns") && (

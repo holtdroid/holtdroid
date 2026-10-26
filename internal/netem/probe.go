@@ -11,6 +11,7 @@ import (
 	"net/netip"
 	"net/url"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -167,6 +168,9 @@ func resolve(ctx context.Context, hosts []string) []netip.Addr {
 	var out []netip.Addr
 	var wg sync.WaitGroup
 	for _, h := range hosts {
+		if strings.HasPrefix(h, "*.") {
+			continue
+		}
 		wg.Go(func() {
 			addrs := []netip.Addr{}
 			if a, err := netip.ParseAddr(h); err == nil {

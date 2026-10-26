@@ -83,9 +83,14 @@ func TestRegions(t *testing.T) {
 }
 
 func TestParseChoice(t *testing.T) {
-	c, err := parseChoice(contract.NetworkRegionSettings{Region: "bd", Backends: []string{" API.example.com. ", "api.example.com", "10.0.0.1"}})
-	if err != nil || c.server.ID != "frankfurt" || strings.Join(c.backends, ",") != "api.example.com,10.0.0.1" {
+	c, err := parseChoice(contract.NetworkRegionSettings{Region: "bd", Backends: []string{" API.example.com. ", "api.example.com", "10.0.0.1", "*.Example.org"}})
+	if err != nil || c.server.ID != "frankfurt" || strings.Join(c.backends, ",") != "api.example.com,10.0.0.1,*.example.org" {
 		t.Errorf("choice = %+v, %v", c, err)
+	}
+	for name, want := range map[string]bool{"api.example.com": true, "www.example.com": false, "a.b.example.org": true, "example.org": false} {
+		if c.matches(name) != want {
+			t.Errorf("matches(%q) = %v", name, !want)
+		}
 	}
 	if c, err := parseChoice(contract.NetworkRegionSettings{}); c != nil || err != nil {
 		t.Errorf("empty region = %+v, %v", c, err)
@@ -95,6 +100,8 @@ func TestParseChoice(t *testing.T) {
 		{Region: "bd", Server: "moon"},
 		{Region: "bd", Backends: []string{"https://api.example.com"}},
 		{Region: "bd", Backends: []string{"localhost"}},
+		{Region: "bd", Backends: []string{"*.*"}},
+		{Region: "bd", Backends: []string{"api.*.com"}},
 	} {
 		if _, err := parseChoice(in); !errors.Is(err, contract.ErrInvalid) {
 			t.Errorf("%+v: %v", in, err)
@@ -293,6 +300,39 @@ func TestWatch(t *testing.T) {
 	if got := r.measures(); got[0] != true || got[1] != false || got[2] != true {
 		t.Errorf("bandwidth measured %v, want at first and after a refresh", got)
 	}
+}
+
+func TestLearn(t *testing.T) {
+	s, r := newTestShaper()
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan struct{})
+	go func() {
+		s.Watch(ctx)
+		close(done)
+	}()
+	for len(r.measures()) == 0 {
+		time.Sleep(time.Millisecond)
+	}
+	learned := []netip.Addr{netip.MustParseAddr("104.16.9.9")}
+	s.Learn("api.example.com", learned)
+	if err := s.SetRegion(ctx, contract.NetworkRegionSettings{Region: "bd", Backends: []string{"*.example.com"}}); err != nil {
+		t.Fatal(err)
+	}
+	applied := len(r.got())
+	s.Learn("cdn.other.com", learned)
+	s.Learn("API.Example.com.", learned)
+	r.tick <- time.Time{}
+	for len(r.got()) == applied {
+		time.Sleep(time.Millisecond)
+	}
+	if got := r.got(); !strings.Contains(got[len(got)-1], "match ip dst 104.16.9.9/32 flowid 1:20") {
+		t.Errorf("learned backend not shaped:\n%.600s", got[len(got)-1])
+	}
+	if st := s.Region(); !slices.Contains(st.Addresses, "104.16.9.9") || !slices.Contains(st.Addresses, "104.16.1.1") {
+		t.Errorf("addresses = %v", st.Addresses)
+	}
+	cancel()
+	<-done
 }
 
 func TestSetErrors(t *testing.T) {

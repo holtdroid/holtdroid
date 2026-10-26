@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"net/netip"
 	"reflect"
 	"slices"
 	"strconv"
@@ -315,6 +316,8 @@ type stubShaper struct {
 	current   contract.NetworkProfile
 	region    *contract.NetworkRegionState
 	refreshes int
+	learned   []string
+	addrs     []netip.Addr
 }
 
 func (s *stubShaper) Region() *contract.NetworkRegionState { return s.region }
@@ -328,6 +331,11 @@ func (s *stubShaper) SetRegion(_ context.Context, in contract.NetworkRegionSetti
 func (s *stubShaper) Route() *contract.NetworkRoute { return nil }
 
 func (s *stubShaper) Watch(context.Context) {}
+
+func (s *stubShaper) Learn(name string, addrs []netip.Addr) {
+	s.learned = append(s.learned, name)
+	s.addrs = append(s.addrs, addrs...)
+}
 
 func (s *stubShaper) Refresh() { s.refreshes++ }
 
@@ -357,6 +365,14 @@ func TestControlsNetworkProfile(t *testing.T) {
 	c.networkMoved()
 	if c.shaper.(*stubShaper).refreshes != 1 {
 		t.Error("a location change didn't measure the route again")
+	}
+	c.learnDNS(contract.DNSQuery{Name: "api.example.com", Answers: []contract.DNSAnswer{
+		{Name: "api.example.com", Type: "CNAME", Data: "edge.example.net"},
+		{Name: "edge.example.net", Type: "A", Data: "104.16.1.1"},
+		{Name: "edge.example.net", Type: "AAAA", Data: "2606:4700::1"},
+	}})
+	if st := c.shaper.(*stubShaper); len(st.learned) != 1 || len(st.addrs) != 1 || st.addrs[0].String() != "104.16.1.1" {
+		t.Errorf("learned %v %v", st.learned, st.addrs)
 	}
 }
 

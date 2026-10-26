@@ -1172,7 +1172,7 @@ export interface components {
             servers: components["schemas"]["NetworkServerRTT"][];
         };
         NetworkRegionSettings: {
-            /** @description host names or IPv4 addresses of the app's backend: their traffic takes the server's path even when a CDN fronts them */
+            /** @description host names, *.names or IPv4 addresses of the app's backend: their traffic takes the server's path even when a CDN fronts them */
             backends?: string[];
             /** @description one of DeviceState.networkRegions; empty turns regional paths off */
             region: string;
@@ -1180,6 +1180,8 @@ export interface components {
             server?: string;
         };
         NetworkRegionState: {
+            /** @description the backends' addresses so far: resolved by the agent, and what the device got when it looked one up */
+            addresses?: string[];
             backends?: string[];
             paths: components["schemas"]["NetworkPath"][];
             region: string;

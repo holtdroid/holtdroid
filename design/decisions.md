@@ -4072,3 +4072,29 @@ connection to the nearest Cloudflare edge, slow start included, so it
 reads a little low. Setting a region no longer waits for a measurement;
 until the first one the region is applied without subtracting the route.
 
+## 135. A region's backends are matched by the device's DNS answers and take wildcards
+
+**Context.** Decision #132 resolved a region's backends with the agent's
+own DNS. An app's API often spans many names (`api.`, `auth.`, regional
+hosts), which the tester wants to write once as `*.example.com`, and a
+backend whose DNS answers depend on where it is asked from may get other
+addresses than the device. Testers also had to type the list again in
+every session.
+
+**Decision.** Backends may be `*.name` (every name below it, as DNS
+rewrites match, decision #133). Since the agent answers the session's DNS,
+it follows its own log: an A answer to a query whose name matches a backend
+adds those addresses to the region, and the qdiscs are re-applied a second
+later, coalescing a burst of lookups. Exact names are still resolved when
+the region is set, so they are shaped before the first lookup. The
+learned addresses are dropped when the region or its backends change.
+`NetworkRegionState.addresses` lists what is matched. The UI saves the list
+per app package in `localStorage` and sends it when a region is picked in
+that app's next session; nothing is kept on the server.
+
+**Consequences.** The first connections to a new address may leave before
+its filter is in (about a second), on the CDN path. Addresses are kept for
+the region's lifetime, not expired with the DNS TTL. A backend the app
+reaches without DNS (a hard-coded IP, DNS over HTTPS) is matched only when
+listed by address. The list follows the browser, not the account.
+

@@ -2622,6 +2622,8 @@ export interface components {
             servers: components["schemas"]["NetworkServerRTT"][];
         };
         NetworkRegionState: {
+            /** @description the backends' addresses so far: resolved by the agent, and what the device got when it looked one up */
+            addresses?: string[];
             backends?: string[];
             paths: components["schemas"]["NetworkPath"][];
             region: string;

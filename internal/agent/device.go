@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"math"
 	"math/rand/v2"
+	"net/netip"
 	"regexp"
 	"slices"
 	"strconv"
@@ -58,6 +59,7 @@ type networkShaper interface {
 	Watch(ctx context.Context)
 	SetRegion(ctx context.Context, in contract.NetworkRegionSettings) error
 	Refresh()
+	Learn(name string, addrs []netip.Addr)
 	Close(ctx context.Context) error
 }
 
@@ -708,6 +710,21 @@ func (c *Controls) setRegion(ctx context.Context, in contract.NetworkRegionSetti
 		return nil
 	}
 	return fmt.Errorf("%w: this device can't emulate network conditions", contract.ErrInvalid)
+}
+
+// learnDNS hands the shaper the IPv4 addresses the device got for a name,
+// so a region's backends are matched by what the device actually uses.
+func (c *Controls) learnDNS(q contract.DNSQuery) {
+	if c.shaper == nil {
+		return
+	}
+	var addrs []netip.Addr
+	for _, a := range q.Answers {
+		if ip, err := netip.ParseAddr(a.Data); a.Type == "A" && err == nil {
+			addrs = append(addrs, ip)
+		}
+	}
+	c.shaper.Learn(q.Name, addrs)
 }
 
 // networkMoved measures the route again after the VPN location changed.

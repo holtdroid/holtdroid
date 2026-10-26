@@ -396,16 +396,17 @@ type NetworkRoute struct {
 }
 
 type NetworkRegionState struct {
-	Region   string        `json:"region"`
-	Server   string        `json:"server"`
-	Backends []string      `json:"backends,omitempty"`
-	Paths    []NetworkPath `json:"paths"`
+	Region    string        `json:"region"`
+	Server    string        `json:"server"`
+	Backends  []string      `json:"backends,omitempty"`
+	Addresses []string      `json:"addresses,omitempty" doc:"the backends' addresses so far: resolved by the agent, and what the device got when it looked one up"`
+	Paths     []NetworkPath `json:"paths"`
 }
 
 type NetworkRegionSettings struct {
 	Region   string   `json:"region" pattern:"^[a-z0-9-]{0,32}$" maxLength:"32" doc:"one of DeviceState.networkRegions; empty turns regional paths off"`
 	Server   string   `json:"server,omitempty" pattern:"^[a-z0-9-]{0,32}$" maxLength:"32" doc:"one of DeviceState.networkServers; empty picks the first"`
-	Backends []string `json:"backends,omitempty" maxItems:"16" doc:"host names or IPv4 addresses of the app's backend: their traffic takes the server's path even when a CDN fronts them"`
+	Backends []string `json:"backends,omitempty" maxItems:"16" doc:"host names, *.names or IPv4 addresses of the app's backend: their traffic takes the server's path even when a CDN fronts them"`
 }
 
 type DeviceState struct {

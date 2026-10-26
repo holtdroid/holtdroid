@@ -454,10 +454,15 @@ Emulation can only add delay, and the session's own route through its VPN
 location already takes some. Only the rest of each path is added; the tab
 shows the region's round trip, the session's route and what is added. When
 the route is already slower than the region (a VPN location far from the
-servers), it says so: a closer location, or none, gets nearer. Backends are resolved by the agent's DNS, so a backend
-whose DNS answers differ by location may be missed. A CDN often puts many
-of its customers' hosts on the same addresses, and those take the servers'
-path too once one of them is listed as a backend.
+servers), it says so: a closer location, or none, gets nearer.
+Backends are host names, `*.example.com` for every name below it, or IPv4
+addresses. The agent answers the device's DNS, so it takes the addresses
+the device gets when it looks a backend up, and shapes them about a second
+later; exact names are also resolved up front. The tab lists the addresses
+found so far. The list is saved for the app in the browser and filled in
+when a region is picked in its next session. A CDN often puts many of its
+customers' hosts on the same addresses, and those take the servers' path
+too once one of them is a backend.
 
 ### The session's route
 

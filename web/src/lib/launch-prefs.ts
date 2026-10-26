@@ -48,6 +48,15 @@ export function rememberLaunch(
   if (webview !== undefined) write(webviewKey(provider), webview)
 }
 
+const backendsKey = (pkg: string) => `holtdroid:backends:${pkg}`
+
+/** The backends a network region last used for an app, one per line. */
+export function lastBackends(pkg: string): string[] {
+  return (read(backendsKey(pkg)) ?? "").split("\n").filter(Boolean)
+}
+
+export const rememberBackends = (pkg: string, backends: string[]) => write(backendsKey(pkg), backends.join("\n"))
+
 const recordKey = "holtdroid:record"
 
 /** Whether to record sessions, or null to follow the server. */
