@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
+	"github.com/holtdroid/holtdroid/internal/auth"
 	"github.com/holtdroid/holtdroid/internal/db"
 )
 
@@ -21,6 +23,47 @@ func (s *Service) List(ctx context.Context) ([]User, error) {
 		}, r.Passkeys))
 	}
 	return out, nil
+}
+
+// Create adds a user without a passkey, for accounts that only ever sign in
+// with a session minted by the holtdroid users session command (bots).
+func (s *Service) Create(ctx context.Context, name, email, role string, limits Overrides) (User, error) {
+	name, err := cleanName(name)
+	if err != nil {
+		return User{}, err
+	}
+	if email, err = s.checkEmail(email, nil); err != nil {
+		return User{}, err
+	}
+	if !ValidRole(role) {
+		return User{}, fmt.Errorf("%w: unknown role %q", ErrInvalid, role)
+	}
+	id := newUserID()
+	err = s.db.Tx(ctx, func(q *db.Queries) error {
+		if _, err := q.GetUserByEmail(ctx, email); err == nil {
+			return ErrEmailTaken
+		}
+		if err := q.CreateUser(ctx, db.CreateUserParams{ID: id, Handle: randomBytes(32), Email: email, Name: name, Role: role, CreatedAt: s.now()}); err != nil {
+			return err
+		}
+		return q.UpdateUser(ctx, db.UpdateUserParams{
+			Email: email, Name: name, Role: role, MaxSessions: limits.MaxSessions, MaxSessionTtl: limits.MaxSessionTTL,
+			RecordingsQuota: limits.RecordingsQuota, AppDataQuota: limits.AppDataMaxSize, ID: id,
+		})
+	})
+	if err != nil {
+		return User{}, err
+	}
+	return s.Get(ctx, id)
+}
+
+// IdentityFor is the signed-in identity of the user with email.
+func (s *Service) IdentityFor(ctx context.Context, email string) (auth.Identity, error) {
+	u, err := s.db.GetUserByEmail(ctx, strings.ToLower(strings.TrimSpace(email)))
+	if err != nil {
+		return auth.Identity{}, fmt.Errorf("%w: no user with email %q", ErrNotFound, email)
+	}
+	return identity(u), nil
 }
 
 func (s *Service) Get(ctx context.Context, id string) (User, error) {

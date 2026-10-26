@@ -117,3 +117,26 @@ func TestRecoveryLinkFor(t *testing.T) {
 		t.Fatalf("info = %+v, %v", info, err)
 	}
 }
+
+func TestCreateBot(t *testing.T) {
+	ctx := context.Background()
+	s := newService(t, auth.UsersConfig{AllowedDomains: []string{"example.com"}})
+	zero := int64(0)
+	u, err := s.Create(ctx, "Claude", "Claude@example.com", RoleUser, Overrides{MaxSessions: &zero})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u.Email != "claude@example.com" || u.Passkeys != 0 || u.Limits.MaxSessions == nil || *u.Limits.MaxSessions != 0 {
+		t.Fatalf("user = %+v", u)
+	}
+	if _, err := s.Create(ctx, "Again", "claude@example.com", RoleUser, Overrides{}); !errors.Is(err, ErrEmailTaken) {
+		t.Fatalf("duplicate: %v", err)
+	}
+	if _, err := s.Create(ctx, "Bot", "bot@other.org", RoleUser, Overrides{}); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("outside allowedDomains: %v", err)
+	}
+	id, err := s.IdentityFor(ctx, "CLAUDE@example.com")
+	if err != nil || id.User != u.ID || id.Admin || id.Pending {
+		t.Fatalf("identity = %+v, %v", id, err)
+	}
+}

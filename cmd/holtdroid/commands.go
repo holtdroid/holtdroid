@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -381,40 +382,132 @@ func openapiCmd() *cobra.Command {
 	}
 }
 
+// openUsers opens the api's SQLite file without a replica of its own: the
+// running api in the same container keeps streaming the changes.
+func openUsers(ctx context.Context, c *common) (*users.Service, *db.DB, api.Config, runtime, error) {
+	cfg := api.DefaultConfig()
+	rt, err := loadConfig(c.configPath, &cfg)
+	if err != nil {
+		return nil, nil, cfg, rt, err
+	}
+	if cfg.Auth.Mode != auth.ModeUsers || cfg.Database.Type != "sqlite" {
+		return nil, nil, cfg, rt, errors.New("needs auth.mode users and database.type sqlite")
+	}
+	if _, err := os.Stat(cfg.Database.Path); err != nil {
+		return nil, nil, cfg, rt, fmt.Errorf("no database at %s: run this in the api's container: %w", cfg.Database.Path, err)
+	}
+	dbCfg := cfg.Database
+	dbCfg.Replica = storage.Config{}
+	d, err := db.Open(ctx, dbCfg, rt.secrets)
+	if err != nil {
+		return nil, nil, cfg, rt, err
+	}
+	svc, err := users.New(d, cfg.Auth.Users, cfg.PublicURL, time.Now)
+	if err != nil {
+		_ = d.Close()
+		return nil, nil, cfg, rt, err
+	}
+	return svc, d, cfg, rt, nil
+}
+
 func usersCmd(c *common) *cobra.Command {
-	cmd := &cobra.Command{Use: "users", Short: "Manage the users auth mode from the api's container"}
+	cmd := &cobra.Command{
+		Use:   "users",
+		Short: "Manage the users auth mode from the api's container",
+		Long: "Run inside the api container: kubectl exec deploy/holtdroid-api -- holtdroid users … --config /etc/holtdroid/config.yaml. " +
+			"The commands write to the api's SQLite file, whose replica the running api keeps streaming.",
+	}
 	var (
-		email string
-		ttl   time.Duration
+		email, name, role string
+		sessionTTL, ttl   time.Duration
+		maxSessions       int64
 	)
-	recoverCmd := &cobra.Command{
-		Use:   "recover",
-		Short: "Print a recovery link that lets a user register a new passkey",
-		Long: "Run inside the api container (kubectl exec deploy/holtdroid-api -- holtdroid users recover --config … --email …): " +
-			"it writes to the api's SQLite file, whose replica the running api keeps streaming.",
+
+	listCmd := &cobra.Command{
+		Use:   "list",
+		Short: "Print every user: id, role, email and name",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			cfg := api.DefaultConfig()
-			rt, err := loadConfig(c.configPath, &cfg)
-			if err != nil {
-				return err
-			}
-			if cfg.Auth.Mode != auth.ModeUsers || cfg.Database.Type != "sqlite" {
-				return errors.New("needs auth.mode users and database.type sqlite")
-			}
-			if _, err := os.Stat(cfg.Database.Path); err != nil {
-				return fmt.Errorf("no database at %s: run this in the api's container: %w", cfg.Database.Path, err)
-			}
-			dbCfg := cfg.Database
-			dbCfg.Replica = storage.Config{}
-			d, err := db.Open(cmd.Context(), dbCfg, rt.secrets)
+			svc, d, _, _, err := openUsers(cmd.Context(), c)
 			if err != nil {
 				return err
 			}
 			defer d.Close()
-			svc, err := users.New(d, cfg.Auth.Users, cfg.PublicURL, time.Now)
+			list, err := svc.List(cmd.Context())
 			if err != nil {
 				return err
 			}
+			for _, u := range list {
+				fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\t%s\t%s\n", u.ID, cmp.Or(u.Role, "pending"), u.Email, u.Name)
+			}
+			return nil
+		},
+	}
+
+	createCmd := &cobra.Command{
+		Use:   "create",
+		Short: "Add a user without a passkey, e.g. a bot that signs in with users session",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			svc, d, _, _, err := openUsers(cmd.Context(), c)
+			if err != nil {
+				return err
+			}
+			defer d.Close()
+			var limits users.Overrides
+			if maxSessions >= 0 {
+				limits.MaxSessions = &maxSessions
+			}
+			u, err := svc.Create(cmd.Context(), name, email, role, limits)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\t%s\t%s\n", u.ID, cmp.Or(u.Role, "pending"), u.Email, u.Name)
+			return nil
+		},
+	}
+	createCmd.Flags().StringVar(&name, "name", "", "display name")
+	createCmd.Flags().StringVar(&role, "role", users.RoleUser, "admin, user, or empty for waiting for approval")
+	createCmd.Flags().Int64Var(&maxSessions, "max-sessions", -1, "devices the user may run at once, 0 for no limit; default: the role's")
+
+	sessionCmd := &cobra.Command{
+		Use:   "session",
+		Short: "Print a session cookie value for a user, to call the API as them",
+		Long:  "Prints the value of the auth.cookieName cookie (holtdroid_session by default), e.g. for curl -b \"holtdroid_session=$VALUE\".",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			svc, d, cfg, rt, err := openUsers(cmd.Context(), c)
+			if err != nil {
+				return err
+			}
+			defer d.Close()
+			id, err := svc.IdentityFor(cmd.Context(), email)
+			if err != nil {
+				return err
+			}
+			if sessionTTL > 0 {
+				cfg.Auth.SessionTTL = sessionTTL
+			}
+			a, err := auth.New(cmd.Context(), cfg.Auth, rt.secrets, cfg.PublicURL)
+			if err != nil {
+				return err
+			}
+			cookie, err := a.SessionCookie(id)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), cookie.Value)
+			return nil
+		},
+	}
+	sessionCmd.Flags().DurationVar(&sessionTTL, "ttl", 0, "how long the session lasts; default auth.sessionTTL")
+
+	recoverCmd := &cobra.Command{
+		Use:   "recover",
+		Short: "Print a recovery link that lets a user register a new passkey",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			svc, d, _, _, err := openUsers(cmd.Context(), c)
+			if err != nil {
+				return err
+			}
+			defer d.Close()
 			link, expires, err := svc.RecoveryLinkFor(cmd.Context(), email, ttl, "cli")
 			if err != nil {
 				return err
@@ -423,9 +516,12 @@ func usersCmd(c *common) *cobra.Command {
 			return nil
 		},
 	}
-	recoverCmd.Flags().StringVar(&email, "email", "", "the user's email")
 	recoverCmd.Flags().DurationVar(&ttl, "ttl", 24*time.Hour, "how long the link stays valid (up to 720h)")
-	_ = recoverCmd.MarkFlagRequired("email")
-	cmd.AddCommand(recoverCmd)
+
+	for _, sub := range []*cobra.Command{createCmd, sessionCmd, recoverCmd} {
+		sub.Flags().StringVar(&email, "email", "", "the user's email")
+		_ = sub.MarkFlagRequired("email")
+	}
+	cmd.AddCommand(listCmd, createCmd, sessionCmd, recoverCmd)
 	return cmd
 }

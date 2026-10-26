@@ -3159,5 +3159,7 @@ doesn't stop their running devices yet. Logging the first-admin link is
 deliberate: whoever reads the api's logs can already read its secrets. An
 admin locked out with no other admin uses `holtdroid users recover` in the
 api's container, which opens the SQLite file without a replica of its own and
-leaves streaming to the running api.
+leaves streaming to the running api; `users create` and `users session` add
+passkey-less bot accounts and mint their cookies the same way, for whoever
+can exec into the api anyway.
 

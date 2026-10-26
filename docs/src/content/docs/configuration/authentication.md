@@ -170,14 +170,28 @@ admin can remove any passkey and create a **recovery link**, single-use and
 valid for up to 30 days, with which the user registers a new passkey on a new
 device. Creating one cancels earlier recovery links.
 
-**Locked out.** When no admin can sign in, create a recovery link from the
-api's container; it writes to the api's database file, and the running api
-replicates the change:
+**From the command line.** `holtdroid users` runs in the api's container,
+writes to the api's database file and leaves replicating the change to the
+running api. It is for operators who can already exec into the api:
 
 ```sh
-kubectl -n holtdroid exec deploy/holtdroid-api -- \
-  holtdroid users recover --config /etc/holtdroid/config.yaml --email you@example.com
+alias hd='kubectl -n holtdroid exec deploy/holtdroid-api -- holtdroid --config /etc/holtdroid/config.yaml'
+hd users list                                   # id, role, email, name
+hd users recover --email you@example.com        # locked out: a recovery link
+hd users create --email bot@example.com --name "CI bot" --max-sessions 0
+hd users session --email bot@example.com        # a session cookie value
 ```
+
+`create` adds a user without a passkey, such as a bot or an AI agent, which
+then calls the API with a cookie from `session`:
+
+```sh
+curl -b "holtdroid_session=$(hd users session --email bot@example.com)" \
+  https://android.example.com/api/v1/sessions
+```
+
+A session lasts `auth.sessionTTL` (`--ttl` to change it) and ends early when
+the user is deleted.
 
 **Signing in with SSO as well.** Set `auth.oidc` as for the `oidc` mode and
 the sign-in page also offers **Sign in with SSO**. The provider's email finds
