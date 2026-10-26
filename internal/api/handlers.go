@@ -461,6 +461,9 @@ func (s *Server) createSession(ctx context.Context, who auth.Identity, req launc
 	if err != nil {
 		return SessionView{}, err
 	}
+	if need, level := requiredSDK(entry.Meta.MinSDK, artifact.Meta.Tags), apiLevels[req.android]; level > 0 && need > level {
+		return SessionView{}, fmt.Errorf("%w: %s needs Android API level %d, Android %s is %d", contract.ErrInvalid, artifact.FileName, need, req.android, level)
+	}
 	restore, snapshot, err := s.restoreFor(ctx, who.User, entry.Meta.Package, req.appData)
 	if err != nil {
 		return SessionView{}, err

@@ -1231,6 +1231,11 @@ export interface components {
             id: string;
             /** @description Contents of the optional .meta.json sidecar */
             meta: components["schemas"]["Meta"];
+            /**
+             * Format: int64
+             * @description The oldest Android API level it runs on: the APK's minSdk or the sidecar's requiresSdk tag, whichever is higher; 0 while neither is known
+             */
+            minSdk?: number;
             /** @description Changes whenever the file is replaced */
             revision: string;
             /** Format: int64 */

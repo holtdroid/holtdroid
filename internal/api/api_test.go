@@ -643,6 +643,47 @@ func (p recordCreate) Create(ctx context.Context, req contract.CreateSession) (c
 	return p.Provider.Create(ctx, req)
 }
 
+func TestRequiredSDK(t *testing.T) {
+	h := newHarness(t, 3)
+	apks := h.srv.cfg.Sources[0].Filesystem.Dir
+	copyFile(t, "../apk/testdata/helloworld.apk", filepath.Join(apks, "chromium-158.apk"))
+	if err := os.WriteFile(filepath.Join(apks, "chromium-158.apk.meta.json"), []byte(`{"tags":{"requiresSdk":"35"}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	launch := func(android string) *httptest.ResponseRecorder {
+		body := map[string]string{"source": "local", "artifactId": encodeID("chromium-158.apk")}
+		if android != "" {
+			body["android"] = android
+		}
+		return h.do(http.MethodPost, "/api/v1/sessions", "otter", "", body)
+	}
+	if rec := launch("13"); rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "needs Android API level 35, Android 13 is 33") {
+		t.Fatalf("too old: %d %s", rec.Code, rec.Body.String())
+	}
+	for _, android := range []string{"15", "", "99"} {
+		if rec := launch(android); rec.Code != http.StatusCreated {
+			t.Fatalf("android %q: %d %s", android, rec.Code, rec.Body.String())
+		}
+	}
+	list := decode[ArtifactList](t, h.do(http.MethodGet, "/api/v1/artifacts", "otter", "", nil))
+	for _, a := range list.Items {
+		want := 0
+		switch a.FileName {
+		case "chromium-158.apk":
+			want = 35
+		case "hello.apk":
+			if a.App != nil {
+				want = int(a.App.MinSDK)
+			}
+		default:
+			continue
+		}
+		if a.MinSDK != want {
+			t.Errorf("%s: minSdk %d, want %d", a.FileName, a.MinSDK, want)
+		}
+	}
+}
+
 func TestAppFrontend(t *testing.T) {
 	h := newHarness(t, 3)
 	var last contract.CreateSession

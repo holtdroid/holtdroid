@@ -151,7 +151,9 @@ in-cluster a sidecar needs, such as a shared VPN gateway, goes into
 ## Screens and Android versions
 
 The launch dialog offers the provider's screens and Android versions
-(`Screen` and `Android` selects, remembered per provider). A screen is fixed
+(`Screen` and `Android` selects, remembered per provider). Versions older
+than the build's `minSdk` or `requiresSdk` tag are greyed out, and the
+newest one it runs on is picked instead. A screen is fixed
 for the session: width, height and density in pixels, as a popular phone
 reports them, plus an emulated display cutout. Android ships overlays for
 cutouts — `corner` (a hole in the top-left corner), `double` (notches top

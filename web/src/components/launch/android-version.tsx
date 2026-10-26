@@ -25,15 +25,17 @@ function AndroidMark({ className }: { className?: string }) {
 export function AndroidVersionCard({
   version,
   selected,
+  disabled,
   onSelect,
 }: {
   version: string
   selected: boolean
+  disabled?: boolean
   onSelect: () => void
 }) {
   const r = releases[version] ?? fallback
   return (
-    <ChoiceCard selected={selected} onSelect={onSelect} className="gap-2.5 p-2.5">
+    <ChoiceCard selected={selected} onSelect={onSelect} disabled={disabled} className="gap-2.5 p-2.5">
       <div
         className="relative flex h-16 items-center justify-between overflow-hidden rounded-lg px-3 text-white"
         style={{ backgroundImage: `linear-gradient(135deg, ${r.from}, ${r.to})` }}

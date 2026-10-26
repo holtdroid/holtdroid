@@ -49,6 +49,7 @@ type ArtifactView struct {
 	UploadedAt  time.Time     `json:"uploadedAt"`
 	Meta        source.Meta   `json:"meta" doc:"Contents of the optional .meta.json sidecar"`
 	App         *apk.Metadata `json:"app,omitempty" doc:"Parsed from the APK once it is cached"`
+	MinSDK      int           `json:"minSdk,omitempty" doc:"The oldest Android API level it runs on: the APK's minSdk or the sidecar's requiresSdk tag, whichever is higher; 0 while neither is known"`
 	IconURL     string        `json:"iconUrl,omitempty"`
 	CanManage   bool          `json:"canManage" doc:"The caller may change visibility or delete it"`
 	CanDownload bool          `json:"canDownload" doc:"The caller may download the APK"`
@@ -387,12 +388,20 @@ func (s *Server) artifactView(ctx context.Context, name string, a source.Artifac
 		CanDownload: s.canDownload(who),
 		ExpiresAt:   s.expiresAt(name, a),
 	}
+	var apkMin int32
 	if e, ok := s.cache.Lookup(ctx, name, a.ID, a.Revision); ok {
 		meta := e.Meta
 		v.App = &meta
 		v.IconURL = iconURL(e)
+		apkMin = meta.MinSDK
 	}
+	v.MinSDK = requiredSDK(apkMin, a.Meta.Tags)
 	return v
+}
+
+func requiredSDK(apkMin int32, tags map[string]string) int {
+	requires, _ := strconv.Atoi(tags["requiresSdk"])
+	return max(int(apkMin), requires)
 }
 
 func encodeID(key string) string { return base64.RawURLEncoding.EncodeToString([]byte(key)) }

@@ -28,6 +28,7 @@ export function useLaunchTarget(
   chosenScreen: string | null = null,
   chosenAndroid: string | null = null,
   chosenWebView: string | null = null,
+  minSdk = 0,
 ) {
   const providers = useProviders()
   const usable = useMemo(() => (providers.data ?? []).filter((p) => !p.error), [providers.data])
@@ -48,8 +49,10 @@ export function useLaunchTarget(
     (id): id is string => !!id && screens.some((s) => s.id === id),
   )
   const versions = [...new Set(pool.flatMap((p) => p.capabilities.versions ?? []))]
-  const android = [chosenAndroid, lastAndroid(provider?.name ?? ""), versions[0]].find(
-    (v): v is string => !!v && versions.includes(v),
+  const runs = (v: string) => !minSdk || (apiLevels[v] ?? Infinity) >= minSdk
+  const runnable = versions.filter(runs)
+  const android = [chosenAndroid, lastAndroid(provider?.name ?? ""), runnable[0]].find(
+    (v): v is string => !!v && runnable.includes(v),
   )
   const webviewCapable = pool.some((p) => p.capabilities.webview)
   const catalog = useWebViews(webviewCapable)
@@ -72,6 +75,7 @@ export function useLaunchTarget(
     screens,
     screen,
     versions,
+    runs,
     android,
     webviews,
     webview,

@@ -90,20 +90,26 @@ what it knows:
 }
 ```
 
-| Field        | Meaning                                                                                  |
-| ------------ | ---------------------------------------------------------------------------------------- |
-| `title`      | Display name instead of the APK's label                                                  |
-| `note`       | Short description, shown under the title                                                 |
-| `changelog`  | What changed, plain text; shown collapsed and searchable                                 |
-| `uploadedBy` | Display name of whoever published the build                                              |
-| `uploadedAt` | RFC 3339 time; defaults to the file's modification time                                  |
-| `link`       | Link back to the origin (Slack message, pipeline, release)                               |
-| `origin`     | Free-form label of where it came from: `slack`, `ci`, `upload`, …                        |
-| `tags`       | String key/values shown as badges and searchable                                         |
-| `owner`      | Portal user ID (as in `/api/v1/me` → `user`) who may delete it and change its visibility |
-| `visibility` | `public` (default) or `private`: only the owner and admins see and launch it             |
-| `temporary`  | `true`: deleted once unused for `uploads.temporaryTTL`; ignored in `readOnly` sources    |
-| `lastUsedAt` | RFC 3339 time of the last launch; the api updates it for temporary builds                |
+| Field        | Meaning                                                                                           |
+| ------------ | ------------------------------------------------------------------------------------------------- |
+| `title`      | Display name instead of the APK's label                                                           |
+| `note`       | Short description, shown under the title                                                          |
+| `changelog`  | What changed, plain text; shown collapsed and searchable                                          |
+| `uploadedBy` | Display name of whoever published the build                                                       |
+| `uploadedAt` | RFC 3339 time; defaults to the file's modification time                                           |
+| `link`       | Link back to the origin (Slack message, pipeline, release)                                        |
+| `origin`     | Free-form label of where it came from: `slack`, `ci`, `upload`, …                                 |
+| `tags`       | String key/values shown as badges and searchable; `requiresSdk` is also a launch limit, see below |
+| `owner`      | Portal user ID (as in `/api/v1/me` → `user`) who may delete it and change its visibility          |
+| `visibility` | `public` (default) or `private`: only the owner and admins see and launch it                      |
+| `temporary`  | `true`: deleted once unused for `uploads.temporaryTTL`; ignored in `readOnly` sources             |
+| `lastUsedAt` | RFC 3339 time of the last launch; the api updates it for temporary builds                         |
+
+A build runs on Android versions at or above its APK's `minSdk` and, when the
+sidecar sets it, the `requiresSdk` tag (an API level, e.g. `"35"` for
+Android 15): for builds that declare an older `minSdk` but break on older
+Android. The launch dialog greys out the Android versions below that, and
+the api answers 422 for them.
 
 Write the sidecar **before** the APK when the visibility matters — the api
 lists whatever is there at that moment. A sidecar that isn't valid JSON is

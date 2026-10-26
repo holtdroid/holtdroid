@@ -43,10 +43,10 @@ release.
 Each build is `chromium-{milestone}.apk` with a sidecar: the title
 `Chromium {milestone}`, the version and snapshot revision as the note, and
 the tags `milestone`, `version`, `channel`, `revision`, `minSdk`,
-`targetSdk`, `requiresSdk` and `frontend`. Chromium 149 and later are
-tagged `requiresSdk: 34`: like the WebView builds, they most likely abort on
-Android 11 to 13, so start them on Android 14 or 15. Holtdroid shows the
-tag but doesn't stop such a launch.
+`targetSdk`, `requiresSdk` and `frontend`. Chromium 149 to 156 are tagged
+`requiresSdk: 34`: they abort at startup on Android 11 to 13. Chromium 157
+and later are tagged `requiresSdk: 35`, see below. The launch dialog greys
+out the Android versions below `requiresSdk` and the api refuses them.
 
 ## Deploying
 
@@ -96,4 +96,4 @@ The job needs outbound HTTPS to `chromiumdash.appspot.com` and
 - Chromium 157 and later draw only through Vulkan 1.3 features. The Android
   15 image of holtdroid-redroid ships newer Mesa Vulkan drivers for that;
   on Android 11 to 14 these builds abort with "GPU process isn't usable",
-  so start them on Android 15. Chromium 156 and older run on every version.
+  hence `requiresSdk: 35`. Chromium 148 and older run on every version.

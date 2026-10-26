@@ -10,7 +10,15 @@ import { quickLaunchMode } from "@/lib/launch-prefs"
 import { locationLabel } from "@/lib/location"
 
 export function QuickLauncher({ artifact, onFallback }: { artifact: ArtifactView; onFallback: () => void }) {
-  const { loaded, usable, provider, target, location, locations, screen, android, webview } = useLaunchTarget()
+  const { loaded, usable, provider, target, location, locations, screen, android, webview } = useLaunchTarget(
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    artifact.minSdk,
+  )
   const launch = useStartSession()
   const appData = useAppData()
   const ready = loaded && !appData.isPending

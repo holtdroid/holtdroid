@@ -117,6 +117,7 @@ function LaunchFlow({ artifact, onClose }: { artifact: ArtifactView; onClose: ()
     screens,
     screen,
     versions,
+    runs,
     android,
     webviews,
     webview,
@@ -129,6 +130,7 @@ function LaunchFlow({ artifact, onClose }: { artifact: ArtifactView; onClose: ()
     chosenScreen,
     chosenAndroid,
     chosenWebView,
+    artifact.minSdk,
   )
   const launch = useStartSession()
   const appData = useAppDataFor(artifact.app?.package)
@@ -207,14 +209,31 @@ function LaunchFlow({ artifact, onClose }: { artifact: ArtifactView; onClose: ()
 
         {stage === "options" && provider && (
           <>
+            {virtual && versions.length > 0 && !android && (
+              <Alert>
+                <AlertDescription>
+                  This build needs Android API level {artifact.minSdk}; none of this provider's Android versions is new
+                  enough.
+                </AlertDescription>
+              </Alert>
+            )}
+
             {virtual && versions.length > 1 && (
-              <Section title="Android version">
+              <Section
+                title="Android version"
+                hint={
+                  versions.some((v) => !runs(v))
+                    ? `This build needs Android API level ${artifact.minSdk} or newer.`
+                    : undefined
+                }
+              >
                 <ChoiceGroup label="Android version" className="grid-cols-2 sm:grid-cols-5">
                   {versions.map((v) => (
                     <AndroidVersionCard
                       key={v}
                       version={v}
                       selected={v === android}
+                      disabled={!runs(v)}
                       onSelect={() => setChosenAndroid(v)}
                     />
                   ))}
