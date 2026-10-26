@@ -188,7 +188,7 @@ Directories that do not exist yet are planned — create them exactly there.
   `design/decisions.md`, not in comments.
 - Never put the maintainer's real domain, hostnames, IP addresses or
   public ports in tracked files or commit messages: this repository is
-  public. Use placeholders (`android.homelab.example`, `android.example.com`)
+  public. Use placeholders (`holtdroid.homelab.example`, `android.example.com`)
   and keep the real values in `AGENTS.local.md`.
 - Images: run as non-root wherever possible (the emulator container is the
   documented exception), pin base images by digest, build `linux/amd64`
@@ -249,7 +249,7 @@ Every push to `main` builds `ghcr.io/holtdroid/holtdroid:<full commit sha>`
 (`.github/workflows/release.yml`) plus the session image, and then moves
 the `deploy` branch to that commit. The maintainer's cluster runs an Argo CD Application that tracks
 `deploy` and uses the synced commit as the image tag, so **every commit to
-`main` is deployed** to https://android.homelab.example once its image is built (OIDC via Authelia, directory source, emulator provider). Keep `main`
+`main` is deployed** to https://holtdroid.homelab.example once its image is built (users mode with passkeys, S3 sources, emulator provider). Keep `main`
 green: run `make check` before pushing. Tags `vX.Y.Z` also publish the chart
 to `oci://ghcr.io/holtdroid/charts/holtdroid`.
 

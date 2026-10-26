@@ -35,7 +35,7 @@ silently drop any.
 - [x] `internal/storage`: filesystem and S3 (minio-go) backends; APK cache on top of it
 - [x] `images/Dockerfile` (distroless, multi-arch) and release workflow: `ghcr.io/holtdroid/holtdroid:<sha>` on every push to `main`, chart to OCI on tags
 - [x] Helm chart `deploy/helm/holtdroid` (api with a data PVC for the `local` source and uploads, provider-fake, ingress, extraObjects)
-- [x] Live deployment tracking `main` (Argo CD, android.homelab.example)
+- [x] Live deployment tracking `main` (Argo CD, holtdroid.homelab.example)
 - [x] Session image pre-pull and emulator provider values in the chart (with Phase 3)
 
 ## Phase 2 — Session prototype (highest risk)

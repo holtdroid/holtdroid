@@ -8,7 +8,7 @@ _Last updated: 2026-10-26._
 
 ## Where things stand
 
-**Works today** (deployed at https://android.homelab.example, see "Maintainer's
+**Works today** (deployed at https://holtdroid.homelab.example, see "Maintainer's
 deployment"):
 
 - Sessions run redroid instead of the Android emulator (decision #82,
@@ -289,7 +289,7 @@ Collected from the design conversation; each is reflected in the docs listed.
 - Commits: one-line Conventional Commits, no body, no trailers (no
   `Co-Authored-By`, no "Generated with"). PR descriptions empty.
 - The maintainer allowed the agent to commit and push to `main` — **a push to
-  `main` deploys to android.homelab.example**. Run `make check` first.
+  `main` deploys to holtdroid.homelab.example**. Run `make check` first.
 - Don't verify UI by launching headless browsers or Storybook; rely on types,
   lint, tests and `holtdroid dev` + curl.
 - Never print secrets (tokens, keys, decrypted values) in chat or logs.
@@ -366,11 +366,11 @@ in-repo work; ask the maintainer for anything cluster-side.
 
 | What | Where |
 |------|-------|
-| URL | `android.homelab.example` stands for the real hostname, which is only in AGENTS.local.md |
+| URL | `holtdroid.homelab.example` stands for the real hostname, which is only in AGENTS.local.md |
 | Argo CD Application | `homelab.k8s/argocd/holtdroid.yaml` — chart from this repo's `deploy` branch (moved to each `main` commit by the release workflow once its image is pushed), `image.tag=$ARGOCD_APP_REVISION`, values inline |
-| Current setup | `auth.mode: oidc` (Authelia client `holtdroid`, groups `admins`/`users`), sources `uploads` (writable, uploads go there) and `slack` (read-only) as prefixes of the bucket `holtdroid` on the homelab S3 gateway `https://s3.homelab.example` (versitygw, region `eu-north-1`, path style); `api.persistence` is off (the old PVC's one upload was copied to S3), `database.type: sqlite` restored from and replicated to the bucket's `database` prefix, `providers.emulator` on `core` (tolerating `dedicated=nas`) and `k3s-1..3`, locations `direct` + the six gateway ones (password via `VPN_GATEWAY_PASSWORD` from `secret/vpn` in the `ExternalSecret`; the `no` id must stay quoted in the values) |
+| Current setup | `auth.mode: users` (passkeys and invite links, sign-ups limited to three email domains, no SSO; the old hostname redirects to the new one), sources `uploads` (writable, uploads go there) and `slack` (read-only) as prefixes of the bucket `holtdroid` on the homelab S3 gateway `https://s3.homelab.example` (versitygw, region `eu-north-1`, path style); `api.persistence` is off (the old PVC's one upload was copied to S3), `database.type: sqlite` restored from and replicated to the bucket's `database` prefix, `providers.emulator` on `core` (tolerating `dedicated=nas`) and `k3s-1..3`, locations `direct` + the six gateway ones (password via `VPN_GATEWAY_PASSWORD` from `secret/vpn` in the `ExternalSecret`; the `no` id must stay quoted in the values) |
 | Secrets (OpenBao KV, mount `secret/`) | `holtdroid` → `session_key`, `s3_access_key`/`s3_secret_key` (versitygw IAM user `holtdroid`, inline policy on bucket `holtdroid`, issued by hand on the gateway's IAM server); `oidc/holtdroid` → `client_secret` (+ digest for Authelia); both seeded by `nixos/scripts/openbao-bootstrap.sh`; delivered by an `ExternalSecret` in `extraObjects` |
-| Slack sync | Argo CD Application `homelab.k8s/argocd/holtdroid-slack-sync.yaml` (chart `deploy/helm/holtdroid-sync` from holtdroid/holtdroid-sync `main`, `job: slack`, image `ghcr.io/holtdroid/holtdroid-sync`), writes `slack/` in the bucket and announces new builds with launch links to android.homelab.example in `test-chanel-jonas` through shoutrrr. `secret/holtdroid-slack-sync` → `s3_access_key`/`s3_secret_key` (IAM user `holtdroid-slack-sync`), `slack_bot_token`, `slack_channels` (comma-separated IDs, mapped to `HOLTDROID_SLACK_SYNC_SLACK__CHANNELS`) and `notify_url` (the shoutrrr Slack URL, same as the S3 sync's) |
+| Slack sync | Argo CD Application `homelab.k8s/argocd/holtdroid-slack-sync.yaml` (chart `deploy/helm/holtdroid-sync` from holtdroid/holtdroid-sync `main`, `job: slack`, image `ghcr.io/holtdroid/holtdroid-sync`), writes `slack/` in the bucket and announces new builds with launch links to holtdroid.homelab.example in `test-chanel-jonas` through shoutrrr. `secret/holtdroid-slack-sync` → `s3_access_key`/`s3_secret_key` (IAM user `holtdroid-slack-sync`), `slack_bot_token`, `slack_channels` (comma-separated IDs, mapped to `HOLTDROID_SLACK_SYNC_SLACK__CHANNELS`) and `notify_url` (the shoutrrr Slack URL, same as the S3 sync's) |
 | GitHub sync | Argo CD Application `homelab.k8s/argocd/holtdroid-github-sync.yaml` (chart `deploy/helm/holtdroid-sync` from holtdroid/holtdroid-sync `main`, `job: github`, image `ghcr.io/holtdroid/holtdroid-sync`): the newest 3 releases of `holtdroid/holtdroid-webview` (CanIAndroidWebView dropped on 2026-10-19) → `holtdroid/github/` → source `github`, every 15 minutes, unauthenticated GitHub API. New builds are announced in `test-chanel-jonas` (`notify_url` in `secret/holtdroid-github-sync`, plus `s3_access_key`/`s3_secret_key` of IAM user `holtdroid-github-sync`). First copy: 3 APKs on 2026-10-17. Gecko builds are skipped (`include: ["!*gecko*"]`), decision #86 |
 | WebView sync | Argo CD Application `homelab.k8s/argocd/holtdroid-webview-sync.yaml` (chart `deploy/helm/holtdroid-sync`, `job: webview`): Chromium's x86_64 WebView snapshots for the milestones on a channel, the newest 6 and every 5th → `holtdroid/webview/` (about 420 MB each), every 6 hours; the api reads the prefix as `webview.storage`. `secret/holtdroid-webview-sync` → `s3_access_key`/`s3_secret_key` (IAM user `holtdroid-webview-sync`, inline policy on bucket `holtdroid`) |
 | Chromium sync | Argo CD Application `homelab.k8s/argocd/holtdroid-chromium-sync.yaml` (chart `deploy/helm/holtdroid-sync`, `job: chromium`, memory limit 1Gi: parsing ChromePublic.apk peaks at about 300 MB): Chromium browser builds for the milestones on a channel, the newest 10, every 2nd, every 5th past the newest 24, plus 148 → `holtdroid/chromium/`, every 6 hours; the api lists it as the read-only source `chromium`. `secret/holtdroid-chromium-sync` → `s3_access_key`/`s3_secret_key` (IAM user `holtdroid-chromium-sync`, inline policy on bucket `holtdroid`) |
@@ -389,7 +389,7 @@ kubectl -n argocd annotate application holtdroid argocd.argoproj.io/refresh=hard
 kubectl -n argocd get application holtdroid -o jsonpath='{.status.sync.revision} {.status.sync.status} {.status.health.status}{"\n"}'
 kubectl -n holtdroid get pods
 kubectl -n holtdroid logs deploy/holtdroid-api
-curl -s https://android.homelab.example/api/v1/auth
+curl -s https://holtdroid.homelab.example/api/v1/auth
 ```
 
 A new commit can sit in `ImagePullBackOff` for a few minutes until its image
