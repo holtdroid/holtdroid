@@ -53,6 +53,9 @@ type Controls struct {
 type networkShaper interface {
 	Current() contract.NetworkProfile
 	Set(ctx context.Context, id contract.NetworkProfile) error
+	Region() *contract.NetworkRegionState
+	SetRegion(ctx context.Context, in contract.NetworkRegionSettings) error
+	Refresh()
 	Close(ctx context.Context) error
 }
 
@@ -172,6 +175,7 @@ func (c *Controls) State(ctx context.Context) (contract.DeviceState, error) {
 	c.mu.Unlock()
 	if c.shaper != nil {
 		s.NetworkProfile, s.NetworkProfiles = c.shaper.Current(), netem.Catalog()
+		s.NetworkRegion, s.NetworkRegions, s.NetworkServers = c.shaper.Region(), netem.RegionCatalog(), netem.ServerCatalog()
 	}
 	s.LanguageScope = contract.LanguageSystem
 	if c.appLocales != "" {
@@ -552,6 +556,11 @@ func (c *Controls) Update(ctx context.Context, in contract.DeviceSettings) (cont
 			return contract.DeviceState{}, err
 		}
 	}
+	if in.NetworkRegion != nil {
+		if err := c.setRegion(ctx, *in.NetworkRegion); err != nil {
+			return contract.DeviceState{}, err
+		}
+	}
 	if in.TimeZone != nil {
 		c.mu.Lock()
 		c.tzOverride = true
@@ -684,6 +693,24 @@ func (c *Controls) setNetwork(ctx context.Context, p contract.NetworkProfile) er
 		return nil
 	}
 	return fmt.Errorf("%w: this device can't emulate network conditions", contract.ErrInvalid)
+}
+
+func (c *Controls) setRegion(ctx context.Context, in contract.NetworkRegionSettings) error {
+	if c.shaper != nil {
+		return c.shaper.SetRegion(ctx, in)
+	}
+	if in.Region == "" {
+		return nil
+	}
+	return fmt.Errorf("%w: this device can't emulate network conditions", contract.ErrInvalid)
+}
+
+// networkMoved measures a region's route again after the VPN location
+// changed.
+func (c *Controls) networkMoved() {
+	if c.shaper != nil {
+		c.shaper.Refresh()
+	}
 }
 
 func (c *Controls) setGeo(ctx context.Context, geo *contract.GeoPoint) error {

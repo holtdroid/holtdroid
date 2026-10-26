@@ -337,6 +337,69 @@ type NetworkProfileInfo struct {
 	Loss        float64        `json:"loss,omitempty" doc:"percent of packets lost in each direction"`
 }
 
+type NetworkLink struct {
+	RTT    int     `json:"rtt" doc:"round trip, ms"`
+	Jitter int     `json:"jitter,omitempty" doc:"round trip jitter, ms"`
+	Down   int     `json:"down,omitempty" doc:"download kbit/s; empty is unlimited"`
+	Up     int     `json:"up,omitempty" doc:"upload kbit/s; empty is unlimited"`
+	Loss   float64 `json:"loss,omitempty" doc:"percent of packets lost in each direction"`
+}
+
+// NetworkRegionInfo is a country whose mobile users a session can stand in
+// for: its typical mobile link and the round trips from its operators to
+// the CDN edge serving them and to each server location.
+type NetworkRegionInfo struct {
+	ID          string             `json:"id"`
+	Name        string             `json:"name"`
+	Country     string             `json:"country" doc:"ISO 3166-1 alpha-2"`
+	Description string             `json:"description"`
+	Access      NetworkLink        `json:"access" doc:"the typical mobile link, used while networkProfile is full"`
+	Edge        string             `json:"edge" doc:"where CDN traffic is usually served from"`
+	EdgeRTT     int                `json:"edgeRtt" doc:"round trip from the operator to that CDN edge, ms"`
+	Servers     []NetworkServerRTT `json:"servers"`
+}
+
+type NetworkServerRTT struct {
+	Server string `json:"server"`
+	RTT    int    `json:"rtt" doc:"round trip from the operator to the server location, ms"`
+}
+
+// NetworkServerInfo is where the app's servers may run.
+type NetworkServerInfo struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+type NetworkPathClass string
+
+const (
+	NetworkPathEdge   NetworkPathClass = "edge"
+	NetworkPathOrigin NetworkPathClass = "origin"
+)
+
+// NetworkPath is one class of destinations and the round trip emulated to
+// it on top of the access link: the region's path minus what the session's
+// own route already takes.
+type NetworkPath struct {
+	Class    NetworkPathClass `json:"class" enum:"edge,origin" doc:"edge: CDN address ranges and DNS; origin: the backends and everything else"`
+	Target   int              `json:"target" doc:"the region's round trip beyond the access link, ms"`
+	Baseline int              `json:"baseline,omitempty" doc:"the round trip the session's own route takes there, ms; empty when it couldn't be measured"`
+	Added    int              `json:"added" doc:"round trip added beyond the access link, ms: target minus baseline, never below 0"`
+}
+
+type NetworkRegionState struct {
+	Region   string        `json:"region"`
+	Server   string        `json:"server"`
+	Backends []string      `json:"backends,omitempty"`
+	Paths    []NetworkPath `json:"paths"`
+}
+
+type NetworkRegionSettings struct {
+	Region   string   `json:"region" pattern:"^[a-z0-9-]{0,32}$" maxLength:"32" doc:"one of DeviceState.networkRegions; empty turns regional paths off"`
+	Server   string   `json:"server,omitempty" pattern:"^[a-z0-9-]{0,32}$" maxLength:"32" doc:"one of DeviceState.networkServers; empty picks the first"`
+	Backends []string `json:"backends,omitempty" maxItems:"16" doc:"host names or IPv4 addresses of the app's backend: their traffic takes the server's path even when a CDN fronts them"`
+}
+
 type DeviceState struct {
 	AirplaneMode       bool                 `json:"airplaneMode"`
 	WiFi               bool                 `json:"wifi"`
@@ -360,6 +423,9 @@ type DeviceState struct {
 	Navigation         Navigation           `json:"navigation,omitempty" enum:"gestures,buttons" doc:"Android's system navigation: gestures or the back, home and recents buttons; empty where it can't be changed"`
 	NetworkProfile     NetworkProfile       `json:"networkProfile,omitempty" doc:"empty when the device can't emulate network conditions"`
 	NetworkProfiles    []NetworkProfileInfo `json:"networkProfiles,omitempty" doc:"the profiles networkProfile may be set to"`
+	NetworkRegion      *NetworkRegionState  `json:"networkRegion,omitempty" doc:"the region whose paths are emulated; empty while none is"`
+	NetworkRegions     []NetworkRegionInfo  `json:"networkRegions,omitempty" doc:"the regions networkRegion may be set to"`
+	NetworkServers     []NetworkServerInfo  `json:"networkServers,omitempty"`
 	TimeZone           string               `json:"timeZone"`
 	Locale             string               `json:"locale"`
 	Locales            []string             `json:"locales" doc:"the system languages in order: the first is locale, the rest add their keyboard layouts"`
@@ -398,31 +464,32 @@ type GeoPoint struct {
 
 // DeviceSettings changes the fields that are set and leaves the rest alone.
 type DeviceSettings struct {
-	AirplaneMode   *bool           `json:"airplaneMode,omitempty"`
-	WiFi           *bool           `json:"wifi,omitempty"`
-	MobileData     *bool           `json:"mobileData,omitempty"`
-	BatterySaver   *bool           `json:"batterySaver,omitempty"`
-	BatteryLevel   *int            `json:"batteryLevel,omitempty" minimum:"0" maximum:"100" doc:"0 is taken as 1: Android shuts down on an empty battery"`
-	Charging       *bool           `json:"charging,omitempty"`
-	DarkMode       *bool           `json:"darkMode,omitempty"`
-	FontScale      *float64        `json:"fontScale,omitempty" minimum:"0.5" maximum:"3"`
-	Density        *int            `json:"density,omitempty" minimum:"0" maximum:"1000" doc:"0 restores the default"`
-	Brightness     *int            `json:"brightness,omitempty" minimum:"0" maximum:"100" doc:"sets the screen brightness and turns autoBrightness off unless it is set too"`
-	AutoBrightness *bool           `json:"autoBrightness,omitempty"`
-	Rotation       *int            `json:"rotation,omitempty" minimum:"0" maximum:"3"`
-	Volume         *int            `json:"volume,omitempty" minimum:"0" maximum:"100" doc:"sets the media volume step, which also unmutes it above 0"`
-	Muted          *bool           `json:"muted,omitempty" doc:"true mutes the media stream, false brings back the volume it had"`
-	Navigation     *Navigation     `json:"navigation,omitempty" enum:"gestures,buttons" doc:"switches Android's system navigation where DeviceState.navigation is set"`
-	NetworkProfile *NetworkProfile `json:"networkProfile,omitempty" pattern:"^[a-z0-9-]{1,32}$" maxLength:"32" doc:"one of DeviceState.networkProfiles"`
-	TimeZone       *string         `json:"timeZone,omitempty" pattern:"^[A-Za-z][A-Za-z0-9_+/-]*$" maxLength:"64"`
-	Locales        []string        `json:"locales,omitempty" minItems:"1" maxItems:"8" doc:"the system languages in order: the first sets the UI language, the rest add their keyboard layouts"`
-	Geo            *GeoPoint       `json:"geo,omitempty" doc:"fakes the GPS position"`
-	ResetGeo       bool            `json:"resetGeo,omitempty" doc:"puts the default GPS position back"`
-	Route          *GeoRoute       `json:"route,omitempty" doc:"moves the GPS from the first point along the rest; geo, resetGeo or stopRoute stop it"`
-	StopRoute      bool            `json:"stopRoute,omitempty" doc:"stops the route where it is and keeps that position"`
-	ResetTimeZone  bool            `json:"resetTimeZone,omitempty" doc:"goes back to the VPN location's time zone"`
-	AutoTime       *bool           `json:"autoTime,omitempty" doc:"true syncs the clock with real time and keeps it synced"`
-	TimeOffset     *int64          `json:"timeOffset,omitempty" minimum:"-3155760000000" maximum:"3155760000000" doc:"sets the device clock to real time plus this many milliseconds and turns autoTime off"`
+	AirplaneMode   *bool                  `json:"airplaneMode,omitempty"`
+	WiFi           *bool                  `json:"wifi,omitempty"`
+	MobileData     *bool                  `json:"mobileData,omitempty"`
+	BatterySaver   *bool                  `json:"batterySaver,omitempty"`
+	BatteryLevel   *int                   `json:"batteryLevel,omitempty" minimum:"0" maximum:"100" doc:"0 is taken as 1: Android shuts down on an empty battery"`
+	Charging       *bool                  `json:"charging,omitempty"`
+	DarkMode       *bool                  `json:"darkMode,omitempty"`
+	FontScale      *float64               `json:"fontScale,omitempty" minimum:"0.5" maximum:"3"`
+	Density        *int                   `json:"density,omitempty" minimum:"0" maximum:"1000" doc:"0 restores the default"`
+	Brightness     *int                   `json:"brightness,omitempty" minimum:"0" maximum:"100" doc:"sets the screen brightness and turns autoBrightness off unless it is set too"`
+	AutoBrightness *bool                  `json:"autoBrightness,omitempty"`
+	Rotation       *int                   `json:"rotation,omitempty" minimum:"0" maximum:"3"`
+	Volume         *int                   `json:"volume,omitempty" minimum:"0" maximum:"100" doc:"sets the media volume step, which also unmutes it above 0"`
+	Muted          *bool                  `json:"muted,omitempty" doc:"true mutes the media stream, false brings back the volume it had"`
+	Navigation     *Navigation            `json:"navigation,omitempty" enum:"gestures,buttons" doc:"switches Android's system navigation where DeviceState.navigation is set"`
+	NetworkProfile *NetworkProfile        `json:"networkProfile,omitempty" pattern:"^[a-z0-9-]{1,32}$" maxLength:"32" doc:"one of DeviceState.networkProfiles"`
+	NetworkRegion  *NetworkRegionSettings `json:"networkRegion,omitempty" doc:"emulates a region's paths to CDNs and servers on top of networkProfile"`
+	TimeZone       *string                `json:"timeZone,omitempty" pattern:"^[A-Za-z][A-Za-z0-9_+/-]*$" maxLength:"64"`
+	Locales        []string               `json:"locales,omitempty" minItems:"1" maxItems:"8" doc:"the system languages in order: the first sets the UI language, the rest add their keyboard layouts"`
+	Geo            *GeoPoint              `json:"geo,omitempty" doc:"fakes the GPS position"`
+	ResetGeo       bool                   `json:"resetGeo,omitempty" doc:"puts the default GPS position back"`
+	Route          *GeoRoute              `json:"route,omitempty" doc:"moves the GPS from the first point along the rest; geo, resetGeo or stopRoute stop it"`
+	StopRoute      bool                   `json:"stopRoute,omitempty" doc:"stops the route where it is and keeps that position"`
+	ResetTimeZone  bool                   `json:"resetTimeZone,omitempty" doc:"goes back to the VPN location's time zone"`
+	AutoTime       *bool                  `json:"autoTime,omitempty" doc:"true syncs the clock with real time and keeps it synced"`
+	TimeOffset     *int64                 `json:"timeOffset,omitempty" minimum:"-3155760000000" maximum:"3155760000000" doc:"sets the device clock to real time plus this many milliseconds and turns autoTime off"`
 }
 
 // Tunnels is what the ssh-gateway and browsers have open into a session right now.

@@ -106,6 +106,15 @@ export function summarize(input: SummaryInput): Summary {
     ? device.networkProfiles?.find((p) => p.id === device.networkProfile)
     : undefined
   const throttled = profile && profile.id !== "full"
+  const region = device?.networkRegion
+    ? {
+        state: device.networkRegion,
+        info: device.networkRegions?.find((r) => r.id === device.networkRegion?.region),
+        server:
+          device.networkServers?.find((x) => x.id === device.networkRegion?.server)?.name ??
+          device.networkRegion.server,
+      }
+    : undefined
   const profileDetail = profile
     ? [
         profile.rtt ? `+${profile.rtt}${profile.jitter ? `±${profile.jitter}` : ""} ms` : "",
@@ -264,6 +273,18 @@ export function summarize(input: SummaryInput): Summary {
               label: "Throttling",
               value: throttled ? `${profile.name}${profileDetail ? ` · ${profileDetail}` : ""}` : "Full speed",
               tone: throttled ? ("warn" as const) : undefined,
+            },
+          ]
+        : []),
+      ...(region
+        ? [
+            {
+              label: "Region",
+              value:
+                `${countryFlag(region.info?.country)} ${region.info?.name ?? region.state.region} · ${region.state.paths
+                  .map((p) => `${p.class === "edge" ? "CDN" : region.server} +${p.added} ms`)
+                  .join(" · ")}`.trim(),
+              tone: "warn" as const,
             },
           ]
         : []),

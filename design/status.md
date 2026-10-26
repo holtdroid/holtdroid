@@ -24,7 +24,10 @@ deployment"):
   link, `tc netem` on the VPN tun; the kernel side (netem, gemodel, ifb,
   matchall) was probed on k3s-3; verified in a live session on `core` on
 2026-10-25 (`edge` ping 507 ms for 500 ± 150, `lte` download 8.6 Mbit/s of
-10, `slow-upload` 15.6 Mbit/s of 20 with slow start). Verified on 2026-10-25 with a
+10, `slow-upload` 15.6 Mbit/s of 20 with slow start). Regions (decision
+  #132) moved the conditions into a Network tab and shape per path (CDN
+  edge or servers) under an htb class; the generated scripts were run on a
+  Linux 7.0 kernel, not yet in a live session. Verified on 2026-10-25 with a
   dev release of the chart on k3s-3: boot to ready in about 25 s, install,
   the app under Frida, DevTools target of a WebView page, screenshot, the
   metrics bar with the Pod's cgroup, VPN location switch (PL → UA with GPS

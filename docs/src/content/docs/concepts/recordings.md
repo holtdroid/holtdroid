@@ -19,7 +19,8 @@ recording keeps more than the picture:
   density, language, theme, battery;
 - the **network**: the VPN location with its external IP and country, the
   emulated network conditions (throttling: added delay, bandwidth, loss,
-  scenarios) and which links are on;
+  scenarios; a region with what it adds to CDN and server round trips) and
+  which links are on;
 - the **time**: real time next to the device clock, with its time zone and
   how far it was set off real time;
 - the **load** every two seconds: device and app CPU, memory, frames and

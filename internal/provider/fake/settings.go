@@ -33,6 +33,8 @@ func defaultSettings() contract.DeviceState {
 		Navigation:         contract.NavigationGestures,
 		NetworkProfile:     contract.NetworkFull,
 		NetworkProfiles:    netem.Catalog(),
+		NetworkRegions:     netem.RegionCatalog(),
+		NetworkServers:     netem.ServerCatalog(),
 		TimeZone:           "UTC",
 		Locale:             "en-US",
 		Locales:            []string{"en-US"},
@@ -61,6 +63,13 @@ func (d *device) UpdateDevice(_ context.Context, in contract.DeviceSettings) (co
 	if p := in.NetworkProfile; p != nil {
 		if _, ok := netem.Find(*p); !ok {
 			return contract.DeviceState{}, fmt.Errorf("%w: unknown network profile %q", contract.ErrInvalid, *p)
+		}
+	}
+	var region *contract.NetworkRegionState
+	if in.NetworkRegion != nil {
+		var err error
+		if region, err = netem.RegionState(*in.NetworkRegion); err != nil {
+			return contract.DeviceState{}, err
 		}
 	}
 	d.update(func() {
@@ -97,6 +106,9 @@ func (d *device) UpdateDevice(_ context.Context, in contract.DeviceSettings) (co
 			s.Volume, s.Muted = cmp.Or(d.unmuteTo, 5), false
 		}
 		set(&s.NetworkProfile, in.NetworkProfile)
+		if in.NetworkRegion != nil {
+			s.NetworkRegion = region
+		}
 		set(&s.TimeZone, in.TimeZone)
 		switch {
 		case in.TimeZone != nil:

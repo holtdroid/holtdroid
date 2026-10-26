@@ -16,6 +16,7 @@ import (
 
 	"github.com/holtdroid/holtdroid/internal/agent/redroid"
 	"github.com/holtdroid/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/netem"
 )
 
 type scriptedDevice struct {
@@ -310,7 +311,21 @@ func TestControlsOnAPhone(t *testing.T) {
 	}
 }
 
-type stubShaper struct{ current contract.NetworkProfile }
+type stubShaper struct {
+	current   contract.NetworkProfile
+	region    *contract.NetworkRegionState
+	refreshes int
+}
+
+func (s *stubShaper) Region() *contract.NetworkRegionState { return s.region }
+
+func (s *stubShaper) SetRegion(_ context.Context, in contract.NetworkRegionSettings) error {
+	r, err := netem.RegionState(in)
+	s.region = r
+	return err
+}
+
+func (s *stubShaper) Refresh() { s.refreshes++ }
 
 func (s *stubShaper) Current() contract.NetworkProfile { return s.current }
 
@@ -330,6 +345,21 @@ func TestControlsNetworkProfile(t *testing.T) {
 	s, err := c.Update(context.Background(), contract.DeviceSettings{NetworkProfile: new(contract.NetworkProfile("subway"))})
 	if err != nil || s.NetworkProfile != "subway" || len(s.NetworkProfiles) == 0 {
 		t.Fatalf("state %+v, %v", s, err)
+	}
+	s, err = c.Update(context.Background(), contract.DeviceSettings{NetworkRegion: &contract.NetworkRegionSettings{Region: "bd", Server: "singapore"}})
+	if err != nil || s.NetworkRegion == nil || s.NetworkRegion.Server != "singapore" || len(s.NetworkRegions) == 0 || len(s.NetworkServers) == 0 {
+		t.Fatalf("region: state %+v, %v", s.NetworkRegion, err)
+	}
+	c.networkMoved()
+	if c.shaper.(*stubShaper).refreshes != 1 {
+		t.Error("a location change didn't measure the route again")
+	}
+}
+
+func TestControlsRegionWithoutShaper(t *testing.T) {
+	c := NewControls(&scriptedDevice{clock: "1760000000"}, "", true, false)
+	if _, err := c.Update(context.Background(), contract.DeviceSettings{NetworkRegion: &contract.NetworkRegionSettings{Region: "bd"}}); !errors.Is(err, contract.ErrInvalid) {
+		t.Errorf("region without a shaper: %v", err)
 	}
 }
 

@@ -276,7 +276,8 @@ The agent (`internal/agent/redroid`):
 Device controls have no emulator console: the GPS goes through the location
 service's test providers and the battery through `dumpsys battery`, as on
 rooted phones but without `su`. Network conditions (decision #93) are
-`tc netem` on the VPN tun, applied by the agent (it has `NET_ADMIN` in the
+`tc` (htb and netem, with a path per CDN or server for regions, decision
+#132) on the VPN tun, applied by the agent (it has `NET_ADMIN` in the
 Pod's network namespace when VPN locations are configured). With
 VPN locations that carry `geo`/`timezone`, the provider hands them to the
 agent (`HOLTDROID_GEO__<ID>__…`), so the GPS and time zone follow the

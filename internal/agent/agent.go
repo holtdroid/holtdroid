@@ -219,7 +219,7 @@ func newControls(cfg Config, dev Device, log *slog.Logger) *Controls {
 	c.usbNetwork = cfg.USBNetwork
 	c.redroid = cfg.Root && !cfg.RootShell
 	if cfg.Redroid.VPN {
-		c.shaper = netem.NewShaper(vpn.TunInterface, vpn.TunNetwork, log)
+		c.shaper = netem.NewShaper(vpn.TunInterface, vpn.TunNetwork, cfg.IPInfoProxy, log)
 	}
 	if cfg.AppLanguage && packageName.MatchString(cfg.Package) {
 		c.appLocales = cfg.Package
@@ -788,6 +788,7 @@ func (a *Agent) SetLocation(ctx context.Context, location string) (contract.Netw
 		return net, err
 	}
 	a.followLocationGeo(ctx, location)
+	a.controls.networkMoved()
 	a.record(contract.RecordingEvent{Type: contract.EventNetwork, Network: &net})
 	return net, nil
 }

@@ -112,6 +112,7 @@ export function DeviceScreen({
   appRunning,
   adb,
   pp,
+  onTab,
 }: {
   provider: string
   id: string
@@ -128,6 +129,7 @@ export function DeviceScreen({
   appRunning: boolean
   adb: AdbSession | null
   pp: PixelPerfect
+  onTab: (tab: string) => void
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const supported = screenSupported()
@@ -301,7 +303,13 @@ export function DeviceScreen({
     >
       <WidgetColumn>
         <AppWidget provider={provider} id={id} session={session} appRunning={appRunning} adb={adb} metrics={metrics} />
-        <NetworkWidget provider={provider} id={id} locations={locations} metrics={metrics} />
+        <NetworkWidget
+          provider={provider}
+          id={id}
+          locations={locations}
+          metrics={metrics}
+          onConditions={() => onTab("network")}
+        />
         <GpsWidget provider={provider} id={id} vpn={locations.length > 0} />
         <SSHWidget provider={provider} id={id} />
         <StreamWidget provider={provider} id={id} live={live} />

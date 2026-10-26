@@ -71,6 +71,10 @@ export type Temperature = AgentSchemas["Temperature"]
 export type DeviceSettings = AgentSchemas["DeviceSettings"]
 export type NetworkProfile = NonNullable<DeviceState["networkProfile"]>
 export type NetworkProfileInfo = AgentSchemas["NetworkProfileInfo"]
+export type NetworkLink = AgentSchemas["NetworkLink"]
+export type NetworkPath = AgentSchemas["NetworkPath"]
+export type NetworkRegionInfo = AgentSchemas["NetworkRegionInfo"]
+export type NetworkRegionSettings = AgentSchemas["NetworkRegionSettings"]
 export type DeviceAction = AgentPaths["/v1/device/actions/{action}"]["post"]["parameters"]["path"]["action"]
 
 export const api = createClient<paths>({ baseUrl: "" })

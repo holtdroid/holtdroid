@@ -56,9 +56,12 @@ hybrid apps, support engineers reproducing a customer bug.
    device's rotation, to the top or bottom edge in landscape. The network card shows the VPN
    location, the external IP and the network conditions; hovering it opens
    a panel styled like Android's quick settings shade with Wi-Fi, mobile
-   data and airplane mode tiles, the VPN locations and the emulated network
-   conditions (slow or lossy networks and scenarios such as a subway ride,
-   each with its description, on emulators with VPN locations). A
+   data and airplane mode tiles, the VPN locations and a link to the
+   **Network** tab next to DevTools. On emulators with VPN locations that tab
+   holds the emulated network conditions: slow or lossy networks and
+   scenarios such as a subway ride, each with its description, and regions
+   such as Bangladesh that add the round trips to CDN edges and to your
+   servers there. A
    small handle above the phone slides out a bar with the notifications,
    quick settings and a screenshot on hover, and one on the phone's bottom
    edge slides out Android's back, home and recent apps buttons; in

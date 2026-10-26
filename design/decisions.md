@@ -3954,3 +3954,44 @@ enabling it later is what put the screen to sleep with the first lock.
 
 **Consequences.** A resumed agent leaves the screen as it was. Phones run the
 plain wake and dismiss, which they already get from their own setup.
+
+## 132. Network regions shape a path per CDN or server, minus the session's route
+
+**Context.** Testers want to see an app the way its users in a given country
+see it, Bangladesh being the first ask: not just a slow link, but the round
+trips to the CDN edge serving that country and to servers far away, which
+differ a lot (a cached image from Dhaka or Singapore, an API call to
+Frankfurt). The conditions of decision #93 add one delay to all traffic, and
+their panel in the network card had grown too large for a hover panel.
+
+**Decision.** The conditions move into a **Network** tab next to DevTools;
+the network card links there. `internal/netem` gains a catalog of regions
+(a typical mobile link, the CDN edge and its round trip, a round trip to
+each of seven server locations, rounded from public speed reports and
+latency maps) and the agent takes a region on top of the access profile
+(`DeviceSettings.networkRegion`). The tun's qdiscs become an `htb` class per
+direction for the bandwidth, with a `netem` class under it per path: edge
+(the IPv4 ranges Cloudflare, Fastly and Google publish, Google's without
+Google Cloud's, kept in `internal/netem/cdn.txt`, plus DNS) and origin
+(everything else). Hosts the user lists as backends are resolved by the
+agent and matched first, so an API behind Cloudflare takes the servers'
+path. `u32` filters, a few hundred, go through one `tc -batch`. Emulation
+can only add delay and the session's route through its VPN location already
+takes some, so the agent measures it through the sidecar's proxy (the
+fastest of three requests on a kept-alive connection to Cloudflare's
+`1.1.1.1` and to AWS's DynamoDB endpoint in the server's region), adds only
+what's left of each path, again every minute and after a location change,
+and reports region, route and added time per path. With the access profile
+at no limits, the region's typical mobile link is used.
+
+**Consequences.** A route already slower than the region can't be made
+faster; the tab says so and a closer VPN location, or none, is the fix.
+Backends are resolved with the agent's DNS, not the sidecar's, so
+geo-DNS answers may differ from what the device gets. A CDN shares
+addresses among its customers, so hosts next to a listed backend take the
+servers' path too; telling them apart would need fake IPs per domain in
+sing-box. IPv6 isn't classified (it takes the servers' path). Nodes now
+also need `sch_htb`. `cdn.txt` is refreshed by hand from the three
+providers' lists. Per-request latency of particular endpoints (server
+think time, errors) is a different layer and not part of this.
+

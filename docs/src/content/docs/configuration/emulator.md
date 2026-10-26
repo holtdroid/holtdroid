@@ -102,7 +102,7 @@ whatever else the node runs.
 - A GPU with a Mesa driver and a render node (`/dev/dri/renderD128`): Intel
   and AMD integrated graphics work. WebGL runs on it; WebGPU is not
   available in WebView.
-- For [network conditions](#network-conditions): the `sch_netem`, `ifb`,
+- For [network conditions](#network-conditions): the `sch_netem`, `sch_htb`, `ifb`, `cls_u32`,
   `act_mirred` and `cls_matchall` kernel modules (stock distribution kernels
   have them; they load on first use).
 - containerd and Kubernetes that support
@@ -417,8 +417,9 @@ key used by several session Pods at once breaks, so prefer the gateway.
 
 ## Network conditions
 
-With VPN locations configured, the network card next to a session's phone offers
-emulated network conditions: named networks (5G, typical and weak 4G, 3G,
+With VPN locations configured, a session's **Network** tab (next to
+DevTools) offers emulated network conditions; the network card next to the
+phone shows which are on and links there. The access link is one of the named networks (5G, typical and weak 4G, 3G,
 2G, GPRS, busy public Wi-Fi, a crowded venue, satellite links, a slow
 upload, a lossy link, a far away server) and scenarios that change them over
 time (subway, driving, elevator, a fading signal, a flapping link, Starlink's
@@ -426,9 +427,46 @@ satellite switches). Each shows its latency, bandwidth and loss next to a
 short description. The numbers are rough medians of public mobile network
 reports, not measurements of a specific operator.
 
-The agent applies them with `tc netem` on the VPN tunnel: the tunnel's
-egress (what apps send) gets the upload half, its ingress is redirected to
-an `ifb` device for the download half, each with half of the round trip.
+### Regions
+
+On top of the access link, a **region** stands in for the app's users in a
+country (Germany, the United States, Ukraine, Kazakhstan, Bangladesh, India,
+Pakistan, Indonesia, the Philippines, Nigeria, Kenya, Egypt, Brazil) and
+splits traffic into two paths:
+
+- **CDN edge and DNS**: the published address ranges of Cloudflare, Fastly
+  and Google, and DNS, get the round trip from the region's operators to the
+  CDN edge that serves them (in Bangladesh: Dhaka or Singapore, by operator).
+- **Servers**: everything else, and the hosts listed as **backends behind a
+  CDN** (such as an API on Cloudflare, whose requests go through to the
+  servers), gets the round trip from the region to the chosen server
+  location (Frankfurt, N. Virginia, N. California, São Paulo, Mumbai,
+  Singapore, Tokyo).
+
+With the access link left at no limits, the region's typical mobile link is
+used. The numbers are rounded estimates from public speed reports and
+latency maps, plausible rather than measured per operator.
+
+Emulation can only add delay, and the session's own route through its VPN
+location already takes some. The agent measures it through the VPN
+sidecar: to Cloudflare's nearest edge (`https://1.1.1.1/cdn-cgi/trace`) and
+to the server location (AWS's regional DynamoDB endpoint), on a kept-alive
+connection, again every minute and after a location change. Only the rest
+of each path is added; the tab shows the region's round trip, the session's
+route and what is added. When the route is already slower than the region
+(a VPN location far from the servers), it says so: a closer location, or
+none, gets nearer. Backends are resolved by the agent's DNS, so a backend
+whose DNS answers differ by location may be missed. A CDN often puts many
+of its customers' hosts on the same addresses, and those take the servers'
+path too once one of them is listed as a backend.
+
+### How it works
+
+The agent applies them with `tc` on the VPN tunnel: the tunnel's egress
+(what apps send) gets the upload half, its ingress is redirected to an
+`ifb` device for the download half. An `htb` class per direction holds the
+link's bandwidth, and `netem` classes under it add half of each path's
+round trip, jitter and loss; `u32` filters pick the path by address.
 sing-box's own NAT traffic inside the tunnel's network is left alone, so
 TCP is shaped once per direction.
 Losses are random or in bursts (a Gilbert model). An outage drops every

@@ -676,6 +676,8 @@ export interface components {
             navigation?: "gestures" | "buttons";
             /** @description one of DeviceState.networkProfiles */
             networkProfile?: string;
+            /** @description emulates a region's paths to CDNs and servers on top of networkProfile */
+            networkRegion?: components["schemas"]["NetworkRegionSettings"];
             /** @description puts the default GPS position back */
             resetGeo?: boolean;
             /** @description goes back to the VPN location's time zone */
@@ -749,6 +751,11 @@ export interface components {
             networkProfile?: string;
             /** @description the profiles networkProfile may be set to */
             networkProfiles?: components["schemas"]["NetworkProfileInfo"][];
+            /** @description the region whose paths are emulated; empty while none is */
+            networkRegion?: components["schemas"]["NetworkRegionState"];
+            /** @description the regions networkRegion may be set to */
+            networkRegions?: components["schemas"]["NetworkRegionInfo"][];
+            networkServers?: components["schemas"]["NetworkServerInfo"][];
             /**
              * Format: int64
              * @description the display's highest refresh rate in Hz; 0 when the device doesn't report it
@@ -935,6 +942,55 @@ export interface components {
             externalIp?: string;
             location: string;
         };
+        NetworkLink: {
+            /**
+             * Format: int64
+             * @description download kbit/s; empty is unlimited
+             */
+            down?: number;
+            /**
+             * Format: int64
+             * @description round trip jitter, ms
+             */
+            jitter?: number;
+            /**
+             * Format: double
+             * @description percent of packets lost in each direction
+             */
+            loss?: number;
+            /**
+             * Format: int64
+             * @description round trip, ms
+             */
+            rtt: number;
+            /**
+             * Format: int64
+             * @description upload kbit/s; empty is unlimited
+             */
+            up?: number;
+        };
+        NetworkPath: {
+            /**
+             * Format: int64
+             * @description round trip added beyond the access link, ms: target minus baseline, never below 0
+             */
+            added: number;
+            /**
+             * Format: int64
+             * @description the round trip the session's own route takes there, ms; empty when it couldn't be measured
+             */
+            baseline?: number;
+            /**
+             * @description edge: CDN address ranges and DNS; origin: the backends and everything else
+             * @enum {string}
+             */
+            class: "edge" | "origin";
+            /**
+             * Format: int64
+             * @description the region's round trip beyond the access link, ms
+             */
+            target: number;
+        };
         NetworkProfileInfo: {
             description: string;
             /**
@@ -966,6 +1022,49 @@ export interface components {
              * @description upload kbit/s; empty is unlimited
              */
             up?: number;
+        };
+        NetworkRegionInfo: {
+            /** @description the typical mobile link, used while networkProfile is full */
+            access: components["schemas"]["NetworkLink"];
+            /** @description ISO 3166-1 alpha-2 */
+            country: string;
+            description: string;
+            /** @description where CDN traffic is usually served from */
+            edge: string;
+            /**
+             * Format: int64
+             * @description round trip from the operator to that CDN edge, ms
+             */
+            edgeRtt: number;
+            id: string;
+            name: string;
+            servers: components["schemas"]["NetworkServerRTT"][];
+        };
+        NetworkRegionSettings: {
+            /** @description host names or IPv4 addresses of the app's backend: their traffic takes the server's path even when a CDN fronts them */
+            backends?: string[];
+            /** @description one of DeviceState.networkRegions; empty turns regional paths off */
+            region: string;
+            /** @description one of DeviceState.networkServers; empty picks the first */
+            server?: string;
+        };
+        NetworkRegionState: {
+            backends?: string[];
+            paths: components["schemas"]["NetworkPath"][];
+            region: string;
+            server: string;
+        };
+        NetworkServerInfo: {
+            id: string;
+            name: string;
+        };
+        NetworkServerRTT: {
+            /**
+             * Format: int64
+             * @description round trip from the operator to the server location, ms
+             */
+            rtt: number;
+            server: string;
         };
         ProcessLoad: {
             /**

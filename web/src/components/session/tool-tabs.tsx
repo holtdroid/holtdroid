@@ -5,10 +5,12 @@ import { AdbGate } from "@/components/session/adb-gate"
 import type { AdbSession } from "@/components/session/adb-session"
 import { FilesPanel } from "@/components/session/files-panel"
 import { LogcatPanel } from "@/components/session/logcat-panel"
+import { NetworkPanel } from "@/components/session/network-panel"
 import { SocketsPanel } from "@/components/session/sockets-panel"
 import { PixelPerfectPanel } from "@/components/session/pixel-perfect/panel"
 import type { PixelPerfect } from "@/components/session/pixel-perfect/state"
 import { TerminalPanel } from "@/components/session/terminal-panel"
+import { useDevice } from "@/components/session/use-device"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 const adbTabs = [
@@ -39,11 +41,13 @@ export function ToolTabs({
   const [opened, setOpened] = useState(() => new Set([tab]))
   if (!opened.has(tab)) setOpened(new Set([...opened, tab]))
   const pixelPerfect = useReferences().data?.enabled === true
+  const network = !!useDevice(session.provider, session.id).data?.networkProfiles
   const tabs = adbTabs.filter((t) => t.value !== "terminal" || session.capabilities?.shell !== false)
   const current =
     (adb && tabs.some((t) => t.value === tab)) ||
     (pixelPerfect && tab === "pixel-perfect") ||
-    (devtools && tab === "websockets")
+    (devtools && tab === "websockets") ||
+    (network && tab === "network")
       ? tab
       : "devtools"
 
@@ -58,7 +62,7 @@ export function ToolTabs({
 
   return (
     <Tabs value={current} onValueChange={onTab} className="h-full gap-0">
-      {(adb || pixelPerfect || devtools) && (
+      {(adb || pixelPerfect || devtools || network) && (
         <TabsList variant="line" className="h-9 w-full justify-start rounded-none border-b px-2">
           <TabsTrigger value="devtools" className="flex-none">
             DevTools
@@ -66,6 +70,11 @@ export function ToolTabs({
           {devtools && (
             <TabsTrigger value="websockets" className="flex-none">
               WebSockets
+            </TabsTrigger>
+          )}
+          {network && (
+            <TabsTrigger value="network" className="flex-none">
+              Network
             </TabsTrigger>
           )}
           {adb &&
@@ -95,6 +104,11 @@ export function ToolTabs({
       {devtools && opened.has("websockets") && (
         <TabsContent value="websockets" forceMount className="min-h-0 data-[state=inactive]:hidden">
           <SocketsPanel provider={session.provider} id={session.id} />
+        </TabsContent>
+      )}
+      {network && opened.has("network") && (
+        <TabsContent value="network" forceMount className="min-h-0 data-[state=inactive]:hidden">
+          <NetworkPanel provider={session.provider} id={session.id} />
         </TabsContent>
       )}
       {pixelPerfect && opened.has("pixel-perfect") && (

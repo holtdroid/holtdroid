@@ -188,6 +188,7 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
                   appRunning={status?.appRunning ?? true}
                   adb={adbAllowed ? adb : null}
                   pp={pp}
+                  onTab={setTab}
                 />
                 <ToolTabs
                   tab={tab}

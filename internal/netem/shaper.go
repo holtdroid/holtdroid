@@ -6,6 +6,8 @@ import (
 	"log/slog"
 	"math"
 	"math/rand/v2"
+	"net/netip"
+	"net/url"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -17,30 +19,65 @@ import (
 
 // Shaper applies profiles to a tun: its egress (what the device sends) is
 // the uplink, its ingress is redirected to an ifb device for the downlink.
-// Packets to or from local, the tun's own network, skip the shaping: a
-// system-stack tun NATs every TCP packet back through the tun to its
-// listener, so each one crosses the tun twice.
+// An htb class per direction holds the link's rate; under it a netem class
+// per path: edge (CDN ranges and DNS) and origin (everything else) once a
+// region is set, origin alone before. Packets to or from local, the tun's
+// own network, skip the shaping: a system-stack tun NATs every TCP packet
+// back through the tun to its listener, so each one crosses the tun twice.
 type Shaper struct {
-	dev, ifb string
-	local    string
-	run      func(ctx context.Context, script string) error
-	after    func(time.Duration) <-chan time.Time
-	check    time.Duration
-	log      *slog.Logger
+	dev, ifb  string
+	local     string
+	run       func(ctx context.Context, script string) error
+	after     func(time.Duration) <-chan time.Time
+	check     time.Duration
+	remeasure int
+	measure   func(ctx context.Context, c *choice) measured
+	log       *slog.Logger
+	kick      chan struct{}
 
 	mu      sync.Mutex
 	current contract.NetworkProfile
+	region  *choice
 	stop    context.CancelFunc
 	done    chan struct{}
+
+	mmu  sync.Mutex
+	last measured
 }
 
 // NewShaper shapes dev with tc, which needs CAP_NET_ADMIN in dev's network
-// namespace.
-func NewShaper(dev, local string, log *slog.Logger) *Shaper {
-	return &Shaper{
-		dev: dev, ifb: dev + "in", local: local, run: sh, after: time.After, check: 10 * time.Second, log: log,
-		current: contract.NetworkFull,
+// namespace. proxy is the VPN sidecar's HTTP proxy, which regions measure
+// the session's route through; empty measures directly.
+func NewShaper(dev, local, proxy string, log *slog.Logger) *Shaper {
+	p := prober{}
+	if u, err := url.Parse(proxy); proxy != "" && err == nil {
+		p.proxy = u
 	}
+	s := &Shaper{
+		dev: dev, ifb: dev + "in", local: local, run: sh, after: time.After, check: 10 * time.Second, remeasure: 6,
+		log: log, kick: make(chan struct{}, 1), current: contract.NetworkFull,
+	}
+	s.measure = func(ctx context.Context, c *choice) measured { return p.measure(ctx, c, log) }
+	return s
+}
+
+func (p prober) measure(ctx context.Context, c *choice, log *slog.Logger) measured {
+	ctx, cancel := context.WithTimeout(ctx, 8*time.Second)
+	defer cancel()
+	var m measured
+	var wg sync.WaitGroup
+	probe := func(to *time.Duration, target string) {
+		d, err := p.rtt(ctx, target)
+		if err != nil {
+			log.Warn("network region: measure the route", "target", target, "err", err)
+		}
+		*to = d
+	}
+	wg.Go(func() { probe(&m.edge, EdgeProbe) })
+	wg.Go(func() { probe(&m.origin, c.server.Probe) })
+	wg.Go(func() { m.backends = resolve(ctx, c.backends) })
+	wg.Wait()
+	return m
 }
 
 func sh(ctx context.Context, script string) error {
@@ -57,8 +94,31 @@ func (s *Shaper) Current() contract.NetworkProfile {
 	return s.current
 }
 
+func (s *Shaper) Region() *contract.NetworkRegionState {
+	s.mu.Lock()
+	c := s.region
+	s.mu.Unlock()
+	if c == nil {
+		return nil
+	}
+	m := s.measured()
+	return c.state(m.edge, m.origin)
+}
+
+func (s *Shaper) measured() measured {
+	s.mmu.Lock()
+	defer s.mmu.Unlock()
+	return s.last
+}
+
+func (s *Shaper) setMeasured(m measured) {
+	s.mmu.Lock()
+	s.last = m
+	s.mmu.Unlock()
+}
+
 // Set applies a profile and, for a scenario, keeps stepping through it in
-// the background until the next Set or Close.
+// the background until the next change or Close.
 func (s *Shaper) Set(ctx context.Context, id contract.NetworkProfile) error {
 	p, ok := Find(id)
 	if !ok {
@@ -66,32 +126,63 @@ func (s *Shaper) Set(ctx context.Context, id contract.NetworkProfile) error {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.apply(ctx, p, s.region)
+}
+
+// SetRegion emulates a region's paths on top of the current profile,
+// measuring the session's route first; an empty region turns them off.
+func (s *Shaper) SetRegion(ctx context.Context, in contract.NetworkRegionSettings) error {
+	c, err := parseChoice(in)
+	if err != nil {
+		return err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	p, _ := Find(s.current)
 	s.halt()
-	first := p.Link
-	if len(p.Steps) > 0 {
-		first = s.link(p.Steps[0])
+	if c != nil {
+		s.setMeasured(s.measure(ctx, c))
 	}
-	if err := s.run(ctx, s.script(p.ID == contract.NetworkFull, first)); err != nil {
-		s.current = contract.NetworkFull
+	return s.apply(ctx, p, c)
+}
+
+// Refresh measures the route again soon, for when the VPN location
+// changed under a region.
+func (s *Shaper) Refresh() {
+	select {
+	case s.kick <- struct{}{}:
+	default:
+	}
+}
+
+func (s *Shaper) apply(ctx context.Context, p Profile, c *choice) error {
+	s.halt()
+	st := state{profile: p, region: c}
+	if err := s.run(ctx, s.script(s.plan(st, 0))); err != nil {
+		s.current, s.region = contract.NetworkFull, nil
 		_ = s.run(ctx, s.clear())
-		return fmt.Errorf("apply network profile %s: %w", id, err)
+		return fmt.Errorf("apply network profile %s: %w", p.ID, err)
 	}
-	s.current = id
-	if id == contract.NetworkFull {
+	s.current, s.region = p.ID, c
+	if p.ID == contract.NetworkFull && c == nil {
 		return nil
+	}
+	select {
+	case <-s.kick:
+	default:
 	}
 	loop, cancel := context.WithCancel(context.Background())
 	s.stop, s.done = cancel, make(chan struct{})
-	go s.loop(loop, p, s.done)
+	go s.loop(loop, st, s.done)
 	return nil
 }
 
-// Close stops a scenario and removes the shaping.
+// Close stops a scenario and removes the shaping and the region.
 func (s *Shaper) Close(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.halt()
-	s.current = contract.NetworkFull
+	s.current, s.region = contract.NetworkFull, nil
 	return s.run(ctx, s.clear())
 }
 
@@ -103,46 +194,63 @@ func (s *Shaper) halt() {
 	}
 }
 
+type state struct {
+	profile Profile
+	region  *choice
+}
+
 // loop steps through a scenario; a plain link is re-applied whenever the
-// tun lost its qdiscs, as it does when the VPN sidecar restarts.
-func (s *Shaper) loop(ctx context.Context, p Profile, done chan struct{}) {
+// tun lost its qdiscs, as it does when the VPN sidecar restarts. A region's
+// route is measured again every few rounds and on Refresh.
+func (s *Shaper) loop(ctx context.Context, st state, done chan struct{}) {
 	defer close(done)
-	if len(p.Steps) == 0 {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-s.after(s.check):
-			}
-			if err := s.run(ctx, s.ensure(p.Link)); err != nil && ctx.Err() == nil {
-				s.log.Warn("network profile", "profile", p.ID, "err", err)
-			}
+	steps := st.profile.Steps
+	for step, round := 0, 1; ; round++ {
+		wait := s.check
+		if len(steps) > 0 {
+			wait = hold(steps[step])
 		}
-	}
-	for i, first := 0, true; ; i, first = (i+1)%len(p.Steps), false {
-		st := p.Steps[i]
-		if !first {
-			if err := s.run(ctx, s.script(false, s.link(st))); err != nil && ctx.Err() == nil {
-				s.log.Warn("network scenario", "profile", p.ID, "step", i, "err", err)
-			}
-		}
-		d := st.Min
-		if st.Max > st.Min {
-			d += rand.N(st.Max - st.Min)
-		}
+		refresh := false
 		select {
 		case <-ctx.Done():
 			return
-		case <-s.after(d):
+		case <-s.kick:
+			refresh = true
+		case <-s.after(wait):
+			if len(steps) > 0 {
+				step = (step + 1) % len(steps)
+			}
+		}
+		changed := false
+		if st.region != nil && (refresh || round%s.remeasure == 0) {
+			if m := s.measure(ctx, st.region); m.differs(s.measured()) {
+				s.setMeasured(m)
+				changed = true
+			}
+		}
+		script := s.script(s.plan(st, step))
+		if len(steps) == 0 && !changed {
+			script = s.ensure(s.plan(st, step))
+		}
+		if err := s.run(ctx, script); err != nil && ctx.Err() == nil {
+			s.log.Warn("network profile", "profile", st.profile.ID, "step", step, "err", err)
 		}
 	}
+}
+
+func hold(st Step) time.Duration {
+	d := st.Min
+	if st.Max > st.Min {
+		d += rand.N(st.Max - st.Min)
+	}
+	return d
 }
 
 // outageLink drops everything without touching the routes, so the device
 // still sees a connected network: requests hang until they time out.
 var outageLink = Link{Loss: 100}
 
-func (s *Shaper) link(st Step) Link {
+func stepLink(st Step) Link {
 	if st.Link == outage {
 		return outageLink
 	}
@@ -150,36 +258,103 @@ func (s *Shaper) link(st Step) Link {
 	return p.Link
 }
 
+// plan is what one round shapes: the access link and, with a region, the
+// round trips each path adds on top of it. Nil shapes nothing.
+type plan struct {
+	access       Link
+	regional     bool
+	edge, origin time.Duration
+	backends     []netip.Addr
+}
+
+func (s *Shaper) plan(st state, step int) *plan {
+	access := st.profile.Link
+	switch {
+	case len(st.profile.Steps) > 0:
+		access = stepLink(st.profile.Steps[step])
+	case st.profile.ID == contract.NetworkFull && st.region == nil:
+		return nil
+	case st.profile.ID == contract.NetworkFull:
+		access = st.region.region.Access
+	}
+	pl := &plan{access: access}
+	if c := st.region; c != nil {
+		m := s.measured()
+		pl.regional, pl.backends = true, m.backends
+		pl.edge = extra(c.region.EdgeRTT, m.edge)
+		pl.origin = extra(c.region.Servers[c.server.ID], m.origin)
+	}
+	return pl
+}
+
 func (s *Shaper) clear() string {
-	return "tc qdisc del dev " + s.dev + " root 2>/dev/null; tc qdisc del dev " + s.dev + " ingress 2>/dev/null; " +
-		"tc qdisc del dev " + s.ifb + " root 2>/dev/null; true"
+	return "set -e\n" +
+		"tc qdisc del dev " + s.dev + " root 2>/dev/null || true\n" +
+		"tc qdisc del dev " + s.dev + " ingress 2>/dev/null || true\n" +
+		"tc qdisc del dev " + s.ifb + " root 2>/dev/null || true\n"
 }
 
 // script replaces the qdiscs rather than changing them: tc qdisc change
 // keeps a previous rate or slot that the new link doesn't mention.
-func (s *Shaper) script(full bool, l Link) string {
-	if full {
+func (s *Shaper) script(pl *plan) string {
+	if pl == nil {
 		return s.clear()
 	}
-	return s.clear() + "; " + strings.Join([]string{
-		"{ ip link show " + s.ifb + " >/dev/null 2>&1 || ip link add " + s.ifb + " type ifb; }",
-		"ip link set " + s.ifb + " up",
-		"tc qdisc add dev " + s.dev + " root handle 1: prio bands 2 priomap 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0",
-		"tc qdisc add dev " + s.dev + " parent 1:1 handle 10: netem " + direction(l, l.Up),
-		"tc filter add dev " + s.dev + " parent 1: protocol ip prio 1 u32 match ip dst " + s.local + " flowid 1:2",
-		"tc qdisc add dev " + s.ifb + " root netem " + direction(l, l.Down),
-		"tc qdisc add dev " + s.dev + " handle ffff: ingress",
-		"tc filter add dev " + s.dev + " parent ffff: protocol ip prio 1 u32 match ip src " + s.local + " action ok",
-		"tc filter add dev " + s.dev + " parent ffff: prio 2 matchall action mirred egress redirect dev " + s.ifb,
-	}, " && ")
+	var b strings.Builder
+	b.WriteString(s.clear())
+	fmt.Fprintf(&b, "ip link show %[1]s >/dev/null 2>&1 || ip link add %[1]s type ifb\nip link set %[1]s up\ntc -batch - <<'EOF'\n", s.ifb)
+	s.side(&b, s.dev, "dst", "dport", pl, pl.access.Up)
+	s.side(&b, s.ifb, "src", "sport", pl, pl.access.Down)
+	fmt.Fprintf(&b, "qdisc add dev %[1]s handle ffff: ingress\n"+
+		"filter add dev %[1]s parent ffff: protocol ip prio 1 u32 match ip src %[2]s action ok\n"+
+		"filter add dev %[1]s parent ffff: prio 2 matchall action mirred egress redirect dev %[3]s\nEOF\n",
+		s.dev, s.local, s.ifb)
+	return b.String()
 }
 
-func (s *Shaper) ensure(l Link) string {
-	return "tc qdisc show dev " + s.dev + " | grep -q netem || { " + s.script(false, l) + "; }"
+// side shapes one direction of dev, matching destinations by addr ("dst"
+// or "src") and port ("dport" or "sport"). The backends' own addresses win
+// over the CDN ranges they may sit in.
+func (s *Shaper) side(b *strings.Builder, dev, addr, port string, pl *plan, kbit int) {
+	rate := "10gbit"
+	if kbit > 0 {
+		rate = strconv.Itoa(kbit) + "kbit"
+	}
+	fmt.Fprintf(b, "qdisc add dev %s root handle 1: htb default 20\n", dev)
+	fmt.Fprintf(b, "class add dev %s parent 1: classid 1:1 htb rate %s\n", dev, rate)
+	class := func(id int, rtt time.Duration) {
+		l := pl.access
+		l.RTT += rtt
+		fmt.Fprintf(b, "class add dev %s parent 1:1 classid 1:%d htb rate 8kbit ceil %s quantum 1514\n", dev, id, rate)
+		fmt.Fprintf(b, "qdisc add dev %s parent 1:%d handle %d: netem %s\n", dev, id, id, direction(l, kbit))
+	}
+	class(20, pl.origin)
+	if pl.regional {
+		class(10, pl.edge)
+	}
+	if dev == s.dev {
+		fmt.Fprintf(b, "class add dev %s parent 1: classid 1:30 htb rate 10gbit quantum 1514\n", dev)
+		fmt.Fprintf(b, "filter add dev %s parent 1: protocol ip prio 1 u32 match ip %s %s flowid 1:30\n", dev, addr, s.local)
+	}
+	if !pl.regional {
+		return
+	}
+	for _, a := range pl.backends {
+		fmt.Fprintf(b, "filter add dev %s parent 1: protocol ip prio 2 u32 match ip %s %s/32 flowid 1:20\n", dev, addr, a)
+	}
+	fmt.Fprintf(b, "filter add dev %s parent 1: protocol ip prio 3 u32 match ip %s 53 0xffff flowid 1:10\n", dev, port)
+	for _, p := range cdnPrefixes {
+		fmt.Fprintf(b, "filter add dev %s parent 1: protocol ip prio 3 u32 match ip %s %s flowid 1:10\n", dev, addr, p)
+	}
+}
+
+func (s *Shaper) ensure(pl *plan) string {
+	return "tc qdisc show dev " + s.dev + " | grep -q netem && exit 0\n" + s.script(pl)
 }
 
 // direction is the netem options of one direction: half the round trip and
-// jitter, the rate, a queue of about half a second at that rate, the loss.
+// jitter, a queue of about half a second at the link's rate (which the htb
+// class above holds), the loss.
 func direction(l Link, kbit int) string {
 	var o []string
 	if l.RTT > 0 {
@@ -190,7 +365,6 @@ func direction(l Link, kbit int) string {
 	}
 	limit := 10000
 	if kbit > 0 {
-		o = append(o, "rate "+strconv.Itoa(kbit)+"kbit")
 		bytes := float64(kbit) * 125 * (l.RTT/2 + 500*time.Millisecond).Seconds()
 		limit = min(10000, max(20, int(math.Ceil(bytes/1500))))
 	}

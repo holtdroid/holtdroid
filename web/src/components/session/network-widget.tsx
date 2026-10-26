@@ -14,16 +14,9 @@ import {
 } from "lucide-react"
 import { useMemo } from "react"
 import { toast } from "sonner"
-import {
-  agentClient,
-  type DeviceSettings,
-  type DeviceState,
-  type Location,
-  type Metrics,
-  type NetworkProfileInfo,
-  unwrap,
-} from "@/api/client"
+import { agentClient, type DeviceSettings, type DeviceState, type Location, type Metrics, unwrap } from "@/api/client"
 import { byteRate } from "@/components/session/metrics"
+import { summary } from "@/components/session/network-panel"
 import { networkKey, useDevice, useNetwork, useUpdateDevice } from "@/components/session/use-device"
 import {
   CardLine,
@@ -45,11 +38,13 @@ export function NetworkWidget({
   id,
   locations,
   metrics,
+  onConditions,
 }: {
   provider: string
   id: string
   locations: Location[]
   metrics: Metrics[]
+  onConditions?: () => void
 }) {
   const m = metrics.at(-1)
   const device = useDevice(provider, id)
@@ -58,14 +53,10 @@ export function NetworkWidget({
   const s = device.data
   const n = network.data
   const location = locations.find((l) => l.id === n?.location)
-  const profile = s?.networkProfiles?.find((p) => p.id === s.networkProfile)
+  const region = s?.networkRegions?.find((r) => r.id === s.networkRegion?.region)
+  const emulated = !!s && ((!!s.networkProfile && s.networkProfile !== "full") || !!region)
   const radios = !s?.usbNetwork
-  const changed =
-    !!s &&
-    (s.airplaneMode ||
-      s.wifi !== radios ||
-      s.mobileData !== radios ||
-      (!!s.networkProfile && s.networkProfile !== "full"))
+  const changed = !!s && (s.airplaneMode || s.wifi !== radios || s.mobileData !== radios || emulated)
 
   return (
     <ShadeRoot>
@@ -84,7 +75,9 @@ export function NetworkWidget({
           {n?.externalIp && <span className="truncate font-mono text-[11px] text-neutral-400">{n.externalIp}</span>}
           <span className="flex min-w-0 items-center gap-1.5 text-xs text-neutral-300">
             <LinkIcon s={s} className="size-3.5 shrink-0" />
-            <span className="truncate">{s?.airplaneMode ? "Airplane mode" : (profile?.name ?? linkSummary(s))}</span>
+            <span className="truncate">
+              {s?.airplaneMode ? "Airplane mode" : s && emulated ? summary(s, region) : linkSummary(s)}
+            </span>
           </span>
           {m && (
             <CardLine icon={ArrowDownUpIcon}>
@@ -107,6 +100,7 @@ export function NetworkWidget({
             country={n?.country}
             ip={n?.externalIp}
             metrics={metrics}
+            onConditions={onConditions}
           />
         ) : (
           <Note>Loading the device…</Note>
@@ -144,6 +138,7 @@ function Shade({
   country,
   ip,
   metrics,
+  onConditions,
 }: {
   s: DeviceState
   busy: boolean
@@ -156,8 +151,10 @@ function Shade({
   country?: string
   ip?: string
   metrics: Metrics[]
+  onConditions?: () => void
 }) {
   const radios = !s.usbNetwork
+  const region = s.networkRegions?.find((r) => r.id === s.networkRegion?.region)
   return (
     <>
       <ShadeHeader
@@ -171,7 +168,7 @@ function Shade({
                   airplaneMode: false,
                   wifi: radios,
                   mobileData: radios,
-                  ...(s.networkProfile && { networkProfile: "full" }),
+                  ...(s.networkProfile && { networkProfile: "full", networkRegion: { region: "" } }),
                 })
             : undefined
         }
@@ -206,13 +203,12 @@ function Shade({
         <Locations provider={provider} id={id} locations={locations} current={current} country={country} ip={ip} />
       )}
 
-      {s.networkProfiles && (
-        <Conditions
-          profiles={s.networkProfiles}
-          current={s.networkProfile}
-          busy={busy}
-          onChange={(networkProfile) => set({ networkProfile })}
-        />
+      {s.networkProfiles && onConditions && (
+        <Section title="Network conditions">
+          <Row selected={false} icon={ActivityIcon} title={summary(s, region)} onClick={onConditions}>
+            Slow links, scenarios and regions in the Network tab
+          </Row>
+        </Section>
       )}
     </>
   )
@@ -266,66 +262,6 @@ function Locations({
       })}
     </Section>
   )
-}
-
-function Conditions({
-  profiles,
-  current,
-  busy,
-  onChange,
-}: {
-  profiles: NetworkProfileInfo[]
-  current?: string
-  busy: boolean
-  onChange: (id: string) => void
-}) {
-  const groups = [
-    { title: "Network conditions", items: profiles.filter((p) => !p.scenario) },
-    { title: "Scenarios", items: profiles.filter((p) => p.scenario) },
-  ]
-  return (
-    <>
-      {groups.map(
-        (g) =>
-          g.items.length > 0 && (
-            <Section key={g.title} title={g.title}>
-              {g.items.map((p) => {
-                const selected = p.id === current
-                const numbers = linkNumbers(p)
-                return (
-                  <Row
-                    key={p.id}
-                    selected={selected}
-                    disabled={busy}
-                    icon={p.scenario ? ActivityIcon : SignalIcon}
-                    title={p.name}
-                    onClick={() => !selected && onChange(p.id)}
-                  >
-                    {p.description}
-                    {numbers && <span className="mt-0.5 block font-mono text-[11px]">{numbers}</span>}
-                  </Row>
-                )
-              })}
-            </Section>
-          ),
-      )}
-    </>
-  )
-}
-
-function linkNumbers(p: NetworkProfileInfo) {
-  return [
-    p.rtt && `+${p.rtt}${p.jitter ? ` ±${p.jitter}` : ""} ms`,
-    (p.down || p.up) && `↓ ${bandwidth(p.down)} ↑ ${bandwidth(p.up)}`,
-    p.loss && `${p.loss}% loss`,
-  ]
-    .filter(Boolean)
-    .join(" · ")
-}
-
-function bandwidth(kbit?: number) {
-  if (!kbit) return "∞"
-  return kbit >= 1000 ? `${kbit / 1000} Mbit/s` : `${kbit} kbit/s`
 }
 
 function Traffic({ history }: { history: Metrics[] }) {

@@ -57,6 +57,27 @@ describe("summarize", () => {
     expect(s.battery).toEqual({ level: 72, charging: false, saver: true })
   })
 
+  test("a region shows what each path adds", () => {
+    const s = summarize(
+      input({
+        device: {
+          ...device,
+          networkRegion: {
+            region: "bd",
+            server: "frankfurt",
+            paths: [
+              { class: "edge", target: 30, baseline: 20, added: 10 },
+              { class: "origin", target: 170, added: 170 },
+            ],
+          },
+          networkServers: [{ id: "frankfurt", name: "Frankfurt" }],
+        },
+      }),
+    )
+    const row = s.network.find((r) => r.label === "Region")
+    expect(row?.value).toBe("bd · CDN +10 ms · Frankfurt +170 ms")
+  })
+
   test("resources and the app's state", () => {
     const metrics = {
       device: { cpu: 40, memoryUsed: 2 * 2 ** 30, memoryTotal: 4 * 2 ** 30, rxRate: 2048, txRate: 0 },
