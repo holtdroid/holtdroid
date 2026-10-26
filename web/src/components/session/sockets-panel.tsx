@@ -46,11 +46,16 @@ export function SocketsPanel({ provider, id }: { provider: string; id: string })
   const [frameKey, setFrameKey] = useState<string | null>(null)
   const [query, setQuery] = useState("")
   const counter = useRef(0)
+  const lastSeq = useRef(0)
   const device = useDevice(provider, id)
   const now = useNow(1000)
 
   useEventSource<{ line: DevToolsEntry }>(paused ? null : `${sessionBase(provider, id)}/v1/devtools/sockets`, {
-    line: (e) =>
+    line: (e) => {
+      if (e.seq) {
+        if (e.seq <= lastSeq.current) return
+        lastSeq.current = e.seq
+      }
       setSockets((prev) => {
         const target = e.target ?? ""
         const sid = e.socket?.id ?? e.frame?.socket
@@ -76,7 +81,8 @@ export function SocketsPanel({ provider, id }: { provider: string; id: string })
           next.set(key, { ...s, frames: [...s.frames.slice(-(maxFrames - 1)), f] })
         }
         return next
-      }),
+      })
+    },
   })
 
   const list = [...sockets.values()]
@@ -129,7 +135,7 @@ export function SocketsPanel({ provider, id }: { provider: string; id: string })
         <div className="grid flex-1 place-items-center p-6 text-center text-sm text-muted-foreground">
           {paused
             ? "Paused."
-            : "No WebSocket or event stream open in the app's WebViews yet. Ones it opens show up here as they happen."}
+            : "No WebSocket or event stream in the app's WebViews yet. Everything they send during the session shows up here, also after a reload."}
         </div>
       ) : (
         <div className="flex min-h-0 flex-1">

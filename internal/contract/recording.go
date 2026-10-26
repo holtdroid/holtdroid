@@ -176,6 +176,7 @@ type DevToolsEntry struct {
 	Dropped int               `json:"dropped,omitempty" doc:"lines left out because one upload got too big"`
 	Wall    int64             `json:"wall,omitempty" doc:"live stream only: the agent's clock, milliseconds since the epoch; t is then the recording time, or 0 without a recording"`
 	Rec     string            `json:"recording,omitempty" doc:"live stream only: the recording t belongs to"`
+	Seq     int64             `json:"seq,omitempty" doc:"live stream only: the line's number since the agent started; lines the stream repeats to describe what is open now have none"`
 }
 
 // DevToolsPage is a target the agent follows: a tab, an iframe in its own

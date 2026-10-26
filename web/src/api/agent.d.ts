@@ -433,6 +433,11 @@ export interface components {
             /** @description live stream only: the recording t belongs to */
             recording?: string;
             request?: components["schemas"]["DevToolsRequest"];
+            /**
+             * Format: int64
+             * @description live stream only: the line's number since the agent started; lines the stream repeats to describe what is open now have none
+             */
+            seq?: number;
             socket?: components["schemas"]["DevToolsSocket"];
             /** Format: int64 */
             t: number;

@@ -36,10 +36,33 @@ type devtoolsWatch struct {
 	recID string
 	procs map[string]*cdpProcess
 	subs  map[chan contract.DevToolsEntry]struct{}
+
+	seq     int64
+	history []contract.DevToolsEntry
+	kept    int
+	maxKept int
+}
+
+// socketHistory is how much of the live socket lines the agent keeps for
+// watchers that come later, such as a session page that was reloaded.
+const socketHistory = 16 << 20
+
+func lineSize(e contract.DevToolsEntry) int {
+	n := 256
+	if e.Frame != nil {
+		n += len(e.Frame.Data)
+	}
+	if e.Socket != nil {
+		n += len(e.Socket.URL)
+	}
+	if e.Page != nil {
+		n += len(e.Page.URL) + len(e.Page.Title)
+	}
+	return n
 }
 
 func newDevToolsWatch(dt *DevTools, log *slog.Logger) *devtoolsWatch {
-	return &devtoolsWatch{dt: dt, log: log, start: time.Now(), procs: map[string]*cdpProcess{}, subs: map[chan contract.DevToolsEntry]struct{}{}}
+	return &devtoolsWatch{dt: dt, log: log, start: time.Now(), procs: map[string]*cdpProcess{}, subs: map[chan contract.DevToolsEntry]struct{}{}, maxKept: socketHistory}
 }
 
 func (w *devtoolsWatch) Clock() int64 { return time.Since(w.start).Milliseconds() + 1 }
@@ -69,17 +92,27 @@ func (w *devtoolsWatch) DevTools(e contract.DevToolsEntry) {
 	}
 }
 
-func (w *devtoolsWatch) Watching() bool {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	return len(w.subs) > 0
-}
+// Watching is always true: socket lines are kept for later watchers too.
+func (w *devtoolsWatch) Watching() bool { return true }
 
-// Live stamps a line with the agent's clock and the recording time and
-// hands it to everyone watching; a watcher that falls behind misses lines.
+// Live stamps a line with the agent's clock, the recording time and a
+// number, keeps it in the history and hands it to everyone watching; a
+// watcher that falls behind misses lines.
 func (w *devtoolsWatch) Live(e contract.DevToolsEntry) {
 	w.mu.Lock()
 	e = w.stampLocked(e)
+	w.seq++
+	e.Seq = w.seq
+	w.history = append(w.history, e)
+	w.kept += lineSize(e)
+	drop := 0
+	for w.kept > w.maxKept && drop < len(w.history)-1 {
+		w.kept -= lineSize(w.history[drop])
+		drop++
+	}
+	if drop > 0 {
+		w.history = append(w.history[:0:0], w.history[drop:]...)
+	}
 	for ch := range w.subs {
 		select {
 		case ch <- e:
@@ -99,18 +132,20 @@ func (w *devtoolsWatch) stampLocked(e contract.DevToolsEntry) contract.DevToolsE
 	return e
 }
 
-// watchSockets sends the targets and their open sockets, then every change
-// and frame, until ctx ends or send fails.
+// watchSockets sends the kept history, then the targets and the sockets open
+// now (numbered 0, as they repeat what is known), then every change and
+// frame, until ctx ends or send fails.
 func (w *devtoolsWatch) watchSockets(ctx context.Context, send func(contract.DevToolsEntry) error) error {
-	var first []contract.DevToolsEntry
+	var current []contract.DevToolsEntry
 	for _, p := range w.pages() {
-		first = append(first, p.current()...)
+		current = append(current, p.current()...)
 	}
 	ch := make(chan contract.DevToolsEntry, 1024)
 	w.mu.Lock()
-	for i := range first {
-		first[i].T = w.Clock()
-		first[i] = w.stampLocked(first[i])
+	first := append([]contract.DevToolsEntry(nil), w.history...)
+	for _, e := range current {
+		e.T = w.Clock()
+		first = append(first, w.stampLocked(e))
 	}
 	w.subs[ch] = struct{}{}
 	w.mu.Unlock()

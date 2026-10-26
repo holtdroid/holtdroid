@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -400,17 +402,18 @@ func TestDevToolsWatchStreamsSocketsLive(t *testing.T) {
 			return contract.DevToolsEntry{}
 		}
 	}
-	if e := next(); e.Type != contract.DevToolsPageEntry || e.Target != "P1" {
-		t.Fatalf("first: %+v", e)
+	if e := next(); e.Type != contract.DevToolsSocketEntry || e.Seq != 1 || e.Socket.URL != "wss://api.example.com/socket" || e.Wall == 0 {
+		t.Fatalf("history: %+v", e)
 	}
-	if e := next(); e.Type != contract.DevToolsSocketEntry || e.Socket.URL != "wss://api.example.com/socket" || e.Wall == 0 {
-		t.Fatalf("open socket: %+v", e)
+	if e := next(); e.Type != contract.DevToolsPageEntry || e.Target != "P1" || e.Seq != 0 {
+		t.Fatalf("current page: %+v", e)
 	}
-	for !w.Watching() {
-		time.Sleep(time.Millisecond)
+	if e := next(); e.Type != contract.DevToolsSocketEntry || e.Seq != 0 {
+		t.Fatalf("current socket: %+v", e)
 	}
+	waitSubscribed(t, w)
 	cdpEvent(t, pg, "Network.webSocketFrameReceived", `{"requestId":"s1","response":{"opcode":1,"payloadData":"hi"}}`)
-	if e := next(); e.Frame == nil || e.Frame.Data != "hi" || e.T != 0 || e.Rec != "" || e.Wall < time.Now().Add(-time.Minute).UnixMilli() {
+	if e := next(); e.Frame == nil || e.Frame.Data != "hi" || e.Seq != 2 || e.T != 0 || e.Rec != "" || e.Wall < time.Now().Add(-time.Minute).UnixMilli() {
 		t.Fatalf("frame without a recording: %+v", e)
 	}
 	rec := &devtoolsLines{t: 4200}
@@ -424,5 +427,57 @@ func TestDevToolsWatchStreamsSocketsLive(t *testing.T) {
 	}
 	if lines := rec.of(contract.DevToolsFrameEntry); len(lines) != 1 || lines[0].Frame.Data != "yo" {
 		t.Fatalf("recorded frames: %+v", lines)
+	}
+}
+
+func waitSubscribed(t *testing.T, w *devtoolsWatch) {
+	t.Helper()
+	for range 200 {
+		w.mu.Lock()
+		n := len(w.subs)
+		w.mu.Unlock()
+		if n > 0 {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatal("nobody subscribed")
+}
+
+func TestDevToolsWatchKeepsSocketHistoryForLaterWatchers(t *testing.T) {
+	w := newDevToolsWatch(nil, slog.New(slog.DiscardHandler))
+	w.maxKept = 4 * (256 + 10)
+	pg := newCDPPage("P1", w)
+	w.procs["webview_devtools_remote_1"] = &cdpProcess{w: w, pages: map[string]*cdpPage{"S1": pg}}
+	cdpEvent(t, pg, "Network.webSocketCreated", `{"requestId":"s1","url":"wss://a.example/"}`)
+	for i := range 10 {
+		b, _ := json.Marshal(map[string]any{"requestId": "s1", "response": map[string]any{"opcode": 1, "payloadData": fmt.Sprintf("frame-%03d", i)}})
+		pg.handle("Network.webSocketFrameReceived", b)
+	}
+	var got []contract.DevToolsEntry
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_ = w.watchSockets(ctx, func(e contract.DevToolsEntry) error {
+			got = append(got, e)
+			if len(got) == 6 {
+				cancel()
+			}
+			return nil
+		})
+	}()
+	<-done
+	var frames []string
+	for _, e := range got {
+		if e.Frame != nil {
+			frames = append(frames, e.Frame.Data)
+		}
+	}
+	if !slices.Equal(frames, []string{"frame-006", "frame-007", "frame-008", "frame-009"}) {
+		t.Fatalf("kept frames %v", frames)
+	}
+	if last := got[len(got)-1]; last.Type != contract.DevToolsSocketEntry || last.Seq != 0 || last.Socket.URL != "wss://a.example/" || last.Socket.Frames != 10 {
+		t.Fatalf("the socket as it is now: %+v", last)
 	}
 }

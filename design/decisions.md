@@ -3670,3 +3670,23 @@ glance should do.
 **Consequences.** Live frames cost nothing while nobody watches; a watcher
 that falls 1024 lines behind misses some. A screencap at touch-down takes a
 few hundred milliseconds and can already show the press highlight.
+
+## 118. The agent keeps the session's socket traffic for later watchers
+
+**Context.** The live WebSockets tab (decision #117) started empty on every
+page load: a reload, a second viewer or a session opened on another machine
+lost what the app had already sent, often its most telling messages (the
+connection to its backend at start).
+
+**Decision.** The DevTools watch keeps every live socket line (targets,
+socket states, frames) since the agent started, up to 16 MB counted by
+payload, dropping the oldest first, and numbers each line (`seq`). A new
+watcher gets the kept lines, then the targets and sockets as they are now
+(unnumbered, so they correct whatever the oldest lines left out), then the
+live lines; the tab skips numbers it already has, so reconnecting and
+resuming after a pause add only what is new. The history lives in the
+session Pod and ends with it, like the session; the api stays stateless.
+
+**Consequences.** Lines are stamped and kept even when nobody watches, a
+few microseconds a frame; frames of media streams are still not kept. A
+restarted agent starts an empty history.

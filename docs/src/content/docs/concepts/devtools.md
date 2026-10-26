@@ -71,9 +71,12 @@ same at the bottom of its list.
 The **WebSockets** tab next to DevTools shows the WebViews' WebSockets and
 event streams as they happen, in DevTools' own look: the sockets on the
 left, their frames with the direction, the payload (parsed like in a
-recording, with time hints) and the time. It works without DevTools open
-and keeps the last 5000 frames of each socket until you clear it or leave
-the page; pause stops it. Sockets streaming video are marked and their
+recording, with time hints) and the time. It works without DevTools open.
+The agent keeps the socket traffic of the whole session, up to 16 MB of it
+(the oldest goes first), so the tab shows everything since the app started
+even after you reload the page or open the session somewhere else. **Clear**
+empties the tab in this browser only; pause stops it, and resuming fills in
+what came meanwhile. The tab keeps at most 5000 frames a socket. Sockets streaming video are marked and their
 frames left out. While the session records, a frame's time is a marker
 button: a click pins that moment on the recording, hovering offers the
 other marker icons and **Open the recording from here**.
