@@ -73,10 +73,12 @@ describe("summarize", () => {
     const status = { state: "ready", appRunning: true } as StatusEvent
     const s = summarize(input({ device, metrics, status, history: [{ t: 64_000, v: metrics }] }))
     expect(s.app.state).toBe("Running")
-    expect(s.resources.map((b) => b.label)).toEqual(["Device CPU", "App", "Memory", "Frames"])
-    expect(s.resources[1]?.value).toBe("15% · 2.0 MB")
-    expect(s.resources[2]?.fraction).toBe(0.5)
-    expect(s.temperature?.tone).toBe("bad")
+    expect(s.resources.map((b) => b.label)).toEqual(["CPU", "Memory", "App", "Frames", "Temperature"])
+    expect(s.resources[2]?.value).toBe("15%")
+    expect(s.resources[2]?.detail).toBe("2.0 MB PSS")
+    expect(s.resources[1]?.fraction).toBe(0.5)
+    expect(s.resources[4]?.tone).toBe("bad")
+    expect(s.resources[4]?.wide).toBe(true)
   })
 
   test("without telemetry nothing breaks", () => {

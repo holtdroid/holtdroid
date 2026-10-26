@@ -1,6 +1,7 @@
 import type { VideoSample } from "mediabunny"
 import type { RecordingManifest, RecordingMarker } from "@/api/client"
 import { md, mono, sans, series } from "@/lib/recording/android"
+import { historySize } from "@/components/session/metrics"
 import { drawIcon, type SceneIconName } from "@/lib/recording/scene-icons"
 import { type Block, type Row, summarize, type Summary, type Tone } from "@/lib/recording/summary"
 import type { Dims, Rotation, Snapshot } from "@/lib/recording/timeline"
@@ -137,16 +138,73 @@ function rows(ctx: Ctx, x: number, y: number, w: number, list: Row[]) {
   })
 }
 
-function meter(ctx: Ctx, x: number, y: number, w: number, b: Block) {
+const blockGlyph: Record<Block["icon"], SceneIconName> = {
+  cpu: "cpu",
+  memory: "memory",
+  app: "mobile",
+  frames: "resources",
+  container: "container",
+  temperature: "temperature",
+}
+
+function spark(ctx: Ctx, x: number, y: number, w: number, h: number, values: number[], max: number, color: string) {
+  if (values.length < 2) return
+  const top = Math.max(max, ...values) || 1
+  const step = w / (historySize - 1)
+  const x0 = x + w - (values.length - 1) * step
+  const pts = values.map((v, i): [number, number] => [x0 + i * step, y + h - 2 - (v / top) * (h - 4)])
+  ctx.beginPath()
+  ctx.moveTo(x0, y + h)
+  pts.forEach(([px, py]) => ctx.lineTo(px, py))
+  ctx.lineTo(x + w, y + h)
+  ctx.closePath()
+  ctx.fillStyle = `${color}26`
+  ctx.fill()
+  ctx.beginPath()
+  pts.forEach(([px, py], i) => (i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py)))
+  ctx.strokeStyle = color
+  ctx.lineWidth = 1.5
+  ctx.lineJoin = "round"
+  ctx.stroke()
+}
+
+function metricTile(ctx: Ctx, x: number, y: number, w: number, h: number, b: Block) {
   const color = b.tone === "bad" ? series.error : series[b.series]
-  text(ctx, b.label, x, y + 14, 15, md.outline)
-  ctx.textAlign = "right"
-  font(ctx, 15)
-  text(ctx, ellipsize(ctx, b.value, w - 110), x + w, y + 14, 15, b.tone ? toneColor[b.tone] : md.onSurface)
-  ctx.textAlign = "left"
-  box(ctx, x, y + 23, w, 6, 3, md.containerHighest)
-  const filled = Math.min(1, Math.max(0, b.fraction)) * w
-  if (filled > 0) box(ctx, x, y + 23, Math.max(6, filled), 6, 3, color)
+  box(ctx, x, y, w, h, 24, md.container)
+  drawIcon(ctx, blockGlyph[b.icon], md.onSurfaceVariant, x + 16, y + 13, 15)
+  text(ctx, b.label, x + 37, y + 25, 13, md.onSurfaceVariant)
+  font(ctx, 22, 500)
+  text(ctx, ellipsize(ctx, b.value, w - 32), x + 16, y + 54, 22, b.tone ? toneColor[b.tone] : md.onSurface, 500)
+  if (b.detail) {
+    font(ctx, 12)
+    text(ctx, ellipsize(ctx, b.detail, w - 32), x + 16, y + 72, 12, md.onSurfaceVariant)
+  }
+  if (b.chart === "bar") {
+    const by = y + h - 20
+    box(ctx, x + 16, by, w - 32, 6, 3, md.containerHighest)
+    const filled = Math.min(1, Math.max(0, b.fraction)) * (w - 32)
+    if (filled > 0) box(ctx, x + 16, by, Math.max(6, filled), 6, 3, color)
+  } else if (b.chart === "spark") {
+    spark(ctx, x + 16, y + h - 36, w - 32, 24, b.values, b.max, color)
+  }
+}
+
+function drawResources(ctx: Ctx, x: number, y: number, w: number, h: number, list: Block[]) {
+  const space = 8
+  const tw = (w - space) / 2
+  const rowsN = list.reduce((n, b, i) => (b.wide || i % 2 === 0 ? n + 1 : n), 0)
+  const th = Math.min(112, (h - space * (rowsN - 1)) / Math.max(1, rowsN))
+  if (th < 84) return
+  let row = -1
+  let col = 0
+  list.forEach((b) => {
+    if (b.wide || col === 1 || row < 0) {
+      row++
+      col = 0
+    }
+    metricTile(ctx, x + col * (tw + space), y + row * (th + space), b.wide ? w : tw, th, b)
+    col = b.wide ? 1 : col + 1
+  })
 }
 
 function drawTiles(ctx: Ctx, x: number, y: number, w: number, tiles: Summary["tiles"]) {
@@ -335,18 +393,7 @@ function drawWidgets(ctx: Ctx, x: number, y: number, w: number, h: number, s: Su
   rows(ctx, x + 20, cy + 64, inner, s.network)
   cy += networkH + gap
 
-  const rest = y + h - cy
-  if (rest < 90) return
-  card(ctx, x, cy, w, rest, "Load", "resources")
-  const tempH = s.temperature ? 34 : 0
-  const area = rest - 50 - tempH - 8
-  const step = Math.min(58, area / Math.max(1, s.resources.length))
-  s.resources.forEach((b, i) => meter(ctx, x + 20, cy + 52 + i * step, inner, b))
-  if (s.temperature) {
-    ctx.fillStyle = `${md.outlineVariant}99`
-    ctx.fillRect(x + 20, y + h - 46, inner, 1)
-    rows(ctx, x + 20, y + h - 20, inner, [s.temperature])
-  }
+  drawResources(ctx, x, cy, w, y + h - cy, s.resources)
 }
 
 /** The opening card: what was recorded and on what, before the recording starts. */

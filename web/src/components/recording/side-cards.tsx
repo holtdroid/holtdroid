@@ -5,13 +5,17 @@ import {
   BatteryLowIcon,
   BatteryMediumIcon,
   ClockIcon,
+  CpuIcon,
   GlobeIcon,
   type LucideIcon,
+  MemoryStickIcon,
+  ServerIcon,
   SmartphoneIcon,
   ThermometerIcon,
 } from "lucide-react"
 import type { ReactNode } from "react"
 import { AppIcon } from "@/components/app-icon"
+import { MetricTile } from "@/components/session/load"
 import { CardLine, ShadeCard, ShadePanel, ShadeRoot } from "@/components/session/shade"
 import { HoverCardTrigger } from "@/components/ui/hover-card"
 import { series } from "@/lib/recording/android"
@@ -47,36 +51,28 @@ function Panel({ title, icon: Icon, children }: { title: string; icon: LucideIco
   )
 }
 
-function Meter({ block: b }: { block: Block }) {
-  const color = b.tone === "bad" ? series.error : series[b.series]
-  const top = Math.max(b.max, ...b.values) || 1
-  const points = b.values.map((v, i) => `${(i / Math.max(1, b.values.length - 1)) * 100},${29 - (v / top) * 27}`)
+const blockIcons: Record<Block["icon"], LucideIcon> = {
+  cpu: CpuIcon,
+  memory: MemoryStickIcon,
+  app: SmartphoneIcon,
+  frames: ActivityIcon,
+  container: ServerIcon,
+  temperature: ThermometerIcon,
+}
+
+function Tile({ block: b }: { block: Block }) {
   return (
-    <div className="grid gap-1.5 rounded-3xl bg-neutral-800 px-4 py-3">
-      <span className="flex items-baseline justify-between gap-2 text-xs text-neutral-400">
-        {b.label}
-        <span className={cn("text-sm font-medium text-neutral-100 tabular-nums", b.tone && tones[b.tone])}>
-          {b.value}
-        </span>
-      </span>
-      <span className="h-1.5 overflow-hidden rounded-full bg-neutral-700">
-        <span
-          className="block h-full rounded-full"
-          style={{ width: `${Math.min(100, b.fraction * 100)}%`, background: color }}
-        />
-      </span>
-      {points.length > 1 && (
-        <svg viewBox="0 0 100 30" preserveAspectRatio="none" className="h-7 w-full" aria-hidden>
-          <polyline
-            points={points.join(" ")}
-            fill="none"
-            stroke={color}
-            strokeWidth={1.5}
-            vectorEffect="non-scaling-stroke"
-          />
-        </svg>
-      )}
-    </div>
+    <MetricTile
+      icon={blockIcons[b.icon]}
+      label={b.label}
+      value={b.value}
+      detail={b.detail}
+      level={b.tone === "bad" ? "crit" : b.tone === "warn" ? "warn" : "ok"}
+      ratio={b.chart === "bar" ? b.fraction : undefined}
+      history={b.chart === "spark" ? b.values : undefined}
+      max={b.max}
+      wide={b.wide}
+    />
   )
 }
 
@@ -104,8 +100,9 @@ export function SideCards({
   iconUrl?: string
   className?: string
 }) {
-  const cpu = s.resources.find((b) => b.label === "Device CPU") ?? s.resources[0]
-  const memory = s.resources.find((b) => b.label.includes("memory") || b.label.includes("Memory"))
+  const cpu = s.resources.find((b) => b.icon === "cpu") ?? s.resources[0]
+  const temperature = s.resources.find((b) => b.icon === "temperature")
+  const memory = s.resources.find((b) => b.icon === "memory")
   return (
     <div className={cn("flex gap-2.5 lg:flex-col", className)}>
       <ShadeRoot>
@@ -243,17 +240,20 @@ export function SideCards({
                   </span>
                 </span>
               ))}
-              {s.temperature && <CardLine icon={ThermometerIcon}>{s.temperature.value}</CardLine>}
+              {temperature && (
+                <CardLine icon={ThermometerIcon}>
+                  {temperature.value} {temperature.detail?.split(" · ")[0]}
+                </CardLine>
+              )}
             </ShadeCard>
           </HoverCardTrigger>
           <ShadePanel>
             <Panel title="Load" icon={ActivityIcon}>
-              <div className="grid gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 {s.resources.map((b) => (
-                  <Meter key={b.label} block={b} />
+                  <Tile key={b.icon + b.label} block={b} />
                 ))}
               </div>
-              {s.temperature && <Rows rows={[s.temperature]} />}
             </Panel>
           </ShadePanel>
         </ShadeRoot>

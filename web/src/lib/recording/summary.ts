@@ -11,14 +11,19 @@ export type Tile = {
   on: boolean
   tone?: Tone
 }
+export type BlockIcon = "cpu" | "memory" | "app" | "frames" | "container" | "temperature"
 export type Block = {
+  icon: BlockIcon
   label: string
   value: string
+  detail?: string
   values: number[]
   max: number
   fraction: number
   series: SeriesName
   tone?: Tone
+  chart: "spark" | "bar" | "none"
+  wide?: boolean
 }
 
 export type Summary = {
@@ -31,7 +36,6 @@ export type Summary = {
   device: Row[]
   network: Row[]
   resources: Block[]
-  temperature?: Row
 }
 
 export type SummaryInput = {
@@ -115,59 +119,93 @@ export function summarize(input: SummaryInput): Summary {
     : ""
 
   const series = (f: (m: Metrics) => number | undefined) => history.map((m) => f(m.v) ?? 0)
+  const m = metrics
   const resources: Block[] = [
     {
-      label: "Device CPU",
-      value: percent(metrics?.device.cpu),
-      values: series((m) => m.device.cpu),
+      icon: "cpu",
+      label: "CPU",
+      value: percent(m?.device.cpu),
+      detail: m?.device.cores ? `${m.device.cores} cores` : undefined,
+      values: series((x) => x.device.cpu),
       max: 100,
-      fraction: (metrics?.device.cpu ?? 0) / 100,
+      fraction: (m?.device.cpu ?? 0) / 100,
       series: "primary",
+      tone: (m?.device.cpu ?? 0) >= 90 ? "bad" : (m?.device.cpu ?? 0) >= 70 ? "warn" : undefined,
+      chart: "spark",
     },
     {
+      icon: "memory",
+      label: "Memory",
+      value: m ? percent((m.device.memoryUsed / Math.max(1, m.device.memoryTotal)) * 100) : "—",
+      detail: m ? `${formatBytes(m.device.memoryUsed)} of ${formatBytes(m.device.memoryTotal)}` : undefined,
+      values: [],
+      max: 1,
+      fraction: m ? m.device.memoryUsed / Math.max(1, m.device.memoryTotal) : 0,
+      series: "purple",
+      tone: m && m.device.memoryUsed / Math.max(1, m.device.memoryTotal) >= 0.92 ? "bad" : undefined,
+      chart: "bar",
+    },
+    {
+      icon: "app",
       label: "App",
-      value: metrics?.app ? `${percent(appCPU(metrics))} · ${formatBytes(appMemory(metrics) ?? 0)}` : "not running",
+      value: m?.app ? percent(appCPU(m)) : "Closed",
+      detail: m?.app ? `${formatBytes(appMemory(m) ?? 0)} PSS` : "not running",
       values: series(appCPU),
       max: 100,
-      fraction: (appCPU(metrics) ?? 0) / 100,
+      fraction: (appCPU(m) ?? 0) / 100,
       series: "blue",
+      chart: "spark",
     },
     {
-      label: "Memory",
-      value: metrics ? `${formatBytes(metrics.device.memoryUsed)} of ${formatBytes(metrics.device.memoryTotal)}` : "—",
-      values: series((m) => m.device.memoryUsed),
-      max: metrics?.device.memoryTotal ?? 1,
-      fraction: metrics ? metrics.device.memoryUsed / Math.max(1, metrics.device.memoryTotal) : 0,
-      series: "purple",
-    },
-    {
+      icon: "frames",
       label: "Frames",
-      value: metrics?.app ? `${Math.round(metrics.app.fps)} fps · ${percent(metrics.app.jank)} jank` : "—",
-      values: series((m) => m.app?.fps),
+      value: m?.app ? (m.app.fps > 0 ? `${Math.round(m.app.fps)} fps` : "Idle") : "—",
+      detail: m?.app ? (m.app.fps > 0 ? `${percent(m.app.jank)} janky` : "Nothing on the screen changed") : undefined,
+      values: series((x) => x.app?.fps),
       max: 60,
-      fraction: (metrics?.app?.fps ?? 0) / 60,
+      fraction: (m?.app?.fps ?? 0) / 60,
       series: "amber",
+      tone: (m?.app?.jank ?? 0) >= 25 ? "bad" : (m?.app?.jank ?? 0) >= 10 ? "warn" : undefined,
+      chart: "spark",
     },
   ]
-  if (metrics?.host) {
-    const h = metrics.host
+  if (m?.host) {
+    const h = m.host
     resources.push({
+      icon: "container",
       label: "Container",
-      value: `${h.cpu.toFixed(1)} of ${h.cpuLimit} cores${h.throttled > 0 ? ` · ${percent(h.throttled)} throttled` : ""}`,
-      values: series((m) => m.host?.cpu),
+      value: `${h.cpu.toFixed(1)} cores`,
+      detail: `of ${h.cpuLimit.toFixed(0)}${h.throttled > 0 ? ` · ${percent(h.throttled)} throttled` : ""}`,
+      values: [],
       max: h.cpuLimit,
       fraction: h.cpu / Math.max(0.1, h.cpuLimit),
       series: "teal",
       tone: h.throttled > 5 ? "bad" : undefined,
+      chart: "bar",
     })
   }
 
-  const temps = metrics?.thermal.filter((tp) => tp.source === "device") ?? []
+  const temps = m?.thermal.filter((tp) => tp.source === "device") ?? []
   const hottest = temps.reduce<(typeof temps)[number] | undefined>(
     (a, b) => (!a || b.celsius > a.celsius ? b : a),
     undefined,
   )
   const battery = temps.find((tp) => tp.type === "battery")
+  if (hottest) {
+    resources.push({
+      icon: "temperature",
+      label: "Temperature",
+      value: `${Math.round(hottest.celsius)}°C`,
+      detail: `${hottest.type}${battery && battery !== hottest ? ` · battery ${Math.round(battery.celsius)}°C` : ""}`,
+      values: [],
+      max: 1,
+      fraction: 0,
+      series: "amber",
+      tone: hottest.celsius >= 70 ? "bad" : hottest.celsius >= 55 ? "warn" : undefined,
+      chart: "none",
+    })
+  }
+  if (resources.length % 2 === 1) resources[resources.length - 1]!.wide = true
 
   return {
     app: {
@@ -234,12 +272,5 @@ export function summarize(input: SummaryInput): Summary {
         : []),
     ],
     resources,
-    temperature: hottest
-      ? {
-          label: "Temperature",
-          value: `${hottest.type} ${Math.round(hottest.celsius)}°C${battery && battery !== hottest ? ` · battery ${Math.round(battery.celsius)}°C` : ""}`,
-          tone: hottest.celsius >= 70 ? "bad" : undefined,
-        }
-      : undefined,
   }
 }
