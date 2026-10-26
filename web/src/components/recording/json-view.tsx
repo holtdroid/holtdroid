@@ -5,6 +5,7 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/h
 import { formatBytes } from "@/lib/format"
 import { decodeBase64, hexDump, type Packet, type ParsedBody, parseBody, parseJSON, textOf } from "@/lib/recording/body"
 import { detectStamp, formatSpan, relative, type Stamp, stampFormats, unitNames } from "@/lib/recording/timestamps"
+import { clock } from "@/lib/recording/timeline"
 import { cn } from "@/lib/utils"
 
 /** The clocks of the recording: real time is startedAt + t, the device's is that plus its offset then. */
@@ -16,7 +17,10 @@ export type Clocks = {
 
 export const ClocksContext = createContext<Clocks>({ startedAt: 0, offsetAt: () => 0, zoneAt: () => undefined })
 
-type Moment = { real: number; device: number; zone?: string }
+/** The player's position, in recording time. */
+export const PlayheadContext = createContext(0)
+
+type Moment = { t: number; real: number; device: number; zone?: string }
 
 const MomentContext = createContext<Moment | null>(null)
 
@@ -26,7 +30,7 @@ export function AtMoment({ t, children }: { t: number; children: ReactNode }) {
   const real = clocks.startedAt + t
   const device = real + clocks.offsetAt(t)
   const zone = clocks.zoneAt(t)
-  const moment = useMemo(() => ({ real, device, zone }), [real, device, zone])
+  const moment = useMemo(() => ({ t, real, device, zone }), [t, real, device, zone])
   return <MomentContext value={moment}>{children}</MomentContext>
 }
 
@@ -43,9 +47,22 @@ export function useStamp(value: unknown, key?: string): Stamp | null {
 }
 
 /** A value that is a point in time: dotted, with how far it is from the device clock then and every format on hover. */
+function versus(d: number, clock: string) {
+  return Math.abs(d) < 1000 ? `same as ${clock}` : `${formatSpan(d)} ${d < 0 ? "before" : "after"} ${clock}`
+}
+
+/**
+ * A value that is a point in time: dotted, with a chip saying how far it is
+ * from the device clock at the player's position, and on hover from the
+ * moment it was recorded too, with every format.
+ */
 export function TimeHint({ stamp, children }: { stamp: Stamp; children: ReactNode }) {
   const m = useContext(MomentContext)!
-  const d = stamp.ms - m.device
+  const clocks = useContext(ClocksContext)
+  const now = useContext(PlayheadContext)
+  const playhead = clocks.startedAt + now + clocks.offsetAt(now)
+  const d = stamp.ms - playhead
+  const atEvent = stamp.ms - m.device
   const near = Math.abs(d) < 5000
   const offset = m.device - m.real
   return (
@@ -64,33 +81,33 @@ export function TimeHint({ stamp, children }: { stamp: Stamp; children: ReactNod
             )}
           >
             <ClockIcon className="size-2.5" />
-            {relative(stamp.ms, m.device)}
+            {relative(stamp.ms, playhead)}
           </span>
         </span>
       </HoverCardTrigger>
       <HoverCardContent
         side="top"
         align="start"
-        className="w-[23rem] rounded-[20px] border-0 bg-stage-surface-container p-4 font-sans text-stage-on-surface shadow-2xl ring-1 ring-black/10 dark:ring-white/10"
+        className="w-[24rem] rounded-[20px] border-0 bg-stage-surface-container p-4 font-sans text-stage-on-surface shadow-2xl ring-1 ring-black/10 dark:ring-white/10"
       >
         <p className="text-xs font-medium tracking-wide text-stage-outline uppercase">{unitNames[stamp.unit]}</p>
-        <p className="mt-1 text-base font-medium">
-          {Math.abs(d) < 1000
-            ? "Same as the device clock"
-            : `${formatSpan(d)} ${d < 0 ? "before" : "after"} the device clock`}
-        </p>
-        <p className="text-xs text-stage-outline">
-          at that moment of the recording
+        <dl className="mt-2 grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1">
+          <dt className="text-xs text-stage-outline">Now, {clock(now)}</dt>
+          <dd className="text-base font-medium">{versus(d, "the device clock")}</dd>
+          <dt className="text-xs text-stage-outline">When seen, {clock(m.t)}</dt>
+          <dd className="text-sm">{versus(atEvent, "the device clock")}</dd>
           {Math.abs(offset) >= 1500 && (
             <>
-              {" "}
-              · {Math.abs(stamp.ms - m.real) < 1000
-                ? "same as"
-                : relative(stamp.ms, m.real).replace("ago", "before")}{" "}
-              real time (the device was {formatSpan(offset)} {offset > 0 ? "ahead" : "behind"})
+              <dt className="text-xs text-stage-outline">Real time then</dt>
+              <dd className="text-sm">
+                {versus(stamp.ms - m.real, "real time")}{" "}
+                <span className="text-xs text-stage-outline">
+                  (device {formatSpan(offset)} {offset > 0 ? "ahead" : "behind"})
+                </span>
+              </dd>
             </>
           )}
-        </p>
+        </dl>
         {stamp.zoneless && (
           <p className="mt-2 rounded-xl bg-stage-amber-container px-3 py-1.5 text-xs text-stage-on-surface">
             No time zone in the value: read as your browser's.
@@ -349,6 +366,14 @@ export function BodyView({
           {kindLabel(parsed)}
           {parsed.kind === "packets" && parsed.packets.length > 1 && ` · ${parsed.packets.length}`}
         </span>
+        {base64 && parsed.kind !== "binary" && (
+          <span
+            className="rounded-full bg-stage-surface-high px-2 py-0.5"
+            title="The bytes were sent as binary and read as UTF-8 text"
+          >
+            binary · UTF-8
+          </span>
+        )}
         {size !== undefined && <span>{formatBytes(size)}</span>}
         {truncated && <span className="text-stage-amber">cut at the recording limit</span>}
         <span className="ml-auto flex items-center gap-1">

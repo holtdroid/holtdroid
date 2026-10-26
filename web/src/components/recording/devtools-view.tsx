@@ -15,7 +15,7 @@ import { type ReactNode, useLayoutEffect, useRef, useState } from "react"
 import type { DevToolsRequest } from "@/api/client"
 import { AtMoment, BodyView, copy, InlineValue, JsonView, Pairs } from "@/components/recording/json-view"
 import { formatBytes } from "@/lib/format"
-import { parseBody, parseJSON } from "@/lib/recording/body"
+import { decodeBase64, parseJSON, parsePackets, textOf } from "@/lib/recording/body"
 import {
   type ConsoleLine,
   curlOf,
@@ -36,13 +36,27 @@ import { cn } from "@/lib/utils"
 
 const shown = 400
 
-/** Keeps a list scrolled to its end while the user hasn't scrolled away from it. */
-function useFollow() {
+/**
+ * Keeps a list scrolled to its end while the user hasn't scrolled away from
+ * it; the row with data-key reveal is scrolled to once it shows up.
+ */
+function useFollow(reveal?: string) {
   const ref = useRef<HTMLDivElement>(null)
   const follow = useRef(true)
+  const revealed = useRef(!reveal)
   useLayoutEffect(() => {
     const el = ref.current
-    if (el && follow.current) el.scrollTop = el.scrollHeight
+    if (!el) return
+    if (!revealed.current && reveal) {
+      const row = el.querySelector(`[data-key="${CSS.escape(reveal)}"]`)
+      if (row) {
+        revealed.current = true
+        follow.current = false
+        row.scrollIntoView({ block: "center" })
+        return
+      }
+    }
+    if (follow.current) el.scrollTop = el.scrollHeight
   })
   const onScroll = () => {
     const el = ref.current
@@ -243,13 +257,24 @@ const groups: { id: ResourceGroup | "all"; label: string }[] = [
   { id: "other", label: "Other" },
 ]
 
-export function NetworkView({ log, time, onSeek }: { log: DevToolsLog; time: number; onSeek: (t: number) => void }) {
+export function NetworkView({
+  log,
+  time,
+  onSeek,
+  picked,
+  onPick,
+}: {
+  log: DevToolsLog
+  time: number
+  onSeek: (t: number) => void
+  picked?: string
+  onPick: (key: string | undefined) => void
+}) {
   const [query, setQuery] = useState("")
   const [group, setGroup] = useState<ResourceGroup | "all">("all")
   const [errors, setErrors] = useState(false)
   const [context, setContext] = useState("")
-  const [picked, setPicked] = useState<string | null>(null)
-  const [listRef, onListScroll] = useFollow()
+  const [listRef, onListScroll] = useFollow(picked)
   const needle = query.trim().toLowerCase()
   const all = log.requestsUntil(time).filter((r) => !context || r.target === context)
   const present = new Set(all.map((r) => resourceGroup(r.resourceType)))
@@ -296,10 +321,11 @@ export function NetworkView({ log, time, onSeek }: { log: DevToolsLog; time: num
             return (
               <div
                 key={r.key}
+                data-key={r.key}
                 role="button"
                 tabIndex={0}
-                onClick={() => setPicked(r.key === picked ? null : r.key)}
-                onKeyDown={(e) => e.key === "Enter" && setPicked(r.key)}
+                onClick={() => onPick(r.key === picked ? undefined : r.key)}
+                onKeyDown={(e) => e.key === "Enter" && onPick(r.key)}
                 className={cn(
                   "flex cursor-pointer items-center gap-2 rounded-lg px-2 py-[3px] hover:bg-stage-surface-container",
                   r.key === picked && "bg-stage-secondary-container/70 hover:bg-stage-secondary-container",
@@ -342,7 +368,7 @@ export function NetworkView({ log, time, onSeek }: { log: DevToolsLog; time: num
         )}
       </div>
       {selected && (
-        <RequestDetails r={selected} time={time} onClose={() => setPicked(null)} onSeek={onSeek} log={log} />
+        <RequestDetails r={selected} time={time} onClose={() => onPick(undefined)} onSeek={onSeek} log={log} />
       )}
     </>
   )
@@ -570,12 +596,24 @@ const shortURL = (url: string | undefined, line?: number) => {
   return line ? `${name}:${line}` : name
 }
 
-export function ConsoleView({ log, time, onSeek }: { log: DevToolsLog; time: number; onSeek: (t: number) => void }) {
+export function ConsoleView({
+  log,
+  time,
+  onSeek,
+  picked,
+  onPick,
+}: {
+  log: DevToolsLog
+  time: number
+  onSeek: (t: number) => void
+  picked?: string
+  onPick: (key: string | undefined) => void
+}) {
   const [query, setQuery] = useState("")
   const [level, setLevel] = useState<ConsoleFilter>("all")
   const [context, setContext] = useState("")
-  const [open, setOpen] = useState<Set<string>>(() => new Set())
-  const [listRef, onListScroll] = useFollow()
+  const [open, setOpen] = useState<Set<string>>(() => new Set(picked ? [picked] : []))
+  const [listRef, onListScroll] = useFollow(picked)
   const needle = query.trim().toLowerCase()
   const all = log.consoleUntil(time).filter((c) => !context || c.target === context)
   const counts = { error: 0, warning: 0 }
@@ -587,12 +625,13 @@ export function ConsoleView({ log, time, onSeek }: { log: DevToolsLog; time: num
         (!needle || c.text.toLowerCase().includes(needle) || (c.url ?? "").toLowerCase().includes(needle)),
     )
     .slice(-shown)
-  const toggle = (key: string) =>
-    setOpen((s) => {
-      const next = new Set(s)
-      if (!next.delete(key)) next.add(key)
-      return next
-    })
+  const toggle = (key: string) => {
+    const next = new Set(open)
+    const closing = next.delete(key)
+    if (!closing) next.add(key)
+    setOpen(next)
+    onPick(closing ? (picked === key ? undefined : picked) : key)
+  }
 
   return (
     <>
@@ -624,6 +663,7 @@ export function ConsoleView({ log, time, onSeek }: { log: DevToolsLog; time: num
         ) : (
           rows.map((c) => (
             <ConsoleRow
+              picked={picked === c.key}
               key={c.key}
               c={c}
               log={log}
@@ -639,12 +679,14 @@ export function ConsoleView({ log, time, onSeek }: { log: DevToolsLog; time: num
 }
 
 function ConsoleRow({
+  picked,
   c,
   log,
   open,
   onToggle,
   onSeek,
 }: {
+  picked: boolean
   c: ConsoleLine
   log: DevToolsLog
   open: boolean
@@ -656,7 +698,7 @@ function ConsoleRow({
   const structured = (c.args ?? []).some((a) => a.json || (a.type === "string" && parseJSON(a.text).ok))
   const expandable = structured || !!c.stack || c.text.length > 160 || c.text.includes("\n")
   return (
-    <div className={cn("rounded-lg", info.row)}>
+    <div data-key={c.key} className={cn("rounded-lg", info.row, picked && "ring-1 ring-stage-primary/60")}>
       <div
         role={expandable ? "button" : undefined}
         tabIndex={expandable ? 0 : undefined}
@@ -741,19 +783,26 @@ const socketTone: Record<string, string> = {
   stream: "bg-stage-amber-container text-stage-amber",
 }
 
-const summaries = new WeakMap<SocketFrame, { label?: string; text: string; json: boolean }>()
+type FrameLine = { label?: string; text: string; json: boolean; binary: boolean; bytes: boolean }
+
+const summaries = new WeakMap<SocketFrame, FrameLine>()
 
 const clip = (s: string) => (s.length > 240 ? `${s.slice(0, 240)}…` : s)
 
-/** A frame on one line: what its protocol calls it and its payload as compact JSON or text. */
-function summarize(f: SocketFrame) {
+/**
+ * A frame on one line: what its protocol calls it and its payload as compact
+ * JSON or text. A binary frame that holds UTF-8 text shows the text.
+ */
+function summarize(f: SocketFrame): FrameLine {
   let out = summaries.get(f)
   if (out) return out
-  if (!f.data) out = { text: f.opcode === 2 ? `binary · ${formatBytes(f.size)}` : "", json: false }
+  const binary = f.opcode === 2
+  const text = !f.data ? null : binary ? textOf(decodeBase64(f.data)) : f.data
+  if (text === null) out = { text: `${formatBytes(f.size)}`, json: false, binary, bytes: true }
   else {
-    const p = parseBody(f.data, f.opcode === 2)
-    if (p.kind === "json") out = { text: clip(JSON.stringify(p.value)), json: true }
-    else if (p.kind === "packets") {
+    const p = parsePackets(text)
+    if (p?.kind === "json") out = { text: clip(JSON.stringify(p.value)), json: true, binary, bytes: false }
+    else if (p?.kind === "packets") {
       const first = p.packets[0]!
       const label = p.packets.length > 1 ? `${p.format} · ${p.packets.length}` : first.label
       const body = first.json
@@ -763,9 +812,8 @@ function summarize(f: SocketFrame) {
           : first.value !== undefined
             ? JSON.stringify(first.value)
             : ""
-      out = { label: label ?? p.format, text: clip(body), json: first.json }
-    } else if (p.kind === "binary") out = { text: `binary · ${formatBytes(f.size)}`, json: false }
-    else out = { text: clip(f.data), json: false }
+      out = { label: label ?? p.format, text: clip(body), json: first.json, binary, bytes: false }
+    } else out = { text: clip(text), json: false, binary, bytes: false }
   }
   summaries.set(f, out)
   return out
@@ -774,12 +822,15 @@ function summarize(f: SocketFrame) {
 function FrameSummary({ f }: { f: SocketFrame }) {
   const s = summarize(f)
   return (
-    <span
-      className={cn(
-        "min-w-0 flex-1 truncate",
-        f.opcode === 2 && !s.json ? "text-stage-outline" : "text-stage-on-surface",
+    <span className={cn("min-w-0 flex-1 truncate", s.bytes ? "text-stage-outline" : "text-stage-on-surface")}>
+      {s.binary && (
+        <span
+          className="mr-1.5 rounded bg-stage-surface-high px-1 font-sans text-[10.5px] text-stage-outline"
+          title={s.bytes ? "Binary frame" : "Binary frame that holds UTF-8 text"}
+        >
+          bin
+        </span>
       )}
-    >
       {s.label && (
         <span className="mr-1.5 rounded-full bg-stage-secondary-container px-1.5 py-px font-sans text-[11px] font-medium text-stage-on-secondary-container">
           {s.label}
@@ -790,13 +841,25 @@ function FrameSummary({ f }: { f: SocketFrame }) {
   )
 }
 
-export function SocketsView({ log, time, onSeek }: { log: DevToolsLog; time: number; onSeek: (t: number) => void }) {
+export function SocketsView({
+  log,
+  time,
+  onSeek,
+  socket: picked,
+  frame: frameKey,
+  onPick,
+}: {
+  log: DevToolsLog
+  time: number
+  onSeek: (t: number) => void
+  socket?: string
+  frame?: string
+  onPick: (socket: string | undefined, frame: string | undefined) => void
+}) {
   const sockets = log.socketsUntil(time)
-  const [picked, setPicked] = useState<string | null>(null)
-  const [frameKey, setFrameKey] = useState<string | null>(null)
   const [query, setQuery] = useState("")
   const [direction, setDirection] = useState<"all" | "sent" | "received">("all")
-  const [listRef, onListScroll] = useFollow()
+  const [listRef, onListScroll] = useFollow(frameKey)
   const socket = sockets.find((s) => s.key === picked) ?? sockets.at(-1)
   const needle = query.trim().toLowerCase()
   const frames = socket
@@ -804,7 +867,9 @@ export function SocketsView({ log, time, onSeek }: { log: DevToolsLog; time: num
         .filter(
           (f) =>
             (direction === "all" || (direction === "sent") === !!f.sent) &&
-            (!needle || (f.opcode === 1 && (f.data ?? "").toLowerCase().includes(needle))),
+            (!needle ||
+              summarize(f).text.toLowerCase().includes(needle) ||
+              (f.opcode === 1 && (f.data ?? "").toLowerCase().includes(needle))),
         )
         .slice(-shown)
     : []
@@ -822,8 +887,7 @@ export function SocketsView({ log, time, onSeek }: { log: DevToolsLog; time: num
             time={time}
             active={s.key === socket?.key}
             onPick={() => {
-              setPicked(s.key)
-              setFrameKey(null)
+              onPick(s.key, undefined)
             }}
           />
         ))}
@@ -858,8 +922,9 @@ export function SocketsView({ log, time, onSeek }: { log: DevToolsLog; time: num
                   key={f.key}
                   role="button"
                   tabIndex={0}
-                  onClick={() => setFrameKey(f.key === frameKey ? null : f.key)}
-                  onKeyDown={(e) => e.key === "Enter" && setFrameKey(f.key)}
+                  data-key={f.key}
+                  onClick={() => onPick(socket?.key, f.key === frameKey ? undefined : f.key)}
+                  onKeyDown={(e) => e.key === "Enter" && onPick(socket?.key, f.key)}
                   className={cn(
                     "flex cursor-pointer items-center gap-2 rounded-lg px-2 py-[3px] hover:bg-stage-surface-container",
                     f.key === frameKey && "bg-stage-secondary-container/70 hover:bg-stage-secondary-container",
@@ -881,7 +946,7 @@ export function SocketsView({ log, time, onSeek }: { log: DevToolsLog; time: num
           </div>
           {frame && (
             <Details
-              onClose={() => setFrameKey(null)}
+              onClose={() => onPick(socket?.key, undefined)}
               title={
                 <div className="flex items-center gap-2 text-sm">
                   {frame.sent ? (

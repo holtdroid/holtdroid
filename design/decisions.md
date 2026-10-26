@@ -3574,3 +3574,27 @@ the session's whole life; outside recordings it only keeps state, but
 Chrome buffers response bodies for it (32 MB at most, 2 MB a resource).
 Targets of a WebView that existed before the agent found its socket are
 attached unpaused, so their first requests can still be missed.
+
+## 115. Recording links carry the moment and what is open
+
+**Context.** Testers pass recordings around to point at one request or one
+message, and had to tell the other person where to look. Timestamps in
+payloads were compared with the device clock when they arrived, so a value
+that was "now" stayed "now" however far the video went on, which says
+nothing about how stale it is at the moment being watched.
+
+**Decision.** A copied link ends in a hash (`#t=46.2&tab=…&request=…`, or
+`message`, `socket` and `frame`) that the player reads when it opens: it
+seeks there, opens the tab and the item and scrolls to it. Item keys are the
+line's target and request id, or its position in the recording's DevTools
+lines, which only grow. The hash is not kept in the address bar while
+playing. Time chips compare with the device clock at the player's
+position; the hover adds the comparison with the moment of the line.
+Binary frames that decode as UTF-8 text are shown and parsed as text.
+
+**Consequences.** Links stay valid for the recording's life; a line dropped
+for size shifts nothing, since positions count the lines that were written.
+Android's WebView renders cross-origin iframes in the page's renderer
+(`--site-per-process` in `webview-command-line` changes nothing, tried on
+redroid with WebView 128), so an iframe never becomes a DevTools target of
+its own; its traffic is recorded with the page's.

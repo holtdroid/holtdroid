@@ -1,20 +1,21 @@
 import { CableIcon, GlobeIcon, type LucideIcon, SquareTerminalIcon, TerminalIcon } from "lucide-react"
-import { useState } from "react"
-import { ClocksContext, type Clocks } from "@/components/recording/json-view"
+import { ClocksContext, type Clocks, PlayheadContext } from "@/components/recording/json-view"
 import { ConsoleView, NetworkView, SocketsView } from "@/components/recording/devtools-view"
 import { LogcatView } from "@/components/recording/logcat-view"
 import { type DevToolsLog, requestPhase } from "@/lib/recording/devtools"
+import { type PlayerView, type ToolTab, toolTabs } from "@/lib/recording/link"
 import type { Player } from "@/lib/recording/player"
 import { cn } from "@/lib/utils"
 
-type Tab = "logcat" | "network" | "console" | "sockets"
+type Tab = ToolTab
 
 const storageKey = "holtdroid.recording.tab"
 
-function savedTab(): Tab {
+/** The tab this browser last had open. */
+export function savedTab(): ToolTab {
   try {
     const v = localStorage.getItem(storageKey)
-    if (v === "logcat" || v === "network" || v === "console" || v === "sockets") return v
+    if (v && (toolTabs as string[]).includes(v)) return v as ToolTab
   } catch {
     return "logcat"
   }
@@ -27,15 +28,19 @@ export function RecordingTools({
   time,
   log,
   clocks,
+  view,
+  onView,
 }: {
   player: Player
   time: number
   log: DevToolsLog
   clocks: Clocks
+  view: PlayerView
+  onView: (patch: PlayerView) => void
 }) {
-  const [tab, setTab] = useState<Tab>(savedTab)
+  const tab = view.tab ?? "logcat"
   const pick = (t: Tab) => {
-    setTab(t)
+    onView({ tab: t })
     try {
       localStorage.setItem(storageKey, t)
     } catch {
@@ -93,12 +98,39 @@ export function RecordingTools({
         ))}
       </nav>
       <ClocksContext value={clocks}>
-        <div className="flex min-h-0 flex-1 flex-col">
-          {tab === "logcat" && <LogcatView player={player} time={time} />}
-          {tab === "network" && <NetworkView log={log} time={time} onSeek={seek} />}
-          {tab === "console" && <ConsoleView log={log} time={time} onSeek={seek} />}
-          {tab === "sockets" && <SocketsView log={log} time={time} onSeek={seek} />}
-        </div>
+        <PlayheadContext value={time}>
+          <div className="flex min-h-0 flex-1 flex-col">
+            {tab === "logcat" && <LogcatView player={player} time={time} />}
+            {tab === "network" && (
+              <NetworkView
+                log={log}
+                time={time}
+                onSeek={seek}
+                picked={view.request}
+                onPick={(request) => onView({ request })}
+              />
+            )}
+            {tab === "console" && (
+              <ConsoleView
+                log={log}
+                time={time}
+                onSeek={seek}
+                picked={view.message}
+                onPick={(message) => onView({ message })}
+              />
+            )}
+            {tab === "sockets" && (
+              <SocketsView
+                log={log}
+                time={time}
+                onSeek={seek}
+                socket={view.socket}
+                frame={view.frame}
+                onPick={(socket, frame) => onView({ socket, frame })}
+              />
+            )}
+          </div>
+        </PlayheadContext>
       </ClocksContext>
     </section>
   )

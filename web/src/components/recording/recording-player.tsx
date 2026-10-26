@@ -45,10 +45,11 @@ import { BakeDialog } from "@/components/recording/bake-dialog"
 import { FitHeight } from "@/components/recording/fit-height"
 import { InfoView } from "@/components/recording/info-view"
 import { MarkerPin, newMarkerId } from "@/components/recording/markers"
-import { RecordingTools } from "@/components/recording/tools-view"
+import { RecordingTools, savedTab } from "@/components/recording/tools-view"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { bakingSupported } from "@/lib/recording/bake"
 import { DevToolsLog, toHar } from "@/lib/recording/devtools"
+import { parseView, type PlayerView, viewHash } from "@/lib/recording/link"
 import { remoteFiles } from "@/lib/recording/files"
 import { buildLogcat } from "@/lib/recording/logfile"
 import { Player } from "@/lib/recording/player"
@@ -119,6 +120,9 @@ export function RecordingPlayer({
   const [player] = useState(() => new Player(files, manifest))
   const state = useSyncExternalStore(player.subscribe, player.getState)
   const [baking, setBaking] = useState(false)
+  const [linked] = useState(() => parseView(window.location.hash))
+  const [view, setView] = useState<PlayerView>(() => ({ ...linked, tab: linked.tab ?? savedTab() }))
+  const changeView = (patch: PlayerView) => setView((v) => ({ ...v, ...patch }))
   const [showTouches, setShowTouches] = useState(true)
   const box = useRef<HTMLDivElement>(null)
   const grid = useRef<HTMLDivElement>(null)
@@ -137,6 +141,9 @@ export function RecordingPlayer({
     [player],
   )
 
+  useEffect(() => {
+    if (linked.t !== undefined) void player.seek(linked.t)
+  }, [player, linked])
   useEffect(() => player.update(manifest), [player, manifest])
   useEffect(() => player.setTouches(telemetry.touches), [player, telemetry])
   useEffect(() => player.setShowTouches(showTouches), [player, showTouches])
@@ -152,13 +159,22 @@ export function RecordingPlayer({
     try {
       const v = r.share ? r : await share.mutateAsync({ id: r.id, share: true })
       if (!v.share) return
-      await navigator.clipboard.writeText(v.share.url)
-      toast.success("Link copied", {
-        description: "Anyone with it can watch. The recording is kept while it is shared.",
+      await navigator.clipboard.writeText(v.share.url + viewHash({ ...view, t: state.time }))
+      toast.success(`Link to ${clock(state.time)} copied`, {
+        description:
+          "It opens at this moment with this tab and what is open in it. Anyone with it can watch; the recording is kept while it is shared.",
       })
     } catch (e) {
       toast.error("Could not share", { description: e instanceof Error ? e.message : String(e) })
     }
+  }
+
+  const copyMoment = () => {
+    const url = `${window.location.origin}${window.location.pathname}${viewHash({ ...view, t: state.time })}`
+    void navigator.clipboard.writeText(url).then(
+      () => toast.success(`Link to ${clock(state.time)} copied`),
+      () => toast.error("Could not copy"),
+    )
   }
 
   const saveLogcat = async (colored: boolean) => {
@@ -214,7 +230,14 @@ export function RecordingPlayer({
         className="grid gap-3 [--phone-max-w:calc(100vw-4rem)] [--stage-h:68dvh] lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1.45fr)_auto_minmax(280px,0.85fr)] lg:grid-rows-[minmax(0,1fr)] lg:[--phone-max-w:min(44vw,900px)] lg:[--stage-h:var(--stage-h-lg,60dvh)]"
       >
         <div className="order-3 flex h-[70dvh] min-h-0 flex-col lg:order-1 lg:h-auto">
-          <RecordingTools player={player} time={state.time} log={devlog} clocks={clocks} />
+          <RecordingTools
+            player={player}
+            time={state.time}
+            log={devlog}
+            clocks={clocks}
+            view={view}
+            onView={changeView}
+          />
         </div>
 
         <div className="order-1 grid min-h-0 place-items-center lg:order-2">
@@ -321,6 +344,12 @@ export function RecordingPlayer({
             </Tonal>
           )}
           <div className="ml-auto flex flex-wrap items-center gap-2">
+            {source.kind === "shared" && (
+              <Tonal title="Copy a link that opens here, with this tab and what is open in it" onClick={copyMoment}>
+                <LinkIcon />
+                Link to {clock(state.time)}
+              </Tonal>
+            )}
             {own && (
               <>
                 <Tonal
@@ -344,7 +373,11 @@ export function RecordingPlayer({
                 </Tonal>
                 <Tonal
                   disabled={share.isPending}
-                  title={r.share ? "Copy the share link" : "Make a link anyone can open, and keep the recording"}
+                  title={
+                    r.share
+                      ? `Copy the share link at ${clock(state.time)}, with this tab and what is open in it`
+                      : `Make a link anyone can open at ${clock(state.time)}, and keep the recording`
+                  }
                   onClick={() => void copyLink()}
                 >
                   <LinkIcon />

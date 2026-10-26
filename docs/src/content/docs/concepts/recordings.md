@@ -109,7 +109,11 @@ before the recording started is still recorded from then on, with its
 address. The tabs next to **Logcat** show what it saw up to the moment you
 are at; when there is more than one tab, iframe or worker, a menu narrows
 Network and Console to one of them, and lines from iframes and workers say
-where they came from. Counters on the tabs
+where they came from. Android's WebView runs an iframe in its page's
+process, even one from another site, so it is not a context of its own:
+its requests, console and sockets are recorded with the page's. In a live
+session's DevTools you reach it the same way, through the page: pick it in
+the Console's context menu (`top ▾`), or find it in Elements and Sources. Counters on the tabs
 turn red when requests failed or the page logged errors.
 
 - **Network** lists requests as they were sent: status (pending until the
@@ -133,18 +137,22 @@ string field. Messages and bodies in common framings are split into their
 parts, each a tree: **Socket.IO** and **Engine.IO** packets (the event name
 as a label, `2`/`3` as ping and pong), **SignalR** and Engine.IO polling
 records separated by `\x1e`, **Server-Sent Events** and **JSON Lines**.
-Frames show their label and a one-line preview in the list. Forms are name
+Frames show their label and a one-line preview in the list; a binary frame
+is marked **bin**, and one that holds UTF-8 text shows that text (and parses
+it) rather than base64. Forms are name
 and value pairs, binary payloads a hex dump. **Pretty** and **Raw** switch
 between the parsed view and the text as it was sent, and the copy button
 copies it.
 
 Values that look like a point in time get a chip with how far they are from
-the **device clock at that moment of the recording** (“3.2 s ago”, “in 1 h”,
-“now”): Unix time in seconds, milliseconds, microseconds or nanoseconds,
-ISO 8601 and HTTP dates. Hover it for the same moment in UTC, in the
-device's time zone and in yours, as Unix seconds and milliseconds (click one
-to copy), and, when the device clock was set off real time, how it compares
-with real time. Plain numbers count as seconds only when the field's name
+the **device clock at the player's position** (“now”, “3.2 s ago”, “in 1 h”),
+so a timestamp that was “now” when it arrived reads “3 s ago” three seconds
+of video later: Unix time in seconds, milliseconds, microseconds or
+nanoseconds, ISO 8601 and HTTP dates. Hover it for its distance from the
+device clock both now and when it was recorded, the same moment in UTC, in
+the device's time zone and in yours, as Unix seconds and milliseconds (click
+one to copy), and, when the device clock was set off real time, how it
+compares with real time. Plain numbers count as seconds only when the field's name
 says it is a time (`expiresAt`, `created_at`, `exp`, `ts`…) or they fall
 within five years of the recording.
 
@@ -248,6 +256,13 @@ link; **Stop sharing** turns it off. A shared recording is kept, so the link
 doesn't die after `recordings.maxAge`; it stays kept when you stop sharing,
 until you let it expire yourself. People with the link can watch and
 download the logcat, but the page has no video download.
+
+The link you copy carries the moment you are at, like a video link with a
+time: `#t=46.2&tab=network&request=…` opens the recording there, on the same
+tab (Logcat, Network, Console or WebSockets), with the request, console
+message or socket frame you had open opened and scrolled to. `t` also takes
+`1m20s`. On a shared recording, **Link to 00:46** copies such a link for the
+page you are on.
 
 ## Keeping and space
 
