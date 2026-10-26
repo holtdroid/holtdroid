@@ -347,6 +347,11 @@ func (a *Agent) run(ctx context.Context) error {
 	if err := a.inst.Watch(ctx, a.cfg.Package, a.launched); err != nil {
 		a.log.Warn("app launches from the device won't be instrumented", "err", err)
 	}
+	if !a.cfg.Resume {
+		if err := a.controls.Action(ctx, contract.DeviceUnlock); err != nil {
+			a.log.Warn("unlock the screen", "err", err)
+		}
+	}
 	if err := a.spawn(ctx); err != nil {
 		return err
 	}

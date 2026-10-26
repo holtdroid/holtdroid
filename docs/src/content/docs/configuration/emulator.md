@@ -288,7 +288,9 @@ they crash its SystemUI. The portal still draws them on the phone frame.
 redroid builds Android with the lock screen off. Locking the screen from
 the power key turns it on: an overlay on Android 12 and later (swipe up to
 unlock), a temporary PIN `0000` on Android 11, which **Wake and unlock**
-enters and removes.
+enters and removes. Since the overlay is turned on at boot, Android 12 and
+later boot onto the lock screen; the agent wakes and unlocks the device
+before it starts the app, so a session opens unlocked.
 
 ## Inventory and maintenance
 

@@ -3936,3 +3936,19 @@ browser activity. Runtime permissions were already granted by `install -g`.
 the device for the whole session, so a second browser installed by hand
 skips its welcome screens too. Per-site permission prompts (camera,
 location) still come from the page and stay.
+
+## 131. Sessions start unlocked
+
+**Context.** With the lock screen overlay of decision #101 enabled at boot,
+redroid on Android 12 and later boots onto the keyguard. The app was started
+behind it, and the keyguard's own 10-second activity timeout put the screen
+to sleep a few seconds after the session became ready, so every session
+opened on a dark, locked device.
+
+**Decision.** On a fresh session (not a resume) the agent runs the device
+control `unlock` (wake and `wm dismiss-keyguard`, the PIN script on Android
+11) right before it starts the app. The overlay stays enabled at boot, since
+enabling it later is what put the screen to sleep with the first lock.
+
+**Consequences.** A resumed agent leaves the screen as it was. Phones run the
+plain wake and dismiss, which they already get from their own setup.
