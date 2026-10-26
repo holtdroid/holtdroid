@@ -3517,3 +3517,17 @@ to a recording; bodies count against the quota like the video. What happens
 before the agent attaches to a page (its first two seconds, or the console
 lines `Runtime.enable` replays) is stamped with the time of attaching.
 Service workers and other non-page targets are not followed.
+
+## 113. Dev servers are published by default
+
+**Context.** Decision #65 made *manual* the default publish mode, so a new
+computer published nothing until the user picked ports or switched modes.
+The point of the client is that the dev servers are there on the device.
+
+**Decision.** A computer with no saved mode starts in *dev*. A computer that
+already saved a mode keeps it; `--publish-mode manual` or the TUI's Mode line
+switches back. This supersedes the default in #65.
+
+**Consequences.** A dev server is reachable from every device of the user as
+soon as it listens, without a prompt (the exposure #65 accepted for the
+automatic modes now applies out of the box).

@@ -108,7 +108,7 @@ func New(opts Options) (*Client, error) {
 		st.Mode = opts.Mode
 	}
 	if st.Mode == "" {
-		st.Mode = control.PublishManual
+		st.Mode = control.PublishDev
 	}
 	st.Insecure = st.Insecure || opts.Insecure
 	if opts.Log == nil {

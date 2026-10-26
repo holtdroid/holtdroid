@@ -115,7 +115,7 @@ func (c *conn) info() control.Computer {
 		ID: c.computer, Hostname: c.hostname, OS: c.client.hello.OS, Arch: c.client.hello.Arch, Version: c.client.hello.Version,
 		ClientIP: c.remote, Since: c.since,
 		Listening: nonNil(c.client.state.Listening), Published: nonNil(c.client.state.Published), ADB: nonNil(c.client.state.ADB),
-		Mode: cmp.Or(c.client.state.Mode, control.PublishManual), Pinned: nonNil(pinned),
+		Mode: cmp.Or(c.client.state.Mode, control.PublishDev), Pinned: nonNil(pinned),
 	}
 }
 

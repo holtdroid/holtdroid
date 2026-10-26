@@ -36,8 +36,8 @@ sidebar:
   user, so the command is as sensitive as a password while it is fresh.
   Single computers can't be revoked yet; changing `caKey` revokes all of
   them. Each computer also gets 15-minute bearer tokens for the portal's
-  API with its user's rights. A computer in the client's **Dev servers** or
-  **Everything** publish mode exposes its local services to every device
+  API with its user's rights. A computer in the client's **Dev servers** (the
+  default) or **Everything** publish mode exposes its local services to every device
   of its user without asking per port. Leave `sshGateway.insecureTLS` off unless the
   portal has a self-signed certificate. See
   [Connecting your computer](/holtdroid/concepts/ssh/).

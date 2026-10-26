@@ -24,6 +24,7 @@ import (
 	"github.com/holtdroid/holtdroid/internal/audit"
 	"github.com/holtdroid/holtdroid/internal/auth"
 	"github.com/holtdroid/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/contract/control"
 	"github.com/holtdroid/holtdroid/internal/provider/fake"
 	"github.com/holtdroid/holtdroid/internal/sshgateway"
 )
@@ -225,7 +226,7 @@ func TestConnect(t *testing.T) {
 	id := p.session("otter")
 	local, stopDev := echoOn(t, 0)
 	out := &syncBuffer{}
-	opts := Options{Portal: p.url, Code: p.code("otter"), Publish: []int{local}, Version: "test", OnChange: Printer(out), Log: slog.New(slog.DiscardHandler)}
+	opts := Options{Portal: p.url, Code: p.code("otter"), Publish: []int{local}, Mode: control.PublishManual, Version: "test", OnChange: Printer(out), Log: slog.New(slog.DiscardHandler)}
 	stop := run(t, opts)
 
 	reachesOn := func(id string) bool {
@@ -365,7 +366,7 @@ func TestConnectWithADBAndPublishingOff(t *testing.T) {
 	p := newPortal(t, func(c *sshgateway.Config) { c.AllowADB, c.AllowReverse = false, false })
 	p.session("otter")
 	out := &syncBuffer{}
-	cl, err := New(Options{Portal: p.url, Code: p.code("otter"), Publish: []int{3000}, OnChange: Printer(out), Log: slog.New(slog.DiscardHandler)})
+	cl, err := New(Options{Portal: p.url, Code: p.code("otter"), Publish: []int{3000}, Mode: control.PublishManual, OnChange: Printer(out), Log: slog.New(slog.DiscardHandler)})
 	if err != nil {
 		t.Fatal(err)
 	}
