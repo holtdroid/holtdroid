@@ -68,13 +68,14 @@ const (
 	InviteDelete     Action = "invite.delete"
 	PasskeyAdd       Action = "passkey.add"
 	PasskeyDelete    Action = "passkey.delete"
+	AppUpdate        Action = "app.update"
 )
 
 var Actions = []Action{
 	SignIn, SignOut, SessionLaunch, SessionStop, SessionReap, SessionExtend, SessionInstall, SessionLocation,
 	SessionClipboard, ArtifactUpload, ArtifactUpdate, ArtifactDelete, ArtifactDownload, SSHEnroll, SSHConnect, SSHDisconnect, SSHTunnel,
 	ADBConnect, ADBDisconnect, AuditExport, Maintenance, UserSignUp, UserUpdate, UserDelete, UserRecovery, InviteCreate, InviteDelete,
-	PasskeyAdd, PasskeyDelete,
+	PasskeyAdd, PasskeyDelete, AppUpdate,
 }
 
 type Result string

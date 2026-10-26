@@ -3,6 +3,7 @@ import { ArrowLeftIcon } from "lucide-react"
 import { useState } from "react"
 import type { ArtifactView } from "@/api/client"
 import { useArtifact, useArtifacts } from "@/api/queries"
+import { AppDescription } from "@/components/app-description"
 import { AppIcon } from "@/components/app-icon"
 import { appTitle, ArtifactList } from "@/components/artifact-list"
 import { LaunchDialog } from "@/components/launch-dialog"
@@ -66,18 +67,22 @@ export function HomePage({ pkg }: { pkg?: string }) {
 function AppHeader({ pkg }: { pkg: string }) {
   const artifacts = useArtifacts("")
   const latest = artifacts.data?.items.find((a) => a.app?.package === pkg)
+  const title = latest ? appTitle(latest) : pkg
   return (
-    <div className="flex items-center gap-3">
-      <Button variant="ghost" size="icon" asChild>
-        <Link to="/" aria-label="All apps">
-          <ArrowLeftIcon />
-        </Link>
-      </Button>
-      <AppIcon src={latest?.iconUrl} className="size-10" />
-      <div className="min-w-0">
-        <h1 className="truncate text-xl font-semibold tracking-tight">{latest ? appTitle(latest) : pkg}</h1>
-        <p className="text-muted-foreground truncate font-mono text-sm">{pkg}</p>
+    <>
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" size="icon" asChild>
+          <Link to="/" aria-label="All apps">
+            <ArrowLeftIcon />
+          </Link>
+        </Button>
+        <AppIcon src={latest?.iconUrl} className="size-10" />
+        <div className="min-w-0">
+          <h1 className="truncate text-xl font-semibold tracking-tight">{title}</h1>
+          <p className="text-muted-foreground truncate font-mono text-sm">{pkg}</p>
+        </div>
       </div>
-    </div>
+      <AppDescription pkg={pkg} title={title} />
+    </>
   )
 }

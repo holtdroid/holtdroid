@@ -38,6 +38,7 @@ export const keys = {
   webviews: ["webviews"] as const,
   map: ["map"] as const,
   references: ["pixel-perfect"] as const,
+  apps: ["apps"] as const,
 }
 
 export function useAuth() {
@@ -149,6 +150,24 @@ export function useDeleteArtifact() {
     mutationFn: (artifact: ArtifactView) =>
       unwrap(api.DELETE("/api/v1/artifacts/{source}/{id}", { params: artifactPath(artifact) })),
     onSuccess: () => void qc.invalidateQueries({ queryKey: keys.allArtifacts }),
+  })
+}
+
+export function useApps() {
+  return useQuery({
+    queryKey: keys.apps,
+    queryFn: () => unwrap(api.GET("/api/v1/apps")),
+    select: (list) => new Map(list.items.map((a) => [a.package, a])),
+    staleTime: 60_000,
+  })
+}
+
+export function useUpdateApp() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ pkg, description }: { pkg: string; description: string }) =>
+      unwrap(api.PUT("/api/v1/apps/{package}", { params: { path: { package: pkg } }, body: { description } })),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.apps }),
   })
 }
 

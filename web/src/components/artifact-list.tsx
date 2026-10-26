@@ -18,12 +18,14 @@ import { toast } from "sonner"
 import type { ArtifactView } from "@/api/client"
 import {
   artifactDownloadURL,
+  useApps,
   useArtifacts,
   useDeleteArtifact,
   useSources,
   useUpdateArtifact,
   useUploads,
 } from "@/api/queries"
+import { paragraphs } from "@/components/app-description"
 import { AppIcon } from "@/components/app-icon"
 import { QuickLaunchButton } from "@/components/quick-launch-button"
 import { UploadDialog } from "@/components/upload-dialog"
@@ -254,6 +256,8 @@ function AppCard({
   const title = appTitle(latest)
   const versions = new Set(items.map((a) => a.app?.versionName).filter(Boolean)).size
   const sources = [...new Set(items.map((a) => a.source))]
+  const apps = useApps()
+  const description = pkg ? apps.data?.get(pkg)?.description : undefined
   return (
     <li className="bg-card hover:bg-accent/40 relative flex flex-col gap-2 rounded-xl border p-3 transition-colors">
       <div className="flex items-start gap-3">
@@ -275,6 +279,11 @@ function AppCard({
           </span>
         </div>
       </div>
+      {description && (
+        <p className="text-muted-foreground line-clamp-2 text-sm" title={description}>
+          {paragraphs(description).join(" ")}
+        </p>
+      )}
       <div className="flex flex-wrap items-center gap-1">
         {latest.app?.versionName && <Badge variant="secondary">{latest.app.versionName}</Badge>}
         <Badge variant="outline">

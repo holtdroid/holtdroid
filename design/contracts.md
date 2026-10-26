@@ -460,6 +460,8 @@ keeping the provider in the path is what lets the api stay stateless.
 | `GET` | `/connect/holtdroid-{os}-{arch}` | public; a client build (`darwin`/`linux`, `amd64`/`arm64`) |
 | `GET` | `/connect/manifest.json` | public; `{clients: [{platform, sha256}]}` of the builds in `ssh.clientDir`; clients compare it with their own SHA-256 to offer an update |
 | `GET` | `/api/v1/sources` | `[{name, readOnly}]` |
+| `GET` | `/api/v1/apps` | `{items: [{package, description, updatedBy?, updatedAt}]}`: apps that have a description (decision #129) |
+| `PUT` | `/api/v1/apps/{package}` | `{description}` (at most 4000 characters, trimmed; empty removes it) → the app; anyone signed in. Emits `app.update` |
 | `GET` | `/api/v1/artifacts?source=&cursor=&limit=` | artifacts the caller may see (private ones only for owner/admins) from every source or one, newest first, offset cursor. Items: `{source, id, revision, fileName, size, uploadedAt, meta, app?, iconUrl?, canManage, canDownload}` — `id` is base64url of the key, `meta` the sidecar, `app` the parsed APK once cached; per-source failures come back in `errors[]` |
 | `PATCH` | `/api/v1/artifacts/{source}/{id}` | `{visibility}` → artifact; owner or admin, 403 on `readOnly` sources, 404 when the caller can't see it |
 | `DELETE` | `/api/v1/artifacts/{source}/{id}` | APK + sidecar; owner or admin (ownerless: admin), 403 on `readOnly` sources |

@@ -3894,3 +3894,23 @@ anywhere for sound" until the first click.
 **Consequences.** A device whose `dumpsys audio` doesn't list the stream's
 devices keeps the old behaviour after 10 s of trying. Browsers that block
 autoplay log a warning about the probing context.
+
+## 129. App descriptions live in the shared store and anyone signed in edits them
+
+**Context.** An app's builds say nothing about what the app is for or how to
+test it (for example that Holtdroid WebView exists to open any URL in a
+WebView). That is about the package, not a build, so the APK sidecars, which
+belong to one file in one source, are the wrong place.
+
+**Decision.** One plain-text description per package, stored as
+`apps/<package>.json` in the api's `storage` next to the APK cache, not in
+the database: it survives restarts with the default in-memory database and
+needs no migration. `GET /api/v1/apps` lists them, `PUT /api/v1/apps/{package}`
+sets or (empty) removes one; anyone signed in may edit, like a wiki, and
+every change is an `app.update` audit event. The app page shows it above
+the builds; the app's card shows the first two lines.
+
+**Consequences.** No history beyond the audit log. If editing should be
+limited to admins later, it's one check in the handler. Plain text only: no
+Markdown, so nothing to sanitize.
+

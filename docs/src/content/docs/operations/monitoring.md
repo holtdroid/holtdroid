@@ -141,6 +141,7 @@ while their regular logs go to stderr. Every audit line has
 | `artifact.upload`      | `package`, `version`, `visibility`, `temporary`               |                                                                                                                           |
 | `artifact.update`      | `visibility`, `temporary`                                     |                                                                                                                           |
 | `artifact.delete`      |                                                               |                                                                                                                           |
+| `app.update`           | `package`                                                     | Someone changed or removed an app's description                                                                           |
 | `artifact.download`    |                                                               | Denied for non-admins with `downloads.adminOnly`                                                                          |
 | `ssh.enroll`           | `computer`, `hostname`, `fingerprint`, `os`                   | A computer was enrolled with a code from the portal; denied for invalid, expired or reused codes                          |
 | `ssh.connect`          | `computer`, `hostname`                                        | From the ssh-gateway; denied for a rejected certificate from the portal's authority                                       |

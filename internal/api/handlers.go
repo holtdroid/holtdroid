@@ -229,6 +229,7 @@ func (s *Server) register(api huma.API) {
 	})
 
 	s.registerArtifacts(api)
+	s.registerApps(api)
 	s.registerEvents(api)
 	s.registerAuth(api)
 	s.registerSSH(api)

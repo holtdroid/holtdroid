@@ -340,6 +340,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/apps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Descriptions of apps by package name. Apps without one are not listed. */
+        get: operations["listApps"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/apps/{package}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Sets the description of an app. Anyone signed in may change it. */
+        put: operations["putApp"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/artifacts": {
         parameters: {
             query?: never;
@@ -1226,6 +1260,17 @@ export interface components {
             /** Format: int32 */
             versionCode?: number;
             versionName?: string;
+        };
+        AppInfo: {
+            /** @description plain text shown above the app's builds; blank lines separate paragraphs */
+            description: string;
+            package: string;
+            /** Format: date-time */
+            updatedAt: string;
+            updatedBy?: string;
+        };
+        AppList: {
+            items: components["schemas"]["AppInfo"][];
         };
         AppLoad: {
             /**
@@ -2392,6 +2437,10 @@ export interface components {
         };
         PublishedInputBody: {
             ports: number[];
+        };
+        PutAppInputBody: {
+            /** @description an empty one removes it */
+            description: string;
         };
         RecordingAudio: {
             /** Format: int64 */
@@ -3802,6 +3851,70 @@ export interface operations {
                 };
                 content: {
                     "application/zstd": string;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    listApps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppList"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    putApp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                package: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PutAppInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppInfo"];
                 };
             };
             /** @description Error */

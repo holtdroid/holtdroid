@@ -804,6 +804,15 @@ every `recordings.sweepInterval` and enforces the per-user quota when
 manifests arrive. Agents never get storage credentials; the upload URL's
 secret is checked against the recording's meta.
 
+## App descriptions
+
+`internal/api/apps.go`, `web/src/components/app-description.tsx` (decision #129):
+
+```
+browser ─PUT /api/v1/apps/{package}─▶ api ──▶ storage: apps/<package>.json {description, updatedBy, updatedAt}
+        ◀─GET /api/v1/apps── api (lists apps/ and reads each file)
+```
+
 ## Pixel perfect
 
 Design mockups over the screen (decision #106, `internal/api/pixelperfect.go`,
