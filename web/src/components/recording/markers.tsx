@@ -72,6 +72,8 @@ export function MarkerPin({
       <PopoverContent
         side="top"
         align="center"
+        onPointerDown={(e) => e.stopPropagation()}
+        onPointerMove={(e) => e.stopPropagation()}
         className="w-72 gap-3 rounded-[24px] border-0 bg-stage-surface-container p-4 text-stage-on-surface shadow-2xl ring-1 ring-black/10 dark:ring-white/10"
       >
         <MarkerEditor marker={marker} onChange={onChange} onRemove={onRemove} />
