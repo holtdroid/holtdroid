@@ -3834,8 +3834,8 @@ showed.
   and in their folders, and adds the app's launcher activity at row 1 of
   the first screen (row 0 is the search bar's), then goes home. sqlite3 is
   part of redroid's userdebug images.
-- On redroid the browser's text goes through `Clip.java` in the tools dex,
-  run as uid 2000 (`com.android.shell`), with
+- On redroid's Android 13 and later the browser's text goes through
+  `Clip.java` in the tools dex, run as uid 2000 (`com.android.shell`), with
   `com.android.systemui.SUPPRESS_CLIPBOARD_OVERLAY` in the clip's extras.
   SystemUI honours that extra only from the shell package; it exists for
   the Android Studio emulator's clipboard sync. scrcpy still reports the
@@ -3843,7 +3843,9 @@ showed.
   clipboard_overlay_enabled false` was tried and did nothing on 13, 14 or 15.
 
 **Consequences.** A paste from the browser costs two pushes and an
-`app_process` start instead of one scrcpy message. Phones keep scrcpy's
-set-clipboard and their own launcher. The home screen edit relies on
-Launcher3's `favorites` schema, checked on 13 to 15 (11 and 12 untested); when it fails
-the session only keeps the stock home screen.
+`app_process` start instead of one scrcpy message; when that fails the agent
+logs it and uses scrcpy. Android 11 and 12 have no preview and keep scrcpy.
+Phones keep scrcpy's set-clipboard and their own launcher. The home screen
+edit relies on Launcher3's `favorites` schema, checked on 11 to 15; when it
+fails the session only keeps the stock home screen. Android 12's lock screen
+clock is drawn over the logo; Android 11 shows no lock screen without a PIN.

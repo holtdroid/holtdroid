@@ -223,6 +223,9 @@ func TestAgentLifecycle(t *testing.T) {
 		return len(h.agent.subs) > 0
 	})
 
+	h.agent.controls.mu.Lock()
+	h.agent.controls.apiLevel = 33
+	h.agent.controls.mu.Unlock()
 	if code, body := h.do(http.MethodPost, "/v1/clipboard", `{"text":"hello from the browser"}`); code != http.StatusNoContent {
 		t.Fatalf("set clipboard %d %s", code, body)
 	}
@@ -270,8 +273,14 @@ func TestAgentLifecycle(t *testing.T) {
 	if _, n := h.inst.current(); n != 3 {
 		t.Fatalf("the app was started again by itself: %d spawns", n)
 	}
+	h.agent.controls.mu.Lock()
+	h.agent.controls.apiLevel = 32
+	h.agent.controls.mu.Unlock()
 	if code, body := h.do(http.MethodPost, "/v1/clipboard", `{"text":"x"}`); code != http.StatusNoContent {
 		t.Fatalf("clipboard without a running app %d %s", code, body)
+	}
+	if clip := h.agent.clip.(*fakeClipboard); clip.text != "x" {
+		t.Fatalf("Android 12 has no clipboard preview and keeps scrcpy: %q", clip.text)
 	}
 
 	h.inst.launchOnDevice()

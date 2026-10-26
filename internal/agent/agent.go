@@ -734,15 +734,24 @@ func (a *Agent) Clipboard(context.Context) (string, error) {
 }
 
 func (a *Agent) SetClipboard(ctx context.Context, text string) error {
-	set := a.clip.Set
-	if a.controls.redroid {
-		set = a.controls.setClipboard
-	}
-	if err := set(ctx, text); err != nil {
+	if err := a.setClipboard(ctx, text); err != nil {
 		return err
 	}
 	a.onClip(text)
 	return nil
+}
+
+// setClipboard skips SystemUI's clipboard preview on redroid's Android 13+
+// and falls back to scrcpy, which every version has.
+func (a *Agent) setClipboard(ctx context.Context, text string) error {
+	if a.controls.redroid && a.controls.sdk(ctx) >= 33 {
+		err := a.controls.setClipboard(ctx, text)
+		if err == nil || errors.Is(err, contract.ErrInvalid) {
+			return err
+		}
+		a.log.Warn("clipboard without the preview failed, using scrcpy", "err", err)
+	}
+	return a.clip.Set(ctx, text)
 }
 
 func (a *Agent) WatchClipboard(ctx context.Context, send func(contract.Clipboard) error) error {

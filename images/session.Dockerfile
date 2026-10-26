@@ -41,7 +41,7 @@ RUN set -eux; \
 
 # Locales.java, Geo.java and Clip.java run on the device through app_process
 # (decision #59): the system language, test location providers on Android 11
-# where `cmd location` has no providers command, and redroid's clipboard
+# where `cmd location` has no providers command, and redroid's clipboard on 13+
 # without SystemUI's preview (decision #126).
 FROM --platform=$BUILDPLATFORM ${JDK_IMAGE} AS dex
 ARG R8_VERSION=9.5.26
