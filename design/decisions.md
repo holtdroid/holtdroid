@@ -4039,3 +4039,36 @@ have it: physical phones resolve through their own sing-box
 (`RenderProxy`), and sessions without a VPN go straight to the Pod's
 resolver. Apps' own caches (Chromium's host cache in WebViews, about a
 minute) and open connections aren't affected by a flush.
+
+## 134. The session's route is measured all the time and shown against every network
+
+**Context.** Every emulated network comes on top of the session's route
+through its VPN location. Decision #132 measured that route only for a
+region, and only to its server location. Without a region, "5G" behind a
+VPN location far away adds 25 ms to a route that may already take 150, and
+a 150 Mbit/s profile can't beat a tunnel that carries 20; the tab said
+neither.
+
+**Decision.** The agent measures the route from the start of the session
+until it ends, whatever is emulated: round trips to Cloudflare's edge and
+to all seven server locations every minute, through the sidecar's proxy as
+before, and the bandwidth with a 10 MB download from `speed.cloudflare.com`
+(cut off after 10 s) at the start and after a location change, retried each
+minute until one works. `DeviceState.networkRoute` reports it; a region
+takes its baselines from it and is re-applied when it moves by 10 ms or
+more. The profiles keep adding their delay rather than subtracting the
+route: a profile is the access link, a different leg from the route to
+the servers, and subtracting it would make "5G" mean something else behind
+every location. The tab instead shows the expected round trip to a CDN
+edge per profile and marks a profile whose own round trip is shorter than
+the route's, or whose bandwidth is above the route's, and a region or
+server location the route is slower to than the region's users. Marked
+choices stay selectable.
+
+**Consequences.** A session's agent keeps eight probes a minute and a
+10 MB download per location change going through its VPN location, which
+counts against the location's traffic. The bandwidth test measures one TCP
+connection to the nearest Cloudflare edge, slow start included, so it
+reads a little low. Setting a region no longer waits for a measurement;
+until the first one the region is applied without subtracting the route.
+

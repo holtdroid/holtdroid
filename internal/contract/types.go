@@ -387,6 +387,14 @@ type NetworkPath struct {
 	Added    int              `json:"added" doc:"round trip added beyond the access link, ms: target minus baseline, never below 0"`
 }
 
+// NetworkRoute is the session's own route through its VPN location, which
+// every emulated network comes on top of.
+type NetworkRoute struct {
+	Edge    int                `json:"edge,omitempty" doc:"round trip to the nearest Cloudflare edge, ms; empty when it couldn't be measured"`
+	Servers []NetworkServerRTT `json:"servers,omitempty" doc:"round trips to the server locations that could be measured"`
+	Down    int                `json:"down,omitempty" doc:"download kbit/s the route carried in a test; empty when it couldn't be measured"`
+}
+
 type NetworkRegionState struct {
 	Region   string        `json:"region"`
 	Server   string        `json:"server"`
@@ -426,6 +434,7 @@ type DeviceState struct {
 	NetworkRegion      *NetworkRegionState  `json:"networkRegion,omitempty" doc:"the region whose paths are emulated; empty while none is"`
 	NetworkRegions     []NetworkRegionInfo  `json:"networkRegions,omitempty" doc:"the regions networkRegion may be set to"`
 	NetworkServers     []NetworkServerInfo  `json:"networkServers,omitempty"`
+	NetworkRoute       *NetworkRoute        `json:"networkRoute,omitempty" doc:"the session's own route, measured every minute; empty before the first measurement"`
 	TimeZone           string               `json:"timeZone"`
 	Locale             string               `json:"locale"`
 	Locales            []string             `json:"locales" doc:"the system languages in order: the first is locale, the rest add their keyboard layouts"`

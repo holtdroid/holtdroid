@@ -54,16 +54,20 @@ type networkShaper interface {
 	Current() contract.NetworkProfile
 	Set(ctx context.Context, id contract.NetworkProfile) error
 	Region() *contract.NetworkRegionState
+	Route() *contract.NetworkRoute
+	Watch(ctx context.Context)
 	SetRegion(ctx context.Context, in contract.NetworkRegionSettings) error
 	Refresh()
 	Close(ctx context.Context) error
 }
 
-// resetNetwork drops shaping a previous agent left on the tun.
+// resetNetwork drops shaping a previous agent left on the tun and starts
+// measuring the session's route.
 func (c *Controls) resetNetwork(ctx context.Context) error {
 	if c.shaper == nil {
 		return nil
 	}
+	go c.shaper.Watch(ctx)
 	return c.shaper.Close(ctx)
 }
 
@@ -176,6 +180,7 @@ func (c *Controls) State(ctx context.Context) (contract.DeviceState, error) {
 	if c.shaper != nil {
 		s.NetworkProfile, s.NetworkProfiles = c.shaper.Current(), netem.Catalog()
 		s.NetworkRegion, s.NetworkRegions, s.NetworkServers = c.shaper.Region(), netem.RegionCatalog(), netem.ServerCatalog()
+		s.NetworkRoute = c.shaper.Route()
 	}
 	s.LanguageScope = contract.LanguageSystem
 	if c.appLocales != "" {
@@ -705,8 +710,7 @@ func (c *Controls) setRegion(ctx context.Context, in contract.NetworkRegionSetti
 	return fmt.Errorf("%w: this device can't emulate network conditions", contract.ErrInvalid)
 }
 
-// networkMoved measures a region's route again after the VPN location
-// changed.
+// networkMoved measures the route again after the VPN location changed.
 func (c *Controls) networkMoved() {
 	if c.shaper != nil {
 		c.shaper.Refresh()

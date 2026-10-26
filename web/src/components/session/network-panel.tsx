@@ -7,6 +7,8 @@ import type {
   NetworkProfileInfo,
   NetworkRegionInfo,
   NetworkRegionSettings,
+  NetworkRoute,
+  NetworkServerInfo,
 } from "@/api/client"
 import { useDevice, useUpdateDevice } from "@/components/session/use-device"
 import { Button } from "@/components/ui/button"
@@ -31,7 +33,7 @@ export function NetworkPanel({ provider, id }: { provider: string; id: string })
     )
   }
   const busy = update.isPending
-  const measuring = busy && !!update.variables?.networkRegion?.region
+  const route = s.networkRoute
   const region = s.networkRegion
   const info = s.networkRegions?.find((r) => r.id === region?.region)
   const changed = (!!s.networkProfile && s.networkProfile !== "full") || !!region
@@ -59,6 +61,8 @@ export function NetworkPanel({ provider, id }: { provider: string; id: string })
           )}
         </div>
 
+        <Route route={route} servers={s.networkServers ?? []} />
+
         {s.networkRegions && (
           <section className="grid gap-3">
             <Heading
@@ -76,11 +80,19 @@ export function NetworkPanel({ provider, id }: { provider: string; id: string })
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={noRegion}>No region</SelectItem>
-                  {s.networkRegions.map((r) => (
-                    <SelectItem key={r.id} value={r.id}>
-                      {countryFlag(r.country)} {r.name}
-                    </SelectItem>
-                  ))}
+                  {s.networkRegions.map((r) => {
+                    const slow = regionIssues(r, route, region?.server ?? s.networkServers?.[0]?.id ?? "")
+                    return (
+                      <SelectItem key={r.id} value={r.id}>
+                        {countryFlag(r.country)} {r.name}
+                        {slow.length > 0 && (
+                          <span className="ml-auto pl-3 text-xs text-amber-700 dark:text-amber-400">
+                            VPN slower: {slow.join(", ")}
+                          </span>
+                        )}
+                      </SelectItem>
+                    )
+                  })}
                 </SelectContent>
               </Select>
               {region && (
@@ -90,16 +102,21 @@ export function NetworkPanel({ provider, id }: { provider: string; id: string })
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {s.networkServers?.map((srv) => (
-                      <SelectItem key={srv.id} value={srv.id}>
-                        {srv.name}
-                        {info && (
+                    {s.networkServers?.map((srv) => {
+                      const theirs = info?.servers.find((x) => x.server === srv.id)?.rtt
+                      const mine = route?.servers?.find((x) => x.server === srv.id)?.rtt
+                      return (
+                        <SelectItem key={srv.id} value={srv.id}>
+                          {srv.name}
                           <span className="text-muted-foreground ml-auto pl-3 font-mono text-xs">
-                            {info.servers.find((x) => x.server === srv.id)?.rtt} ms
+                            {theirs} ms
+                            {mine && theirs && mine > theirs && (
+                              <span className="text-amber-700 dark:text-amber-400"> · VPN {mine} ms</span>
+                            )}
                           </span>
-                        )}
-                      </SelectItem>
-                    ))}
+                        </SelectItem>
+                      )
+                    })}
                   </SelectContent>
                 </Select>
               )}
@@ -111,7 +128,7 @@ export function NetworkPanel({ provider, id }: { provider: string; id: string })
                   paths={region.paths}
                   info={info}
                   server={s.networkServers?.find((x) => x.id === region.server)?.name ?? region.server}
-                  measuring={measuring}
+                  measuring={!route}
                 />
                 <Backends
                   key={(region.backends ?? []).join("\n")}
@@ -128,6 +145,7 @@ export function NetworkPanel({ provider, id }: { provider: string; id: string })
           profiles={s.networkProfiles}
           current={s.networkProfile}
           region={info}
+          route={route}
           busy={busy}
           onChange={(networkProfile) => update.mutate({ networkProfile })}
         />
@@ -140,6 +158,60 @@ export function summary(s: DeviceState, info?: NetworkRegionInfo) {
   const profile = s.networkProfiles?.find((p) => p.id === s.networkProfile)
   const link = profile && profile.id !== "full" ? profile.name : info ? "typical mobile" : "No emulation"
   return info ? `${countryFlag(info.country)} ${info.name} · ${link}` : link
+}
+
+function Route({ route, servers }: { route?: NetworkRoute; servers: NetworkServerInfo[] }) {
+  const name = (id: string) => servers.find((x) => x.id === id)?.name ?? id
+  return (
+    <section className="bg-muted/40 grid gap-1 rounded-lg border px-3 py-2 text-xs">
+      <span className="font-medium">The session&apos;s own route, through its VPN location</span>
+      {route ? (
+        <>
+          <span className="font-mono">
+            {[route.edge && `CDN edge ${route.edge} ms`, route.down && `↓ ${bandwidth(route.down)}`]
+              .filter(Boolean)
+              .join(" · ") || "CDN edge and bandwidth not measured"}
+          </span>
+          {route.servers && route.servers.length > 0 && (
+            <span className="text-muted-foreground font-mono">
+              {route.servers.map((x) => `${name(x.server)} ${x.rtt} ms`).join(" · ")}
+            </span>
+          )}
+          <span className="text-muted-foreground">
+            Every emulated network comes on top of it: a profile adds its delay to these, and can&apos;t get faster than
+            the route&apos;s bandwidth. Measured every minute, the bandwidth after a location change.
+          </span>
+        </>
+      ) : (
+        <span className="text-muted-foreground flex items-center gap-1.5">
+          <Spinner className="size-3" /> Measuring…
+        </span>
+      )}
+    </section>
+  )
+}
+
+function regionIssues(r: NetworkRegionInfo, route: NetworkRoute | undefined, server: string) {
+  if (!route) return []
+  const mine = route.servers?.find((x) => x.server === server)?.rtt
+  const theirs = r.servers.find((x) => x.server === server)?.rtt
+  return [
+    !!route.edge && route.edge > r.edgeRtt && "CDN",
+    !!mine && !!theirs && mine > theirs && "servers",
+    !!route.down && !!r.access.down && r.access.down > route.down && "bandwidth",
+  ].filter((x) => typeof x === "string")
+}
+
+function profileNotes(link: NetworkLink | NetworkProfileInfo, route: NetworkRoute | undefined, delay: boolean) {
+  if (!route) return []
+  return [
+    delay &&
+      !!route.edge &&
+      !!link.rtt &&
+      route.edge > link.rtt &&
+      `The VPN route's ${route.edge} ms is more than this network's own ${link.rtt} ms`,
+    !!route.down && !!link.down && link.down > route.down && `Capped at about ${bandwidth(route.down)} by the VPN`,
+  ].filter((x) => typeof x === "string")
 }
 
 function Heading({ title, note }: { title: string; note: string }) {
@@ -257,12 +329,14 @@ function Profiles({
   profiles,
   current,
   region,
+  route,
   busy,
   onChange,
 }: {
   profiles: NetworkProfileInfo[]
   current?: string
   region?: NetworkRegionInfo
+  route?: NetworkRoute
   busy: boolean
   onChange: (id: string) => void
 }) {
@@ -282,7 +356,11 @@ function Profiles({
           <div className="grid grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] gap-2">
             {g.items.map((p) => {
               const typical = p.id === "full" && region
-              const numbers = typical ? linkNumbers(region.access) : linkNumbers(p)
+              const link = typical ? region.access : p
+              const numbers = linkNumbers(link)
+              const notes = p.scenario ? [] : profileNotes(link, route, !region)
+              const expected =
+                !region && !p.scenario && route?.edge ? `≈ ${route.edge + (p.rtt ?? 0)} ms to a CDN edge` : undefined
               return (
                 <button
                   key={p.id}
@@ -302,6 +380,13 @@ function Profiles({
                     {typical ? "The region's median mobile connection." : p.description}
                   </span>
                   {numbers && <span className="text-muted-foreground font-mono text-[11px]">{numbers}</span>}
+                  {expected && <span className="text-muted-foreground font-mono text-[11px]">{expected}</span>}
+                  {notes.map((n) => (
+                    <span key={n} className="flex gap-1 text-[11px] text-amber-700 dark:text-amber-400">
+                      <TriangleAlertIcon className="mt-px size-3 shrink-0" />
+                      {n}
+                    </span>
+                  ))}
                 </button>
               )
             })}

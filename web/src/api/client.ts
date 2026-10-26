@@ -81,6 +81,8 @@ export type NetworkLink = AgentSchemas["NetworkLink"]
 export type NetworkPath = AgentSchemas["NetworkPath"]
 export type NetworkRegionInfo = AgentSchemas["NetworkRegionInfo"]
 export type NetworkRegionSettings = AgentSchemas["NetworkRegionSettings"]
+export type NetworkRoute = AgentSchemas["NetworkRoute"]
+export type NetworkServerInfo = AgentSchemas["NetworkServerInfo"]
 export type DeviceAction = AgentPaths["/v1/device/actions/{action}"]["post"]["parameters"]["path"]["action"]
 
 export const api = createClient<paths>({ baseUrl: "" })

@@ -35,6 +35,7 @@ func defaultSettings() contract.DeviceState {
 		NetworkProfiles:    netem.Catalog(),
 		NetworkRegions:     netem.RegionCatalog(),
 		NetworkServers:     netem.ServerCatalog(),
+		NetworkRoute:       &fakeRoute,
 		TimeZone:           "UTC",
 		Locale:             "en-US",
 		Locales:            []string{"en-US"},
@@ -68,7 +69,7 @@ func (d *device) UpdateDevice(_ context.Context, in contract.DeviceSettings) (co
 	var region *contract.NetworkRegionState
 	if in.NetworkRegion != nil {
 		var err error
-		if region, err = netem.RegionState(*in.NetworkRegion); err != nil {
+		if region, err = netem.RegionState(*in.NetworkRegion, &fakeRoute); err != nil {
 			return contract.DeviceState{}, err
 		}
 	}
@@ -222,4 +223,17 @@ func set[T any](dst *T, v *T) {
 	if v != nil {
 		*dst = *v
 	}
+}
+
+var fakeRoute = contract.NetworkRoute{
+	Edge: 12, Down: 80_000,
+	Servers: []contract.NetworkServerRTT{
+		{Server: "frankfurt", RTT: 30},
+		{Server: "virginia", RTT: 110},
+		{Server: "california", RTT: 170},
+		{Server: "sao-paulo", RTT: 220},
+		{Server: "mumbai", RTT: 140},
+		{Server: "singapore", RTT: 180},
+		{Server: "tokyo", RTT: 240},
+	},
 }

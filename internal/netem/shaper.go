@@ -25,15 +25,16 @@ import (
 // own network, skip the shaping: a system-stack tun NATs every TCP packet
 // back through the tun to its listener, so each one crosses the tun twice.
 type Shaper struct {
-	dev, ifb  string
-	local     string
-	run       func(ctx context.Context, script string) error
-	after     func(time.Duration) <-chan time.Time
-	check     time.Duration
-	remeasure int
-	measure   func(ctx context.Context, c *choice) measured
-	log       *slog.Logger
-	kick      chan struct{}
+	dev, ifb string
+	local    string
+	run      func(ctx context.Context, script string) error
+	after    func(time.Duration) <-chan time.Time
+	check    time.Duration
+	every    time.Duration
+	measure  func(ctx context.Context, bandwidth bool) measured
+	resolve  func(ctx context.Context, hosts []string) []netip.Addr
+	log      *slog.Logger
+	kick     chan struct{}
 
 	mu      sync.Mutex
 	current contract.NetworkProfile
@@ -46,38 +47,17 @@ type Shaper struct {
 }
 
 // NewShaper shapes dev with tc, which needs CAP_NET_ADMIN in dev's network
-// namespace. proxy is the VPN sidecar's HTTP proxy, which regions measure
+// namespace. proxy is the VPN sidecar's HTTP proxy, which Watch measures
 // the session's route through; empty measures directly.
 func NewShaper(dev, local, proxy string, log *slog.Logger) *Shaper {
-	p := prober{}
+	p := prober{log: log}
 	if u, err := url.Parse(proxy); proxy != "" && err == nil {
 		p.proxy = u
 	}
-	s := &Shaper{
-		dev: dev, ifb: dev + "in", local: local, run: sh, after: time.After, check: 10 * time.Second, remeasure: 6,
-		log: log, kick: make(chan struct{}, 1), current: contract.NetworkFull,
+	return &Shaper{
+		dev: dev, ifb: dev + "in", local: local, run: sh, after: time.After, check: 10 * time.Second, every: time.Minute,
+		measure: p.measure, resolve: resolve, log: log, kick: make(chan struct{}, 1), current: contract.NetworkFull,
 	}
-	s.measure = func(ctx context.Context, c *choice) measured { return p.measure(ctx, c, log) }
-	return s
-}
-
-func (p prober) measure(ctx context.Context, c *choice, log *slog.Logger) measured {
-	ctx, cancel := context.WithTimeout(ctx, 8*time.Second)
-	defer cancel()
-	var m measured
-	var wg sync.WaitGroup
-	probe := func(to *time.Duration, target string) {
-		d, err := p.rtt(ctx, target)
-		if err != nil {
-			log.Warn("network region: measure the route", "target", target, "err", err)
-		}
-		*to = d
-	}
-	wg.Go(func() { probe(&m.edge, EdgeProbe) })
-	wg.Go(func() { probe(&m.origin, c.server.Probe) })
-	wg.Go(func() { m.backends = resolve(ctx, c.backends) })
-	wg.Wait()
-	return m
 }
 
 func sh(ctx context.Context, script string) error {
@@ -101,8 +81,13 @@ func (s *Shaper) Region() *contract.NetworkRegionState {
 	if c == nil {
 		return nil
 	}
-	m := s.measured()
-	return c.state(m.edge, m.origin)
+	return c.state(s.measured())
+}
+
+// Route is the session's route as last measured; nil before the first
+// measurement.
+func (s *Shaper) Route() *contract.NetworkRoute {
+	return s.measured().route()
 }
 
 func (s *Shaper) measured() measured {
@@ -129,8 +114,8 @@ func (s *Shaper) Set(ctx context.Context, id contract.NetworkProfile) error {
 	return s.apply(ctx, p, s.region)
 }
 
-// SetRegion emulates a region's paths on top of the current profile,
-// measuring the session's route first; an empty region turns them off.
+// SetRegion emulates a region's paths on top of the current profile, less
+// the route Watch measured; an empty region turns them off.
 func (s *Shaper) SetRegion(ctx context.Context, in contract.NetworkRegionSettings) error {
 	c, err := parseChoice(in)
 	if err != nil {
@@ -141,13 +126,65 @@ func (s *Shaper) SetRegion(ctx context.Context, in contract.NetworkRegionSetting
 	p, _ := Find(s.current)
 	s.halt()
 	if c != nil {
-		s.setMeasured(s.measure(ctx, c))
+		rctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		backends := s.resolve(rctx, c.backends)
+		cancel()
+		s.mmu.Lock()
+		s.last.backends = backends
+		s.mmu.Unlock()
 	}
 	return s.apply(ctx, p, c)
 }
 
+// Watch measures the session's route until ctx ends: round trips every
+// minute, the bandwidth at first and after Refresh. A region is re-applied
+// when its route changed.
+func (s *Shaper) Watch(ctx context.Context) {
+	bandwidth := true
+	for {
+		m := s.measure(ctx, bandwidth)
+		if ctx.Err() != nil {
+			return
+		}
+		s.mu.Lock()
+		c := s.region
+		s.mu.Unlock()
+		prev := s.measured()
+		if m.down == 0 {
+			m.down = prev.down
+		}
+		if c != nil {
+			m.backends = s.resolve(ctx, c.backends)
+		}
+		s.setMeasured(m)
+		if c != nil && m.differs(prev) {
+			s.reapply(ctx)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-s.kick:
+			bandwidth = true
+		case <-s.after(s.every):
+			bandwidth = m.down == 0
+		}
+	}
+}
+
+func (s *Shaper) reapply(ctx context.Context) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.region == nil {
+		return
+	}
+	p, _ := Find(s.current)
+	if err := s.apply(ctx, p, s.region); err != nil {
+		s.log.Warn("network region: re-apply", "err", err)
+	}
+}
+
 // Refresh measures the route again soon, for when the VPN location
-// changed under a region.
+// changed.
 func (s *Shaper) Refresh() {
 	select {
 	case s.kick <- struct{}{}:
@@ -166,10 +203,6 @@ func (s *Shaper) apply(ctx context.Context, p Profile, c *choice) error {
 	s.current, s.region = p.ID, c
 	if p.ID == contract.NetworkFull && c == nil {
 		return nil
-	}
-	select {
-	case <-s.kick:
-	default:
 	}
 	loop, cancel := context.WithCancel(context.Background())
 	s.stop, s.done = cancel, make(chan struct{})
@@ -200,37 +233,24 @@ type state struct {
 }
 
 // loop steps through a scenario; a plain link is re-applied whenever the
-// tun lost its qdiscs, as it does when the VPN sidecar restarts. A region's
-// route is measured again every few rounds and on Refresh.
+// tun lost its qdiscs, as it does when the VPN sidecar restarts.
 func (s *Shaper) loop(ctx context.Context, st state, done chan struct{}) {
 	defer close(done)
 	steps := st.profile.Steps
-	for step, round := 0, 1; ; round++ {
+	for step := 0; ; {
 		wait := s.check
 		if len(steps) > 0 {
 			wait = hold(steps[step])
 		}
-		refresh := false
 		select {
 		case <-ctx.Done():
 			return
-		case <-s.kick:
-			refresh = true
 		case <-s.after(wait):
-			if len(steps) > 0 {
-				step = (step + 1) % len(steps)
-			}
 		}
-		changed := false
-		if st.region != nil && (refresh || round%s.remeasure == 0) {
-			if m := s.measure(ctx, st.region); m.differs(s.measured()) {
-				s.setMeasured(m)
-				changed = true
-			}
-		}
-		script := s.script(s.plan(st, step))
-		if len(steps) == 0 && !changed {
-			script = s.ensure(s.plan(st, step))
+		script := s.ensure(s.plan(st, step))
+		if len(steps) > 0 {
+			step = (step + 1) % len(steps)
+			script = s.script(s.plan(st, step))
 		}
 		if err := s.run(ctx, script); err != nil && ctx.Err() == nil {
 			s.log.Warn("network profile", "profile", st.profile.ID, "step", step, "err", err)
@@ -282,7 +302,7 @@ func (s *Shaper) plan(st state, step int) *plan {
 		m := s.measured()
 		pl.regional, pl.backends = true, m.backends
 		pl.edge = extra(c.region.EdgeRTT, m.edge)
-		pl.origin = extra(c.region.Servers[c.server.ID], m.origin)
+		pl.origin = extra(c.region.Servers[c.server.ID], m.servers[c.server.ID])
 	}
 	return pl
 }

@@ -884,6 +884,8 @@ export interface components {
             networkRegion?: components["schemas"]["NetworkRegionState"];
             /** @description the regions networkRegion may be set to */
             networkRegions?: components["schemas"]["NetworkRegionInfo"][];
+            /** @description the session's own route, measured every minute; empty before the first measurement */
+            networkRoute?: components["schemas"]["NetworkRoute"];
             networkServers?: components["schemas"]["NetworkServerInfo"][];
             /**
              * Format: int64
@@ -1182,6 +1184,20 @@ export interface components {
             paths: components["schemas"]["NetworkPath"][];
             region: string;
             server: string;
+        };
+        NetworkRoute: {
+            /**
+             * Format: int64
+             * @description download kbit/s the route carried in a test; empty when it couldn't be measured
+             */
+            down?: number;
+            /**
+             * Format: int64
+             * @description round trip to the nearest Cloudflare edge, ms; empty when it couldn't be measured
+             */
+            edge?: number;
+            /** @description round trips to the server locations that could be measured */
+            servers?: components["schemas"]["NetworkServerRTT"][];
         };
         NetworkServerInfo: {
             id: string;

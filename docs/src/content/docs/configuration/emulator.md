@@ -451,17 +451,36 @@ used. The numbers are rounded estimates from public speed reports and
 latency maps, plausible rather than measured per operator.
 
 Emulation can only add delay, and the session's own route through its VPN
-location already takes some. The agent measures it through the VPN
-sidecar: to Cloudflare's nearest edge (`https://1.1.1.1/cdn-cgi/trace`) and
-to the server location (AWS's regional DynamoDB endpoint), on a kept-alive
-connection, again every minute and after a location change. Only the rest
-of each path is added; the tab shows the region's round trip, the session's
-route and what is added. When the route is already slower than the region
-(a VPN location far from the servers), it says so: a closer location, or
-none, gets nearer. Backends are resolved by the agent's DNS, so a backend
+location already takes some. Only the rest of each path is added; the tab
+shows the region's round trip, the session's route and what is added. When
+the route is already slower than the region (a VPN location far from the
+servers), it says so: a closer location, or none, gets nearer. Backends are resolved by the agent's DNS, so a backend
 whose DNS answers differ by location may be missed. A CDN often puts many
 of its customers' hosts on the same addresses, and those take the servers'
 path too once one of them is listed as a backend.
+
+### The session's route
+
+Every emulated network comes on top of the session's own route through its
+VPN location, so the agent measures that route all the time, through the
+VPN sidecar (the shaping doesn't touch it): the round trip to Cloudflare's
+nearest edge (`https://1.1.1.1/cdn-cgi/trace`) and to each server location
+(AWS's regional DynamoDB endpoints), the quickest of three requests on a
+kept-alive connection, every minute; and the bandwidth, a 10 MB download
+from `speed.cloudflare.com` cut off after 10 seconds, when the session
+starts and after each location change. The Network tab shows the route at
+the top, and marks what it spoils:
+
+- a network whose own round trip is shorter than the route's (5G or good
+  4G behind a far VPN location): the route already takes longer than the
+  network would, so the delay ends up larger than named. Each network also
+  shows the expected round trip to a CDN edge.
+- a network or a region's typical link faster than the route's bandwidth:
+  it is capped at about the route's rate.
+- a region or a server location the route is slower to than the region's
+  users are (`VPN slower: CDN, servers, bandwidth`).
+
+They can still be picked: loss, jitter and the slower links are unaffected.
 
 ### How it works
 

@@ -199,7 +199,7 @@ func extra(path, baseline time.Duration) time.Duration {
 	return max(0, path-baseline)
 }
 
-func (c *choice) state(edge, origin time.Duration) *contract.NetworkRegionState {
+func (c *choice) state(m measured) *contract.NetworkRegionState {
 	path := func(class contract.NetworkPathClass, target, base time.Duration) contract.NetworkPath {
 		return contract.NetworkPath{
 			Class: class, Target: int(target.Milliseconds()), Baseline: int(base.Milliseconds()),
@@ -209,20 +209,27 @@ func (c *choice) state(edge, origin time.Duration) *contract.NetworkRegionState 
 	return &contract.NetworkRegionState{
 		Region: c.region.ID, Server: c.server.ID, Backends: slices.Clone(c.backends),
 		Paths: []contract.NetworkPath{
-			path(contract.NetworkPathEdge, c.region.EdgeRTT, edge),
-			path(contract.NetworkPathOrigin, c.region.Servers[c.server.ID], origin),
+			path(contract.NetworkPathEdge, c.region.EdgeRTT, m.edge),
+			path(contract.NetworkPathOrigin, c.region.Servers[c.server.ID], m.servers[c.server.ID]),
 		},
 	}
 }
 
-// RegionState is the state settings ask for before anything is measured,
-// for devices that only simulate it.
-func RegionState(in contract.NetworkRegionSettings) (*contract.NetworkRegionState, error) {
+// RegionState is the state settings ask for over a route, for devices
+// that only simulate it.
+func RegionState(in contract.NetworkRegionSettings, route *contract.NetworkRoute) (*contract.NetworkRegionState, error) {
 	c, err := parseChoice(in)
 	if c == nil || err != nil {
 		return nil, err
 	}
-	return c.state(0, 0), nil
+	m := measured{servers: map[string]time.Duration{}}
+	if route != nil {
+		m.edge = time.Duration(route.Edge) * time.Millisecond
+		for _, s := range route.Servers {
+			m.servers[s.Server] = time.Duration(s.RTT) * time.Millisecond
+		}
+	}
+	return c.state(m), nil
 }
 
 func linkInfo(l Link) contract.NetworkLink {

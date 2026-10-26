@@ -320,10 +320,14 @@ type stubShaper struct {
 func (s *stubShaper) Region() *contract.NetworkRegionState { return s.region }
 
 func (s *stubShaper) SetRegion(_ context.Context, in contract.NetworkRegionSettings) error {
-	r, err := netem.RegionState(in)
+	r, err := netem.RegionState(in, nil)
 	s.region = r
 	return err
 }
+
+func (s *stubShaper) Route() *contract.NetworkRoute { return nil }
+
+func (s *stubShaper) Watch(context.Context) {}
 
 func (s *stubShaper) Refresh() { s.refreshes++ }
 

@@ -5,11 +5,13 @@ import (
 	"errors"
 	"flag"
 	"log/slog"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -101,12 +103,12 @@ func TestParseChoice(t *testing.T) {
 }
 
 type recorder struct {
-	mu       sync.Mutex
-	scripts  []string
-	fail     bool
-	tick     chan time.Time
-	measures int
-	m        measured
+	mu        sync.Mutex
+	scripts   []string
+	fail      bool
+	tick      chan time.Time
+	bandwidth []bool
+	m         measured
 }
 
 func (r *recorder) run(_ context.Context, script string) error {
@@ -119,11 +121,23 @@ func (r *recorder) run(_ context.Context, script string) error {
 	return nil
 }
 
-func (r *recorder) measure(context.Context, *choice) measured {
+func (r *recorder) measure(_ context.Context, bandwidth bool) measured {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.measures++
-	return r.m
+	r.bandwidth = append(r.bandwidth, bandwidth)
+	m := r.m
+	m.servers = maps.Clone(r.m.servers)
+	return m
+}
+
+func (r *recorder) resolve(context.Context, []string) []netip.Addr {
+	return []netip.Addr{netip.MustParseAddr("104.16.1.1")}
+}
+
+func (r *recorder) measures() []bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return slices.Clone(r.bandwidth)
 }
 
 func (r *recorder) got() []string {
@@ -135,7 +149,7 @@ func (r *recorder) got() []string {
 func newTestShaper() (*Shaper, *recorder) {
 	r := &recorder{tick: make(chan time.Time)}
 	s := NewShaper("holtdroid0", "198.18.0.0/30", "", slog.New(slog.DiscardHandler))
-	s.run, s.measure = r.run, r.measure
+	s.run, s.measure, s.resolve = r.run, r.measure, r.resolve
 	s.after = func(time.Duration) <-chan time.Time { return r.tick }
 	return s, r
 }
@@ -173,8 +187,8 @@ func TestSetLink(t *testing.T) {
 	if got := r.got(); len(got) < 2 || !strings.HasPrefix(got[1], "tc qdisc show dev holtdroid0 | grep -q netem && exit 0\n") {
 		t.Errorf("no re-check: %q", got)
 	}
-	if s.Current() != "edge" || s.Region() != nil || r.measures != 0 {
-		t.Errorf("current = %q, region %v, %d measures", s.Current(), s.Region(), r.measures)
+	if s.Current() != "edge" || s.Region() != nil {
+		t.Errorf("current = %q, region %v", s.Current(), s.Region())
 	}
 	if err := s.Set(ctx, contract.NetworkFull); err != nil {
 		t.Fatal(err)
@@ -206,7 +220,7 @@ func TestSetScenario(t *testing.T) {
 func TestSetRegion(t *testing.T) {
 	s, r := newTestShaper()
 	ctx := t.Context()
-	r.m = measured{edge: 20 * ms, origin: 400 * ms, backends: []netip.Addr{netip.MustParseAddr("104.16.1.1")}}
+	s.setMeasured(measured{edge: 20 * ms, servers: map[string]time.Duration{"frankfurt": 400 * ms}})
 	if err := s.SetRegion(ctx, contract.NetworkRegionSettings{Region: "bd", Backends: []string{"api.example.com"}}); err != nil {
 		t.Fatal(err)
 	}
@@ -223,26 +237,61 @@ func TestSetRegion(t *testing.T) {
 	if st == nil || st.Region != "bd" || st.Server != "frankfurt" || len(st.Paths) != 2 || st.Paths[0] != want[0] || st.Paths[1] != want[1] {
 		t.Fatalf("region = %+v", st)
 	}
-
 	if err := s.Set(ctx, "3g"); err != nil {
 		t.Fatal(err)
 	}
-	if got := r.got(); !strings.Contains(got[len(got)-1], "handle 10: netem delay 105ms 25ms") || r.measures != 1 {
-		t.Errorf("3g under a region: %d measures\n%s", r.measures, got[len(got)-1])
-	}
-
-	r.mu.Lock()
-	r.m.origin = 100 * ms
-	r.mu.Unlock()
-	s.Refresh()
-	for s.Region().Paths[1].Added != 70 {
-		time.Sleep(time.Millisecond)
+	if got := r.got(); !strings.Contains(got[len(got)-1], "handle 10: netem delay 105ms 25ms") {
+		t.Errorf("3g under a region:\n%s", got[len(got)-1])
 	}
 	if err := s.SetRegion(ctx, contract.NetworkRegionSettings{}); err != nil {
 		t.Fatal(err)
 	}
 	if got := r.got(); strings.Contains(got[len(got)-1], "1:10") || s.Region() != nil || s.Current() != "3g" {
 		t.Errorf("region off: %q", got[len(got)-1])
+	}
+}
+
+func TestWatch(t *testing.T) {
+	s, r := newTestShaper()
+	ctx, cancel := context.WithCancel(t.Context())
+	r.m = measured{edge: 20 * ms, servers: map[string]time.Duration{"frankfurt": 400 * ms}, down: 50_000}
+	done := make(chan struct{})
+	go func() {
+		s.Watch(ctx)
+		close(done)
+	}()
+	for s.Route() == nil {
+		time.Sleep(time.Millisecond)
+	}
+	if rt := s.Route(); rt.Edge != 20 || rt.Down != 50_000 || len(rt.Servers) != 1 || rt.Servers[0] != (contract.NetworkServerRTT{Server: "frankfurt", RTT: 400}) {
+		t.Errorf("route = %+v", rt)
+	}
+	if err := s.SetRegion(ctx, contract.NetworkRegionSettings{Region: "bd"}); err != nil {
+		t.Fatal(err)
+	}
+	applied := len(r.got())
+
+	r.mu.Lock()
+	r.m.servers["frankfurt"], r.m.down = 100*ms, 0
+	r.mu.Unlock()
+	r.tick <- time.Time{}
+	for s.Region().Paths[1].Added != 70 {
+		time.Sleep(time.Millisecond)
+	}
+	for len(r.got()) == applied {
+		time.Sleep(time.Millisecond)
+	}
+	if s.Route().Down != 50_000 {
+		t.Errorf("a failed bandwidth test dropped the last rate: %+v", s.Route())
+	}
+	s.Refresh()
+	for len(r.measures()) < 3 {
+		time.Sleep(time.Millisecond)
+	}
+	cancel()
+	<-done
+	if got := r.measures(); got[0] != true || got[1] != false || got[2] != true {
+		t.Errorf("bandwidth measured %v, want at first and after a refresh", got)
 	}
 }
 
@@ -269,6 +318,16 @@ func TestProbe(t *testing.T) {
 	d, err := prober{}.rtt(t.Context(), srv.URL)
 	if err != nil || d < 20*time.Millisecond || d > time.Second {
 		t.Errorf("rtt = %v, %v", d, err)
+	}
+	big := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write(make([]byte, 4<<20))
+	}))
+	defer big.Close()
+	if kbit, err := (prober{}).down(t.Context(), big.URL); err != nil || kbit <= 0 {
+		t.Errorf("down = %d, %v", kbit, err)
+	}
+	if _, err := (prober{}).down(t.Context(), srv.URL); err == nil {
+		t.Error("a two-byte download gave a rate")
 	}
 	if got := resolve(t.Context(), []string{"10.0.0.2", "10.0.0.1", "10.0.0.2"}); len(got) != 2 || got[0].String() != "10.0.0.1" {
 		t.Errorf("resolve = %v", got)
