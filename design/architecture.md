@@ -398,10 +398,14 @@ codecs and reports that it can't capture audio.
   every socket's `/json/list` into `GET /devtools/targets`
   (`{socket, process, id, type, title, url}`). The process name and the
   frontend revision come from the socket's `/json/version`
-  (`Android-Package`, `WebKit-Version`). A revision that is missing or all
-  zeros (Chromium snapshot builds) falls back to `CreateSession.Frontend`
-  for the app's own package and to `WebView.Frontend` for everything else,
-  each standing in for the other when it is empty. A socket whose `/json/list` fails or times
+  (`Android-Package`, `WebKit-Version`). Only a full 40-digit commit counts.
+  A revision that is missing, all zeros (Chromium snapshot builds) or no
+  commit (AOSP-built WebViews such as Android 13's 125.0.6422.113 report a
+  39-digit hash) falls back to `CreateSession.Frontend` for the app's own
+  package and to `WebView.Frontend` for everything else, each standing in
+  for the other when it is empty. Without either, the agent looks up the
+  commit of the `Browser` version (`Chrome/125.0.6422.113`) in Chromium Dash
+  (`chromiumDash`, `fetch_version`), once per version. A socket whose `/json/list` fails or times
   out (a WebView busy navigating) keeps its last list while the socket
   exists, so the UI doesn't drop and remount the DevTools frame.
 - `WS /devtools/{socket}/page/{id}` reverse-proxies to the forwarded port

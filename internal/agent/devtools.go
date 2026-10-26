@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httputil"
@@ -26,9 +27,11 @@ type DevTools struct {
 	log      *slog.Logger
 	hc       *http.Client
 	fallback Frontends
+	dash     string
 
-	mu      sync.Mutex
-	sockets map[string]*devtoolsSocket
+	mu       sync.Mutex
+	sockets  map[string]*devtoolsSocket
+	versions map[string]string
 }
 
 type devtoolsSocket struct {
@@ -55,8 +58,13 @@ func (f Frontends) For(pkg string) string {
 	return cmp.Or(webview, app)
 }
 
-func NewDevTools(dev Device, fallback Frontends, log *slog.Logger) *DevTools {
-	return &DevTools{dev: dev, fallback: fallback, log: log, hc: &http.Client{Timeout: 3 * time.Second}, sockets: map[string]*devtoolsSocket{}}
+// NewDevTools looks up the commit of a build that reports a bogus revision
+// by its version in Chromium Dash at dash; empty skips that.
+func NewDevTools(dev Device, fallback Frontends, dash string, log *slog.Logger) *DevTools {
+	return &DevTools{
+		dev: dev, fallback: fallback, dash: strings.TrimRight(dash, "/"), log: log, hc: &http.Client{Timeout: 3 * time.Second},
+		sockets: map[string]*devtoolsSocket{}, versions: map[string]string{},
+	}
 }
 
 // Run rescans the device's sockets every interval until ctx ends.
@@ -111,9 +119,14 @@ func (d *DevTools) scan(ctx context.Context) error {
 		var v struct {
 			Package string `json:"Android-Package"`
 			WebKit  string `json:"WebKit-Version"`
+			Browser string `json:"Browser"`
 		}
 		if err := d.getJSON(ctx, port, "/json/version", &v); err == nil {
-			s.process, s.rev = v.Package, cmp.Or(frontendRev(v.WebKit), d.fallback.For(v.Package))
+			s.process = v.Package
+			s.rev = cmp.Or(frontendRev(v.WebKit), d.fallback.For(v.Package))
+			if s.rev == "" {
+				s.rev = d.versionRev(ctx, v.Browser)
+			}
 		}
 		d.mu.Lock()
 		d.sockets[name] = s
@@ -266,10 +279,11 @@ func socketPID(name string) int {
 	return pid
 }
 
-var revRe = regexp.MustCompile(`@([0-9a-f]{7,40})\b`)
+var revRe = regexp.MustCompile(`@([0-9a-f]{40})\b`)
 
-// frontendRev finds the revision in a WebKit-Version or a frontend URL.
-// Builds outside Chromium's release bots report all zeros, which is none.
+// frontendRev finds the commit in a WebKit-Version or a frontend URL.
+// Builds outside Chromium's release bots report all zeros, which is none,
+// and AOSP-built WebViews a 39-digit hash, which is no commit either.
 func frontendRev(s string) string {
 	m := revRe.FindStringSubmatch(s)
 	if m == nil || strings.Trim(m[1], "0") == "" {
@@ -277,3 +291,48 @@ func frontendRev(s string) string {
 	}
 	return m[1]
 }
+
+// versionRev finds the commit of a release build such as Chrome/125.0.6422.113
+// in Chromium Dash: AOSP-built WebViews report a revision that is no commit.
+func (d *DevTools) versionRev(ctx context.Context, browser string) string {
+	_, version, ok := strings.Cut(browser, "/")
+	if !ok || d.dash == "" || !versionRe.MatchString(version) {
+		return ""
+	}
+	d.mu.Lock()
+	rev, known := d.versions[version]
+	d.mu.Unlock()
+	if known {
+		return rev
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, d.dash+"/fetch_version?version="+version, nil)
+	if err != nil {
+		return ""
+	}
+	resp, err := d.hc.Do(req)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	var out struct {
+		Hashes struct {
+			Chromium string `json:"chromium"`
+		} `json:"hashes"`
+	}
+	switch resp.StatusCode {
+	case http.StatusOK:
+		if json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&out) != nil {
+			return ""
+		}
+		rev = frontendRev("@" + out.Hashes.Chromium)
+	case http.StatusNotFound:
+	default:
+		return ""
+	}
+	d.mu.Lock()
+	d.versions[version] = rev
+	d.mu.Unlock()
+	return rev
+}
+
+var versionRe = regexp.MustCompile(`^\d+\.\d+\.\d+\.\d+$`)

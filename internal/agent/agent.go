@@ -45,6 +45,7 @@ type Config struct {
 	IPInfoURL        string
 	IPInfoProxy      string
 	DevToolsFrontend string
+	ChromiumDash     string
 	CacheDir         string
 	Redroid          redroid.Config
 	Session          Session
@@ -88,6 +89,7 @@ func DefaultConfig() Config {
 		Scrcpy:           DefaultScrcpyConfig(),
 		IPInfoURL:        "https://ipinfo.io/json",
 		DevToolsFrontend: "https://chrome-devtools-frontend.appspot.com/serve_rev/",
+		ChromiumDash:     "https://chromiumdash.appspot.com",
 		CacheDir:         filepath.Join(os.TempDir(), "holtdroid"),
 		Redroid:          redroid.DefaultConfig(),
 		Root:             true,
@@ -188,7 +190,7 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 		boot:     boot,
 		log:      log,
 		hc:       &http.Client{Timeout: 10 * time.Minute},
-		devtools: NewDevTools(dev, Frontends{Package: cfg.Package, App: cfg.Frontend, WebView: cfg.WebView.Frontend}, log),
+		devtools: NewDevTools(dev, Frontends{Package: cfg.Package, App: cfg.Frontend, WebView: cfg.WebView.Frontend}, cfg.ChromiumDash, log),
 		network:  NewNetwork(cfg.ClashAPI, cfg.IPInfoURL, cfg.IPInfoProxy),
 		screen:   screen,
 		clip:     NewClipboard(screen, log),

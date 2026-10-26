@@ -42,6 +42,9 @@ named `webview_devtools_remote_<pid>`. The agent:
    snapshot builds report no revision, so the agent uses the `frontend` tag
    of the [WebView build](/holtdroid/concepts/webview-versions/) or of the
    [Chromium build](/holtdroid/sources/chromium/) the session started with.
+   Built-in WebViews of some Android images report a revision that is no
+   real commit; for those the agent looks up the commit of the WebView's
+   version in Chromium Dash.
 
 All of this sits under the session's path on the portal's own origin, so your
 auth cookie covers it and nothing has to be installed on your machine. When
