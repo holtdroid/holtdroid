@@ -1599,8 +1599,15 @@ export interface components {
         };
         DevToolsPage: {
             closed?: boolean;
+            /** @description the target it belongs to: the page of an iframe or a dedicated worker */
+            parent?: string;
             process?: string;
             title?: string;
+            /**
+             * @description none in recordings made before it was recorded, which are pages
+             * @enum {string}
+             */
+            type?: "page" | "iframe" | "worker" | "shared_worker" | "service_worker";
             url?: string;
         };
         DevToolsRequest: {

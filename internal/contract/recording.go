@@ -176,7 +176,11 @@ type DevToolsEntry struct {
 	Dropped int               `json:"dropped,omitempty" doc:"lines left out because one upload got too big"`
 }
 
+// DevToolsPage is a target the agent follows: a tab, an iframe in its own
+// process, or a worker.
 type DevToolsPage struct {
+	Type    string `json:"type,omitempty" enum:"page,iframe,worker,shared_worker,service_worker" doc:"none in recordings made before it was recorded, which are pages"`
+	Parent  string `json:"parent,omitempty" doc:"the target it belongs to: the page of an iframe or a dedicated worker"`
 	Process string `json:"process,omitempty"`
 	Title   string `json:"title,omitempty"`
 	URL     string `json:"url,omitempty"`

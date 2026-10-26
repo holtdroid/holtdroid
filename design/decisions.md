@@ -3531,3 +3531,45 @@ switches back. This supersedes the default in #65.
 **Consequences.** A dev server is reachable from every device of the user as
 soon as it listens, without a prompt (the exposure #65 accepted for the
 automatic modes now applies out of the box).
+
+## 114. The DevTools watch runs all the time and follows every target
+
+Refines #112.
+
+**Context.** The first version attached to `page` targets from the target
+list every two seconds, and only once a recording had started. A recording
+starts when the session is ready, after the app was launched, so a
+WebSocket the app opened at start (the connection to its backend) had no
+`webSocketCreated` for the recorder and its frames were dropped. Iframes in
+their own process, workers and service workers were not followed at all,
+and messages of common protocols were shown as plain text: Socket.IO's
+`42["event",{…}]`, SignalR's records split by `\x1e`, JSON Lines.
+
+**Decision.**
+
+- The agent keeps a connection to every WebView process's browser target
+  (`/devtools/browser`) for as long as it runs and calls
+  `Target.setAutoAttach` with `flatten` and `waitForDebuggerOnStart`: every
+  tab, iframe, worker, shared and service worker is attached, paused until
+  its `Network`, `Runtime` and `Log` domains are on and it auto-attaches its
+  own children, then resumed. Nothing a new target sends is missed. A
+  WebView without a browser target falls back to following its pages from
+  the target list.
+- It tracks sockets and requests without a recording; lines are written
+  only while one runs. A recording starts by writing every target and the
+  sockets already open with their URLs; requests in flight are written when
+  they end, their start clamped to the recording's. Frames of a socket it
+  never saw open still get a socket, without a URL.
+- Targets are lines of their own with a `type` and a `parent`; the player
+  filters Network and Console by context and tags lines from iframes and
+  workers.
+- Message and body parsing finds Socket.IO and Engine.IO packets (with the
+  event name), SignalR and Engine.IO polling records, Server-Sent Events and
+  JSON Lines, each shown as a list of trees with time hints; Raw shows the
+  text with record separators visible.
+
+**Consequences.** Every WebView process has one more DevTools client for
+the session's whole life; outside recordings it only keeps state, but
+Chrome buffers response bodies for it (32 MB at most, 2 MB a resource).
+Targets of a WebView that existed before the agent found its socket are
+attached unpaused, so their first requests can still be missed.

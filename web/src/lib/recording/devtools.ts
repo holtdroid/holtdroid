@@ -110,6 +110,26 @@ export class DevToolsLog {
     )
   }
 
+  #contexts: Map<string, Context> | undefined
+
+  /** The tabs, iframes and workers lines came from, in the order they appeared. */
+  contexts(): Context[] {
+    if (!this.#contexts) {
+      this.#contexts = new Map()
+      for (const p of this.pages) {
+        const page: DevToolsPage = { ...this.#contexts.get(p.target)?.page }
+        for (const [k, v] of Object.entries(p.v)) if (v !== undefined && v !== "") Object.assign(page, { [k]: v })
+        this.#contexts.set(p.target, { target: p.target, page, label: contextLabel(page, p.target) })
+      }
+    }
+    return [...this.#contexts.values()]
+  }
+
+  context(target: string) {
+    if (!this.#contexts) this.contexts()
+    return this.#contexts!.get(target)
+  }
+
   /** The page a target showed at t. */
   pageAt(target: string, t: number) {
     let found: DevToolsPage | undefined
@@ -119,6 +139,25 @@ export class DevToolsLog {
     }
     return found
   }
+}
+
+export type Context = { target: string; page: DevToolsPage; label: string }
+
+const kindNames: Record<string, string> = {
+  page: "Tab",
+  iframe: "iframe",
+  worker: "Worker",
+  shared_worker: "Shared worker",
+  service_worker: "Service worker",
+}
+
+export function contextLabel(p: DevToolsPage, target: string) {
+  const where = p.url ? splitURL(p.url).host || p.url : p.title || target.slice(0, 8)
+  const name =
+    p.type === "worker" || p.type === "service_worker" || p.type === "shared_worker"
+      ? splitURL(p.url ?? "").name
+      : where
+  return `${kindNames[p.type ?? "page"] ?? p.type}: ${name || where}`
 }
 
 export function framesUntil(s: SocketTrack, t: number) {

@@ -152,6 +152,7 @@ type Agent struct {
 	log      *slog.Logger
 	hc       *http.Client
 	devtools *DevTools
+	watch    *devtoolsWatch
 	network  *Network
 	screen   *Scrcpy
 	clip     clipboardSync
@@ -172,13 +173,12 @@ type Agent struct {
 	artifact string
 	subs     map[chan struct{}]struct{}
 
-	recMu       sync.Mutex
-	recCtx      context.Context
-	rec         *recording.Recorder
-	recID       string
-	recCancel   context.CancelFunc
-	recDevTools *devtoolsRecorder
-	recLast     contract.RecordingState
+	recMu     sync.Mutex
+	recCtx    context.Context
+	rec       *recording.Recorder
+	recID     string
+	recCancel context.CancelFunc
+	recLast   contract.RecordingState
 }
 
 func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Logger) *Agent {
@@ -187,6 +187,7 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 	if cfg.HostCgroup != "" {
 		host, cgroup = os.DirFS("/"), os.DirFS(cfg.HostCgroup)
 	}
+	devtools := NewDevTools(dev, Frontends{Package: cfg.Package, App: cfg.Frontend, WebView: cfg.WebView.Frontend}, cfg.ChromiumDash, log)
 	return &Agent{
 		cfg:      cfg,
 		dev:      dev,
@@ -194,7 +195,8 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 		boot:     boot,
 		log:      log,
 		hc:       &http.Client{Timeout: 10 * time.Minute},
-		devtools: NewDevTools(dev, Frontends{Package: cfg.Package, App: cfg.Frontend, WebView: cfg.WebView.Frontend}, cfg.ChromiumDash, log),
+		devtools: devtools,
+		watch:    newDevToolsWatch(devtools, log),
 		network:  NewNetwork(cfg.ClashAPI, cfg.IPInfoURL, cfg.IPInfoProxy),
 		screen:   screen,
 		clip:     NewClipboard(screen, log),
@@ -271,6 +273,7 @@ func (a *Agent) Run(parent context.Context) {
 		return
 	}
 	go a.devtools.Run(ctx, 2*time.Second)
+	go a.watch.run(ctx, time.Second)
 	go a.screen.Run(ctx)
 	go a.clip.Run(ctx, a.onClip)
 	go a.controls.syncRadios(ctx, 2*time.Second, a.log)

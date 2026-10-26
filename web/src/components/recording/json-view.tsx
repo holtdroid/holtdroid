@@ -3,7 +3,7 @@ import { createContext, type ReactNode, useContext, useMemo, useState } from "re
 import { toast } from "sonner"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { formatBytes } from "@/lib/format"
-import { hexDump, parseBody, parseJSON } from "@/lib/recording/body"
+import { decodeBase64, hexDump, type Packet, type ParsedBody, parseBody, parseJSON, textOf } from "@/lib/recording/body"
 import { detectStamp, formatSpan, relative, type Stamp, stampFormats, unitNames } from "@/lib/recording/timestamps"
 import { cn } from "@/lib/utils"
 
@@ -285,6 +285,45 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
 }
 
 /** A request, response or frame payload: JSON as a tree, a form as pairs, bytes as hex, or text. */
+const kindLabel = (p: ParsedBody) =>
+  p.kind === "json"
+    ? "JSON"
+    : p.kind === "packets"
+      ? p.format
+      : p.kind === "form"
+        ? "Form"
+        : p.kind === "binary"
+          ? "Binary"
+          : "Text"
+
+/** One packet of a framed message as its label and a tree, or its text. */
+export function PacketView({ packet, index }: { packet: Packet; index?: number }) {
+  return (
+    <div className="grid gap-1 rounded-2xl bg-stage-surface-container/60 px-3 py-2">
+      {(index !== undefined || packet.label) && (
+        <div className="flex items-center gap-2 font-sans text-xs">
+          {index !== undefined && <span className="text-stage-outline-dim tabular-nums">#{index + 1}</span>}
+          {packet.label && (
+            <span className="rounded-full bg-stage-secondary-container px-2 py-px font-medium text-stage-on-secondary-container">
+              {packet.label}
+            </span>
+          )}
+        </div>
+      )}
+      {packet.json ? (
+        <JsonView value={packet.value} open={2} />
+      ) : packet.value !== undefined ? (
+        <pre className="font-mono text-[12.5px] break-all whitespace-pre-wrap">
+          <InlineValue value={typeof packet.value === "string" ? packet.value : JSON.stringify(packet.value)} />
+        </pre>
+      ) : null}
+    </div>
+  )
+}
+
+const visibleSeparators = (s: string) => s.replaceAll("\x1e", "␞\n")
+
+/** A request, response or frame payload: JSON and framed protocols as trees, a form as pairs, bytes as hex, or text. */
 export function BodyView({
   body,
   base64,
@@ -300,24 +339,20 @@ export function BodyView({
 }) {
   const parsed = parseBody(body, base64, mime)
   const [pretty, setPretty] = useState(true)
-  const raw =
-    parsed.kind === "json" ? JSON.stringify(parsed.value, null, 2) : parsed.kind === "binary" ? body : body.trim()
+  const text = base64 && parsed.kind !== "binary" ? (textOf(decodeBase64(body)) ?? body) : body
+  const raw = parsed.kind === "binary" ? body : text.trim()
+  const structured = parsed.kind === "json" || parsed.kind === "packets" || parsed.kind === "form"
   return (
     <div className="grid gap-2">
       <div className="flex flex-wrap items-center gap-2 text-xs text-stage-outline">
         <span className="rounded-full bg-stage-surface-high px-2 py-0.5 font-medium text-stage-on-surface-variant">
-          {parsed.kind === "json"
-            ? "JSON"
-            : parsed.kind === "form"
-              ? "Form"
-              : parsed.kind === "binary"
-                ? "Binary"
-                : "Text"}
+          {kindLabel(parsed)}
+          {parsed.kind === "packets" && parsed.packets.length > 1 && ` · ${parsed.packets.length}`}
         </span>
         {size !== undefined && <span>{formatBytes(size)}</span>}
         {truncated && <span className="text-stage-amber">cut at the recording limit</span>}
         <span className="ml-auto flex items-center gap-1">
-          {(parsed.kind === "json" || parsed.kind === "form") && <Toggle value={pretty} onChange={setPretty} />}
+          {structured && <Toggle value={pretty} onChange={setPretty} />}
           <button
             type="button"
             title={parsed.kind === "binary" ? "Copy as base64" : "Copy"}
@@ -330,6 +365,15 @@ export function BodyView({
       </div>
       {parsed.kind === "json" && pretty ? (
         <JsonView value={parsed.value} />
+      ) : parsed.kind === "packets" && pretty ? (
+        <div className="grid gap-1.5">
+          {parsed.packets.slice(0, 500).map((p, i) => (
+            <PacketView key={`${i}:${p.raw.length}`} packet={p} index={parsed.packets.length > 1 ? i : undefined} />
+          ))}
+          {parsed.packets.length > 500 && (
+            <p className="text-xs text-stage-outline">… {parsed.packets.length - 500} more; Raw shows them all</p>
+          )}
+        </div>
       ) : parsed.kind === "form" && pretty ? (
         <Pairs pairs={parsed.pairs} />
       ) : parsed.kind === "binary" ? (
@@ -339,7 +383,7 @@ export function BodyView({
         </pre>
       ) : (
         <pre className="font-mono text-[12.5px] leading-[1.55] break-all whitespace-pre-wrap text-stage-on-surface">
-          {parsed.kind === "json" ? raw : parsed.kind === "text" ? parsed.text : body}
+          {visibleSeparators(raw)}
         </pre>
       )}
     </div>

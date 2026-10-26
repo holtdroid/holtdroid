@@ -763,10 +763,15 @@ browser: mediabunny decodes one init+segment at a time; the player shows the
          draws phone | panels on a canvas
 ```
 
-The agent's `devtoolsRecorder` (`internal/agent/cdprecord.go`, decision #112)
-opens a CDP connection of its own to every WebView page the DevTools scan
-finds while a recording runs, enables `Network`, `Runtime` and `Log`, and
-writes requests (with bodies up to 1 MB, except images, media and fonts),
+The agent's `devtoolsWatch` (`internal/agent/cdpwatch.go`, decisions #112,
+#114) keeps one CDP connection to the browser target of every WebView
+process for as long as the agent runs. It auto-attaches (flat sessions,
+paused until set up) to every tab, iframe, worker and service worker,
+enables `Network`, `Runtime` and `Log` in each (`internal/agent/cdprecord.go`)
+and makes each attach its own children; a WebView without a browser target
+gets its pages followed one by one. It tracks open sockets and requests in
+flight all the time but writes lines only while a recording runs, starting
+with the targets and sockets already open. It writes requests (with bodies up to 1 MB, except images, media and fonts),
 console messages with their objects as JSON, exceptions, browser messages,
 and WebSocket and EventSource frames. A socket whose frames look like video
 or another media stream (container or picture signatures, or a steady flow

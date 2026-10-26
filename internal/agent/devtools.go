@@ -336,3 +336,14 @@ func (d *DevTools) versionRev(ctx context.Context, browser string) string {
 }
 
 var versionRe = regexp.MustCompile(`^\d+\.\d+\.\d+\.\d+$`)
+
+func (d *DevTools) socketNames() []string {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	names := make([]string, 0, len(d.sockets))
+	for name := range d.sockets {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	return names
+}

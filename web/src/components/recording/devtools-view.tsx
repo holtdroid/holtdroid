@@ -1,6 +1,7 @@
 import {
   ArrowDownIcon,
   ArrowUpIcon,
+  ChevronDownIcon,
   CircleAlertIcon,
   CopyIcon,
   InfoIcon,
@@ -14,7 +15,7 @@ import { type ReactNode, useLayoutEffect, useRef, useState } from "react"
 import type { DevToolsRequest } from "@/api/client"
 import { AtMoment, BodyView, copy, InlineValue, JsonView, Pairs } from "@/components/recording/json-view"
 import { formatBytes } from "@/lib/format"
-import { parseJSON } from "@/lib/recording/body"
+import { parseBody, parseJSON } from "@/lib/recording/body"
 import {
   type ConsoleLine,
   curlOf,
@@ -69,6 +70,44 @@ function Search({
         className="min-w-0 flex-1 bg-transparent text-stage-on-surface outline-none placeholder:text-stage-outline"
       />
     </label>
+  )
+}
+
+/** Picks one tab, iframe or worker; shown only when there is more than one. */
+function ContextSelect({ log, value, onChange }: { log: DevToolsLog; value: string; onChange: (v: string) => void }) {
+  const contexts = log.contexts()
+  if (contexts.length < 2) return null
+  return (
+    <label className="relative">
+      <span className="sr-only">Context</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="max-w-52 appearance-none truncate rounded-full bg-stage-surface-container py-1.5 pr-8 pl-3 text-sm text-stage-on-surface outline-none hover:bg-stage-surface-container-hover [&>option]:bg-stage-surface-container"
+      >
+        <option value="">All contexts</option>
+        {contexts.map((c) => (
+          <option key={c.target} value={c.target}>
+            {c.label}
+          </option>
+        ))}
+      </select>
+      <ChevronDownIcon className="pointer-events-none absolute top-1/2 right-2.5 size-4 -translate-y-1/2 text-stage-outline" />
+    </label>
+  )
+}
+
+/** Where a line came from, unless it is a tab: the iframe or worker. */
+function ContextTag({ log, target }: { log: DevToolsLog; target: string }) {
+  const c = log.context(target)
+  if (!c || !c.page.type || c.page.type === "page") return null
+  return (
+    <span
+      className="mr-1.5 inline-block max-w-40 truncate rounded bg-stage-surface-high px-1 align-[1px] font-sans text-[10.5px] leading-4 text-stage-outline"
+      title={c.page.url}
+    >
+      {c.label}
+    </span>
   )
 }
 
@@ -208,10 +247,11 @@ export function NetworkView({ log, time, onSeek }: { log: DevToolsLog; time: num
   const [query, setQuery] = useState("")
   const [group, setGroup] = useState<ResourceGroup | "all">("all")
   const [errors, setErrors] = useState(false)
+  const [context, setContext] = useState("")
   const [picked, setPicked] = useState<string | null>(null)
   const [listRef, onListScroll] = useFollow()
   const needle = query.trim().toLowerCase()
-  const all = log.requestsUntil(time)
+  const all = log.requestsUntil(time).filter((r) => !context || r.target === context)
   const present = new Set(all.map((r) => resourceGroup(r.resourceType)))
   const rows = all
     .filter(
@@ -227,6 +267,7 @@ export function NetworkView({ log, time, onSeek }: { log: DevToolsLog; time: num
     <>
       <div className="flex flex-wrap items-center gap-1.5 px-4 pb-2">
         <Search value={query} onChange={setQuery} placeholder="Filter by URL or method" />
+        <ContextSelect log={log} value={context} onChange={setContext} />
         <Chip active={errors} onClick={() => setErrors((v) => !v)} title="Only failed requests and 4xx/5xx">
           Errors
         </Chip>
@@ -251,6 +292,7 @@ export function NetworkView({ log, time, onSeek }: { log: DevToolsLog; time: num
           rows.map((r) => {
             const u = splitURL(r.url)
             const done = r.end && r.end <= time
+            const preflight = r.resourceType === "Preflight"
             return (
               <div
                 key={r.key}
@@ -261,12 +303,26 @@ export function NetworkView({ log, time, onSeek }: { log: DevToolsLog; time: num
                 className={cn(
                   "flex cursor-pointer items-center gap-2 rounded-lg px-2 py-[3px] hover:bg-stage-surface-container",
                   r.key === picked && "bg-stage-secondary-container/70 hover:bg-stage-secondary-container",
+                  preflight && "opacity-60",
                 )}
               >
                 <TimeButton t={r.start} onSeek={onSeek} />
-                <StatusBadge r={r} t={time} />
-                <span className="w-10 shrink-0 font-mono text-[11.5px] text-stage-outline">{r.method}</span>
+                <span className="w-[4.25rem] shrink-0">
+                  <StatusBadge r={r} t={time} />
+                </span>
+                <span
+                  className="w-[3.75rem] shrink-0 truncate font-mono text-[11.5px] text-stage-outline"
+                  title={r.method}
+                >
+                  {r.method}
+                </span>
                 <span className="min-w-0 flex-1 truncate" title={r.url}>
+                  <ContextTag log={log} target={r.target} />
+                  {preflight && (
+                    <span className="mr-1.5 rounded bg-stage-surface-high px-1 font-sans text-[10.5px] text-stage-outline">
+                      preflight
+                    </span>
+                  )}
                   <span
                     className={cn(requestPhase(r, time) === "failed" ? "text-stage-error" : "text-stage-on-surface")}
                   >
@@ -517,10 +573,11 @@ const shortURL = (url: string | undefined, line?: number) => {
 export function ConsoleView({ log, time, onSeek }: { log: DevToolsLog; time: number; onSeek: (t: number) => void }) {
   const [query, setQuery] = useState("")
   const [level, setLevel] = useState<ConsoleFilter>("all")
+  const [context, setContext] = useState("")
   const [open, setOpen] = useState<Set<string>>(() => new Set())
   const [listRef, onListScroll] = useFollow()
   const needle = query.trim().toLowerCase()
-  const all = log.consoleUntil(time)
+  const all = log.consoleUntil(time).filter((c) => !context || c.target === context)
   const counts = { error: 0, warning: 0 }
   for (const c of all) if (c.level === "error" || c.level === "warning") counts[c.level]++
   const rows = all
@@ -541,6 +598,7 @@ export function ConsoleView({ log, time, onSeek }: { log: DevToolsLog; time: num
     <>
       <div className="flex flex-wrap items-center gap-1.5 px-4 pb-2">
         <Search value={query} onChange={setQuery} placeholder="Filter messages" />
+        <ContextSelect log={log} value={context} onChange={setContext} />
         <div className="flex gap-0.5">
           <Chip active={level === "all"} onClick={() => setLevel("all")}>
             All
@@ -565,7 +623,14 @@ export function ConsoleView({ log, time, onSeek }: { log: DevToolsLog; time: num
           <Empty>{all.length ? "No messages match" : "No console messages yet"}</Empty>
         ) : (
           rows.map((c) => (
-            <ConsoleRow key={c.key} c={c} open={open.has(c.key)} onToggle={() => toggle(c.key)} onSeek={onSeek} />
+            <ConsoleRow
+              key={c.key}
+              c={c}
+              log={log}
+              open={open.has(c.key)}
+              onToggle={() => toggle(c.key)}
+              onSeek={onSeek}
+            />
           ))
         )}
       </div>
@@ -575,11 +640,13 @@ export function ConsoleView({ log, time, onSeek }: { log: DevToolsLog; time: num
 
 function ConsoleRow({
   c,
+  log,
   open,
   onToggle,
   onSeek,
 }: {
   c: ConsoleLine
+  log: DevToolsLog
   open: boolean
   onToggle: () => void
   onSeek: (t: number) => void
@@ -613,6 +680,7 @@ function ConsoleRow({
             !open && "line-clamp-2",
           )}
         >
+          <ContextTag log={log} target={c.target} />
           {c.source === "browser" && c.kind && (
             <span className="mr-1.5 rounded bg-stage-surface-high px-1 font-sans text-[10.5px] text-stage-outline">
               {c.kind}
@@ -673,10 +741,53 @@ const socketTone: Record<string, string> = {
   stream: "bg-stage-amber-container text-stage-amber",
 }
 
-function framePreview(f: SocketFrame) {
-  if (!f.data) return f.opcode === 2 ? `binary · ${formatBytes(f.size)}` : ""
-  if (f.opcode === 2) return `binary · ${formatBytes(f.size)}`
-  return f.data.length > 240 ? `${f.data.slice(0, 240)}…` : f.data
+const summaries = new WeakMap<SocketFrame, { label?: string; text: string; json: boolean }>()
+
+const clip = (s: string) => (s.length > 240 ? `${s.slice(0, 240)}…` : s)
+
+/** A frame on one line: what its protocol calls it and its payload as compact JSON or text. */
+function summarize(f: SocketFrame) {
+  let out = summaries.get(f)
+  if (out) return out
+  if (!f.data) out = { text: f.opcode === 2 ? `binary · ${formatBytes(f.size)}` : "", json: false }
+  else {
+    const p = parseBody(f.data, f.opcode === 2)
+    if (p.kind === "json") out = { text: clip(JSON.stringify(p.value)), json: true }
+    else if (p.kind === "packets") {
+      const first = p.packets[0]!
+      const label = p.packets.length > 1 ? `${p.format} · ${p.packets.length}` : first.label
+      const body = first.json
+        ? JSON.stringify(first.value)
+        : typeof first.value === "string"
+          ? first.value
+          : first.value !== undefined
+            ? JSON.stringify(first.value)
+            : ""
+      out = { label: label ?? p.format, text: clip(body), json: first.json }
+    } else if (p.kind === "binary") out = { text: `binary · ${formatBytes(f.size)}`, json: false }
+    else out = { text: clip(f.data), json: false }
+  }
+  summaries.set(f, out)
+  return out
+}
+
+function FrameSummary({ f }: { f: SocketFrame }) {
+  const s = summarize(f)
+  return (
+    <span
+      className={cn(
+        "min-w-0 flex-1 truncate",
+        f.opcode === 2 && !s.json ? "text-stage-outline" : "text-stage-on-surface",
+      )}
+    >
+      {s.label && (
+        <span className="mr-1.5 rounded-full bg-stage-secondary-container px-1.5 py-px font-sans text-[11px] font-medium text-stage-on-secondary-container">
+          {s.label}
+        </span>
+      )}
+      <span className={cn(s.json && "text-stage-on-surface-variant")}>{s.text}</span>
+    </span>
+  )
 }
 
 export function SocketsView({ log, time, onSeek }: { log: DevToolsLog; time: number; onSeek: (t: number) => void }) {
@@ -707,6 +818,7 @@ export function SocketsView({ log, time, onSeek }: { log: DevToolsLog; time: num
           <SocketRow
             key={s.key}
             s={s}
+            log={log}
             time={time}
             active={s.key === socket?.key}
             onPick={() => {
@@ -759,14 +871,7 @@ export function SocketsView({ log, time, onSeek }: { log: DevToolsLog; time: num
                   ) : (
                     <ArrowDownIcon className="size-3.5 shrink-0 text-stage-primary" aria-label="Received" />
                   )}
-                  <span
-                    className={cn(
-                      "min-w-0 flex-1 truncate",
-                      f.opcode === 2 ? "text-stage-outline" : "text-stage-on-surface",
-                    )}
-                  >
-                    {framePreview(f)}
-                  </span>
+                  <FrameSummary f={f} />
                   <span className="w-14 shrink-0 text-right font-sans text-xs text-stage-outline tabular-nums">
                     {formatBytes(f.size)}
                   </span>
@@ -815,10 +920,22 @@ export function SocketsView({ log, time, onSeek }: { log: DevToolsLog; time: num
   )
 }
 
-function SocketRow({ s, time, active, onPick }: { s: SocketTrack; time: number; active: boolean; onPick: () => void }) {
+function SocketRow({
+  s,
+  log,
+  time,
+  active,
+  onPick,
+}: {
+  s: SocketTrack
+  log: DevToolsLog
+  time: number
+  active: boolean
+  onPick: () => void
+}) {
   const state = socketAt(s, time)
   const u = splitURL(s.url)
-  const sse = !s.url.startsWith("ws")
+  const sse = !!s.url && !s.url.startsWith("ws")
   const count = framesUntil(s, time).length
   return (
     <button
@@ -832,10 +949,22 @@ function SocketRow({ s, time, active, onPick }: { s: SocketTrack; time: number; 
       <RadioIcon className="size-4 shrink-0 text-stage-outline" />
       <span className="min-w-0 flex-1">
         <span className="block truncate font-mono text-[12.5px]" title={s.url}>
-          {u.host}
-          <span className="text-stage-outline">{u.path === "/" ? "" : u.path}</span>
+          {s.url ? (
+            <>
+              {u.host}
+              <span className="text-stage-outline">{u.path === "/" ? "" : u.path}</span>
+            </>
+          ) : (
+            <span
+              className="font-sans text-stage-on-surface-variant"
+              title="Its address isn't known: it opened before Holtdroid attached to the page"
+            >
+              Opened before Holtdroid attached
+            </span>
+          )}
         </span>
         <span className="text-xs text-stage-outline">
+          <ContextTag log={log} target={s.target} />
           {sse ? "Event stream" : "WebSocket"} · {count} frames recorded
         </span>
       </span>

@@ -22,6 +22,7 @@ import (
 type devtoolsLines struct {
 	mu    sync.Mutex
 	t     int64
+	off   bool
 	lines []contract.DevToolsEntry
 }
 
@@ -34,11 +35,21 @@ func (s *devtoolsLines) DevTools(e contract.DevToolsEntry) {
 	s.lines = append(s.lines, e)
 }
 
-func (s *devtoolsLines) Elapsed() int64 {
+func (s *devtoolsLines) Clock() int64 {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.t
 }
+
+func (s *devtoolsLines) At(clock int64) int64 { return clock }
+
+func (s *devtoolsLines) Recording() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return !s.off
+}
+
+func (s *devtoolsLines) Elapsed() int64 { return s.Clock() }
 
 func (s *devtoolsLines) advance(ms int64) {
 	s.mu.Lock()
@@ -66,22 +77,19 @@ func cdpEvent(t *testing.T, p *cdpPage, method, params string) {
 	p.handle(method, json.RawMessage(params))
 }
 
-func TestDevToolsRecorderFollowsAPage(t *testing.T) {
-	enabled := make(chan string, 8)
-	events := []string{
-		`{"method":"Network.requestWillBeSent","params":{"requestId":"1","timestamp":100,"wallTime":1793000000.5,"type":"Fetch","request":{"url":"https://api.example.com/cart","method":"POST","headers":{"Content-Type":"application/json"},"postData":"{\"a\":1}"}}}`,
-		`{"method":"Network.responseReceived","params":{"requestId":"1","response":{"url":"https://api.example.com/cart","status":200,"statusText":"OK","headers":{"content-type":"application/json"},"mimeType":"application/json","remoteIPAddress":"203.0.113.10","remotePort":443,"protocol":"h2","encodedDataLength":120,"timing":{"requestTime":100.002,"dnsStart":-1,"dnsEnd":-1,"connectStart":-1,"connectEnd":-1,"sslStart":-1,"sslEnd":-1,"sendStart":1,"sendEnd":1.5,"receiveHeadersEnd":40}}}}`,
-		`{"method":"Network.loadingFinished","params":{"requestId":"1","timestamp":100.06,"encodedDataLength":180}}`,
-		`{"method":"Runtime.consoleAPICalled","params":{"type":"log","timestamp":1793000001000,"args":[{"type":"string","value":"cart %o"},{"type":"object","objectId":"o1","description":"Object","preview":{"properties":[{"name":"total","type":"number","value":"3"}]}}]}}`,
-	}
+// fakeWebView is a WebView's DevTools socket: with browser, a browser target
+// that auto-attaches a page and an iframe in it, paused until they are told
+// to run; without, only the page's own endpoint.
+func fakeWebView(t *testing.T, browser bool, events map[string][]string) int {
+	t.Helper()
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /json/version", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = io.WriteString(w, `{"Android-Package":"com.example.shop"}`)
 	})
 	mux.HandleFunc("GET /json/list", func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = io.WriteString(w, `[{"id":"P1","type":"page","title":"Cart","url":"https://shop.example/cart"},{"id":"W1","type":"service_worker","url":"https://shop.example/sw.js"}]`)
+		_, _ = io.WriteString(w, `[{"id":"P1","type":"page","title":"Cart","url":"https://shop.example/cart"}]`)
 	})
-	mux.HandleFunc("GET /devtools/page/{id}", func(w http.ResponseWriter, r *http.Request) {
+	serve := func(w http.ResponseWriter, r *http.Request, attach bool) {
 		if r.Host != "localhost" {
 			http.Error(w, "bad host", http.StatusForbidden)
 			return
@@ -92,14 +100,29 @@ func TestDevToolsRecorderFollowsAPage(t *testing.T) {
 		}
 		defer func() { _ = c.CloseNow() }()
 		ctx := r.Context()
+		send := func(v any) {
+			b, _ := json.Marshal(v)
+			_ = c.Write(ctx, websocket.MessageText, b)
+		}
+		replay := func(session string) {
+			for _, e := range events[session] {
+				var m map[string]any
+				_ = json.Unmarshal([]byte(e), &m)
+				if session != "" {
+					m["sessionId"] = session
+				}
+				send(m)
+			}
+		}
 		for {
 			_, data, err := c.Read(ctx)
 			if err != nil {
 				return
 			}
 			var m struct {
-				ID     int64  `json:"id"`
-				Method string `json:"method"`
+				ID        int64  `json:"id"`
+				SessionID string `json:"sessionId"`
+				Method    string `json:"method"`
 			}
 			_ = json.Unmarshal(data, &m)
 			result := `{}`
@@ -109,54 +132,151 @@ func TestDevToolsRecorderFollowsAPage(t *testing.T) {
 			case "Runtime.callFunctionOn":
 				result = `{"result":{"type":"string","value":"{\"total\":3}"}}`
 			}
-			reply, _ := json.Marshal(map[string]any{"id": m.ID, "result": json.RawMessage(result)})
-			_ = c.Write(ctx, websocket.MessageText, reply)
-			enabled <- m.Method
-			if m.Method == "Log.enable" {
-				for _, e := range events {
-					_ = c.Write(ctx, websocket.MessageText, []byte(e))
-				}
+			reply := map[string]any{"id": m.ID, "result": json.RawMessage(result)}
+			if m.SessionID != "" {
+				reply["sessionId"] = m.SessionID
+			}
+			send(reply)
+			switch {
+			case attach && m.Method == "Target.setAutoAttach" && m.SessionID == "":
+				send(map[string]any{"method": "Target.attachedToTarget", "params": map[string]any{
+					"sessionId": "S1", "waitingForDebugger": true,
+					"targetInfo": map[string]any{"targetId": "P1", "type": "page", "title": "Cart", "url": "https://shop.example/cart"},
+				}})
+			case attach && m.Method == "Target.setAutoAttach" && m.SessionID == "S1":
+				send(map[string]any{"sessionId": "S1", "method": "Target.attachedToTarget", "params": map[string]any{
+					"sessionId": "S2", "waitingForDebugger": true,
+					"targetInfo": map[string]any{"targetId": "F1", "type": "iframe", "url": "https://pay.example/frame"},
+				}})
+			case attach && m.Method == "Runtime.runIfWaitingForDebugger":
+				replay(m.SessionID)
+			case !attach && m.Method == "Log.enable":
+				replay("S1")
 			}
 		}
-	})
+	}
+	if browser {
+		mux.HandleFunc("GET /devtools/browser", func(w http.ResponseWriter, r *http.Request) { serve(w, r, true) })
+	}
+	mux.HandleFunc("GET /devtools/page/{id}", func(w http.ResponseWriter, r *http.Request) { serve(w, r, false) })
 	srv := httptest.NewServer(mux)
-	defer srv.Close()
-	port := srv.Listener.Addr().(*net.TCPAddr).Port
+	t.Cleanup(srv.Close)
+	return srv.Listener.Addr().(*net.TCPAddr).Port
+}
 
-	dev := &fakeDevice{unix: procNetUnix, ports: map[string]int{"webview_devtools_remote_4242": port, "chrome_devtools_remote": port}}
+var pageEvents = []string{
+	`{"method":"Network.requestWillBeSent","params":{"requestId":"1","timestamp":100,"wallTime":1793000000.5,"type":"Fetch","request":{"url":"https://api.example.com/cart","method":"POST","headers":{"Content-Type":"application/json"},"postData":"{\"a\":1}"}}}`,
+	`{"method":"Network.responseReceived","params":{"requestId":"1","response":{"url":"https://api.example.com/cart","status":200,"statusText":"OK","headers":{"content-type":"application/json"},"mimeType":"application/json","remoteIPAddress":"203.0.113.10","remotePort":443,"protocol":"h2","encodedDataLength":120,"timing":{"requestTime":100.002,"dnsStart":-1,"dnsEnd":-1,"connectStart":-1,"connectEnd":-1,"sslStart":-1,"sslEnd":-1,"sendStart":1,"sendEnd":1.5,"receiveHeadersEnd":40}}}}`,
+	`{"method":"Network.loadingFinished","params":{"requestId":"1","timestamp":100.06,"encodedDataLength":180}}`,
+	`{"method":"Runtime.consoleAPICalled","params":{"type":"log","timestamp":1793000001000,"args":[{"type":"string","value":"cart %o"},{"type":"object","objectId":"o1","description":"Object","preview":{"properties":[{"name":"total","type":"number","value":"3"}]}}]}}`,
+}
+
+func watchFor(t *testing.T, browser bool, events map[string][]string) (*devtoolsWatch, *devtoolsLines, context.CancelFunc) {
+	t.Helper()
+	port := fakeWebView(t, browser, events)
+	dev := &fakeDevice{unix: procNetUnix, ports: map[string]int{"webview_devtools_remote_4242": port, "chrome_devtools_remote": 1}}
 	dt := NewDevTools(dev, Frontends{}, "", slog.New(slog.DiscardHandler))
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	if err := dt.scan(ctx); err != nil {
 		t.Fatal(err)
 	}
+	dt.mu.Lock()
+	delete(dt.sockets, "chrome_devtools_remote")
+	dt.mu.Unlock()
 	sink := &devtoolsLines{t: 1000}
-	r := newDevToolsRecorder(dt, sink, slog.New(slog.DiscardHandler))
-	r.sync(ctx)
+	w := newDevToolsWatch(dt, slog.New(slog.DiscardHandler))
+	w.record(sink)
+	go w.run(ctx, 20*time.Millisecond)
+	return w, sink, cancel
+}
 
+func waitLines(t *testing.T, sink *devtoolsLines, ok func() bool) {
+	t.Helper()
 	deadline := time.After(5 * time.Second)
-	for len(sink.of(contract.DevToolsRequestEntry)) < 2 || len(sink.of(contract.DevToolsConsoleEntry)) < 2 {
+	for !ok() {
 		select {
 		case <-deadline:
 			t.Fatalf("lines: %+v", sink.lines)
 		case <-time.After(10 * time.Millisecond):
 		}
 	}
-	pages := sink.of(contract.DevToolsPageEntry)
-	if len(pages) < 2 || pages[0].Page.URL != "https://shop.example/cart" || pages[0].Page.Process != "com.example.shop" {
-		t.Fatalf("pages: %+v", pages)
+}
+
+func TestDevToolsWatchFollowsEveryTarget(t *testing.T) {
+	_, sink, cancel := watchFor(t, true, map[string][]string{
+		"S1": pageEvents,
+		"S2": {`{"method":"Runtime.consoleAPICalled","params":{"type":"warning","args":[{"type":"string","value":"from the iframe"}]}}`},
+	})
+	defer cancel()
+	waitLines(t, sink, func() bool {
+		return len(sink.of(contract.DevToolsRequestEntry)) == 1 && len(sink.of(contract.DevToolsConsoleEntry)) == 2
+	})
+	pages := map[string]contract.DevToolsEntry{}
+	for _, p := range sink.of(contract.DevToolsPageEntry) {
+		pages[p.Target] = p
 	}
-	req := sink.of(contract.DevToolsRequestEntry)[0].Request
-	if req.Method != http.MethodPost || req.Status != 200 || req.Body != `{"total":3}` || req.PostData != `{"a":1}` ||
-		req.RemoteAddress != "203.0.113.10:443" || req.Wall != 1793000000500 || req.Size != 180 {
+	if p := pages["P1"].Page; p == nil || p.Type != "page" || p.URL != "https://shop.example/cart" || p.Process != "com.example.shop" {
+		t.Fatalf("page: %+v", pages["P1"])
+	}
+	if f := pages["F1"].Page; f == nil || f.Type != "iframe" || f.Parent != "P1" {
+		t.Fatalf("iframe: %+v", pages["F1"])
+	}
+	req := sink.of(contract.DevToolsRequestEntry)[0]
+	if r := req.Request; req.Target != "P1" || r.Method != http.MethodPost || r.Status != 200 || r.Body != `{"total":3}` || r.PostData != `{"a":1}` ||
+		r.RemoteAddress != "203.0.113.10:443" || r.Wall != 1793000000500 || r.Size != 180 {
 		t.Fatalf("request: %+v", req)
 	}
-	if tm := req.Timing; tm == nil || tm.DNS != -1 || tm.Send != 0.5 || tm.Wait != 38.5 || tm.Blocked != 3 || tm.Receive != 18 {
-		t.Fatalf("timing: %+v", req.Timing)
+	if tm := req.Request.Timing; tm == nil || tm.DNS != -1 || tm.Send != 0.5 || tm.Wait != 38.5 || tm.Blocked != 3 || tm.Receive != 18 {
+		t.Fatalf("timing: %+v", req.Request.Timing)
 	}
-	c := sink.of(contract.DevToolsConsoleEntry)[0].Console
-	if c.Text != "cart {total: 3}" || c.Args[1].JSON != `{"total":3}` || c.Level != "info" {
-		t.Fatalf("console: %+v", c)
+	byTarget := map[string]*contract.DevToolsConsole{}
+	for _, c := range sink.of(contract.DevToolsConsoleEntry) {
+		byTarget[c.Target] = c.Console
+	}
+	if c := byTarget["P1"]; c == nil || c.Text != "cart {total: 3}" || c.Args[1].JSON != `{"total":3}` || c.Level != "info" {
+		t.Fatalf("page console: %+v", c)
+	}
+	if c := byTarget["F1"]; c == nil || c.Text != "from the iframe" || c.Level != "warning" {
+		t.Fatalf("iframe console: %+v", c)
+	}
+}
+
+func TestDevToolsWatchFollowsPagesWithoutABrowserTarget(t *testing.T) {
+	_, sink, cancel := watchFor(t, false, map[string][]string{"S1": pageEvents})
+	defer cancel()
+	waitLines(t, sink, func() bool { return len(sink.of(contract.DevToolsRequestEntry)) == 1 })
+	if p := sink.of(contract.DevToolsPageEntry)[0]; p.Target != "P1" || p.Page.Type != "page" {
+		t.Fatalf("page: %+v", p)
+	}
+}
+
+func TestDevToolsWatchKnowsSocketsOpenedBeforeTheRecording(t *testing.T) {
+	sink := &devtoolsLines{off: true}
+	p := newCDPPage("P1", sink)
+	cdpEvent(t, p, "Network.webSocketCreated", `{"requestId":"s1","url":"wss://api.example.com/socket"}`)
+	cdpEvent(t, p, "Network.webSocketFrameReceived", `{"requestId":"s1","response":{"opcode":1,"payloadData":"before"}}`)
+	cdpEvent(t, p, "Network.requestWillBeSent", `{"requestId":"9","timestamp":1,"type":"XHR","request":{"url":"https://api.example.com/slow","method":"GET"}}`)
+	if len(sink.lines) != 0 {
+		t.Fatalf("written without a recording: %+v", sink.lines)
+	}
+	sink.off = false
+	sink.advance(500)
+	p.replay()
+	cdpEvent(t, p, "Network.webSocketFrameReceived", `{"requestId":"s1","response":{"opcode":1,"payloadData":"after"}}`)
+	cdpEvent(t, p, "Network.webSocketFrameReceived", `{"requestId":"s9","response":{"opcode":1,"payloadData":"42[\"hello\"]"}}`)
+	cdpEvent(t, p, "Network.loadingFinished", `{"requestId":"9","timestamp":2}`)
+
+	sockets := sink.of(contract.DevToolsSocketEntry)
+	if len(sockets) != 2 || sockets[0].Socket.URL != "wss://api.example.com/socket" || sockets[0].Socket.Frames != 1 ||
+		sockets[1].Socket.ID != "s9" || sockets[1].Socket.State != "open" {
+		t.Fatalf("sockets: %+v", sockets)
+	}
+	frames := sink.of(contract.DevToolsFrameEntry)
+	if len(frames) != 2 || frames[0].Frame.Data != "after" || frames[1].Frame.Socket != "s9" {
+		t.Fatalf("frames: %+v", frames)
+	}
+	if r := sink.of(contract.DevToolsRequestEntry); len(r) != 1 || r[0].Request.Start != 0 {
+		t.Fatalf("a request from before the recording: %+v", r)
 	}
 }
 

@@ -20,8 +20,15 @@ func (d *device) recordDevTools(ctx context.Context, rec *recording.Recorder) {
 		e.Target = target
 		rec.DevTools(e)
 	}
+	process := d.session().Package
 	emit(contract.DevToolsEntry{Type: contract.DevToolsPageEntry, Page: &contract.DevToolsPage{
-		Process: d.session().Package, Title: "Shop", URL: "https://shop.example.com/",
+		Type: "page", Process: process, Title: "Shop", URL: "https://shop.example.com/",
+	}})
+	rec.DevTools(contract.DevToolsEntry{Target: "F2", Type: contract.DevToolsPageEntry, Page: &contract.DevToolsPage{
+		Type: "iframe", Parent: target, Process: process, URL: "https://pay.example.net/widget",
+	}})
+	rec.DevTools(contract.DevToolsEntry{Target: "W1", Type: contract.DevToolsPageEntry, Page: &contract.DevToolsPage{
+		Type: "service_worker", Process: process, URL: "https://shop.example.com/sw.js",
 	}})
 	request := func(n int, method, url, post string, status int, body string, fail string) {
 		start := rec.Elapsed()
@@ -55,6 +62,13 @@ func (d *device) recordDevTools(ctx context.Context, rec *recording.Recorder) {
 	}
 
 	socket("ws.1", "wss://rt.example.com/socket", "open", 0, 0)
+	socket("ws.3", "wss://api.example.com/socket.io/?EIO=4&transport=websocket", "open", 0, 0)
+	io := func(sent bool, data string) {
+		emit(contract.DevToolsEntry{Type: contract.DevToolsFrameEntry, Frame: &contract.DevToolsFrame{Socket: "ws.3", Sent: sent, Opcode: 1, Size: len(data), Data: data}})
+	}
+	io(false, `0{"sid":"Lbo5JLzTotvW3g2LAAAA","upgrades":[],"pingInterval":25000,"pingTimeout":20000,"maxPayload":1000000}`)
+	io(true, "40")
+	io(false, `40{"sid":"wZX3oN0bSVIhsaknAAAI"}`)
 	socket("ws.2", "wss://cam.example.com/stream", "open", 0, 0)
 	frame(true, `{"op":"subscribe","topics":["cart","prices"]}`)
 	tick := time.NewTicker(2 * time.Second)
@@ -74,6 +88,12 @@ func (d *device) recordDevTools(ctx context.Context, rec *recording.Recorder) {
 			console("info", "log", "cart loaded", contract.DevToolsValue{Type: "string", Text: "cart loaded"},
 				contract.DevToolsValue{Type: "object", Text: "{id: 'c-1', items: Array(1)}", JSON: fmt.Sprintf(`{"id":"c-%d","lastSync":%d}`, n, now.UnixMilli())})
 		case 2:
+			io(false, fmt.Sprintf(`42["cart:update",{"items":2,"total":25,"updatedAt":%d}]`, now.UnixMilli()))
+			io(false, "2")
+			io(true, "3")
+			rec.DevTools(contract.DevToolsEntry{Target: "F2", Type: contract.DevToolsConsoleEntry, Console: &contract.DevToolsConsole{
+				Source: "console", Level: "info", Kind: "log", Text: "payment widget ready",
+			}})
 			request(n, "POST", "https://api.example.com/v1/events", fmt.Sprintf(`{"event":"view","at":%q}`, now.Format(time.RFC3339)), 200, `{"ok":true}`, "")
 			frame(false, fmt.Sprintf(`{"type":"price","sku":"A-100","price":12.5,"ts":%d}`, now.UnixMilli()))
 		case 3:

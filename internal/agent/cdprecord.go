@@ -4,18 +4,13 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"log/slog"
 	"math"
 	"slices"
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 	"unicode/utf8"
-
-	"github.com/coder/websocket"
 
 	"github.com/holtdroid/holtdroid/internal/contract"
 )
@@ -34,214 +29,19 @@ const (
 
 type devtoolsSink interface {
 	DevTools(contract.DevToolsEntry)
-	Elapsed() int64
+	// Clock is the watch's own time in milliseconds, which runs with or
+	// without a recording; At turns one of its times into recording time.
+	Clock() int64
+	At(clock int64) int64
+	Recording() bool
 }
 
-// devtoolsRecorder follows every WebView page with a CDP connection of its
-// own while a recording runs (decision #112).
-type devtoolsRecorder struct {
-	dt   *DevTools
-	sink devtoolsSink
-	log  *slog.Logger
-
-	mu    sync.Mutex
-	pages map[string]*cdpPage
-}
-
-func newDevToolsRecorder(dt *DevTools, sink devtoolsSink, log *slog.Logger) *devtoolsRecorder {
-	return &devtoolsRecorder{dt: dt, sink: sink, log: log, pages: map[string]*cdpPage{}}
-}
-
-func (r *devtoolsRecorder) run(ctx context.Context, interval time.Duration) {
-	for {
-		r.sync(ctx)
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(interval):
-		}
-	}
-}
-
-func (r *devtoolsRecorder) sync(ctx context.Context) {
-	targets, err := r.dt.Targets(ctx)
-	if err != nil {
-		return
-	}
-	for _, t := range targets {
-		if t.Type != "page" {
-			continue
-		}
-		key := t.Socket + "/" + t.ID
-		info := contract.DevToolsPage{Process: t.Process, Title: t.Title, URL: t.URL}
-		r.mu.Lock()
-		p, known := r.pages[key]
-		if !known {
-			p = newCDPPage(t.ID, r.sink)
-			r.pages[key] = p
-		}
-		r.mu.Unlock()
-		if !known {
-			go r.follow(ctx, key, t.Socket, p, info)
-		} else {
-			p.describe(info)
-		}
-	}
-}
-
-func (r *devtoolsRecorder) follow(ctx context.Context, key, socket string, p *cdpPage, info contract.DevToolsPage) {
-	defer func() {
-		r.mu.Lock()
-		delete(r.pages, key)
-		r.mu.Unlock()
-	}()
-	s, ok := r.dt.socket(socket)
-	if !ok {
-		return
-	}
-	c, resp, err := websocket.Dial(ctx, fmt.Sprintf("ws://127.0.0.1:%d/devtools/page/%s", s.port, p.target), &websocket.DialOptions{Host: "localhost"})
-	if resp != nil && resp.Body != nil {
-		resp.Body.Close()
-	}
-	if err != nil {
-		r.log.Debug("devtools recording: attach", "target", p.target, "err", err)
-		return
-	}
-	c.SetReadLimit(64 << 20)
-	conn := newCDPConn(c)
-	defer conn.close()
-	p.call = conn.call
-	p.describe(info)
-	go func() {
-		for _, m := range []struct {
-			method string
-			params any
-		}{
-			{"Network.enable", map[string]any{"maxPostDataSize": cdpPostLimit}},
-			{"Runtime.enable", nil},
-			{"Log.enable", nil},
-		} {
-			if _, err := conn.call(ctx, m.method, m.params); err != nil {
-				r.log.Debug("devtools recording: enable", "target", p.target, "method", m.method, "err", err)
-			}
-		}
-	}()
-	conn.read(ctx, p.handle)
-	p.flush()
-	p.describe(contract.DevToolsPage{Process: info.Process, Closed: true})
-}
-
-// flush writes the requests still loading, before the recording stops.
-func (r *devtoolsRecorder) flush() {
-	r.mu.Lock()
-	pages := make([]*cdpPage, 0, len(r.pages))
-	for _, p := range r.pages {
-		pages = append(pages, p)
-	}
-	r.mu.Unlock()
-	for _, p := range pages {
-		p.flush()
-	}
-}
-
-type cdpReply struct {
-	result json.RawMessage
-	err    error
-}
-
-type cdpConn struct {
-	c       *websocket.Conn
-	mu      sync.Mutex
-	next    int64
-	waiting map[int64]chan cdpReply
-}
-
-func newCDPConn(c *websocket.Conn) *cdpConn {
-	return &cdpConn{c: c, waiting: map[int64]chan cdpReply{}}
-}
-
-func (c *cdpConn) close() {
-	_ = c.c.CloseNow()
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	for id, ch := range c.waiting {
-		ch <- cdpReply{err: errors.New("cdp connection closed")}
-		delete(c.waiting, id)
-	}
-}
-
-func (c *cdpConn) call(ctx context.Context, method string, params any) (json.RawMessage, error) {
-	c.mu.Lock()
-	c.next++
-	id := c.next
-	ch := make(chan cdpReply, 1)
-	c.waiting[id] = ch
-	c.mu.Unlock()
-	msg, err := json.Marshal(map[string]any{"id": id, "method": method, "params": params})
-	if err != nil {
-		return nil, err
-	}
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-	if err := c.c.Write(ctx, websocket.MessageText, msg); err != nil {
-		c.forget(id)
-		return nil, err
-	}
-	select {
-	case r := <-ch:
-		return r.result, r.err
-	case <-ctx.Done():
-		c.forget(id)
-		return nil, ctx.Err()
-	}
-}
-
-func (c *cdpConn) forget(id int64) {
-	c.mu.Lock()
-	delete(c.waiting, id)
-	c.mu.Unlock()
-}
-
-func (c *cdpConn) read(ctx context.Context, handle func(method string, params json.RawMessage)) {
-	for {
-		_, data, err := c.c.Read(ctx)
-		if err != nil {
-			return
-		}
-		var m struct {
-			ID     int64           `json:"id"`
-			Method string          `json:"method"`
-			Params json.RawMessage `json:"params"`
-			Result json.RawMessage `json:"result"`
-			Error  *struct {
-				Message string `json:"message"`
-			} `json:"error"`
-		}
-		if json.Unmarshal(data, &m) != nil {
-			continue
-		}
-		if m.Method != "" {
-			handle(m.Method, m.Params)
-			continue
-		}
-		c.mu.Lock()
-		ch, ok := c.waiting[m.ID]
-		delete(c.waiting, m.ID)
-		c.mu.Unlock()
-		if !ok {
-			continue
-		}
-		if m.Error != nil {
-			ch <- cdpReply{err: errors.New(m.Error.Message)}
-		} else {
-			ch <- cdpReply{result: m.Result}
-		}
-	}
-}
-
-// cdpPage turns one page's CDP events into recording lines.
+// cdpPage turns one target's CDP events into recording lines: a page, an
+// iframe or a worker.
 type cdpPage struct {
 	target string
+	kind   string
+	parent string
 	sink   devtoolsSink
 	call   func(ctx context.Context, method string, params any) (json.RawMessage, error)
 	slots  chan struct{}
@@ -275,17 +75,54 @@ type cdpFrameStat struct {
 
 func newCDPPage(target string, sink devtoolsSink) *cdpPage {
 	return &cdpPage{
-		target: target, sink: sink, slots: make(chan struct{}, 4),
+		target: target, kind: "page", sink: sink, slots: make(chan struct{}, 4),
 		requests: map[string]*cdpRequest{}, redirects: map[string]int{}, sockets: map[string]*cdpSocket{},
 	}
 }
 
+// emit writes a line while a recording runs; its times are the watch's
+// clock until here, and a T of 0 is now.
 func (p *cdpPage) emit(e contract.DevToolsEntry) {
+	if !p.sink.Recording() {
+		return
+	}
 	e.Target = p.target
+	if e.T <= 0 {
+		e.T = p.sink.Clock()
+	}
+	e.T = p.sink.At(e.T)
+	if e.Request != nil {
+		r := *e.Request
+		r.Start = p.sink.At(r.Start)
+		if r.Response > 0 {
+			r.Response = p.sink.At(r.Response)
+		}
+		if r.End > 0 {
+			r.End = p.sink.At(r.End)
+		}
+		e.Request = &r
+	}
 	p.sink.DevTools(e)
 }
 
+// replay writes what a recording that starts now needs to know: the target
+// and the sockets already open.
+func (p *cdpPage) replay() {
+	p.mu.Lock()
+	page := p.page
+	sockets := make([]contract.DevToolsSocket, 0, len(p.sockets))
+	for _, s := range p.sockets {
+		sockets = append(sockets, s.DevToolsSocket)
+	}
+	p.mu.Unlock()
+	p.emit(contract.DevToolsEntry{Type: contract.DevToolsPageEntry, Page: &page})
+	for _, s := range sockets {
+		p.emit(contract.DevToolsEntry{Type: contract.DevToolsSocketEntry, Socket: &s})
+	}
+}
+
 func (p *cdpPage) describe(info contract.DevToolsPage) {
+	info.Type, info.Parent = p.kind, p.parent
 	p.mu.Lock()
 	if info == p.page {
 		p.mu.Unlock()
@@ -312,7 +149,7 @@ func (p *cdpPage) flush() {
 
 // background runs f without holding up the page's events, a few at a time.
 func (p *cdpPage) background(f func(ctx context.Context)) {
-	if p.call == nil {
+	if p.call == nil || !p.sink.Recording() {
 		return
 	}
 	go func() {
@@ -418,6 +255,12 @@ type cdpPreview struct {
 
 func (p *cdpPage) handle(method string, raw json.RawMessage) {
 	switch method {
+	case "Runtime.consoleAPICalled", "Runtime.exceptionThrown", "Log.entryAdded":
+		if !p.sink.Recording() {
+			return
+		}
+	}
+	switch method {
 	case "Network.requestWillBeSent":
 		var e struct {
 			RequestID string  `json:"requestId"`
@@ -436,7 +279,7 @@ func (p *cdpPage) handle(method string, raw json.RawMessage) {
 		if json.Unmarshal(raw, &e) != nil {
 			return
 		}
-		now := p.sink.Elapsed()
+		now := p.sink.Clock()
 		var redirected *contract.DevToolsRequest
 		p.mu.Lock()
 		if prev, ok := p.requests[e.RequestID]; ok && e.RedirectResponse != nil {
@@ -484,7 +327,7 @@ func (p *cdpPage) handle(method string, raw json.RawMessage) {
 		if json.Unmarshal(raw, &e) != nil {
 			return
 		}
-		now := p.sink.Elapsed()
+		now := p.sink.Clock()
 		p.mu.Lock()
 		if r, ok := p.requests[e.RequestID]; ok {
 			r.respond(&e.Response, now)
@@ -499,7 +342,7 @@ func (p *cdpPage) handle(method string, raw json.RawMessage) {
 		if json.Unmarshal(raw, &e) != nil {
 			return
 		}
-		now := p.sink.Elapsed()
+		now := p.sink.Clock()
 		p.mu.Lock()
 		r, ok := p.requests[e.RequestID]
 		delete(p.requests, e.RequestID)
@@ -518,7 +361,7 @@ func (p *cdpPage) handle(method string, raw json.RawMessage) {
 			req.BodySkipped = "type"
 		case req.Size > cdpBodyLimit:
 			req.BodySkipped = "size"
-		case p.call == nil:
+		case p.call == nil || !p.sink.Recording():
 		default:
 			p.background(func(ctx context.Context) {
 				p.body(ctx, e.RequestID, &req)
@@ -538,7 +381,7 @@ func (p *cdpPage) handle(method string, raw json.RawMessage) {
 		if json.Unmarshal(raw, &e) != nil {
 			return
 		}
-		now := p.sink.Elapsed()
+		now := p.sink.Clock()
 		p.mu.Lock()
 		r, ok := p.requests[e.RequestID]
 		delete(p.requests, e.RequestID)
@@ -561,7 +404,7 @@ func (p *cdpPage) handle(method string, raw json.RawMessage) {
 		if json.Unmarshal(raw, &e) != nil {
 			return
 		}
-		s := &cdpSocket{since: p.sink.Elapsed()}
+		s := &cdpSocket{since: p.sink.Clock()}
 		s.ID, s.URL, s.State = e.RequestID, e.URL, "connecting"
 		p.mu.Lock()
 		p.sockets[e.RequestID] = s
@@ -633,7 +476,7 @@ func (p *cdpPage) handle(method string, raw json.RawMessage) {
 		}
 		p.mu.Lock()
 		if _, ok := p.sockets[e.RequestID]; !ok {
-			s := &cdpSocket{since: p.sink.Elapsed()}
+			s := &cdpSocket{since: p.sink.Clock()}
 			s.ID, s.State = e.RequestID, "open"
 			if r, ok := p.requests[e.RequestID]; ok {
 				s.URL = r.URL
@@ -655,7 +498,7 @@ func (p *cdpPage) handle(method string, raw json.RawMessage) {
 		if json.Unmarshal(raw, &e) != nil {
 			return
 		}
-		now := p.sink.Elapsed()
+		now := p.sink.Clock()
 		c := contract.DevToolsConsole{Source: "console", Level: consoleLevel(e.Type), Kind: e.Type, Wall: int64(e.Timestamp)}
 		c.Stack, c.URL, c.Line, c.Column = e.StackTrace.format()
 		if e.Type != "trace" && e.Type != "error" && e.Type != "warning" && e.Type != "assert" {
@@ -981,12 +824,17 @@ func (p *cdpPage) socketState(id string, f func(*cdpSocket) bool) {
 }
 
 func (p *cdpPage) frame(id string, sent bool, opcode int, payload string) {
-	now := p.sink.Elapsed()
+	now := p.sink.Clock()
 	p.mu.Lock()
-	s, ok := p.sockets[id]
-	if !ok {
+	s, known := p.sockets[id]
+	if !known {
+		s = &cdpSocket{since: now}
+		s.ID, s.State = id, "open"
+		p.sockets[id] = s
+		st := s.DevToolsSocket
 		p.mu.Unlock()
-		return
+		p.emit(contract.DevToolsEntry{T: now, Type: contract.DevToolsSocketEntry, Socket: &st})
+		p.mu.Lock()
 	}
 	binary := opcode == 2
 	size := len(payload)

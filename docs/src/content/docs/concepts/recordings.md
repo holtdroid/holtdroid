@@ -101,9 +101,15 @@ copy it. In the logcat panel:
 
 ### Network, console and WebSockets
 
-The agent watches every WebView page of the app over a DevTools connection
-of its own, whether or not anyone has DevTools open, and the tabs next to
-**Logcat** show what it saw up to the moment you are at. Counters on the tabs
+The agent watches the app's WebViews over a DevTools connection of its own,
+whether or not anyone has DevTools open: every tab, every iframe (nested
+ones too) and every worker and service worker, from their very first
+request. It follows them for the whole session, so a socket the app opened
+before the recording started is still recorded from then on, with its
+address. The tabs next to **Logcat** show what it saw up to the moment you
+are at; when there is more than one tab, iframe or worker, a menu narrows
+Network and Console to one of them, and lines from iframes and workers say
+where they came from. Counters on the tabs
 turn red when requests failed or the page logged errors.
 
 - **Network** lists requests as they were sent: status (pending until the
@@ -123,9 +129,14 @@ turn red when requests failed or the page logged errors.
   **media stream**: from then on its frames are counted but not recorded.
 
 JSON is shown as a tree you can open and close, also when it sits in a
-string field; forms as name and value pairs, binary payloads as a hex dump.
-**Pretty** and **Raw** switch between the tree and the text, and the copy
-button copies it.
+string field. Messages and bodies in common framings are split into their
+parts, each a tree: **Socket.IO** and **Engine.IO** packets (the event name
+as a label, `2`/`3` as ping and pong), **SignalR** and Engine.IO polling
+records separated by `\x1e`, **Server-Sent Events** and **JSON Lines**.
+Frames show their label and a one-line preview in the list. Forms are name
+and value pairs, binary payloads a hex dump. **Pretty** and **Raw** switch
+between the parsed view and the text as it was sent, and the copy button
+copies it.
 
 Values that look like a point in time get a chip with how far they are from
 the **device clock at that moment of the recording** (“3.2 s ago”, “in 1 h”,
