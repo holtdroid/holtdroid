@@ -1606,6 +1606,11 @@ export interface components {
             mobileData: boolean;
             /** @description the media stream is muted */
             muted: boolean;
+            /**
+             * @description Android's system navigation: gestures or the back, home and recents buttons; empty where it can't be changed
+             * @enum {string}
+             */
+            navigation?: "gestures" | "buttons";
             /** @description empty when the device can't emulate network conditions */
             networkProfile?: string;
             /** @description the profiles networkProfile may be set to */

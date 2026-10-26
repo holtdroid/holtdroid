@@ -456,6 +456,11 @@ export interface components {
             mobileData?: boolean;
             /** @description true mutes the media stream, false brings back the volume it had */
             muted?: boolean;
+            /**
+             * @description switches Android's system navigation where DeviceState.navigation is set
+             * @enum {string}
+             */
+            navigation?: "gestures" | "buttons";
             /** @description one of DeviceState.networkProfiles */
             networkProfile?: string;
             /** @description puts the default GPS position back */
@@ -522,6 +527,11 @@ export interface components {
             mobileData: boolean;
             /** @description the media stream is muted */
             muted: boolean;
+            /**
+             * @description Android's system navigation: gestures or the back, home and recents buttons; empty where it can't be changed
+             * @enum {string}
+             */
+            navigation?: "gestures" | "buttons";
             /** @description empty when the device can't emulate network conditions */
             networkProfile?: string;
             /** @description the profiles networkProfile may be set to */

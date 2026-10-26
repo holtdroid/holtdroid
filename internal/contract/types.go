@@ -355,6 +355,7 @@ type DeviceState struct {
 	Volume             int                  `json:"volume" doc:"the media volume step, 0 while muted"`
 	VolumeMax          int                  `json:"volumeMax" doc:"the highest media volume step; 0 when the device doesn't report its volume"`
 	Muted              bool                 `json:"muted" doc:"the media stream is muted"`
+	Navigation         Navigation           `json:"navigation,omitempty" enum:"gestures,buttons" doc:"Android's system navigation: gestures or the back, home and recents buttons; empty where it can't be changed"`
 	NetworkProfile     NetworkProfile       `json:"networkProfile,omitempty" doc:"empty when the device can't emulate network conditions"`
 	NetworkProfiles    []NetworkProfileInfo `json:"networkProfiles,omitempty" doc:"the profiles networkProfile may be set to"`
 	TimeZone           string               `json:"timeZone"`
@@ -373,6 +374,13 @@ type DeviceState struct {
 	AutoTime           bool                 `json:"autoTime"`
 	TimeOffset         int64                `json:"timeOffset" doc:"device clock minus real time, in milliseconds"`
 }
+
+type Navigation string
+
+const (
+	NavigationGestures Navigation = "gestures"
+	NavigationButtons  Navigation = "buttons"
+)
 
 type LanguageScope string
 
@@ -402,6 +410,7 @@ type DeviceSettings struct {
 	Rotation       *int            `json:"rotation,omitempty" minimum:"0" maximum:"3"`
 	Volume         *int            `json:"volume,omitempty" minimum:"0" maximum:"100" doc:"sets the media volume step, which also unmutes it above 0"`
 	Muted          *bool           `json:"muted,omitempty" doc:"true mutes the media stream, false brings back the volume it had"`
+	Navigation     *Navigation     `json:"navigation,omitempty" enum:"gestures,buttons" doc:"switches Android's system navigation where DeviceState.navigation is set"`
 	NetworkProfile *NetworkProfile `json:"networkProfile,omitempty" pattern:"^[a-z0-9-]{1,32}$" maxLength:"32" doc:"one of DeviceState.networkProfiles"`
 	TimeZone       *string         `json:"timeZone,omitempty" pattern:"^[A-Za-z][A-Za-z0-9_+/-]*$" maxLength:"64"`
 	Locales        []string        `json:"locales,omitempty" minItems:"1" maxItems:"8" doc:"the system languages in order: the first sets the UI language, the rest add their keyboard layouts"`

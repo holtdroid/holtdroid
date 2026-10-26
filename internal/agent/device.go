@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/holtdroid/holtdroid/internal/agent/redroid"
 	"github.com/holtdroid/holtdroid/internal/contract"
 	"github.com/holtdroid/holtdroid/internal/netem"
 )
@@ -103,6 +104,7 @@ echo "fps=$(echo "$display" | grep -o 'fps=[0-9.]*' | tr '\n' ' ')"
 echo "$display" | grep -o -m1 'mCachedBrightnessInfo.brightnessMin=[0-9.]*'
 echo "sdk=$(getprop ro.build.version.sdk)"
 dumpsys power | grep -o -m1 'mScreenBrightnessSettingMinimumFloat=[0-9.]*'
+echo "nav=$(settings get secure navigation_mode)"
 echo "musicMuted=$(dumpsys audio | grep -A1 -- '- STREAM_MUSIC:' | grep Muted)"`
 
 var (
@@ -160,6 +162,10 @@ func (c *Controls) State(ctx context.Context) (contract.DeviceState, error) {
 		s.MobileData = c.mobileData
 		c.mu.Unlock()
 		s.CanSetTime = false
+		s.Navigation = contract.NavigationButtons
+		if v["nav"] == "2" {
+			s.Navigation = contract.NavigationGestures
+		}
 	}
 	c.mu.Lock()
 	s.TimeZoneOverride, s.VPNTimeZone = c.tzOverride, c.vpnTZ
@@ -496,6 +502,12 @@ func (c *Controls) Update(ctx context.Context, in contract.DeviceSettings) (cont
 	}
 	if in.Rotation != nil {
 		add(rotate(*in.Rotation)...)
+	}
+	if in.Navigation != nil {
+		if !c.redroid {
+			return contract.DeviceState{}, fmt.Errorf("%w: this device's navigation can't be switched", contract.ErrInvalid)
+		}
+		add(pick(*in.Navigation == contract.NavigationGestures, redroid.GestureNavigation, redroid.ButtonNavigation))
 	}
 	if in.TimeZone != nil {
 		add("settings put global auto_time_zone 0", "cmd alarm set-timezone "+*in.TimeZone)

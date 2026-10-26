@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/holtdroid/holtdroid/internal/agent/redroid"
 	"github.com/holtdroid/holtdroid/internal/contract"
 )
 
@@ -516,9 +517,20 @@ func TestRedroidControls(t *testing.T) {
 	c.redroid = true
 
 	s, err := c.State(ctx)
-	if err != nil || !s.WiFi || !s.MobileData || s.CanSetTime {
+	if err != nil || !s.WiFi || !s.MobileData || s.CanSetTime || s.Navigation != contract.NavigationButtons {
 		t.Fatalf("fresh state %+v, %v", s, err)
 	}
+	dev.state += "nav=2\n"
+	if s, err := c.State(ctx); err != nil || s.Navigation != contract.NavigationGestures {
+		t.Fatalf("gestures: %q, %v", s.Navigation, err)
+	}
+	if _, err := c.Update(ctx, contract.DeviceSettings{Navigation: new(contract.NavigationButtons)}); err != nil {
+		t.Fatal(err)
+	}
+	if len(dev.cmds) != 1 || dev.cmds[0] != redroid.ButtonNavigation {
+		t.Fatalf("buttons: %q", dev.cmds)
+	}
+	dev.cmds = nil
 	if _, err := c.Update(ctx, contract.DeviceSettings{WiFi: new(false), MobileData: new(false)}); err != nil {
 		t.Fatal(err)
 	}
@@ -535,6 +547,9 @@ func TestRedroidControls(t *testing.T) {
 	}
 	if _, err := c.Update(ctx, contract.DeviceSettings{TimeOffset: new(int64(60_000))}); !errors.Is(err, contract.ErrInvalid) {
 		t.Fatalf("clock moved: %v", err)
+	}
+	if _, err := NewControls(dev, "", true, false).Update(ctx, contract.DeviceSettings{Navigation: new(contract.NavigationGestures)}); !errors.Is(err, contract.ErrInvalid) {
+		t.Fatalf("navigation off redroid: %v", err)
 	}
 
 	dev.cmds, dev.lock = nil, "pin\n"

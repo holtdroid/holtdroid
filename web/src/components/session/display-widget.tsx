@@ -1,5 +1,7 @@
 import {
+  EllipsisIcon,
   MoonIcon,
+  PointerIcon,
   RotateCcwSquareIcon,
   RotateCwSquareIcon,
   SunIcon,
@@ -47,6 +49,11 @@ const themes: Record<ThemeMode, { label: string; hint: string; icon: LucideIcon 
   light: { label: "Light", hint: "Dark theme off", icon: SunIcon },
   dark: { label: "Dark", hint: "Dark theme on", icon: MoonIcon },
   sync: { label: "Match the portal", hint: "Follows this page's theme", icon: SunMoonIcon },
+}
+
+const navigations: Record<NonNullable<DeviceState["navigation"]>, { label: string; hint: string; icon: LucideIcon }> = {
+  gestures: { label: "Gestures", hint: "Swipe up for home, from a side for back", icon: PointerIcon },
+  buttons: { label: "Buttons", hint: "Back, home and recent apps at the bottom", icon: EllipsisIcon },
 }
 
 type Set = (patch: DeviceSettings) => void
@@ -120,7 +127,8 @@ function Display({
   )
   const size = displaySizes.find((d) => Math.round(s.defaultDensity * d.value) === s.density)
   const resized = s.defaultDensity > 0 && s.density !== s.defaultDensity
-  const changed = Math.abs(s.fontScale - 1) > 0.01 || resized || mode === "dark"
+  const buttons = s.navigation === "buttons"
+  const changed = Math.abs(s.fontScale - 1) > 0.01 || resized || mode === "dark" || buttons
   const brightness = s.autoBrightness ? "auto" : `${s.brightness}%`
 
   return (
@@ -146,7 +154,7 @@ function Display({
             changed
               ? () => {
                   if (mode === "dark") choose("light")
-                  set({ fontScale: 1, ...(resized && { density: 0 }) })
+                  set({ fontScale: 1, ...(resized && { density: 0 }), ...(buttons && { navigation: "gestures" }) })
                 }
               : undefined
           }
@@ -216,6 +224,27 @@ function Display({
             </Row>
           ))}
         </Section>
+        {s.navigation && (
+          <Section title="Navigation">
+            {(
+              Object.entries(navigations) as [
+                keyof typeof navigations,
+                (typeof navigations)[keyof typeof navigations],
+              ][]
+            ).map(([n, nav]) => (
+              <Row
+                key={n}
+                selected={n === s.navigation}
+                icon={nav.icon}
+                title={nav.label}
+                disabled={busy}
+                onClick={() => n !== s.navigation && set({ navigation: n })}
+              >
+                {nav.hint}
+              </Row>
+            ))}
+          </Section>
+        )}
         <section className="grid gap-2">
           <h4 className="px-1 text-xs font-medium text-neutral-400">Font size</h4>
           <ShadeSlider

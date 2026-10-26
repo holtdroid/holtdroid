@@ -3399,3 +3399,25 @@ megabytes at 3×) just to show 48 px squares.
 **Consequences.** A Figma SVG with text kept as text depends on the browser
 having its fonts; Figma outlines text by default. SVGs with `foreignObject`
 taint the canvas, so their comparison fails with an error.
+
+## 110. Gesture navigation on redroid by default
+
+**Context.** redroid boots with Android's three-button navigation bar. The
+phones people test on mostly use gestures, and apps lay out their bottom
+edge differently under each (a thin gesture inset instead of a 48 dp bar),
+so the default showed testers a layout few users see.
+
+**Decision.** When the agent prepares a redroid device it turns on the
+`com.android.internal.systemui.navbar.gestural` overlay with
+`cmd overlay enable-exclusive`, unless a navbar overlay is already enabled,
+so a restarted agent keeps what the user picked. Every redroid image
+(Android 11–15) ships the overlays and Launcher3QuickStep, which handles the
+home and back gestures. `DeviceState.navigation` reports it from
+`settings get secure navigation_mode` (2 is gestures), and
+`DeviceSettings.navigation` switches between the gestural and three-button
+overlays; the display card offers both. Phones keep their own setting and
+report nothing: vendors (Samsung) switch navigation their own way.
+
+**Consequences.** The portal's own back, home and recents buttons keep
+working under gestures, since they send key events. Switching restarts
+the navigation bar for a moment.

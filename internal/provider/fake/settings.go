@@ -30,6 +30,7 @@ func defaultSettings() contract.DeviceState {
 		RefreshRate:        60,
 		Volume:             5,
 		VolumeMax:          15,
+		Navigation:         contract.NavigationGestures,
 		NetworkProfile:     contract.NetworkFull,
 		NetworkProfiles:    netem.Catalog(),
 		TimeZone:           "UTC",
@@ -85,6 +86,7 @@ func (d *device) UpdateDevice(_ context.Context, in contract.DeviceSettings) (co
 		}
 		set(&s.AutoBrightness, in.AutoBrightness)
 		set(&s.Rotation, in.Rotation)
+		set(&s.Navigation, in.Navigation)
 		switch {
 		case in.Muted != nil && *in.Muted:
 			d.unmuteTo, s.Volume, s.Muted = cmp.Or(s.Volume, d.unmuteTo), 0, true

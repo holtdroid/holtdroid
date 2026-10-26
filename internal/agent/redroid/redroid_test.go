@@ -67,6 +67,7 @@ func TestPrepare(t *testing.T) {
 			}
 			want := []string{
 				"wait-boot", "root", Routes(cfg, r.uid), joinWiFi,
+				defaultNavigation,
 				LockScreenOverlay,
 				allowHomeRotation,
 				"dumpsys battery set level 65 && dumpsys battery unplug && dumpsys battery set status 3 && dumpsys battery set present 1",

@@ -310,6 +310,7 @@ Goal: several Android devices per node instead of one emulator per node.
 - [x] Network conditions through `tc netem` on the tun (decision #93): named networks and scenarios over time (`internal/netem`), `ifb` for downloads, offered with VPN locations
 - [x] Device controls checked on Android 11–15 (decision #101): lock screen through a fabricated overlay (PIN on 11), Wi-Fi and mobile data as virtual radios shown to the app through Frida, battery present, brightness on the shade's gamma curve, GPS for uid 0 and through `Geo.java` on 11, no clock changes on redroid
 - [x] A real Wi-Fi on redroid (decision #105): `mac80211_hwsim` radios per session, the emulator's Wi-Fi HAL and wpa_supplicant in holtdroid-redroid, an access point in a router namespace, Ethernet hidden by an RRO, mobile data as a second uplink; status bar and quick settings show Wi-Fi
+- [x] Gesture navigation on redroid by default, switchable to the three buttons in the display card (decision #110)
 - [ ] redroid's status bar shows mobile data instead of Ethernet when only mobile data is on (no telephony stack)
 - [ ] The session wallpaper on redroid: find why attaching to `system_server` after the install breaks frida-server
 - [ ] A session's root that can't reach the node: user namespaces were tried and dropped (decision #83); next candidates are a per-session binder allowlist from a node helper, token-authenticated frida-server and a non-root adbd for users
