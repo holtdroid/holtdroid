@@ -194,7 +194,7 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 		network:  NewNetwork(cfg.ClashAPI, cfg.IPInfoURL, cfg.IPInfoProxy),
 		screen:   screen,
 		clip:     NewClipboard(screen, log),
-		frontend: NewFrontend(cfg.DevToolsFrontend, filepath.Join(cfg.CacheDir, "devtools-frontend")),
+		frontend: NewFrontend(cfg.DevToolsFrontend, filepath.Join(cfg.CacheDir, "devtools-frontend"), log),
 		controls: newControls(cfg, dev, log),
 		tunnels:  NewTunnels(newADBTunnels(cfg, dev, log), cfg.ADBShell, log),
 		metrics:  NewMetrics(dev, cfg.Package, host, cgroup, cfg.PodUID, log),

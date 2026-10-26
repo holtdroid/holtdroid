@@ -299,7 +299,7 @@ func TestFrontendCache(t *testing.T) {
 
 	dir := t.TempDir()
 	mux := http.NewServeMux()
-	mux.Handle("GET /devtools-frontend/{rev}/{file...}", NewFrontend(upstream.URL+"/serve_rev", dir))
+	mux.Handle("GET /devtools-frontend/{rev}/{file...}", NewFrontend(upstream.URL+"/serve_rev", dir, slog.New(slog.DiscardHandler)))
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 
@@ -457,5 +457,69 @@ func TestDevToolsVersionRev(t *testing.T) {
 	}
 	if n := lookups.Load(); n != 2 {
 		t.Errorf("%d Chromium Dash lookups, want one per version that is looked up, cached per scan", n)
+	}
+}
+
+func TestFrontendRetriesAColdUpstream(t *testing.T) {
+	var mu sync.Mutex
+	tries := map[string]int{}
+	var inFlight, peak atomic.Int32
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n := inFlight.Add(1)
+		defer inFlight.Add(-1)
+		for p := peak.Load(); n > p && !peak.CompareAndSwap(p, n); p = peak.Load() {
+		}
+		time.Sleep(5 * time.Millisecond)
+		mu.Lock()
+		tries[r.URL.Path]++
+		try := tries[r.URL.Path]
+		mu.Unlock()
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/down.js"):
+			http.Error(w, "overloaded", http.StatusServiceUnavailable)
+		case try <= 2:
+			http.Error(w, "overloaded", http.StatusServiceUnavailable)
+		default:
+			_, _ = io.WriteString(w, "ok "+r.URL.Path)
+		}
+	}))
+	defer upstream.Close()
+
+	f := NewFrontend(upstream.URL+"/serve_rev", t.TempDir(), slog.New(slog.DiscardHandler))
+	f.backoff = time.Millisecond
+	mux := http.NewServeMux()
+	mux.Handle("GET /devtools-frontend/{rev}/{file...}", f)
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	var wg sync.WaitGroup
+	codes := make([]int, 20)
+	for i := range codes {
+		wg.Go(func() {
+			resp, err := http.Get(srv.URL + "/devtools-frontend/@0123456789abcdef/m" + strconv.Itoa(i) + ".js")
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			resp.Body.Close()
+			codes[i] = resp.StatusCode
+		})
+	}
+	wg.Wait()
+	for i, c := range codes {
+		if c != http.StatusOK {
+			t.Errorf("m%d.js: %d", i, c)
+		}
+	}
+	if p := peak.Load(); p > 6 {
+		t.Errorf("%d upstream requests at once, want at most 6", p)
+	}
+	resp, err := http.Get(srv.URL + "/devtools-frontend/@0123456789abcdef/down.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusBadGateway || tries["/serve_rev/@0123456789abcdef/down.js"] != 5 {
+		t.Errorf("upstream down: %d after %d tries", resp.StatusCode, tries["/serve_rev/@0123456789abcdef/down.js"])
 	}
 }
