@@ -706,7 +706,11 @@ func (a *Agent) WatchStatus(ctx context.Context, send func(contract.StatusEvent)
 }
 
 func (a *Agent) Targets(ctx context.Context) ([]contract.DevToolsTarget, error) {
-	return a.devtools.Targets(ctx)
+	items, err := a.devtools.Targets(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return a.watch.withFrames(ctx, items), nil
 }
 
 func (a *Agent) Clipboard(context.Context) (string, error) {

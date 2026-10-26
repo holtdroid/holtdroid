@@ -396,7 +396,9 @@ codecs and reports that it can't capture audio.
   The agent scans `/proc/net/unix` every 2 s, keeps an
   `adb forward tcp:<port> localabstract:<socket>` per socket and aggregates
   every socket's `/json/list` into `GET /devtools/targets`
-  (`{socket, process, id, type, title, url}`). The process name and the
+  (`{socket, process, id, type, title, url}`), with each page's in-process
+  iframes after it from `Page.getFrameTree` over the DevTools watch's
+  session (`page` names the page, decision #116). The process name and the
   frontend revision come from the socket's `/json/version`
   (`Android-Package`, `WebKit-Version`). Only a full 40-digit commit counts.
   A revision that is missing, all zeros (Chromium snapshot builds) or no

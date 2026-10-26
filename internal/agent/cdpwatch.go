@@ -342,9 +342,11 @@ func (p *cdpProcess) followPage(ctx context.Context, pg *cdpPage) {
 		return
 	}
 	defer conn.close()
+	pg.mu.Lock()
 	pg.call = func(ctx context.Context, method string, params any) (json.RawMessage, error) {
 		return conn.call(ctx, "", method, params)
 	}
+	pg.mu.Unlock()
 	go p.prepare(ctx, conn, "", false)
 	conn.read(ctx, func(_, method string, raw json.RawMessage) { pg.handle(method, raw) })
 }
@@ -460,4 +462,90 @@ func (c *cdpConn) read(ctx context.Context, handle func(session, method string, 
 			ch <- cdpReply{result: m.Result}
 		}
 	}
+}
+
+// withFrames puts every page's iframes that run in its process, which have
+// no target of their own, after the page: WebView renders even cross-site
+// iframes in the page's renderer.
+func (w *devtoolsWatch) withFrames(ctx context.Context, items []contract.DevToolsTarget) []contract.DevToolsTarget {
+	known := map[string]bool{}
+	for _, t := range items {
+		known[t.ID] = true
+	}
+	out := make([]contract.DevToolsTarget, 0, len(items))
+	for _, t := range items {
+		out = append(out, t)
+		if t.Type != "page" {
+			continue
+		}
+		pg := w.page(t.Socket, t.ID)
+		if pg == nil {
+			continue
+		}
+		call := pg.caller()
+		if call == nil {
+			continue
+		}
+		ctx, cancel := context.WithTimeout(ctx, time.Second)
+		raw, err := call(ctx, "Page.getFrameTree", nil)
+		cancel()
+		if err != nil {
+			continue
+		}
+		var tree struct {
+			FrameTree cdpFrameTree `json:"frameTree"`
+		}
+		if json.Unmarshal(raw, &tree) != nil {
+			continue
+		}
+		for _, f := range tree.FrameTree.children() {
+			if known[f.ID] || f.URL == "" || f.URL == "about:blank" {
+				continue
+			}
+			out = append(out, contract.DevToolsTarget{
+				Socket: t.Socket, PID: t.PID, Process: t.Process, ID: f.ID, Type: "iframe",
+				Title: f.Name, URL: f.URL, FrontendRev: t.FrontendRev, Page: t.ID,
+			})
+		}
+	}
+	return out
+}
+
+func (w *devtoolsWatch) page(socket, target string) *cdpPage {
+	w.mu.Lock()
+	p := w.procs[socket]
+	w.mu.Unlock()
+	if p == nil {
+		return nil
+	}
+	for _, pg := range p.list() {
+		if pg.target == target && pg.kind == "page" {
+			return pg
+		}
+	}
+	return nil
+}
+
+type cdpFrameTree struct {
+	Frame struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+		URL  string `json:"url"`
+	} `json:"frame"`
+	ChildFrames []cdpFrameTree `json:"childFrames"`
+}
+
+func (t cdpFrameTree) children() []struct{ ID, Name, URL string } {
+	var out []struct{ ID, Name, URL string }
+	for _, c := range t.ChildFrames {
+		out = append(out, struct{ ID, Name, URL string }{c.Frame.ID, c.Frame.Name, c.Frame.URL})
+		out = append(out, c.children()...)
+	}
+	return out
+}
+
+func (p *cdpPage) caller() func(ctx context.Context, method string, params any) (json.RawMessage, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.call
 }

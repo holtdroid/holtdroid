@@ -3598,3 +3598,32 @@ Android's WebView renders cross-origin iframes in the page's renderer
 (`--site-per-process` in `webview-command-line` changes nothing, tried on
 redroid with WebView 128), so an iframe never becomes a DevTools target of
 its own; its traffic is recorded with the page's.
+
+## 116. A page's iframes are listed as targets and selected in the frontend
+
+**Context.** WebView renders cross-site iframes in the page's renderer
+(decision #115), so they have no DevTools target. Testers debugging a game
+inside a lobby page looked for the iframe in the target selector and found
+only the page; the frontend's Console context menu, where the iframe is,
+isn't obvious.
+
+**Decision.** The agent adds, after each page in `GET /v1/devtools/targets`,
+the page's frames from `Page.getFrameTree` (through the DevTools watch's
+session, a second per poll at most), as `type: iframe` with the frame's id
+and `page` naming the page target; `about:blank` frames are left out. The
+session page connects to `page` for such an entry and keeps one frontend per
+page, so moving between a page and its iframes doesn't reload DevTools. To
+switch the Console, the page adds a module script from its own origin
+(`/devtools-context.js`, the only kind the frontend's CSP allows) to the
+frontend's document; it imports the frontend's own `core/sdk/sdk.js` and
+`ui/legacy/legacy.js` (the same module instances), finds the default
+execution context of the frame and sets it as the selected
+`ExecutionContext`, then shows the Console, and posts back whether it found
+one within 20 s. Navigation and reload of such an entry use
+`Page.navigate` with its `frameId`.
+
+**Consequences.** This leans on the frontend's internal module layout and
+names (`TargetManager`, `RuntimeModel.ExecutionContext`, `Context`,
+`ViewManager`), checked against the revision WebView 128 serves; a revision
+that changes them makes the switch fail with a message, and the context menu
+remains.

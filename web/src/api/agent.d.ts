@@ -383,6 +383,8 @@ export interface components {
         DevToolsTarget: {
             frontendRev: string;
             id: string;
+            /** @description for an iframe that runs in its page's process: the page target it is inspected through; id is its frame */
+            page?: string;
             /** Format: int64 */
             pid: number;
             process: string;

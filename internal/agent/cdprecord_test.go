@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -129,6 +130,8 @@ func fakeWebView(t *testing.T, browser bool, events map[string][]string) int {
 			switch m.Method {
 			case "Network.getResponseBody":
 				result = `{"body":"{\"total\":3}","base64Encoded":false}`
+			case "Page.getFrameTree":
+				result = `{"frameTree":{"frame":{"id":"P1","url":"https://shop.example/cart"},"childFrames":[{"frame":{"id":"C1","name":"game","url":"https://game.example/"},"childFrames":[{"frame":{"id":"C2","url":"about:blank"}},{"frame":{"id":"C3","url":"https://ads.example/"}}]}]}}`
 			case "Runtime.callFunctionOn":
 				result = `{"result":{"type":"string","value":"{\"total\":3}"}}`
 			}
@@ -238,6 +241,27 @@ func TestDevToolsWatchFollowsEveryTarget(t *testing.T) {
 	}
 	if c := byTarget["F1"]; c == nil || c.Text != "from the iframe" || c.Level != "warning" {
 		t.Fatalf("iframe console: %+v", c)
+	}
+}
+
+func TestDevToolsWatchListsInProcessIframes(t *testing.T) {
+	w, sink, cancel := watchFor(t, true, map[string][]string{"S1": pageEvents})
+	defer cancel()
+	waitLines(t, sink, func() bool { return len(sink.of(contract.DevToolsRequestEntry)) == 1 })
+	targets, err := w.dt.Targets(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := w.withFrames(context.Background(), targets)
+	var frames []string
+	for _, f := range got[1:] {
+		if f.Page != "P1" || f.Type != "iframe" || f.Socket != got[0].Socket {
+			t.Fatalf("frame: %+v", f)
+		}
+		frames = append(frames, f.ID+" "+f.Title+" "+f.URL)
+	}
+	if want := []string{"C1 game https://game.example/", "C3  https://ads.example/"}; !slices.Equal(frames, want) {
+		t.Fatalf("frames %q, want %q", frames, want)
 	}
 }
 

@@ -61,6 +61,18 @@ short-lived DevTools connection to the same target, so they work with the
 screencast off. Service workers and other non-page targets only show their
 URL.
 
+Android's WebView renders every iframe in its page's process, even one from
+another site, so an iframe is never a DevTools target of its own. The
+selector lists a page's iframes under it anyway (**↳ iframe**, with the
+frame's name and URL). Picking one opens the page's DevTools and switches
+its Console to that iframe's context, as if you had picked it in the
+Console's context menu (`top ▾`); Elements, Sources and Network show the
+whole page, the iframe included. If the switch doesn't take, a message
+says so and the menu still works. The address bar shows the iframe's URL,
+and typing another one or the reload button loads it into that iframe only.
+Picking the page again switches the Console back to it without reloading
+DevTools.
+
 The settings button next to the target selector holds two switches, saved
 in your browser:
 

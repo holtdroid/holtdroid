@@ -341,7 +341,7 @@ static assets and WebSockets.
 | `GET` | `/v1/health` | 200 once `ready`, 503 before | `Status` |
 | `GET` | `/v1/state` | the current `{state, reason?, detail?, appRunning, recording?, recordedAt?}`; providers read it with `contract.AgentClient` | `Status` |
 | `GET` | `/v1/status` | SSE, `event: state` with `{state, reason?, detail?, appRunning, recording?, recordedAt?}`; first event is the current state. `appRunning` is false once the app is closed; the device stays `ready`. `recording` is the id of the recording in progress and `recordedAt` when it started | `WatchStatus` |
-| `GET` | `/v1/devtools/targets` | `{items: [{socket, pid, process, id, type, title, url, frontendRev}]}` | `Targets` |
+| `GET` | `/v1/devtools/targets` | `{items: [{socket, pid, process, id, type, title, url, frontendRev, page?}]}`; after each page, its iframes that run in its process (`type: iframe`, `id` the frame, `page` the target to inspect it through, decision #116) | `Targets` |
 | `GET` | `/v1/clipboard` | `{text}` | `Clipboard` |
 | `POST` | `/v1/clipboard` | `{text}` → 204 | `SetClipboard` |
 | `GET` | `/v1/clipboard/events` | SSE, `event: clip` with `{text}` on every device-side change | `WatchClipboard` |
