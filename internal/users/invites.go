@@ -183,6 +183,16 @@ func (s *Service) RecoveryLink(ctx context.Context, user string, ttl time.Durati
 	return link, *inv.ExpiresAt, nil
 }
 
+// RecoveryLinkFor is RecoveryLink by email, for admins locked out of the
+// portal (the holtdroid users recover command).
+func (s *Service) RecoveryLinkFor(ctx context.Context, email string, ttl time.Duration, by string) (string, time.Time, error) {
+	u, err := s.db.GetUserByEmail(ctx, strings.ToLower(strings.TrimSpace(email)))
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("%w: no user with email %q", ErrNotFound, email)
+	}
+	return s.RecoveryLink(ctx, u.ID, ttl, by)
+}
+
 const bootstrapTTL = 24 * time.Hour
 
 // Bootstrap returns a single-use admin invite while there is no admin, so the

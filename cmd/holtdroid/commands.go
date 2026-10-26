@@ -21,6 +21,7 @@ import (
 	"github.com/holtdroid/holtdroid/internal/audit"
 	"github.com/holtdroid/holtdroid/internal/auth"
 	"github.com/holtdroid/holtdroid/internal/contract"
+	"github.com/holtdroid/holtdroid/internal/db"
 	"github.com/holtdroid/holtdroid/internal/hostinfo"
 	emulatorprovider "github.com/holtdroid/holtdroid/internal/provider/emulator"
 	"github.com/holtdroid/holtdroid/internal/provider/fake"
@@ -28,6 +29,7 @@ import (
 	"github.com/holtdroid/holtdroid/internal/source"
 	"github.com/holtdroid/holtdroid/internal/sshgateway"
 	"github.com/holtdroid/holtdroid/internal/storage"
+	"github.com/holtdroid/holtdroid/internal/users"
 	"github.com/holtdroid/holtdroid/web"
 )
 
@@ -377,4 +379,53 @@ func openapiCmd() *cobra.Command {
 			return enc.Encode(doc)
 		},
 	}
+}
+
+func usersCmd(c *common) *cobra.Command {
+	cmd := &cobra.Command{Use: "users", Short: "Manage the users auth mode from the api's container"}
+	var (
+		email string
+		ttl   time.Duration
+	)
+	recoverCmd := &cobra.Command{
+		Use:   "recover",
+		Short: "Print a recovery link that lets a user register a new passkey",
+		Long: "Run inside the api container (kubectl exec deploy/holtdroid-api -- holtdroid users recover --config … --email …): " +
+			"it writes to the api's SQLite file, whose replica the running api keeps streaming.",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			cfg := api.DefaultConfig()
+			rt, err := loadConfig(c.configPath, &cfg)
+			if err != nil {
+				return err
+			}
+			if cfg.Auth.Mode != auth.ModeUsers || cfg.Database.Type != "sqlite" {
+				return errors.New("needs auth.mode users and database.type sqlite")
+			}
+			if _, err := os.Stat(cfg.Database.Path); err != nil {
+				return fmt.Errorf("no database at %s: run this in the api's container: %w", cfg.Database.Path, err)
+			}
+			dbCfg := cfg.Database
+			dbCfg.Replica = storage.Config{}
+			d, err := db.Open(cmd.Context(), dbCfg, rt.secrets)
+			if err != nil {
+				return err
+			}
+			defer d.Close()
+			svc, err := users.New(d, cfg.Auth.Users, cfg.PublicURL, time.Now)
+			if err != nil {
+				return err
+			}
+			link, expires, err := svc.RecoveryLinkFor(cmd.Context(), email, ttl, "cli")
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "%s\nvalid until %s, single use\n", link, expires.Format(time.RFC3339))
+			return nil
+		},
+	}
+	recoverCmd.Flags().StringVar(&email, "email", "", "the user's email")
+	recoverCmd.Flags().DurationVar(&ttl, "ttl", 24*time.Hour, "how long the link stays valid (up to 720h)")
+	_ = recoverCmd.MarkFlagRequired("email")
+	cmd.AddCommand(recoverCmd)
+	return cmd
 }

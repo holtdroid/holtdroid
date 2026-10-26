@@ -170,6 +170,15 @@ admin can remove any passkey and create a **recovery link**, single-use and
 valid for up to 30 days, with which the user registers a new passkey on a new
 device. Creating one cancels earlier recovery links.
 
+**Locked out.** When no admin can sign in, create a recovery link from the
+api's container; it writes to the api's database file, and the running api
+replicates the change:
+
+```sh
+kubectl -n holtdroid exec deploy/holtdroid-api -- \
+  holtdroid users recover --config /etc/holtdroid/config.yaml --email you@example.com
+```
+
 **Signing in with SSO as well.** Set `auth.oidc` as for the `oidc` mode and
 the sign-in page also offers **Sign in with SSO**. The provider's email finds
 the user; an unknown email signs up with `auth.users.oidcRole`, or as admin

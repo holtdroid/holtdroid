@@ -3156,5 +3156,8 @@ the api to one replica until PostgreSQL. Domain rules check the address's
 shape only: no mail is sent, so anyone holding a link can claim an address
 in an allowed domain; email verification is a roadmap item. Deleting a user
 doesn't stop their running devices yet. Logging the first-admin link is
-deliberate: whoever reads the api's logs can already read its secrets.
+deliberate: whoever reads the api's logs can already read its secrets. An
+admin locked out with no other admin uses `holtdroid users recover` in the
+api's container, which opens the SQLite file without a replica of its own and
+leaves streaming to the running api.
 

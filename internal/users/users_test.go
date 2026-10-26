@@ -98,3 +98,22 @@ func TestInviteRules(t *testing.T) {
 		t.Fatalf("expired invite: %v", err)
 	}
 }
+
+func TestRecoveryLinkFor(t *testing.T) {
+	ctx := context.Background()
+	s := newService(t, auth.UsersConfig{AllowedDomains: []string{"example.com"}})
+	if _, err := s.SignInOIDC(ctx, auth.Identity{User: "ann", Email: "ann@example.com"}, true); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := s.RecoveryLinkFor(ctx, "nobody@example.com", time.Hour, "cli"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("unknown email: %v", err)
+	}
+	link, _, err := s.RecoveryLinkFor(ctx, " Ann@Example.com ", time.Hour, "cli")
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, err := s.InviteInfo(ctx, link[len("https://holtdroid.test/invite/"):])
+	if err != nil || info.Kind != KindRecovery || info.Email != "ann@example.com" {
+		t.Fatalf("info = %+v, %v", info, err)
+	}
+}
