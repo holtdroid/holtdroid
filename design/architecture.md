@@ -413,14 +413,20 @@ codecs and reports that it can't capture audio.
   with `Host: localhost` and without `Origin`, because the DevTools HTTP
   handler rejects other Host headers (DNS rebinding protection) and foreign
   origins.
-- The DevTools frontend is not bundled in WebView. The agent proxies
-  `https://chrome-devtools-frontend.appspot.com/serve_rev/@{rev}/…` under
-  `/devtools-frontend/@{rev}/…` with an on-disk cache; `rev` comes from
-  the target's `devtoolsFrontendUrl`. Upstream takes seconds for a file
-  its edge hasn't cached and answers 503 to many such requests at once,
-  while DevTools loads hundreds of files on start, so the agent fetches at
-  most 6 files at a time and retries 429, 5xx and broken transfers up to 5
-  times with backoff (1, 2, 4, 8 s); a file that still fails is a logged 502.
+- The DevTools frontend is not bundled in WebView. The api serves
+  `https://chrome-devtools-frontend.appspot.com/serve_rev/@{rev}/…` (config
+  `devToolsFrontend`; empty leaves `/devtools-frontend/` to the agent, which
+  the fake provider uses) under `/s/{provider}/{id}/devtools-frontend/@{rev}/…`
+  with an on-disk cache, for sessions that exist, without touching the
+  agent: the session's VPN, throttling or offline mode can't break it
+  (decision #123). `rev` comes from the target's `devtoolsFrontendUrl`.
+  Upstream takes seconds for a file its edge hasn't cached and answers 503 to
+  many such requests at once, while DevTools loads hundreds of files on
+  start, so the api fetches at most 6 files at a time and retries 429, 5xx
+  and broken transfers up to 5 times with backoff (1, 2, 4, 8 s); a file that
+  still fails is a logged 502. The first request for a revision also starts
+  a background crawl from `inspector.html` that fetches every file it
+  references, so later files are already cached.
 - Everything is same-origin (`/s/{provider}/{id}/…` on the api host). This matters
   because forward-auth cookies (SameSite=Lax) are not sent on WebSockets
   opened from a cross-site iframe.

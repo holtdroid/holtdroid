@@ -75,9 +75,10 @@ in the APK changes.
 
 ## DevTools panel stays blank
 
-The DevTools frontend is fetched from Google's frontend host the first time a
-WebView revision is seen, then cached. Session Pods need outbound HTTPS for
-that first fetch.
+The portal fetches the DevTools frontend from Google's frontend host the first
+time a WebView revision is opened, then caches it. The api needs outbound
+HTTPS for that first fetch (the first open of a new revision can take a
+minute); session Pods don't.
 
 ## VPN location doesn't change the IP
 

@@ -29,6 +29,21 @@ func (s *Server) proxy(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	prefix := "/s/" + providerName + "/" + id
+	if s.frontend != nil {
+		if rest, ok := strings.CutPrefix(path.Clean(strings.TrimPrefix(r.URL.Path, prefix)), "/devtools-frontend/"); ok && r.Method == http.MethodGet {
+			if _, err := p.Get(r.Context(), id); err != nil {
+				http.NotFound(w, r)
+				return
+			}
+			rev, file, _ := strings.Cut(rest, "/")
+			r.SetPathValue("rev", rev)
+			r.SetPathValue("file", file)
+			s.frontend.Warm(rev)
+			s.frontend.ServeHTTP(w, r)
+			return
+		}
+	}
 	key := sessionKey{providerName, id}
 	target, err := s.agents.get(r.Context(), key, p)
 	switch {
@@ -43,7 +58,6 @@ func (s *Server) proxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	prefix := "/s/" + providerName + "/" + id
 	rel := path.Clean(strings.TrimPrefix(r.URL.Path, prefix))
 	if rel == "/v1/install" {
 		http.Error(w, "install builds through /api/v1/sessions/{provider}/{id}/install", http.StatusForbidden)

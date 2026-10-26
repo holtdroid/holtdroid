@@ -115,6 +115,7 @@ providers:
 | `appData.*`             | off              | Save app data between sessions, see [App data](/holtdroid/concepts/app-data/)                         |
 | `recordings.*`          | off              | Record sessions on the server, see [Recordings](/holtdroid/concepts/recordings/)                      |
 | `pixelPerfect.*`        | on               | Reference images for the Pixel perfect tab, see [Pixel perfect](/holtdroid/concepts/pixel-perfect/)   |
+| `devToolsFrontend`      | Google's host | Where the portal fetches and caches the DevTools frontend from; empty lets the session's agent serve it |
 | `webview.storage`       | off              | The WebView catalog, see [WebView versions](/holtdroid/concepts/webview-versions/)                    |
 | `map.url`               | OpenFreeMap      | Tile server for the GPS map, proxied by the api; empty turns the map off, see [below](#gps-map)       |
 | `routing.url`           | FOSSGIS Valhalla | Valhalla server for GPS routes along roads; empty draws straight lines, see [below](#gps-map)         |

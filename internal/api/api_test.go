@@ -89,6 +89,7 @@ func newHarnessWith(t *testing.T, slots int, configure func(*Config), opts ...fu
 	agents.Config.Handler = p.AgentHandler()
 
 	cfg := DefaultConfig()
+	cfg.DevToolsFrontend = ""
 	cfg.Storage.Filesystem.Dir = t.TempDir()
 	cfg.Auth.Mode = auth.ModeHeader
 	cfg.Auth.AdminGroups = []string{"admins"}
@@ -792,5 +793,26 @@ func TestValidFrontend(t *testing.T) {
 		if got := validFrontend(in); got != want {
 			t.Errorf("validFrontend(%q) = %q", in, got)
 		}
+	}
+}
+
+func TestDevToolsFrontendServedByTheApi(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/serve_rev/@0123456789abcdef/inspector.html" {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = io.WriteString(w, "<!doctype html>frontend")
+	}))
+	t.Cleanup(upstream.Close)
+	h := newHarnessWith(t, 1, func(c *Config) { c.DevToolsFrontend = upstream.URL + "/serve_rev" })
+	v := h.create("otter")
+
+	rec := h.do(http.MethodGet, "/s/fake/"+v.ID+"/devtools-frontend/@0123456789abcdef/inspector.html?wss=x", "otter", "", nil)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "frontend") {
+		t.Fatalf("frontend: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := h.do(http.MethodGet, "/s/fake/missing/devtools-frontend/@0123456789abcdef/inspector.html", "otter", "", nil); rec.Code != http.StatusNotFound {
+		t.Fatalf("missing session: %d", rec.Code)
 	}
 }

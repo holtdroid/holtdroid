@@ -24,33 +24,32 @@ import (
 )
 
 type Config struct {
-	Listen           string
-	TunnelListen     string
-	ADBAddr          string
-	ADBServer        string
-	ADBShell         ShellPolicy
-	ArtifactURL      string
-	AppData          contract.AppDataRestore
-	WebView          contract.WebViewInstall
-	Recording        contract.RecordingTarget
-	Frontend         string
-	Package          string
-	Location         string
-	ADB              string
-	Serial           string
-	Script           string
-	ToolsDex         string
-	Scrcpy           ScrcpyConfig
-	ClashAPI         string
-	IPInfoURL        string
-	IPInfoProxy      string
-	DevToolsFrontend string
-	ChromiumDash     string
-	CacheDir         string
-	Redroid          redroid.Config
-	Session          Session
-	Version          string
-	Resume           bool
+	Listen       string
+	TunnelListen string
+	ADBAddr      string
+	ADBServer    string
+	ADBShell     ShellPolicy
+	ArtifactURL  string
+	AppData      contract.AppDataRestore
+	WebView      contract.WebViewInstall
+	Recording    contract.RecordingTarget
+	Frontend     string
+	Package      string
+	Location     string
+	ADB          string
+	Serial       string
+	Script       string
+	ToolsDex     string
+	Scrcpy       ScrcpyConfig
+	ClashAPI     string
+	IPInfoURL    string
+	IPInfoProxy  string
+	ChromiumDash string
+	CacheDir     string
+	Redroid      redroid.Config
+	Session      Session
+	Version      string
+	Resume       bool
 	// Root means the agent can act as root on the device (redroid's adbd, or
 	// su with RootShell): app data, fake GPS and the battery.
 	Root      bool
@@ -80,23 +79,22 @@ type Config struct {
 
 func DefaultConfig() Config {
 	return Config{
-		Listen:           ":8080",
-		TunnelListen:     ":8081",
-		ADBAddr:          "127.0.0.1:5555",
-		ADBShell:         ShellFull,
-		ADB:              "adb",
-		Serial:           "127.0.0.1:5555",
-		FridaHost:        "127.0.0.1:27042",
-		Script:           "/opt/holtdroid/script",
-		ToolsDex:         "/opt/holtdroid/tools.dex",
-		Scrcpy:           DefaultScrcpyConfig(),
-		IPInfoURL:        "https://ipinfo.io/json",
-		DevToolsFrontend: "https://chrome-devtools-frontend.appspot.com/serve_rev/",
-		ChromiumDash:     "https://chromiumdash.appspot.com",
-		CacheDir:         filepath.Join(os.TempDir(), "holtdroid"),
-		Redroid:          redroid.DefaultConfig(),
-		Root:             true,
-		NoWallpaper:      true,
+		Listen:       ":8080",
+		TunnelListen: ":8081",
+		ADBAddr:      "127.0.0.1:5555",
+		ADBShell:     ShellFull,
+		ADB:          "adb",
+		Serial:       "127.0.0.1:5555",
+		FridaHost:    "127.0.0.1:27042",
+		Script:       "/opt/holtdroid/script",
+		ToolsDex:     "/opt/holtdroid/tools.dex",
+		Scrcpy:       DefaultScrcpyConfig(),
+		IPInfoURL:    "https://ipinfo.io/json",
+		ChromiumDash: "https://chromiumdash.appspot.com",
+		CacheDir:     filepath.Join(os.TempDir(), "holtdroid"),
+		Redroid:      redroid.DefaultConfig(),
+		Root:         true,
+		NoWallpaper:  true,
 	}
 }
 
@@ -156,7 +154,6 @@ type Agent struct {
 	network  *Network
 	screen   *Scrcpy
 	clip     clipboardSync
-	frontend *Frontend
 	controls *Controls
 	tunnels  *Tunnels
 	metrics  *Metrics
@@ -188,9 +185,7 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 	if cfg.HostCgroup != "" {
 		host, cgroup = os.DirFS("/"), os.DirFS(cfg.HostCgroup)
 	}
-	frontend := NewFrontend(cfg.DevToolsFrontend, filepath.Join(cfg.CacheDir, "devtools-frontend"), log)
 	devtools := NewDevTools(dev, Frontends{Package: cfg.Package, App: cfg.Frontend, WebView: cfg.WebView.Frontend}, cfg.ChromiumDash, log)
-	devtools.onRev = frontend.Warm
 	return &Agent{
 		cfg:      cfg,
 		dev:      dev,
@@ -203,7 +198,6 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 		network:  NewNetwork(cfg.ClashAPI, cfg.IPInfoURL, cfg.IPInfoProxy),
 		screen:   screen,
 		clip:     NewClipboard(screen, log),
-		frontend: frontend,
 		controls: newControls(cfg, dev, log),
 		tunnels:  NewTunnels(newADBTunnels(cfg, dev, log), cfg.ADBShell, log),
 		metrics:  NewMetrics(dev, cfg.Package, host, cgroup, cfg.PodUID, cfg.DataLimit, log),
@@ -241,7 +235,6 @@ func (a *Agent) Handler() http.Handler {
 	a.screen.Register(mux)
 	mux.HandleFunc("GET "+contract.AgentADBPath, a.tunnels.ServeADB(contract.ADBClientBrowser))
 	mux.HandleFunc("GET /devtools/{socket}/page/{id}", a.devtools.ServeCDP)
-	mux.Handle("GET /devtools-frontend/{rev}/{file...}", a.frontend)
 	return mux
 }
 

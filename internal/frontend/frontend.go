@@ -1,4 +1,4 @@
-package agent
+package frontend
 
 import (
 	"context"
@@ -20,14 +20,14 @@ import (
 
 var errUpstreamNotFound = errors.New("not found upstream")
 
-// Frontend serves the DevTools frontend for a Chromium revision from an
+// Cache serves the DevTools frontend for a Chromium revision from an
 // on-disk cache, fetching missing files from upstream. Files of a revision
 // never change, so a cached file is served forever.
 //
 // Upstream answers a file nobody fetched lately after seconds and 503s many
 // such requests at once, while DevTools loads hundreds of files on start:
 // fetches are capped and retried with backoff.
-type Frontend struct {
+type Cache struct {
 	upstream string
 	dir      string
 	hc       *http.Client
@@ -39,8 +39,8 @@ type Frontend struct {
 	backoff  time.Duration
 }
 
-func NewFrontend(upstream, dir string, log *slog.Logger) *Frontend {
-	return &Frontend{
+func New(upstream, dir string, log *slog.Logger) *Cache {
+	return &Cache{
 		upstream: strings.TrimRight(upstream, "/") + "/", dir: dir, hc: &http.Client{Timeout: time.Minute}, log: log,
 		slots: make(chan struct{}, 6), attempts: 5, backoff: time.Second,
 	}
@@ -51,7 +51,7 @@ type retryableError struct{ error }
 var revPathRe = regexp.MustCompile(`^@[0-9a-f]{7,40}$`)
 
 // ServeHTTP handles GET /devtools-frontend/{rev}/{file...}.
-func (f *Frontend) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (f *Cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rev, file := r.PathValue("rev"), path.Clean("/"+r.PathValue("file"))
 	if !revPathRe.MatchString(rev) || file == "/" {
 		http.NotFound(w, r)
@@ -74,7 +74,7 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, local)
 }
 
-func (f *Frontend) fetch(ctx context.Context, rel, local string) error {
+func (f *Cache) fetch(ctx context.Context, rel, local string) error {
 	ctx = context.WithoutCancel(ctx)
 	var err error
 	for attempt := range f.attempts {
@@ -88,7 +88,7 @@ func (f *Frontend) fetch(ctx context.Context, rel, local string) error {
 	return err
 }
 
-func (f *Frontend) fetchOnce(ctx context.Context, rel, local string) error {
+func (f *Cache) fetchOnce(ctx context.Context, rel, local string) error {
 	f.slots <- struct{}{}
 	defer func() { <-f.slots }()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, f.upstream+rel, nil)
@@ -130,9 +130,9 @@ func (f *Frontend) fetchOnce(ctx context.Context, rel, local string) error {
 var frontendRefRe = regexp.MustCompile(`["'(]((?:\.{1,2}/)?[\w@./-]+\.(?:js|css|json|html|svg|png|mjs))["')]`)
 
 // Warm fetches the frontend of a revision in the background, starting at
-// devtools_app.html and following the files it names, so the first
+// inspector.html and following the files it names, so the first
 // DevTools open finds everything cached instead of waiting on a cold upstream.
-func (f *Frontend) Warm(rev string) {
+func (f *Cache) Warm(rev string) {
 	if !revPathRe.MatchString(rev) {
 		rev = "@" + strings.TrimPrefix(rev, "@")
 	}
@@ -145,10 +145,10 @@ func (f *Frontend) Warm(rev string) {
 	go f.warm(rev)
 }
 
-func (f *Frontend) warm(rev string) {
+func (f *Cache) warm(rev string) {
 	ctx := context.Background()
-	seen := map[string]bool{"/devtools_app.html": true}
-	queue := []string{"/devtools_app.html"}
+	seen := map[string]bool{"/inspector.html": true}
+	queue := []string{"/inspector.html"}
 	for len(queue) > 0 {
 		var wg sync.WaitGroup
 		var mu sync.Mutex

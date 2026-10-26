@@ -367,7 +367,6 @@ static assets and WebSockets.
 | `WS` | `/adb` | the browser's ADB connection (decision #51): binary messages carry raw adb protocol bytes to and from adbd, relayed packet by packet; OPENs of `reboot:`, `unroot:`, `remount:`, `tcpip:`, `usb:`, `sideload:`, `*-verity:` are answered with CLSE. On phones the agent speaks the device side itself (decision #68): CNXN without AUTH, every OPEN checked against the refusal list, `root:`, `reverse:`, frida-server forwards and the provider's `adb.shell` policy, allowed ones replayed through `host:transport:<serial>` on the host adb server. The api proxy allows it per `adb.browser` / `adb.ownerOnly` (403 otherwise) and sets `X-Holtdroid-User` to the signed-in user; 502 before the upgrade when adbd is unreachable | – |
 | `WS` | `/display/audio` | device audio: binary messages are a scrcpy 3.3.3 audio socket after its dummy byte (4-byte codec id, `opus` or 0 when the device can't capture, then packets with frame meta); browser messages are ignored | – |
 | `WS` | `/devtools/{socket}/page/{id}` | proxied CDP WebSocket | – |
-| `GET` | `/devtools-frontend/@{rev}/…` | cached DevTools frontend; the UI opens `inspector.html?ws(s)=<host>/s/{provider}/{session}/devtools/{socket}/page/{id}` | – |
 
 Tunnel endpoints, served on the agent's **second port** (`tunnelListen`,
 `:8081`) at `Session.tunnelUrl`, reachable only by the ssh-gateway and never

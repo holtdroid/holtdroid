@@ -116,35 +116,37 @@ type ADBConfig struct {
 }
 
 type Config struct {
-	Listen         string
-	InternalListen string
-	PublicURL      string
-	InternalURL    string
-	Auth           auth.Config
-	Sessions       SessionsConfig
-	Storage        storage.Config
-	Database       db.Config
-	Cache          CacheConfig
-	SSH            SSHConfig
-	ADB            ADBConfig
-	Uploads        UploadsConfig
-	Downloads      DownloadsConfig
-	AppData        AppDataConfig
-	Recordings     RecordingsConfig
-	PixelPerfect   PixelPerfectConfig
-	WebView        WebViewConfig
-	Map            MapConfig
-	Routing        RoutingConfig
-	Sources        []source.Config
-	Providers      []Endpoint
+	Listen           string
+	InternalListen   string
+	PublicURL        string
+	InternalURL      string
+	Auth             auth.Config
+	Sessions         SessionsConfig
+	Storage          storage.Config
+	Database         db.Config
+	Cache            CacheConfig
+	SSH              SSHConfig
+	ADB              ADBConfig
+	Uploads          UploadsConfig
+	Downloads        DownloadsConfig
+	AppData          AppDataConfig
+	Recordings       RecordingsConfig
+	PixelPerfect     PixelPerfectConfig
+	DevToolsFrontend string
+	WebView          WebViewConfig
+	Map              MapConfig
+	Routing          RoutingConfig
+	Sources          []source.Config
+	Providers        []Endpoint
 }
 
 func DefaultConfig() Config {
 	return Config{
-		Listen:         ":8080",
-		InternalListen: ":8081",
-		InternalURL:    "http://localhost:8081",
-		Auth:           auth.DefaultConfig(),
+		Listen:           ":8080",
+		InternalListen:   ":8081",
+		InternalURL:      "http://localhost:8081",
+		DevToolsFrontend: "https://chrome-devtools-frontend.appspot.com/serve_rev/",
+		Auth:             auth.DefaultConfig(),
 		Sessions: SessionsConfig{
 			IdleTimeout:   30 * time.Minute,
 			MaxTTL:        8 * time.Hour,

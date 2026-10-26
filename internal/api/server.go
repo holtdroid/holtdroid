@@ -9,6 +9,8 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -20,6 +22,7 @@ import (
 	"github.com/holtdroid/holtdroid/internal/auth"
 	"github.com/holtdroid/holtdroid/internal/contract"
 	"github.com/holtdroid/holtdroid/internal/db"
+	"github.com/holtdroid/holtdroid/internal/frontend"
 	"github.com/holtdroid/holtdroid/internal/rules"
 	"github.com/holtdroid/holtdroid/internal/secrets"
 	"github.com/holtdroid/holtdroid/internal/source"
@@ -57,6 +60,7 @@ type Server struct {
 	launches       *launches
 	queue          *launchQueue
 	agentTransport http.RoundTripper
+	frontend       *frontend.Cache
 	now            func() time.Time
 	log            *slog.Logger
 }
@@ -107,6 +111,9 @@ func New(ctx context.Context, cfg Config, opts ...Option) (*Server, error) {
 	}
 	if s.secrets == nil {
 		s.secrets = secrets.NewRegistry()
+	}
+	if cfg.DevToolsFrontend != "" {
+		s.frontend = frontend.New(cfg.DevToolsFrontend, filepath.Join(os.TempDir(), "holtdroid", "devtools-frontend"), s.log)
 	}
 	for _, sc := range cfg.Sources {
 		store, err := storage.New(ctx, sc.Storage(), s.secrets)

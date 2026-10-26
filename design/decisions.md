@@ -3737,3 +3737,24 @@ launch request without `webview` still uses the built-in one.
 **Consequences.** Quick launch installs a WebView by default (a few seconds
 longer) once the catalog has loaded. Providers without the `webview`
 capability and portals without a catalog behave as before.
+
+## 123. The api serves the DevTools frontend, not the session's agent
+
+**Context.** The agent fetched the DevTools frontend through the session
+Pod's network, which is the session's VPN and can be throttled or cut on
+purpose. A cold upstream takes seconds per file and a minute for a whole
+open; the browser got 502s and a blank panel, and with offline emulation on
+DevTools could never load.
+
+**Decision.** `internal/frontend` (the cache moved out of the agent) runs in
+the api. The proxy answers `GET /s/{provider}/{id}/devtools-frontend/@{rev}/…`
+itself for an existing session, from `os.TempDir()/holtdroid/devtools-frontend`
+(a re-fillable cache, like the APK cache), and starts a background crawl of
+the revision from `inspector.html`. The agent and the physical provider lose
+their `DevToolsFrontend` setting and route. `devToolsFrontend` (api config)
+set to empty keeps the old path: the request goes to the agent, which is how
+the fake provider serves its placeholder (`holtdroid dev` sets it empty).
+
+**Consequences.** Needs outbound HTTPS from the api only. The cache is per api
+replica and lost on restart; the first open of a revision after that is cold
+again, but no longer depends on the session.

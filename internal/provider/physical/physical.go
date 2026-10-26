@@ -102,9 +102,8 @@ type ADBConfig struct {
 
 // AgentConfig is what session agents get from the provider's config.
 type AgentConfig struct {
-	Scrcpy           agent.ScrcpyConfig
-	DevToolsFrontend string
-	CacheDir         string
+	Scrcpy   agent.ScrcpyConfig
+	CacheDir string
 	// ToolsDex sets the system language on rooted phones (app_process);
 	// non-root phones set only the app's language instead.
 	ToolsDex string
@@ -124,7 +123,7 @@ func DefaultConfig() Config {
 		Refresh:      5 * time.Second,
 		ResetTimeout: 5 * time.Minute,
 		Phone:        phone.DefaultConfig(),
-		Agent:        AgentConfig{Scrcpy: a.Scrcpy, DevToolsFrontend: a.DevToolsFrontend, CacheDir: a.CacheDir, ToolsDex: a.ToolsDex, FridaScript: a.Script},
+		Agent:        AgentConfig{Scrcpy: a.Scrcpy, CacheDir: a.CacheDir, ToolsDex: a.ToolsDex, FridaScript: a.Script},
 		VPN:          vpn.DefaultConfig(),
 		SingBox:      "sing-box",
 		Tunnel:       TunnelConfig{APK: "/opt/holtdroid/holtdroid-tunnel.apk", Port: 29180, IPv6: true},
@@ -578,7 +577,6 @@ func (p *Provider) start(s contract.Session, artifactURL string, rec *contract.R
 	cfg.ADBShell = p.cfg.ADB.Shell
 	cfg.Scrcpy = p.cfg.Agent.Scrcpy
 	cfg.Scrcpy.KeepAudio = true
-	cfg.DevToolsFrontend = p.cfg.Agent.DevToolsFrontend
 	cfg.CacheDir = p.cfg.Agent.CacheDir
 	root := p.phoneRoot(s.Slot)
 	cfg.Root = root

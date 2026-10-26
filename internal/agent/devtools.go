@@ -28,7 +28,6 @@ type DevTools struct {
 	hc       *http.Client
 	fallback Frontends
 	dash     string
-	onRev    func(rev string)
 
 	mu       sync.Mutex
 	sockets  map[string]*devtoolsSocket
@@ -132,9 +131,6 @@ func (d *DevTools) scan(ctx context.Context) error {
 		d.mu.Lock()
 		d.sockets[name] = s
 		d.mu.Unlock()
-		if s.rev != "" && d.onRev != nil {
-			d.onRev(s.rev)
-		}
 	}
 	return nil
 }
