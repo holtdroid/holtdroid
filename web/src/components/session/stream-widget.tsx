@@ -3,6 +3,7 @@ import {
   HeadphoneOffIcon,
   HeadphonesIcon,
   KeyboardIcon,
+  MousePointerClickIcon,
   MonitorPlayIcon,
   SettingsIcon,
   TypeIcon,
@@ -90,6 +91,12 @@ export function StreamWidget({ provider, id, live }: { provider: string; id: str
           <CardLine icon={prefs.keyboard === "uhid" ? KeyboardIcon : TypeIcon}>
             {prefs.keyboard === "uhid" ? "USB keyboard" : "Text input"}
           </CardLine>
+          {audio.waitingForClick && (
+            <span className="flex min-w-0 items-center gap-1.5 text-xs text-amber-400">
+              <MousePointerClickIcon className="size-3.5 shrink-0" />
+              <span className="truncate">Click anywhere for sound</span>
+            </span>
+          )}
         </ShadeCard>
       </HoverCardTrigger>
       <ShadePanel>

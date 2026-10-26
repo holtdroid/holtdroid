@@ -65,7 +65,9 @@ hybrid apps, support engineers reproducing a customer bug.
    browser decodes them), quality (the device's own up to 1080p, then 720p,
    480p and 360p; a sharper screen is streamed at 1080p), frame rate (45 fps
    by default, up to the device's own and never above 60) and bitrate, switches the device audio
-   (it plays in your browser by default), shows the frames, bitrate
+   (it plays in your browser by default, from your first click on the page
+   unless the browser allows autoplay for the portal; until then the card
+   says "Click anywhere for sound"), shows the frames, bitrate
    and dropped frames the browser decodes right now, and switches the keyboard between text input
    and a virtual USB keyboard that types in any alphabet with the layout set
    on the device. The codec, the bitrate and a frame rate below 45 fps are

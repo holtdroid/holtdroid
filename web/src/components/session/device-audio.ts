@@ -2,14 +2,27 @@ import { useQuery } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
 import { displayURL, type LiveScreen, useScreenLive } from "@/components/session/live-screen"
 import { useUserActivation } from "@/hooks/use-user-activation"
-import { type AudioConnection, AudioUnavailableError, audioSupported, openAudio } from "@/lib/audio"
+import {
+  type AudioConnection,
+  AudioUnavailableError,
+  audioAutoplayAllowed,
+  audioSupported,
+  openAudio,
+} from "@/lib/audio"
 import { setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
 
 export function useDeviceAudio(provider: string, id: string, live: LiveScreen) {
   const { audio: wanted } = useScreenPrefs()
   const screenLive = useScreenLive(live)
-  const activated = useUserActivation()
+  const clicked = useUserActivation()
   const supported = useQuery({ queryKey: ["audio-supported"], queryFn: audioSupported, staleTime: Infinity }).data
+  const autoplay = useQuery({
+    queryKey: ["audio-autoplay"],
+    queryFn: audioAutoplayAllowed,
+    staleTime: Infinity,
+    enabled: !clicked,
+  }).data
+  const activated = clicked || autoplay === true
   const [connected, setConnected] = useState(false)
   const [unavailable, setUnavailable] = useState<string | null>(null)
   const [lastError, setLastError] = useState<string | null>(null)
@@ -76,6 +89,7 @@ export function useDeviceAudio(provider: string, id: string, live: LiveScreen) {
     wanted,
     on,
     connected,
+    waitingForClick: on && supported === true && screenLive && !activated && autoplay === false,
     status,
     setOn,
   }

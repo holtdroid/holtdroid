@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -73,6 +74,7 @@ type Scrcpy struct {
 	sound    *soundHub
 	mu       sync.Mutex
 	encoders []string
+	submix   bool
 }
 
 func NewScrcpy(cfg ScrcpyConfig, dev ScrcpyDevice, log *slog.Logger) *Scrcpy {
@@ -344,7 +346,45 @@ func (s *Scrcpy) start(ctx context.Context, opts string, sockets int) ([]net.Con
 		}
 		conns = append(conns, c)
 	}
+	if strings.Contains(opts, "audio=true") {
+		go s.giveSubmixVolume(ctx)
+	}
 	return conns, nil
+}
+
+// submixVolume runs while a capture routes the media stream to
+// remote_submix: Android has no volume step for that device yet, takes 0 and
+// mutes the stream, so the capture is silent. It copies the speaker's step,
+// once; a step set later (muting in the portal) stays.
+const submixVolume = `for i in $(seq 40); do
+m=$(dumpsys audio | grep -A8 -- '- STREAM_MUSIC:')
+case "$m" in *'(remote_submix)'*) echo kept; exit;; esac
+case "$m" in *'Devices: remote_submix'*)
+  v=$(settings get system volume_music); case "$v" in ''|null) v=5;; esac
+  cmd media_session volume --stream 3 --set "$v" >/dev/null; echo set; exit;;
+esac
+sleep 0.25
+done`
+
+func (s *Scrcpy) giveSubmixVolume(ctx context.Context) {
+	s.mu.Lock()
+	done := s.submix
+	s.mu.Unlock()
+	if done {
+		return
+	}
+	out, err := s.dev.Shell(ctx, submixVolume)
+	if err != nil {
+		if ctx.Err() == nil {
+			s.log.Warn("give the capture a volume", "err", err)
+		}
+		return
+	}
+	if strings.TrimSpace(out) != "" {
+		s.mu.Lock()
+		s.submix = true
+		s.mu.Unlock()
+	}
 }
 
 // dialScrcpy connects the first socket. adb accepts a forwarded connection

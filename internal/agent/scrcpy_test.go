@@ -40,6 +40,7 @@ type fakeScrcpy struct {
 	clipConn net.Conn
 	opus     bool
 	noSound  bool
+	submix   int
 }
 
 func newFakeScrcpy(t *testing.T) *fakeScrcpy {
@@ -176,6 +177,10 @@ func (f *fakeScrcpy) RemoveForward(_ context.Context, port int) error {
 func (f *fakeScrcpy) Shell(_ context.Context, cmd string) (string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if cmd == submixVolume {
+		f.submix++
+		return "set\n", nil
+	}
 	f.cmds = append(f.cmds, cmd)
 	if strings.Contains(cmd, "list_encoders=true") {
 		return "[server] INFO: List of video encoders:\n" +
@@ -382,6 +387,22 @@ func TestScrcpyAudio(t *testing.T) {
 		if !strings.Contains(cmd, want) {
 			t.Errorf("command %q lacks %q", cmd, want)
 		}
+	}
+	_ = c.Close(websocket.StatusNormalClosure, "")
+	c = dialWS(ctx, t, base+"/display/audio")
+	if _, _, err := c.Read(ctx); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, func() bool {
+		dev.mu.Lock()
+		defer dev.mu.Unlock()
+		return dev.submix == 1
+	})
+	time.Sleep(100 * time.Millisecond)
+	dev.mu.Lock()
+	defer dev.mu.Unlock()
+	if dev.submix != 1 {
+		t.Fatalf("the capture's volume was set %d times, want once", dev.submix)
 	}
 }
 

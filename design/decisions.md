@@ -3868,3 +3868,26 @@ version without an entry gets the grey shield without a dessert.
 
 **Consequences.** A new Android release needs a colour pair and a dessert
 drawing in the same file. No image files, no requests to third parties.
+
+## 128. Audio capture gives remote_submix the speaker's volume; autoplay skips the click
+
+**Context.** Sessions started with Android muted: about half a minute after
+start the media volume dropped to 0 and the volume rocker turned amber. The
+recording's audio capture (or a listener's) routes the media stream to
+`remote_submix`, a device AudioService has no volume step for yet, so the
+stream sits at 0 and is muted, and the capture hears nothing. Separately,
+device audio in the browser waited for the first click even where the
+browser allows autoplay for the portal.
+
+**Decision.** After a scrcpy server with audio starts, the agent waits for
+the media stream to reach `remote_submix` and, if that device has no step
+yet, sets it to the speaker's (`volume_music`, 5 when unset). Once per agent:
+a step set later, muting in the portal included, stays. The page asks the
+browser whether an `AudioContext` may play (`navigator.getAutoplayPolicy`,
+else whether a fresh context resumes within 300 ms) and connects device
+audio without a click when it may; otherwise the stream card says "Click
+anywhere for sound" until the first click.
+
+**Consequences.** A device whose `dumpsys audio` doesn't list the stream's
+devices keeps the old behaviour after 10 s of trying. Browsers that block
+autoplay log a warning about the probing context.

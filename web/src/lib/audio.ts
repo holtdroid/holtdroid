@@ -29,6 +29,25 @@ export async function audioSupported() {
   )
 }
 
+type AutoplayNavigator = Navigator & { getAutoplayPolicy?: (type: "audiocontext") => string }
+
+// Whether an AudioContext may play before the first click: a browser setting
+// or policy that allows autoplay for the site.
+export async function audioAutoplayAllowed() {
+  const nav = navigator as AutoplayNavigator
+  if (nav.getAutoplayPolicy) return nav.getAutoplayPolicy("audiocontext") === "allowed"
+  if (typeof AudioContext === "undefined") return false
+  const ctx = new AudioContext()
+  try {
+    return await Promise.race([
+      ctx.resume().then(() => ctx.state === "running"),
+      new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 300)),
+    ])
+  } finally {
+    void ctx.close()
+  }
+}
+
 // Call from a user gesture: the player's AudioContext is created right away
 // so the browser lets it play.
 export async function openAudio(url: string): Promise<AudioConnection> {
