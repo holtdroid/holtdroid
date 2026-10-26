@@ -18,6 +18,7 @@ import { useAppDataFor, useProviders, useRecordings } from "@/api/queries"
 import { AppIcon } from "@/components/app-icon"
 import { artifactTitle } from "@/components/artifact-list"
 import { AndroidVersionCard } from "@/components/launch/android-version"
+import { needsAndroid } from "@/lib/android"
 import { ChoiceCard, ChoiceGroup, Section } from "@/components/launch/choice-card"
 import { DevicePicker } from "@/components/launch/device-picker"
 import { ScreenCard } from "@/components/launch/screen-card"
@@ -212,8 +213,7 @@ function LaunchFlow({ artifact, onClose }: { artifact: ArtifactView; onClose: ()
             {virtual && versions.length > 0 && !android && (
               <Alert>
                 <AlertDescription>
-                  This build needs Android API level {artifact.minSdk}; none of this provider's Android versions is new
-                  enough.
+                  {needsAndroid(artifact.minSdk ?? 0)}; none of this provider's Android versions is new enough.
                 </AlertDescription>
               </Alert>
             )}
@@ -221,11 +221,7 @@ function LaunchFlow({ artifact, onClose }: { artifact: ArtifactView; onClose: ()
             {virtual && versions.length > 1 && (
               <Section
                 title="Android version"
-                hint={
-                  versions.some((v) => !runs(v))
-                    ? `This build needs Android API level ${artifact.minSdk} or newer.`
-                    : undefined
-                }
+                hint={versions.some((v) => !runs(v)) ? `${needsAndroid(artifact.minSdk ?? 0)}.` : undefined}
               >
                 <ChoiceGroup label="Android version" className="grid-cols-2 sm:grid-cols-5">
                   {versions.map((v) => (
@@ -233,7 +229,7 @@ function LaunchFlow({ artifact, onClose }: { artifact: ArtifactView; onClose: ()
                       key={v}
                       version={v}
                       selected={v === android}
-                      disabled={!runs(v)}
+                      blockedBy={runs(v) ? undefined : needsAndroid(artifact.minSdk ?? 0)}
                       onSelect={() => setChosenAndroid(v)}
                     />
                   ))}

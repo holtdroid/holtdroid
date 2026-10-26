@@ -10,7 +10,7 @@ import { quickLaunchMode } from "@/lib/launch-prefs"
 import { locationLabel } from "@/lib/location"
 
 export function QuickLauncher({ artifact, onFallback }: { artifact: ArtifactView; onFallback: () => void }) {
-  const { loaded, usable, provider, target, location, locations, screen, android, webview } = useLaunchTarget(
+  const { loaded, usable, provider, target, location, locations, screen, android, webview, blocked } = useLaunchTarget(
     null,
     null,
     null,
@@ -26,7 +26,7 @@ export function QuickLauncher({ artifact, onFallback }: { artifact: ArtifactView
   const place = locations.find((l) => l.id === location)
 
   const fire = useEffectEvent(() => {
-    if (usable.length === 0) {
+    if (usable.length === 0 || blocked) {
       onFallback()
       return
     }
@@ -51,7 +51,7 @@ export function QuickLauncher({ artifact, onFallback }: { artifact: ArtifactView
               <DialogDescription className="flex items-center gap-2 truncate text-xs">
                 <Loader2Icon className="size-3.5 animate-spin" />
                 {usable.length > 0
-                  ? `on ${provider?.name ?? "any device"}${place ? ` · ${locationLabel(place)}` : ""}`
+                  ? `on ${provider?.name ?? "any device"}${android ? ` · Android ${android}` : ""}${place ? ` · ${locationLabel(place)}` : ""}`
                   : "Looking for a device…"}
               </DialogDescription>
             </div>

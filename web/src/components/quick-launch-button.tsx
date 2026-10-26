@@ -6,13 +6,14 @@ import { Button } from "@/components/ui/button"
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { quickAppData, useLaunchTarget, useStartSession } from "@/hooks/use-launch-target"
+import { needsAndroid } from "@/lib/android"
 import { formatRelative } from "@/lib/format"
 import { type QuickLaunchMode, quickLaunchMode, rememberQuickLaunchMode } from "@/lib/launch-prefs"
 import { locationLabel } from "@/lib/location"
 import { cn } from "@/lib/utils"
 
 export function QuickLaunchButton({ artifact }: { artifact: ArtifactView }) {
-  const { usable, provider, target, locations, location, free, screen, android, webview } = useLaunchTarget(
+  const { usable, provider, target, locations, location, free, screen, android, webview, blocked } = useLaunchTarget(
     null,
     null,
     null,
@@ -30,14 +31,16 @@ export function QuickLaunchButton({ artifact }: { artifact: ArtifactView }) {
   const pkg = artifact.app?.package
   const rules = appData.data
   const latest = rules?.items.find((d) => d.package === pkg)
-  const disabled = usable.length === 0
+  const disabled = usable.length === 0 || blocked
   const place = locations.find((l) => l.id === location)
-  const where = `${provider?.name ?? "any device"}${place ? ` · ${locationLabel(place)}` : ""}`
-  const hint = disabled
-    ? "No providers available"
-    : free === 0
-      ? `${provider ? `All slots of “${provider.name}”` : "All devices"} are busy, launching waits in line`
-      : `Quick launch on ${where}`
+  const where = `${provider?.name ?? "any device"}${android ? ` · Android ${android}` : ""}${place ? ` · ${locationLabel(place)}` : ""}`
+  const hint = blocked
+    ? `${needsAndroid(artifact.minSdk ?? 0)}; ${provider ? `“${provider.name}” doesn't offer it` : "no device here offers it"}`
+    : usable.length === 0
+      ? "No providers available"
+      : free === 0
+        ? `${provider ? `All slots of “${provider.name}”` : "All devices"} are busy, launching waits in line`
+        : `Quick launch on ${where}`
 
   const fire = (m: QuickLaunchMode) => {
     if (disabled) return

@@ -152,8 +152,11 @@ in-cluster a sidecar needs, such as a shared VPN gateway, goes into
 
 The launch dialog offers the provider's screens and Android versions
 (`Screen` and `Android` selects, remembered per provider). Versions older
-than the build's `minSdk` or `requiresSdk` tag are greyed out, and the
-newest one it runs on is picked instead. A screen is fixed
+than the build's `minSdk` or `requiresSdk` tag are greyed out with the
+reason in a tooltip, and the newest one it runs on is picked instead. Quick
+launch does the same: it keeps the Android version used last when the build
+runs on it, otherwise takes the newest one that fits, and shows the version
+in its tooltip; when no version fits, the button is disabled and says why. A screen is fixed
 for the session: width, height and density in pixels, as a popular phone
 reports them, plus an emulated display cutout. Android ships overlays for
 cutouts — `corner` (a hole in the top-left corner), `double` (notches top

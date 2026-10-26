@@ -108,8 +108,9 @@ what it knows:
 A build runs on Android versions at or above its APK's `minSdk` and, when the
 sidecar sets it, the `requiresSdk` tag (an API level, e.g. `"35"` for
 Android 15): for builds that declare an older `minSdk` but break on older
-Android. The launch dialog greys out the Android versions below that, and
-the api answers 422 for them.
+Android. The launch dialog greys out the Android versions below that (the
+tooltip says why), quick launch picks a version that fits or stays
+disabled, and the api answers 422 for them.
 
 Write the sidecar **before** the APK when the visibility matters — the api
 lists whatever is there at that moment. A sidecar that isn't valid JSON is

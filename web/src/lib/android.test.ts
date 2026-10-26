@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { parsePackage, parseProps, parseWebView } from "@/lib/android"
+import { needsAndroid, parsePackage, parseProps, parseWebView } from "@/lib/android"
 
 describe("parsePackage", () => {
   test("version and runtime permissions", () => {
@@ -59,4 +59,10 @@ test("parseProps", () => {
     "ro.product.model": "Pixel 9",
     "ro.empty": "",
   })
+})
+
+test("needsAndroid", () => {
+  expect(needsAndroid(35)).toBe("Needs Android 15 or newer (API level 35)")
+  expect(needsAndroid(32)).toBe("Needs Android 13 or newer (API level 32)")
+  expect(needsAndroid(40)).toBe("Needs Android API level 40")
 })

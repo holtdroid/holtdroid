@@ -76,6 +76,7 @@ export function useLaunchTarget(
     screen,
     versions,
     runs,
+    blocked: versions.length > 0 && runnable.length === 0,
     android,
     webviews,
     webview,

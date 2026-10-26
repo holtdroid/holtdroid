@@ -1,4 +1,5 @@
 import { ChoiceCard } from "@/components/launch/choice-card"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 const releases: Record<string, { name: string; from: string; to: string }> = {
   "16": { name: "Baklava", from: "#34d399", to: "#0ea5e9" },
@@ -25,17 +26,17 @@ function AndroidMark({ className }: { className?: string }) {
 export function AndroidVersionCard({
   version,
   selected,
-  disabled,
+  blockedBy,
   onSelect,
 }: {
   version: string
   selected: boolean
-  disabled?: boolean
+  blockedBy?: string
   onSelect: () => void
 }) {
   const r = releases[version] ?? fallback
-  return (
-    <ChoiceCard selected={selected} onSelect={onSelect} disabled={disabled} className="gap-2.5 p-2.5">
+  const card = (
+    <ChoiceCard selected={selected} onSelect={onSelect} disabled={!!blockedBy} className="gap-2.5 p-2.5">
       <div
         className="relative flex h-16 items-center justify-between overflow-hidden rounded-lg px-3 text-white"
         style={{ backgroundImage: `linear-gradient(135deg, ${r.from}, ${r.to})` }}
@@ -49,5 +50,16 @@ export function AndroidVersionCard({
         {r.name && <div className="text-muted-foreground truncate text-xs">{r.name}</div>}
       </div>
     </ChoiceCard>
+  )
+  if (!blockedBy) return card
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span tabIndex={0} className="grid min-w-0">
+          {card}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>{blockedBy}</TooltipContent>
+    </Tooltip>
   )
 }

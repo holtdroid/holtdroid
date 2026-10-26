@@ -30,6 +30,13 @@ export function parsePackage(out: string): PackageInfo {
 
 export const apiLevels: Record<string, number> = { "11": 30, "12": 31, "13": 33, "14": 34, "15": 35, "16": 36 }
 
+export function needsAndroid(minSdk: number) {
+  const version = Object.entries(apiLevels)
+    .filter(([, level]) => level >= minSdk)
+    .toSorted(([, a], [, b]) => a - b)[0]?.[0]
+  return version ? `Needs Android ${version} or newer (API level ${minSdk})` : `Needs Android API level ${minSdk}`
+}
+
 export type WebViewInfo = {
   current?: { pkg: string; version: string }
   valid: { pkg: string; version: string }[]
