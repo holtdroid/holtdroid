@@ -125,7 +125,8 @@ deployment"):
   unused), an overlay over the screen (opacity, difference, invert, drag),
   freeze frame, differences found in the browser (regions with guesses,
   video skipped by motion, ignored areas), the views of image diffs and a
-  PNG report. In WebViews (decision #107) differences name their element
+  PNG report. In WebViews, behind an experimental switch that is off by
+  default (decision #107), differences name their element
   with selector, CSS shift and styles and highlight it on the device, and
   video, canvas and frames are skipped. Covered by api and web unit tests; not yet tried on a redroid
   session.

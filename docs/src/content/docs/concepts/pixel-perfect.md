@@ -94,12 +94,16 @@ any mockup everywhere the video is. Three things keep that out:
 - **Ignored areas**: turn on **Draw** and drag over the screen to mark areas
   the comparison always skips for this reference, such as a player that may
   be paused.
-- **Skip video, canvas and frames in WebViews** (on by default): in a WebView
+- **Skip video, canvas and frames in WebViews** (with **Page elements** on, see below): in a WebView
   page, the boxes of `<video>`, `<canvas>`, `<iframe>`, `<embed>` and
   `<object>` elements are left out, paused or not (see below). They are
   hatched violet.
 
 ### WebView pages
+
+This part is **experimental** and **off by default**: turn on **Use DevTools
+for WebView pages** under **Page elements** in the tab; the choice is
+remembered in the browser.
 
 When the screen shows a WebView that DevTools can inspect, the comparison
 also asks the page about itself, through its own DevTools connection next to

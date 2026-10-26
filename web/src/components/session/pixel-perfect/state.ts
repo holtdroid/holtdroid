@@ -49,6 +49,7 @@ export type PixelState = {
   tool: Tool
   ignoreMotion: boolean
   ignoreMedia: boolean
+  devtools: boolean
   showRegions: boolean
   drafts: Record<string, Draft>
   frozen: Frozen | null
@@ -59,7 +60,10 @@ export type PixelState = {
   error: string | null
 }
 
-type Prefs = Pick<PixelState, "visible" | "opacity" | "blend" | "ignoreMotion" | "ignoreMedia" | "showRegions">
+type Prefs = Pick<
+  PixelState,
+  "visible" | "opacity" | "blend" | "ignoreMotion" | "ignoreMedia" | "devtools" | "showRegions"
+>
 
 const prefsKey = "holtdroid:pixel-perfect"
 const defaults: Prefs = {
@@ -68,6 +72,7 @@ const defaults: Prefs = {
   blend: "normal",
   ignoreMotion: true,
   ignoreMedia: true,
+  devtools: false,
   showRegions: true,
 }
 
@@ -135,6 +140,7 @@ export class PixelPerfect {
       blend: this.#state.blend,
       ignoreMotion: this.#state.ignoreMotion,
       ignoreMedia: this.#state.ignoreMedia,
+      devtools: this.#state.devtools,
       showRegions: this.#state.showRegions,
     }
     try {
@@ -163,6 +169,7 @@ export class PixelPerfect {
   }
 
   #probe() {
+    if (!this.#state.devtools) return Promise.resolve([] as WebViewProbe[])
     return probeWebViews(this.provider, this.id).catch(() => [] as WebViewProbe[])
   }
 

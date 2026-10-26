@@ -3339,6 +3339,10 @@ isn't caught by the motion mask.
   nothing rather than the wrong element. Selecting the node in the DevTools
   tab isn't possible from another client; the selector can be copied instead.
 
+- **Off by default, marked experimental**: a switch in the tab, remembered
+  per browser. Without it nothing connects to the page and the comparison
+  is the pixel one of #106 alone, until this has been tried on real apps.
+
 **Consequences.** It works only where DevTools works: debuggable WebViews,
 or any WebView under Frida. Elements inside cross-origin frames and shadow
 roots aren't listed. A page that changed between its screenshot and the

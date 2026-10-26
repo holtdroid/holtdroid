@@ -20,6 +20,7 @@ import { IconButton } from "@/components/session/icon-button"
 import { Compare } from "@/components/session/pixel-perfect/compare"
 import { type Blend, type PixelPerfect, usePixelState } from "@/components/session/pixel-perfect/state"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -535,25 +536,50 @@ function Controls({ pp, reference: r, session }: { pp: PixelPerfect; reference: 
             </span>
           </Label>
         </div>
-        <div className="flex items-start gap-3">
-          <Switch
-            id="pp-media"
-            checked={state.ignoreMedia}
-            onCheckedChange={(v) => {
-              pp.set({ ignoreMedia: v })
-              if (state.result) void pp.analyze()
-            }}
-          />
-          <Label htmlFor="pp-media" className="grid gap-0.5 font-normal">
-            <span className="text-sm">Skip video, canvas and frames in WebViews</span>
-            <span className="text-muted-foreground text-xs">
-              Their boxes come from the page through DevTools, so a paused player is skipped too.
-            </span>
-          </Label>
-        </div>
         <p className="text-muted-foreground text-xs">
           Draw areas over the screen to always skip them for this reference, such as a player or a map.
         </p>
+      </Section>
+
+      <Section>
+        <SectionHead title="Page elements">
+          <Badge variant="outline">Experimental</Badge>
+        </SectionHead>
+        <div className="flex items-start gap-3">
+          <Switch
+            id="pp-devtools"
+            checked={state.devtools}
+            onCheckedChange={(v) => {
+              pp.set({ devtools: v })
+              if (state.result) void pp.analyze()
+            }}
+          />
+          <Label htmlFor="pp-devtools" className="grid gap-0.5 font-normal">
+            <span className="text-sm">Use DevTools for WebView pages</span>
+            <span className="text-muted-foreground text-xs">
+              Reads the page on the screen through its own DevTools connection: differences name their element with its
+              selector and styles, pointing at one highlights it on the device. Works where the DevTools tab does.
+            </span>
+          </Label>
+        </div>
+        {state.devtools && (
+          <div className="flex items-start gap-3">
+            <Switch
+              id="pp-media"
+              checked={state.ignoreMedia}
+              onCheckedChange={(v) => {
+                pp.set({ ignoreMedia: v })
+                if (state.result) void pp.analyze()
+              }}
+            />
+            <Label htmlFor="pp-media" className="grid gap-0.5 font-normal">
+              <span className="text-sm">Skip video, canvas and frames in WebViews</span>
+              <span className="text-muted-foreground text-xs">
+                Their boxes come from the page through DevTools, so a paused player is skipped too.
+              </span>
+            </Label>
+          </div>
+        )}
       </Section>
 
       {result && (
@@ -577,7 +603,7 @@ function Controls({ pp, reference: r, session }: { pp: PixelPerfect; reference: 
               </Button>
             </div>
           </SectionHead>
-          <Summary result={result} />
+          <Summary result={result} devtools={state.devtools} />
           <Compare pp={pp} result={result} hovered={state.hovered} />
         </Section>
       )}
@@ -585,7 +611,13 @@ function Controls({ pp, reference: r, session }: { pp: PixelPerfect; reference: 
   )
 }
 
-function Summary({ result }: { result: NonNullable<ReturnType<PixelPerfect["get"]>["result"]> }) {
+function Summary({
+  result,
+  devtools,
+}: {
+  result: NonNullable<ReturnType<PixelPerfect["get"]>["result"]>
+  devtools: boolean
+}) {
   const a = result.analysis
   const pct = (a.match * 100).toFixed(a.match > 0.999 && a.match < 1 ? 2 : 1)
   const from = { screenshot: "a screenshot", frozen: "the frozen frame", stream: "the stream" }[result.source]
@@ -608,11 +640,13 @@ function Summary({ result }: { result: NonNullable<ReturnType<PixelPerfect["get"
           ? `, ${result.media.length} media ${result.media.length === 1 ? "element" : "elements"} skipped`
           : ""}
       </span>
-      <span className="text-muted-foreground basis-full text-xs">
-        {result.webview
-          ? `WebView found: ${result.webview.target.title || result.webview.target.url}; differences inside it name their elements, pointing at one highlights it on the device.`
-          : "No inspectable WebView found on the screen, so differences aren't tied to page elements."}
-      </span>
+      {devtools && (
+        <span className="text-muted-foreground basis-full text-xs">
+          {result.webview
+            ? `WebView found: ${result.webview.target.title || result.webview.target.url}; differences inside it name their elements, pointing at one highlights it on the device.`
+            : "No inspectable WebView found on the screen, so differences aren't tied to page elements."}
+        </span>
+      )}
     </div>
   )
 }
