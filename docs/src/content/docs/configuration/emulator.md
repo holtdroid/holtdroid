@@ -186,21 +186,21 @@ in `redroid.screens` takes the same fields: `brand`, `radius` (dp) and
 `cutout` names one. The built-in
 presets, used when `redroid.screens` is empty:
 
-| id            | Screen                           | Density | Cutout | Like                              |
-| ------------- | -------------------------------- | ------- | ------ | --------------------------------- |
-| `hd`          | 720×1600 (6.7″ HD+, the default) | 280     | `tall` | Galaxy A05, Redmi 13C             |
-| `fhd-samsung` | 1080×2340 (6.5″ FHD+)            | 420     | `tall` | Galaxy A15, A25, A35              |
-| `fhd`         | 1080×2400 (6.1–6.7″ FHD+)        | 420     | `hole` | Pixel 6a–8a, Moto G54, Realme C67 |
-| `fhd-tall`    | 1080×2460 (6.8″ FHD+)            | 420     | `hole` | Infinix Hot 40                    |
-| `1.5k`        | 1220×2712 (6.7″ 1.5K)            | 480     | `hole` | Redmi Note 13 Pro, Poco X6        |
-| `classic`     | 1080×1920 (360×640 CSS px)       | 480     | none   | Galaxy S5, Nexus 5X, Moto G4      |
-| `compact`     | 720×1440 (360×720 CSS px)        | 320     | none   | Redmi 6A, Galaxy J4+              |
-| `flat`        | 1080×2400 (6.5″)                 | 420     | none   | Under-display camera, sliders     |
-| `tablet`      | 1200×1920 (11″)                  | 240     | none   | Galaxy Tab A9+                    |
+| id            | Screen                                  | Density | Cutout | Like                              |
+| ------------- | --------------------------------------- | ------- | ------ | --------------------------------- |
+| `classic`     | 1080×1920 (360×640 CSS px, the default) | 480     | none   | Galaxy S5, Nexus 5X, Moto G4      |
+| `hd`          | 720×1600 (6.7″ HD+)                     | 280     | `tall` | Galaxy A05, Redmi 13C             |
+| `fhd-samsung` | 1080×2340 (6.5″ FHD+)                   | 420     | `tall` | Galaxy A15, A25, A35              |
+| `fhd`         | 1080×2400 (6.1–6.7″ FHD+)               | 420     | `hole` | Pixel 6a–8a, Moto G54, Realme C67 |
+| `fhd-tall`    | 1080×2460 (6.8″ FHD+)                   | 420     | `hole` | Infinix Hot 40                    |
+| `1.5k`        | 1220×2712 (6.7″ 1.5K)                   | 480     | `hole` | Redmi Note 13 Pro, Poco X6        |
+| `compact`     | 720×1440 (360×720 CSS px)               | 320     | none   | Redmi 6A, Galaxy J4+              |
+| `flat`        | 1080×2400 (6.5″)                        | 420     | none   | Under-display camera, sliders     |
+| `tablet`      | 1200×1920 (11″)                         | 240     | none   | Galaxy Tab A9+                    |
 
 Streaming a bigger screen costs more CPU in the session (about one core for
-a changing 1080p screen) and bandwidth in the browser; the default stays
-HD+. Density can still be changed in a session's display card.
+a changing 1080p screen) and bandwidth in the browser; the default is
+Classic 16:9, the 360×640 CSS px viewport most mobile layouts are drawn for. Density can still be changed in a session's display card.
 
 Android versions are the keys of `redroid.images` (the chart: `versions`,
 each pulled from `<repository>:<version>`). holtdroid-redroid publishes one

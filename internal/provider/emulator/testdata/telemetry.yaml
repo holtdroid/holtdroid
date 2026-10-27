@@ -7,7 +7,7 @@ metadata:
     holtdroid/location: ""
     holtdroid/owner: otter
     holtdroid/package: com.example.app
-    holtdroid/screen: hd
+    holtdroid/screen: classic
   labels:
     app.kubernetes.io/managed-by: holtdroid-provider-emulator
     app.kubernetes.io/name: holtdroid-session
@@ -34,9 +34,9 @@ spec:
     - androidboot.use_memfd=true
     - androidboot.redroid_gpu_mode=host
     - androidboot.redroid_gpu_node=/dev/dri/renderD128
-    - androidboot.redroid_width=720
-    - androidboot.redroid_height=1600
-    - androidboot.redroid_dpi=280
+    - androidboot.redroid_width=1080
+    - androidboot.redroid_height=1920
+    - androidboot.redroid_dpi=480
     - androidboot.redroid_fps=60
     image: ghcr.io/holtdroid/holtdroid-redroid:15
     imagePullPolicy: IfNotPresent
@@ -83,8 +83,6 @@ spec:
       valueFrom:
         fieldRef:
           fieldPath: metadata.uid
-    - name: HOLTDROID_REDROID__CUTOUT
-      value: tall
     - name: HOLTDROID_TELEMETRY__METRICS__LISTEN
       value: :9090
     - name: HOLTDROID_TELEMETRY__TRACING__ENABLED

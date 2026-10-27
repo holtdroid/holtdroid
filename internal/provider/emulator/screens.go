@@ -18,13 +18,13 @@ var devicesJSON []byte
 
 // DefaultScreens are the generic screens of popular budget and mid-range
 // phones, by resolution and density class, followed by a catalog of real
-// devices; the first screen is the default and the cheapest to stream.
+// devices; the first screen is the default.
 func DefaultScreens() []contract.Display {
 	hole := &contract.CutoutShape{Kind: "circle", Top: 11, Width: 24}
 	drop := &contract.CutoutShape{Kind: "drop", Width: 48, Height: 24}
 	screens := []contract.Display{
-		{ID: "hd", Label: "HD+", Like: "Galaxy A05, Redmi 13C", Width: 720, Height: 1600, DPI: 280, Radius: 14, Shape: drop},
 		{ID: "classic", Label: "Classic 16:9", Like: "Galaxy S5, Nexus 5X, Moto G4", Width: 1080, Height: 1920, DPI: 480, Radius: 12},
+		{ID: "hd", Label: "HD+", Like: "Galaxy A05, Redmi 13C", Width: 720, Height: 1600, DPI: 280, Radius: 14, Shape: drop},
 		{ID: "fhd-samsung", Label: "FHD+ 19.5:9", Like: "Galaxy A15, A25, A35", Width: 1080, Height: 2340, DPI: 420, Radius: 16, Shape: drop},
 		{ID: "fhd", Label: "FHD+ 20:9", Like: "Pixel 6a–8a, Moto G54, Realme C67", Width: 1080, Height: 2400, DPI: 420, Radius: 28, Shape: hole},
 		{ID: "fhd-tall", Label: "FHD+ tall", Like: "Infinix Hot 40", Width: 1080, Height: 2460, DPI: 420, Radius: 20, Shape: hole},
