@@ -18,7 +18,7 @@ import {
 import { type DragEvent, useEffect, useEffectEvent, useRef, useState } from "react"
 import { Link } from "@tanstack/react-router"
 import { toast } from "sonner"
-import type { ReferenceView, SessionView } from "@/api/client"
+import type { ReferenceView } from "@/api/client"
 import {
   useDeleteReference,
   useImportFigma,
@@ -32,6 +32,7 @@ import { Compare } from "@/components/session/pixel-perfect/compare"
 import { ComponentsList } from "@/components/session/pixel-perfect/components-list"
 import { FigmaImport } from "@/components/session/pixel-perfect/figma-import"
 import { Block, BlockHead, LayoutTab } from "@/components/session/pixel-perfect/layout-tab"
+import type { PixelTarget } from "@/components/session/pixel-perfect/source"
 import {
   type Blend,
   type PixelPerfect,
@@ -70,15 +71,7 @@ function stamp() {
   return new Date().toISOString().slice(0, 19).replaceAll(":", "-")
 }
 
-export function PixelPerfectPanel({
-  pp,
-  session,
-  active,
-}: {
-  pp: PixelPerfect
-  session: SessionView
-  active: boolean
-}) {
+export function PixelPerfectPanel({ pp, target, active }: { pp: PixelPerfect; target: PixelTarget; active: boolean }) {
   const state = usePixelState(pp)
   const refs = useReferences()
   const upload = useUploadReference()
@@ -102,7 +95,7 @@ export function PixelPerfectPanel({
     const thumbnail = await makeThumbnail(file)
     setPreparing((n) => n - 1)
     upload.mutate(
-      { file, thumbnail, name, pkg: session.package },
+      { file, thumbnail, name, pkg: target.package },
       {
         onSuccess: (v) => pp.select(v.id),
         onError: (e) => toast.error("Could not add the reference", { description: e.message }),
@@ -131,7 +124,7 @@ export function PixelPerfectPanel({
         return
       }
       importFigma.mutate(
-        { url: text, pkg: session.package, token: browserFigmaToken() },
+        { url: text, pkg: target.package, token: browserFigmaToken() },
         {
           onSuccess: imported,
           onError: (err) => {
@@ -150,6 +143,7 @@ export function PixelPerfectPanel({
   })
   useEffect(() => {
     if (pp.get().shown !== active) pp.set({ shown: active })
+    return () => pp.set({ shown: false })
   }, [pp, active])
   useEffect(() => {
     if (!active) return undefined
@@ -177,7 +171,7 @@ export function PixelPerfectPanel({
       pp={pp}
       items={items}
       selected={state.referenceId}
-      pkg={session.package}
+      pkg={target.package}
       busy={busy}
       quota={refs.data}
       hasToken={hasToken}
@@ -214,7 +208,7 @@ export function PixelPerfectPanel({
           e.target.value = ""
         }}
       />
-      <Toolbar pp={pp} reference={ref} session={session}>
+      <Toolbar pp={pp} reference={ref} target={target}>
         <Popover open={picking} onOpenChange={setPicking}>
           <PopoverTrigger asChild>
             <Button variant="outline" className="h-9 max-w-64 min-w-0 justify-start gap-2 px-2">
@@ -239,7 +233,7 @@ export function PixelPerfectPanel({
       )}
       <div className="min-h-0 flex-1 overflow-y-auto">
         {ref ? (
-          <ReferenceTabs pp={pp} reference={ref} session={session} />
+          <ReferenceTabs pp={pp} reference={ref} target={target} />
         ) : (
           <div className="mx-auto grid max-w-md gap-4 p-6">
             <div className="text-center">
@@ -282,12 +276,12 @@ function Thumb({ reference: r, className }: { reference: ReferenceView; classNam
 function Toolbar({
   pp,
   reference: r,
-  session,
+  target,
   children,
 }: {
   pp: PixelPerfect
   reference: ReferenceView | null
-  session: SessionView
+  target: PixelTarget
   children: React.ReactNode
 }) {
   const state = usePixelState(pp)
@@ -331,22 +325,20 @@ function Toolbar({
             </SelectContent>
           </Select>
           <div className="ml-auto flex items-center gap-1">
-            <Button
-              size="sm"
-              variant={state.frozen ? "secondary" : "ghost"}
-              disabled={state.freezing}
-              onClick={() => (state.frozen ? pp.unfreeze() : void pp.freeze())}
-              title="Keep the current picture of the screen to compare at leisure"
-            >
-              {state.freezing ? <Loader2Icon className="animate-spin" /> : <SnowflakeIcon />}
-              {state.frozen ? "Live" : "Freeze"}
-            </Button>
+            {pp.source.kind === "session" && (
+              <Button
+                size="sm"
+                variant={state.frozen ? "secondary" : "ghost"}
+                disabled={state.freezing}
+                onClick={() => (state.frozen ? pp.unfreeze() : void pp.freeze())}
+                title="Keep the current picture of the screen to compare at leisure"
+              >
+                {state.freezing ? <Loader2Icon className="animate-spin" /> : <SnowflakeIcon />}
+                {state.frozen ? "Live" : "Freeze"}
+              </Button>
+            )}
             <SettingsMenu pp={pp} />
-            <Button
-              size="sm"
-              disabled={state.analyzing}
-              onClick={() => void pp.analyze(session.capabilities?.screen, true)}
-            >
+            <Button size="sm" disabled={state.analyzing} onClick={() => void pp.analyze(target.display, true)}>
               {state.analyzing ? <Loader2Icon className="animate-spin" /> : <ScanSearchIcon />}
               Find differences
             </Button>
@@ -404,6 +396,7 @@ function SettingsMenu({ pp }: { pp: PixelPerfect }) {
       <PopoverContent align="end" className="grid w-80 gap-3">
         {settings
           .filter((s) => s.key !== "ignoreMedia" || state.devtools)
+          .filter((s) => (s.key !== "views" || pp.source.views) && (s.key !== "devtools" || pp.source.webviews))
           .map((s) => (
             <div key={s.key} className="flex items-start gap-3">
               <Switch
@@ -623,11 +616,11 @@ function useWidth(ref: React.RefObject<HTMLElement | null>) {
 function ReferenceTabs({
   pp,
   reference: r,
-  session,
+  target,
 }: {
   pp: PixelPerfect
   reference: ReferenceView
-  session: SessionView
+  target: PixelTarget
 }) {
   const state = usePixelState(pp)
   const box = useRef<HTMLDivElement>(null)
@@ -637,9 +630,9 @@ function ReferenceTabs({
   const skipped = draft.hidden.length + draft.ignore.length
   const skipTitle = r.components ? "Components" : "Skip areas"
   const regions = result ? result.analysis.regions.length : null
-  const layout = <LayoutTab pp={pp} reference={r} session={session} />
+  const layout = <LayoutTab pp={pp} reference={r} target={target} />
   const skip = <SkipTab pp={pp} reference={r} />
-  const differences = <DifferencesTab pp={pp} reference={r} session={session} result={result} />
+  const differences = <DifferencesTab pp={pp} reference={r} target={target} result={result} />
 
   return (
     <div ref={box}>
@@ -763,12 +756,12 @@ function SkipTab({ pp, reference: r }: { pp: PixelPerfect; reference: ReferenceV
 function DifferencesTab({
   pp,
   reference: r,
-  session,
+  target,
   result,
 }: {
   pp: PixelPerfect
   reference: ReferenceView
-  session: SessionView
+  target: PixelTarget
   result: Result | null
 }) {
   const state = usePixelState(pp)
@@ -779,14 +772,12 @@ function DifferencesTab({
       <div className="text-muted-foreground grid place-items-center gap-3 p-8 text-center text-sm">
         <ScanSearchIcon className="size-8 opacity-50" />
         <p className="max-w-xs">
-          Line the reference up on the Layout tab, then press <strong>Find differences</strong>. Freeze the screen first
-          to compare something that is only there for a moment.
+          Line the reference up on the Layout tab, then press <strong>Find differences</strong>.{" "}
+          {pp.source.kind === "recording"
+            ? "Playback pauses and the frame at the playhead is compared."
+            : "Freeze the screen first to compare something that is only there for a moment."}
         </p>
-        <Button
-          size="sm"
-          disabled={state.analyzing}
-          onClick={() => void pp.analyze(session.capabilities?.screen, true)}
-        >
+        <Button size="sm" disabled={state.analyzing} onClick={() => void pp.analyze(target.display, true)}>
           {state.analyzing ? <Loader2Icon className="animate-spin" /> : <ScanSearchIcon />}
           Find differences
         </Button>
@@ -801,10 +792,10 @@ function DifferencesTab({
         ...result,
         title: r.name,
         subtitle: [
-          session.label || session.package,
-          session.versionName,
-          session.capabilities?.screen?.label,
-          new Date(result.at).toLocaleString(),
+          target.label || target.package,
+          target.versionName,
+          target.display?.label,
+          target.moment?.() ?? new Date(result.at).toLocaleString(),
         ]
           .filter(Boolean)
           .join(" · "),
@@ -830,7 +821,11 @@ function DifferencesTab({
   return (
     <div className="grid gap-3 p-3">
       <div className="flex flex-wrap items-start gap-2">
-        <Summary result={result} devtools={state.devtools} views={state.views} />
+        <Summary
+          result={result}
+          devtools={state.devtools && !!pp.source.webviews}
+          views={state.views && !!pp.source.views}
+        />
         <Button
           size="sm"
           variant="outline"

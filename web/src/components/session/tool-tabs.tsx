@@ -1,4 +1,16 @@
-import { type ReactNode, useState } from "react"
+import {
+  CableIcon,
+  FolderIcon,
+  FrameIcon,
+  GlobeIcon,
+  type LucideIcon,
+  RouteIcon,
+  SignpostIcon,
+  SquareCodeIcon,
+  SquareTerminalIcon,
+  TerminalIcon,
+} from "lucide-react"
+import { type ReactNode, useMemo, useState } from "react"
 import type { SessionView } from "@/api/client"
 import { useReferences } from "@/api/queries"
 import { AdbGate } from "@/components/session/adb-gate"
@@ -17,11 +29,13 @@ import { useDNS } from "@/components/session/use-dns"
 import { useConnectionsState } from "@/components/session/use-routes"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
-const adbTabs = [
-  { value: "logcat", label: "Logcat" },
-  { value: "files", label: "Files" },
-  { value: "terminal", label: "Terminal" },
+const adbTabs: { value: string; label: string; icon: LucideIcon }[] = [
+  { value: "logcat", label: "Logcat", icon: SquareTerminalIcon },
+  { value: "files", label: "Files", icon: FolderIcon },
+  { value: "terminal", label: "Terminal", icon: TerminalIcon },
 ]
+
+const trigger = "flex-none gap-1.5 [&_svg]:size-3.5"
 
 // ToolTabs keeps every opened tab mounted, so DevTools keeps its state and
 // the terminal its shell while another tab is shown.
@@ -45,6 +59,15 @@ export function ToolTabs({
   const [opened, setOpened] = useState(() => new Set([tab]))
   if (!opened.has(tab)) setOpened(new Set([...opened, tab]))
   const pixelPerfect = useReferences().data?.enabled === true
+  const target = useMemo(
+    () => ({
+      package: session.package,
+      label: session.label,
+      versionName: session.versionName,
+      display: session.capabilities?.screen,
+    }),
+    [session.package, session.label, session.versionName, session.capabilities?.screen],
+  )
   const network = !!useDevice(session.provider, session.id).data?.networkProfiles
   const dns = useDNS(session.provider, session.id).data?.available === true
   const routes = useConnectionsState(session.provider, session.id).data?.available === true
@@ -72,37 +95,44 @@ export function ToolTabs({
     <Tabs value={current} onValueChange={onTab} className="h-full gap-0">
       {(adb || pixelPerfect || devtools || network || dns || routes) && (
         <TabsList variant="line" className="h-9 w-full justify-start rounded-none border-b px-2">
-          <TabsTrigger value="devtools" className="flex-none">
+          <TabsTrigger value="devtools" className={trigger}>
+            <SquareCodeIcon />
             DevTools
           </TabsTrigger>
           {devtools && (
-            <TabsTrigger value="websockets" className="flex-none">
+            <TabsTrigger value="websockets" className={trigger}>
+              <CableIcon />
               WebSockets
             </TabsTrigger>
           )}
           {network && (
-            <TabsTrigger value="network" className="flex-none">
+            <TabsTrigger value="network" className={trigger}>
+              <GlobeIcon />
               Network
             </TabsTrigger>
           )}
           {dns && (
-            <TabsTrigger value="dns" className="flex-none">
+            <TabsTrigger value="dns" className={trigger}>
+              <SignpostIcon />
               DNS
             </TabsTrigger>
           )}
           {routes && (
-            <TabsTrigger value="routes" className="flex-none">
+            <TabsTrigger value="routes" className={trigger}>
+              <RouteIcon />
               Routes
             </TabsTrigger>
           )}
           {adb &&
             tabs.map((t) => (
-              <TabsTrigger key={t.value} value={t.value} className="flex-none">
+              <TabsTrigger key={t.value} value={t.value} className={trigger}>
+                <t.icon />
                 {t.label}
               </TabsTrigger>
             ))}
           {pixelPerfect && (
-            <TabsTrigger value="pixel-perfect" className="flex-none">
+            <TabsTrigger value="pixel-perfect" className={trigger}>
+              <FrameIcon />
               Pixel perfect
             </TabsTrigger>
           )}
@@ -141,7 +171,7 @@ export function ToolTabs({
       )}
       {pixelPerfect && opened.has("pixel-perfect") && (
         <TabsContent value="pixel-perfect" forceMount className="min-h-0 data-[state=inactive]:hidden">
-          <PixelPerfectPanel pp={pp} session={session} active={current === "pixel-perfect"} />
+          <PixelPerfectPanel pp={pp} target={target} active={current === "pixel-perfect"} />
         </TabsContent>
       )}
     </Tabs>

@@ -185,6 +185,20 @@ Taps and swipes show on the phone as green circles with a fading trail, and
 the navigation keys as a label at the bottom. The pointer button in the player's controls hides them (it only appears when something was touched);
 the downloaded video always has them.
 
+### Pixel perfect
+
+Signed-in viewers get a **Pixel perfect** tab next to the others, with the
+same panel as in a session (see [Pixel perfect](/holtdroid/concepts/pixel-perfect/)):
+the reference is laid over the video, and **Find differences** pauses
+playback and compares the frame at the playhead. **Skip what moves** takes
+the next few frames of the recording. A recording has no device behind it,
+so differences aren't named by native views or WebView elements, Detect only
+finds plain bars, and there is no Freeze: the paused frame is already still.
+Frames come from the stream's video, so a higher stream quality while
+recording gives a cleaner comparison. Recordings made since this was added
+keep the device's screen size and density, so dp are exact; older ones take
+the screen as 360 dp wide.
+
 ### Markers
 
 A marker is a pin on the timeline with an icon (pin, bug, flag, star, warning

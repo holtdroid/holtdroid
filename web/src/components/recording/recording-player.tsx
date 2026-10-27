@@ -45,6 +45,11 @@ import { BakeDialog } from "@/components/recording/bake-dialog"
 import { SideCards } from "@/components/recording/side-cards"
 import { MarkerPin, newMarkerId } from "@/components/recording/markers"
 import { RecordingTools, savedTab } from "@/components/recording/tools-view"
+import { PixelOverlay } from "@/components/session/pixel-perfect/overlay"
+import { recordingSource } from "@/components/session/pixel-perfect/source"
+import { usePixelPerfectOf } from "@/components/session/pixel-perfect/state"
+import { useAuth, useReferences } from "@/api/queries"
+import { formatDuration } from "@/lib/format"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { bakingSupported } from "@/lib/recording/bake"
 import { DevToolsLog, toHar } from "@/lib/recording/devtools"
@@ -110,6 +115,26 @@ export function RecordingPlayer({
   const files = useMemo(() => (source.kind === "local" ? source.files : remoteFiles(r.filesUrl)), [source, r.filesUrl])
   const [player] = useState(() => new Player(files, manifest))
   const state = useSyncExternalStore(player.subscribe, player.getState)
+  const pp = usePixelPerfectOf(() => recordingSource(player), r.screen)
+  const identity = useAuth().data?.identity
+  const pixelEnabled = useReferences(!!identity && !identity.pending).data?.enabled === true
+  const pixel = useMemo(
+    () =>
+      pixelEnabled
+        ? {
+            pp,
+            target: {
+              package: r.package,
+              label: r.title || r.label,
+              versionName: r.versionName,
+              display: r.screen,
+              moment: () => `recording at ${formatDuration(player.getState().time)}`,
+            },
+          }
+        : undefined,
+    [pixelEnabled, pp, player, r.package, r.title, r.label, r.versionName, r.screen],
+  )
+  const canvas = useRef<HTMLCanvasElement | null>(null)
   const clocks = useMemo(
     () => ({
       startedAt,
@@ -136,6 +161,7 @@ export function RecordingPlayer({
   const [editing, setEditing] = useState<string | null>(null)
   const attach = useCallback(
     (c: HTMLCanvasElement | null) => {
+      canvas.current = c
       player.attach(c)
       return () => player.attach(null)
     },
@@ -246,6 +272,7 @@ export function RecordingPlayer({
             clocks={clocks}
             view={view}
             onView={changeView}
+            pixel={pixel}
           />
         </div>
 
@@ -257,11 +284,14 @@ export function RecordingPlayer({
               height: `min(calc(var(--stage-h) - 1.25rem), calc((var(--phone-max-w) - 1.25rem) * ${state.size.h / state.size.w}))`,
             }}
           >
-            <canvas
-              ref={attach}
-              onClick={() => player.toggle()}
-              className="block size-full cursor-pointer rounded-[34px] bg-black"
-            />
+            <div className="relative size-full overflow-hidden rounded-[34px]">
+              <canvas
+                ref={attach}
+                onClick={() => player.toggle()}
+                className="block size-full cursor-pointer bg-black"
+              />
+              {pixel && <PixelOverlay pp={pp} canvasRef={canvas} />}
+            </div>
             {!state.playing && (
               <button
                 type="button"

@@ -6,6 +6,7 @@ import {
   SignpostIcon,
   SquareTerminalIcon,
   TerminalIcon,
+  FrameIcon,
 } from "lucide-react"
 import type { Connection, DNSEvent, Network } from "@/api/client"
 import { DNSView } from "@/components/recording/dns-view"
@@ -17,6 +18,9 @@ import { type DevToolsLog, requestPhase } from "@/lib/recording/devtools"
 import { type PlayerView, type ToolTab, toolTabs } from "@/lib/recording/link"
 import type { At } from "@/lib/recording/timeline"
 import type { Player } from "@/lib/recording/player"
+import { PixelPerfectPanel } from "@/components/session/pixel-perfect/panel"
+import type { PixelTarget } from "@/components/session/pixel-perfect/source"
+import type { PixelPerfect } from "@/components/session/pixel-perfect/state"
 import { cn } from "@/lib/utils"
 
 type Tab = ToolTab
@@ -46,6 +50,7 @@ export function RecordingTools({
   clocks,
   view,
   onView,
+  pixel,
 }: {
   player: Player
   time: number
@@ -57,8 +62,10 @@ export function RecordingTools({
   clocks: Clocks
   view: PlayerView
   onView: (patch: PlayerView) => void
+  /** Pixel perfect over the recording, when the viewer has references. */
+  pixel?: { pp: PixelPerfect; target: PixelTarget }
 }) {
-  const tab = view.tab ?? "logcat"
+  const tab = view.tab === "pixel-perfect" && !pixel ? "logcat" : (view.tab ?? "logcat")
   const pick = (t: Tab) => {
     onView({ tab: t })
     try {
@@ -90,6 +97,7 @@ export function RecordingTools({
       alert: queries.filter((e) => e.v.query?.result === "failed").length,
     })
   }
+  if (pixel) tabs.push({ id: "pixel-perfect", label: "Pixel perfect", icon: FrameIcon })
   if (conns.length > 0) {
     tabs.push({
       id: "routes",
@@ -138,6 +146,7 @@ export function RecordingTools({
         <PlayheadContext value={time}>
           <div className="flex min-h-0 flex-1 flex-col">
             {tab === "logcat" && <LogcatView player={player} time={time} />}
+            {pixel && tab === "pixel-perfect" && <PixelPerfectPanel pp={pixel.pp} target={pixel.target} active />}
             {tab === "network" && (
               <NetworkView
                 log={log}

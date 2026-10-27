@@ -54,21 +54,22 @@ var (
 // recordingMeta is what the api knows of a recording when it starts; it is
 // written before the agent uploads anything and only by the api.
 type recordingMeta struct {
-	ID          string    `json:"id"`
-	Owner       string    `json:"owner"`
-	Provider    string    `json:"provider"`
-	Session     string    `json:"session"`
-	Package     string    `json:"package"`
-	ArtifactRef string    `json:"artifactRef"`
-	Label       string    `json:"label,omitempty"`
-	Title       string    `json:"title,omitempty"`
-	VersionName string    `json:"versionName,omitempty"`
-	VersionCode int32     `json:"versionCode,omitempty"`
-	Location    string    `json:"location,omitempty"`
-	WebView     string    `json:"webview,omitempty"`
-	Icon        bool      `json:"icon,omitempty"`
-	Secret      string    `json:"secret" doc:"SHA-256 of the upload secret"`
-	CreatedAt   time.Time `json:"createdAt"`
+	ID          string            `json:"id"`
+	Owner       string            `json:"owner"`
+	Provider    string            `json:"provider"`
+	Session     string            `json:"session"`
+	Package     string            `json:"package"`
+	ArtifactRef string            `json:"artifactRef"`
+	Label       string            `json:"label,omitempty"`
+	Title       string            `json:"title,omitempty"`
+	VersionName string            `json:"versionName,omitempty"`
+	VersionCode int32             `json:"versionCode,omitempty"`
+	Location    string            `json:"location,omitempty"`
+	WebView     string            `json:"webview,omitempty"`
+	Icon        bool              `json:"icon,omitempty"`
+	Screen      *contract.Display `json:"screen,omitempty"`
+	Secret      string            `json:"secret" doc:"SHA-256 of the upload secret"`
+	CreatedAt   time.Time         `json:"createdAt"`
 }
 
 // recordingState is the summary of the agent's latest manifest, written
@@ -402,6 +403,9 @@ func (s *Server) newRecording(ctx context.Context, who auth.Identity, sess contr
 		ID: newAppDataID(now), Owner: who.User, Provider: provider, Session: sess.ID, Package: sess.Package,
 		ArtifactRef: sess.ArtifactRef, Location: sess.Location, WebView: sess.WebView, Secret: hashSecret(secret), CreatedAt: now,
 	}
+	if sess.Capabilities != nil {
+		m.Screen = sess.Capabilities.Screen
+	}
 	srcName, key, rev := splitRef(sess.ArtifactRef)
 	if e, ok := s.cache.Lookup(ctx, srcName, key, rev); ok {
 		m.Label, m.VersionName, m.VersionCode = e.Meta.Label, e.Meta.VersionName, e.Meta.VersionCode
@@ -643,34 +647,35 @@ type RecordingShare struct {
 }
 
 type RecordingView struct {
-	ID           string          `json:"id"`
-	Owner        string          `json:"owner,omitempty"`
-	Package      string          `json:"package"`
-	Label        string          `json:"label,omitempty"`
-	Title        string          `json:"title,omitempty" doc:"the name the owner gave the recording, shown instead of the app's"`
-	VersionName  string          `json:"versionName,omitempty"`
-	VersionCode  int32           `json:"versionCode,omitempty"`
-	Source       string          `json:"source"`
-	ArtifactID   string          `json:"artifactId"`
-	Provider     string          `json:"provider,omitempty"`
-	Session      string          `json:"session,omitempty"`
-	Location     string          `json:"location,omitempty"`
-	WebView      string          `json:"webview,omitempty"`
-	State        string          `json:"state" enum:"pending,recording,done,failed,interrupted"`
-	Reason       string          `json:"reason,omitempty"`
-	CreatedAt    time.Time       `json:"createdAt"`
-	StartedAt    time.Time       `json:"startedAt,omitzero"`
-	Duration     int64           `json:"duration" doc:"milliseconds"`
-	Size         int64           `json:"size" doc:"bytes stored"`
-	FilesURL     string          `json:"filesUrl" doc:"prefix of the recording's files: manifest.json and what it lists"`
-	IconURL      string          `json:"iconUrl,omitempty"`
-	ThumbnailURL string          `json:"thumbnailUrl,omitempty"`
-	LogcatURL    string          `json:"logcatUrl" doc:"the whole logcat as one text file"`
-	LogcatLogURL string          `json:"logcatLogUrl" doc:"the whole logcat as a .log with ANSI colours by level"`
-	ExportURL    string          `json:"exportUrl" doc:"every file of the recording as one .holtdroid archive, which the portal plays from disk"`
-	Keep         bool            `json:"keep" doc:"kept past the retention period"`
-	ExpiresAt    *time.Time      `json:"expiresAt,omitempty"`
-	Share        *RecordingShare `json:"share,omitempty"`
+	ID           string            `json:"id"`
+	Owner        string            `json:"owner,omitempty"`
+	Package      string            `json:"package"`
+	Label        string            `json:"label,omitempty"`
+	Title        string            `json:"title,omitempty" doc:"the name the owner gave the recording, shown instead of the app's"`
+	VersionName  string            `json:"versionName,omitempty"`
+	VersionCode  int32             `json:"versionCode,omitempty"`
+	Source       string            `json:"source"`
+	ArtifactID   string            `json:"artifactId"`
+	Provider     string            `json:"provider,omitempty"`
+	Session      string            `json:"session,omitempty"`
+	Location     string            `json:"location,omitempty"`
+	WebView      string            `json:"webview,omitempty"`
+	Screen       *contract.Display `json:"screen,omitempty" doc:"the device's screen when it was recorded: size and density, for pixel perfect in dp"`
+	State        string            `json:"state" enum:"pending,recording,done,failed,interrupted"`
+	Reason       string            `json:"reason,omitempty"`
+	CreatedAt    time.Time         `json:"createdAt"`
+	StartedAt    time.Time         `json:"startedAt,omitzero"`
+	Duration     int64             `json:"duration" doc:"milliseconds"`
+	Size         int64             `json:"size" doc:"bytes stored"`
+	FilesURL     string            `json:"filesUrl" doc:"prefix of the recording's files: manifest.json and what it lists"`
+	IconURL      string            `json:"iconUrl,omitempty"`
+	ThumbnailURL string            `json:"thumbnailUrl,omitempty"`
+	LogcatURL    string            `json:"logcatUrl" doc:"the whole logcat as one text file"`
+	LogcatLogURL string            `json:"logcatLogUrl" doc:"the whole logcat as a .log with ANSI colours by level"`
+	ExportURL    string            `json:"exportUrl" doc:"every file of the recording as one .holtdroid archive, which the portal plays from disk"`
+	Keep         bool              `json:"keep" doc:"kept past the retention period"`
+	ExpiresAt    *time.Time        `json:"expiresAt,omitempty"`
+	Share        *RecordingShare   `json:"share,omitempty"`
 }
 
 type RecordingList struct {
@@ -697,7 +702,7 @@ func (s *Server) recordingView(ctx context.Context, e *recordingEntry, base stri
 	v := RecordingView{
 		ID: m.ID, Package: m.Package, Label: m.Label, Title: m.Title, VersionName: m.VersionName, VersionCode: m.VersionCode,
 		Source: srcName, ArtifactID: encodeID(key), Provider: m.Provider, Session: m.Session,
-		Location: m.Location, WebView: m.WebView, State: s.recordingStatus(e), CreatedAt: m.CreatedAt,
+		Location: m.Location, WebView: m.WebView, Screen: m.Screen, State: s.recordingStatus(e), CreatedAt: m.CreatedAt,
 		FilesURL: base + "files/", LogcatURL: base + "logcat.txt", LogcatLogURL: base + "logcat.log", ExportURL: base + "export", Keep: e.keep,
 	}
 	if e, ok := s.cache.Lookup(ctx, srcName, key, rev); ok && v.Label == "" {

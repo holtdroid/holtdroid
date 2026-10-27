@@ -159,6 +159,9 @@ that hides the overlay, its opacity and blend, **Freeze**, the settings and
 When the panel is wide (DevTools stretched across the window), the three are
 shown side by side as columns instead of tabs.
 
+The same panel is in a recording's player, over the recorded video (see
+[Recordings](/holtdroid/concepts/recordings/#pixel-perfect)).
+
 Nothing of Pixel perfect is drawn over the screen while another tool tab
 (DevTools, Logcat, …) is open: the reference, a frozen frame, the
 differences, the work area, the grid and the guides come back as they were

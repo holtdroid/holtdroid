@@ -10,9 +10,10 @@ import {
 } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
-import type { ReferenceView, SessionView } from "@/api/client"
+import type { ReferenceView } from "@/api/client"
 import { useLayoutPresets, useSaveLayoutPresets } from "@/api/queries"
 import { IconButton } from "@/components/session/icon-button"
+import type { PixelTarget } from "@/components/session/pixel-perfect/source"
 import { type PixelPerfect, usePixelState } from "@/components/session/pixel-perfect/state"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -27,7 +28,6 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { probeViews } from "@/lib/pixel-perfect/elements"
 import { appWindow, contentByColour, contentViews, distinctCandidates } from "@/lib/pixel-perfect/detect"
 import {
   defaultLayout,
@@ -100,16 +100,16 @@ export function NumberField({
 export function LayoutTab({
   pp,
   reference: r,
-  session,
+  target,
 }: {
   pp: PixelPerfect
   reference: ReferenceView
-  session: SessionView
+  target: PixelTarget
 }) {
   const layout = pp.layout(r)
   return (
     <div className="grid">
-      <AreaBlock pp={pp} reference={r} session={session} layout={layout} />
+      <AreaBlock pp={pp} reference={r} target={target} layout={layout} />
       <PositionBlock pp={pp} reference={r} />
       <GridBlock grid={layout.grid} onChange={(grid) => pp.editLayout(r, { grid })} />
       <GuidesBlock pp={pp} reference={r} guides={layout.guides} />
@@ -128,12 +128,12 @@ type Found = { label: string; insets: Insets; frac: { x: number; y: number; w: n
 function AreaBlock({
   pp,
   reference: r,
-  session,
+  target,
   layout,
 }: {
   pp: PixelPerfect
   reference: ReferenceView
-  session: SessionView
+  target: PixelTarget
   layout: ReferenceLayout
 }) {
   const state = usePixelState(pp)
@@ -152,15 +152,12 @@ function AreaBlock({
     setDetecting(true)
     setFound(null)
     try {
-      const [shot, views] = await Promise.all([
-        pp.screenshotPixels(),
-        probeViews(session.provider, session.id).catch(() => null),
-      ])
+      const [shot, views] = await Promise.all([pp.screenshotPixels(), pp.readViews().catch(() => null)])
       const screen = { w: shot.width, h: shot.height }
-      const display = session.capabilities?.screen
+      const display = target.display
       const d = display?.dpi ? display.dpi / 160 : screen.w / 360
       const byColour = contentByColour(shot)
-      const win = views ? appWindow(views, session.package) : null
+      const win = views ? appWindow(views, target.package) : null
       const options = distinctCandidates(
         [
           ...(byColour ? [{ label: "Content by colour", box: byColour }] : []),

@@ -189,6 +189,34 @@ export class Player {
       drawOverlay(ctx, 0, 0, this.#size.w, this.#size.h, this.#touches.at(this.#t))
   }
 
+  /** The frame at the playhead as a PNG, without the touches drawn over it. */
+  async still(): Promise<Blob | null> {
+    const sample = this.#cursor.frame?.sample
+    if (!sample) return null
+    const canvas = new OffscreenCanvas(sample.displayWidth, sample.displayHeight)
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return null
+    sample.draw(ctx, 0, 0, canvas.width, canvas.height)
+    return canvas.convertToBlob({ type: "image/png" })
+  }
+
+  /** count frames gap ms apart from the playhead, which it comes back to. */
+  async stills(count: number, gap: number): Promise<Blob[]> {
+    this.pause()
+    const t0 = this.#t
+    const out: Blob[] = []
+    try {
+      for (let i = 0; i < count; i++) {
+        await this.seek(Math.min(this.#manifest.duration, t0 + i * gap))
+        const b = await this.still()
+        if (b) out.push(b)
+      }
+    } finally {
+      await this.seek(t0)
+    }
+    return out
+  }
+
   /** Stops playing and frees the decoder; a later seek or attach starts it again. */
   dispose() {
     this.pause()

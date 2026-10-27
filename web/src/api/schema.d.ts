@@ -3505,6 +3505,8 @@ export interface components {
             package: string;
             provider?: string;
             reason?: string;
+            /** @description the device's screen when it was recorded: size and density, for pixel perfect in dp */
+            screen?: components["schemas"]["Display"];
             session?: string;
             share?: components["schemas"]["RecordingShare"];
             /**

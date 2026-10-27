@@ -4603,3 +4603,31 @@ shown without its last bytes. Places are as current as the image (the
 build takes this month's databases) and country-level; an address that
 moved since the recording is shown where it is now. The tab exists only
 where a sidecar reports connections; sessions without a VPN have none.
+
+## 152. Pixel perfect works on recordings
+
+Extends #96 and #106.
+
+**Context.** Testers often find a layout problem after the fact, in a
+recording, when the device is gone. The player draws each frame into a
+canvas the size of the screen, the way a live session does.
+
+**Decision.**
+
+- **A screen source** abstracts where the picture comes from: a live session
+  (stream snapshots, lossless screenshots, native views, WebView DevTools)
+  or a recording (the frame at the playhead, decoded without the touches
+  the player draws). The state, the overlay and the panel are shared; the
+  panel hides what its source lacks: Freeze, native views, DevTools.
+- **Comparing pauses playback** and uses the frame at the playhead; the
+  motion mask takes the next frames by seeking the player and comes back.
+- **Recordings keep the device's screen** (`screen` in their metadata, from
+  the session's capabilities) so dp are exact; older recordings fall back
+  to a 360 dp wide screen.
+- **Only signed-in viewers** get the tab: references belong to a user, so a
+  shared link opened without signing in plays as before.
+
+**Consequences.** A recording's frames are lossy video, so comparisons are
+noisier than with a screenshot; the stream quality while recording decides
+how much.
+

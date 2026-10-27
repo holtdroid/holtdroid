@@ -1,16 +1,9 @@
 import { type QueryClient, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useState, useSyncExternalStore } from "react"
-import {
-  api,
-  type Display,
-  type FigmaLayers,
-  type ReferenceView,
-  sessionBase,
-  type UIHierarchy,
-  unwrap,
-} from "@/api/client"
+import { api, type Display, type FigmaLayers, type ReferenceView, type UIHierarchy, unwrap } from "@/api/client"
 import { keys, referenceLayersQuery } from "@/api/queries"
 import type { LiveScreen } from "@/components/session/live-screen"
+import { type ScreenSource, sessionSource } from "@/components/session/pixel-perfect/source"
 import { blobURL, loadImage, pixelsOf, referencePixels, toCanvas, workSize } from "@/lib/pixel-perfect/capture"
 import { composeReference, hiddenFractions, needsComposite } from "@/lib/pixel-perfect/compose"
 import { areaBox, outside, pxPerDp, type ReferenceLayout } from "@/lib/pixel-perfect/layout"
@@ -24,13 +17,11 @@ import {
   type NativeView,
   placeLayers,
   placeViews,
-  probeViews,
 } from "@/lib/pixel-perfect/elements"
 import { type Box, onScreen, type Placement, placeReference, type Size } from "@/lib/pixel-perfect/geometry"
 import {
   Highlighter,
   matchWebView,
-  probeWebViews,
   type ScreenElement,
   type WebViewMatch,
   type WebViewProbe,
@@ -186,9 +177,7 @@ export class PixelPerfect {
   readonly #composites = new Map<string, Promise<OffscreenCanvas>>()
   readonly #highlighter = new Highlighter()
   constructor(
-    readonly live: LiveScreen,
-    readonly provider: string,
-    readonly id: string,
+    readonly source: ScreenSource,
     readonly queryClient: QueryClient,
   ) {
     this.#state = {
@@ -288,13 +277,13 @@ export class PixelPerfect {
   }
 
   #probe() {
-    if (!this.#state.devtools) return Promise.resolve([] as WebViewProbe[])
-    return probeWebViews(this.provider, this.id).catch(() => [] as WebViewProbe[])
+    if (!this.#state.devtools || !this.source.webviews) return Promise.resolve([] as WebViewProbe[])
+    return this.source.webviews().catch(() => [] as WebViewProbe[])
   }
 
   #views(): Promise<Views> {
-    if (!this.#state.views) return Promise.resolve({ hierarchy: null, error: null })
-    return probeViews(this.provider, this.id).then(
+    if (!this.#state.views || !this.source.views) return Promise.resolve({ hierarchy: null, error: null })
+    return this.source.views().then(
       (hierarchy) => ({ hierarchy, error: null }),
       (e: unknown) => ({ hierarchy: null, error: e instanceof Error ? e.message : String(e) }),
     )
@@ -422,19 +411,18 @@ export class PixelPerfect {
     return p
   }
 
-  async #snapshot() {
-    const blob = await this.live.connection?.snapshot()
-    if (!blob) throw new Error("The screen isn't connected")
-    return blob
+  #snapshot() {
+    return this.source.snapshot()
   }
 
   async #burst(size?: Size) {
-    const blobs: Blob[] = []
-    for (let i = 0; i < burst; i++) {
-      if (i > 0) await sleep(burstGap)
-      blobs.push(await this.#snapshot())
-    }
+    const blobs = await this.source.burst(burst, burstGap)
     return Promise.all(blobs.map((b) => pixelsOf(b, size)))
+  }
+
+  /** The native views on the screen, where the source has them. */
+  readViews() {
+    return this.source.views ? this.source.views() : Promise.reject(new Error("There are no views to read here"))
   }
 
   async freeze() {
@@ -480,15 +468,13 @@ export class PixelPerfect {
     void this.#highlighter.show("", null).catch(() => undefined)
   }
 
-  /** The device's screen at its own resolution. */
+  /** The screen at its own resolution: a screenshot, or the shown frame. */
   async screenshotPixels() {
-    return pixelsOf(await this.#screenshot())
+    return pixelsOf((await this.#screenshot()) ?? (await this.#snapshot()))
   }
 
-  async #screenshot() {
-    const r = await fetch(`${sessionBase(this.provider, this.id)}/v1/device/screenshot`)
-    if (!r.ok) throw new Error(`Screenshot failed (${r.status})`)
-    return r.blob()
+  #screenshot() {
+    return this.source.screenshot()
   }
 
   /** Finds the differences; show switches the tab to them. */
@@ -621,8 +607,12 @@ export class PixelPerfect {
 }
 
 export function usePixelPerfect(live: LiveScreen, provider: string, id: string, display?: Display) {
+  return usePixelPerfectOf(() => sessionSource(live, provider, id), display)
+}
+
+export function usePixelPerfectOf(source: () => ScreenSource, display?: Display) {
   const qc = useQueryClient()
-  const [pp] = useState(() => new PixelPerfect(live, provider, id, qc))
+  const [pp] = useState(() => new PixelPerfect(source(), qc))
   useEffect(() => pp.setDisplay(display), [pp, display])
   useEffect(() => () => pp.dispose(), [pp])
   return pp

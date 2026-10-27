@@ -531,11 +531,12 @@ export function useSessionRecording() {
   )
 }
 
-export function useReferences() {
+export function useReferences(enabled = true) {
   return useQuery({
     queryKey: keys.references,
     queryFn: () => unwrap(api.GET("/api/v1/pixel-perfect")),
     staleTime: 30_000,
+    enabled,
   })
 }
 
