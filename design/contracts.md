@@ -168,8 +168,9 @@ type CutoutShape struct {
 }
 
 type Location struct {
-	ID    string // "pl", "ua", "direct"
-	Label string // "Poland"
+	ID         string   // "pl", "ua", "direct"
+	Label      string   // "Poland"
+	DefaultFor []string // packages that start here instead of DefaultLocation
 }
 
 type Slot struct {

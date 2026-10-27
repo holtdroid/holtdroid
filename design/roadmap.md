@@ -306,6 +306,7 @@ Goal: several Android devices per node instead of one emulator per node.
 - [x] `provider-emulator` renders redroid Pods (`android` + `agent` + `vpn`), `slotsPerNode` and per-node `slots`, slot ids `<node>-<n>`, Android and agent resources; AVD, VirtualGL and the emulator console removed
 - [x] Agent: adb over TCP with reconnects, `adb root`, frida-server reached at `127.0.0.1:27042`, launches from the device found by polling instead of spawn gating (gating stops every process of the node), GPS and battery without a console, the `android` container's cgroup in the metrics bar, GPS and time zone that follow the VPN location
 - [x] VPN without `auto_route`: policy routing added by the agent inside Android, root traffic direct, the agent's IP check through the sidecar's mixed inbound
+- [x] Per-app default VPN location (`vpn.locations[].defaultFor`, decision #137)
 - [x] Session image slimmed to the agent, adb, frida-server and scrcpy-server; the pre-pull DaemonSet pulls the redroid image as an image volume
 - [x] Verified on a k3s node in a scratch namespace: boot in about 6 s, install, the app under Frida, VPN egress through the gateway
 - [x] Isolation on dedicated session nodes (decision #83): egress NetworkPolicy (DNS, the api and the internet only; LAN, nodes and other Pods unreachable from Android), the agent container unprivileged, users' ADB behind `redroid.shell` (allowlist by default, no Terminal tab), Android init kept off the node's sysctls

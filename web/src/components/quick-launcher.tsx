@@ -18,6 +18,8 @@ export function QuickLauncher({ artifact, onFallback }: { artifact: ArtifactView
     null,
     null,
     artifact.minSdk,
+    true,
+    artifact.app?.package,
   )
   const launch = useStartSession()
   const appData = useAppData()

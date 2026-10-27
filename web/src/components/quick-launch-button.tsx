@@ -21,6 +21,8 @@ export function QuickLaunchButton({ artifact }: { artifact: ArtifactView }) {
     null,
     null,
     artifact.minSdk,
+    true,
+    artifact.app?.package,
   )
   const launch = useStartSession()
   const appData = useAppData()

@@ -2446,6 +2446,8 @@ export interface components {
             process?: string;
         };
         Location: {
+            /** @description packages that start in this location instead of the default one */
+            defaultFor?: string[];
             id: string;
             label: string;
         };

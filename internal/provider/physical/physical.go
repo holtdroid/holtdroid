@@ -508,7 +508,7 @@ func (p *Provider) view(ctx context.Context, s *session) contract.Session {
 func (p *Provider) Create(ctx context.Context, req contract.CreateSession) (contract.Session, error) {
 	location := ""
 	if p.cfg.VPN.Enabled() {
-		location = cmp.Or(req.Location, p.cfg.VPN.DefaultLocation())
+		location = cmp.Or(req.Location, p.cfg.VPN.DefaultFor(req.Package))
 	}
 	switch {
 	case !packageName.MatchString(req.Package):

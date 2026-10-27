@@ -30,6 +30,7 @@ export function useLaunchTarget(
   chosenWebView: string | null = null,
   minSdk = 0,
   restore = true,
+  pkg = "",
 ) {
   const providers = useProviders()
   const usable = useMemo(() => (providers.data ?? []).filter((p) => !p.error), [providers.data])
@@ -39,9 +40,11 @@ export function useLaunchTarget(
   const locations = pool
     .flatMap((p) => p.capabilities.locations)
     .filter((l, i, all) => all.findIndex((o) => o.id === l.id) === i)
-  const defaultLocation = pool.find((p) => p.capabilities.defaultLocation)?.capabilities.defaultLocation
+  const appLocation = pkg ? locations.find((l) => l.defaultFor?.includes(pkg))?.id : undefined
+  const defaultLocation = appLocation ?? pool.find((p) => p.capabilities.defaultLocation)?.capabilities.defaultLocation
   const location = [
     chosenLocation,
+    appLocation,
     restore ? lastLocation(provider?.name ?? "") : null,
     defaultLocation,
     locations[0]?.id,

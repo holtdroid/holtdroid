@@ -24,8 +24,9 @@ type DisplayKind string
 const DisplayScrcpy DisplayKind = "scrcpy"
 
 type Location struct {
-	ID    string `json:"id"`
-	Label string `json:"label"`
+	ID         string   `json:"id"`
+	Label      string   `json:"label"`
+	DefaultFor []string `json:"defaultFor,omitempty" doc:"packages that start in this location instead of the default one"`
 }
 
 type Capabilities struct {

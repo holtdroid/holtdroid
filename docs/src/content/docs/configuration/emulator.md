@@ -400,6 +400,7 @@ vpn:
         udp_over_tcp: true
     - id: nl
       label: Netherlands
+      defaultFor: [com.example.app] # this app starts here instead of vpn.default
       outbound: openbao:secret/holtdroid#vpn_nl # the outbound as JSON
 ```
 
@@ -411,7 +412,8 @@ vpn:
 | `vpn.resolver`    | Resolver (IP) for host names inside outbounds. Empty uses the Pod's `/etc/resolv.conf`, but sing-box sends `*.local` names to mDNS, so set your cluster DNS here when outbounds use `*.cluster.local`                                                                                                                     |
 | `vpn.direct`      | Offer a `direct` location (no VPN). Default `true`; set `false` so every session always goes out through a VPN location. Apps then have no network at all while the tunnel is down, instead of falling back to the Pod's own address                                                                                      |
 | `vpn.default`     | Location a session starts in when the user picks none. Default: `direct`, or the first location                                                                                                                                                                                                                           |
-| `vpn.locations`   | `id` (lowercase letters, digits, `-`; quote ids YAML reads as booleans, such as `"no"` for Norway), `label`, and `outbound`                                                                                                                                                                                               |
+| `vpn.locations`   | `id` (lowercase letters, digits, `-`; quote ids YAML reads as booleans, such as `"no"` for Norway), `label`, `outbound`, and optionally `defaultFor`                                                                                                                                                                      |
+| `…[].defaultFor`  | Package names whose sessions start in this location instead of `vpn.default`, e.g. `[com.example.app]`. A package may be listed under one location only                                                                                                                                                                   |
 | `…[].outbound`    | A sing-box outbound or endpoint object without `tag`, or a [secret reference](/holtdroid/configuration/secrets/) whose value is that object as JSON. Inside an object, any string value that is a secret reference (`env:`, `file:`, `openbao:`) is replaced by the secret, at any depth: use that for passwords and keys |
 
 Any outbound works, for example a WireGuard endpoint straight in the sidecar

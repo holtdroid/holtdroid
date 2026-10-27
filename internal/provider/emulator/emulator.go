@@ -463,7 +463,7 @@ func (p *Provider) Create(ctx context.Context, req contract.CreateSession) (cont
 	var vpnConfig []byte
 	switch {
 	case p.cfg.VPN.Enabled():
-		location = cmp.Or(req.Location, p.cfg.VPN.DefaultLocation())
+		location = cmp.Or(req.Location, p.cfg.VPN.DefaultFor(req.Package))
 		var err error
 		if vpnConfig, err = p.cfg.VPN.Render(ctx, p.secrets, location); err != nil {
 			return contract.Session{}, err

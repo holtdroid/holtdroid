@@ -162,6 +162,7 @@ function LaunchFlow({
     chosenWebView,
     artifact.minSdk,
     false,
+    artifact.app?.package,
   )
   const launch = useStartSession()
   const builds = useArtifacts("").data?.items ?? []

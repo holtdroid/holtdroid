@@ -4127,3 +4127,20 @@ agent replaces the round trips within seconds. Phones measure no route, so
 they neither feed nor use the cache. Backends follow the account with
 `sqlite` and the browser with `memory`.
 
+## 137. A VPN location can be the default for chosen apps
+
+**Context.** One deployment wants most sessions to start in one country
+while an app built for another market should start in that market.
+`vpn.default` is a single location for the whole provider.
+
+**Decision.** A location lists the packages it is the default for
+(`vpn.locations[].defaultFor`). The provider starts a session without a
+chosen location in its package's location, or else in `vpn.default`; the
+list rides in `Capabilities.locations[].defaultFor`, so the launch dialog
+and quick launch preselect it ahead of the location remembered in the
+browser. It is a list under the location rather than a package → location
+map because koanf splits keys on dots, which package names contain.
+
+**Consequences.** An app's configured location beats the last one used
+with that provider; picking another one in the dialog still works for that
+launch. A package may sit under one location only (validated).

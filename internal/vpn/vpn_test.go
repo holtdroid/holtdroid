@@ -8,6 +8,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -203,6 +204,12 @@ func TestValidate(t *testing.T) {
 			c.Locations = []Location{{ID: "de", Outbound: gateway("de")}}
 			c.Default = "us"
 		}, "vpn.default"},
+		{"app in two defaults", func(c *Config) {
+			c.Locations = []Location{
+				{ID: "de", Outbound: gateway("de"), DefaultFor: []string{"com.x"}},
+				{ID: "pl", Outbound: gateway("pl"), DefaultFor: []string{"com.x"}},
+			}
+		}, "already the default"},
 		{"direct default without direct", func(c *Config) {
 			c.Locations = []Location{{ID: "de", Outbound: gateway("de")}}
 			c.Direct, c.Default = false, Direct
@@ -230,14 +237,14 @@ func TestOffered(t *testing.T) {
 	}
 	cfg.Locations = []Location{{ID: "de", Label: "Germany", Outbound: gateway("de")}, {ID: "pl", Outbound: gateway("pl")}}
 	want := []contract.Location{{ID: "direct", Label: "Direct"}, {ID: "de", Label: "Germany"}, {ID: "pl", Label: "pl"}}
-	if got := cfg.Offered(); !slices.Equal(got, want) {
+	if got := cfg.Offered(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
 	if got := cfg.DefaultLocation(); got != Direct {
 		t.Fatalf("default with direct: %q", got)
 	}
 	cfg.Direct = false
-	if got := cfg.Offered(); !slices.Equal(got, want[1:]) {
+	if got := cfg.Offered(); !reflect.DeepEqual(got, want[1:]) {
 		t.Fatalf("without direct: got %v", got)
 	}
 	if got := cfg.DefaultLocation(); got != "de" {
@@ -249,6 +256,16 @@ func TestOffered(t *testing.T) {
 	}
 	if got := DefaultConfig().DefaultLocation(); got != "" {
 		t.Fatalf("default while disabled: %q", got)
+	}
+	cfg.Locations[0].DefaultFor = []string{"com.example.bet"}
+	if got := cfg.Offered()[0].DefaultFor; !slices.Equal(got, []string{"com.example.bet"}) {
+		t.Fatalf("offered defaultFor: %v", got)
+	}
+	if got := cfg.DefaultFor("com.example.bet"); got != "de" {
+		t.Fatalf("app default: %q", got)
+	}
+	if got := cfg.DefaultFor("com.example.other"); got != "pl" {
+		t.Fatalf("other app: %q", got)
 	}
 }
 

@@ -60,6 +60,8 @@ type Location struct {
 	Geo *GeoArea
 	// Timezone is the IANA zone set with the location (e.g. Europe/Kyiv).
 	Timezone string
+	// DefaultFor lists packages that start here instead of in Default.
+	DefaultFor []string
 }
 
 // GeoArea is a circle a faked GPS position is placed in at random.
@@ -94,7 +96,14 @@ func (c Config) Validate() error {
 	}
 	var errs []error
 	seen := map[string]bool{}
+	apps := map[string]string{}
 	for i, l := range c.Locations {
+		for _, pkg := range l.DefaultFor {
+			if other, ok := apps[pkg]; ok {
+				errs = append(errs, fmt.Errorf("vpn.locations[%d].defaultFor: %q is already the default of %q", i, pkg, other))
+			}
+			apps[pkg] = l.ID
+		}
 		switch {
 		case !locationID.MatchString(l.ID):
 			errs = append(errs, fmt.Errorf("vpn.locations[%d]: id %q must be lowercase letters, digits and dashes", i, l.ID))
@@ -154,7 +163,7 @@ func (c Config) Offered() []contract.Location {
 		out = append(out, contract.Location{ID: Direct, Label: "Direct"})
 	}
 	for _, l := range c.Locations {
-		out = append(out, contract.Location{ID: l.ID, Label: cmp.Or(l.Label, l.ID)})
+		out = append(out, contract.Location{ID: l.ID, Label: cmp.Or(l.Label, l.ID), DefaultFor: l.DefaultFor})
 	}
 	return out
 }
@@ -169,6 +178,16 @@ func (c Config) DefaultLocation() string {
 		return c.Default
 	}
 	return offered[0].ID
+}
+
+// DefaultFor is where a session of pkg starts without an explicit choice.
+func (c Config) DefaultFor(pkg string) string {
+	for _, l := range c.Locations {
+		if slices.Contains(l.DefaultFor, pkg) {
+			return l.ID
+		}
+	}
+	return c.DefaultLocation()
 }
 
 func (c Config) initial(location string) (string, error) {
