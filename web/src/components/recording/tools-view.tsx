@@ -110,7 +110,9 @@ export function RecordingTools({
     () =>
       svgSources(
         log.requests,
-        log.images.flatMap((s) => (s.svgs?.length ? [{ target: s.target, url: s.url ?? "", svgs: s.svgs }] : [])),
+        log.images.flatMap((s) =>
+          s.svgs?.length ? [{ target: s.target, frame: s.frame, url: s.url ?? "", svgs: s.svgs }] : [],
+        ),
       ),
     [log],
   )

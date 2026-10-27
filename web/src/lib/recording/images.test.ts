@@ -81,7 +81,7 @@ describe("backgroundSize", () => {
 })
 
 test("neededFor scales boxes by the screen's density and fits", () => {
-  const at = { at: 0, dpr: 2.5, target: "P1" }
+  const at = { at: 0, dpr: 2.5, target: "P1", frame: "" }
   expect(neededFor({ ...use("a.png", { width: 32, height: 32 }), ...at })).toEqual({ width: 80, height: 80 })
   expect(
     neededFor({
@@ -234,4 +234,26 @@ describe("analyzeImages", () => {
     })
     expect(report.entries).toEqual([])
   })
+})
+
+test("an iframe in the page's process counts as drawing its images, apart from the page's own elements", () => {
+  const report = analyzeImages({
+    requests: [req("pay.png", 1000)],
+    shots: [
+      shot(1500, [use("pay.png", { element: 1, width: 40, height: 40 })]),
+      {
+        ...shot(1600, [use("pay.png", { element: 1, width: 80, height: 80, shown: true })]),
+        frame: "CHILD",
+        url: "https://pay.example.net/",
+      },
+    ],
+    now: 30_000,
+  })
+  expect(report.findings.filter((f) => f.rule === "unused" || f.rule === "offscreen")).toEqual([])
+  const e = report.entries[0]!
+  expect(e.uses.map((u) => [u.frame, u.element, u.shown ?? false])).toEqual([
+    ["", 1, false],
+    ["CHILD", 1, true],
+  ])
+  expect(e.needed).toEqual({ width: 160, height: 160 })
 })

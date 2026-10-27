@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"math"
 	"slices"
 	"strconv"
@@ -61,6 +62,7 @@ type cdpPage struct {
 	early     map[string]*cdpExtra
 	redirects map[string]int
 	sockets   map[string]*cdpSocket
+	frames    map[int]string
 }
 
 type cdpRequest struct {
@@ -93,6 +95,7 @@ func newCDPPage(target string, sink devtoolsSink) *cdpPage {
 	return &cdpPage{
 		target: target, kind: "page", sink: sink, slots: make(chan struct{}, 4),
 		requests: map[string]*cdpRequest{}, early: map[string]*cdpExtra{}, redirects: map[string]int{}, sockets: map[string]*cdpSocket{},
+		frames: map[int]string{},
 	}
 }
 
@@ -301,6 +304,34 @@ func (p *cdpPage) handle(method string, raw json.RawMessage) {
 		}
 	}
 	switch method {
+	case "Runtime.executionContextCreated":
+		var e struct {
+			Context struct {
+				ID      int `json:"id"`
+				AuxData struct {
+					IsDefault bool   `json:"isDefault"`
+					FrameID   string `json:"frameId"`
+				} `json:"auxData"`
+			} `json:"context"`
+		}
+		if json.Unmarshal(raw, &e) == nil && e.Context.AuxData.IsDefault && e.Context.AuxData.FrameID != "" {
+			p.mu.Lock()
+			p.frames[e.Context.ID] = e.Context.AuxData.FrameID
+			p.mu.Unlock()
+		}
+	case "Runtime.executionContextDestroyed":
+		var e struct {
+			ID int `json:"executionContextId"`
+		}
+		if json.Unmarshal(raw, &e) == nil {
+			p.mu.Lock()
+			delete(p.frames, e.ID)
+			p.mu.Unlock()
+		}
+	case "Runtime.executionContextsCleared":
+		p.mu.Lock()
+		clear(p.frames)
+		p.mu.Unlock()
 	case "Network.requestWillBeSent":
 		var e struct {
 			RequestID string  `json:"requestId"`
@@ -795,9 +826,10 @@ func (p *cdpPage) responseBody(ctx context.Context, requestID string, limit int)
 //go:embed imagescan.js
 var imageScan string
 
-// watchImages asks a page every second which images it draws where, and
-// writes a line when that changed. The script keeps what it reported in
-// the page, so a navigation starts over with everything on the new page.
+// watchImages asks a page and each frame in its process every second which
+// images it draws where, and writes a line when that changed. The script
+// keeps what it reported in the frame, so a navigation starts over with
+// everything on the new page.
 func (p *cdpPage) watchImages(ctx context.Context) {
 	if p.kind != "page" && p.kind != "iframe" {
 		return
@@ -812,6 +844,8 @@ func (p *cdpPage) watchImages(ctx context.Context) {
 		}
 		p.mu.Lock()
 		closed, call := p.page.Closed, p.call
+		frames := make(map[int]string, len(p.frames))
+		maps.Copy(frames, p.frames)
 		p.mu.Unlock()
 		if closed {
 			return
@@ -819,20 +853,34 @@ func (p *cdpPage) watchImages(ctx context.Context) {
 		if call == nil {
 			continue
 		}
-		res, err := call(ctx, "Runtime.evaluate", map[string]any{"expression": imageScan, "returnByValue": true, "silent": true})
-		if err != nil {
-			continue
+		if len(frames) == 0 {
+			p.scanImages(ctx, call, 0, "")
 		}
-		var r struct {
-			Result struct {
-				Value *contract.DevToolsImages `json:"value"`
-			} `json:"result"`
+		for id, frame := range frames {
+			p.scanImages(ctx, call, id, frame)
 		}
-		if json.Unmarshal(res, &r) != nil || r.Result.Value == nil {
-			continue
-		}
-		p.emit(contract.DevToolsEntry{Type: contract.DevToolsImagesEntry, Images: r.Result.Value})
 	}
+}
+
+func (p *cdpPage) scanImages(ctx context.Context, call func(context.Context, string, any) (json.RawMessage, error), contextID int, frame string) {
+	params := map[string]any{"expression": imageScan, "returnByValue": true, "silent": true}
+	if contextID != 0 {
+		params["contextId"] = contextID
+	}
+	res, err := call(ctx, "Runtime.evaluate", params)
+	if err != nil {
+		return
+	}
+	var r struct {
+		Result struct {
+			Value *contract.DevToolsImages `json:"value"`
+		} `json:"result"`
+	}
+	if json.Unmarshal(res, &r) != nil || r.Result.Value == nil {
+		return
+	}
+	r.Result.Value.Frame = frame
+	p.emit(contract.DevToolsEntry{Type: contract.DevToolsImagesEntry, Images: r.Result.Value})
 }
 
 const jsonFunction = `function(){try{const s=JSON.stringify(this,(k,v)=>typeof v==="bigint"?v.toString():v);return s===undefined||s.length>` + "65536" + `?undefined:s}catch(e){return undefined}}`

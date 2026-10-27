@@ -91,7 +91,7 @@ function sourceKind(r: DevToolsRequest): SvgSourceKind | undefined {
  */
 export function svgSources(
   requests: (DevToolsRequest & { key: string })[],
-  inline: { target: string; url: string; svgs: string[] }[] = [],
+  inline: { target: string; frame?: string; url: string; svgs: string[] }[] = [],
 ): SvgSource[] {
   const byURL = new Map<string, SvgSource>()
   for (const r of requests) {
@@ -113,10 +113,11 @@ export function svgSources(
   const sources = [...byURL.values()]
   const dom = new Map<string, { url: string; parts: Set<string> }>()
   for (const s of inline) {
-    const page = dom.get(s.target) ?? { url: s.url, parts: new Set<string>() }
+    const key = s.frame ? `${s.target}/${s.frame}` : s.target
+    const page = dom.get(key) ?? { url: s.url, parts: new Set<string>() }
     for (const svg of s.svgs) page.parts.add(svg)
     if (s.url) page.url = s.url
-    dom.set(s.target, page)
+    dom.set(key, page)
   }
   for (const [target, page] of dom) {
     sources.push({

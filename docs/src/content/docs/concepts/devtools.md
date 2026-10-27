@@ -104,7 +104,7 @@ WebSockets tab.
 
 The **Images** and **SVG** tabs do the same for the [recording player's
 Images and SVG paths](/concepts/recordings/#images) checks, all the time and
-not only while recording. The agent asks each page once a second which
+not only while recording. The agent asks each page and iframe once a second which
 images it draws where, and keeps those lines with the requests. The bodies
 come from the WebView while it still has them (it keeps 32 MB, 2 MB a
 file): the newest 300 images, to measure them as WebP, and the newest 200

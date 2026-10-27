@@ -4778,7 +4778,8 @@ work on the device, more on pages with thousands of elements whose classes
 keep changing. Recordings with many images grow by their bodies. Images
 drawn only in canvases, CSS masks or `border-image` aren't seen, so they
 count as drawn nowhere. Same-process iframes are part of their parent's
-DOM, which the script doesn't descend into. The SVG savings are before
+DOM, which the script doesn't descend into (superseded by decision #158).
+The SVG savings are before
 compression, which takes off much of the repetition. Live, a body the
 WebView already dropped (past its 32 MB of buffered responses) can't be
 measured or searched.
@@ -4815,3 +4816,29 @@ edges have no such endpoint and TLS hides the headers), only **anycast**.
 The probe is one request per host and location through the location,
 visible in the host's Cloudflare analytics. The site table is refreshed by
 hand like `cdn.txt`. A site the table doesn't know shows its code.
+
+
+## 158. Every frame's images are scanned, and on screen means the phone's screen
+
+**Context.** Decision #156 evaluated the image scan in each target's main
+document only. Android WebView keeps most iframes in the page's process,
+so they are no target of their own, and their images, loaded through the
+page's target, were flagged as drawn nowhere. Checking the viewport from
+inside an iframe would also call an image on screen while the iframe
+itself is scrolled away.
+
+**Decision.** The agent keeps each target's default execution contexts
+(`Runtime.executionContextCreated` with `auxData.isDefault`, dropped on
+`executionContextDestroyed` and `executionContextsCleared`) and evaluates
+`imagescan.js` in each by `contextId`, which reaches cross-origin frames the
+page's script can't. Each `images` line carries the frame's id (`frame`), and
+the analysis tells elements apart by target, frame and element number. The
+script decides "shown" with an `IntersectionObserver` without a root, whose
+implicit root is the top-level viewport, so an iframe's clipping and
+position count; without one it falls back to the frame's own viewport.
+A target without known contexts is scanned as before.
+
+**Consequences.** An image is reported on screen a second after it gets
+there, once the observer has called back. A page with many iframes costs
+one evaluation per frame per second.
+

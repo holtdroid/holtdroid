@@ -16,6 +16,14 @@
     let dirty = true
     let scanned = -Infinity
     let backgrounds = []
+    const inView = new WeakMap()
+    const observed = new WeakSet()
+    const io =
+      typeof IntersectionObserver === "function"
+        ? new IntersectionObserver((entries) => {
+            for (const e of entries) inView.set(e.target, e.isIntersecting)
+          })
+        : null
     new MutationObserver(() => (dirty = true)).observe(document, {
       subtree: true,
       childList: true,
@@ -62,7 +70,12 @@
           r.width > 0 &&
           r.height > 0 &&
           (!el.checkVisibility || el.checkVisibility({ opacityProperty: true, visibilityProperty: true }))
-        const shown = rendered && r.bottom > 0 && r.right > 0 && r.top < vh && r.left < vw
+        if (io && !observed.has(el)) {
+          observed.add(el)
+          io.observe(el)
+        }
+        const shown =
+          rendered && (io ? inView.get(el) === true : r.bottom > 0 && r.right > 0 && r.top < vh && r.left < vw)
         const w = Math.round(r.width * 10) / 10
         const h = Math.round(r.height * 10) / 10
         const [nw, nh] = natural ? natural() : [0, 0]

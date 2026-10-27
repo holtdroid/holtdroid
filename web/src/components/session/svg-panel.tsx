@@ -25,7 +25,7 @@ export function SvgPanel({ provider, id }: { provider: string; id: string }) {
     () =>
       svgSources(
         withBodies,
-        inline.map((s) => ({ target: s.target, url: s.url ?? "", svgs: s.svgs ?? [] })),
+        inline.map((s) => ({ target: s.target, frame: s.frame, url: s.url ?? "", svgs: s.svgs ?? [] })),
       ),
     // oxlint-disable-next-line react-hooks/exhaustive-deps
     [sig],

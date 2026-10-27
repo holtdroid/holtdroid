@@ -800,6 +800,8 @@ export interface components {
              * @description device pixels per CSS pixel
              */
             dpr: number;
+            /** @description the frame it was drawn in, an iframe's or the page's own; none in recordings made before frames were told apart */
+            frame?: string;
             /** Format: double */
             height: number;
             /** @description markup of inline <svg> elements new since the last line, each at most 64 KB */

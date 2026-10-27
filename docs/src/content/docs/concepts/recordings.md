@@ -242,11 +242,13 @@ tab does the same as the requests finish (see
 
 ### Images
 
-While it records, the agent asks every page once a second which images it
-draws: each `<img>` (its chosen `srcset` candidate), CSS background (also on
+While it records, the agent asks every page and every iframe in it once a
+second which images it draws: each `<img>` (its chosen `srcset` candidate), CSS background (also on
 `::before` and `::after`), SVG `<image>`, video poster and image button, with
 the box it is drawn in, `object-fit` or `background-size`, the screen's
-density, and whether it is on screen, off screen or hidden. A line is
+density, and whether it is on screen, off screen or hidden. On screen means
+inside the phone's screen: an image in an iframe that is scrolled away or
+clipped by the page counts as off screen. A line is
 written only when something changes. The **Images** tab puts that next to
 the recorded image requests. The top row counts the images, what they took
 to download, what loaded without being shown, and what could be saved if

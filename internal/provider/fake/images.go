@@ -82,7 +82,7 @@ func (a fakeAsset) request(now time.Time, start int64, withBody bool) contract.D
 // fakeImages is what the shop page draws: the hero below the fold until
 // heroShown, the icons as a CSS background and an inline SVG.
 func fakeImages(heroShown bool) *contract.DevToolsImages {
-	im := &contract.DevToolsImages{URL: fakeShop, Width: 412, Height: 915, DPR: 2.625}
+	im := &contract.DevToolsImages{URL: fakeShop, Frame: "F1", Width: 412, Height: 915, DPR: 2.625}
 	if heroShown {
 		im.Uses = []contract.DevToolsImageUse{{Element: 2, Src: fakeShop + "img/hero.jpg", Kind: "img", Width: 380, Height: 213.8, NaturalWidth: 1280, NaturalHeight: 720, Fit: "cover", Shown: true}}
 		return im

@@ -176,3 +176,18 @@ describe("analyzeSvg", () => {
     expect(report.summary.optimized).toBe(true)
   })
 })
+
+test("svgSources keeps each frame's inline SVGs apart", () => {
+  const svg = `<svg><path d="${cart}"/></svg>`
+  const sources = svgSources(
+    [],
+    [
+      { target: "P1", url: "https://a.example/", svgs: [svg] },
+      { target: "P1", frame: "CHILD", url: "https://pay.example.net/", svgs: [svg] },
+    ],
+  )
+  expect(sources.map((s) => [s.key, s.label])).toEqual([
+    ["dom:P1", "Inline SVG · a.example"],
+    ["dom:P1/CHILD", "Inline SVG · pay.example.net"],
+  ])
+})

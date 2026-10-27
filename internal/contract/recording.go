@@ -284,6 +284,7 @@ type DevToolsFrame struct {
 // added.
 type DevToolsImages struct {
 	URL    string             `json:"url,omitempty" doc:"the document"`
+	Frame  string             `json:"frame,omitempty" doc:"the frame it was drawn in, an iframe's or the page's own; none in recordings made before frames were told apart"`
 	Width  float64            `json:"width" doc:"the viewport in CSS pixels"`
 	Height float64            `json:"height"`
 	DPR    float64            `json:"dpr" doc:"device pixels per CSS pixel"`

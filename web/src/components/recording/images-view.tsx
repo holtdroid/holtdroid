@@ -162,7 +162,10 @@ function ImageDetails({
         <Section title={`Drawn by · ${e.uses.length}`}>
           <div className="max-h-48 overflow-auto text-[12.5px]">
             {e.uses.map((u) => (
-              <div key={`${u.target}/${u.element}/${u.kind}`} className="flex items-center gap-2 px-2 py-[3px]">
+              <div
+                key={`${u.target}/${u.frame}/${u.element}/${u.kind}`}
+                className="flex items-center gap-2 px-2 py-[3px]"
+              >
                 {time(u.at)}
                 <span className="w-28 shrink-0 text-stage-on-surface">{kindLabel[u.kind] ?? u.kind}</span>
                 <span className="min-w-0 flex-1 truncate text-stage-on-surface-variant tabular-nums">

@@ -634,3 +634,52 @@ func TestDevToolsWatchHandsOutBodies(t *testing.T) {
 		t.Fatalf("missing target: %v", err)
 	}
 }
+
+func TestCDPPageWatchesImagesInEveryFrame(t *testing.T) {
+	sink := &devtoolsLines{t: 1000}
+	pg := newCDPPage("P1", sink)
+	var mu sync.Mutex
+	asked := map[int]int{}
+	pg.call = func(_ context.Context, _ string, params any) (json.RawMessage, error) {
+		id, _ := params.(map[string]any)["contextId"].(int)
+		mu.Lock()
+		asked[id]++
+		mu.Unlock()
+		return json.Marshal(map[string]any{"result": map[string]any{"type": "object", "value": map[string]any{
+			"url": fmt.Sprintf("https://frame%d.example/", id), "width": 300, "height": 200, "dpr": 2,
+			"uses": []map[string]any{{"element": 1, "src": "https://cdn.example/a.png", "kind": "img", "width": 10, "height": 10}},
+		}}})
+	}
+	cdpEvent(t, pg, "Runtime.executionContextCreated", `{"context":{"id":1,"auxData":{"isDefault":true,"frameId":"MAIN"}}}`)
+	cdpEvent(t, pg, "Runtime.executionContextCreated", `{"context":{"id":2,"auxData":{"isDefault":true,"frameId":"CHILD"}}}`)
+	cdpEvent(t, pg, "Runtime.executionContextCreated", `{"context":{"id":3,"auxData":{"isDefault":false,"frameId":"MAIN"}}}`)
+	cdpEvent(t, pg, "Runtime.executionContextCreated", `{"context":{"id":4,"auxData":{"isDefault":true,"frameId":"GONE"}}}`)
+	cdpEvent(t, pg, "Runtime.executionContextDestroyed", `{"executionContextId":4}`)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan struct{})
+	go func() {
+		pg.watchImages(ctx)
+		close(done)
+	}()
+	waitLines(t, sink, func() bool { return len(sink.of(contract.DevToolsImagesEntry)) >= 2 })
+	cancel()
+	<-done
+	frames := map[string]string{}
+	for _, l := range sink.of(contract.DevToolsImagesEntry) {
+		frames[l.Images.Frame] = l.Images.URL
+	}
+	if frames["MAIN"] != "https://frame1.example/" || frames["CHILD"] != "https://frame2.example/" || len(frames) != 2 {
+		t.Fatalf("frames %v", frames)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if asked[0] != 0 || asked[3] != 0 || asked[4] != 0 {
+		t.Fatalf("evaluated in %v", asked)
+	}
+
+	cdpEvent(t, pg, "Runtime.executionContextsCleared", `{}`)
+	if len(pg.frames) != 0 {
+		t.Fatalf("frames after clear %v", pg.frames)
+	}
+}

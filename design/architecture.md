@@ -830,7 +830,7 @@ and makes each attach its own children; a WebView without a browser target
 gets its pages followed one by one. It tracks open sockets and requests in
 flight all the time but writes lines only while a recording runs, starting
 with the targets and sockets already open. It writes requests (with bodies up to 1 MB, images up to 512 KB, none for media and fonts),
-what each page and iframe draws of its images (`images` lines: an `imagescan.js` evaluated
+what each page and iframe draws of its images (`images` lines: an `imagescan.js` evaluated in every frame's default context
 every second keeps in the page what it reported and returns the changes and new inline SVGs),
 console messages with their objects as JSON, exceptions, browser messages,
 and WebSocket and EventSource frames. A socket whose frames look like video

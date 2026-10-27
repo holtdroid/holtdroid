@@ -7,7 +7,7 @@ export type Severity = "error" | "warning" | "info"
 /** A request on the analysis clock: `at` is when it finished, in recording time or the device clock. */
 export type ImageRequest = DevToolsRequest & { key: string; target: string; at: number }
 export type ImageShot = DevToolsImages & { target: string; at: number }
-export type ImageUseAt = DevToolsImageUse & { at: number; dpr: number; target: string }
+export type ImageUseAt = DevToolsImageUse & { at: number; dpr: number; target: string; frame: string }
 
 /** What the browser made of the image: its size, and how big it gets as WebP at quality 85, whole and at the size drawn. */
 export type ImageMeasure = {
@@ -200,7 +200,7 @@ export function analyzeImages({
     for (const u of s.uses ?? []) {
       const url = bareURL(u.src)
       const list = uses.get(url) ?? []
-      list.push({ ...u, at: s.at, dpr: s.dpr || 1, target: s.target })
+      list.push({ ...u, at: s.at, dpr: s.dpr || 1, target: s.target, frame: s.frame ?? "" })
       uses.set(url, list)
     }
   }
@@ -393,7 +393,7 @@ export function analyzeImages({
 function firstUses(all: ImageUseAt[]) {
   const byElement = new Map<string, ImageUseAt>()
   for (const u of all) {
-    const k = `${u.target}/${u.element}/${u.kind}`
+    const k = `${u.target}/${u.frame}/${u.element}/${u.kind}`
     const prev = byElement.get(k)
     if (!prev) byElement.set(k, u)
     else
