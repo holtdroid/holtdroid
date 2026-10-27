@@ -67,8 +67,10 @@ where the addresses are now.
 
 ## Limits
 
-- Connections are read once a second: one shorter than that may be
-  missing, or shown without its last bytes.
+- Emulator sessions see every connection as it opens and closes, however
+  short, with its final bytes. On [phones](/holtdroid/configuration/phones/)
+  the open connections are read four times a second, so one shorter than
+  that may be missing, or shown without its last bytes.
 - Places are per country, from the [DB-IP Lite](https://db-ip.com)
   databases in the portal's image (`geoIP` in the
   [configuration](/holtdroid/configuration/overview/#ip-geolocation)); a

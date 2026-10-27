@@ -518,8 +518,8 @@ export interface components {
             text: string;
         };
         Connection: {
-            /** @description the server's IP address */
-            address: string;
+            /** @description the server's IP address; none when the device asked a proxy for a name */
+            address?: string;
             /**
              * Format: int64
              * @description bytes received

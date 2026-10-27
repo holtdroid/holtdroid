@@ -1,5 +1,6 @@
-// Package conns follows the device's connections through snapshots of the
-// VPN sidecar's open ones, as the clash API lists them.
+// Package conns follows the device's connections as the VPN sidecar
+// reports them: events from sing-box's API service, or snapshots of the
+// clash API's open connections where there is no such service.
 package conns
 
 import (
@@ -20,87 +21,119 @@ const (
 	subscriberCh = 1024
 )
 
-// Source returns the connections open now.
-type Source func(ctx context.Context) ([]contract.Connection, error)
-
 type tracked struct {
 	c    contract.Connection
 	sent time.Time
-	up   int64
-	down int64
 }
 
 type Tracker struct {
-	src Source
 	log *slog.Logger
 	now func() time.Time
 
 	mu     sync.Mutex
 	open   map[string]*tracked
 	closed []contract.Connection
+	seen   map[string]bool
 	subs   map[chan contract.Connection]struct{}
 }
 
-func New(src Source, log *slog.Logger) *Tracker {
-	return &Tracker{src: src, log: log, now: time.Now, open: map[string]*tracked{}, subs: map[chan contract.Connection]struct{}{}}
-}
-
-func (t *Tracker) Run(ctx context.Context, every time.Duration) {
-	tick := time.NewTicker(every)
-	defer tick.Stop()
-	failing := false
-	for {
-		err := t.Poll(ctx)
-		if err != nil && !failing && ctx.Err() == nil {
-			t.log.Warn("connections: read the sidecar's", "err", err)
-		}
-		failing = err != nil
-		select {
-		case <-ctx.Done():
-			return
-		case <-tick.C:
-		}
+func New(log *slog.Logger) *Tracker {
+	return &Tracker{
+		log: log, now: time.Now,
+		open: map[string]*tracked{}, seen: map[string]bool{}, subs: map[chan contract.Connection]struct{}{},
 	}
 }
 
-// Poll compares a snapshot with the last one. A failed snapshot keeps the
-// open connections as they were, since the sidecar may only be restarting.
-func (t *Tracker) Poll(ctx context.Context) error {
-	snap, err := t.src(ctx)
-	if err != nil {
-		return err
-	}
-	now := t.now()
+// Open adds a connection; one already known is left as it is.
+func (t *Tracker) Open(c contract.Connection) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	seen := make(map[string]bool, len(snap))
-	for _, c := range snap {
-		seen[c.ID] = true
-		tr, ok := t.open[c.ID]
-		if !ok {
-			t.open[c.ID] = &tracked{c: c, sent: now, up: c.Upload, down: c.Download}
-			t.publish(c)
-			continue
-		}
-		tr.c.Upload, tr.c.Download = c.Upload, c.Download
-		if (c.Upload != tr.up || c.Download != tr.down) && now.Sub(tr.sent) >= updateEvery {
-			tr.sent, tr.up, tr.down = now, c.Upload, c.Download
-			t.publish(tr.c)
-		}
+	t.openLocked(c)
+}
+
+func (t *Tracker) openLocked(c contract.Connection) {
+	if _, ok := t.open[c.ID]; ok || t.seen[c.ID] {
+		return
 	}
-	for id, tr := range t.open {
-		if seen[id] {
-			continue
-		}
-		delete(t.open, id)
-		tr.c.End = now
-		t.closed = append(t.closed, tr.c)
-		if len(t.closed) > backlog {
-			t.closed = slices.Delete(t.closed, 0, len(t.closed)-backlog)
-		}
+	t.open[c.ID] = &tracked{c: c, sent: t.now()}
+	t.publish(c)
+}
+
+// Traffic sets an open connection's bytes so far; a line goes out at most
+// every updateEvery.
+func (t *Tracker) Traffic(id string, upload, download int64) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	tr, ok := t.open[id]
+	if !ok || tr.c.Upload == upload && tr.c.Download == download {
+		return
+	}
+	tr.c.Upload, tr.c.Download = upload, download
+	if now := t.now(); now.Sub(tr.sent) >= updateEvery {
+		tr.sent = now
 		t.publish(tr.c)
 	}
-	return nil
+}
+
+// Close ends a connection at end. final, when known, carries its last
+// bytes, and adds a connection that closed before it was ever seen open.
+func (t *Tracker) Close(id string, end time.Time, final *contract.Connection) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.closeLocked(id, end, final)
+}
+
+func (t *Tracker) closeLocked(id string, end time.Time, final *contract.Connection) {
+	c := final
+	if tr, ok := t.open[id]; ok {
+		delete(t.open, id)
+		if c == nil {
+			c = &tr.c
+		}
+	}
+	if c == nil || t.seen[id] {
+		return
+	}
+	done := *c
+	done.End = end
+	t.seen[id] = true
+	t.closed = append(t.closed, done)
+	if len(t.closed) > backlog {
+		for _, old := range t.closed[:len(t.closed)-backlog] {
+			delete(t.seen, old.ID)
+		}
+		t.closed = slices.Delete(t.closed, 0, len(t.closed)-backlog)
+	}
+	t.publish(done)
+}
+
+// Sync compares a snapshot of the open connections with what is known:
+// new ones open, missing ones close now.
+func (t *Tracker) Sync(snap []contract.Connection) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	now := t.now()
+	present := make(map[string]bool, len(snap))
+	for _, c := range snap {
+		present[c.ID] = true
+		if _, ok := t.open[c.ID]; !ok {
+			t.openLocked(c)
+			continue
+		}
+		tr := t.open[c.ID]
+		if tr.c.Upload != c.Upload || tr.c.Download != c.Download {
+			tr.c.Upload, tr.c.Download = c.Upload, c.Download
+			if now.Sub(tr.sent) >= updateEvery {
+				tr.sent = now
+				t.publish(tr.c)
+			}
+		}
+	}
+	for id := range t.open {
+		if !present[id] {
+			t.closeLocked(id, now, nil)
+		}
+	}
 }
 
 func (t *Tracker) publish(c contract.Connection) {
@@ -112,7 +145,7 @@ func (t *Tracker) publish(c contract.Connection) {
 	}
 }
 
-func (t *Tracker) openLocked() []contract.Connection {
+func (t *Tracker) openList() []contract.Connection {
 	out := make([]contract.Connection, 0, len(t.open))
 	for _, tr := range t.open {
 		out = append(out, tr.c)
@@ -127,7 +160,7 @@ func (t *Tracker) openLocked() []contract.Connection {
 // line.
 func (t *Tracker) Watch(ctx context.Context, send func(contract.Connection) error) error {
 	t.mu.Lock()
-	first := append(slices.Clone(t.closed), t.openLocked()...)
+	first := append(slices.Clone(t.closed), t.openList()...)
 	ch, cancel := t.subscribeLocked()
 	t.mu.Unlock()
 	defer cancel()
@@ -154,7 +187,7 @@ func (t *Tracker) Subscribe() (<-chan contract.Connection, func()) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	ch, cancel := t.subscribeLocked()
-	for _, c := range t.openLocked() {
+	for _, c := range t.openList() {
 		select {
 		case ch <- c:
 		default:
@@ -170,5 +203,27 @@ func (t *Tracker) subscribeLocked() (chan contract.Connection, func()) {
 		t.mu.Lock()
 		delete(t.subs, ch)
 		t.mu.Unlock()
+	}
+}
+
+// Poll follows snapshots from src every period until ctx ends, for a
+// sidecar with only the clash API.
+func (t *Tracker) Poll(ctx context.Context, src func(context.Context) ([]contract.Connection, error), every time.Duration) {
+	tick := time.NewTicker(every)
+	defer tick.Stop()
+	failing := false
+	for {
+		snap, err := src(ctx)
+		if err == nil {
+			t.Sync(snap)
+		} else if !failing && ctx.Err() == nil {
+			t.log.Warn("connections: read the sidecar's", "err", err)
+		}
+		failing = err != nil
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick.C:
+		}
 	}
 }

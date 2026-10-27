@@ -22,6 +22,9 @@ const (
 	Direct   = "direct"
 	Selector = "select"
 	ClashAPI = "127.0.0.1:9090"
+	// ConnectionsAPI is sing-box's API service, which streams connections
+	// as they open and close (decision #153).
+	ConnectionsAPI = "127.0.0.1:9091"
 	// Proxy is the sidecar's mixed inbound, for the agent's own requests
 	// that must leave through the location (its traffic skips the tun).
 	Proxy = "127.0.0.1:7890"
@@ -227,7 +230,7 @@ func (c Config) Render(ctx context.Context, sec Secrets, location string) ([]byt
 		{"protocol": "dns", "action": "route", "outbound": dnsForwarder, "override_address": "127.0.0.1", "override_port": 10053},
 	}
 	extra := []obj{{"type": "direct", "tag": dnsForwarder, "bind_interface": "lo"}}
-	return c.render(ctx, sec, location, inbounds, rules, extra, ClashAPI, "eth0")
+	return c.render(ctx, sec, location, inbounds, rules, extra, ClashAPI, ConnectionsAPI, "eth0")
 }
 
 const (
@@ -266,13 +269,13 @@ func (c Config) RenderProxy(ctx context.Context, sec Secrets, location string, l
 		{"ip_cidr": tunnelDNS, "action": "reject"},
 		{"ip_cidr": c.BypassCIDRs, "outbound": bypass},
 	}
-	return c.render(ctx, sec, location, inbound, rules, []obj{{"type": "direct", "tag": bypass}}, clash, "")
+	return c.render(ctx, sec, location, inbound, rules, []obj{{"type": "direct", "tag": bypass}}, clash, "", "")
 }
 
 // render binds outbounds to iface behind a tun, where they would otherwise
 // loop; a phone's sing-box runs in the host's network, and binding there
 // would route cluster addresses (the resolver) past the pod network.
-func (c Config) render(ctx context.Context, sec Secrets, location string, inbounds, rules, extra []obj, clash, iface string) ([]byte, error) {
+func (c Config) render(ctx context.Context, sec Secrets, location string, inbounds, rules, extra []obj, clash, api, iface string) ([]byte, error) {
 	if !c.Enabled() {
 		return nil, errors.New("vpn: no locations configured")
 	}
@@ -321,6 +324,10 @@ func (c Config) render(ctx context.Context, sec Secrets, location string, inboun
 	if iface != "" {
 		route["default_interface"] = iface
 	}
+	var services []obj
+	if a, err := netip.ParseAddrPort(api); err == nil {
+		services = append(services, obj{"type": "api", "tag": "api", "listen": a.Addr().String(), "listen_port": a.Port(), "dashboard": false})
+	}
 	return json.MarshalIndent(sidecar{
 		Log: obj{"level": "warn", "timestamp": true},
 		DNS: obj{
@@ -335,6 +342,7 @@ func (c Config) render(ctx context.Context, sec Secrets, location string, inboun
 		Outbounds:    outbounds,
 		Endpoints:    endpoints,
 		Route:        route,
+		Services:     services,
 		Experimental: obj{"clash_api": obj{"external_controller": clash}},
 	}, "", "  ")
 }
@@ -357,6 +365,7 @@ type sidecar struct {
 	Outbounds    []obj `json:"outbounds"`
 	Endpoints    []obj `json:"endpoints,omitempty"`
 	Route        obj   `json:"route"`
+	Services     []obj `json:"services,omitempty"`
 	Experimental obj   `json:"experimental"`
 }
 

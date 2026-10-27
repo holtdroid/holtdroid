@@ -72,7 +72,7 @@ func (d *device) simulateDNS() {
 			d.resolver.Resolve(context.Background(), fakeQuery(name, t, uint16(i)), false)
 		}
 		d.fconns.touch(name, d.session().Location, d.clock())
-		_ = d.conns.Poll(context.Background())
+		d.conns.Sync(d.fconns.snapshot())
 	}
 }
 

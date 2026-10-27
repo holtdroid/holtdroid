@@ -103,7 +103,7 @@ export function RecordingTools({
       id: "routes",
       label: "Routes",
       icon: RouteIcon,
-      count: new Set(conns.filter((c) => c.t <= time).map((c) => c.v.host || c.v.address)).size,
+      count: new Set(conns.filter((c) => c.t <= time).map((c) => c.v.host || c.v.address || c.v.id)).size,
     })
   }
 

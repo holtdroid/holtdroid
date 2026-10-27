@@ -15,7 +15,13 @@ export function RoutesPanel({ provider, id }: { provider: string; id: string }) 
   const { queries } = useDNSLog(provider, id, !dns)
   const exitIP = net?.externalIp
   const addresses = useMemo(
-    () => [...new Set([...conns.map((c) => c.address), ...answerAddresses(queries), ...(exitIP ? [exitIP] : [])])],
+    () => [
+      ...new Set([
+        ...conns.flatMap((c) => (c.address ? [c.address] : [])),
+        ...answerAddresses(queries),
+        ...(exitIP ? [exitIP] : []),
+      ]),
+    ],
     [conns, queries, exitIP],
   )
   const geo = useIPInfo(addresses)

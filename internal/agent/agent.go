@@ -49,8 +49,11 @@ type Config struct {
 	FFmpeg       string
 	Scrcpy       ScrcpyConfig
 	ClashAPI     string
-	IPInfoURL    string
-	IPInfoProxy  string
+	// ConnectionsAPI is the sidecar's sing-box API service; without one the
+	// agent polls the clash API for connections.
+	ConnectionsAPI string
+	IPInfoURL      string
+	IPInfoProxy    string
 	// NetworkRoute is the route last measured through Location, as JSON.
 	NetworkRoute string
 	ChromiumDash string
@@ -227,8 +230,8 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 	if cfg.Redroid.VPN {
 		a.resolver = dns.New(dns.NetUpstream{Addr: vpn.DNSUpstream}, a.flushDNS, log)
 	}
-	if cfg.ClashAPI != "" {
-		a.conns = conns.New(a.network.Connections, log)
+	if cfg.ClashAPI != "" || cfg.ConnectionsAPI != "" {
+		a.conns = conns.New(log)
 	}
 	return a
 }
@@ -280,8 +283,11 @@ func (a *Agent) Run(parent context.Context) {
 	a.recCtx = ctx
 	a.recMu.Unlock()
 	go a.controls.watchNetwork(ctx)
-	if a.conns != nil {
-		go a.conns.Run(ctx, time.Second)
+	switch {
+	case a.cfg.ConnectionsAPI != "":
+		go a.conns.Follow(ctx, a.cfg.ConnectionsAPI, vpn.Own)
+	case a.conns != nil:
+		go a.conns.Poll(ctx, a.network.Connections, connectionsPoll)
 	}
 	if a.resolver != nil {
 		go func() {
@@ -986,6 +992,10 @@ func (a *Agent) WatchDNS(ctx context.Context, send func(contract.DNSEvent) error
 	}
 	return a.resolver.Watch(ctx, send)
 }
+
+// connectionsPoll is how often a sidecar without sing-box's API service is
+// asked for its open connections; a shorter connection may be missed.
+const connectionsPoll = 250 * time.Millisecond
 
 var errNoConnections = fmt.Errorf("%w: this device has no VPN sidecar to report its connections", contract.ErrInvalid)
 

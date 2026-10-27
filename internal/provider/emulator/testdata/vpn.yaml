@@ -91,6 +91,8 @@ spec:
       value: "8589934592"
     - name: HOLTDROID_CLASHAPI
       value: http://127.0.0.1:9090
+    - name: HOLTDROID_CONNECTIONSAPI
+      value: 127.0.0.1:9091
     - name: HOLTDROID_IPINFOPROXY
       value: http://127.0.0.1:7890
     - name: HOLTDROID_REDROID__VPN
@@ -305,6 +307,15 @@ stringData:
           }
         ]
       },
+      "services": [
+        {
+          "dashboard": false,
+          "listen": "127.0.0.1",
+          "listen_port": 9091,
+          "tag": "api",
+          "type": "api"
+        }
+      ],
       "experimental": {
         "clash_api": {
           "external_controller": "127.0.0.1:9090"

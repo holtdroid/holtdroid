@@ -167,6 +167,7 @@ func (p *Provider) renderPod(id, slot, node string, req contract.CreateSession, 
 	if p.cfg.VPN.Enabled() {
 		env = append(env,
 			corev1.EnvVar{Name: "HOLTDROID_CLASHAPI", Value: "http://" + vpn.ClashAPI},
+			corev1.EnvVar{Name: "HOLTDROID_CONNECTIONSAPI", Value: vpn.ConnectionsAPI},
 			corev1.EnvVar{Name: "HOLTDROID_IPINFOPROXY", Value: "http://" + vpn.Proxy},
 			corev1.EnvVar{Name: "HOLTDROID_REDROID__VPN", Value: "true"},
 			corev1.EnvVar{Name: "HOLTDROID_REDROID__BYPASS", Value: strings.Join(p.cfg.VPN.BypassCIDRs, ",")},

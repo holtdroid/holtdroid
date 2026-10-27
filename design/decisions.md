@@ -4550,6 +4550,8 @@ to the timeout, instead of failing.
 
 ## 151. A Routes tab follows the device's connections and places their servers
 
+_Reading the clash API once a second is superseded by #153 (sing-box's API service on redroid, every 250 ms on phones); the rest stands._
+
 **Context.** Testers asked where an app's requests actually go: which
 servers a name leads to, in which country and network, through which VPN
 location, and what makes a path slower than it needs to be — a server on
@@ -4631,3 +4633,30 @@ canvas the size of the screen, the way a live session does.
 noisier than with a screenshot; the stream quality while recording decides
 how much.
 
+
+## 153. Connections come from sing-box's API service as they open and close
+
+**Context.** Decision #151 read the clash API's open connections once a
+second, so a connection that opened and closed between two reads never
+showed, and one that closed lost its last second of bytes. Short
+connections are often the ones worth seeing: requests without keep-alive,
+beacons, one-off calls, the very cases the **no reuse** flag looks for.
+
+**Decision.** The redroid sidecar also runs sing-box's `api` service
+(since 1.14, on `127.0.0.1:9091`, no dashboard, no secret: only the Pod
+reaches it). The agent streams its `SubscribeConnections` gRPC method,
+which sends each connection as it opens and as it closes with its close
+time and final bytes, its traffic every second, and on every (re)connect
+the open connections and the last 1000 closed ones. The few fields used
+are read with `protowire` and a pass-through codec rather than generated
+code or sing-box's own module. Reconnects don't repeat a connection the
+agent already has. A destination that is a name (a proxy asked for one)
+keeps the name and no address. Phones keep the clash API, read every
+250 ms: their sing-box runs in the host's network, where each session
+would need a port of its own for the service.
+
+**Consequences.** Redroid sessions see every connection, however short,
+with its exact times and bytes. Phones may still miss one shorter than a
+quarter of a second. The agent depends on a sing-box API that is not
+versioned apart from sing-box, pinned at 1.14.2 with the sidecar image;
+checked against that version in Docker.

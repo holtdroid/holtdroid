@@ -51,10 +51,10 @@ func (f *fakeConns) touch(name, location string, now time.Time) {
 	})
 }
 
-func (f *fakeConns) snapshot(context.Context) ([]contract.Connection, error) {
+func (f *fakeConns) snapshot() []contract.Connection {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return slices.Clone(f.open), nil
+	return slices.Clone(f.open)
 }
 
 func (d *device) Connections(context.Context) contract.ConnectionsState {

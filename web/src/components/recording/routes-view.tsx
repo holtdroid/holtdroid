@@ -41,7 +41,9 @@ export function RoutesView({
   const all = useMemo(() => {
     const queries = dns.flatMap((e) => (e.v.query ? [e.v.query] : []))
     const exits = network.flatMap((e) => (e.v.externalIp ? [e.v.externalIp] : []))
-    return [...new Set([...conns.map((c) => c.v.address), ...answerAddresses(queries), ...exits])]
+    return [
+      ...new Set([...conns.flatMap((c) => (c.v.address ? [c.v.address] : [])), ...answerAddresses(queries), ...exits]),
+    ]
   }, [conns, dns, network])
   const geo = useIPInfo(all, share)
   const net = lastAt(network, time)?.v ?? network[0]?.v

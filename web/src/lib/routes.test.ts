@@ -98,3 +98,10 @@ describe("routes", () => {
     expect(dnsFar([q("104.16.1.1")], info, pl)).toBeUndefined()
   })
 })
+
+test("a connection to a name without an address", () => {
+  const [r] = groupRoutes([conn("n", { host: "neverssl.com", address: undefined, port: 80 })], info, { location: "pl" })
+  expect(r!.key).toBe("neverssl.com")
+  expect(r!.addresses).toEqual([])
+  expect(r!.flags.map((f) => f.id)).toEqual(["plain"])
+})

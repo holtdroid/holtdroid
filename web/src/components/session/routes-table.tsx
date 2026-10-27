@@ -139,11 +139,11 @@ export function RoutesTable({
               {r.key}
             </span>
             <span className="truncate font-mono text-muted-foreground" title={r.addresses.join(", ")}>
-              {r.addresses[0]}
+              {r.addresses[0] ?? "—"}
               {r.addresses.length > 1 && <span className="opacity-60"> +{r.addresses.length - 1}</span>}
             </span>
             <span className="min-w-0 truncate">
-              <Place info={geo.info.get(r.addresses[0]!)} />
+              {r.addresses[0] ? <Place info={geo.info.get(r.addresses[0])} /> : null}
             </span>
             <span className="truncate">{r.outbounds.join(", ")}</span>
             <span className="text-right font-mono tabular-nums">
@@ -268,7 +268,7 @@ function RouteDetails({
               <span className="text-muted-foreground tabular-nums">{time(c.start)}</span>
               <span className="text-muted-foreground">{duration(c)}</span>
               <span className="truncate">
-                {c.network}/{c.port} {c.address}
+                {c.network}/{c.port} {c.address || c.host}
               </span>
               <span className="truncate">{c.outbound}</span>
               <span className="truncate text-muted-foreground tabular-nums">

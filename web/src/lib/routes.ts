@@ -76,7 +76,7 @@ function where(info: IPInfo | undefined) {
 
 export function routeFlags(conns: Connection[], info: Map<string, IPInfo>, exit: Exit): RouteFlag[] {
   const flags: RouteFlag[] = []
-  const farAt = conns.map((c) => info.get(c.address)).find((i) => isFar(i, exit.info))
+  const farAt = conns.map((c) => (c.address ? info.get(c.address) : undefined)).find((i) => isFar(i, exit.info))
   if (farAt) {
     flags.push({
       id: "far",
@@ -105,7 +105,7 @@ export function routeFlags(conns: Connection[], info: Map<string, IPInfo>, exit:
 export function groupRoutes(conns: Connection[], info: Map<string, IPInfo>, exit: Exit): HostRoute[] {
   const groups = new Map<string, Connection[]>()
   for (const c of conns) {
-    const key = c.host || c.address
+    const key = c.host || c.address || c.id
     const g = groups.get(key) ?? []
     g.push(c)
     groups.set(key, g)
@@ -116,7 +116,7 @@ export function groupRoutes(conns: Connection[], info: Map<string, IPInfo>, exit
     return {
       key,
       host: list[0]!.host || undefined,
-      addresses: unique(list.map((c) => c.address)),
+      addresses: unique(list.flatMap((c) => (c.address ? [c.address] : []))),
       ports: unique(list.map((c) => c.port)),
       outbounds: unique(list.flatMap((c) => (c.outbound ? [c.outbound] : []))),
       conns: list,

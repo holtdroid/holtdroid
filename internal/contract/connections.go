@@ -10,7 +10,7 @@ type Connection struct {
 	End      time.Time `json:"end,omitzero" doc:"when it was gone; none while it is open"`
 	Network  string    `json:"network" enum:"tcp,udp"`
 	Host     string    `json:"host,omitempty" doc:"the name sniffed from TLS, HTTP or QUIC; none for a bare address"`
-	Address  string    `json:"address" doc:"the server's IP address"`
+	Address  string    `json:"address,omitempty" doc:"the server's IP address; none when the device asked a proxy for a name"`
 	Port     int       `json:"port"`
 	Outbound string    `json:"outbound,omitempty" doc:"the VPN location, direct or bypass it left through"`
 	Upload   int64     `json:"upload" doc:"bytes sent"`
