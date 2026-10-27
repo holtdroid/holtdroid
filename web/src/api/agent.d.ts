@@ -576,6 +576,8 @@ export interface components {
              * @description bytes received
              */
             download: number;
+            /** @description the CDN site that answered, an IATA code such as VNO, when the agent asked the CDN */
+            edge?: string;
             /**
              * Format: date-time
              * @description when it was gone; none while it is open

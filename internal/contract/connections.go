@@ -13,6 +13,7 @@ type Connection struct {
 	Address  string    `json:"address,omitempty" doc:"the server's IP address; none when the device asked a proxy for a name"`
 	Port     int       `json:"port"`
 	Outbound string    `json:"outbound,omitempty" doc:"the VPN location, direct or bypass it left through"`
+	Edge     string    `json:"edge,omitempty" doc:"the CDN site that answered, an IATA code such as VNO, when the agent asked the CDN"`
 	Upload   int64     `json:"upload" doc:"bytes sent"`
 	Download int64     `json:"download" doc:"bytes received"`
 }
@@ -29,6 +30,6 @@ type IPInfo struct {
 	Continent string `json:"continent,omitempty" enum:"AF,AN,AS,EU,NA,OC,SA"`
 	ASN       uint   `json:"asn,omitempty"`
 	Org       string `json:"org,omitempty" doc:"the autonomous system's name"`
-	CDN       bool   `json:"cdn,omitempty" doc:"in Cloudflare's, Fastly's or Google's published edge ranges; anycast, so its country says little"`
+	CDN       string `json:"cdn,omitempty" enum:"cloudflare,fastly,google" doc:"the CDN whose published edge ranges hold it: anycast, so its country is where it is registered, not the site that answers"`
 	Private   bool   `json:"private,omitempty" doc:"a private, loopback or link-local address"`
 }

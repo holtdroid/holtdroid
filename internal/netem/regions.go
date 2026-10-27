@@ -129,12 +129,30 @@ var Regions = []Region{
 //go:embed cdn.txt
 var cdnList string
 
-var cdnPrefixes = func() []netip.Prefix {
-	var out []netip.Prefix
+type cdnRange struct {
+	prefix   netip.Prefix
+	provider string
+}
+
+var cdnRanges = func() []cdnRange {
+	var out []cdnRange
+	provider := ""
 	for l := range strings.Lines(cdnList) {
-		if l = strings.TrimSpace(l); l != "" && !strings.HasPrefix(l, "#") {
-			out = append(out, netip.MustParsePrefix(l))
+		l = strings.TrimSpace(l)
+		if p, ok := strings.CutPrefix(l, "# section: "); ok {
+			provider = p
 		}
+		if l != "" && !strings.HasPrefix(l, "#") {
+			out = append(out, cdnRange{netip.MustParsePrefix(l), provider})
+		}
+	}
+	return out
+}()
+
+var cdnPrefixes = func() []netip.Prefix {
+	out := make([]netip.Prefix, len(cdnRanges))
+	for i, r := range cdnRanges {
+		out[i] = r.prefix
 	}
 	return out
 }()
@@ -300,10 +318,16 @@ func ServerCatalog() []contract.NetworkServerInfo {
 	return out
 }
 
-// IsCDN reports whether addr is in one of the CDN edge ranges of cdn.txt.
-func IsCDN(addr netip.Addr) bool {
+// CDN is the provider (cloudflare, fastly, google) whose edge ranges in
+// cdn.txt hold addr, or "".
+func CDN(addr netip.Addr) string {
 	addr = addr.Unmap()
-	return slices.ContainsFunc(cdnPrefixes, func(p netip.Prefix) bool { return p.Contains(addr) })
+	for _, r := range cdnRanges {
+		if r.prefix.Contains(addr) {
+			return r.provider
+		}
+	}
+	return ""
 }
 
 var cgnat = netip.MustParsePrefix("100.64.0.0/10")

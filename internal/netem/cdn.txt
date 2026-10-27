@@ -3,6 +3,7 @@
 # Fastly: https://api.fastly.com/public-ip-list
 # Google: https://www.gstatic.com/ipranges/goog.json minus cloud.json (Google Cloud customers)
 # Fetched 2026-10-26.
+# section: cloudflare
 1.1.1.0/24
 1.0.0.0/24
 173.245.48.0/20
@@ -20,6 +21,7 @@
 104.24.0.0/14
 172.64.0.0/13
 131.0.72.0/22
+# section: fastly
 23.235.32.0/20
 43.249.72.0/22
 90.98.0.0/17
@@ -41,6 +43,7 @@
 185.31.16.0/22
 199.27.72.0/21
 199.232.0.0/16
+# section: google
 8.8.4.0/24
 8.8.8.0/24
 8.35.200.0/21

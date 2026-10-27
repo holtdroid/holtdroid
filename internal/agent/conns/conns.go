@@ -34,13 +34,17 @@ type Tracker struct {
 	open   map[string]*tracked
 	closed []contract.Connection
 	seen   map[string]bool
+	edges  map[edgeKey]string
 	subs   map[chan contract.Connection]struct{}
 }
+
+type edgeKey struct{ host, outbound string }
 
 func New(log *slog.Logger) *Tracker {
 	return &Tracker{
 		log: log, now: time.Now,
-		open: map[string]*tracked{}, seen: map[string]bool{}, subs: map[chan contract.Connection]struct{}{},
+		open: map[string]*tracked{}, seen: map[string]bool{}, edges: map[edgeKey]string{},
+		subs: map[chan contract.Connection]struct{}{},
 	}
 }
 
@@ -55,6 +59,7 @@ func (t *Tracker) openLocked(c contract.Connection) {
 	if _, ok := t.open[c.ID]; ok || t.seen[c.ID] {
 		return
 	}
+	c.Edge = cmp.Or(c.Edge, t.edges[edgeKey{c.Host, c.Outbound}])
 	t.open[c.ID] = &tracked{c: c, sent: t.now()}
 	t.publish(c)
 }
@@ -96,6 +101,7 @@ func (t *Tracker) closeLocked(id string, end time.Time, final *contract.Connecti
 	}
 	done := *c
 	done.End = end
+	done.Edge = cmp.Or(done.Edge, t.edges[edgeKey{done.Host, done.Outbound}])
 	t.seen[id] = true
 	t.closed = append(t.closed, done)
 	if len(t.closed) > backlog {
@@ -105,6 +111,21 @@ func (t *Tracker) closeLocked(id string, end time.Time, final *contract.Connecti
 		t.closed = slices.Delete(t.closed, 0, len(t.closed)-backlog)
 	}
 	t.publish(done)
+}
+
+// SetEdge records the CDN site that answers host through outbound, and
+// sends the open connections to it again with it.
+func (t *Tracker) SetEdge(host, outbound, edge string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.edges[edgeKey{host, outbound}] = edge
+	for _, tr := range t.openList() {
+		if tr.Host == host && tr.Outbound == outbound && tr.Edge != edge {
+			o := t.open[tr.ID]
+			o.c.Edge, o.sent = edge, t.now()
+			t.publish(o.c)
+		}
+	}
 }
 
 // Sync compares a snapshot of the open connections with what is known:

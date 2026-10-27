@@ -1,4 +1,5 @@
 import type { Connection, DNSQuery, IPInfo } from "@/api/client"
+import { cdnSites } from "@/lib/cdn-sites"
 
 export type RouteFlagId = "far" | "churn" | "bypass" | "plain"
 
@@ -11,6 +12,8 @@ export type HostRoute = {
   addresses: string[]
   ports: number[]
   outbounds: string[]
+  /** the CDN site that answered, an IATA code */
+  edge?: string
   conns: Connection[]
   open: number
   upload: number
@@ -119,6 +122,7 @@ export function groupRoutes(conns: Connection[], info: Map<string, IPInfo>, exit
       addresses: unique(list.flatMap((c) => (c.address ? [c.address] : []))),
       ports: unique(list.map((c) => c.port)),
       outbounds: unique(list.flatMap((c) => (c.outbound ? [c.outbound] : []))),
+      edge: list.findLast((c) => c.edge)?.edge,
       conns: list,
       open: list.filter((c) => !c.end).length,
       upload: list.reduce((n, c) => n + c.upload, 0),
@@ -136,7 +140,9 @@ export function summarize(routes: HostRoute[], info: Map<string, IPInfo>): Route
   const addresses = unique(routes.flatMap((r) => r.addresses))
   return {
     servers: routes.length,
-    countries: unique(addresses.flatMap((a) => (info.get(a)?.country ? [info.get(a)!.country!] : []))),
+    countries: unique(
+      addresses.flatMap((a) => (info.get(a)?.country && !info.get(a)?.cdn ? [info.get(a)!.country!] : [])),
+    ),
     far: routes.filter((r) => r.flags.some((f) => f.id === "far")).length,
     cdn: routes.filter((r) => r.addresses.some((a) => info.get(a)?.cdn)).length,
     flagged: routes.filter((r) => r.flags.length > 0).length,
@@ -163,4 +169,32 @@ export function dnsFar(queries: DNSQuery[], info: Map<string, IPInfo>, exit: IPI
 
 function unique<T>(xs: T[]): T[] {
   return [...new Set(xs)]
+}
+
+const cdnNames: Record<string, string> = { cloudflare: "Cloudflare", fastly: "Fastly", google: "Google" }
+
+export function cdnName(cdn: string) {
+  return cdnNames[cdn] ?? cdn
+}
+
+/** The city of a CDN site's IATA code, when it is one of the known sites. */
+export function siteName(code: string): string | undefined {
+  return cdnSites[code.toUpperCase()]
+}
+
+/**
+ * The CDN site a response came from, by the headers CDNs add: Cloudflare's
+ * cf-ray ends in it, CloudFront's x-amz-cf-pop starts with it, and the
+ * last cache in Fastly's x-served-by is the one near the user.
+ */
+export function edgeFromHeaders(headers: Record<string, string> | undefined): string | undefined {
+  if (!headers) return undefined
+  const h = (name: string) => Object.entries(headers).find(([k]) => k.toLowerCase() === name)?.[1]
+  const ray = /-([A-Za-z]{3})$/.exec(h("cf-ray")?.trim() ?? "")
+  if (ray) return ray[1]!.toUpperCase()
+  const pop = /^([A-Za-z]{3})\d/.exec(h("x-amz-cf-pop")?.trim() ?? "")
+  if (pop) return pop[1]!.toUpperCase()
+  const served = h("x-served-by")?.split(",").at(-1)?.trim() ?? ""
+  const cache = /^cache-([a-z]{3})\d*-/i.exec(served) ?? /-([A-Z]{3})$/.exec(served)
+  return cache ? cache[1]!.toUpperCase() : undefined
 }

@@ -1786,6 +1786,8 @@ export interface components {
              * @description bytes received
              */
             download: number;
+            /** @description the CDN site that answered, an IATA code such as VNO, when the agent asked the CDN */
+            edge?: string;
             /**
              * Format: date-time
              * @description when it was gone; none while it is open
@@ -2848,8 +2850,11 @@ export interface components {
             address: string;
             /** Format: int64 */
             asn?: number;
-            /** @description in Cloudflare's, Fastly's or Google's published edge ranges; anycast, so its country says little */
-            cdn?: boolean;
+            /**
+             * @description the CDN whose published edge ranges hold it: anycast, so its country is where it is registered, not the site that answers
+             * @enum {string}
+             */
+            cdn?: "cloudflare" | "fastly" | "google";
             /** @enum {string} */
             continent?: "AF" | "AN" | "AS" | "EU" | "NA" | "OC" | "SA";
             /** @description ISO 3166-1 alpha-2 */

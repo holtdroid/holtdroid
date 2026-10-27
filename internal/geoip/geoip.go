@@ -89,7 +89,7 @@ func (d *DB) Lookup(addr netip.Addr) contract.IPInfo {
 		info.Private = true
 		return info
 	}
-	info.CDN = netem.IsCDN(addr)
+	info.CDN = netem.CDN(addr)
 	if d.country != nil {
 		var r countryRecord
 		if err := d.country.Lookup(addr).Decode(&r); err == nil {

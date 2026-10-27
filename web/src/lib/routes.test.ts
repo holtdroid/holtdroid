@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import type { Connection, DNSQuery, IPInfo } from "@/api/client"
-import { churned, dnsFar, groupRoutes, isFar, latest, summarize } from "@/lib/routes"
+import { churned, dnsFar, edgeFromHeaders, groupRoutes, isFar, latest, siteName, summarize } from "@/lib/routes"
 
 const t0 = Date.parse("2026-10-27T10:00:00Z")
 
@@ -23,7 +23,7 @@ const pl: IPInfo = { address: "198.51.100.7", country: "PL", continent: "EU" }
 const info = new Map<string, IPInfo>([
   ["81.2.69.160", { address: "81.2.69.160", country: "PL", continent: "EU" }],
   ["52.94.0.1", { address: "52.94.0.1", country: "US", continent: "NA", asn: 16509, org: "Amazon.com, Inc." }],
-  ["104.16.1.1", { address: "104.16.1.1", country: "CA", continent: "NA", cdn: true }],
+  ["104.16.1.1", { address: "104.16.1.1", country: "CA", continent: "NA", cdn: "cloudflare" }],
 ])
 
 function q(...data: string[]): DNSQuery {
@@ -84,7 +84,7 @@ describe("routes", () => {
       ["old.example.com", ["plain"], 1],
     ])
     expect(routes[1]!.flags[0]!.title).toContain("US (North America)")
-    expect(summarize(routes, info)).toEqual({ servers: 4, countries: ["PL", "US", "CA"], far: 1, cdn: 1, flagged: 3 })
+    expect(summarize(routes, info)).toEqual({ servers: 4, countries: ["PL", "US"], far: 1, cdn: 1, flagged: 3 })
   })
 
   test("direct sessions never flag a bypass", () => {
@@ -104,4 +104,20 @@ test("a connection to a name without an address", () => {
   expect(r!.key).toBe("neverssl.com")
   expect(r!.addresses).toEqual([])
   expect(r!.flags.map((f) => f.id)).toEqual(["plain"])
+})
+
+test("the CDN site from response headers", () => {
+  expect(edgeFromHeaders({ "CF-RAY": "8f1c2a3b4c5d6e7f-VNO" })).toBe("VNO")
+  expect(edgeFromHeaders({ "x-amz-cf-pop": "WAW51-P2" })).toBe("WAW")
+  expect(edgeFromHeaders({ "x-served-by": "cache-iad-kiad7000025-IAD, cache-fra-etou8220098-FRA" })).toBe("FRA")
+  expect(edgeFromHeaders({ "x-served-by": "cache-ams-1" })).toBe("AMS")
+  expect(edgeFromHeaders({ server: "nginx" })).toBeUndefined()
+  expect(edgeFromHeaders(undefined)).toBeUndefined()
+  expect(siteName("vno")).toBe("Vilnius, Lithuania")
+  expect(siteName("XXX")).toBeUndefined()
+})
+
+test("a name keeps the latest edge the agent found", () => {
+  const [r] = groupRoutes([conn("a"), conn("b", { edge: "RIX" }), conn("c", { edge: "VNO" })], info, { location: "pl" })
+  expect(r!.edge).toBe("VNO")
 })

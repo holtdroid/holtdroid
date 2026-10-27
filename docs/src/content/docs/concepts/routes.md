@@ -20,8 +20,8 @@ for a connection without a name):
 
 - the **address** of the server, and how many others the name led to;
 - **where** it is: the country and the network (autonomous system) the
-  address belongs to, and **CDN** for an edge of Cloudflare, Fastly or
-  Google;
+  address belongs to; for Cloudflare, Fastly and Google, **anycast** and
+  the site that answered (see [CDN sites](#cdn-sites));
 - **via**: the VPN location (or `bypass`) the traffic left through;
 - how many **connections** it took, open ones in brackets, and the bytes
   received.
@@ -43,6 +43,25 @@ Names whose connections all closed are greyed. The list survives a reload
 - **HTTP**: unencrypted HTTP on port 80.
 
 **Flagged** shows only the names with a flag.
+
+## CDN sites
+
+A CDN announces the same address from hundreds of sites, and the one
+nearest to the session's exit answers. Geolocation databases list such an
+address where it is registered (for Cloudflare often Canada or the United
+States), which has nothing to do with where it answers, so the tab never
+shows that country. It shows **anycast**, the CDN and, when it is known,
+the site that answered, such as `Vilnius, Lithuania VNO`:
+
+- for a name behind Cloudflare, the agent asks Cloudflare once per name and
+  VPN location (`https://<name>/cdn-cgi/trace` through the same location;
+  Cloudflare answers it at the edge, the app's servers never see it);
+- in a recording, from the headers of the WebView's responses: Cloudflare's
+  `cf-ray`, CloudFront's `x-amz-cf-pop` and Fastly's `x-served-by`.
+
+Sites are named by their airport code; the city comes from Cloudflare's
+list of sites, which covers most of Fastly's and CloudFront's too. A CDN
+address is never flagged **far**.
 
 ## A name's details
 
@@ -74,7 +93,7 @@ where the addresses are now.
 - Places are per country, from the [DB-IP Lite](https://db-ip.com)
   databases in the portal's image (`geoIP` in the
   [configuration](/holtdroid/configuration/overview/#ip-geolocation)); a
-  portal without them shows no countries or networks, only CDN edges.
+  portal without them shows no countries or networks, only CDN sites.
 - Holtdroid doesn't trace the hops to a server: from inside the session a
   trace stops at the tunnel, and the exit belongs to the VPN.
 - Sessions without a VPN sidecar have no Routes tab.

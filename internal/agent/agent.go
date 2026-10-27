@@ -298,6 +298,9 @@ func (a *Agent) Run(parent context.Context) {
 	case a.conns != nil:
 		go a.conns.Poll(ctx, a.network.Connections, connectionsPoll)
 	}
+	if a.conns != nil && a.cfg.IPInfoProxy != "" {
+		go newEdgeProber(a.conns, a.cfg.IPInfoProxy).run(ctx)
+	}
 	if a.resolver != nil {
 		go func() {
 			if err := a.resolver.ListenAndServe(ctx, vpn.DNSForwarder); err != nil {

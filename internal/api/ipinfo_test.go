@@ -14,7 +14,7 @@ func TestIPInfo(t *testing.T) {
 	l := decode[IPInfoList](t, rec)
 	want := []contract.IPInfo{
 		{Address: "81.2.69.160", Country: "PL", Continent: "EU", ASN: 5617, Org: "Orange Polska"},
-		{Address: "104.16.1.1", CDN: true},
+		{Address: "104.16.1.1", CDN: "cloudflare"},
 		{Address: "10.1.2.3", Private: true},
 	}
 	if rec.Code != http.StatusOK || l.Database == "" || len(l.Addresses) != len(want) {

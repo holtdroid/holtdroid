@@ -143,7 +143,7 @@ export function RoutesTable({
               {r.addresses.length > 1 && <span className="opacity-60"> +{r.addresses.length - 1}</span>}
             </span>
             <span className="min-w-0 truncate">
-              {r.addresses[0] ? <Place info={geo.info.get(r.addresses[0])} /> : null}
+              {r.addresses[0] ? <Place info={geo.info.get(r.addresses[0])} edge={r.edge} /> : null}
             </span>
             <span className="truncate">{r.outbounds.join(", ")}</span>
             <span className="text-right font-mono tabular-nums">
@@ -231,7 +231,7 @@ function RouteDetails({
               <li key={a} className="grid grid-cols-[minmax(0,10rem)_minmax(0,1fr)] items-baseline gap-2">
                 <span className="font-mono">{a}</span>
                 <span className="flex min-w-0 items-baseline gap-2">
-                  <Place info={info} />
+                  <Place info={info} edge={route.edge} />
                   {isFar(info, exitInfo) && (
                     <span className="shrink-0 text-amber-700 dark:text-amber-400">
                       {continentName(info?.continent)}, the exit is in {continentName(exitInfo?.continent)}
@@ -253,7 +253,7 @@ function RouteDetails({
             {answers.map((a) => (
               <li key={a} className="grid grid-cols-[minmax(0,10rem)_minmax(0,1fr)] items-baseline gap-2">
                 <span className={cn("font-mono", !route.addresses.includes(a) && "text-muted-foreground")}>{a}</span>
-                <Place info={geo.info.get(a)} />
+                <Place info={geo.info.get(a)} edge={route.addresses.includes(a) ? route.edge : undefined} />
               </li>
             ))}
           </ul>

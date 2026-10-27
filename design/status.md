@@ -36,7 +36,8 @@ deployment"):
 - The Routes tab (decisions #151, #153): the agent follows the device's
   connections through the sidecar's sing-box API service (the clash API
   every 250 ms on phones), live and in recordings; the
-  api places servers with DB-IP Lite and marks CDN edges; the tab flags far
+  api places servers with DB-IP Lite; CDN addresses show anycast and the
+  Cloudflare site the agent asked for (decision #157); the tab flags far
   servers, connections that aren't reused, traffic past the VPN and plain
   HTTP, and the DNS tab places answers. The clash API path was checked in
   a live session; the API service against sing-box 1.14.2 in Docker.

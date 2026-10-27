@@ -4782,3 +4782,36 @@ DOM, which the script doesn't descend into. The SVG savings are before
 compression, which takes off much of the repetition. Live, a body the
 WebView already dropped (past its 32 MB of buffered responses) can't be
 measured or searched.
+
+## 157. CDN addresses show anycast and the site that answered, not a country
+
+**Context.** The Routes tab (decision #151) placed every address with
+DB-IP. An address of Cloudflare, Fastly or Google is anycast: hundreds of
+sites announce it and the nearest answers, but the database lists where it
+is registered. A tester in Lithuania saw a Cloudflare address in Canada
+that answered in 8 ms.
+
+**Decision.**
+- `cdn.txt` marks each provider's section (`# section: cloudflare`), and
+  `IPInfo.cdn` names the provider instead of a yes or no. The tab shows
+  **anycast**, the provider and, when known, the site, never the
+  registered country; the country summary leaves CDN addresses out.
+- For a host behind Cloudflare the agent asks
+  `https://<host>/cdn-cgi/trace` once per host and VPN location, through
+  the sidecar's proxy so it goes out where the device's traffic does, two
+  at a time, at most 300 hosts a session. Cloudflare answers that path at
+  the edge with `colo=VNO`; the request never reaches the host's servers.
+  The code goes on the host's connections as `edge` (live and in
+  recordings).
+- The player also reads the site from the WebView's response headers:
+  `cf-ray` (Cloudflare), `x-amz-cf-pop` (CloudFront), the last cache in
+  `x-served-by` (Fastly).
+- Codes are named by a table in the web client taken from the names of
+  Cloudflare's data centers on its status page; Fastly and CloudFront use
+  the same airport codes.
+
+**Consequences.** Native traffic to Fastly and Google gets no site (their
+edges have no such endpoint and TLS hides the headers), only **anycast**.
+The probe is one request per host and location through the location,
+visible in the host's Cloudflare analytics. The site table is refreshed by
+hand like `cdn.txt`. A site the table doesn't know shows its code.

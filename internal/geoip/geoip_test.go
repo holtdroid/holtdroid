@@ -26,7 +26,7 @@ func TestLookup(t *testing.T) {
 	}{
 		{"81.2.69.160", contract.IPInfo{Address: "81.2.69.160", Country: "PL", Continent: "EU", ASN: 5617, Org: "Orange Polska"}},
 		{"::ffff:81.2.69.1", contract.IPInfo{Address: "81.2.69.1", Country: "PL", Continent: "EU", ASN: 5617, Org: "Orange Polska"}},
-		{"104.16.1.1", contract.IPInfo{Address: "104.16.1.1", CDN: true}},
+		{"104.16.1.1", contract.IPInfo{Address: "104.16.1.1", CDN: "cloudflare"}},
 		{"10.0.0.1", contract.IPInfo{Address: "10.0.0.1", Private: true}},
 		{"100.64.1.1", contract.IPInfo{Address: "100.64.1.1", Private: true}},
 		{"9.9.9.9", contract.IPInfo{Address: "9.9.9.9"}},
