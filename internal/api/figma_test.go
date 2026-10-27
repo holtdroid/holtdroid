@@ -324,15 +324,18 @@ func TestFigmaComponents(t *testing.T) {
 }
 
 func TestPickComponents(t *testing.T) {
-	leaf := func(id string, area float64) figmaNodeDoc {
-		return figmaNodeDoc{ID: id, Type: "RECTANGLE", Box: &figmaBox{Width: area, Height: 1}}
+	leaf := func(id string, w, h float64) figmaNodeDoc {
+		return figmaNodeDoc{ID: id, Name: id, Type: "RECTANGLE", Box: &figmaBox{Width: w, Height: h}}
 	}
-	group := func(id string, kids ...figmaNodeDoc) figmaNodeDoc {
+	group := func(typ, id string, kids ...figmaNodeDoc) figmaNodeDoc {
 		var a float64
 		for _, k := range kids {
 			a += area(k)
 		}
-		return figmaNodeDoc{ID: id, Type: "GROUP", Box: &figmaBox{Width: a, Height: 1}, Children: kids}
+		return figmaNodeDoc{ID: id, Name: id, Type: typ, Box: &figmaBox{Width: a, Height: 1}, Children: kids}
+	}
+	instance := func(id, component string, w float64, kids ...figmaNodeDoc) figmaNodeDoc {
+		return figmaNodeDoc{ID: id, Name: id, Type: "INSTANCE", ComponentID: component, Box: &figmaBox{Width: w, Height: 1}, Children: kids}
 	}
 	ids := func(ns []figmaNodeDoc) string {
 		var out []string
@@ -341,11 +344,15 @@ func TestPickComponents(t *testing.T) {
 		}
 		return strings.Join(out, ",")
 	}
-	frame := figmaNodeDoc{Children: []figmaNodeDoc{
-		leaf("a", 5),
-		group("big", leaf("b1", 50), group("b2", leaf("b21", 10), leaf("b22", 10))),
-		group("small", leaf("s1", 1), leaf("s2", 1)),
-	}}
+	frame := func(kids ...figmaNodeDoc) figmaNodeDoc {
+		return figmaNodeDoc{Box: &figmaBox{Width: 100, Height: 100}, Children: kids}
+	}
+
+	nested := frame(
+		leaf("a", 1000, 1),
+		group("GROUP", "big", leaf("b1", 5000, 1), group("FRAME", "b2", leaf("b21", 1000, 1), leaf("b22", 1000, 1))),
+		group("GROUP", "small", leaf("s1", 100, 1), leaf("s2", 100, 1)),
+	)
 	for _, tc := range []struct {
 		max  int
 		want string
@@ -353,12 +360,45 @@ func TestPickComponents(t *testing.T) {
 		{3, "a,big,small"},
 		{4, "a,b1,b2,small"},
 		{5, "a,b1,b21,b22,small"},
-		{6, "a,b1,b21,b22,s1,s2"},
-		{20, "a,b1,b21,b22,s1,s2"},
+		{20, "a,b1,b21,b22,small"},
 		{1, "a,big,small"},
 	} {
-		if got := ids(pickComponents(frame, tc.max)); got != tc.want {
+		if got := ids(pickComponents(nested, tc.max)); got != tc.want {
 			t.Errorf("max %d: %s, want %s", tc.max, got, tc.want)
+		}
+	}
+
+	timer := instance("timer", "Timer", 400, leaf("text", 100, 1), leaf("ring", 300, 1))
+	screen := instance("screen", "Screen", 6000, leaf("header", 1000, 1), leaf("body", 5000, 1))
+	if got := ids(pickComponents(frame(timer, screen), 20)); got != "timer,header,body" {
+		t.Errorf("instances: %s", got)
+	}
+
+	card := func(id, component string) figmaNodeDoc { return instance(id, component, 500) }
+	grid := group("FRAME", "grid",
+		group("FRAME", "row1", card("c1", "Betspot"), card("c2", "Betspot")),
+		group("FRAME", "row2", card("c3", "Betspot"), card("c4", "Betspot"), card("c5", "Betspot")),
+		card("all", "AllBonuses"),
+	)
+	mixed := group("FRAME", "mixed", leaf("title", 1500, 1), leaf("chart", 1500, 1), leaf("legend", 1500, 1))
+	if got := ids(pickComponents(frame(grid, mixed), 20)); got != "grid,title,chart,legend" {
+		t.Errorf("a grid of the same component stays whole: %s", got)
+	}
+}
+
+func TestLooksLive(t *testing.T) {
+	image := []figmaPaint{{Type: "IMAGE"}}
+	icon := figmaNodeDoc{Name: "Sun", Type: "RECTANGLE", Fills: image, Box: &figmaBox{Width: 24, Height: 24}}
+	cardWithIcon := figmaNodeDoc{Name: "Betspot", Type: "INSTANCE", Box: &figmaBox{Width: 120, Height: 58}, Children: []figmaNodeDoc{icon}}
+	photo := figmaNodeDoc{Name: "Cover", Type: "RECTANGLE", Fills: image, Box: &figmaBox{Width: 360, Height: 200}}
+	hero := figmaNodeDoc{Name: "Hero", Type: "FRAME", Box: &figmaBox{Width: 360, Height: 240}, Children: []figmaNodeDoc{photo}}
+	named := figmaNodeDoc{Name: "Video player", Type: "FRAME", Box: &figmaBox{Width: 10, Height: 10}}
+	for _, tc := range []struct {
+		n    figmaNodeDoc
+		want bool
+	}{{cardWithIcon, false}, {hero, true}, {named, true}, {icon, true}} {
+		if got := looksLive(tc.n); got != tc.want {
+			t.Errorf("%s: %v", tc.n.Name, got)
 		}
 	}
 }

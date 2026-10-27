@@ -127,6 +127,7 @@ type figmaNodeDoc struct {
 	ClipsContent         bool          `json:"clipsContent"`
 	IsMask               bool          `json:"isMask"`
 	BlendMode            string        `json:"blendMode"`
+	ComponentID          string        `json:"componentId"`
 	Fills                []figmaPaint  `json:"fills"`
 	Strokes              []figmaPaint  `json:"strokes"`
 	StrokeWeight         float64       `json:"strokeWeight"`

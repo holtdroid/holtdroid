@@ -4497,3 +4497,29 @@ the scale of #145. `format` is gone from the import request and from
 instead of drawn at it, a pixel or two at most, which the comparison's
 anti-aliasing tolerance absorbs.
 
+## 149. Figma components follow what the design means as one thing
+
+Refines #145.
+
+**Context.** #145 split the largest plain group while there was room for 20
+parts, so a frame with few top-level parts was split down to the layers of a
+40 dp timer (text, ring, border, background), and a grid of bet buttons came
+apart into its cells. Cards with small icon images were all marked live.
+
+**Decision.** A node is split only if, besides adding nothing of its own:
+
+- it isn't a component instance, unless it covers at least half of the frame
+  (a whole screen built as one instance);
+- it covers at least 5% of the frame;
+- it isn't a list or grid: at least three items, looking through plain
+  frames and groups (rows), of which three quarters or more are instances
+  of one component (`componentId`) or layers of one name.
+
+The live hint needs an image or video fill over at least half of the part,
+or a telling name.
+
+**Consequences.** Frames are split into fewer, larger parts, sometimes fewer
+than 20. A grid whose cells are different components still comes apart; the
+eye on a whole grid hides all of it. Existing references are regrouped on
+their next Update from Figma.
+

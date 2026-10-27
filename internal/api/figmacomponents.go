@@ -9,7 +9,7 @@ import (
 const maxFigmaComponents = 20
 
 // FigmaComponent is a part of a frame rendered on its own, so the UI can
-// leave it out of the reference (decision #145).
+// leave it out of the reference (decisions #145, #149).
 type FigmaComponent struct {
 	ID    string  `json:"id"`
 	Name  string  `json:"name"`
@@ -52,12 +52,27 @@ func (n figmaNodeDoc) shownChildren() []figmaNodeDoc {
 	return out
 }
 
-// splittable: drawing the children one by one gives the same picture as
-// drawing the node, because it adds nothing of its own around them.
-func (n figmaNodeDoc) splittable() bool {
+const (
+	minSplitShare      = 0.05
+	instanceSplitShare = 0.5
+	repeatShare        = 0.75
+)
+
+// splittable: drawing the children one by one gives the same picture, and
+// they are worth telling apart. A component instance is one unless it covers
+// most of the frame, a part under 5% of the frame stays whole, and so does a
+// list or grid of the same thing.
+func (n figmaNodeDoc) splittable(frameArea float64) bool {
 	switch n.Type {
-	case "FRAME", "GROUP", "COMPONENT", "INSTANCE", "SECTION", "COMPONENT_SET":
+	case "FRAME", "GROUP", "SECTION":
+	case "COMPONENT", "INSTANCE", "COMPONENT_SET":
+		if area(n) < frameArea*instanceSplitShare {
+			return false
+		}
 	default:
+		return false
+	}
+	if area(n) < frameArea*minSplitShare {
 		return false
 	}
 	if len(visiblePaints(n.Fills)) > 0 || len(visiblePaints(n.Strokes)) > 0 || n.ClipsContent || n.IsMask ||
@@ -74,7 +89,38 @@ func (n figmaNodeDoc) splittable() bool {
 			return false
 		}
 	}
-	return len(n.shownChildren()) > 0
+	return len(n.shownChildren()) > 0 && !n.repeats()
+}
+
+// repeats: most of what the node holds, looking through plain frames and
+// groups (rows of a grid), is instances of one component or layers of one
+// name, so it is a list or a grid.
+func (n figmaNodeDoc) repeats() bool {
+	var keys []string
+	var walk func(m figmaNodeDoc)
+	walk = func(m figmaNodeDoc) {
+		for _, c := range m.shownChildren() {
+			switch {
+			case c.ComponentID != "":
+				keys = append(keys, "component:"+c.ComponentID)
+			case (c.Type == "FRAME" || c.Type == "GROUP") && len(visiblePaints(c.Fills)) == 0 && len(c.shownChildren()) > 0:
+				walk(c)
+			default:
+				keys = append(keys, "name:"+c.Name)
+			}
+		}
+	}
+	walk(n)
+	if len(keys) < 3 {
+		return false
+	}
+	counts := map[string]int{}
+	most := 0
+	for _, k := range keys {
+		counts[k]++
+		most = max(most, counts[k])
+	}
+	return float64(most) >= repeatShare*float64(len(keys))
 }
 
 // pickComponents splits a frame into about max parts: its children, with
@@ -83,13 +129,14 @@ func (n figmaNodeDoc) splittable() bool {
 // three times max. The order is the drawing order, bottom first.
 func pickComponents(frame figmaNodeDoc, max int) []figmaNodeDoc {
 	parts := frame.shownChildren()
-	if len(parts) > 3*max {
+	if len(parts) > 3*max || frame.Box == nil {
 		return nil
 	}
+	frameArea := area(frame)
 	for {
 		best := -1
 		for i, p := range parts {
-			if !p.splittable() || len(parts)-1+len(p.shownChildren()) > max {
+			if !p.splittable(frameArea) || len(parts)-1+len(p.shownChildren()) > max {
 				continue
 			}
 			if best < 0 || area(p) > area(parts[best]) {
@@ -149,17 +196,27 @@ func paintHexAll(paints []figmaPaint) string {
 
 var liveName = regexp.MustCompile(`(?i)video|player|stream|camera|preview|map|видео|плеер|стрим|камер|карт`)
 
-// looksLive: an image or video fill or a telling name anywhere in the part.
+// looksLive: a telling name, or an image or video fill over at least half
+// of the part (a photo or a player, not an icon).
 func looksLive(n figmaNodeDoc) bool {
 	if liveName.MatchString(n.Name) {
 		return true
 	}
-	for _, p := range visiblePaints(n.Fills) {
-		if p.Type == "IMAGE" || p.Type == "VIDEO" {
-			return true
+	return n.Box != nil && largeMedia(n, area(n)/2)
+}
+
+func largeMedia(n figmaNodeDoc, min float64) bool {
+	if !visible(n.Visible) {
+		return false
+	}
+	if n.Box != nil && area(n) >= min {
+		for _, p := range visiblePaints(n.Fills) {
+			if p.Type == "IMAGE" || p.Type == "VIDEO" {
+				return true
+			}
 		}
 	}
-	return slices.ContainsFunc(n.Children, func(c figmaNodeDoc) bool { return visible(c.Visible) && looksLive(c) })
+	return slices.ContainsFunc(n.Children, func(c figmaNodeDoc) bool { return largeMedia(c, min) })
 }
 
 // renderBounds is where a node's picture goes: its rendered bounds with

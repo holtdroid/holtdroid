@@ -45,8 +45,18 @@ leave some out of the reference, such as a placeholder where the app shows a
 video, a camera picture or a map. The parts are the frame's children; while
 there is room, the largest group or frame that adds nothing of its own (no
 fill, stroke, effect, clipping, mask or opacity) is replaced by its children,
-so a wrapper is split and a card stays whole. A frame with more than 20
-children keeps them as they are, up to 60.
+so a wrapper is split and a card stays whole. What is meant as one thing
+stays one part:
+
+- a component **instance** (a button, a timer, a card), unless it covers at
+  least half of the frame;
+- anything smaller than 5% of the frame;
+- a **list or grid**: a group whose items, looking through plain rows, are
+  mostly (three quarters or more) instances of one component or layers of
+  one name.
+
+A frame with more than 20 children keeps them as they are, up to 60.
+References imported before these rules get them on **Update from Figma**.
 
 The **Components** tab lists them, top first, with a picture each;
 pointing at one outlines it on the screen and the eye hides it. Hidden
@@ -56,8 +66,9 @@ again from its background colour and the visible components, in order.
 **Skip hidden components** (on by default) also leaves their place out of the
 comparison, so the video under a hidden placeholder isn't a difference.
 
-Parts whose fill is an image or a video, or whose name says video, player,
-stream, camera, preview or map, are marked **live?**, and **Hide live
+Parts with an image or video fill over at least half of them (a photo or a
+player, not an icon), or whose name says video, player, stream, camera,
+preview or map, are marked **live?**, and **Hide live
 content** hides them at once.
 
 Redrawing works when the frame's own fill is plain colour and no mask spans
