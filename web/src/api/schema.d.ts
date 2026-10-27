@@ -2936,7 +2936,7 @@ export interface components {
             /** Format: int64 */
             channels: number;
             /** @enum {string} */
-            codec: "opus";
+            codec: "opus" | "aac";
             init: string;
             /**
              * Format: int64

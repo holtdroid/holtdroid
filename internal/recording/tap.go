@@ -30,11 +30,11 @@ type Tap struct {
 // Ready reports whether the stream's header has been read, so Codec is known.
 func (t *Tap) Ready() bool { return t.meta }
 
-func (t *Tap) wanted() string {
+func (t *Tap) wanted() bool {
 	if t.Audio {
-		return "opus"
+		return AudioCodec(t.Codec)
 	}
-	return "h264"
+	return t.Codec == "h264"
 }
 
 func (t *Tap) Write(p []byte) (int, error) {
@@ -74,8 +74,13 @@ func (t *Tap) Write(p []byte) (int, error) {
 			break
 		}
 		flags := binary.BigEndian.Uint64(rest)
-		if t.OnPacket != nil && t.Codec == t.wanted() {
+		if t.OnPacket != nil && t.wanted() {
+			codec := ""
+			if t.Audio {
+				codec = t.Codec
+			}
 			t.OnPacket(Packet{
+				Codec:  codec,
 				Config: flags&(1<<63) != 0,
 				Key:    flags&(1<<62) != 0,
 				PTS:    int64(flags & (1<<62 - 1)),

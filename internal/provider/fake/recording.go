@@ -71,7 +71,6 @@ func (d *device) startRecording(target contract.RecordingTarget) error {
 	go d.recordState(ctx, rec)
 	go d.recordLogs(ctx, rec)
 	go d.recordDevTools(ctx, rec)
-	go d.recordDNS(ctx, rec)
 	go func() {
 		select {
 		case <-ctx.Done():
@@ -145,6 +144,7 @@ func (d *device) recordState(ctx context.Context, rec *recording.Recorder) {
 		WebView: "com.android.webview " + cmp.Or(s.WebView, "128.0.6613.146"), Package: s.Package, VersionName: "1.0", VersionCode: 1,
 		ArtifactRef: s.ArtifactRef,
 	}})
+	go d.recordDNS(ctx, rec)
 	go func() {
 		_ = d.WatchMetrics(ctx, func(m contract.Metrics) error {
 			rec.Event(contract.RecordingEvent{Type: contract.EventMetrics, Metrics: &m})

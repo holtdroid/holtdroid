@@ -2808,7 +2808,7 @@ pass a recording to someone without an account.
   2 Mbit/s). Sound is a track of its own (`ainit-N.mp4`, `aseg-N.m4s`, `manifest.audio`):
   the Opus packets of the newest viewer who listens, or a capture for the
   recording alone when nobody does, which stops once the device says it
-  can't (Android 11, or a device with no audio); phones feed the recording
+  can't (a device with no audio; Android 11 too until decision #140); phones feed the recording
   from the capture they keep for the whole session. Opus packets are all
   independent, so segments are cut by time (10 s) and each decodes by itself;
   the packets' own times pace the sound and the first one is placed by the
@@ -4222,3 +4222,25 @@ asks for there.
 width in dp; the tab says "px" for frames wider than 600. Rotated layers use
 their bounding boxes. An import uses three Figma API calls (Tier 1 rate
 limits), so a busy server token may need users' own tokens.
+
+## 140. Android 11 sends its sound as AAC
+
+**Context.** Device audio and the sound of recordings were missing on
+Android 11. Capture itself works there (remote submix, shell in the
+foreground), but redroid 11 lists `c2.android.opus.encoder` and fails to
+create it (`Failed to initialize audio/opus, error 0xfffffffe`), so the
+scrcpy server reports no audio. `c2.android.aac.encoder` works.
+
+**Decision.** The agent reads `ro.build.version.sdk` once and starts audio
+servers with `audio_codec=aac` on SDK 30 and below, Opus otherwise. The
+browser takes the codec from the stream's codec id and configures
+WebCodecs with `mp4a.40.2` and the AudioSpecificConfig of the config packet
+as its description. Recordings keep the codec of the run: AAC goes into
+fragmented MP4 as `mp4a` with the stream's sample rate as the time scale
+and 1024-sample frames, and the manifest's `audio[].codec` says `aac`;
+the player and the video export read it through mediabunny unchanged.
+
+**Consequences.** A browser without an AAC decoder (some Firefox builds on
+Linux) gets "can't play AAC" for Android 11 instead of sound. AAC frames
+lean on the one before, so each 10 s segment, decoded by itself, starts
+with one frame of decoder warm-up.

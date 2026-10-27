@@ -72,11 +72,12 @@ watches, or the viewer picked H.265 or AV1, the agent runs a stream of its
 own for the recording: H.264, at most 1280 pixels on the long side, 30 fps,
 2 Mbit/s. A static screen costs next to nothing either way.
 
-The sound is taken the same way: the Opus stream of a viewer who listens, or a
+The sound is taken the same way: the stream of a viewer who listens, or a
 capture of its own for the recording when nobody does (phones capture sound all
 session long anyway). It is written as a separate track, 10 seconds a
-segment, 40 to 60 MB an hour. A device that can't capture sound, which is
-Android 11, is asked once and then left alone: its recordings are silent.
+segment, 40 to 60 MB an hour, as Opus, or as AAC on Android 11, whose Opus
+encoder doesn't start. A device that can't capture sound is asked once and
+then left alone: its recordings are silent.
 When the device is silent, the recording is too.
 
 ## Watching
@@ -256,7 +257,7 @@ server.
 
 In the archive: `holtdroid.json` (the format, the recording's details and
 its markers), `manifest.json`, `init-N.mp4` and `seg-N.m4s` (the video, as fragmented MP4),
-`ainit-N.mp4` and `aseg-N.m4s` (the sound, as Opus in fragmented MP4),
+`ainit-N.mp4` and `aseg-N.m4s` (the sound, as Opus or AAC in fragmented MP4),
 `events-N.jsonl.gz` (one JSON event per line), `logcat-N.log.gz`,
 `devtools-N.jsonl.gz` (one JSON line per request, console message, socket
 change or frame),

@@ -1,9 +1,10 @@
 import { Float32PlanerPcmPlayer } from "@yume-chan/pcm-player"
-import { ScrcpyOptions3_3_3 } from "@yume-chan/scrcpy"
+import { ScrcpyAudioCodec, ScrcpyOptions3_3_3 } from "@yume-chan/scrcpy"
 import { WritableStream } from "@yume-chan/stream-extra"
 import { openSocket, socketStream } from "@/lib/scrcpy"
 
-// Must match how the agent starts the server (internal/agent/scrcpy.go).
+// Must match how the agent starts the server (internal/agent/scrcpy.go),
+// except the codec: Android 11 sends AAC, read from the stream's header.
 const options = new ScrcpyOptions3_3_3({
   video: false,
   audio: true,
@@ -13,6 +14,14 @@ const options = new ScrcpyOptions3_3_3({
 })
 
 const config: AudioDecoderConfig = { codec: "opus", sampleRate: 48000, numberOfChannels: 2 }
+const aac: AudioDecoderConfig = { ...config, codec: "mp4a.40.2" }
+
+async function configSupported(c: AudioDecoderConfig) {
+  return AudioDecoder.isConfigSupported(c).then(
+    (r) => r.supported === true,
+    () => false,
+  )
+}
 
 export class AudioUnavailableError extends Error {}
 
@@ -23,10 +32,7 @@ export type AudioConnection = {
 
 export async function audioSupported() {
   if (typeof AudioDecoder === "undefined" || typeof AudioWorkletNode === "undefined") return false
-  return AudioDecoder.isConfigSupported(config).then(
-    (r) => r.supported === true,
-    () => false,
-  )
+  return configSupported(config)
 }
 
 type AutoplayNavigator = Navigator & { getAutoplayPolicy?: (type: "audiocontext") => string }
@@ -57,6 +63,13 @@ export async function openAudio(url: string): Promise<AudioConnection> {
     await opened
     const metadata = await options.parseAudioStreamMetadata(socketStream(ws))
     if (metadata.type !== "success") throw new AudioUnavailableError("This device can't capture its audio")
+    const isAAC = metadata.codec === ScrcpyAudioCodec.Aac
+    if (isAAC && !(await configSupported(aac))) {
+      throw new AudioUnavailableError("This browser can't play AAC, which this device's audio uses")
+    }
+    if (!isAAC && metadata.codec !== ScrcpyAudioCodec.Opus) {
+      throw new AudioUnavailableError("This device's audio is in a codec this page can't play")
+    }
     await player.start()
     const decoder = new AudioDecoder({
       output: (data) => {
@@ -70,13 +83,17 @@ export async function openAudio(url: string): Promise<AudioConnection> {
       },
       error: () => ws.close(),
     })
-    decoder.configure(config)
+    if (!isAAC) decoder.configure(config)
     const done = metadata.stream
       .pipeThrough(options.createMediaStreamTransformer())
       .pipeTo(
         new WritableStream({
           write(packet) {
-            if (packet.type === "configuration") return
+            if (packet.type === "configuration") {
+              if (isAAC) decoder.configure({ ...aac, description: packet.data })
+              return
+            }
+            if (decoder.state !== "configured") return
             decoder.decode(
               new EncodedAudioChunk({ type: "key", timestamp: Number(packet.pts ?? 0n), data: packet.data }),
             )

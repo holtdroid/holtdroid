@@ -436,6 +436,45 @@ func TestRecorderWritesAudio(t *testing.T) {
 	}
 }
 
+func TestRecorderWritesAACAudio(t *testing.T) {
+	b := &bucket{files: map[string][]byte{}}
+	c := &clock{t: time.Now()}
+	r := start(t, b, c)
+
+	r.Audio(Packet{Codec: "aac", Config: true, Data: []byte{0x11, 0x90}})
+	pts := int64(1_000_000)
+	for range 100 {
+		r.Audio(Packet{Codec: "aac", PTS: pts, Data: []byte("frame")})
+		pts += 21_333
+		c.add(21 * time.Millisecond)
+	}
+	r.Stop(context.Background())
+
+	var m contract.RecordingManifest
+	if err := json.Unmarshal(b.get(t, "manifest.json"), &m); err != nil {
+		t.Fatal(err)
+	}
+	if len(m.Audio) != 1 || m.Audio[0].Codec != "aac" || m.Audio[0].Channels != 2 || m.Audio[0].Rate != 48000 || len(m.Audio[0].Segments) != 1 {
+		t.Fatalf("audio: %+v", m.Audio)
+	}
+	var init fmp4.Init
+	if err := init.Unmarshal(bytes.NewReader(b.get(t, m.Audio[0].Init))); err != nil {
+		t.Fatal(err)
+	}
+	if a, ok := init.Tracks[0].Codec.(*codecs.MPEG4Audio); !ok || a.Config.SampleRate != 48000 || init.Tracks[0].TimeScale != 48000 {
+		t.Fatalf("init: %+v", init.Tracks[0])
+	}
+	var parts fmp4.Parts
+	if err := parts.Unmarshal(b.get(t, m.Audio[0].Segments[0].File)); err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range parts[0].Tracks[0].Samples {
+		if s.Duration != 1024 {
+			t.Fatalf("an AAC frame lasts %d ticks", s.Duration)
+		}
+	}
+}
+
 func TestRecorderIgnoresSoundBeforeItsConfig(t *testing.T) {
 	b := &bucket{files: map[string][]byte{}}
 	c := &clock{t: time.Now()}
@@ -468,7 +507,7 @@ func TestTapReadsAnAudioSocket(t *testing.T) {
 	for i := range stream {
 		_, _ = tap.Write(stream[i : i+1])
 	}
-	if len(got) != 2 || !got[0].Config || got[1].PTS != 20_000 || string(got[1].Data) != "frame" {
+	if len(got) != 2 || !got[0].Config || got[1].PTS != 20_000 || string(got[1].Data) != "frame" || got[1].Codec != "opus" {
 		t.Fatalf("packets: %+v", got)
 	}
 

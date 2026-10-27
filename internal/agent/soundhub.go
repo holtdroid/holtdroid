@@ -13,7 +13,7 @@ import (
 
 const recordAudioBitRate = 96_000
 
-// soundHub gives a recording the Opus stream of the newest viewer who listens,
+// soundHub gives a recording the sound stream of the newest viewer who listens,
 // so the device is captured once. Without one it captures for the recording
 // alone, unless the device can't (Android 11, or no audio device): then it
 // finds out once and leaves the recording silent. Phones capture for the
@@ -29,12 +29,12 @@ type soundHub struct {
 	active      *soundFeed
 	own         context.CancelFunc
 	unsupported bool
-	keptConfig  []byte
+	keptConfig  *recording.Packet
 }
 
 type soundFeed struct {
 	tap    recording.Tap
-	config []byte
+	config *recording.Packet
 }
 
 func newSoundHub(s *Scrcpy, keep bool) *soundHub {
@@ -80,7 +80,7 @@ func (h *soundHub) attach(ctx context.Context, rec *recording.Recorder) {
 	h.ctx, h.rec = ctx, rec
 	if h.keep {
 		if h.keptConfig != nil {
-			rec.Audio(recording.Packet{Config: true, Data: h.keptConfig})
+			rec.Audio(*h.keptConfig)
 		}
 		return
 	}
@@ -114,14 +114,14 @@ func (h *soundHub) activate(f *soundFeed) {
 	h.active = f
 	h.rec.AudioBreak()
 	if f.config != nil {
-		h.rec.Audio(recording.Packet{Config: true, Data: f.config})
+		h.rec.Audio(*f.config)
 	}
 }
 
 func (h *soundHub) packet(f *soundFeed, p recording.Packet) {
 	h.mu.Lock()
 	if p.Config {
-		f.config = p.Data
+		f.config = &p
 	}
 	rec := h.rec
 	if h.active != f {
@@ -137,7 +137,7 @@ func (h *soundHub) packet(f *soundFeed, p recording.Packet) {
 func (h *soundHub) kept(p recording.Packet) {
 	h.mu.Lock()
 	if p.Config {
-		h.keptConfig = p.Data
+		h.keptConfig = &p
 	}
 	rec := h.rec
 	h.mu.Unlock()
@@ -169,8 +169,8 @@ func (h *soundHub) startOwn() {
 	h.own = cancel
 	f := h.feed()
 	h.active = f
-	opts := fmt.Sprintf("video=false audio=true control=false audio_codec=opus send_device_meta=false audio_bit_rate=%d", recordAudioBitRate)
 	go func() {
+		opts := h.s.audioOpts(ctx, fmt.Sprintf("audio_bit_rate=%d", recordAudioBitRate))
 		wait := 5 * time.Second
 		for ctx.Err() == nil {
 			conns, err := h.s.start(ctx, opts, 1)
@@ -181,7 +181,7 @@ func (h *soundHub) startOwn() {
 				}()
 				_, _ = io.Copy(&f.tap, conns[0])
 				conns[0].Close()
-				if f.tap.Ready() && f.tap.Codec != "opus" {
+				if f.tap.Ready() && !recording.AudioCodec(f.tap.Codec) {
 					h.mu.Lock()
 					h.unsupported = true
 					h.mu.Unlock()
@@ -210,9 +210,10 @@ func (h *soundHub) startOwn() {
 }
 
 // keptPacket turns a packet read by the audio hub into the recorder's kind.
-func keptPacket(head, data []byte) recording.Packet {
+func keptPacket(codec string, head, data []byte) recording.Packet {
 	flags := binary.BigEndian.Uint64(head)
 	return recording.Packet{
+		Codec:  codec,
 		Config: flags&configFlag != 0,
 		PTS:    int64(flags & (1<<62 - 1)),
 		Data:   data,

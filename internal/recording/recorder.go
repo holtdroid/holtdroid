@@ -47,7 +47,9 @@ func DefaultConfig() Config {
 
 // Packet is one scrcpy video packet: a config packet (SPS and PPS) or a
 // picture, in Annex B, with its presentation time in microseconds.
+// Codec is set on audio packets: "opus" or "aac".
 type Packet struct {
+	Codec  string
 	Config bool
 	Key    bool
 	PTS    int64

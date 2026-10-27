@@ -5,10 +5,13 @@ import (
 	"encoding/binary"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/coder/websocket"
+
+	"github.com/holtdroid/holtdroid/internal/recording"
 )
 
 // audioHub keeps one audio capture running for the whole session and fans
@@ -47,7 +50,7 @@ func (h *audioHub) run(ctx context.Context) {
 func (h *audioHub) capture(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	conns, err := h.s.start(ctx, "video=false audio=true control=false audio_codec=opus send_device_meta=false", 1)
+	conns, err := h.s.start(ctx, h.s.audioOpts(ctx, ""), 1)
 	if err != nil {
 		return err
 	}
@@ -71,8 +74,8 @@ func (h *audioHub) capture(ctx context.Context) error {
 		if _, err := io.ReadFull(stream, packet[12:]); err != nil {
 			return err
 		}
-		if string(codec) == "opus" {
-			h.s.sound.kept(keptPacket(head, packet[12:]))
+		if c := strings.TrimRight(string(codec), "\x00"); recording.AudioCodec(c) {
+			h.s.sound.kept(keptPacket(c, head, packet[12:]))
 		}
 		if binary.BigEndian.Uint64(head)&configFlag != 0 {
 			h.mu.Lock()

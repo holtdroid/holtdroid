@@ -2,6 +2,7 @@ package agent
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/binary"
 	"errors"
@@ -41,6 +42,7 @@ type fakeScrcpy struct {
 	opus     bool
 	noSound  bool
 	submix   int
+	sdk      string
 }
 
 func newFakeScrcpy(t *testing.T) *fakeScrcpy {
@@ -180,6 +182,9 @@ func (f *fakeScrcpy) Shell(_ context.Context, cmd string) (string, error) {
 	if cmd == submixVolume {
 		f.submix++
 		return "set\n", nil
+	}
+	if cmd == "getprop ro.build.version.sdk" {
+		return cmp.Or(f.sdk, "34") + "\n", nil
 	}
 	f.cmds = append(f.cmds, cmd)
 	if strings.Contains(cmd, "list_encoders=true") {
@@ -403,6 +408,22 @@ func TestScrcpyAudio(t *testing.T) {
 	defer dev.mu.Unlock()
 	if dev.submix != 1 {
 		t.Fatalf("the capture's volume was set %d times, want once", dev.submix)
+	}
+}
+
+func TestScrcpyAudioIsAACOnAndroid11(t *testing.T) {
+	dev := newFakeScrcpy(t)
+	dev.sdk = "30"
+	base := scrcpyServer(t, dev)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	c := dialWS(ctx, t, base+"/display/audio")
+	if _, _, err := c.Read(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if cmd := dev.lastCmd(); !strings.Contains(cmd, "audio_codec=aac") {
+		t.Fatalf("command %q doesn't ask for AAC", cmd)
 	}
 }
 

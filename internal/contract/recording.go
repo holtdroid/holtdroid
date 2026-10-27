@@ -59,11 +59,11 @@ type RecordingEpoch struct {
 	Segments []RecordingSegment `json:"segments"`
 }
 
-// RecordingAudio is a run of Opus sound: an init file and segments of packets,
+// RecordingAudio is a run of Opus or AAC sound: an init file and segments of packets,
 // which can all be decoded on their own. It starts again when the capture does.
 type RecordingAudio struct {
 	Init     string             `json:"init"`
-	Codec    string             `json:"codec" enum:"opus"`
+	Codec    string             `json:"codec" enum:"opus,aac"`
 	Channels int                `json:"channels"`
 	Rate     int                `json:"rate" doc:"samples per second"`
 	Segments []RecordingSegment `json:"segments"`

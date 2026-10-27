@@ -333,8 +333,9 @@ costs about a core to encode.
 
 `/display/audio` works the same way with an audio-only server
 (`video=false audio=true control=false audio_codec=opus
-send_device_meta=false`): the 4-byte codec id (`opus`, or 0/1 when the
-device can't capture), then packets. Capture works with `-no-audio`: the
+send_device_meta=false`, `audio_codec=aac` on Android 11, decision #140):
+the 4-byte codec id (`opus` or `aac`, or 0/1 when the device can't
+capture), then packets. Capture works with `-no-audio`: the
 guest still has its audio HAL.
 
 The UI (`web/src/lib/scrcpy.ts`) parses the stream with

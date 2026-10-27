@@ -75,6 +75,7 @@ type Scrcpy struct {
 	mu       sync.Mutex
 	encoders []string
 	submix   bool
+	sdk      int
 }
 
 func NewScrcpy(cfg ScrcpyConfig, dev ScrcpyDevice, log *slog.Logger) *Scrcpy {
@@ -197,7 +198,7 @@ func (s *Scrcpy) serveAudio(w http.ResponseWriter, r *http.Request) {
 	// could leave one of them deaf
 	f := s.sound.open()
 	defer s.sound.close(f)
-	conns, err := s.start(ctx, "video=false audio=true control=false audio_codec=opus send_device_meta=false", 1)
+	conns, err := s.start(ctx, s.audioOpts(ctx, ""), 1)
 	if err != nil {
 		s.log.Warn("scrcpy audio start", "err", err)
 		_ = ws.Close(websocket.StatusTryAgainLater, "audio is not available yet")
@@ -266,6 +267,29 @@ func bridge(ctx context.Context, cancel context.CancelFunc, ws *websocket.Conn, 
 			return
 		}
 	}
+}
+
+// audioOpts starts an audio-only server. Android 11 lists an Opus encoder
+// that fails to initialize, so it gets AAC.
+func (s *Scrcpy) audioOpts(ctx context.Context, extra string) string {
+	codec := "opus"
+	if sdk := s.sdkVersion(ctx); sdk > 0 && sdk <= 30 {
+		codec = "aac"
+	}
+	return strings.TrimSpace("video=false audio=true control=false audio_codec=" + codec + " send_device_meta=false " + extra)
+}
+
+func (s *Scrcpy) sdkVersion(ctx context.Context) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.sdk == 0 {
+		out, err := s.dev.Shell(ctx, "getprop ro.build.version.sdk")
+		if err != nil {
+			return 0
+		}
+		s.sdk, _ = strconv.Atoi(strings.TrimSpace(out))
+	}
+	return s.sdk
 }
 
 var encoderRe = regexp.MustCompile(`--video-codec=(\w+)`)
