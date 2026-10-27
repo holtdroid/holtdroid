@@ -69,16 +69,27 @@ export async function blobURL(canvas: OffscreenCanvas) {
   return URL.createObjectURL(await canvas.convertToBlob({ type: "image/png" }))
 }
 
-/** Decodes an image, SVG included, which createImageBitmap can't take. */
+/**
+ * Decodes an image, SVG included, which createImageBitmap can't take. A URL
+ * is fetched first and drawn from a blob: the response's own headers (an
+ * SVG's CSP sandbox) would otherwise make it cross-origin and taint every
+ * canvas it is drawn on.
+ */
 export async function loadImage(src: Blob | string) {
-  const url = typeof src === "string" ? src : URL.createObjectURL(src)
+  let blob = src
+  if (typeof blob === "string") {
+    const r = await fetch(blob, { credentials: "same-origin" })
+    if (!r.ok) throw new Error(`Could not load the image (${r.status})`)
+    blob = await r.blob()
+  }
+  const url = URL.createObjectURL(blob)
   const img = new Image()
   img.decoding = "async"
   img.src = url
   try {
     await img.decode()
   } finally {
-    if (typeof src !== "string") URL.revokeObjectURL(url)
+    URL.revokeObjectURL(url)
   }
   return img
 }
