@@ -4523,3 +4523,27 @@ than 20. A grid whose cells are different components still comes apart; the
 eye on a whole grid hides all of it. Existing references are regrouped on
 their next Update from Figma.
 
+
+## 150. The api runs Litestream's compactions itself and stops them before closing
+
+**Context.** `TestPersistence` failed now and then under `-race`.
+Litestream v0.5.17's `Store.Close` closes its databases before it cancels
+and waits for its compaction monitors. A snapshot started by a monitor (the
+snapshot level runs as soon as the store opens) reads the database file in
+a goroutine of its own while `DB.Close` sets that file to nil. The race
+detector reports it, and the snapshot fails with "read database page N:
+invalid argument". In production it happens at shutdown and loses that
+snapshot.
+
+**Decision.** Builds on #102. The store opens with
+`CompactionMonitorEnabled: false`, and the api runs one loop per
+compaction level and for snapshots, calling the store's own `CompactDB`
+and `EnforceSnapshotRetention` on Litestream's schedule.
+`db.DB.Close` stops the loops and waits for the compaction in flight to
+finish before the final sync and `Store.Close`. The compaction is cancelled
+only when the 30-second close timeout runs out.
+
+**Consequences.** A short schedule loop lives in `internal/db/open.go`
+instead of Litestream. It can go once Litestream stops its monitors before
+it closes its databases. A slow upload at shutdown now delays the close, up
+to the timeout, instead of failing.

@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/benbjohnson/litestream"
@@ -40,6 +41,12 @@ type DB struct {
 	sql     *sql.DB
 	store   *litestream.Store
 	replica *litestream.DB
+
+	compactCtx    context.Context
+	cancelCompact context.CancelFunc
+	stopping      context.Context
+	stopCompact   context.CancelFunc
+	compacting    sync.WaitGroup
 }
 
 func Open(ctx context.Context, cfg Config, reg *secrets.Registry) (*DB, error) {
@@ -93,6 +100,7 @@ func openFile(ctx context.Context, cfg Config, reg *secrets.Registry) (*DB, erro
 	d.replica = litestream.NewDB(cfg.Path)
 	d.replica.Replica = litestream.NewReplicaWithClient(d.replica, client)
 	d.store = litestream.NewStore([]*litestream.DB{d.replica}, litestream.DefaultCompactionLevels)
+	d.store.CompactionMonitorEnabled = false
 	d.store.Logger = slog.Default().With("component", "litestream")
 	if err := d.store.Open(ctx); err != nil {
 		_ = sqlDB.Close()
@@ -105,7 +113,55 @@ func openFile(ctx context.Context, cfg Config, reg *secrets.Registry) (*DB, erro
 		_ = d.Close()
 		return nil, fmt.Errorf("database: replica: %w", err)
 	}
+	d.startCompaction()
 	return d, nil
+}
+
+func (d *DB) startCompaction() {
+	d.compactCtx, d.cancelCompact = context.WithCancel(context.Background())
+	d.stopping, d.stopCompact = context.WithCancel(context.Background())
+	levels := []*litestream.CompactionLevel{d.store.SnapshotLevel()}
+	for _, lvl := range litestream.DefaultCompactionLevels {
+		if lvl.Level != 0 {
+			levels = append(levels, lvl)
+		}
+	}
+	for _, lvl := range levels {
+		d.compacting.Go(func() { d.compactLevel(lvl) })
+	}
+}
+
+func (d *DB) compactLevel(lvl *litestream.CompactionLevel) {
+	timer := time.NewTimer(0)
+	defer timer.Stop()
+	for {
+		select {
+		case <-d.stopping.Done():
+			return
+		case <-timer.C:
+		}
+		if _, err := d.store.CompactDB(d.compactCtx, d.replica, lvl); err != nil &&
+			!errors.Is(err, litestream.ErrNoCompaction) && !errors.Is(err, litestream.ErrCompactionTooEarly) && !errors.Is(err, context.Canceled) {
+			d.store.Logger.Error("compaction failed", "level", lvl.Level, "error", err)
+		}
+		if lvl.Level == litestream.SnapshotLevel {
+			if err := d.store.EnforceSnapshotRetention(d.compactCtx, d.replica); err != nil && !errors.Is(err, context.Canceled) {
+				d.store.Logger.Error("snapshot retention failed", "error", err)
+			}
+		}
+		timer.Reset(time.Until(lvl.NextCompactionAt(time.Now())))
+	}
+}
+
+func (d *DB) stopCompaction(ctx context.Context) {
+	if d.stopCompact == nil {
+		return
+	}
+	d.stopCompact()
+	stop := context.AfterFunc(ctx, d.cancelCompact)
+	d.compacting.Wait()
+	stop()
+	d.cancelCompact()
 }
 
 func restore(ctx context.Context, client litestream.ReplicaClient, path string) error {
@@ -164,6 +220,7 @@ func (d *DB) Close() error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+	d.stopCompaction(ctx)
 	err := d.replica.Sync(ctx)
 	err = errors.Join(err, d.sql.Close())
 	return errors.Join(err, d.store.Close(ctx))
