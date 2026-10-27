@@ -1,7 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useTheme } from "next-themes"
 import { useEventSource } from "@/hooks/use-event-source"
-import { recordPreference } from "@/lib/launch-prefs"
+import { recordPreference, saveAppDataPreference } from "@/lib/launch-prefs"
 import { readDevTools, readEvents } from "@/lib/recording/bundle"
 import type { RecordingFiles } from "@/lib/recording/files"
 import { getScreenPrefs } from "@/lib/screen-prefs"
@@ -272,10 +272,16 @@ export function useLaunch() {
   const { resolvedTheme } = useTheme()
   return async (body: LaunchInput, signal: AbortSignal) => {
     const record = recordPreference()
+    const saveAppData = saveAppDataPreference()
     const darkMode = getScreenPrefs().deviceTheme === "sync" ? resolvedTheme === "dark" : undefined
     const session = await unwrap(
       api.POST("/api/v1/sessions", {
-        body: { ...body, ...(record !== null && { record }), ...(darkMode !== undefined && { darkMode }) },
+        body: {
+          ...body,
+          ...(record !== null && { record }),
+          ...(darkMode !== undefined && { darkMode }),
+          ...(saveAppData && { saveAppData }),
+        },
         signal,
       }),
     )

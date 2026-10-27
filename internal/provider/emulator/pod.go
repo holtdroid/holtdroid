@@ -33,6 +33,7 @@ const (
 	annotationAndroid      = "holtdroid/android"
 	annotationAppData      = "holtdroid/app-data"
 	annotationWebView      = "holtdroid/webview"
+	annotationSaveAppData  = "holtdroid/save-app-data"
 	annotationCreatedAt    = "holtdroid/created-at"
 	annotationLastActivity = "holtdroid/last-activity"
 
@@ -245,6 +246,9 @@ func (p *Provider) renderPod(id, slot, node string, req contract.CreateSession, 
 	if req.WebView != nil {
 		annotations[annotationWebView] = req.WebView.Version
 	}
+	if req.SaveAppData {
+		annotations[annotationSaveAppData] = "true"
+	}
 
 	return &corev1.Pod{
 		Name:        name,
@@ -364,6 +368,7 @@ func (p *Provider) podSession(pod corev1.Pod) contract.Session {
 		Location:     a[annotationLocation],
 		AppData:      contract.AppDataKind(a[annotationAppData]),
 		WebView:      a[annotationWebView],
+		SaveAppData:  a[annotationSaveAppData] == "true",
 		State:        state,
 		Reason:       reason,
 		Detail:       detail,

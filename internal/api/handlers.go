@@ -47,6 +47,7 @@ type SessionView struct {
 	Location     string                     `json:"location,omitempty"`
 	AppData      contract.AppDataKind       `json:"appData,omitempty" enum:"data,cache" doc:"the app data restored at launch: data, or data with its cache; empty for a fresh install"`
 	WebView      string                     `json:"webview,omitempty" doc:"the version of the WebView build installed at launch; empty for the built-in WebView"`
+	SaveAppData  bool                       `json:"saveAppData,omitempty" doc:"the app's data is saved when the session is stopped or reaped"`
 	State        contract.SessionState      `json:"state" enum:"provisioning,booting,installing,restoring,instrumenting,ready,stopping,failed"`
 	Reason       string                     `json:"reason,omitempty"`
 	Detail       string                     `json:"detail,omitempty"`
@@ -73,18 +74,19 @@ type sessionPath struct {
 
 type createSessionInput struct {
 	Body struct {
-		Source     string         `json:"source" minLength:"1"`
-		ArtifactID string         `json:"artifactId" minLength:"1"`
-		Provider   string         `json:"provider,omitempty" doc:"empty picks the first provider in the configured order with a free device"`
-		Slot       string         `json:"slot,omitempty" doc:"a device of the provider; empty picks any free one"`
-		Screen     string         `json:"screen,omitempty" doc:"a screen of the provider (virtual devices); empty takes its first"`
-		Android    string         `json:"android,omitempty" doc:"an Android version of the provider (virtual devices); empty takes its newest"`
-		Location   string         `json:"location,omitempty"`
-		AppData    *AppDataChoice `json:"appData,omitempty" doc:"start the app with saved app data instead of a fresh install"`
-		WebView    string         `json:"webview,omitempty" doc:"a build from GET /api/v1/webviews to install over the built-in WebView; only providers with the webview capability take it"`
-		Queue      bool           `json:"queue,omitempty" doc:"when every slot is busy, wait in line for one instead of failing; cancelling the request gives up the place"`
-		Record     *bool          `json:"record,omitempty" doc:"record the session from its start; empty follows the server's recordings.auto"`
-		DarkMode   *bool          `json:"darkMode,omitempty" doc:"turn the device's dark theme on or off before the app first starts; empty leaves the device's own"`
+		Source      string         `json:"source" minLength:"1"`
+		ArtifactID  string         `json:"artifactId" minLength:"1"`
+		Provider    string         `json:"provider,omitempty" doc:"empty picks the first provider in the configured order with a free device"`
+		Slot        string         `json:"slot,omitempty" doc:"a device of the provider; empty picks any free one"`
+		Screen      string         `json:"screen,omitempty" doc:"a screen of the provider (virtual devices); empty takes its first"`
+		Android     string         `json:"android,omitempty" doc:"an Android version of the provider (virtual devices); empty takes its newest"`
+		Location    string         `json:"location,omitempty"`
+		AppData     *AppDataChoice `json:"appData,omitempty" doc:"start the app with saved app data instead of a fresh install"`
+		WebView     string         `json:"webview,omitempty" doc:"a build from GET /api/v1/webviews to install over the built-in WebView; only providers with the webview capability take it"`
+		Queue       bool           `json:"queue,omitempty" doc:"when every slot is busy, wait in line for one instead of failing; cancelling the request gives up the place"`
+		Record      *bool          `json:"record,omitempty" doc:"record the session from its start; empty follows the server's recordings.auto"`
+		DarkMode    *bool          `json:"darkMode,omitempty" doc:"turn the device's dark theme on or off before the app first starts; empty leaves the device's own"`
+		SaveAppData bool           `json:"saveAppData,omitempty" doc:"save the app's data when the session is stopped or reaped; it can always be saved by hand"`
 	}
 }
 
@@ -142,7 +144,7 @@ func (s *Server) register(api huma.API) {
 		v, err := s.createSession(ctx, id, launchRequest{
 			source: in.Body.Source, artifactID: in.Body.ArtifactID, provider: in.Body.Provider, slot: in.Body.Slot,
 			screen: in.Body.Screen, android: in.Body.Android, location: in.Body.Location, appData: in.Body.AppData, webview: in.Body.WebView, queue: in.Body.Queue,
-			record: in.Body.Record, darkMode: in.Body.DarkMode,
+			record: in.Body.Record, darkMode: in.Body.DarkMode, saveAppData: in.Body.SaveAppData,
 		})
 		result, _ := outcome(err)
 		launchesTotal.WithLabelValues(cmp.Or(v.Provider, in.Body.Provider, "any"), string(result)).Inc()
@@ -177,7 +179,9 @@ func (s *Server) register(api huma.API) {
 		if err == nil {
 			ctx := context.WithoutCancel(ctx)
 			ev.Artifact = sess.ArtifactRef
-			_, _, _ = s.saveAppData(ctx, in.Provider, sess, "stop", false)
+			if sess.SaveAppData {
+				_, _, _ = s.saveAppData(ctx, in.Provider, sess, "stop", false)
+			}
 			s.stopRecording(ctx, in.Provider, sess)
 			err = p.Delete(ctx, sess.ID)
 		}
@@ -395,6 +399,7 @@ func (s *Server) view(ctx context.Context, provider string, sess contract.Sessio
 		Location:     sess.Location,
 		AppData:      sess.AppData,
 		WebView:      sess.WebView,
+		SaveAppData:  sess.SaveAppData,
 		State:        sess.State,
 		Reason:       sess.Reason,
 		Detail:       sess.Detail,
@@ -418,7 +423,7 @@ func (s *Server) view(ctx context.Context, provider string, sess contract.Sessio
 type launchRequest struct {
 	source, artifactID, provider, slot, screen, android, location, webview string
 	appData                                                                *AppDataChoice
-	queue                                                                  bool
+	queue, saveAppData                                                     bool
 	record, darkMode                                                       *bool
 }
 
@@ -506,6 +511,7 @@ func (s *Server) createSession(ctx context.Context, who auth.Identity, req launc
 			Screen:      req.screen,
 			Android:     req.android,
 			AppData:     restore,
+			SaveAppData: req.saveAppData && s.appData != nil,
 			WebView:     webview,
 			Frontend:    validFrontend(artifact.Meta.Tags["frontend"]),
 			Recording:   recTarget,

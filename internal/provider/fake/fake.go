@@ -156,6 +156,7 @@ func (p *Provider) Create(_ context.Context, req contract.CreateSession) (contra
 		Location:     location,
 		AppData:      req.AppData.Kind(),
 		WebView:      webviewVersion(req.WebView),
+		SaveAppData:  req.SaveAppData,
 		State:        contract.StateProvisioning,
 		AgentURL:     strings.TrimRight(p.cfg.PublicURL, "/") + "/agents/" + id,
 		TunnelURL:    tunnelURL,

@@ -30,7 +30,7 @@ func newAppDataHarness(t *testing.T, configure func(*AppDataConfig)) *harness {
 
 func (h *harness) launch(user string, appData *AppDataChoice) *SessionView {
 	h.t.Helper()
-	body := map[string]any{"source": "local", "artifactId": encodeID("hello.apk"), "provider": "fake"}
+	body := map[string]any{"source": "local", "artifactId": encodeID("hello.apk"), "provider": "fake", "saveAppData": true}
 	if appData != nil {
 		body["appData"] = appData
 	}
@@ -83,6 +83,9 @@ func archiveNames(t *testing.T, raw []byte) []string {
 func TestAppDataSavedOnStopAndRestored(t *testing.T) {
 	h := newAppDataHarness(t, nil)
 	first := h.launch("otter", nil)
+	if !first.SaveAppData {
+		t.Fatal("saveAppData not kept")
+	}
 	h.stop("otter", first.ID)
 
 	list := h.appData("otter")
@@ -140,6 +143,30 @@ func slicesContain(events []string, prefix string) bool {
 		}
 	}
 	return false
+}
+
+func TestAppDataNotSavedUnlessAsked(t *testing.T) {
+	h := newAppDataHarness(t, nil)
+	launch := func() SessionView {
+		rec := h.do(http.MethodPost, "/api/v1/sessions", "otter", "", map[string]any{"source": "local", "artifactId": encodeID("hello.apk"), "provider": "fake"})
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("launch: %d %s", rec.Code, rec.Body.String())
+		}
+		v := decode[SessionView](t, rec)
+		h.waitReady(v.ID)
+		return v
+	}
+	v := launch()
+	if v.SaveAppData {
+		t.Fatal("saveAppData set without asking")
+	}
+	h.stop("otter", v.ID)
+	launch()
+	h.clock.Advance(h.cfg.Sessions.IdleTimeout + time.Minute)
+	h.srv.Reap(t.Context())
+	if items := h.appData("otter").Items; len(items) != 0 {
+		t.Fatalf("saved without asking: %+v", items)
+	}
 }
 
 func TestAppDataIsPrivate(t *testing.T) {

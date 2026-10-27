@@ -543,6 +543,7 @@ func (p *Provider) Create(ctx context.Context, req contract.CreateSession) (cont
 		Package:      req.Package,
 		ArtifactRef:  req.ArtifactRef,
 		Location:     location,
+		SaveAppData:  req.SaveAppData,
 		State:        contract.StateProvisioning,
 		Capabilities: slots[i].Capabilities,
 		AgentURL:     strings.TrimRight(p.cfg.PublicURL, "/") + "/agents/" + id,

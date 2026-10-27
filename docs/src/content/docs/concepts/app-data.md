@@ -4,9 +4,9 @@ description: Keep an app's sign-in, settings and WebView storage between session
 ---
 
 Every session starts from a fresh install. With app data turned on, Holtdroid
-saves the app's private data when you stop a session, and you can start the
-next session of the same app from that save instead of signing in and
-clicking through onboarding again.
+can save the app's private data from a session, by hand or when it ends, and
+you can start the next session of the same app from that save instead of
+signing in and clicking through onboarding again.
 
 ## What is saved
 
@@ -20,7 +20,10 @@ not saved.
 A save is taken when:
 
 - you press **Stop**, or the session is stopped for being idle or reaching
-  its maximum lifetime;
+  its maximum lifetime, and **Save app data when the session ends** was
+  ticked when it was launched. It is off by default. The launch dialog
+  remembers the box in your browser and applies it to every launch from
+  then on, quick launch and launch links included;
 - you press **Save app data now** next to the app's name in the session
   header. The app is stopped while it is copied and started again.
 

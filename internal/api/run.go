@@ -72,8 +72,10 @@ func (s *Server) Reap(ctx context.Context) {
 			if reason == "" || sess.State == contract.StateStopping {
 				continue
 			}
-			if _, _, err := s.saveAppData(ctx, provider, sess, "reap", false); errors.Is(err, contract.ErrBusy) {
-				continue
+			if sess.SaveAppData {
+				if _, _, err := s.saveAppData(ctx, provider, sess, "reap", false); errors.Is(err, contract.ErrBusy) {
+					continue
+				}
 			}
 			s.stopRecording(ctx, provider, sess)
 			ev := audit.Event{

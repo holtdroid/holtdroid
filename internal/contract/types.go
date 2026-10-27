@@ -163,6 +163,7 @@ type CreateSession struct {
 	Screen      string           `json:"screen,omitempty" doc:"one of the provider's screens; empty takes the first"`
 	Android     string           `json:"android,omitempty" doc:"one of the provider's Android versions; empty takes the newest"`
 	AppData     *AppDataRestore  `json:"appData,omitempty" doc:"app data to put back after installing the app and before it first starts"`
+	SaveAppData bool             `json:"saveAppData,omitempty" doc:"save the app's data when the session is stopped or reaped"`
 	WebView     *WebViewInstall  `json:"webview,omitempty" doc:"a WebView build to install over the built-in one before the app; needs the provider's webview capability"`
 	Frontend    string           `json:"frontend,omitempty" pattern:"^[0-9a-f]{40}$" doc:"the Chromium commit whose DevTools frontend fits the app itself, from the build's frontend tag; for Chromium builds that report none of their own"`
 	Recording   *RecordingTarget `json:"recording,omitempty" doc:"record the session from the moment it is first ready"`
@@ -226,6 +227,7 @@ type Session struct {
 	Location     string            `json:"location,omitempty"`
 	AppData      AppDataKind       `json:"appData,omitempty" enum:"data,cache" doc:"the app data restored at launch: data, or data with its cache; empty for a fresh install"`
 	WebView      string            `json:"webview,omitempty" doc:"the version of the WebView build installed at launch; empty for the built-in WebView"`
+	SaveAppData  bool              `json:"saveAppData,omitempty" doc:"the app's data is saved when the session is stopped or reaped"`
 	State        SessionState      `json:"state" enum:"provisioning,booting,installing,restoring,instrumenting,ready,stopping,failed"`
 	Reason       string            `json:"reason,omitempty"`
 	Detail       string            `json:"detail,omitempty"`

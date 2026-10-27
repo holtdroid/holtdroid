@@ -8,6 +8,7 @@ metadata:
     holtdroid/location: ""
     holtdroid/owner: otter
     holtdroid/package: com.example.app
+    holtdroid/save-app-data: "true"
     holtdroid/screen: hd
   labels:
     app.kubernetes.io/managed-by: holtdroid-provider-emulator

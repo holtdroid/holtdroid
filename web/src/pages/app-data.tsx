@@ -33,7 +33,8 @@ export function AppDataPage() {
           <div>
             <h1 className="text-xl font-semibold tracking-tight">App data</h1>
             <p className="text-muted-foreground max-w-xl text-sm">
-              When you stop a session, the app&apos;s private data is saved here. Pick a save when launching the same
+              The app&apos;s private data lands here when you save it from a session, or when a session ends with
+              &ldquo;Save app data when the session ends&rdquo; ticked at launch. Pick a save when launching the same
               app to continue where you left off. Only you can see your saves.
             </p>
           </div>

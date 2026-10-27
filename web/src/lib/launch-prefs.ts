@@ -67,6 +67,12 @@ export function recordPreference(): boolean | null {
 
 export const rememberRecord = (record: boolean) => write(recordKey, record ? "1" : "0")
 
+const saveAppDataKey = "holtdroid:save-app-data"
+
+export const saveAppDataPreference = () => read(saveAppDataKey) === "1"
+
+export const rememberSaveAppData = (save: boolean) => write(saveAppDataKey, save ? "1" : "0")
+
 export type QuickLaunchMode = "fresh" | "data" | "cache"
 
 const quickModeKey = "holtdroid:quick-launch"

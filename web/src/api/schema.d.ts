@@ -1695,6 +1695,8 @@ export interface components {
             queue?: boolean;
             /** @description record the session from its start; empty follows the server's recordings.auto */
             record?: boolean;
+            /** @description save the app's data when the session is stopped or reaped; it can always be saved by hand */
+            saveAppData?: boolean;
             /** @description a screen of the provider (virtual devices); empty takes its first */
             screen?: string;
             /** @description a device of the provider; empty picks any free one */
@@ -3437,6 +3439,8 @@ export interface components {
             package: string;
             provider: string;
             reason?: string;
+            /** @description the app's data is saved when the session is stopped or reaped */
+            saveAppData?: boolean;
             slot: string;
             source: string;
             /** @enum {string} */

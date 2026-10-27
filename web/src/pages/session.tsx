@@ -3,7 +3,7 @@ import { ArrowLeftIcon, ClockIcon, Loader2Icon, SquareIcon, TimerResetIcon } fro
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import { sessionBase, type StatusEvent } from "@/api/client"
-import { canManage, useAppData, useExtendSession, useMe, useProviders, useSession, useStopSession } from "@/api/queries"
+import { canManage, useExtendSession, useMe, useProviders, useSession, useStopSession } from "@/api/queries"
 import { AppIcon } from "@/components/app-icon"
 import { HeaderSlot } from "@/components/header-slot"
 import { useADBInfo, useAdbSession } from "@/components/session/adb-session"
@@ -31,7 +31,6 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
   const me = useMe()
   const stop = useStopSession()
   const extend = useExtendSession()
-  const appData = useAppData()
   const navigate = useNavigate()
   const now = useNow()
   const registerFrame = useActivityHeartbeat(provider, id)
@@ -151,9 +150,7 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
               }
             >
               {stop.isPending ? <Loader2Icon className="animate-spin" /> : <SquareIcon />}
-              {stop.isPending && appData.data?.enabled && session.capabilities?.appData !== false && state === "ready"
-                ? "Saving app data…"
-                : "Stop"}
+              {stop.isPending && session.saveAppData && state === "ready" ? "Saving app data…" : "Stop"}
             </Button>
           </div>
         </div>

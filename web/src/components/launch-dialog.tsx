@@ -39,7 +39,13 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { useLaunchTarget, useStartSession } from "@/hooks/use-launch-target"
 import { formatBytes, formatRelative } from "@/lib/format"
-import { recordPreference, rememberRecord, useFavoriteScreens } from "@/lib/launch-prefs"
+import {
+  recordPreference,
+  rememberRecord,
+  rememberSaveAppData,
+  saveAppDataPreference,
+  useFavoriteScreens,
+} from "@/lib/launch-prefs"
 import { locationFlag } from "@/lib/location"
 import { cn } from "@/lib/utils"
 
@@ -171,6 +177,7 @@ function LaunchFlow({
   const appData = useAppDataFor(artifact.app?.package)
   const recordings = useRecordings()
   const [record, setRecord] = useState(recordPreference)
+  const [saveData, setSaveData] = useState(saveAppDataPreference)
   const snapshot = appData.items.find((d) => d.id === chosenData)
   const appVersion = artifact.app?.versionCode ?? 0
   const newerData = !!snapshot?.versionCode && appVersion > 0 && snapshot.versionCode > appVersion
@@ -365,10 +372,7 @@ function LaunchFlow({
             )}
 
             {appData.data?.enabled && (
-              <Section
-                title="App data"
-                hint="What the app keeps on the device: logins, settings and databases. It is saved when a session stops."
-              >
+              <Section title="App data" hint="What the app keeps on the device: logins, settings and databases.">
                 <ChoiceGroup label="App data" className="sm:grid-cols-2">
                   <ChoiceCard selected={!snapshot} onSelect={() => setChosenData(FRESH)}>
                     <div className="flex items-center gap-2.5">
@@ -399,7 +403,7 @@ function LaunchFlow({
                 </ChoiceGroup>
                 {appData.items.length === 0 && (
                   <p className="text-muted-foreground text-xs">
-                    Nothing saved for this app yet. Its data is saved when you stop a session.
+                    Nothing saved for this app yet. Save it from a session, or when one ends.
                   </p>
                 )}
                 {snapshot && appData.data.cache && (
@@ -415,6 +419,19 @@ function LaunchFlow({
                     </Label>
                   </div>
                 )}
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="launch-save-data"
+                    checked={saveData}
+                    onCheckedChange={(v) => {
+                      setSaveData(v === true)
+                      rememberSaveAppData(v === true)
+                    }}
+                  />
+                  <Label htmlFor="launch-save-data" className="font-normal">
+                    Save app data when the session ends, for this and later launches
+                  </Label>
+                </div>
               </Section>
             )}
 

@@ -168,8 +168,9 @@ deployment"):
   `audit.store.maxEvents` / `maxAge` recent events in memory, mirrored to a
   JSON lines file on the data volume in the chart; the ssh-gateway forwards
   its events. Filters, live refresh, per-event detail, JSON lines export.
-- App data (Phase 4.10, decision #49): the app's data is saved when a
-  session stops and can be picked at launch (with or without its cache),
+- App data (Phase 4.10, decisions #49, #144): the app's data is saved when a
+  session stops, if it was launched with "Save app data when the session
+  ends" (off by default, remembered in the browser), and can be picked at launch (with or without its cache),
   downloaded and deleted on the App data page; quick launch remembers
   fresh/data/data+cache. Restore verified by hand on the session image
   (uid remap + `chcon`); off by default.

@@ -217,8 +217,8 @@ Save an app's private data when a session stops and start the next session
 of the same app from it (decision #49).
 
 - [x] Agent: `/v1/app-data/export` (tar of `/data/data` and `/data/user_de`, zstd, cache optional within `maxCacheSize`/`maxSize`) and restore before the first start with uid remapping and the app's SELinux context; `CreateSession.appData`
-- [x] api: save on Stop and on reap, save on demand, `appData.storage` (default: the shared store under `app-data/`, safe from cache eviction), retention by count per user and app and by age since last use, private to the owner, `appData.export` switch, audit events and metrics
-- [x] UI: App data page (list, download, delete), save choice and cache checkbox in the launch dialog, quick launch menu on hover with the last choice remembered, "Save app data now" on the session page
+- [x] api: save on Stop and on reap (only for sessions launched with `saveAppData`, decision #144), save on demand, `appData.storage` (default: the shared store under `app-data/`, safe from cache eviction), retention by count per user and app and by age since last use, private to the owner, `appData.export` switch, audit events and metrics
+- [x] UI: App data page (list, download, delete), save choice, cache checkbox and "Save app data when the session ends" (remembered, applies to quick launch too) in the launch dialog, quick launch menu on hover with the last choice remembered, "Save app data now" on the session page
 - [x] Tests: api end to end with the fake provider, agent export/restore with a fake device, archive filter, pod golden
 - [x] `restoring` session state with `Session.appData`, shown as its own step while the device starts
 - [x] Launch queue: `queue: true` waits in a per-provider line while every slot is busy, the launch page shows it and leaving the page gives up the place (decision #57)

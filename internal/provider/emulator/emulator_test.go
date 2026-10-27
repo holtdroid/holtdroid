@@ -110,6 +110,7 @@ func TestRender(t *testing.T) {
 			}
 			r := req
 			r.AppData = tt.appData
+			r.SaveAppData = tt.appData != nil
 			if tt.appData != nil {
 				r.DarkMode = new(true)
 			}

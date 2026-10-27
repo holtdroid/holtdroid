@@ -4328,3 +4328,22 @@ with or without a VPN. Handing Android a DNS address that isn't on Chrome's
 list would stop the upgrade without flags or blocks, but that is a change
 to the holtdroid-redroid image; it stays an option. DoH to an IP literal and
 servers missing from the list still bypass the log.
+
+## 144. App data is saved at the end of a session only when asked for
+
+Supersedes the "stopping a session saves first" part of #49.
+
+**Context.** Saving on every Stop and reap filled each user's saves with
+states nobody wanted to keep (retention counts per app, so they pushed the
+wanted ones out), and made every Stop wait for the export.
+
+**Decision.** `POST /api/v1/sessions` takes `saveAppData`, passed to the
+provider as `CreateSession.saveAppData` and kept on the `Session` (the
+emulator in a Pod annotation, the physical provider in its state file), so
+the api still knows it after a restart. Stop and the reaper save only for
+such sessions; **Save app data now** works for every session. The launch
+dialog's checkbox is off by default and remembered in the browser, and
+`useLaunch` reads it, so quick launch and launch links follow it too.
+
+**Consequences.** A user who never ticks the box gets saves only by hand.
+The choice is per browser, not per account.
