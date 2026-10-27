@@ -84,7 +84,8 @@ recording, with time hints) and the time. It works without DevTools open.
 The agent keeps the socket traffic of the whole session, up to 16 MB of it
 (the oldest goes first), so the tab shows everything since the app started
 even after you reload the page or open the session somewhere else. **Clear**
-empties the tab in this browser only; pause stops it, and resuming fills in
+empties the tab in this browser only; **Hide under 15 B** leaves out short
+frames such as pings and acks, and your browser remembers it; pause stops it, and resuming fills in
 what came meanwhile. The tab keeps at most 5000 frames a socket. Sockets streaming video are marked and their
 frames left out. While the session records, a frame's time is a marker
 button: a click pins that moment on the recording, hovering offers the

@@ -19,6 +19,7 @@ import { useDevice } from "@/components/session/use-device"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { useEventSource } from "@/hooks/use-event-source"
 import { useNow } from "@/hooks/use-now"
+import { setDevToolsPrefs, useDevToolsPrefs } from "@/lib/devtools-prefs"
 import { formatBytes, wallClock } from "@/lib/format"
 import type { SocketFrame } from "@/lib/recording/devtools"
 import { splitURL } from "@/lib/recording/devtools"
@@ -27,6 +28,7 @@ import { clock } from "@/lib/recording/timeline"
 import { cn } from "@/lib/utils"
 
 const maxFrames = 5000
+const shortFrame = 15
 
 type LiveFrame = SocketFrame & { wall: number; rec?: string; at?: number }
 type LiveSocket = { key: string; target: string; state: DevToolsSocket; frames: LiveFrame[] }
@@ -42,6 +44,7 @@ export function SocketsPanel({ provider, id }: { provider: string; id: string })
   const [picked, setPicked] = useState<string | null>(null)
   const [frameKey, setFrameKey] = useState<string | null>(null)
   const [query, setQuery] = useState("")
+  const { hideShortFrames } = useDevToolsPrefs()
   const counter = useRef(0)
   const lastSeq = useRef(0)
   const device = useDevice(provider, id)
@@ -86,6 +89,7 @@ export function SocketsPanel({ provider, id }: { provider: string; id: string })
   const socket = list.find((s) => s.key === picked) ?? list.at(-1)
   const needle = query.trim().toLowerCase()
   const frames = (socket?.frames ?? [])
+    .filter((f) => !hideShortFrames || f.size >= shortFrame)
     .filter((f) => !needle || (f.data ?? "").toLowerCase().includes(needle))
     .slice(-500)
   const frame = socket?.frames.find((f) => f.key === frameKey)
@@ -124,6 +128,15 @@ export function SocketsPanel({ provider, id }: { provider: string; id: string })
           placeholder="Filter"
           className="h-6 w-48 rounded-sm border bg-transparent px-2 outline-none focus:border-ring"
         />
+        <label className="ml-2 flex items-center gap-1.5 text-muted-foreground select-none">
+          <input
+            type="checkbox"
+            checked={hideShortFrames}
+            onChange={(e) => setDevToolsPrefs({ hideShortFrames: e.target.checked })}
+            className="size-3.5"
+          />
+          Hide under {shortFrame} B
+        </label>
         <span className="ml-auto text-muted-foreground">
           {list.length} sockets · {socket ? `${socket.frames.length} frames` : "no frames"}
         </span>

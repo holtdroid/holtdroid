@@ -3,11 +3,13 @@ import { useSyncExternalStore } from "react"
 export type DevToolsPrefs = {
   portalStyle: boolean
   screencast: boolean
+  hideShortFrames: boolean
 }
 
 export const defaultDevToolsPrefs: DevToolsPrefs = {
   portalStyle: true,
   screencast: false,
+  hideShortFrames: false,
 }
 
 const key = "holtdroid:devtools"
