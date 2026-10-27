@@ -2341,7 +2341,7 @@ images exist per Android major version.
   slots on a node without changing what a busy session may use.
 
 **Consequences.** Bigger screens cost more CPU for the stream and more
-bandwidth; the default stays HD+ (superseded by #130). A screen is fixed for the session (density
+bandwidth; the default stays HD+ (superseded by #160). A screen is fixed for the session (density
 still changes in the Display controls). Each extra Android version is one
 more ~1.5 GB image on every session node.
 
@@ -4880,7 +4880,7 @@ until it is reloaded. An agent restart forgets a scan turned on live; one
 from the launch option comes back with it.
 
 
-## 130. Classic 16:9 is the default screen
+## 160. Classic 16:9 is the default screen
 
 **Context.** #84 made HD+ the default as the cheapest to stream. Most
 mobile layouts are drawn for a 360×640 CSS px viewport, and testers kept
