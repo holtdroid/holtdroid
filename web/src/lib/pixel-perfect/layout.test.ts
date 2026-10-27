@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test"
 import { placeReference } from "./geometry"
 import {
-  appWindowInsets,
   areaBox,
   baselineRows,
   defaultLayout,
@@ -60,33 +59,6 @@ test("snapping moves the nearest edge onto a target within the threshold", () =>
   expect(snapOffset([10, 110], [12, 300], 4)).toBe(2)
   expect(snapOffset([10, 110], [108, 13], 4)).toBe(-2)
   expect(snapOffset([10, 110], [50], 4)).toBe(0)
-})
-
-const node = (pkg: string, x: number, y: number, w: number, h: number, parent = -1) => ({
-  parent,
-  class: "android.widget.FrameLayout",
-  package: pkg,
-  x,
-  y,
-  w,
-  h,
-})
-
-test("the app's window becomes insets in dp, in the dump's rotation", () => {
-  const display = { width: 1080, height: 2400, dpi: 480 }
-  const dump = {
-    rotation: 0,
-    nodes: [
-      node("com.android.systemui", 0, 0, 1080, 72),
-      node("com.example", 0, 72, 1080, 2184),
-      node("com.example", 0, 100, 10, 10, 1),
-    ],
-  }
-  expect(appWindowInsets(dump, "com.example", display)).toEqual({ top: 24, right: 0, bottom: 48, left: 0 })
-  expect(
-    appWindowInsets({ rotation: 1, nodes: [node("com.example", 0, 0, 2256, 1080)] }, "com.example", display),
-  ).toEqual({ top: 0, right: 48, bottom: 0, left: 0 })
-  expect(appWindowInsets(dump, "com.other", display)).toBeNull()
 })
 
 test("layouts compare without what their kind ignores", () => {

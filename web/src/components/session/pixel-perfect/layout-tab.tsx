@@ -28,8 +28,8 @@ import {
 } from "@/components/ui/select"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { probeViews } from "@/lib/pixel-perfect/elements"
+import { appWindow, contentByColour, contentViews, distinctCandidates } from "@/lib/pixel-perfect/detect"
 import {
-  appWindowInsets,
   defaultLayout,
   describeArea,
   type Grid,
@@ -123,6 +123,8 @@ const kinds: { value: WorkArea["kind"]; label: string }[] = [
   { value: "box", label: "Drawn" },
 ]
 
+type Found = { label: string; insets: Insets; frac: { x: number; y: number; w: number; h: number } }
+
 function AreaBlock({
   pp,
   reference: r,
@@ -139,6 +141,7 @@ function AreaBlock({
   const save = useSaveLayoutPresets()
   const [naming, setNaming] = useState<string | null>(null)
   const [detecting, setDetecting] = useState(false)
+  const [found, setFound] = useState<Found[] | null>(null)
   const items = presets.data?.items ?? []
   const current = items.find((p) => sameLayout(p, layout))
   const area = layout.area
@@ -146,18 +149,35 @@ function AreaBlock({
   const setInsets = (patch: Partial<Insets>) => setArea({ kind: "insets", insets: { ...area.insets, ...patch } })
 
   const detect = async () => {
-    const display = session.capabilities?.screen
-    if (!display) {
-      toast.error("This device doesn't say its screen size and density")
-      return
-    }
     setDetecting(true)
+    setFound(null)
     try {
-      const insets = appWindowInsets(await probeViews(session.provider, session.id), session.package, display)
-      if (insets) setInsets(insets)
-      else toast.error("The app's window isn't on the screen", { description: "Open the app and try again." })
+      const [shot, views] = await Promise.all([
+        pp.screenshotPixels(),
+        probeViews(session.provider, session.id).catch(() => null),
+      ])
+      const screen = { w: shot.width, h: shot.height }
+      const display = session.capabilities?.screen
+      const d = display?.dpi ? display.dpi / 160 : screen.w / 360
+      const byColour = contentByColour(shot)
+      const win = views ? appWindow(views, session.package) : null
+      const options = distinctCandidates(
+        [
+          ...(byColour ? [{ label: "Content by colour", box: byColour }] : []),
+          ...(views ? contentViews(views, screen) : []),
+          ...(win ? [{ label: "App window", box: win }] : []),
+        ],
+        screen,
+        d,
+      ).map((c) =>
+        Object.assign(c, {
+          frac: { x: c.box.x / screen.w, y: c.box.y / screen.h, w: c.box.w / screen.w, h: c.box.h / screen.h },
+        }),
+      )
+      if (options.length === 0) toast.info("Nothing to cut off", { description: "The content fills the whole screen." })
+      setFound(options)
     } catch (e) {
-      toast.error("Could not read the app's window", { description: e instanceof Error ? e.message : String(e) })
+      toast.error("Could not look at the screen", { description: e instanceof Error ? e.message : String(e) })
     } finally {
       setDetecting(false)
     }
@@ -297,10 +317,6 @@ function AreaBlock({
             />
           </div>
           <div className="flex flex-wrap gap-1">
-            <Button size="sm" variant="outline" disabled={detecting} onClick={() => void detect()}>
-              {detecting ? <Loader2Icon className="animate-spin" /> : <ScanIcon />}
-              App window
-            </Button>
             <Button size="sm" variant="ghost" onClick={() => setInsets({ top: 24, bottom: 48, left: 0, right: 0 })}>
               Without system bars
             </Button>
@@ -310,6 +326,36 @@ function AreaBlock({
           </div>
         </>
       )}
+      <div className="flex flex-wrap items-center gap-1">
+        <Button size="sm" variant="outline" disabled={detecting} onClick={() => void detect()}>
+          {detecting ? <Loader2Icon className="animate-spin" /> : <ScanIcon />}
+          Detect
+        </Button>
+        {found?.map((c) => (
+          <Button
+            key={c.label}
+            size="sm"
+            variant="ghost"
+            className="h-auto py-1"
+            onPointerEnter={() => pp.set({ preview: c.frac })}
+            onPointerLeave={() => pp.set({ preview: null })}
+            onFocus={() => pp.set({ preview: c.frac })}
+            onBlur={() => pp.set({ preview: null })}
+            onClick={() => {
+              pp.set({ preview: null })
+              setFound(null)
+              setInsets(c.insets)
+            }}
+          >
+            <span className="grid text-left">
+              <span>{c.label}</span>
+              <span className="text-muted-foreground font-mono text-[10px]">
+                {c.insets.top} · {c.insets.right} · {c.insets.bottom} · {c.insets.left} dp
+              </span>
+            </span>
+          </Button>
+        ))}
+      </div>
       {area.kind === "box" && (
         <Button
           size="sm"
@@ -322,7 +368,8 @@ function AreaBlock({
       )}
       <p className="text-muted-foreground text-xs">
         The reference is fitted to this area, the grid and guides start at its corner, and the comparison skips what
-        lies outside it. Insets in dp fit any screen; “App window” reads them from the app.
+        lies outside it. Insets in dp fit any screen; Detect finds them from plain bars along the edges, a WebView or
+        player, or the app&apos;s window: point at a result to see it, click to use it.
       </p>
     </Block>
   )

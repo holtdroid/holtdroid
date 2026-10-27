@@ -104,6 +104,8 @@ export type PixelState = {
   hoveredComponent: string | null
   /** A still picture of the screen for the loupe while drawing. */
   loupe: Pixels | null
+  /** A work area being considered, as fractions of the screen, outlined until it is picked. */
+  preview: Box | null
   frozen: Frozen | null
   freezing: boolean
   analyzing: boolean
@@ -196,6 +198,7 @@ export class PixelPerfect {
       composite: null,
       hoveredComponent: null,
       loupe: null,
+      preview: null,
       frozen: null,
       freezing: false,
       analyzing: false,
@@ -472,6 +475,11 @@ export class PixelPerfect {
     this.#frozenProbes = null
     this.#frozenViews = null
     void this.#highlighter.show("", null).catch(() => undefined)
+  }
+
+  /** The device's screen at its own resolution. */
+  async screenshotPixels() {
+    return pixelsOf(await this.#screenshot())
   }
 
   async #screenshot() {

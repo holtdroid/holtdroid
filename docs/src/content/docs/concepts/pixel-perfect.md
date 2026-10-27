@@ -175,11 +175,17 @@ area outlined in amber.
 
 - **Whole screen**, the default.
 - **Insets**: top, right, bottom and left in dp, so the same area fits any
-  screen size and density. **App window** reads them from the app's own
-  window (through the native views), **Without system bars** sets 24 and
-  48 dp.
+  screen size and density. **Without system bars** sets 24 and 48 dp.
 - **Drawn**: drag a rectangle over the screen; it is kept as fractions of the
   screen.
+
+**Detect** takes a screenshot and reads the views, and offers what it finds
+as insets: **Content by colour** cuts off plain bars along the edges (black
+bars above and below a letterboxed game; a camera hole or a few status icons
+in them don't stop it), a large **WebView**, **SurfaceView**,
+**TextureView** or player view, and the **App window**. Point at one to see
+it outlined on the screen, click to use it. When the content reaches the
+screen's edges and fills it, there is nothing to find.
 
 While drawing the work area, an ignored area or a guide, a **loupe** next to
 the pointer shows the screen magnified with its pixel grid. Corners land on

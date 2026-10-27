@@ -1,4 +1,4 @@
-import type { Display, ReferenceView, UIHierarchy } from "@/api/client"
+import type { Display, ReferenceView } from "@/api/client"
 import type { Box, Size } from "@/lib/pixel-perfect/geometry"
 
 export type ReferenceLayout = ReferenceView["layout"]
@@ -112,26 +112,6 @@ export function describeArea(area: WorkArea) {
   }
   if (area.kind === "box") return "Drawn area"
   return "Whole screen"
-}
-
-/**
- * The app's window as insets in dp: the largest window root of the app's
- * package in a view dump, against the display turned the way the dump says.
- */
-export function appWindowInsets(
-  h: UIHierarchy,
-  pkg: string,
-  display: Pick<Display, "width" | "height" | "dpi">,
-): Insets | null {
-  const roots = h.nodes.filter((n) => n.parent < 0 && n.package === pkg && n.w > 0 && n.h > 0)
-  const win = roots.toSorted((a, b) => b.w * b.h - a.w * a.h)[0]
-  if (!win || display.dpi <= 0) return null
-  const turned = h.rotation % 2 === 1
-  const w = turned ? display.height : display.width
-  const hgt = turned ? display.width : display.height
-  const d = display.dpi / 160
-  const r = (v: number) => Math.max(0, Math.round(v / d))
-  return { top: r(win.y), right: r(w - win.x - win.w), bottom: r(hgt - win.y - win.h), left: r(win.x) }
 }
 
 /** Whether two layouts are the same, for telling which saved one is in use. */

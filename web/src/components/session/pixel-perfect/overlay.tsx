@@ -236,6 +236,20 @@ export function PixelOverlay({ pp, canvasRef }: { pp: PixelPerfect; canvasRef: R
         <GuideLine size={size} axis={drag.axis} at={drag.at} label={`${guidePos(drag.axis, drag.at, area, k)} dp`} />
       )}
       {state.tool === "guides" && <Rulers size={size} area={area} k={k} />}
+      {state.preview && (
+        <div
+          className="pointer-events-none absolute bg-cyan-400/10 outline-2 -outline-offset-1 outline-cyan-400 outline-dashed"
+          style={percentBox(
+            {
+              x: state.preview.x * size.w,
+              y: state.preview.y * size.h,
+              w: state.preview.w * size.w,
+              h: state.preview.h * size.h,
+            },
+            size,
+          )}
+        />
+      )}
       {result && state.showRegions && motion && (
         <PixelCanvas mask={motion} color={motionColor} className="pointer-events-none absolute inset-0 size-full" />
       )}
