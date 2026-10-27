@@ -95,7 +95,8 @@ hybrid apps, support engineers reproducing a customer bug.
    opens a brightness slider and adaptive brightness (for this session
    only; the stream itself doesn't get darker, the device and its apps see
    the setting), the dark theme (light, dark or matching the portal's
-   theme), Android's system navigation on emulators (gestures by default,
+   theme, which a device launched in that mode already has when the app
+   first opens), Android's system navigation on emulators (gestures by default,
    or the back, home and recent apps buttons), the font size with a preview
    and the display size, Android's
    setting that scales buttons, icons and text by changing the density (the

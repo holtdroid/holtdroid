@@ -57,6 +57,9 @@ func newDevice(s contract.Session, step time.Duration, offers func(string) bool,
 		s: s, settings: defaultSettings(), screen: contract.Screen{On: true}, subs: map[chan struct{}]struct{}{}, done: make(chan struct{}),
 		offers: offers, appData: req.AppData, recTarget: req.Recording,
 	}
+	if req.DarkMode != nil {
+		d.settings.DarkMode = *req.DarkMode
+	}
 	d.settings.VPNTimeZone = timeZones[s.Location]
 	d.settings.TimeZone = cmp.Or(d.settings.VPNTimeZone, d.settings.TimeZone)
 	d.ports = &fakePorts{adbd: d.serveADB}

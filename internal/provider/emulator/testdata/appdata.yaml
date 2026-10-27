@@ -90,6 +90,8 @@ spec:
       value: http://holtdroid-api-internal:8081/internal/app-data/x.tar.zst
     - name: HOLTDROID_APPDATA__CACHE
       value: "true"
+    - name: HOLTDROID_DARKMODE
+      value: "true"
     - name: HOLTDROID_DATALIMIT
       value: "8589934592"
     image: ghcr.io/holtdroid/holtdroid-session:0123abc

@@ -239,6 +239,32 @@ func TestCreateSession(t *testing.T) {
 	}
 }
 
+func TestCreateSessionDarkMode(t *testing.T) {
+	h := newHarness(t, 1)
+	rec := h.do(http.MethodPost, "/api/v1/sessions", "otter", "", map[string]any{
+		"source": "local", "artifactId": encodeID("hello.apk"), "provider": "fake", "darkMode": true,
+	})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create: %d %s", rec.Code, rec.Body.String())
+	}
+	sess, err := h.provider.Get(context.Background(), decode[SessionView](t, rec).ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := http.Get(sess.AgentURL + "/v1/device")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	var state contract.DeviceState
+	if err := json.NewDecoder(res.Body).Decode(&state); err != nil {
+		t.Fatal(err)
+	}
+	if !state.DarkMode {
+		t.Fatalf("device %d starts in the light theme", res.StatusCode)
+	}
+}
+
 func TestCreateSessionErrors(t *testing.T) {
 	h := newHarness(t, 1)
 	tests := []struct {

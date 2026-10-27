@@ -84,6 +84,7 @@ type createSessionInput struct {
 		WebView    string         `json:"webview,omitempty" doc:"a build from GET /api/v1/webviews to install over the built-in WebView; only providers with the webview capability take it"`
 		Queue      bool           `json:"queue,omitempty" doc:"when every slot is busy, wait in line for one instead of failing; cancelling the request gives up the place"`
 		Record     *bool          `json:"record,omitempty" doc:"record the session from its start; empty follows the server's recordings.auto"`
+		DarkMode   *bool          `json:"darkMode,omitempty" doc:"turn the device's dark theme on or off before the app first starts; empty leaves the device's own"`
 	}
 }
 
@@ -141,7 +142,7 @@ func (s *Server) register(api huma.API) {
 		v, err := s.createSession(ctx, id, launchRequest{
 			source: in.Body.Source, artifactID: in.Body.ArtifactID, provider: in.Body.Provider, slot: in.Body.Slot,
 			screen: in.Body.Screen, android: in.Body.Android, location: in.Body.Location, appData: in.Body.AppData, webview: in.Body.WebView, queue: in.Body.Queue,
-			record: in.Body.Record,
+			record: in.Body.Record, darkMode: in.Body.DarkMode,
 		})
 		result, _ := outcome(err)
 		launchesTotal.WithLabelValues(cmp.Or(v.Provider, in.Body.Provider, "any"), string(result)).Inc()
@@ -418,7 +419,7 @@ type launchRequest struct {
 	source, artifactID, provider, slot, screen, android, location, webview string
 	appData                                                                *AppDataChoice
 	queue                                                                  bool
-	record                                                                 *bool
+	record, darkMode                                                       *bool
 }
 
 type launchTarget struct {
@@ -509,6 +510,7 @@ func (s *Server) createSession(ctx context.Context, who auth.Identity, req launc
 			Frontend:    validFrontend(artifact.Meta.Tags["frontend"]),
 			Recording:   recTarget,
 			Route:       s.cachedRoute(ctx, target.provider, req.location),
+			DarkMode:    req.darkMode,
 		})
 		return err
 	})

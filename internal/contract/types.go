@@ -167,6 +167,7 @@ type CreateSession struct {
 	Frontend    string           `json:"frontend,omitempty" pattern:"^[0-9a-f]{40}$" doc:"the Chromium commit whose DevTools frontend fits the app itself, from the build's frontend tag; for Chromium builds that report none of their own"`
 	Recording   *RecordingTarget `json:"recording,omitempty" doc:"record the session from the moment it is first ready"`
 	Route       *NetworkRoute    `json:"route,omitempty" doc:"the route last measured through the session's location, which the agent starts from"`
+	DarkMode    *bool            `json:"darkMode,omitempty" doc:"turn the device's dark theme on or off before the app first starts; empty leaves it"`
 }
 
 // WebViewInstall is a WebView build that serves every app for the session:

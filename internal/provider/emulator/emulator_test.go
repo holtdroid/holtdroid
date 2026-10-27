@@ -110,6 +110,9 @@ func TestRender(t *testing.T) {
 			}
 			r := req
 			r.AppData = tt.appData
+			if tt.appData != nil {
+				r.DarkMode = new(true)
+			}
 			r.WebView = tt.webview
 			if tt.location != "" {
 				r.Route = &contract.NetworkRoute{Edge: 7, Servers: []contract.NetworkServerRTT{{Server: "frankfurt", RTT: 33}}, Down: 85_000, At: epoch}

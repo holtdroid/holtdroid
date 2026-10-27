@@ -1686,6 +1686,8 @@ export interface components {
             /** @description start the app with saved app data instead of a fresh install */
             appData?: components["schemas"]["AppDataChoice"];
             artifactId: string;
+            /** @description turn the device's dark theme on or off before the app first starts; empty leaves the device's own */
+            darkMode?: boolean;
             location?: string;
             /** @description empty picks the first provider in the configured order with a free device */
             provider?: string;

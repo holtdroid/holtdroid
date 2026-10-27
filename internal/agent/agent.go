@@ -37,6 +37,7 @@ type Config struct {
 	AppData      contract.AppDataRestore
 	WebView      contract.WebViewInstall
 	Recording    contract.RecordingTarget
+	DarkMode     *bool
 	Frontend     string
 	Package      string
 	Location     string
@@ -376,6 +377,11 @@ func (a *Agent) run(ctx context.Context) error {
 		a.log.Warn("app launches from the device won't be instrumented", "err", err)
 	}
 	if !a.cfg.Resume {
+		if a.cfg.DarkMode != nil {
+			if _, err := a.controls.Update(ctx, contract.DeviceSettings{DarkMode: a.cfg.DarkMode}); err != nil {
+				a.log.Warn("set the dark theme", "err", err)
+			}
+		}
 		if err := a.controls.Action(ctx, contract.DeviceUnlock); err != nil {
 			a.log.Warn("unlock the screen", "err", err)
 		}

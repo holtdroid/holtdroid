@@ -4280,3 +4280,20 @@ the api treats them as missing and users save them again. The api now holds
 user credentials for a third party, readable by whoever has both the
 database and the session key.
 
+## 142. A launch carries the device theme
+
+**Context.** With the device theme set to follow the portal's, the session
+page switched Android's dark theme as soon as the screen appeared, which is
+the moment the agent starts the app. The `uiMode` change makes apps recreate
+their activity in the middle of a cold start; Chrome then sometimes stays on
+its splash screen for good.
+
+**Decision.** The UI sends `darkMode` with `POST /api/v1/sessions` when the
+theme follows the portal's; it travels in `CreateSession.darkMode` to the
+agent (`HOLTDROID_DARKMODE` on emulators, the phone provider's agent config),
+which sets it after installing the app and before starting it. A manual
+theme sends nothing and the device keeps its own.
+
+**Consequences.** On a fresh session the page finds the theme already
+matching and changes nothing. Turning the theme by hand while an app is
+starting can still interrupt its start, as on a real phone.
