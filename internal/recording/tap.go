@@ -54,7 +54,7 @@ func (t *Tap) Write(p []byte) (int, error) {
 				break
 			}
 			if t.Audio {
-				t.Codec = string(bytes.TrimRight(rest[:4], "\x00"))
+				t.Codec = string(bytes.Trim(rest[:4], "\x00"))
 			} else {
 				t.Codec = string(bytes.TrimRight(rest[64:68], "\x00"))
 			}

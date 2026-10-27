@@ -74,7 +74,7 @@ func (h *audioHub) capture(ctx context.Context) error {
 		if _, err := io.ReadFull(stream, packet[12:]); err != nil {
 			return err
 		}
-		if c := strings.TrimRight(string(codec), "\x00"); recording.AudioCodec(c) {
+		if c := strings.Trim(string(codec), "\x00"); recording.AudioCodec(c) {
 			h.s.sound.kept(keptPacket(c, head, packet[12:]))
 		}
 		if binary.BigEndian.Uint64(head)&configFlag != 0 {

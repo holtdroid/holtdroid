@@ -511,6 +511,13 @@ func TestTapReadsAnAudioSocket(t *testing.T) {
 		t.Fatalf("packets: %+v", got)
 	}
 
+	var aac []Packet
+	aacTap := &Tap{Audio: true, OnPacket: func(p Packet) { aac = append(aac, p) }}
+	_, _ = aacTap.Write(append([]byte("\x00aac"), 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0x11, 0x90))
+	if len(aac) != 1 || aac[0].Codec != "aac" || !aac[0].Config {
+		t.Fatalf("an AAC stream, whose codec id starts with a zero byte: %q %+v", aacTap.Codec, aac)
+	}
+
 	quiet := &Tap{Audio: true, OnPacket: func(Packet) { t.Fatal("a stream with no audio produced a packet") }}
 	_, _ = quiet.Write([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
 	if quiet.Codec != "" {
