@@ -39,6 +39,7 @@ type Config struct {
 	WebView      contract.WebViewInstall
 	Recording    contract.RecordingTarget
 	DarkMode     *bool
+	ImageScan    bool
 	Frontend     string
 	Package      string
 	Location     string
@@ -235,6 +236,7 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 		subs:     map[chan struct{}]struct{}{},
 		recCtx:   context.Background(),
 	}
+	a.watch.images.Store(cfg.ImageScan)
 	if cfg.Redroid.VPN {
 		a.resolver = dns.New(dns.NetUpstream{Addr: vpn.DNSUpstream}, a.flushDNS, log)
 	}
@@ -796,6 +798,15 @@ func (a *Agent) WatchStatus(ctx context.Context, send func(contract.StatusEvent)
 
 func (a *Agent) WatchDevTools(ctx context.Context, send func(contract.DevToolsEntry) error) error {
 	return a.watch.watchLive(ctx, send)
+}
+
+func (a *Agent) ImageScan(context.Context) contract.DevToolsImageScan {
+	return contract.DevToolsImageScan{Enabled: a.watch.ImageScan()}
+}
+
+func (a *Agent) SetImageScan(_ context.Context, s contract.DevToolsImageScan) (contract.DevToolsImageScan, error) {
+	a.watch.images.Store(s.Enabled)
+	return s, nil
 }
 
 func (a *Agent) DevToolsBody(ctx context.Context, target, request string) (contract.DevToolsBody, error) {

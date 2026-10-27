@@ -73,6 +73,12 @@ export const saveAppDataPreference = () => read(saveAppDataKey) === "1"
 
 export const rememberSaveAppData = (save: boolean) => write(saveAppDataKey, save ? "1" : "0")
 
+const imageScanKey = "holtdroid:image-scan"
+
+export const imageScanPreference = () => read(imageScanKey) === "1"
+
+export const rememberImageScan = (scan: boolean) => write(imageScanKey, scan ? "1" : "0")
+
 export type QuickLaunchMode = "fresh" | "data" | "cache"
 
 const quickModeKey = "holtdroid:quick-launch"

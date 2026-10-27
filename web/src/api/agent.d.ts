@@ -202,6 +202,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/devtools/images": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Whether the agent runs its script in the app's pages that reports where they draw their images. */
+        get: operations["getImageScan"];
+        /** @description Turns the image script on or off. Turned on, it reports what pages draw from then on; turned off, it is taken out of the pages. */
+        put: operations["setImageScan"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/devtools/live": {
         parameters: {
             query?: never;
@@ -762,6 +780,9 @@ export interface components {
             size: number;
             socket: string;
             truncated?: boolean;
+        };
+        DevToolsImageScan: {
+            enabled: boolean;
         };
         DevToolsImageUse: {
             /**
@@ -2100,6 +2121,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DevToolsBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getImageScan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DevToolsImageScan"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    setImageScan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DevToolsImageScan"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DevToolsImageScan"];
                 };
             };
             /** @description Error */

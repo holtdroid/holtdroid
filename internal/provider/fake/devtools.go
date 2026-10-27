@@ -76,7 +76,9 @@ func (d *device) recordDevTools(ctx context.Context, rec *recording.Recorder) {
 		r := a.request(time.Now(), rec.Elapsed(), true)
 		emit(contract.DevToolsEntry{T: r.End, Type: contract.DevToolsRequestEntry, Request: &r})
 	}
-	emit(contract.DevToolsEntry{Type: contract.DevToolsImagesEntry, Images: fakeImages(false)})
+	if d.ImageScan(ctx).Enabled {
+		emit(contract.DevToolsEntry{Type: contract.DevToolsImagesEntry, Images: fakeImages(false)})
+	}
 	tick := time.NewTicker(2 * time.Second)
 	defer tick.Stop()
 	for n := 1; ; n++ {
@@ -115,7 +117,7 @@ func (d *device) recordDevTools(ctx context.Context, rec *recording.Recorder) {
 		case 0:
 			frame(true, `{"op":"ping"}`)
 			frame(false, `{"op":"pong"}`)
-			if n == 8 {
+			if n == 8 && d.ImageScan(ctx).Enabled {
 				emit(contract.DevToolsEntry{Type: contract.DevToolsImagesEntry, Images: fakeImages(true)})
 			}
 			if n == 4 {
@@ -161,8 +163,13 @@ func (d *device) WatchDevTools(ctx context.Context, send func(contract.DevToolsE
 			return err
 		}
 	}
-	if err := line(contract.DevToolsEntry{Type: contract.DevToolsImagesEntry, Images: fakeImages(false)}); err != nil {
-		return err
+	scanned := 0
+	scan := func() error {
+		if !d.ImageScan(ctx).Enabled || scanned == 2 {
+			return nil
+		}
+		scanned++
+		return line(contract.DevToolsEntry{Type: contract.DevToolsImagesEntry, Images: fakeImages(scanned == 2)})
 	}
 	tick := time.NewTicker(2 * time.Second)
 	defer tick.Stop()
@@ -180,8 +187,8 @@ func (d *device) WatchDevTools(ctx context.Context, send func(contract.DevToolsE
 		if n%3 == 0 {
 			frames = append(frames, contract.DevToolsFrame{Socket: "ws.1", Sent: true, Opcode: 1, Data: `{"op":"ping"}`})
 		}
-		if n == 8 {
-			if err := line(contract.DevToolsEntry{Type: contract.DevToolsImagesEntry, Images: fakeImages(true)}); err != nil {
+		if scanned == 0 || n%6 == 0 {
+			if err := scan(); err != nil {
 				return err
 			}
 		}

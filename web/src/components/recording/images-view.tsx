@@ -29,6 +29,7 @@ export function ImagesView({
   onReveal,
   wallClock,
   empty,
+  live,
 }: {
   report: ImageReport
   picked?: string
@@ -37,6 +38,8 @@ export function ImagesView({
   onReveal?: (request: string) => void
   wallClock?: (ms: number) => string
   empty: string
+  /** a session's tab, which explains a missing scan itself */
+  live?: boolean
 }) {
   const { summary: s, findings } = report
   const selected = picked ? findings.find((f) => f.id === picked) : undefined
@@ -60,9 +63,9 @@ export function ImagesView({
           />
         )}
       </Stats>
-      {!s.shots && s.images > 0 && (
+      {!s.shots && s.images > 0 && !live && (
         <p className="px-4 pb-2 text-xs text-stage-outline">
-          No page reported where it draws its images, so only the files themselves are checked.
+          Recorded without the image scan, a launch option, so only the files themselves are checked.
         </p>
       )}
       <FindingList

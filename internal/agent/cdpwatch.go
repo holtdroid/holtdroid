@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/coder/websocket"
@@ -37,6 +38,9 @@ type devtoolsWatch struct {
 	recID string
 	procs map[string]*cdpProcess
 	subs  map[chan contract.DevToolsEntry]struct{}
+
+	images atomic.Bool
+	rescan atomic.Int64
 
 	seq      int64
 	sockets  liveHistory
@@ -137,6 +141,10 @@ func (w *devtoolsWatch) DevTools(e contract.DevToolsEntry) {
 	}
 }
 
+func (w *devtoolsWatch) ImageScan() bool { return w.images.Load() }
+
+func (w *devtoolsWatch) ImageEpoch() int64 { return w.rescan.Load() }
+
 // Watching is always true: live lines are kept for later watchers too.
 func (w *devtoolsWatch) Watching() bool { return true }
 
@@ -219,6 +227,7 @@ func (w *devtoolsWatch) record(rec recordingSink, id string) {
 	w.mu.Lock()
 	w.rec, w.recID = rec, id
 	w.mu.Unlock()
+	w.rescan.Add(1)
 	for _, p := range w.pages() {
 		p.replay()
 	}

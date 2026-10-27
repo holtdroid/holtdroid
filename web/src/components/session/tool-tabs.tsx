@@ -100,11 +100,20 @@ export function ToolTabs({
   return (
     <Tabs value={current} onValueChange={onTab} className="h-full gap-0">
       {(adb || pixelPerfect || devtools || network || dns || routes) && (
-        <TabsList variant="line" className="h-9 w-full justify-start rounded-none border-b px-2">
+        <TabsList
+          variant="line"
+          className="h-9 w-full justify-start overflow-x-auto overflow-y-hidden rounded-none border-b px-2 [scrollbar-width:none]"
+        >
           <TabsTrigger value="devtools" className={trigger}>
             <SquareCodeIcon />
             DevTools
           </TabsTrigger>
+          {pixelPerfect && (
+            <TabsTrigger value="pixel-perfect" className={trigger}>
+              <FrameIcon />
+              Pixel perfect
+            </TabsTrigger>
+          )}
           {devtools && (
             <TabsTrigger value="websockets" className={trigger}>
               <CableIcon />
@@ -154,12 +163,6 @@ export function ToolTabs({
                 {t.label}
               </TabsTrigger>
             ))}
-          {pixelPerfect && (
-            <TabsTrigger value="pixel-perfect" className={trigger}>
-              <FrameIcon />
-              Pixel perfect
-            </TabsTrigger>
-          )}
         </TabsList>
       )}
       <TabsContent value="devtools" forceMount className="min-h-0 data-[state=inactive]:hidden">

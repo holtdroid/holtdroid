@@ -24,10 +24,12 @@ import (
 )
 
 type devtoolsLines struct {
-	mu    sync.Mutex
-	t     int64
-	off   bool
-	lines []contract.DevToolsEntry
+	mu       sync.Mutex
+	t        int64
+	off      bool
+	noImages bool
+	epoch    int64
+	lines    []contract.DevToolsEntry
 }
 
 func (s *devtoolsLines) DevTools(e contract.DevToolsEntry) {
@@ -56,6 +58,18 @@ func (s *devtoolsLines) Recording() bool {
 func (s *devtoolsLines) Elapsed() int64 { return s.Clock() }
 
 func (s *devtoolsLines) Watching() bool { return false }
+
+func (s *devtoolsLines) ImageEpoch() int64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.epoch
+}
+
+func (s *devtoolsLines) ImageScan() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return !s.noImages
+}
 
 func (s *devtoolsLines) Live(contract.DevToolsEntry) {}
 
@@ -681,5 +695,58 @@ func TestCDPPageWatchesImagesInEveryFrame(t *testing.T) {
 	cdpEvent(t, pg, "Runtime.executionContextsCleared", `{}`)
 	if len(pg.frames) != 0 {
 		t.Fatalf("frames after clear %v", pg.frames)
+	}
+}
+
+func TestCDPPageImageScanOnlyWhenOnStartsOverForARecordingAndIsTakenOut(t *testing.T) {
+	sink := &devtoolsLines{t: 1000, noImages: true}
+	pg := newCDPPage("P1", sink)
+	var mu sync.Mutex
+	var asked []string
+	pg.call = func(_ context.Context, _ string, params any) (json.RawMessage, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		if params.(map[string]any)["expression"] == imageScan {
+			asked = append(asked, "scan")
+		} else {
+			asked = append(asked, "stop")
+		}
+		return json.RawMessage(`{"result":{"type":"object","value":null}}`), nil
+	}
+	count := func(what string) int {
+		mu.Lock()
+		defer mu.Unlock()
+		n := 0
+		for _, a := range asked {
+			if a == what {
+				n++
+			}
+		}
+		return n
+	}
+	set := func(off bool) {
+		sink.mu.Lock()
+		sink.noImages = off
+		sink.mu.Unlock()
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	go pg.watchImages(ctx)
+	time.Sleep(1500 * time.Millisecond)
+	if n := len(asked); n != 0 {
+		t.Fatalf("asked %d times while off", n)
+	}
+	set(false)
+	waitLines(t, sink, func() bool { return count("scan") >= 1 })
+	sink.mu.Lock()
+	sink.epoch++
+	sink.mu.Unlock()
+	scans := count("scan")
+	waitLines(t, sink, func() bool { return count("stop") == 1 && count("scan") > scans })
+	set(true)
+	waitLines(t, sink, func() bool { return count("stop") == 2 })
+	time.Sleep(1500 * time.Millisecond)
+	if count("stop") != 2 {
+		t.Fatalf("stopped %d times", count("stop"))
 	}
 }

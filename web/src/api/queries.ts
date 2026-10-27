@@ -1,7 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useTheme } from "next-themes"
 import { useEventSource } from "@/hooks/use-event-source"
-import { recordPreference, saveAppDataPreference } from "@/lib/launch-prefs"
+import { imageScanPreference, recordPreference, saveAppDataPreference } from "@/lib/launch-prefs"
 import { readDevTools, readEvents } from "@/lib/recording/bundle"
 import type { RecordingFiles } from "@/lib/recording/files"
 import { getScreenPrefs } from "@/lib/screen-prefs"
@@ -277,6 +277,7 @@ export function useLaunch() {
   return async (body: LaunchInput, signal: AbortSignal) => {
     const record = recordPreference()
     const saveAppData = saveAppDataPreference()
+    const imageScan = imageScanPreference()
     const darkMode = getScreenPrefs().deviceTheme === "sync" ? resolvedTheme === "dark" : undefined
     const session = await unwrap(
       api.POST("/api/v1/sessions", {
@@ -285,6 +286,7 @@ export function useLaunch() {
           ...(record !== null && { record }),
           ...(darkMode !== undefined && { darkMode }),
           ...(saveAppData && { saveAppData }),
+          ...(imageScan && { imageScan }),
         },
         signal,
       }),

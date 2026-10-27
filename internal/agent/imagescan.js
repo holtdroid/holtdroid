@@ -24,7 +24,8 @@
             for (const e of entries) inView.set(e.target, e.isIntersecting)
           })
         : null
-    new MutationObserver(() => (dirty = true)).observe(document, {
+    const mo = new MutationObserver(() => (dirty = true))
+    mo.observe(document, {
       subtree: true,
       childList: true,
       attributes: true,
@@ -133,7 +134,11 @@
       if (!uses.length && !svgs.length) return null
       return { url: location.href, width: vw, height: vh, dpr: devicePixelRatio, uses, svgs }
     }
-    s = window[key] = { take }
+    const stop = () => {
+      mo.disconnect()
+      io?.disconnect()
+    }
+    s = window[key] = { take, stop }
   }
   return s.take()
 })()

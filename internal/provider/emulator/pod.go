@@ -34,6 +34,7 @@ const (
 	annotationAppData      = "holtdroid/app-data"
 	annotationWebView      = "holtdroid/webview"
 	annotationSaveAppData  = "holtdroid/save-app-data"
+	annotationImageScan    = "holtdroid/image-scan"
 	annotationCreatedAt    = "holtdroid/created-at"
 	annotationLastActivity = "holtdroid/last-activity"
 
@@ -128,6 +129,9 @@ func (p *Provider) renderPod(id, slot, node string, req contract.CreateSession, 
 	}
 	if req.DarkMode != nil {
 		env = append(env, corev1.EnvVar{Name: "HOLTDROID_DARKMODE", Value: strconv.FormatBool(*req.DarkMode)})
+	}
+	if req.ImageScan {
+		env = append(env, corev1.EnvVar{Name: "HOLTDROID_IMAGESCAN", Value: "true"})
 	}
 	if r := req.Recording; r != nil {
 		env = append(env,
@@ -250,6 +254,9 @@ func (p *Provider) renderPod(id, slot, node string, req contract.CreateSession, 
 	if req.SaveAppData {
 		annotations[annotationSaveAppData] = "true"
 	}
+	if req.ImageScan {
+		annotations[annotationImageScan] = "true"
+	}
 
 	return &corev1.Pod{
 		Name:        name,
@@ -370,6 +377,7 @@ func (p *Provider) podSession(pod corev1.Pod) contract.Session {
 		AppData:      contract.AppDataKind(a[annotationAppData]),
 		WebView:      a[annotationWebView],
 		SaveAppData:  a[annotationSaveAppData] == "true",
+		ImageScan:    a[annotationImageScan] == "true",
 		State:        state,
 		Reason:       reason,
 		Detail:       detail,

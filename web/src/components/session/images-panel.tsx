@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react"
 import { ImagesView } from "@/components/recording/images-view"
 import { useImageReport } from "@/components/recording/use-audits"
+import { ImageScanNotice, ImageScanSwitch } from "@/components/session/image-scan"
 import { LiveToolbar } from "@/components/session/live-toolbar"
 import { useLiveBodies, useLiveDevTools } from "@/components/session/use-live-devtools"
 import { useNow } from "@/hooks/use-now"
@@ -33,14 +34,17 @@ export function ImagesPanel({ provider, id }: { provider: string; id: string }) 
           setPicked(undefined)
         }}
       >
+        <ImageScanSwitch provider={provider} id={id} />
         {report.summary.images} images
       </LiveToolbar>
+      <ImageScanNotice provider={provider} id={id} what="images" />
       <div className="flex min-h-0 flex-1 flex-col">
         <ImagesView
           report={report}
           picked={picked}
           onPick={setPicked}
           wallClock={(ms) => wallClock(ms)}
+          live
           empty={
             paused
               ? "Paused."

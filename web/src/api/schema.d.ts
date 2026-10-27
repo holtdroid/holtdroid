@@ -1857,6 +1857,8 @@ export interface components {
             artifactId: string;
             /** @description turn the device's dark theme on or off before the app first starts; empty leaves the device's own */
             darkMode?: boolean;
+            /** @description run the agent's script in the app's pages that reports where they draw their images, for the Images tab; it can be turned on later */
+            imageScan?: boolean;
             location?: string;
             /** @description empty picks the first provider in the configured order with a free device */
             provider?: string;

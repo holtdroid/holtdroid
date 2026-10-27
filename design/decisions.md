@@ -4846,3 +4846,32 @@ A target without known contexts is scanned as before.
 there, once the observer has called back. A page with many iframes costs
 one evaluation per frame per second.
 
+
+## 159. The image scan is a launch option, off by default, and can be turned on live
+
+**Context.** The image scan of decisions #156 and #158 runs the agent's own
+script in every frame of the app's pages: a global, a `MutationObserver`
+and an `IntersectionObserver`. The APK stays untouched (decision #156 keeps
+that rule), but the pages don't run quite as they would on a user's phone,
+and a tester checking something else shouldn't have that by surprise.
+
+**Decision.** The scan is off unless asked for. The launch dialog has
+**Check how pages draw their images**, off by default and remembered in
+`localStorage` like the other launch choices; it sends
+`CreateSession.imageScan`, which the emulator provider passes as
+`HOLTDROID_IMAGESCAN` (and an annotation), the physical provider in the
+agent's config and the saved session, and the agent keeps in an atomic
+flag. `GET`/`PUT /v1/devtools/images` read and change it while the session
+runs. Turned off, the agent evaluates a stop script in each frame that
+disconnects the observers and deletes the global. The Images and SVG tabs
+stay; without the scan they check the files only and say what is missing,
+with **Turn on** and the advice to reload the page in the app. When a
+recording starts, the agent takes the script out and puts it back, so the
+pages report everything again and the recording knows what was already on
+screen. The analysis skips the timing checks for images that finished
+loading more than 1.5 s before the first image line.
+
+**Consequences.** A scan turned on live doesn't see how the page loaded
+until it is reloaded. An agent restart forgets a scan turned on live; one
+from the launch option comes back with it.
+

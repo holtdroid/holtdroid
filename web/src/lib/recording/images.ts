@@ -68,6 +68,7 @@ export type ImageReport = { entries: ImageEntry[]; findings: ImageFinding[]; sum
 /** How long after an image loads it may take to show up on screen. */
 export const showWindow = 10_000
 export const webpQuality = 0.85
+const scanSlack = 1500
 
 const rasterRatio: Partial<Record<ImageFormat, number>> = { png: 0.55, jpeg: 0.7, gif: 0.6, bmp: 0.15 }
 const formatName: Record<ImageFormat, string> = {
@@ -177,8 +178,9 @@ const secs = (ms: number) => `${Math.round(ms / 100) / 10} s`
 /**
  * Checks the images a page loaded against how it draws them: loaded but
  * not on screen within showWindow, bigger than any place draws them, in a
- * format WebP beats, or barely compressed. Without image lines (old
- * recordings) only the format checks run.
+ * format WebP beats, or barely compressed. Images that loaded before the
+ * pages were first scanned aren't judged by when they showed up; without
+ * image lines at all only the files themselves are checked.
  */
 export function analyzeImages({
   requests,
@@ -204,6 +206,7 @@ export function analyzeImages({
       uses.set(url, list)
     }
   }
+  const watchedFrom = Math.min(...shots.map((s) => s.at)) - scanSlack
   const groups = new Map<string, ImageRequest[]>()
   for (const r of requests) {
     if (!isImageRequest(r)) continue
@@ -261,7 +264,7 @@ export function analyzeImages({
     const name = `\`${splitURL(url).name || url}\``
     const fromWorker = rs.every((r) => workers.has(kinds.get(r.target) ?? ""))
 
-    if (shots.length > 0 && !fromWorker && !url.endsWith("/favicon.ico")) {
+    if (shots.length > 0 && e.loadedAt >= watchedFrom && !fromWorker && !url.endsWith("/favicon.ico")) {
       const drawn = all.filter((u) => !u.hidden)
       if (e.shownAt !== undefined && e.shownAt - e.loadedAt > showWindow) {
         add(e, {

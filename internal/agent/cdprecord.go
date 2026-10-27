@@ -40,6 +40,10 @@ type devtoolsSink interface {
 	Clock() int64
 	At(clock int64) int64
 	Recording() bool
+	// ImageScan says whether pages are asked what images they draw;
+	// ImageEpoch changes when they should report everything again.
+	ImageScan() bool
+	ImageEpoch() int64
 	// Watching says whether someone follows the sockets live; Live hands
 	// them a line, its times still the watch's clock.
 	Watching() bool
@@ -836,6 +840,8 @@ func (p *cdpPage) watchImages(ctx context.Context) {
 	}
 	tick := time.NewTicker(cdpImageScan)
 	defer tick.Stop()
+	scanned := false
+	var epoch int64
 	for {
 		select {
 		case <-ctx.Done():
@@ -850,20 +856,33 @@ func (p *cdpPage) watchImages(ctx context.Context) {
 		if closed {
 			return
 		}
-		if call == nil {
+		on, at := p.sink.ImageScan(), p.sink.ImageEpoch()
+		if call == nil || (!on && !scanned) {
 			continue
 		}
-		if len(frames) == 0 {
-			p.scanImages(ctx, call, 0, "")
+		run := func(expression string) {
+			if len(frames) == 0 {
+				p.scanImages(ctx, call, expression, 0, "")
+			}
+			for id, frame := range frames {
+				p.scanImages(ctx, call, expression, id, frame)
+			}
 		}
-		for id, frame := range frames {
-			p.scanImages(ctx, call, id, frame)
+		if scanned && (!on || at != epoch) {
+			run(imageScanStop)
+			scanned = false
+		}
+		if on {
+			run(imageScan)
+			scanned, epoch = true, at
 		}
 	}
 }
 
-func (p *cdpPage) scanImages(ctx context.Context, call func(context.Context, string, any) (json.RawMessage, error), contextID int, frame string) {
-	params := map[string]any{"expression": imageScan, "returnByValue": true, "silent": true}
+const imageScanStop = `(() => { window.__holtdroidImages?.stop(); delete window.__holtdroidImages; return null })()`
+
+func (p *cdpPage) scanImages(ctx context.Context, call func(context.Context, string, any) (json.RawMessage, error), expression string, contextID int, frame string) {
+	params := map[string]any{"expression": expression, "returnByValue": true, "silent": true}
 	if contextID != 0 {
 		params["contextId"] = contextID
 	}

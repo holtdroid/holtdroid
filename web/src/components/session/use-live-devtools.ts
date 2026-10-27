@@ -1,6 +1,7 @@
-import { useQueries } from "@tanstack/react-query"
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useMemo, useRef, useState } from "react"
-import { agentClient, type DevToolsEntry, sessionBase } from "@/api/client"
+import { toast } from "sonner"
+import { agentClient, type DevToolsEntry, sessionBase, unwrap } from "@/api/client"
 import { useEventSource } from "@/hooks/use-event-source"
 import type { ImageRequest, ImageShot } from "@/lib/recording/images"
 
@@ -104,4 +105,22 @@ export function useLiveBodies(
     // oxlint-disable-next-line react-hooks/exhaustive-deps
     [requests, loaded],
   )
+}
+
+/** Whether the agent runs its image script in the session's pages, and a way to turn it on or off. */
+export function useImageScan(provider: string, id: string) {
+  const client = useMemo(() => agentClient(provider, id), [provider, id])
+  const qc = useQueryClient()
+  const key = ["image-scan", provider, id]
+  const state = useQuery({
+    queryKey: key,
+    queryFn: () => unwrap(client.GET("/v1/devtools/images")),
+    refetchInterval: 15_000,
+  })
+  const change = useMutation({
+    mutationFn: (enabled: boolean) => unwrap(client.PUT("/v1/devtools/images", { body: { enabled } })),
+    onSuccess: (s) => qc.setQueryData(key, s),
+    onError: (e) => toast.error("Could not change the image scan", { description: e.message }),
+  })
+  return { enabled: state.data?.enabled, set: change.mutate, pending: change.isPending }
 }

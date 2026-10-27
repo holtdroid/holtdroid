@@ -257,3 +257,12 @@ test("an iframe in the page's process counts as drawing its images, apart from t
   ])
   expect(e.needed).toEqual({ width: 160, height: 160 })
 })
+
+test("images loaded before the pages were first scanned aren't judged by when they showed up", () => {
+  const report = analyzeImages({
+    requests: [req("early.jpg", 1000), req("later.jpg", 30_000)],
+    shots: [shot(20_000, [use("early.jpg", { element: 1 })])],
+    now: 60_000,
+  })
+  expect(report.findings.filter((f) => f.rule !== "format").map((f) => f.id)).toEqual([`unused:${shop}later.jpg`])
+})

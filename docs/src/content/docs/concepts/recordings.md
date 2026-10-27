@@ -242,8 +242,10 @@ tab does the same as the requests finish (see
 
 ### Images
 
-While it records, the agent asks every page and every iframe in it once a
-second which images it draws: each `<img>` (its chosen `srcset` candidate), CSS background (also on
+When the session was launched with **Check how pages draw their images**
+(off by default; the launch dialog remembers your choice in this browser), or
+it was turned on in the session's Images tab, the agent asks every page and
+every iframe in it once a second which images it draws: each `<img>` (its chosen `srcset` candidate), CSS background (also on
 `::before` and `::after`), SVG `<image>`, video poster and image button, with
 the box it is drawn in, `object-fit` or `background-size`, the screen's
 density, and whether it is on screen, off screen or hidden. On screen means
@@ -278,8 +280,13 @@ It looks for:
   they shrink by a third or more, or, without a body to try, they take more
   bits per pixel than lossy images usually do.
 
-Recordings made before pages reported their images get only the checks on
-the files themselves.
+For that it runs a small script in the app's pages through DevTools; the APK
+isn't touched, but the pages get a `window.__holtdroidImages` object and two
+observers while it runs. Recordings without it, or made before pages reported
+their images, get only the checks on the files themselves. A recording that
+starts in the middle of a session makes the pages report everything again.
+Images that loaded before the pages were first scanned aren't judged by when
+they showed up.
 
 ### SVG paths
 

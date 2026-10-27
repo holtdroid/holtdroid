@@ -544,6 +544,7 @@ func (p *Provider) Create(ctx context.Context, req contract.CreateSession) (cont
 		ArtifactRef:  req.ArtifactRef,
 		Location:     location,
 		SaveAppData:  req.SaveAppData,
+		ImageScan:    req.ImageScan,
 		State:        contract.StateProvisioning,
 		Capabilities: slots[i].Capabilities,
 		AgentURL:     strings.TrimRight(p.cfg.PublicURL, "/") + "/agents/" + id,
@@ -568,6 +569,7 @@ func (p *Provider) start(s contract.Session, artifactURL string, rec *contract.R
 	cfg := agent.DefaultConfig()
 	cfg.ArtifactURL = artifactURL
 	cfg.DarkMode = dark
+	cfg.ImageScan = s.ImageScan
 	if rec != nil {
 		cfg.Recording = *rec
 	}

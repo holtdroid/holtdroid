@@ -305,6 +305,12 @@ type DevToolsImageUse struct {
 	Hidden        bool    `json:"hidden,omitempty" doc:"not rendered: display none, invisible or no size"`
 }
 
+// DevToolsImageScan says whether the agent runs its image script in the
+// app's pages.
+type DevToolsImageScan struct {
+	Enabled bool `json:"enabled"`
+}
+
 // DevToolsBody is a finished request's response body, while the WebView
 // still keeps it.
 type DevToolsBody struct {

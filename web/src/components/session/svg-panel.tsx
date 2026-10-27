@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react"
 import { SvgView } from "@/components/recording/svg-view"
 import { useSvgReport } from "@/components/recording/use-audits"
+import { ImageScanNotice, ImageScanSwitch } from "@/components/session/image-scan"
 import { LiveToolbar } from "@/components/session/live-toolbar"
 import { useLiveBodies, useLiveDevTools } from "@/components/session/use-live-devtools"
 import type { ImageRequest } from "@/lib/recording/images"
@@ -42,8 +43,10 @@ export function SvgPanel({ provider, id }: { provider: string; id: string }) {
           setPicked(undefined)
         }}
       >
+        <ImageScanSwitch provider={provider} id={id} />
         {report.summary.paths} paths
       </LiveToolbar>
+      <ImageScanNotice provider={provider} id={id} what="svg" />
       <div className="flex min-h-0 flex-1 flex-col">
         <SvgView
           report={report}

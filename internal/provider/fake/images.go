@@ -109,3 +109,16 @@ func (d *device) DevToolsBody(_ context.Context, _, request string) (contract.De
 	}
 	return contract.DevToolsBody{}, fmt.Errorf("%w: no body for %s", contract.ErrNotFound, request)
 }
+
+func (d *device) ImageScan(context.Context) contract.DevToolsImageScan {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return contract.DevToolsImageScan{Enabled: d.imageScan}
+}
+
+func (d *device) SetImageScan(_ context.Context, s contract.DevToolsImageScan) (contract.DevToolsImageScan, error) {
+	d.mu.Lock()
+	d.imageScan = s.Enabled
+	d.mu.Unlock()
+	return s, nil
+}

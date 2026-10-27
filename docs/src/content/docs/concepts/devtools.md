@@ -104,11 +104,17 @@ WebSockets tab.
 
 The **Images** and **SVG** tabs do the same for the [recording player's
 Images and SVG paths](/concepts/recordings/#images) checks, all the time and
-not only while recording. The agent asks each page and iframe once a second which
+not only while recording. When the session runs with the image scan (the launch option **Check how
+pages draw their images**), the agent asks each page and iframe once a second which
 images it draws where, and keeps those lines with the requests. The bodies
 come from the WebView while it still has them (it keeps 32 MB, 2 MB a
 file): the newest 300 images, to measure them as WebP, and the newest 200
 scripts, pages, stylesheets and SVG files, to search them for paths.
+Without it the Images tab checks only the files, the SVG tab only the
+files' paths, and both offer **Turn on**: from then on the pages report what
+they show, and reloading the page in the app also checks how it loads.
+**Image scan on · turn off** in the tab's toolbar takes the script out of
+the pages again.
 
 The settings button next to the target selector holds two switches, saved
 in your browser:

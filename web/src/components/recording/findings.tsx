@@ -17,7 +17,7 @@ export function Rich({ text }: { text: string }) {
     <>
       {text.split("`").map((part, i) =>
         i % 2 ? (
-          <code key={i} className="rounded bg-stage-surface-high px-1 font-mono text-[0.92em]">
+          <code key={i} className="rounded bg-stage-surface-high px-1 font-mono text-[0.92em] break-all">
             {part}
           </code>
         ) : (

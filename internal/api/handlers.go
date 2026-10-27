@@ -87,6 +87,7 @@ type createSessionInput struct {
 		Record      *bool          `json:"record,omitempty" doc:"record the session from its start; empty follows the server's recordings.auto"`
 		DarkMode    *bool          `json:"darkMode,omitempty" doc:"turn the device's dark theme on or off before the app first starts; empty leaves the device's own"`
 		SaveAppData bool           `json:"saveAppData,omitempty" doc:"save the app's data when the session is stopped or reaped; it can always be saved by hand"`
+		ImageScan   bool           `json:"imageScan,omitempty" doc:"run the agent's script in the app's pages that reports where they draw their images, for the Images tab; it can be turned on later"`
 	}
 }
 
@@ -144,7 +145,7 @@ func (s *Server) register(api huma.API) {
 		v, err := s.createSession(ctx, id, launchRequest{
 			source: in.Body.Source, artifactID: in.Body.ArtifactID, provider: in.Body.Provider, slot: in.Body.Slot,
 			screen: in.Body.Screen, android: in.Body.Android, location: in.Body.Location, appData: in.Body.AppData, webview: in.Body.WebView, queue: in.Body.Queue,
-			record: in.Body.Record, darkMode: in.Body.DarkMode, saveAppData: in.Body.SaveAppData,
+			record: in.Body.Record, darkMode: in.Body.DarkMode, saveAppData: in.Body.SaveAppData, imageScan: in.Body.ImageScan,
 		})
 		result, _ := outcome(err)
 		launchesTotal.WithLabelValues(cmp.Or(v.Provider, in.Body.Provider, "any"), string(result)).Inc()
@@ -425,7 +426,7 @@ func (s *Server) view(ctx context.Context, provider string, sess contract.Sessio
 type launchRequest struct {
 	source, artifactID, provider, slot, screen, android, location, webview string
 	appData                                                                *AppDataChoice
-	queue, saveAppData                                                     bool
+	queue, saveAppData, imageScan                                          bool
 	record, darkMode                                                       *bool
 }
 
@@ -519,6 +520,7 @@ func (s *Server) createSession(ctx context.Context, who auth.Identity, req launc
 			Recording:   recTarget,
 			Route:       s.cachedRoute(ctx, target.provider, req.location),
 			DarkMode:    req.darkMode,
+			ImageScan:   req.imageScan,
 		})
 		return err
 	})
