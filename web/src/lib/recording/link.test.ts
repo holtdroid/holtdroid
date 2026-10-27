@@ -14,3 +14,9 @@ test("times like YouTube's", () => {
   expect(parseView("#t=80").t).toBe(80_000)
   expect(parseView("#t=soon&tab=nope")).toEqual({})
 })
+
+test("a route opens on the Routes tab", () => {
+  const hash = viewHash({ t: 1000, tab: "routes", route: "api.example.com", request: "r1" })
+  expect(hash).toBe("#t=1&tab=routes&route=api.example.com")
+  expect(parseView(hash)).toEqual({ t: 1000, tab: "routes", route: "api.example.com" })
+})

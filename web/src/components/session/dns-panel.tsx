@@ -14,6 +14,9 @@ import { type ReactNode, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import type { DNSPreset, DNSRewrite, DNSSettings } from "@/api/client"
 import { LookupTable, type LookupRow } from "@/components/session/dns-lookups"
+import { useNetwork } from "@/components/session/use-device"
+import { useIPInfo } from "@/components/session/use-routes"
+import { answerAddresses } from "@/lib/routes"
 import {
   useDeleteDNSPreset,
   useDNS,
@@ -100,6 +103,8 @@ export function DNSPanel({ provider, id }: { provider: string; id: string }) {
   const [editing, setEditing] = useState<Editing | null>(null)
   const [loaded, setLoaded] = useState<Loaded | null>(null)
   const { queries, clear } = useDNSLog(provider, id, paused)
+  const exitIP = useNetwork(provider, id).data?.externalIp
+  const geo = useIPInfo(useMemo(() => [...answerAddresses(queries), ...(exitIP ? [exitIP] : [])], [queries, exitIP]))
   const state = useDNS(provider, id)
   const set = useSetDNS(provider, id)
   const flush = useFlushDNS(provider, id)
@@ -256,6 +261,7 @@ export function DNSPanel({ provider, id }: { provider: string; id: string }) {
             onPick={setPicked}
             onRewrite={rewriteLookup}
             rewrites={rewrites}
+            geo={{ info: geo.info, exit: exitIP ? geo.info.get(exitIP) : undefined }}
             empty="Nothing matches the filter."
           />
         )

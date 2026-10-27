@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/netip"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -135,4 +137,54 @@ func (n *Network) getJSON(ctx context.Context, url string, out any) error {
 		return fmt.Errorf("%s: %s", url, resp.Status)
 	}
 	return json.NewDecoder(resp.Body).Decode(out)
+}
+
+type clashConnections struct {
+	Connections []struct {
+		ID       string `json:"id"`
+		Metadata struct {
+			Network         string `json:"network"`
+			Type            string `json:"type"`
+			DestinationIP   string `json:"destinationIP"`
+			DestinationPort string `json:"destinationPort"`
+			Host            string `json:"host"`
+		} `json:"metadata"`
+		Upload   int64     `json:"upload"`
+		Download int64     `json:"download"`
+		Start    time.Time `json:"start"`
+		Chains   []string  `json:"chains"`
+	} `json:"connections"`
+}
+
+// Connections lists the device's open connections, without the agent's own
+// and the DNS forwarding's.
+func (n *Network) Connections(ctx context.Context) ([]contract.Connection, error) {
+	var in clashConnections
+	if err := n.call(ctx, http.MethodGet, "/connections", nil, &in); err != nil {
+		return nil, err
+	}
+	out := make([]contract.Connection, 0, len(in.Connections))
+	for _, c := range in.Connections {
+		_, inbound, _ := strings.Cut(c.Metadata.Type, "/")
+		addr, err := netip.ParseAddr(c.Metadata.DestinationIP)
+		if vpn.Own(inbound, c.Chains) || err != nil || addr.IsLoopback() {
+			continue
+		}
+		port, _ := strconv.Atoi(c.Metadata.DestinationPort)
+		out = append(out, contract.Connection{
+			ID: c.ID, Start: c.Start, Network: c.Metadata.Network, Host: c.Metadata.Host,
+			Address: addr.Unmap().String(), Port: port, Outbound: firstOf(c.Chains),
+			Upload: c.Upload, Download: c.Download,
+		})
+	}
+	return out, nil
+}
+
+// firstOf is the outbound a connection left through: clash lists the chain
+// from the last hop back to the selector.
+func firstOf(chains []string) string {
+	if len(chains) == 0 {
+		return ""
+	}
+	return chains[0]
 }

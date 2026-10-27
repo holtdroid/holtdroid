@@ -240,6 +240,9 @@ export function RecordingPlayer({
             time={state.time}
             log={devlog}
             dns={telemetry.dns}
+            conns={telemetry.conns}
+            network={telemetry.network}
+            share={source.kind === "shared" ? source.token : undefined}
             clocks={clocks}
             view={view}
             onView={changeView}

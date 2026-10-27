@@ -34,6 +34,17 @@ RUN for p in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64; do \
         -o /out/holtdroid-${p%/*}-${p#*/} ./cmd/holtdroid-connect || exit 1; \
     done
 
+# DB-IP Lite (CC BY 4.0) for the Routes tab: this month's databases, or last
+# month's while this month's aren't out yet.
+FROM --platform=$BUILDPLATFORM docker.io/library/golang:1.27.2-bookworm@sha256:5cf287a799e6b94384bad13d16b14904c531f51ba65792237e122ce42b392f61 AS geoip
+WORKDIR /out
+RUN for db in country asn; do \
+      for m in $(date -u +%Y-%m) $(date -u -d "$(date -u +%Y-%m-01) -1 month" +%Y-%m); do \
+        curl -fsSL "https://download.db-ip.com/free/dbip-$db-lite-$m.mmdb.gz" | gunzip > dbip-$db-lite.mmdb && break; \
+      done; \
+      [ -s dbip-$db-lite.mmdb ] || exit 1; \
+    done
+
 # GO_SOURCE=prebuilt takes the binaries the release workflow compiled on the
 # runner (with cached builds) instead of compiling here.
 FROM scratch AS go-prebuilt
@@ -49,6 +60,7 @@ FROM connect-${GO_SOURCE} AS connect
 FROM gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
 COPY --from=go /out/holtdroid /usr/local/bin/holtdroid
 COPY --from=connect /out/ /usr/share/holtdroid/connect/
+COPY --from=geoip /out/ /usr/share/holtdroid/geoip/
 USER 65532:65532
 ENTRYPOINT ["/usr/local/bin/holtdroid"]
 CMD ["api"]

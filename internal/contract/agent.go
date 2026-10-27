@@ -42,6 +42,8 @@ type Agent interface {
 	SetDNS(ctx context.Context, settings DNSSettings) (DNSState, error)
 	FlushDNS(ctx context.Context) error
 	WatchDNS(ctx context.Context, send func(DNSEvent) error) error
+	Connections(ctx context.Context) ConnectionsState
+	WatchConnections(ctx context.Context, send func(Connection) error) error
 	Microphone(ctx context.Context) Microphone
 	SetMicrophone(ctx context.Context, in SetMicrophone) (Microphone, error)
 }
@@ -326,6 +328,21 @@ func RegisterAgent(api huma.API, a Agent) {
 	}, map[string]any{"dns": DNSEvent{}},
 		func(ctx context.Context, _ *struct{}, send sse.Sender) {
 			_ = a.WatchDNS(ctx, func(e DNSEvent) error { return send.Data(e) })
+		})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "getConnections", Method: http.MethodGet, Path: "/v1/connections", Tags: tags,
+		Description: "Whether the device's connections can be followed.",
+	}, func(ctx context.Context, _ *struct{}) (*body[ConnectionsState], error) {
+		return &body[ConnectionsState]{a.Connections(ctx)}, nil
+	})
+
+	sse.Register(api, huma.Operation{
+		OperationID: "watchConnections", Method: http.MethodGet, Path: "/v1/connections/events", Tags: tags,
+		Description: "The device's connections: first the open ones and the last 2000 closed, then a line when one opens, every 10 s while its traffic grows, and when it closes.",
+	}, map[string]any{"connection": Connection{}},
+		func(ctx context.Context, _ *struct{}, send sse.Sender) {
+			_ = a.WatchConnections(ctx, func(c Connection) error { return send.Data(c) })
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "getDevice", Method: http.MethodGet, Path: "/v1/device", Tags: tags},

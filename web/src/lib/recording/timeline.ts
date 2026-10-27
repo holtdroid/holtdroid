@@ -1,4 +1,5 @@
 import type {
+  Connection,
   DeviceState,
   DNSEvent,
   Metrics,
@@ -83,7 +84,7 @@ export function runEnd(segments: Segment[], i: number) {
   return j
 }
 
-function lastAt<T extends { t: number }>(items: T[], t: number): T | undefined {
+export function lastAt<T extends { t: number }>(items: T[], t: number): T | undefined {
   let lo = 0
   let hi = items.length - 1
   let found: T | undefined
@@ -119,6 +120,7 @@ export class Telemetry {
   readonly network: At<Network>[] = []
   readonly metrics: At<Metrics>[] = []
   readonly dns: At<DNSEvent>[] = []
+  readonly conns: At<Connection>[] = []
 
   constructor(events: RecordingEvent[]) {
     this.touches = new TouchTrack(events)
@@ -129,6 +131,7 @@ export class Telemetry {
       if (e.network) this.network.push({ t: e.t, v: e.network })
       if (e.metrics) this.metrics.push({ t: e.t, v: e.metrics })
       if (e.dns) this.dns.push({ t: e.t, v: e.dns })
+      if (e.connection) this.conns.push({ t: e.t, v: e.connection })
     }
   }
 

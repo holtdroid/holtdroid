@@ -158,6 +158,12 @@ func (a *Agent) feedRecording(ctx context.Context, rec *recording.Recorder, thum
 		dnsEvents, stop = a.resolver.Subscribe()
 		defer stop()
 	}
+	var connEvents <-chan contract.Connection
+	if a.conns != nil {
+		var stop func()
+		connEvents, stop = a.conns.Subscribe()
+		defer stop()
+	}
 	updates, stopUpdates := a.subscribe()
 	defer stopUpdates()
 	var last contract.StatusEvent
@@ -180,6 +186,8 @@ func (a *Agent) feedRecording(ctx context.Context, rec *recording.Recorder, thum
 			rec.Event(contract.RecordingEvent{Type: contract.EventMetrics, Metrics: &m})
 		case ev := <-dnsEvents:
 			rec.Event(contract.RecordingEvent{Type: contract.EventDNS, DNS: &ev})
+		case c := <-connEvents:
+			rec.Event(contract.RecordingEvent{Type: contract.EventConn, Conn: &c})
 		case <-updates:
 			sendStatus()
 		case <-tick.C:

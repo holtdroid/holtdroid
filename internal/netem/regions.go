@@ -299,3 +299,15 @@ func ServerCatalog() []contract.NetworkServerInfo {
 	}
 	return out
 }
+
+// IsCDN reports whether addr is in one of the CDN edge ranges of cdn.txt.
+func IsCDN(addr netip.Addr) bool {
+	addr = addr.Unmap()
+	return slices.ContainsFunc(cdnPrefixes, func(p netip.Prefix) bool { return p.Contains(addr) })
+}
+
+var cgnat = netip.MustParsePrefix("100.64.0.0/10")
+
+// CGNAT reports whether addr is in the shared address space carriers and
+// tunnels use.
+func CGNAT(addr netip.Addr) bool { return cgnat.Contains(addr.Unmap()) }

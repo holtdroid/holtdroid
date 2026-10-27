@@ -1,6 +1,15 @@
-import { CableIcon, GlobeIcon, type LucideIcon, SignpostIcon, SquareTerminalIcon, TerminalIcon } from "lucide-react"
-import type { DNSEvent } from "@/api/client"
+import {
+  CableIcon,
+  GlobeIcon,
+  type LucideIcon,
+  RouteIcon,
+  SignpostIcon,
+  SquareTerminalIcon,
+  TerminalIcon,
+} from "lucide-react"
+import type { Connection, DNSEvent, Network } from "@/api/client"
 import { DNSView } from "@/components/recording/dns-view"
+import { RoutesView } from "@/components/recording/routes-view"
 import { ClocksContext, type Clocks, PlayheadContext } from "@/components/recording/json-view"
 import { ConsoleView, NetworkView, SocketsView } from "@/components/recording/devtools-view"
 import { LogcatView } from "@/components/recording/logcat-view"
@@ -31,6 +40,9 @@ export function RecordingTools({
   time,
   log,
   dns,
+  conns,
+  network,
+  share,
   clocks,
   view,
   onView,
@@ -39,6 +51,9 @@ export function RecordingTools({
   time: number
   log: DevToolsLog
   dns: At<DNSEvent>[]
+  conns: At<Connection>[]
+  network: At<Network>[]
+  share?: string
   clocks: Clocks
   view: PlayerView
   onView: (patch: PlayerView) => void
@@ -73,6 +88,14 @@ export function RecordingTools({
       icon: SignpostIcon,
       count: queries.length,
       alert: queries.filter((e) => e.v.query?.result === "failed").length,
+    })
+  }
+  if (conns.length > 0) {
+    tabs.push({
+      id: "routes",
+      label: "Routes",
+      icon: RouteIcon,
+      count: new Set(conns.filter((c) => c.t <= time).map((c) => c.v.host || c.v.address)).size,
     })
   }
 
@@ -133,7 +156,19 @@ export function RecordingTools({
                 onPick={(message) => onView({ message })}
               />
             )}
-            {tab === "dns" && <DNSView events={dns} time={time} onSeek={seek} />}
+            {tab === "dns" && <DNSView events={dns} network={network} share={share} time={time} onSeek={seek} />}
+            {tab === "routes" && (
+              <RoutesView
+                conns={conns}
+                dns={dns}
+                network={network}
+                log={log}
+                time={time}
+                share={share}
+                picked={view.route}
+                onPick={(route) => onView({ route })}
+              />
+            )}
             {tab === "sockets" && (
               <SocketsView
                 log={log}

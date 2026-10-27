@@ -27,6 +27,12 @@ deployment"):
   clearing; saved sets live in the api's database. The sidecar config was
   checked with sing-box 1.14.2 and a tun in Docker and the cache flush on
   Android 15 in a live session; the whole path not yet in a live session.
+- The Routes tab (decision #151): the agent follows the device's
+  connections through the sidecar's clash API, live and in recordings; the
+  api places servers with DB-IP Lite and marks CDN edges; the tab flags far
+  servers, connections that aren't reused, traffic past the VPN and plain
+  HTTP, and the DNS tab places answers. Tested with a fake clash API, the
+  fake provider and the real DB-IP files; not yet tried in a live session.
 - Sessions run redroid instead of the Android emulator (decision #82,
   Phase 8): `provider-emulator` starts Pods with an `android` container from
   `ghcr.io/holtdroid/holtdroid-redroid:<version>` next to the agent and the

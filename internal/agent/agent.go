@@ -19,6 +19,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/holtdroid/holtdroid/internal/agent/conns"
 	"github.com/holtdroid/holtdroid/internal/agent/dns"
 	"github.com/holtdroid/holtdroid/internal/agent/redroid"
 	"github.com/holtdroid/holtdroid/internal/contract"
@@ -162,6 +163,7 @@ type Agent struct {
 	watch    *devtoolsWatch
 	network  *Network
 	resolver *dns.Server
+	conns    *conns.Tracker
 	screen   *Scrcpy
 	clip     clipboardSync
 	controls *Controls
@@ -225,6 +227,9 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 	if cfg.Redroid.VPN {
 		a.resolver = dns.New(dns.NetUpstream{Addr: vpn.DNSUpstream}, a.flushDNS, log)
 	}
+	if cfg.ClashAPI != "" {
+		a.conns = conns.New(a.network.Connections, log)
+	}
 	return a
 }
 
@@ -275,6 +280,9 @@ func (a *Agent) Run(parent context.Context) {
 	a.recCtx = ctx
 	a.recMu.Unlock()
 	go a.controls.watchNetwork(ctx)
+	if a.conns != nil {
+		go a.conns.Run(ctx, time.Second)
+	}
 	if a.resolver != nil {
 		go func() {
 			if err := a.resolver.ListenAndServe(ctx, vpn.DNSForwarder); err != nil {
@@ -977,6 +985,19 @@ func (a *Agent) WatchDNS(ctx context.Context, send func(contract.DNSEvent) error
 		return errNoDNS
 	}
 	return a.resolver.Watch(ctx, send)
+}
+
+var errNoConnections = fmt.Errorf("%w: this device has no VPN sidecar to report its connections", contract.ErrInvalid)
+
+func (a *Agent) Connections(context.Context) contract.ConnectionsState {
+	return contract.ConnectionsState{Available: a.conns != nil}
+}
+
+func (a *Agent) WatchConnections(ctx context.Context, send func(contract.Connection) error) error {
+	if a.conns == nil {
+		return errNoConnections
+	}
+	return a.conns.Watch(ctx, send)
 }
 
 // flushScript clears the resolver cache of every network through

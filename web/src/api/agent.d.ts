@@ -69,6 +69,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/connections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Whether the device's connections can be followed. */
+        get: operations["getConnections"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/connections/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The device's connections: first the open ones and the last 2000 closed, then a line when one opens, every 10 s while its traffic grows, and when it closes. */
+        get: operations["watchConnections"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/device": {
         parameters: {
             query?: never;
@@ -482,6 +516,40 @@ export interface components {
         };
         Clipboard: {
             text: string;
+        };
+        Connection: {
+            /** @description the server's IP address */
+            address: string;
+            /**
+             * Format: int64
+             * @description bytes received
+             */
+            download: number;
+            /**
+             * Format: date-time
+             * @description when it was gone; none while it is open
+             */
+            end?: string;
+            /** @description the name sniffed from TLS, HTTP or QUIC; none for a bare address */
+            host?: string;
+            id: string;
+            /** @enum {string} */
+            network: "tcp" | "udp";
+            /** @description the VPN location, direct or bypass it left through */
+            outbound?: string;
+            /** Format: int64 */
+            port: number;
+            /** Format: date-time */
+            start: string;
+            /**
+             * Format: int64
+             * @description bytes sent
+             */
+            upload: number;
+        };
+        ConnectionsState: {
+            /** @description the device's connections go through a VPN sidecar that reports them */
+            available: boolean;
         };
         DNSAnswer: {
             data: string;
@@ -1587,6 +1655,75 @@ export interface operations {
                          * @constant
                          */
                         event: "clip";
+                        /** @description The event ID. */
+                        id?: number;
+                        /** @description The retry time in milliseconds. */
+                        retry?: number;
+                    }[];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getConnections: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectionsState"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    watchConnections: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": {
+                        data: components["schemas"]["Connection"];
+                        /**
+                         * @description The event name.
+                         * @constant
+                         */
+                        event: "connection";
                         /** @description The event ID. */
                         id?: number;
                         /** @description The retry time in milliseconds. */

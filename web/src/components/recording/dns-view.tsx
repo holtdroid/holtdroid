@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react"
-import type { DNSEvent, DNSQuery, DNSSettings } from "@/api/client"
+import type { DNSEvent, DNSQuery, DNSSettings, Network } from "@/api/client"
 import { LookupTable, type LookupRow } from "@/components/session/dns-lookups"
+import { useIPInfo } from "@/components/session/use-routes"
 import { describeRewrite, foldBlocked, groupLookups } from "@/lib/dns"
-import { type At, clock } from "@/lib/recording/timeline"
+import { type At, clock, lastAt } from "@/lib/recording/timeline"
+import { answerAddresses } from "@/lib/routes"
 
 const maxRows = 500
 
@@ -17,13 +19,26 @@ function summary(s: DNSSettings) {
 /** The device's DNS lookups up to the playhead, with the rewrites and cache clears between them. */
 export function DNSView({
   events,
+  network,
+  share,
   time,
   onSeek,
 }: {
   events: At<DNSEvent>[]
+  network: At<Network>[]
+  share?: string
   time: number
   onSeek: (t: number) => void
 }) {
+  const addresses = useMemo(
+    () => [
+      ...answerAddresses(events.flatMap((e) => (e.v.query ? [e.v.query] : []))),
+      ...network.flatMap((e) => (e.v.externalIp ? [e.v.externalIp] : [])),
+    ],
+    [events, network],
+  )
+  const geo = useIPInfo(addresses, share)
+  const exitIP = (lastAt(network, time) ?? network[0])?.v.externalIp
   const [picked, setPicked] = useState<string | null>(null)
   const all = useMemo(() => {
     const rows: (LookupRow & { t: number })[] = []
@@ -65,6 +80,7 @@ export function DNSView({
           seekTo(key)
         }}
         onNote={seekTo}
+        geo={{ info: geo.info, exit: exitIP ? geo.info.get(exitIP) : undefined }}
         empty="No DNS query yet at this point of the recording."
       />
     </div>

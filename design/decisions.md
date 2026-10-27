@@ -4547,3 +4547,59 @@ only when the 30-second close timeout runs out.
 instead of Litestream. It can go once Litestream stops its monitors before
 it closes its databases. A slow upload at shutdown now delays the close, up
 to the timeout, instead of failing.
+
+## 151. A Routes tab follows the device's connections and places their servers
+
+**Context.** Testers asked where an app's requests actually go: which
+servers a name leads to, in which country and network, through which VPN
+location, and what makes a path slower than it needs to be — a server on
+another continent than the session's exit, geo-DNS answering for the wrong
+place, an app that opens a new connection for every request. The DevTools
+network (decision #112) covers only WebViews, the DNS log (decision #133)
+only names, and the route measurement (decision #134) only fixed probes.
+
+**Decision.**
+- The agent asks the VPN sidecar's clash API for its open connections
+  every second (`internal/agent/conns`) and drops the agent's own (the
+  `agent` and `dns-upstream` inbounds) and the DNS forwarding (the
+  `dns-forwarder` outbound). A connection gets a line when it first shows,
+  again at most every 10 s while its traffic grows, and when it is gone:
+  `GET /v1/connections/events` (the open ones and the last 2000 closed
+  first) and `connection` events in recordings, where the latest line of
+  each wins. Each line has the sniffed name, the server's address and
+  port, TCP or UDP, the outbound it left through and the bytes so far.
+- The api places addresses with DB-IP Lite's country and ASN databases
+  (MaxMind format, CC BY 4.0, read with `oschwald/maxminddb-golang`),
+  downloaded into the api image at build time (`geoIP.country`,
+  `geoIP.asn`; a missing file only leaves its fields empty), and marks the
+  CDN edges of `internal/netem/cdn.txt` and private addresses:
+  `POST /api/v1/ip-info`, and `POST /api/v1/shared/{token}/ip-info` for a
+  recording opened through a share link. Lookups happen when the page
+  shows them, so recordings carry no places and old ones get them too.
+- The **Routes** tab, in sessions and in the player, groups connections by
+  name and shows the path: the device, the location, its exit address and
+  country, the servers. It flags a server on another continent than the
+  exit (never a CDN edge: its anycast address says nothing about the site
+  that answers), six or more TCP connections to one port within a minute
+  (no reuse), traffic that left past the VPN location, and plain HTTP. A
+  name's details list its servers, its DNS answers with their places and,
+  in recordings, the median connect, TLS and waiting times of its WebView
+  requests. The DNS tab places each `A` answer and marks a lookup whose
+  answers are all on another continent than the exit.
+
+**Considered.** A traceroute to each server: from inside the session it
+stops at the tunnel (ICMP and TTL don't cross SOCKS or the WireGuard
+exit), and the exit belongs to the VPN, so only an outside service (RIPE
+Atlas, Globalping) could trace from there; left for later, off by default,
+since it sends the app's hosts elsewhere. Timing every server through the
+sidecar's proxy: a handshake through it mixes the tunnel's and the
+server's round trips and adds traffic through the location for every new
+address; the WebView's own timings and decision #134's probes say enough. A city
+database for a map: 60 MB more in the image for a picture the country
+already gives.
+
+**Consequences.** A connection shorter than a second may be missed or
+shown without its last bytes. Places are as current as the image (the
+build takes this month's databases) and country-level; an address that
+moved since the recording is shown where it is now. The tab exists only
+where a sidecar reports connections; sessions without a VPN have none.

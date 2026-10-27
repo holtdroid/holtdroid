@@ -537,6 +537,12 @@ codecs and reports that it can't capture audio.
   when the user loads one. Server names inside outbounds are
   resolved by the Pod's resolver (`local`), or by `vpn.resolver` when set —
   needed for `*.cluster.local` names, which sing-box's `local` sends to mDNS.
+- Connections (decision #151): the agent reads the clash API's
+  `GET /connections` every second (`internal/agent/conns`), leaves out its
+  own inbounds and the DNS forwarding, and turns the snapshots into lines
+  when a connection opens, grows and closes (`GET /v1/connections/events`,
+  `connection` events in recordings). The api places the addresses with
+  the `geoIP` databases on request; nothing about places is stored.
 - The clash API listens on `127.0.0.1:9090`. `PUT /network/location` on
   the agent maps to `PUT /proxies/select {"name": "<location>"}`.
   Capabilities carry the offered locations and `defaultLocation`

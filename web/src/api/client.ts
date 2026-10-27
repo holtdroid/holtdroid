@@ -132,3 +132,5 @@ export async function unwrap<T>(request: Promise<Result<T>>): Promise<T> {
   }
   return data as T
 }
+export type Connection = AgentSchemas["Connection"]
+export type IPInfo = Schemas["IPInfo"]

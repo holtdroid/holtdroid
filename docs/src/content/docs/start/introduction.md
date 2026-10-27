@@ -63,7 +63,10 @@ hybrid apps, support engineers reproducing a customer bug.
    such as Bangladesh that add the round trips to CDN edges and to your
    servers there. The **DNS** tab beside it lists every name the device
    looks up and rewrites names to your own addresses, with a TTL limit and
-   saved sets of rewrites (see [DNS log and rewrites](/holtdroid/concepts/dns/)). A
+   saved sets of rewrites (see [DNS log and rewrites](/holtdroid/concepts/dns/)),
+   and **Routes** shows where every connection goes: each server's country
+   and network, the location it left through, and far servers or
+   connections that aren't reused (see [Routes](/holtdroid/concepts/routes/)). A
    small handle above the phone slides out a bar with the notifications,
    quick settings and a screenshot on hover, and one on the phone's bottom
    edge slides out Android's back, home and recent apps buttons; in

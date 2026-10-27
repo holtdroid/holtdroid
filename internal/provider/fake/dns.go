@@ -71,6 +71,8 @@ func (d *device) simulateDNS() {
 		for _, t := range []dnsmessage.Type{dnsmessage.TypeA, dnsmessage.TypeAAAA} {
 			d.resolver.Resolve(context.Background(), fakeQuery(name, t, uint16(i)), false)
 		}
+		d.fconns.touch(name, d.session().Location, d.clock())
+		_ = d.conns.Poll(context.Background())
 	}
 }
 

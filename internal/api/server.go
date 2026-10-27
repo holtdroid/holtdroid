@@ -23,6 +23,7 @@ import (
 	"github.com/holtdroid/holtdroid/internal/contract"
 	"github.com/holtdroid/holtdroid/internal/db"
 	"github.com/holtdroid/holtdroid/internal/frontend"
+	"github.com/holtdroid/holtdroid/internal/geoip"
 	"github.com/holtdroid/holtdroid/internal/rules"
 	"github.com/holtdroid/holtdroid/internal/secrets"
 	"github.com/holtdroid/holtdroid/internal/source"
@@ -66,6 +67,7 @@ type Server struct {
 	tmpDir         string
 	now            func() time.Time
 	log            *slog.Logger
+	geoip          *geoip.DB
 }
 
 type Option func(*Server)
@@ -110,6 +112,14 @@ func New(ctx context.Context, cfg Config, opts ...Option) (*Server, error) {
 		log:            slog.Default().With("component", "api"),
 	}
 	s.agents = newAgentURLs(5*time.Second, func() time.Time { return s.now() })
+	geo, geoErr := geoip.Open(cfg.GeoIP)
+	if geoErr != nil {
+		return nil, geoErr
+	}
+	s.geoip = geo
+	if country, asn := geo.Missing(); country || asn {
+		s.log.Info("an IP geolocation database is missing: the Routes tab lacks countries or networks", "countryMissing", country, "asnMissing", asn)
+	}
 	for _, e := range cfg.Providers {
 		WithProvider(e.Name, contract.NewProviderClient(e.URL, nil))(s)
 	}

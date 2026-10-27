@@ -8,11 +8,13 @@ import { FilesPanel } from "@/components/session/files-panel"
 import { LogcatPanel } from "@/components/session/logcat-panel"
 import { NetworkPanel } from "@/components/session/network-panel"
 import { SocketsPanel } from "@/components/session/sockets-panel"
+import { RoutesPanel } from "@/components/session/routes-panel"
 import { PixelPerfectPanel } from "@/components/session/pixel-perfect/panel"
 import type { PixelPerfect } from "@/components/session/pixel-perfect/state"
 import { TerminalPanel } from "@/components/session/terminal-panel"
 import { useDevice } from "@/components/session/use-device"
 import { useDNS } from "@/components/session/use-dns"
+import { useConnectionsState } from "@/components/session/use-routes"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 const adbTabs = [
@@ -45,13 +47,15 @@ export function ToolTabs({
   const pixelPerfect = useReferences().data?.enabled === true
   const network = !!useDevice(session.provider, session.id).data?.networkProfiles
   const dns = useDNS(session.provider, session.id).data?.available === true
+  const routes = useConnectionsState(session.provider, session.id).data?.available === true
   const tabs = adbTabs.filter((t) => t.value !== "terminal" || session.capabilities?.shell !== false)
   const current =
     (adb && tabs.some((t) => t.value === tab)) ||
     (pixelPerfect && tab === "pixel-perfect") ||
     (devtools && tab === "websockets") ||
     (network && tab === "network") ||
-    (dns && tab === "dns")
+    (dns && tab === "dns") ||
+    (routes && tab === "routes")
       ? tab
       : "devtools"
 
@@ -66,7 +70,7 @@ export function ToolTabs({
 
   return (
     <Tabs value={current} onValueChange={onTab} className="h-full gap-0">
-      {(adb || pixelPerfect || devtools || network || dns) && (
+      {(adb || pixelPerfect || devtools || network || dns || routes) && (
         <TabsList variant="line" className="h-9 w-full justify-start rounded-none border-b px-2">
           <TabsTrigger value="devtools" className="flex-none">
             DevTools
@@ -84,6 +88,11 @@ export function ToolTabs({
           {dns && (
             <TabsTrigger value="dns" className="flex-none">
               DNS
+            </TabsTrigger>
+          )}
+          {routes && (
+            <TabsTrigger value="routes" className="flex-none">
+              Routes
             </TabsTrigger>
           )}
           {adb &&
@@ -123,6 +132,11 @@ export function ToolTabs({
       {dns && opened.has("dns") && (
         <TabsContent value="dns" forceMount className="min-h-0 data-[state=inactive]:hidden">
           <DNSPanel provider={session.provider} id={session.id} />
+        </TabsContent>
+      )}
+      {routes && opened.has("routes") && (
+        <TabsContent value="routes" forceMount className="min-h-0 data-[state=inactive]:hidden">
+          <RoutesPanel provider={session.provider} id={session.id} />
         </TabsContent>
       )}
       {pixelPerfect && opened.has("pixel-perfect") && (

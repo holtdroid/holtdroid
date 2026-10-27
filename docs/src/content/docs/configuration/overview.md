@@ -93,38 +93,39 @@ providers:
     url: http://holtdroid-provider-emulator:8080
 ```
 
-| Key                     | Default          | Meaning                                                                                                                                                                      |
-| ----------------------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `listen`                | `:8080`          | Address for the UI, REST API and session proxy                                                                                                                               |
-| `internalListen`        | `:8081`          | Address for endpoints only agents use; never expose it through the ingress                                                                                                   |
-| `publicURL`             | –                | External URL of the portal, used to build DevTools WebSocket URLs                                                                                                            |
-| `internalURL`           | –                | URL agents use to reach `internalListen`                                                                                                                                     |
-| `auth.*`                | `anonymous`      | See [Authentication](/holtdroid/configuration/authentication/)                                                                                                               |
-| `secrets.openbao`       | –                | Enables `openbao:` references, see [Secrets](/holtdroid/configuration/secrets/)                                                                                              |
-| `sessions.idleTimeout`  | `30m`            | Delete a session after this long without activity                                                                                                                            |
-| `sessions.maxTTL`       | `8h`             | Delete a session after this long regardless of activity                                                                                                                      |
-| `sessions.reapInterval` | `30s`            | How often the reaper runs                                                                                                                                                    |
-| `sessions.maxPerUser`   | `0`              | Devices one user may run at once, 0 for no limit; per user in the `users` auth mode                                                                                          |
-| `storage.*`             | filesystem       | See [Artifact storage](/holtdroid/configuration/storage/)                                                                                                                    |
-| `cache.maxSize`         | `20GiB`          | Least recently used APKs are evicted beyond this                                                                                                                             |
-| `cache.warm`            | `10`             | Newest uncached APKs per listing to download and keep in the background; older ones are only parsed                                                                          |
-| `database.*`            | `memory`         | SQLite in RAM, or a file replicated to S3, see [Database](/holtdroid/configuration/database/)                                                                                |
-| `sources[]`             | `local`          | Folders or S3 buckets with APKs, see [Artifact sources](/holtdroid/sources/overview/)                                                                                        |
-| `uploads.*`             | enabled          | Uploads from the UI, see [Artifact sources](/holtdroid/sources/overview/#uploads)                                                                                            |
-| `downloads.adminOnly`   | `false`          | Only admins may download APKs, see [Downloads](/holtdroid/sources/overview/#downloads)                                                                                       |
-| `appData.*`             | off              | Save app data between sessions, see [App data](/holtdroid/concepts/app-data/)                                                                                                |
-| `recordings.*`          | off              | Record sessions on the server, see [Recordings](/holtdroid/concepts/recordings/)                                                                                             |
-| `pixelPerfect.*`        | on               | Reference images for the Pixel perfect tab, see [Pixel perfect](/holtdroid/concepts/pixel-perfect/)                                                                          |
-| `media.*`               | on, 5 GiB a user | Audio and video files a session's microphone plays, see [Microphone](/holtdroid/concepts/microphone/)                                                                        |
-| `devTools.frontend`     | Google's host    | Where the portal fetches the DevTools frontend from; empty lets the session's agent serve it                                                                                 |
-| `devTools.storage`      | the api's        | Where crawled DevTools frontends are archived, one tar.gz per revision; give it an S3 prefix when `storage` is a cache volume, see [DevTools](/holtdroid/concepts/devtools/) |
-| `webview.storage`       | off              | The WebView catalog, see [WebView versions](/holtdroid/concepts/webview-versions/)                                                                                           |
-| `webview.catalogs`      | `[]`             | More WebView catalogs listed next to it, one per job that fills one (Google WebView)                                                                                         |
-| `map.url`               | OpenFreeMap      | Tile server for the GPS map, proxied by the api; empty turns the map off, see [below](#gps-map)                                                                              |
-| `routing.url`           | FOSSGIS Valhalla | Valhalla server for GPS routes along roads; empty draws straight lines, see [below](#gps-map)                                                                                |
-| `adb.browser`           | `true`           | ADB tools on the session page, see [ADB tools](/holtdroid/concepts/adb/)                                                                                                     |
-| `adb.ownerOnly`         | `true`           | Only a session's owner and admins may use its ADB tools                                                                                                                      |
-| `providers[]`           | `[]`             | Device providers: unique `name` and base `url`; **Any** in the launch dialog tries them in this order                                                                        |
+| Key                          | Default                 | Meaning                                                                                                                                                                      |
+| ---------------------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `listen`                     | `:8080`                 | Address for the UI, REST API and session proxy                                                                                                                               |
+| `internalListen`             | `:8081`                 | Address for endpoints only agents use; never expose it through the ingress                                                                                                   |
+| `publicURL`                  | –                       | External URL of the portal, used to build DevTools WebSocket URLs                                                                                                            |
+| `internalURL`                | –                       | URL agents use to reach `internalListen`                                                                                                                                     |
+| `auth.*`                     | `anonymous`             | See [Authentication](/holtdroid/configuration/authentication/)                                                                                                               |
+| `secrets.openbao`            | –                       | Enables `openbao:` references, see [Secrets](/holtdroid/configuration/secrets/)                                                                                              |
+| `sessions.idleTimeout`       | `30m`                   | Delete a session after this long without activity                                                                                                                            |
+| `sessions.maxTTL`            | `8h`                    | Delete a session after this long regardless of activity                                                                                                                      |
+| `sessions.reapInterval`      | `30s`                   | How often the reaper runs                                                                                                                                                    |
+| `sessions.maxPerUser`        | `0`                     | Devices one user may run at once, 0 for no limit; per user in the `users` auth mode                                                                                          |
+| `storage.*`                  | filesystem              | See [Artifact storage](/holtdroid/configuration/storage/)                                                                                                                    |
+| `cache.maxSize`              | `20GiB`                 | Least recently used APKs are evicted beyond this                                                                                                                             |
+| `cache.warm`                 | `10`                    | Newest uncached APKs per listing to download and keep in the background; older ones are only parsed                                                                          |
+| `database.*`                 | `memory`                | SQLite in RAM, or a file replicated to S3, see [Database](/holtdroid/configuration/database/)                                                                                |
+| `sources[]`                  | `local`                 | Folders or S3 buckets with APKs, see [Artifact sources](/holtdroid/sources/overview/)                                                                                        |
+| `uploads.*`                  | enabled                 | Uploads from the UI, see [Artifact sources](/holtdroid/sources/overview/#uploads)                                                                                            |
+| `downloads.adminOnly`        | `false`                 | Only admins may download APKs, see [Downloads](/holtdroid/sources/overview/#downloads)                                                                                       |
+| `appData.*`                  | off                     | Save app data between sessions, see [App data](/holtdroid/concepts/app-data/)                                                                                                |
+| `recordings.*`               | off                     | Record sessions on the server, see [Recordings](/holtdroid/concepts/recordings/)                                                                                             |
+| `pixelPerfect.*`             | on                      | Reference images for the Pixel perfect tab, see [Pixel perfect](/holtdroid/concepts/pixel-perfect/)                                                                          |
+| `media.*`                    | on, 5 GiB a user        | Audio and video files a session's microphone plays, see [Microphone](/holtdroid/concepts/microphone/)                                                                        |
+| `devTools.frontend`          | Google's host           | Where the portal fetches the DevTools frontend from; empty lets the session's agent serve it                                                                                 |
+| `devTools.storage`           | the api's               | Where crawled DevTools frontends are archived, one tar.gz per revision; give it an S3 prefix when `storage` is a cache volume, see [DevTools](/holtdroid/concepts/devtools/) |
+| `webview.storage`            | off                     | The WebView catalog, see [WebView versions](/holtdroid/concepts/webview-versions/)                                                                                           |
+| `webview.catalogs`           | `[]`                    | More WebView catalogs listed next to it, one per job that fills one (Google WebView)                                                                                         |
+| `map.url`                    | OpenFreeMap             | Tile server for the GPS map, proxied by the api; empty turns the map off, see [below](#gps-map)                                                                              |
+| `routing.url`                | FOSSGIS Valhalla        | Valhalla server for GPS routes along roads; empty draws straight lines, see [below](#gps-map)                                                                                |
+| `geoIP.country`, `geoIP.asn` | DB-IP Lite in the image | MaxMind-format databases that place servers in the Routes and DNS tabs; a missing file leaves its fields empty, see [below](#ip-geolocation)                                 |
+| `adb.browser`                | `true`                  | ADB tools on the session page, see [ADB tools](/holtdroid/concepts/adb/)                                                                                                     |
+| `adb.ownerOnly`              | `true`                  | Only a session's owner and admins may use its ADB tools                                                                                                                      |
+| `providers[]`                | `[]`                    | Device providers: unique `name` and base `url`; **Any** in the launch dialog tries them in this order                                                                        |
 
 ### GPS map
 
@@ -159,3 +160,24 @@ routing:
 
 A self-hosted Valhalla works the same; run your own if many people plan
 long routes, since the public server limits the rate and the distance.
+
+### IP geolocation
+
+The [Routes](/holtdroid/concepts/routes/) and DNS tabs show the country and
+network of each server. The api looks them up in two MaxMind-format
+databases, which the image ships: this month's
+[DB-IP Lite](https://db-ip.com/db/lite.php) country and ASN databases
+(CC BY 4.0), taken when the image was built.
+
+```yaml
+geoIP:
+  country: /usr/share/holtdroid/geoip/dbip-country-lite.mmdb
+  asn: /usr/share/holtdroid/geoip/dbip-asn-lite.mmdb
+```
+
+Point them at other files to use newer databases or MaxMind's GeoLite2
+(`GeoLite2-Country.mmdb`, `GeoLite2-ASN.mmdb`), for example from a volume
+that `geoipupdate` refreshes; the api reads them at start. A file that
+isn't there leaves its fields empty, which is what `holtdroid dev` gets
+unless you download them. Lookups stay inside the api; no address is sent
+anywhere.

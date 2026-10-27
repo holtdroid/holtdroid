@@ -120,6 +120,9 @@ func TestRecordingOfASession(t *testing.T) {
 	if items := decode[RecordingDevTools](t, h.do(http.MethodGet, "/api/v1/shared/"+shared.Share.Token+"/devtools", "", "", nil)).Items; len(items) == 0 {
 		t.Fatal("no devtools lines through the share link")
 	}
+	if rec := h.do(http.MethodPost, "/api/v1/shared/"+shared.Share.Token+"/ip-info", "", "", map[string]any{"addresses": []string{"203.0.113.9"}}); rec.Code != http.StatusOK {
+		t.Fatalf("ip info through the share link: %d", rec.Code)
+	}
 	if un := decode[RecordingView](t, h.do(http.MethodDelete, "/api/v1/recordings/"+r.ID+"/share", "alice", "", nil)); !un.Keep {
 		t.Fatal("turning sharing off dropped the keep")
 	}

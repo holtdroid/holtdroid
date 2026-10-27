@@ -30,12 +30,14 @@ An ordinary answer has no marks; what stands out does:
 - **rewrite** (violet): a rewrite answered it;
 - **NXDOMAIN** (amber): the name doesn't exist;
 - **SERVFAIL** (red): the upstream didn't answer;
-- **no records**: the name exists but has none of these types.
+- **no records**: the name exists but has none of these types;
+- **far** (amber): every address answered is on another continent than
+  the session's exit (see [Routes](/holtdroid/concepts/routes/)).
 
 A dashed type means an empty answer: `AAAA` is always empty because the
 sidecar resolves IPv4 only, so apps connect over IPv4. A click on a row
 shows each query's records, with the `CNAME` chain and every `HTTPS`
-parameter.
+parameter, and the country and network of each address.
 
 The wand at the end of a row, or **Rewrite this name…** in its details,
 opens a new rewrite for that name.

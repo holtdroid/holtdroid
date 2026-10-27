@@ -1,11 +1,16 @@
 import { CopyIcon, WandSparklesIcon } from "lucide-react"
 import { useLayoutEffect, useRef } from "react"
 import { toast } from "sonner"
-import type { DNSQuery, DNSRewrite } from "@/api/client"
+import type { DNSQuery, DNSRewrite, IPInfo } from "@/api/client"
+import { Place } from "@/components/session/ip-place"
 import { Button } from "@/components/ui/button"
 import { describeRewrite, formatTTL, type Lookup, lookupAnswer, lookupBadges, lookupTTL, type Tone } from "@/lib/dns"
 import { wallClock } from "@/lib/format"
+import { continentName, dnsFar } from "@/lib/routes"
 import { cn } from "@/lib/utils"
+
+/** Where the answers are, and the session's exit to compare them with. */
+export type LookupGeo = { info: Map<string, IPInfo>; exit?: IPInfo }
 
 export type LookupRow =
   | { kind: "lookup"; key: string; lookup: Lookup; time: string }
@@ -28,6 +33,7 @@ export function LookupTable({
   onRewrite,
   onNote,
   rewrites,
+  geo,
   empty,
 }: {
   rows: LookupRow[]
@@ -36,6 +42,7 @@ export function LookupTable({
   onNote?: (key: string) => void
   onRewrite?: (l: Lookup) => void
   rewrites?: DNSRewrite[]
+  geo?: LookupGeo
   empty: string
 }) {
   const listRef = useRef<HTMLDivElement>(null)
@@ -84,6 +91,7 @@ export function LookupTable({
               key={r.key}
               lookup={r.lookup}
               time={r.time}
+              geo={geo}
               active={picked === r.key}
               onPick={() => onPick(picked === r.key ? null : r.key)}
               onRewrite={onRewrite && (() => onRewrite(r.lookup))}
@@ -95,6 +103,7 @@ export function LookupTable({
         <LookupDetails
           lookup={selected.lookup}
           rewrites={rewrites}
+          geo={geo}
           onRewrite={onRewrite && (() => onRewrite(selected.lookup))}
         />
       )}
@@ -105,12 +114,14 @@ export function LookupTable({
 function Row({
   lookup,
   time,
+  geo,
   active,
   onPick,
   onRewrite,
 }: {
   lookup: Lookup
   time: string
+  geo?: LookupGeo
   active: boolean
   onPick: () => void
   onRewrite?: () => void
@@ -118,6 +129,7 @@ function Row({
   const answer = lookupAnswer(lookup)
   const ttl = lookupTTL(lookup)
   const ms = Math.max(...lookup.queries.map((q) => q.duration))
+  const far = geo && dnsFar(lookup.queries, geo.info, geo.exit)
   return (
     <div
       role="button"
@@ -142,6 +154,14 @@ function Row({
             {b.label}
           </Badge>
         ))}
+        {far && (
+          <Badge
+            tone="warn"
+            title={`Every address answered is in ${continentName(far.continent)}, the session leaves from ${continentName(geo.exit?.continent)}`}
+          >
+            far
+          </Badge>
+        )}
         {lookup.repeats && lookup.repeats > 1 ? (
           <span className="shrink-0 text-muted-foreground tabular-nums" title={`Looked up ${lookup.repeats} times`}>
             ×{lookup.repeats}
@@ -223,10 +243,12 @@ function TypeChip({ q }: { q: DNSQuery }) {
 export function LookupDetails({
   lookup,
   rewrites,
+  geo,
   onRewrite,
 }: {
   lookup: Lookup
   rewrites?: DNSRewrite[]
+  geo?: LookupGeo
   onRewrite?: () => void
 }) {
   const ruleName = lookup.queries.find((q) => q.result === "rewritten")?.rule
@@ -306,6 +328,11 @@ export function LookupDetails({
                     <span className="min-w-0 font-mono break-all" title={a.data}>
                       {a.name !== lookup.name && <span className="text-muted-foreground">{a.name} </span>}
                       {a.data}
+                      {geo && (a.type === "A" || a.type === "AAAA") && (
+                        <span className="ml-2 font-sans">
+                          <Place info={geo.info.get(a.data)} />
+                        </span>
+                      )}
                     </span>
                     <span
                       className="font-mono text-muted-foreground tabular-nums"

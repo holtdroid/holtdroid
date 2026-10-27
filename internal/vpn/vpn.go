@@ -211,7 +211,7 @@ func (c Config) Render(ctx context.Context, sec Secrets, location string) ([]byt
 			"address":        []string{"198.18.0.1/30"},
 			"auto_route":     false,
 		},
-		{"type": "mixed", "tag": "agent", "listen": "127.0.0.1", "listen_port": 7890},
+		{"type": "mixed", "tag": agentInbound, "listen": "127.0.0.1", "listen_port": 7890},
 		{
 			"type":             "direct",
 			"tag":              dnsUpstream,
@@ -232,9 +232,16 @@ func (c Config) Render(ctx context.Context, sec Secrets, location string) ([]byt
 
 const (
 	bypass       = "bypass"
+	agentInbound = "agent"
 	dnsUpstream  = "dns-upstream"
 	dnsForwarder = "dns-forwarder"
 )
+
+// Own reports whether a connection the clash API lists is the agent's or
+// the DNS forwarding's rather than the device's.
+func Own(inbound string, chains []string) bool {
+	return inbound == agentInbound || inbound == dnsUpstream || slices.Contains(chains, dnsForwarder)
+}
 
 // tunnelDNS are the DNS servers Holtdroid Tunnel announces to apps; nothing
 // answers them, so anything but plain DNS (Android's private DNS probe on

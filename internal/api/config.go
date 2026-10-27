@@ -12,6 +12,7 @@ import (
 	"github.com/holtdroid/holtdroid/internal/config"
 	"github.com/holtdroid/holtdroid/internal/contract"
 	"github.com/holtdroid/holtdroid/internal/db"
+	"github.com/holtdroid/holtdroid/internal/geoip"
 	"github.com/holtdroid/holtdroid/internal/rules"
 	"github.com/holtdroid/holtdroid/internal/secrets"
 	"github.com/holtdroid/holtdroid/internal/source"
@@ -163,6 +164,7 @@ type Config struct {
 	WebView        WebViewConfig
 	Map            MapConfig
 	Routing        RoutingConfig
+	GeoIP          geoip.Config
 	Sources        []source.Config
 	Providers      []Endpoint
 }
@@ -204,6 +206,10 @@ func DefaultConfig() Config {
 		Media:   MediaConfig{Enabled: true, Quota: 5 << 30, MaxFileSize: 1 << 30},
 		Map:     MapConfig{URL: "https://tiles.openfreemap.org", Style: "styles/liberty", DarkStyle: "styles/dark"},
 		Routing: RoutingConfig{URL: "https://valhalla1.openstreetmap.de"},
+		GeoIP: geoip.Config{
+			Country: "/usr/share/holtdroid/geoip/dbip-country-lite.mmdb",
+			ASN:     "/usr/share/holtdroid/geoip/dbip-asn-lite.mmdb",
+		},
 		Sources: []source.Config{{
 			Name:       "local",
 			Type:       "filesystem",

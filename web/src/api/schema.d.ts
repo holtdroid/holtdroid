@@ -729,6 +729,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/ip-info": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Country, continent and autonomous system of addresses, and whether they are a CDN's edge; unparsable ones are left out. */
+        post: operations["lookupIPInfo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/map": {
         parameters: {
             query?: never;
@@ -1302,6 +1319,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/shared/{token}/ip-info": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The same for a recording opened through a share link; needs no sign-in. */
+        post: operations["lookupSharedIPInfo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sources": {
         parameters: {
             query?: never;
@@ -1709,6 +1743,36 @@ export interface components {
             code: string;
             /** Format: date-time */
             expiresAt: string;
+        };
+        Connection: {
+            /** @description the server's IP address */
+            address: string;
+            /**
+             * Format: int64
+             * @description bytes received
+             */
+            download: number;
+            /**
+             * Format: date-time
+             * @description when it was gone; none while it is open
+             */
+            end?: string;
+            /** @description the name sniffed from TLS, HTTP or QUIC; none for a bare address */
+            host?: string;
+            id: string;
+            /** @enum {string} */
+            network: "tcp" | "udp";
+            /** @description the VPN location, direct or bypass it left through */
+            outbound?: string;
+            /** Format: int64 */
+            port: number;
+            /** Format: date-time */
+            start: string;
+            /**
+             * Format: int64
+             * @description bytes sent
+             */
+            upload: number;
         };
         Cookie: {
             Domain: string;
@@ -2695,6 +2759,26 @@ export interface components {
              */
             throttled: number;
         };
+        IPInfo: {
+            address: string;
+            /** Format: int64 */
+            asn?: number;
+            /** @description in Cloudflare's, Fastly's or Google's published edge ranges; anycast, so its country says little */
+            cdn?: boolean;
+            /** @enum {string} */
+            continent?: "AF" | "AN" | "AS" | "EU" | "NA" | "OC" | "SA";
+            /** @description ISO 3166-1 alpha-2 */
+            country?: string;
+            /** @description the autonomous system's name */
+            org?: string;
+            /** @description a private, loopback or link-local address */
+            private?: boolean;
+        };
+        IPInfoList: {
+            addresses: components["schemas"]["IPInfo"][];
+            /** @description the databases' source and build date, shown as attribution */
+            database?: string;
+        };
         Identity: {
             admin: boolean;
             email?: string;
@@ -2773,6 +2857,9 @@ export interface components {
             role: "admin" | "user" | "";
             /** @description the recovery link's user has no passkey yet, e.g. an account an admin created */
             setup?: boolean;
+        };
+        IpInfoBody: {
+            addresses: string[];
         };
         Item: {
             /** @enum {string} */
@@ -3248,6 +3335,8 @@ export interface components {
             width: number;
         };
         RecordingEvent: {
+            /** @description the latest line of a connection wins */
+            connection?: components["schemas"]["Connection"];
             device?: components["schemas"]["DeviceState"];
             dns?: components["schemas"]["DNSEvent"];
             info?: components["schemas"]["RecordingInfoData"];
@@ -3263,7 +3352,7 @@ export interface components {
             t: number;
             touch?: components["schemas"]["RecordingTouch"];
             /** @enum {string} */
-            type: "info" | "status" | "metrics" | "device" | "network" | "touch" | "key" | "dns";
+            type: "info" | "status" | "metrics" | "device" | "network" | "touch" | "key" | "dns" | "connection";
         };
         RecordingEvents: {
             items: components["schemas"]["RecordingEvent"][];
@@ -5595,6 +5684,39 @@ export interface operations {
             };
         };
     };
+    lookupIPInfo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IpInfoBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IPInfoList"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     getMap: {
         parameters: {
             query?: never;
@@ -7052,6 +7174,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecordingEvents"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    lookupSharedIPInfo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IpInfoBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IPInfoList"];
                 };
             };
             /** @description Error */
