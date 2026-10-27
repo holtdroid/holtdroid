@@ -351,15 +351,15 @@ func TestRoundTrip(t *testing.T) {
 		{corev1.PodStatus{Phase: corev1.PodPending}, contract.StateProvisioning, ""},
 		{corev1.PodStatus{Phase: corev1.PodRunning, PodIP: "10.42.1.7", ContainerStatuses: []corev1.ContainerStatus{
 			{Name: "agent", State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}}},
-		}}, contract.StateBooting, "http://10.42.1.7:8080"},
+		}}, contract.StateBooting, "http://10.42.1.7:18580"},
 		{corev1.PodStatus{Phase: corev1.PodRunning, PodIP: "10.42.1.7", ContainerStatuses: []corev1.ContainerStatus{
 			{Name: "agent", Ready: true, State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}}},
-		}}, contract.StateReady, "http://10.42.1.7:8080"},
+		}}, contract.StateReady, "http://10.42.1.7:18580"},
 		{corev1.PodStatus{Phase: corev1.PodRunning, PodIP: "10.42.1.7", ContainerStatuses: []corev1.ContainerStatus{
 			{Name: "android", State: corev1.ContainerState{Terminated: &corev1.ContainerStateTerminated{ExitCode: 1, Reason: "Error"}}},
 			{Name: "agent", Ready: true, State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}}},
 			{Name: "vpn", Ready: true, State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}}},
-		}}, contract.StateFailed, "http://10.42.1.7:8080"},
+		}}, contract.StateFailed, "http://10.42.1.7:18580"},
 	}
 	for _, s := range states {
 		setStatus(t, kube, first.ID, s.status)
@@ -367,7 +367,7 @@ func TestRoundTrip(t *testing.T) {
 		if err != nil || got.State != s.want || got.AgentURL != s.wantAgent {
 			t.Fatalf("pod %+v: session %+v, %v", s.status, got, err)
 		}
-		if wantTunnel := strings.Replace(s.wantAgent, ":8080", ":8081", 1); got.TunnelURL != wantTunnel {
+		if wantTunnel := strings.Replace(s.wantAgent, ":18580", ":18581", 1); got.TunnelURL != wantTunnel {
 			t.Fatalf("tunnel url %q, want %q", got.TunnelURL, wantTunnel)
 		}
 		if s.want == contract.StateFailed && got.Reason != "android exited with code 1: Error" {
@@ -493,6 +493,25 @@ func TestPendingDetail(t *testing.T) {
 	for _, tt := range tests {
 		if got := pending(corev1.Pod{Status: tt.status}); got != tt.want {
 			t.Errorf("%+v: detail %q, want %q", tt.status, got, tt.want)
+		}
+	}
+}
+
+func TestPodPort(t *testing.T) {
+	pod := func(ports ...corev1.ContainerPort) corev1.Pod {
+		return corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "android"}, {Name: "agent", Ports: ports}}}}
+	}
+	tests := []struct {
+		pod  corev1.Pod
+		want int
+	}{
+		{pod(), 18580},
+		{pod(corev1.ContainerPort{Name: "agent", ContainerPort: 8080}), 8080},
+		{pod(corev1.ContainerPort{Name: "tunnel", ContainerPort: 8081}, corev1.ContainerPort{Name: "agent", ContainerPort: 18580}), 18580},
+	}
+	for _, tt := range tests {
+		if got := podPort(tt.pod, "agent", 18580); got != tt.want {
+			t.Errorf("%+v: port %d, want %d", tt.pod.Spec.Containers, got, tt.want)
 		}
 	}
 }

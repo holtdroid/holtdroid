@@ -168,6 +168,11 @@ the device's loopback only, so 80 and 443 are fine on emulators. If another
 connection already published a port on a device, it is skipped there and
 tried again later.
 
+Android in an emulator session shares its network with the session's own
+programs, so their ports can't be published there: adb (5555, 5038), Frida
+(27042), the agent (18580, 18581), the VPN sidecar (7890, 9090) and the
+metrics port when metrics are on.
+
 ## ADB
 
 Every running device gets its own port on your computer, from 15555 up, kept
@@ -246,7 +251,7 @@ Without `hostKey` the gateway makes a new one on every restart, and without
 computer has to be connected again. The chart wires the rest: the api finds
 every gateway replica through a headless Service, the gateway fetches the
 authority and your sessions from the api's internal port, and the session
-NetworkPolicy lets only the gateway reach the agents' tunnel port (8081).
+NetworkPolicy lets only the gateway reach the agents' tunnel port (18581).
 The api image carries the client builds and serves them with `/tunnel.sh`.
 
 ## Operator settings

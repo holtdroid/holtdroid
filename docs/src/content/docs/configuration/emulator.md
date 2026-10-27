@@ -24,7 +24,8 @@ tolerations:
 image: ghcr.io/holtdroid/holtdroid-session:0.1.0 # the agent
 imagePullPolicy: IfNotPresent
 imagePullSecrets: []
-agentPort: 8080
+agentPort: 18580
+tunnelPort: 18581
 redroid:
   images: # Android version → image; the newest is the default
     "15": ghcr.io/holtdroid/holtdroid-redroid:15
@@ -65,7 +66,8 @@ nodeInfo:
 | `slotsPerNode`             | Sessions per node, unless `nodes.<name>.slots` says otherwise                                                                                                                                                                                                                                       |
 | `image`, `imagePullPolicy` | Session image: the agent with adb, Frida, scrcpy-server and ffmpeg (the replaced microphone and camera). The pull policy applies to the redroid image too                                                                                                                                           |
 | `imagePullSecrets`         | Secret names for pulling the images                                                                                                                                                                                                                                                                 |
-| `agentPort`                | Port the agent listens on inside the Pod; the api reaches it at the Pod IP                                                                                                                                                                                                                          |
+| `agentPort`                | Port the agent listens on inside the Pod; the api reaches it at the Pod IP. Android shares the Pod's network, so a device can't use this port (decision #161)                                                                                                                                       |
+| `tunnelPort`               | Port of the agent's tunnel endpoints, reachable only by the ssh-gateway; taken on the device as well                                                                                                                                                                                                |
 | `redroid.images`           | Android version → image, [holtdroid-redroid](https://github.com/holtdroid/holtdroid-redroid) tagged by version: redroid with software video encoders and ARM64 translation. The launch dialog offers the versions; the newest is the default                                                        |
 | `redroid.screens`          | Screens the launch dialog offers (`id`, `label`, `like`, `width`, `height`, `dpi`, `cutout`); the first is the default. Empty takes the built-in presets, see [Screens](#screens-and-android-versions)                                                                                              |
 | `redroid.fps`              | Refresh rate, fixed at boot                                                                                                                                                                                                                                                                         |

@@ -341,6 +341,17 @@ func renderSecret(pod *corev1.Pod, config []byte) *corev1.Secret {
 	}
 }
 
+func podPort(pod corev1.Pod, name string, fallback int) int {
+	for _, c := range pod.Spec.Containers {
+		for _, port := range c.Ports {
+			if port.Name == name {
+				return int(port.ContainerPort)
+			}
+		}
+	}
+	return fallback
+}
+
 func (p *Provider) podSession(pod corev1.Pod) contract.Session {
 	a := pod.Annotations
 	created := parseTime(a[annotationCreatedAt], pod.CreationTimestamp.Time)
@@ -351,8 +362,8 @@ func (p *Provider) podSession(pod corev1.Pod) contract.Session {
 	}
 	agentURL, tunnelURL := "", ""
 	if pod.Status.PodIP != "" {
-		agentURL = "http://" + net.JoinHostPort(pod.Status.PodIP, strconv.Itoa(p.cfg.AgentPort))
-		tunnelURL = "http://" + net.JoinHostPort(pod.Status.PodIP, strconv.Itoa(p.cfg.TunnelPort))
+		agentURL = "http://" + net.JoinHostPort(pod.Status.PodIP, strconv.Itoa(podPort(pod, "agent", p.cfg.AgentPort)))
+		tunnelURL = "http://" + net.JoinHostPort(pod.Status.PodIP, strconv.Itoa(podPort(pod, "tunnel", p.cfg.TunnelPort)))
 	}
 	caps := &contract.SlotCapabilities{
 		Android:  a[annotationAndroid],

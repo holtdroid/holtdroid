@@ -778,7 +778,7 @@ route (Traefik `IngressRouteTCP` on a dedicated entrypoint). The chart
 (`sshGateway.*`) renders the Deployment, a headless Service the api uses to
 reach every replica, the SSH Service, the api's `ssh` section, and a
 NetworkPolicy rule that lets only the gateway reach the agents' tunnel port.
-The emulator provider publishes that port as `tunnelPort` (default 8081)
+The emulator provider publishes that port as `tunnelPort` (default 18581, decision #161)
 and reports it as the session's `tunnelUrl`.
 
 ## ADB in the browser

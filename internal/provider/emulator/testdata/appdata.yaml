@@ -58,9 +58,9 @@ spec:
       name: data
   - env:
     - name: HOLTDROID_LISTEN
-      value: :8080
+      value: :18580
     - name: HOLTDROID_TUNNELLISTEN
-      value: :8081
+      value: :18581
     - name: HOLTDROID_ARTIFACTURL
       value: http://holtdroid-api-internal:8081/internal/artifacts/abc
     - name: HOLTDROID_PACKAGE
@@ -97,9 +97,9 @@ spec:
     imagePullPolicy: IfNotPresent
     name: agent
     ports:
-    - containerPort: 8080
+    - containerPort: 18580
       name: agent
-    - containerPort: 8081
+    - containerPort: 18581
       name: tunnel
     readinessProbe:
       httpGet:

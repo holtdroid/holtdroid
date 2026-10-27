@@ -4892,3 +4892,20 @@ no screen. A screen the user picked before is still remembered.
 
 **Consequences.** A default session streams 1080p instead of 720p: more CPU
 in the session and more bandwidth in the browser.
+
+## 161. Session agents listen on 18580 and 18581
+
+**Context.** Android in a redroid session shares the Pod's network namespace
+with the agent and the VPN sidecar. The agent listened on 8080 and 8081, so
+publishing a dev server on 8080 failed (`adb reverse`: address already in
+use) and the device's `localhost:8080` answered with the agent's 404.
+
+**Decision.** The emulator provider's `agentPort` and `tunnelPort` default
+to 18580 and 18581, the ports the physical provider already uses on its
+node. The provider reads a session's ports from its Pod's named container
+ports, and the chart's NetworkPolicy allows the named ports, so Pods started
+before the change keep working.
+
+**Consequences.** 8080 and 8081 are free on emulator sessions. The ports the
+session's own programs hold (adb, Frida, the agent, the VPN sidecar's 7890
+and 9090) still can't be published there; the docs list them.

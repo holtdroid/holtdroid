@@ -114,8 +114,8 @@ func DefaultConfig() Config {
 		SlotsPerNode:    1,
 		Image:           "ghcr.io/holtdroid/holtdroid-session:main",
 		ImagePullPolicy: string(corev1.PullIfNotPresent),
-		AgentPort:       8080,
-		TunnelPort:      8081,
+		AgentPort:       18580,
+		TunnelPort:      18581,
 		Redroid: Redroid{
 			Screens:  DefaultScreens(),
 			FPS:      60,
