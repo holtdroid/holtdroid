@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react"
 import type { DNSEvent, DNSQuery, DNSSettings } from "@/api/client"
 import { LookupTable, type LookupRow } from "@/components/session/dns-lookups"
-import { describeRewrite, groupLookups } from "@/lib/dns"
+import { describeRewrite, foldBlocked, groupLookups } from "@/lib/dns"
 import { type At, clock } from "@/lib/recording/timeline"
 
 const maxRows = 500
@@ -30,7 +30,7 @@ export function DNSView({
     const at = new Map<DNSQuery, number>()
     let run: DNSQuery[] = []
     const close = () => {
-      for (const l of groupLookups(run)) {
+      for (const l of foldBlocked(groupLookups(run))) {
         const t = at.get(l.queries[0]!) ?? 0
         rows.push({ kind: "lookup", key: l.key, lookup: l, time: clock(t), t })
       }

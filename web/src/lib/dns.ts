@@ -134,7 +134,7 @@ export function sameRewrites(a: DNSRewrite[], b: DNSRewrite[]) {
 }
 
 /** One lookup of a name: the A, AAAA and HTTPS queries an app sends for it at once. */
-export type Lookup = { key: string; name: string; at: number; queries: DNSQuery[] }
+export type Lookup = { key: string; name: string; at: number; queries: DNSQuery[]; repeats?: number }
 
 export function groupLookups(queries: DNSQuery[], window = 2000): Lookup[] {
   const out: Lookup[] = []
@@ -150,6 +150,25 @@ export function groupLookups(queries: DNSQuery[], window = 2000): Lookup[] {
     const n = { key: `${q.id}@${q.at}`, name: q.name, at, queries: [q] }
     out.push(n)
     open.set(q.name, n)
+  }
+  return out
+}
+
+const isBlocked = (l: Lookup) => l.queries.some((q) => q.result === "blocked")
+
+/** Blocked lookups of a name fold into its latest one: Chrome retries its DoH server every second. */
+export function foldBlocked(lookups: Lookup[]): Lookup[] {
+  const last = new Map<string, number>()
+  const count = new Map<string, number>()
+  for (const [i, l] of lookups.entries()) {
+    if (!isBlocked(l)) continue
+    last.set(l.name, i)
+    count.set(l.name, (count.get(l.name) ?? 0) + 1)
+  }
+  const out: Lookup[] = []
+  for (const [i, l] of lookups.entries()) {
+    if (!isBlocked(l)) out.push(l)
+    else if (last.get(l.name) === i) out.push(Object.assign({}, l, { repeats: count.get(l.name) }))
   }
   return out
 }

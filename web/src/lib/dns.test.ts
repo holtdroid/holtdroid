@@ -3,6 +3,7 @@ import type { DNSQuery, DNSRewrite } from "@/api/client"
 import {
   answerOf,
   describeSVCB,
+  foldBlocked,
   formatTTL,
   groupLookups,
   lookupAnswer,
@@ -168,6 +169,24 @@ describe("lookups", () => {
     expect(lookupAnswer(l!)).toEqual({ text: "10.0.0.1", more: 1 })
     expect(lookupTTL(l!)).toEqual({ served: 0, original: 300 })
     expect(lookupBadges(l!)).toEqual([])
+  })
+
+  test("blocked lookups of a name fold into the latest", () => {
+    const blocked = { result: "blocked" as const, rcode: "NXDOMAIN", rule: "encrypted DNS" }
+    const got = foldBlocked(
+      groupLookups([
+        q("chrome.cloudflare-dns.com", "A", 0, blocked),
+        q("www.example.com", "A", 100),
+        q("chrome.cloudflare-dns.com", "A", 3000, blocked),
+        q("chrome.cloudflare-dns.com", "A", 6000, blocked),
+        q("api.example.com", "A", 6100),
+      ]),
+    )
+    expect(got.map((l) => `${l.name}${l.repeats ? `×${l.repeats}` : ""}`)).toEqual([
+      "www.example.com",
+      "chrome.cloudflare-dns.com×3",
+      "api.example.com",
+    ])
   })
 
   test("what stands out", () => {

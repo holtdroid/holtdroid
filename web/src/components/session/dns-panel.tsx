@@ -53,6 +53,7 @@ import {
   blocked,
   describeRewrite,
   exportSettings,
+  foldBlocked,
   groupLookups,
   type Lookup,
   lookupMatches,
@@ -117,11 +118,11 @@ export function DNSPanel({ provider, id }: { provider: string; id: string }) {
     })
   }
 
-  const lookups = useMemo(() => groupLookups(queries), [queries])
+  const lookups = useMemo(() => foldBlocked(groupLookups(queries)), [queries])
   const hits = useMemo(() => {
     const m = new Map<string, number>()
     for (const l of lookups) {
-      const rule = l.queries.find((q) => q.rule)?.rule
+      const rule = l.queries.find((q) => q.result === "rewritten")?.rule
       if (rule) m.set(rule, (m.get(rule) ?? 0) + 1)
     }
     return m
@@ -134,7 +135,7 @@ export function DNSPanel({ provider, id }: { provider: string; id: string }) {
     .slice(-1000)
     .map((l) => ({ kind: "lookup", key: l.key, lookup: l, time: wallClock(l.at, false) }))
   const rewriteLookup = (l: Lookup) => {
-    const rule = l.queries.find((q) => q.rule)?.rule
+    const rule = l.queries.find((q) => q.result === "rewritten")?.rule
     const r = rule ? rewrites.find((x) => x.pattern === rule) : undefined
     setEditing(r ? { initial: r } : { name: l.name })
   }

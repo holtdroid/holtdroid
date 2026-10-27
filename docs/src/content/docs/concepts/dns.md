@@ -93,7 +93,8 @@ device's DNS:
   OpenDNS, NextDNS, AdGuard, the rest of Chrome's upgrade list) with
   `NXDOMAIN`. Chrome Stable in its automatic mode, and most apps that bundle
   DoH, then fall back to the device's DNS. Those lookups are marked
-  **DoH blocked**; a rewrite of the same name wins over the block. Turn the
+  **DoH blocked**, and Chrome's retries of its server (about one a second)
+  fold into one row with a count; a rewrite of the same name wins over the block. Turn the
   switch off to test an app's own DoH.
 
 WebViews never use DoH: in Chromium only the browser turns it on, so the

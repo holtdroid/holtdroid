@@ -142,6 +142,11 @@ function Row({
             {b.label}
           </Badge>
         ))}
+        {lookup.repeats && lookup.repeats > 1 ? (
+          <span className="shrink-0 text-muted-foreground tabular-nums" title={`Looked up ${lookup.repeats} times`}>
+            ×{lookup.repeats}
+          </span>
+        ) : null}
       </span>
       <span className="flex min-w-0 gap-1 overflow-hidden">
         {lookup.queries.map((q) => (
@@ -164,7 +169,7 @@ function Row({
       {onRewrite ? (
         <button
           type="button"
-          title={lookup.queries.some((q) => q.rule) ? "Edit the rewrite" : "Rewrite this name"}
+          title={lookup.queries.some((q) => q.result === "rewritten") ? "Edit the rewrite" : "Rewrite this name"}
           aria-label="Rewrite this name"
           onClick={(e) => {
             e.stopPropagation()
@@ -224,7 +229,7 @@ export function LookupDetails({
   rewrites?: DNSRewrite[]
   onRewrite?: () => void
 }) {
-  const ruleName = lookup.queries.find((q) => q.rule)?.rule
+  const ruleName = lookup.queries.find((q) => q.result === "rewritten")?.rule
   const rule = ruleName ? rewrites?.find((r) => r.pattern === ruleName) : undefined
   return (
     <div className="max-h-[50%] shrink-0 overflow-auto border-t bg-muted/20 p-3">
@@ -248,6 +253,12 @@ export function LookupDetails({
           )}
         </div>
       </div>
+      {lookup.repeats && lookup.repeats > 1 ? (
+        <p className="mt-1 text-muted-foreground">
+          Looked up {lookup.repeats} times; the row shows the latest. Chrome keeps retrying its DoH server while it is
+          blocked.
+        </p>
+      ) : null}
       {ruleName && (
         <p className="mt-1 text-violet-700 dark:text-violet-300">
           Answered by the rewrite <span className="font-mono">{ruleName}</span>
