@@ -114,6 +114,15 @@ type PixelPerfectConfig struct {
 	MaxAge        time.Duration
 	MaxFileSize   config.ByteSize
 	SweepInterval time.Duration
+	Figma         FigmaConfig
+}
+
+// FigmaConfig is how references are imported from Figma (decision #139).
+type FigmaConfig struct {
+	// Token is a personal access token used for everyone; when empty, users
+	// import with their own.
+	Token secrets.Ref
+	URL   string
 }
 
 // ADBConfig controls the browser's ADB connection to sessions (the portal's
@@ -180,6 +189,7 @@ func DefaultConfig() Config {
 		},
 		PixelPerfect: PixelPerfectConfig{
 			Enabled: true, Quota: 1 << 30, MaxAge: 30 * 24 * time.Hour, MaxFileSize: 25 << 20, SweepInterval: time.Hour,
+			Figma: FigmaConfig{URL: "https://api.figma.com"},
 		},
 		Map:     MapConfig{URL: "https://tiles.openfreemap.org", Style: "styles/liberty", DarkStyle: "styles/dark"},
 		Routing: RoutingConfig{URL: "https://valhalla1.openstreetmap.de"},
@@ -292,6 +302,9 @@ func (c Config) Validate() error {
 		}
 		if c.PixelPerfect.MaxFileSize == 0 || c.PixelPerfect.SweepInterval <= 0 {
 			errs = append(errs, errors.New("pixelPerfect.maxFileSize and pixelPerfect.sweepInterval must be positive"))
+		}
+		if u, err := url.Parse(c.PixelPerfect.Figma.URL); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			errs = append(errs, errors.New("pixelPerfect.figma.url must be an absolute http(s) URL"))
 		}
 	}
 	if c.Routing.URL != "" {

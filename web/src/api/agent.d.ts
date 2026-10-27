@@ -117,6 +117,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/device/ui": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The native views on the screen with their bounds, ids and texts. Takes a second or two, and fails while the screen keeps animating. */
+        get: operations["uiHierarchy"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/devtools/sockets": {
         parameters: {
             query?: never;
@@ -1321,6 +1338,40 @@ export interface components {
             adb: components["schemas"]["ADBTunnel"][];
             reverse: components["schemas"]["ReverseTunnel"][];
         };
+        UIHierarchy: {
+            /** @description depth first */
+            nodes: components["schemas"]["UINode"][];
+            /**
+             * Format: int64
+             * @description the display's rotation in quarter turns
+             */
+            rotation: number;
+        };
+        UINode: {
+            class: string;
+            clickable?: boolean;
+            /** @description content description */
+            description?: string;
+            /** Format: int64 */
+            h: number;
+            package?: string;
+            /**
+             * Format: int64
+             * @description index of the parent in nodes, -1 for a window's root
+             */
+            parent: number;
+            resourceId?: string;
+            text?: string;
+            /** Format: int64 */
+            w: number;
+            /**
+             * Format: int64
+             * @description device pixels in the current rotation
+             */
+            x: number;
+            /** Format: int64 */
+            y: number;
+        };
         Vibration: {
             /**
              * Format: int64
@@ -1615,6 +1666,35 @@ export interface operations {
                 };
                 content: {
                     "image/png": string;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    uiHierarchy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UIHierarchy"];
                 };
             };
             /** @description Error */

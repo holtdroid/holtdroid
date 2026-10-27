@@ -61,6 +61,9 @@ config:
   pixelPerfect:
     enabled: true
     # storage: { type: s3, s3: { endpoint: …, bucket: …, prefix: pixel-perfect, … } }
+    # A Figma personal access token for everyone's imports; without one each
+    # user enters their own in the tab.
+    # figma: { token: env:FIGMA_TOKEN }
   # Crawled DevTools frontends, one tar.gz per Chromium revision (docs:
   # Concepts → DevTools). Without a storage of their own they sit on the
   # cache volume and are crawled again after every restart.

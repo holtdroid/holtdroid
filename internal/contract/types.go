@@ -414,6 +414,27 @@ type NetworkRegionSettings struct {
 	Backends []string `json:"backends,omitempty" maxItems:"16" doc:"host names, *.names or IPv4 addresses of the app's backend: their traffic takes the server's path even when a CDN fronts them"`
 }
 
+// UIHierarchy is the native view tree of the windows on the screen, read
+// with uiautomator.
+type UIHierarchy struct {
+	Rotation int      `json:"rotation" minimum:"0" maximum:"3" doc:"the display's rotation in quarter turns"`
+	Nodes    []UINode `json:"nodes" doc:"depth first"`
+}
+
+type UINode struct {
+	Parent      int    `json:"parent" doc:"index of the parent in nodes, -1 for a window's root"`
+	Class       string `json:"class"`
+	ResourceID  string `json:"resourceId,omitempty"`
+	Text        string `json:"text,omitempty"`
+	Description string `json:"description,omitempty" doc:"content description"`
+	Package     string `json:"package,omitempty"`
+	Clickable   bool   `json:"clickable,omitempty"`
+	X           int    `json:"x" doc:"device pixels in the current rotation"`
+	Y           int    `json:"y"`
+	W           int    `json:"w"`
+	H           int    `json:"h"`
+}
+
 type DeviceState struct {
 	AirplaneMode       bool                 `json:"airplaneMode"`
 	WiFi               bool                 `json:"wifi"`

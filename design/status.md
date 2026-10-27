@@ -143,8 +143,12 @@ deployment"):
   PNG report. In WebViews, behind an experimental switch that is off by
   default (decision #107), differences name their element
   with selector, CSS shift and styles and highlight it on the device, and
-  video, canvas and frames are skipped. Covered by api and web unit tests; not yet tried on a redroid
-  session.
+  video, canvas and frames are skipped. Native views read with uiautomator
+  name differences everywhere else (decision #138), and frames imported from
+  Figma by link bring their layers, so a difference names the layer and how
+  far its view is off in dp (decision #139). Covered by api, agent and web
+  unit tests against fakes; not yet tried on a redroid session or against
+  the real Figma API.
 - Session load (decision #40), shown in the cards next to the phone since
   decision #94: the app card has fps, jank and CPU/PSS per process, the
   device card the device, storage, temperatures and the session Pod's

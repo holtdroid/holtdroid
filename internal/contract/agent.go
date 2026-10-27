@@ -31,6 +31,7 @@ type Agent interface {
 	UpdateDevice(ctx context.Context, settings DeviceSettings) (DeviceState, error)
 	DeviceAction(ctx context.Context, action DeviceAction) error
 	Screenshot(ctx context.Context) ([]byte, error)
+	UIHierarchy(ctx context.Context) (UIHierarchy, error)
 	Tunnels(ctx context.Context) (Tunnels, error)
 	WatchTunnels(ctx context.Context, probe bool, send func(Tunnels) error) error
 	WatchMetrics(ctx context.Context, send func(Metrics) error) error
@@ -360,6 +361,17 @@ func RegisterAgent(api huma.API, a Agent) {
 			return nil, toHuma(err)
 		}
 		return &screenshotOutput{ContentType: "image/png", CacheControl: "no-store", Body: png}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "uiHierarchy", Method: http.MethodGet, Path: "/v1/device/ui", Tags: tags,
+		Description: "The native views on the screen with their bounds, ids and texts. Takes a second or two, and fails while the screen keeps animating.",
+	}, func(ctx context.Context, _ *struct{}) (*body[UIHierarchy], error) {
+		h, err := a.UIHierarchy(ctx)
+		if err != nil {
+			return nil, toHuma(err)
+		}
+		return &body[UIHierarchy]{h}, nil
 	})
 }
 

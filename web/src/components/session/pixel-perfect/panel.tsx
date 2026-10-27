@@ -2,11 +2,13 @@ import {
   DownloadIcon,
   EyeIcon,
   EyeOffIcon,
+  FrameIcon,
   ImageIcon,
   ImagePlusIcon,
   Loader2Icon,
   MoveIcon,
   PencilIcon,
+  RefreshCwIcon,
   RotateCcwIcon,
   ScanSearchIcon,
   SnowflakeIcon,
@@ -16,9 +18,17 @@ import {
 import { type DragEvent, useEffect, useEffectEvent, useRef, useState } from "react"
 import { toast } from "sonner"
 import type { ReferenceView, SessionView } from "@/api/client"
-import { useDeleteReference, useReferences, useUpdateReference, useUploadReference } from "@/api/queries"
+import {
+  useDeleteReference,
+  useImportFigma,
+  useReferences,
+  useRefreshFigma,
+  useUpdateReference,
+  useUploadReference,
+} from "@/api/queries"
 import { IconButton } from "@/components/session/icon-button"
 import { Compare } from "@/components/session/pixel-perfect/compare"
+import { FigmaImport, isFigmaLink, storedFigmaToken } from "@/components/session/pixel-perfect/figma-import"
 import { type Blend, type PixelPerfect, usePixelState } from "@/components/session/pixel-perfect/state"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -59,6 +69,8 @@ export function PixelPerfectPanel({
   const state = usePixelState(pp)
   const refs = useReferences()
   const upload = useUploadReference()
+  const importFigma = useImportFigma()
+  const [figmaUrl, setFigmaUrl] = useState<string | null>(null)
   const input = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
   const items = refs.data?.items ?? []
@@ -86,6 +98,25 @@ export function PixelPerfectPanel({
     if (e.target instanceof HTMLElement && e.target.closest("input, textarea, [contenteditable]")) return
     const file = Array.from(e.clipboardData?.files ?? []).find((f) => accepted.includes(f.type))
     const text = file ? "" : (e.clipboardData?.getData("text/plain") ?? "").trim()
+    if (isFigmaLink(text)) {
+      e.preventDefault()
+      const token = storedFigmaToken()
+      if (!refs.data?.figmaToken && !token) {
+        setFigmaUrl(text)
+        return
+      }
+      importFigma.mutate(
+        { url: text, format: "svg", pkg: session.package, token },
+        {
+          onSuccess: (v) => pp.select(v.id),
+          onError: (err) => {
+            setFigmaUrl(text)
+            toast.error("Could not import from Figma", { description: err.message })
+          },
+        },
+      )
+      return
+    }
     const svg = /^(<\?xml[^>]*>\s*)?<svg[\s>]/i.test(text) ? new Blob([text], { type: "image/svg+xml" }) : null
     if (!file && !svg) return
     e.preventDefault()
@@ -143,9 +174,12 @@ export function PixelPerfectPanel({
           items={items}
           selected={state.referenceId}
           pkg={session.package}
-          uploading={upload.isPending || preparing > 0}
+          uploading={upload.isPending || preparing > 0 || importFigma.isPending}
           onAdd={() => input.current?.click()}
           rules={refs.data}
+          figmaUrl={figmaUrl}
+          serverToken={refs.data?.figmaToken ?? false}
+          onFigmaUrl={setFigmaUrl}
         />
         <div className="grid min-w-0 content-start gap-4">
           {state.error && (
@@ -180,6 +214,10 @@ function Empty({ onAdd, hasItems }: { onAdd: () => void; hasItems: boolean }) {
         Drop an image here, paste one copied from Figma (⌘V / Ctrl+V) or choose a file.
       </p>
       <p className="max-w-sm text-xs">
+        Or import a frame straight from Figma: paste its link (Copy link to selection). Its layers come with it, so each
+        difference names the layer and shows the sizes, colours and fonts the design asks for.
+      </p>
+      <p className="max-w-sm text-xs">
         Tip: export frames from Figma as <strong>SVG</strong> (Export → SVG, or right-click → Copy as → Copy as SVG and
         paste here). It stays sharp at any scale and lines up to the pixel; a PNG at 3× is the next best.
       </p>
@@ -199,6 +237,9 @@ function Library({
   uploading,
   onAdd,
   rules,
+  figmaUrl,
+  serverToken,
+  onFigmaUrl,
 }: {
   pp: PixelPerfect
   items: ReferenceView[]
@@ -207,17 +248,43 @@ function Library({
   uploading: boolean
   onAdd: () => void
   rules?: { quota: number; used: number; maxAge: number }
+  figmaUrl: string | null
+  serverToken: boolean
+  onFigmaUrl: (url: string | null) => void
 }) {
   const sorted = items.toSorted((a, b) => Number(b.package === pkg) - Number(a.package === pkg))
   return (
     <section className="grid content-start gap-2">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-medium">References</h3>
-        <Button size="sm" variant="outline" onClick={onAdd} disabled={uploading}>
-          {uploading ? <Loader2Icon className="animate-spin" /> : <ImagePlusIcon />}
-          Add
-        </Button>
+        <div className="flex gap-1">
+          <Button
+            size="sm"
+            variant={figmaUrl !== null ? "secondary" : "outline"}
+            onClick={() => onFigmaUrl(figmaUrl === null ? "" : null)}
+            title="Import a frame from Figma"
+          >
+            <FrameIcon />
+            Figma
+          </Button>
+          <Button size="sm" variant="outline" onClick={onAdd} disabled={uploading}>
+            {uploading ? <Loader2Icon className="animate-spin" /> : <ImagePlusIcon />}
+            Add
+          </Button>
+        </div>
       </div>
+      {figmaUrl !== null && (
+        <FigmaImport
+          key={figmaUrl}
+          pkg={pkg}
+          serverToken={serverToken}
+          initialUrl={figmaUrl}
+          onDone={(v) => {
+            onFigmaUrl(null)
+            if (v) pp.select(v.id)
+          }}
+        />
+      )}
       {sorted.length > 0 && (
         <ul className="grid max-h-[50vh] gap-1 overflow-y-auto @3xl:max-h-none">
           {sorted.map((r) => (
@@ -236,7 +303,7 @@ function Library({
             </>
           )}
           {rules.maxAge > 0 && <span>Images unused for {formatSpan(rules.maxAge)} are deleted.</span>}
-          <span>Paste an image (⌘V / Ctrl+V) or drop it here to add it.</span>
+          <span>Paste an image or a Figma link (⌘V / Ctrl+V), or drop an image here to add it.</span>
           <span>From Figma, SVG is sharpest: Copy as SVG and paste, or export SVG.</span>
         </div>
       )}
@@ -257,6 +324,7 @@ function ReferenceItem({
 }) {
   const rename = useUpdateReference()
   const remove = useDeleteReference()
+  const refresh = useRefreshFigma()
   const [name, setName] = useState<string | null>(null)
 
   const save = () => {
@@ -318,12 +386,34 @@ function ReferenceItem({
           {r.width}×{r.height} · {formatBytes(r.size)}
           {thisApp ? " · this app" : r.package ? ` · ${r.package}` : ""}
         </span>
-        <span className="text-muted-foreground truncate text-xs">Used {formatRelative(r.lastUsedAt)}</span>
+        <span className="text-muted-foreground truncate text-xs">
+          {r.figma
+            ? `Figma, ${r.layers} layers, synced ${formatRelative(r.figma.syncedAt)}`
+            : `Used ${formatRelative(r.lastUsedAt)}`}
+        </span>
       </div>
       <div className="flex shrink-0 flex-col opacity-0 transition-opacity group-hover/item:opacity-100 focus-within:opacity-100">
         <IconButton label="Rename" className="size-6" onClick={() => setName(r.name)}>
           <PencilIcon />
         </IconButton>
+        {r.figma && (
+          <IconButton
+            label="Update from Figma"
+            className="size-6"
+            disabled={refresh.isPending}
+            onClick={() =>
+              refresh.mutate(
+                { id: r.id, token: storedFigmaToken() },
+                {
+                  onSuccess: () => toast.success(`“${r.name}” is up to date with Figma`),
+                  onError: (e) => toast.error("Could not update from Figma", { description: e.message }),
+                },
+              )
+            }
+          >
+            <RefreshCwIcon className={cn(refresh.isPending && "animate-spin")} />
+          </IconButton>
+        )}
         <IconButton
           label="Delete"
           className="size-6"
@@ -413,6 +503,14 @@ function Controls({ pp, reference: r, session }: { pp: PixelPerfect; reference: 
         ]
           .filter(Boolean)
           .join(" · "),
+        elements: result.matches.map((m) => {
+          const parts = [
+            m.element?.label ?? m.view?.label,
+            m.layer && `◆ ${m.layer.name}`,
+            m.measures.map((x) => `${x.label} ${x.actual}≠${x.design}`).join(" "),
+          ].filter(Boolean)
+          return parts.length ? { label: parts.join(" · ") } : null
+        }),
         source:
           result.source === "screenshot" ? "screenshot" : result.source === "frozen" ? "frozen frame" : "stream frame",
       })
@@ -559,9 +657,24 @@ function Controls({ pp, reference: r, session }: { pp: PixelPerfect; reference: 
       </Section>
 
       <Section>
-        <SectionHead title="Page elements">
-          <Badge variant="outline">Experimental</Badge>
-        </SectionHead>
+        <SectionHead title="Elements" />
+        <div className="flex items-start gap-3">
+          <Switch
+            id="pp-views"
+            checked={state.views}
+            onCheckedChange={(v) => {
+              pp.set({ views: v })
+              if (state.result) void pp.analyze()
+            }}
+          />
+          <Label htmlFor="pp-views" className="grid gap-0.5 font-normal">
+            <span className="text-sm">Native views</span>
+            <span className="text-muted-foreground text-xs">
+              Reads the app&apos;s views with uiautomator: differences name their view with its resource id, text and
+              size in dp. Adds a second or two; doesn&apos;t work while the screen keeps animating.
+            </span>
+          </Label>
+        </div>
         <div className="flex items-start gap-3">
           <Switch
             id="pp-devtools"
@@ -572,7 +685,9 @@ function Controls({ pp, reference: r, session }: { pp: PixelPerfect; reference: 
             }}
           />
           <Label htmlFor="pp-devtools" className="grid gap-0.5 font-normal">
-            <span className="text-sm">Use DevTools for WebView pages</span>
+            <span className="flex items-center gap-2 text-sm">
+              Use DevTools for WebView pages <Badge variant="outline">Experimental</Badge>
+            </span>
             <span className="text-muted-foreground text-xs">
               Reads the page on the screen through its own DevTools connection: differences name their element with its
               selector and styles, pointing at one highlights it on the device. Works where the DevTools tab does.
@@ -620,7 +735,7 @@ function Controls({ pp, reference: r, session }: { pp: PixelPerfect; reference: 
               </Button>
             </div>
           </SectionHead>
-          <Summary result={result} devtools={state.devtools} />
+          <Summary result={result} devtools={state.devtools} views={state.views} />
           <Compare pp={pp} result={result} hovered={state.hovered} />
         </Section>
       )}
@@ -631,9 +746,11 @@ function Controls({ pp, reference: r, session }: { pp: PixelPerfect; reference: 
 function Summary({
   result,
   devtools,
+  views,
 }: {
   result: NonNullable<ReturnType<PixelPerfect["get"]>["result"]>
   devtools: boolean
+  views: boolean
 }) {
   const a = result.analysis
   const pct = (a.match * 100).toFixed(a.match > 0.999 && a.match < 1 ? 2 : 1)
@@ -662,6 +779,18 @@ function Summary({
           {result.webview
             ? `WebView found: ${result.webview.target.title || result.webview.target.url}; differences inside it name their elements, pointing at one highlights it on the device.`
             : "No inspectable WebView found on the screen, so differences aren't tied to page elements."}
+        </span>
+      )}
+      {views && (
+        <span className="text-muted-foreground basis-full text-xs">
+          {result.views.length
+            ? `${result.views.length} native views read; pointing at a difference outlines its view on the screen.`
+            : `Native views couldn't be read${result.viewsError ? `: ${result.viewsError}` : ""}.`}
+        </span>
+      )}
+      {result.layers.length > 0 && (
+        <span className="text-muted-foreground basis-full text-xs">
+          {result.layers.length} Figma layers over the screen; differences name the layer the design has there.
         </span>
       )}
     </div>

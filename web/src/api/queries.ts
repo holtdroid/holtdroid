@@ -566,3 +566,30 @@ export function useDeleteReference() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: keys.references }),
   })
 }
+
+export function useImportFigma() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: { url: string; format: "svg" | "png"; pkg: string; token: string }) =>
+      unwrap(
+        api.POST("/api/v1/pixel-perfect/figma", {
+          body: { url: body.url, format: body.format, package: body.pkg || undefined, token: body.token || undefined },
+        }),
+      ),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.references }),
+  })
+}
+
+export function useRefreshFigma() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, token }: { id: string; token: string }) =>
+      unwrap(
+        api.POST("/api/v1/pixel-perfect/{id}/figma", {
+          params: { path: { id } },
+          body: { token: token || undefined },
+        }),
+      ),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.references }),
+  })
+}

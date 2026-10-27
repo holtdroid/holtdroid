@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test"
 import type { Pixels } from "./diff"
-import { findOffset, matchRegion, type ScreenElement } from "./webview"
+import { matchRegion } from "./elements"
+import { findOffset, type ScreenElement } from "./webview"
 
 function noise(w: number, h: number, seed: number): Pixels {
   const data = new Uint8ClampedArray(w * h * 4)

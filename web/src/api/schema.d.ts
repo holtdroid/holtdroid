@@ -812,6 +812,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/pixel-perfect/figma": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Adds a Figma frame as a reference: its picture and its layers with their boxes, colours, fonts and auto layout spacing. Fails with 507 over the caller's quota. */
+        post: operations["importFigmaReference"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/pixel-perfect/{id}": {
         parameters: {
             query?: never;
@@ -824,6 +841,40 @@ export interface paths {
         put: operations["updateReference"];
         post?: never;
         delete: operations["deleteReference"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pixel-perfect/{id}/figma": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Fetches the reference's Figma frame again, keeping where it sits and the ignored areas. */
+        post: operations["refreshFigmaReference"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pixel-perfect/{id}/layers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The design layers of a reference imported from Figma. */
+        get: operations["referenceLayers"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2261,6 +2312,94 @@ export interface components {
              */
             type: string;
         };
+        FigmaFont: {
+            family: string;
+            /** Format: double */
+            letterSpacing?: number;
+            /**
+             * Format: double
+             * @description in the frame's units
+             */
+            lineHeight?: number;
+            /** Format: double */
+            size: number;
+            /** Format: double */
+            weight?: number;
+        };
+        FigmaImportInputBody: {
+            /**
+             * @description svg is drawn at any size; png is rendered at 3×
+             * @default svg
+             * @enum {string}
+             */
+            format: "svg" | "png";
+            /** @description defaults to the frame's name */
+            name?: string;
+            package?: string;
+            /** @description the user's Figma personal access token; the server's pixelPerfect.figma.token when empty. Used for this request only, never stored */
+            token?: string;
+            /** @description a link to a frame: Copy link to selection in Figma */
+            url: string;
+        };
+        FigmaLayer: {
+            /** @description the top solid fill, #rrggbb or #rrggbbaa */
+            fill?: string;
+            font?: components["schemas"]["FigmaFont"];
+            /**
+             * Format: double
+             * @description auto layout: space between items
+             */
+            gap?: number;
+            /** Format: double */
+            h: number;
+            id: string;
+            name: string;
+            /**
+             * Format: double
+             * @description set when below 1
+             */
+            opacity?: number;
+            /** @description auto layout: top, right, bottom, left */
+            padding?: number[];
+            /**
+             * Format: int64
+             * @description index in layers, -1 under the frame
+             */
+            parent: number;
+            /** @description one value, or top left, top right, bottom right, bottom left */
+            radius?: number[];
+            stroke?: string;
+            /** Format: double */
+            strokeWeight?: number;
+            text?: string;
+            type: string;
+            /** Format: double */
+            w: number;
+            /** Format: double */
+            x: number;
+            /** Format: double */
+            y: number;
+        };
+        FigmaLayers: {
+            /** Format: double */
+            height: number;
+            /** @description depth first, the frame itself left out */
+            layers: components["schemas"]["FigmaLayer"][];
+            /** Format: double */
+            width: number;
+        };
+        FigmaRefreshInputBody: {
+            token?: string;
+        };
+        FigmaSource: {
+            fileKey: string;
+            /** @enum {string} */
+            format: "svg" | "png";
+            nodeId: string;
+            /** Format: date-time */
+            syncedAt: string;
+            url: string;
+        };
         GeoPoint: {
             /** Format: double */
             latitude: number;
@@ -3052,6 +3191,8 @@ export interface components {
         };
         ReferenceList: {
             enabled: boolean;
+            /** @description the server has a Figma token of its own; without one, importing from Figma needs the user's */
+            figmaToken: boolean;
             items: components["schemas"]["ReferenceView"][];
             /**
              * Format: int64
@@ -3088,6 +3229,8 @@ export interface components {
              * @description deleted then unless it is opened again
              */
             expiresAt?: string;
+            /** @description the Figma frame it was imported from */
+            figma?: components["schemas"]["FigmaSource"];
             /** Format: int64 */
             height: number;
             id: string;
@@ -3097,6 +3240,11 @@ export interface components {
             imageUrl: string;
             /** Format: date-time */
             lastUsedAt: string;
+            /**
+             * Format: int64
+             * @description design layers stored with it (GET …/layers); 0 for an image added by hand
+             */
+            layers: number;
             name: string;
             /** @description the app it was added for */
             package?: string;
@@ -5329,6 +5477,39 @@ export interface operations {
             };
         };
     };
+    importFigmaReference: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FigmaImportInputBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferenceView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     updateReference: {
         parameters: {
             query?: never;
@@ -5381,6 +5562,72 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    refreshFigmaReference: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FigmaRefreshInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferenceView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    referenceLayers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FigmaLayers"];
+                };
             };
             /** @description Error */
             default: {

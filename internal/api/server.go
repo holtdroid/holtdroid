@@ -54,6 +54,7 @@ type Server struct {
 	ui             fs.FS
 	lookupHost     func(ctx context.Context, host string) ([]string, error)
 	sshHTTP        *http.Client
+	figmaHTTP      *http.Client
 	ca             *connectCA
 	clients        connectClients
 	audit          *audit.Logger
@@ -100,6 +101,7 @@ func New(ctx context.Context, cfg Config, opts ...Option) (*Server, error) {
 		now:            time.Now,
 		lookupHost:     net.DefaultResolver.LookupHost,
 		sshHTTP:        &http.Client{Timeout: 10 * time.Second, Transport: telemetry.Transport(nil)},
+		figmaHTTP:      &http.Client{Timeout: 2 * time.Minute, Transport: telemetry.Transport(nil)},
 		launches:       newLaunches(),
 		queue:          newLaunchQueue(2 * time.Second),
 		agentTransport: telemetry.Transport(nil),

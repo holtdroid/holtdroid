@@ -3,7 +3,7 @@ import { type RefObject, useEffect, useMemo, useRef, useState } from "react"
 import type { ReferenceView } from "@/api/client"
 import { useReferences } from "@/api/queries"
 import { PixelCanvas } from "@/components/session/pixel-perfect/mask-canvas"
-import { type PixelPerfect, usePixelState } from "@/components/session/pixel-perfect/state"
+import { type PixelPerfect, type Result, usePixelState } from "@/components/session/pixel-perfect/state"
 import {
   type Box,
   fitScale,
@@ -204,6 +204,7 @@ export function PixelOverlay({ pp, canvasRef }: { pp: PixelPerfect; canvasRef: R
             </span>
           </div>
         ))}
+      {result && state.hovered !== null && <HoveredMatch result={result} index={state.hovered} />}
       {interactive && (
         <div
           ref={layer}
@@ -231,6 +232,37 @@ export function PixelOverlay({ pp, canvasRef }: { pp: PixelPerfect; canvasRef: R
         </div>
       )}
       <ToolHint reference={ref} tool={state.tool} onDone={() => pp.set({ tool: "none" })} />
+    </>
+  )
+}
+
+function HoveredMatch({ result, index }: { result: Result; index: number }) {
+  const m = result.matches[index]
+  if (!m) return null
+  const size = { w: result.analysis.width, h: result.analysis.height }
+  const own = m.implementation ?? (m.view && !m.element ? m.view : null)
+  return (
+    <>
+      {m.layer && (
+        <div
+          className="pointer-events-none absolute outline-2 -outline-offset-1 outline-fuchsia-500 outline-dashed"
+          style={percentBox(m.layer.box, size)}
+        >
+          <span className="absolute bottom-0 left-0 max-w-full translate-y-full truncate rounded-sm bg-fuchsia-600 px-1 text-[10px] leading-4 font-medium text-white">
+            ◆ {m.layer.name}
+          </span>
+        </div>
+      )}
+      {own && (
+        <div
+          className="pointer-events-none absolute bg-amber-400/15 outline-2 -outline-offset-1 outline-amber-400"
+          style={percentBox(own.box, size)}
+        >
+          <span className="absolute top-0 right-0 max-w-full -translate-y-full truncate rounded-sm bg-amber-500 px-1 font-mono text-[10px] leading-4 text-black">
+            {own.label}
+          </span>
+        </div>
+      )}
     </>
   )
 }

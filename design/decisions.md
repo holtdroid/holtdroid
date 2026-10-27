@@ -4144,3 +4144,81 @@ map because koanf splits keys on dots, which package names contain.
 **Consequences.** An app's configured location beats the last one used
 with that provider; picking another one in the dialog still works for that
 launch. A package may sit under one location only (validated).
+
+## 138. Pixel perfect names differences by native views, read with uiautomator
+
+Extends #106 and #107.
+
+**Context.** #107 ties a difference to its element only inside a WebView.
+Most screens are native Views or Compose, where a tester still had to find
+"the box at 240, 1180" in the app's code by hand.
+
+**Decision.**
+
+- **The agent dumps the view tree with `uiautomator dump`** to a temporary
+  file under `/data/local/tmp`, reads it and removes it, and serves the
+  nodes flattened depth first at `GET /v1/device/ui` (class, resource id,
+  text, content description, package, clickable, bounds in device pixels of
+  the current rotation). It is the stock tool on every Android image,
+  needs no root, no app change and no accessibility service of ours, and
+  Compose exposes its semantics through it (resource ids only with
+  `testTagsAsResourceId`, texts and descriptions always). Layout Inspector's
+  protocol would give paddings and colours but needs a debuggable app.
+- **It fails while the screen keeps animating** ("could not get idle
+  state"): the agent answers 423 with uiautomator's message, and the tab
+  says the views couldn't be read and compares by pixels as before.
+- **A frozen frame reads the views when it freezes**, like the WebView
+  snapshot, so a toast's view is named after it is gone.
+- **Regions take the view that fits best**, by the same score as page
+  elements (#107); a WebView's own element wins over the native WebView
+  around it. Pointing at a difference outlines its view over the screen in
+  the browser; Android has no overlay to draw it on the device.
+- **On by default**: it costs one or two seconds, runs next to the
+  screenshot, and doesn't touch the app.
+
+**Consequences.** Views drawn without bounds (custom canvases, games) aren't
+listed. uiautomator holds the UiAutomation connection while it dumps, so a
+test framework using it at the same moment (Appium, Espresso's UiDevice)
+can fail that call.
+
+## 139. Pixel perfect imports frames from Figma with their layers
+
+Extends #106 and #109.
+
+**Context.** Testers exported frames from Figma by hand, and a reference was
+only pixels: the tab could say where the screen differs, not what the design
+asks for there.
+
+**Decision.**
+
+- **The api imports a frame by its link** (`POST /api/v1/pixel-perfect/figma`,
+  Copy link to selection in Figma, or pasted into the tab): it reads the
+  node with `GET /v1/files/{key}/nodes`, renders it with `GET /v1/images/{key}`
+  as SVG with outlined text (or PNG at 3×), downloads the picture and a small
+  PNG for the thumbnail, and stores them like an upload, so quota, retention
+  and the comparison are unchanged. Plain `net/http` against two endpoints,
+  like OpenBao (#12).
+- **The api calls Figma, not the browser**: Figma's rendered images live on
+  its storage without CORS, and a server token must not reach browsers.
+  It is the user's own request for one file, not a sync of artifacts, so it
+  doesn't belong in a sync job (#43).
+- **Tokens**: `pixelPerfect.figma.token` (a secret reference) serves everyone;
+  without it each user gives a personal access token, kept in their browser
+  and sent only with an import or an update, never stored by the server.
+- **Layers are kept next to the image** as `<id>.layers`: the visible layers
+  under the frame (up to 4000), depth first, with boxes in the frame's units
+  relative to its corner, the top solid fill and stroke, radius, opacity,
+  font and auto layout padding and gap. Boxes are placed over the screen with
+  the reference's own placement, so moving or scaling the mockup moves them.
+- **A region takes the layer that fits it best**, and that layer takes the
+  page element or native view whose box overlaps it most (IoU above 0.45) as
+  its implementation; edges and sizes that differ by half a unit or more are
+  listed in the design's units ("width 320 dp instead of 328").
+- **Update from Figma** fetches the frame again in place and bumps a
+  revision that is part of the image's URL and ETag, keeping the placement
+  and ignored areas.
+
+**Consequences.** Figma's units are dp only for a frame drawn at the phone's
+width in dp; the tab says "px" for frames wider than 600. Rotated layers use
+their bounding boxes. An import uses three Figma API calls (Tier 1 rate
+limits), so a busy server token may need users' own tokens.

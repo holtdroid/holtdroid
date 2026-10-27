@@ -28,7 +28,30 @@ can't be an SVG (photos, heavy effects), export a PNG at 3×.
 :::
 
 An SVG needs a size: `width` and `height` on its root, or a `viewBox`, which
-Figma always writes. References belong to you, not to a session, so they are there in
+Figma always writes.
+
+## Import from Figma
+
+A frame can come straight from Figma, together with its layers: select it,
+**Copy link to selection** (⌘L / Ctrl+L), and paste the link into the tab, or
+use **Figma** above the list. The frame is rendered as SVG with its text
+drawn as outlines, or as a PNG at 3× for frames with photos or heavy effects.
+
+Importing needs a Figma **personal access token** (Figma → Settings →
+Security → Personal access tokens, with read access to files). The server may
+have one for everyone (`pixelPerfect.figma.token`); otherwise the tab asks for
+yours. It stays in your browser and goes to the server only with an import or
+an update, which doesn't keep it.
+
+The import keeps the layers under the frame: their boxes, the top fill and
+stroke, corner radius, opacity, font (family, weight, size, line height,
+letter spacing) and auto layout padding and gap. They move with the
+reference when you move or scale it, and the comparison uses them (see
+[Elements](#elements)). **Update from Figma** (the arrows next to a reference)
+fetches the frame again, keeping where it lies and its ignored areas.
+
+A phone frame drawn at the screen's width in dp (360, 393, 412) has its
+measures in dp; a wider frame is in pixels, and the tab says so. References belong to you, not to a session, so they are there in
 every session; the ones added for the current app come first.
 
 Double-click a name to rename it. Each reference also remembers where you put
@@ -111,15 +134,38 @@ any mockup everywhere the video is. Three things keep that out:
 - **Ignored areas**: turn on **Draw** and drag over the screen to mark areas
   the comparison always skips for this reference, such as a player that may
   be paused.
-- **Skip video, canvas and frames in WebViews** (with **Page elements** on, see below): in a WebView
+- **Skip video, canvas and frames in WebViews** (with **Use DevTools for WebView pages** on, see below): in a WebView
   page, the boxes of `<video>`, `<canvas>`, `<iframe>`, `<embed>` and
   `<object>` elements are left out, paused or not (see below). They are
   hatched violet.
 
+### Elements
+
+A difference found by pixels says where; the **Elements** section says what
+is there.
+
+**Native views** (on by default) reads the app's views with Android's
+`uiautomator`, the way Appium does, without touching the app: each difference
+names the view that fits it, with its class, resource id, text or content
+description, and its size in pixels and dp; pointing at a difference outlines
+the view over the screen. Compose screens show their texts and descriptions,
+and their test tags as ids when the app sets `testTagsAsResourceId`. It adds a
+second or two, and doesn't work while the screen keeps animating: the tab then
+says so and compares by pixels alone. With a frozen frame, the views are read
+the moment it is frozen.
+
+With a reference **imported from Figma**, each difference also names the
+design layer there (`◆ Card › Pay`, outlined in pink when you point at it)
+and what the design asks of it: size, fill, stroke, radius, font, padding and
+gap; for a colour difference, the fill next to the colour on the screen. The
+view or page element drawn where that layer is (outlined in amber) is
+measured against it, so the list says `width 320 dp instead of 328` and the
+magnified crop has a table of the edges and sizes that are off.
+
 ### WebView pages
 
 This part is **experimental** and **off by default**: turn on **Use DevTools
-for WebView pages** under **Page elements** in the tab; the choice is
+for WebView pages** under **Elements** in the tab; the choice is
 remembered in the browser.
 
 When the screen shows a WebView that DevTools can inspect, the comparison
@@ -152,8 +198,8 @@ Highlighting needs the element to still be there.
 **Report** downloads a PNG with the project's logo, the reference name, the
 app, its version, the screen and the time, the match, three columns (the
 reference, the difference with ignored areas, the screen) with the regions
-numbered on them, and the list of differences with their sizes, positions
-and, in a WebView, their elements.
+numbered on them, and the list of differences with their sizes, positions,
+their elements or views, and the Figma layer with what is off.
 
 ## Configuration
 
@@ -164,6 +210,9 @@ pixelPerfect:
   maxAge: 720h # deleted this long after it was last opened; 0 = never
   maxFileSize: 25MiB # largest image
   sweepInterval: 1h # how often retention runs
+  figma:
+    token: env:FIGMA_TOKEN # a personal access token for everyone; empty = each user gives theirs
+    url: https://api.figma.com
   storage: # optional: where references go; default is the shared storage under pixel-perfect/
     type: s3
     s3:

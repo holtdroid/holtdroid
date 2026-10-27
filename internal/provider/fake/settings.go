@@ -215,6 +215,15 @@ func (d *device) Screenshot(context.Context) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+func (d *device) UIHierarchy(context.Context) (contract.UIHierarchy, error) {
+	pkg := d.session().Package
+	return contract.UIHierarchy{Nodes: []contract.UINode{
+		{Parent: -1, Class: "android.widget.FrameLayout", Package: pkg, W: 360, H: 780},
+		{Parent: 0, Class: "android.widget.LinearLayout", ResourceID: pkg + ":id/content", Package: pkg, Y: 24, W: 360, H: 756},
+		{Parent: 1, Class: "android.view.View", ResourceID: pkg + ":id/dot", Description: "Status dot", Package: pkg, X: 170, Y: 380, W: 20, H: 20},
+	}}, nil
+}
+
 func (d *device) clock() time.Time {
 	if d.now == nil {
 		return time.Now()

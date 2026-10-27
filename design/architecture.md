@@ -847,7 +847,10 @@ Design mockups over the screen (decision #106, `internal/api/pixelperfect.go`,
 `web/src/lib/pixel-perfect`, `web/src/components/session/pixel-perfect`):
 
 ```
-browser ─POST/PUT/DELETE /api/v1/pixel-perfect─▶ api ──▶ storage: pixel-perfect/<user>/<id>.json|.img|.thumb|.used
+browser ─POST/PUT/DELETE /api/v1/pixel-perfect─▶ api ──▶ storage: pixel-perfect/<user>/<id>.json|.img|.thumb|.used|.layers
+        ─POST /api/v1/pixel-perfect/figma {url, token?}─▶ api ─GET /v1/files/{key}/nodes, /v1/images/{key}─▶ Figma
+                                                              (frame picture + layers, decision #139)
+        ◀─GET /api/v1/pixel-perfect/{id}/layers── the frame's layers: boxes, fills, fonts, auto layout
         ◀─GET /api/v1/pixel-perfect/{id}/image── api (rewrites .used at most hourly)
         ◀─GET /api/v1/pixel-perfect/{id}/thumbnail── 160 px JPEG for lists, from the browser or made by the api (#109)
 browser: <img> over the screen canvas (opacity, difference, invert); Freeze frame = the decoder's snapshot;
@@ -855,11 +858,13 @@ browser: <img> over the screen canvas (opacity, difference, invert); Freeze fram
          for the motion mask → pixelmatch → regions → views and a PNG report;
          WS /s/…/devtools/{socket}/page/{id} (its own CDP client): an element snapshot and
          Page.captureScreenshot per page, found on the screen by image search, names the regions,
-         skips <video>/<canvas>/<iframe> and highlights elements on the device (decision #107)
+         skips <video>/<canvas>/<iframe> and highlights elements on the device (decision #107);
+         GET /s/…/v1/device/ui: native views from uiautomator name the regions (decision #138);
+         Figma layers placed with the reference name the regions and measure their implementation (#139)
 ```
 
-The api only stores; quota (`pixelPerfect.quota`, per user) is checked on
-upload, and a sweep every `pixelPerfect.sweepInterval` deletes references not
+The api only stores and imports from Figma; quota (`pixelPerfect.quota`, per user) is checked on
+upload and import, and a sweep every `pixelPerfect.sweepInterval` deletes references not
 opened for `pixelPerfect.maxAge`.
 
 ## Security model

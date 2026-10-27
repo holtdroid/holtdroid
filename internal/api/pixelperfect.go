@@ -53,16 +53,19 @@ type Placement struct {
 
 // referenceMeta is written only by the api: on upload and on every update.
 type referenceMeta struct {
-	ID          string    `json:"id"`
-	Owner       string    `json:"owner"`
-	Name        string    `json:"name"`
-	Package     string    `json:"package,omitempty"`
-	ContentType string    `json:"contentType"`
-	Width       int       `json:"width"`
-	Height      int       `json:"height"`
-	Placement   Placement `json:"placement"`
-	Ignore      []Rect    `json:"ignore,omitempty"`
-	CreatedAt   time.Time `json:"createdAt"`
+	ID          string       `json:"id"`
+	Owner       string       `json:"owner"`
+	Name        string       `json:"name"`
+	Package     string       `json:"package,omitempty"`
+	ContentType string       `json:"contentType"`
+	Width       int          `json:"width"`
+	Height      int          `json:"height"`
+	Placement   Placement    `json:"placement"`
+	Ignore      []Rect       `json:"ignore,omitempty"`
+	CreatedAt   time.Time    `json:"createdAt"`
+	Revision    int          `json:"revision,omitempty"`
+	Figma       *FigmaSource `json:"figma,omitempty"`
+	Layers      int          `json:"layers,omitempty"`
 }
 
 // referenceStore lays a user's reference images out as
@@ -71,6 +74,7 @@ type referenceMeta struct {
 //	<user>/<id>.img   the image
 //	<user>/<id>.thumb a small JPEG (or the browser's picture of an SVG) for lists
 //	<user>/<id>.used  rewritten when the image is opened; its time is the last use
+//	<user>/<id>.layers FigmaLayers of a frame imported from Figma
 //
 // so one listing gives sizes and last uses without reading anything.
 type referenceStore struct {
@@ -131,7 +135,7 @@ func (r *referenceStore) list(ctx context.Context, user string) ([]*referenceEnt
 }
 
 func (r *referenceStore) remove(ctx context.Context, user, id string) error {
-	for _, ext := range []string{".json", ".img", ".thumb", ".used"} {
+	for _, ext := range []string{".json", ".img", ".thumb", ".used", ".layers"} {
 		if err := r.store.Delete(ctx, r.key(user, id, ext)); err != nil && !errors.Is(err, storage.ErrNotExist) {
 			return err
 		}
@@ -144,20 +148,22 @@ func (r *referenceStore) touch(ctx context.Context, user, id string) error {
 }
 
 type ReferenceView struct {
-	ID          string     `json:"id"`
-	Name        string     `json:"name"`
-	Package     string     `json:"package,omitempty" doc:"the app it was added for"`
-	ContentType string     `json:"contentType"`
-	Width       int        `json:"width"`
-	Height      int        `json:"height"`
-	Size        int64      `json:"size" doc:"bytes"`
-	Placement   Placement  `json:"placement"`
-	Ignore      []Rect     `json:"ignore" doc:"areas the comparison skips, such as a video under the interface"`
-	CreatedAt   time.Time  `json:"createdAt"`
-	LastUsedAt  time.Time  `json:"lastUsedAt"`
-	ExpiresAt   *time.Time `json:"expiresAt,omitempty" doc:"deleted then unless it is opened again"`
-	ImageURL    string     `json:"imageUrl" doc:"opening it counts as a use"`
-	ThumbURL    string     `json:"thumbnailUrl,omitempty" doc:"a small picture for lists, at most 160 px wide; opening it is not a use"`
+	ID          string       `json:"id"`
+	Name        string       `json:"name"`
+	Package     string       `json:"package,omitempty" doc:"the app it was added for"`
+	ContentType string       `json:"contentType"`
+	Width       int          `json:"width"`
+	Height      int          `json:"height"`
+	Size        int64        `json:"size" doc:"bytes"`
+	Placement   Placement    `json:"placement"`
+	Ignore      []Rect       `json:"ignore" doc:"areas the comparison skips, such as a video under the interface"`
+	CreatedAt   time.Time    `json:"createdAt"`
+	LastUsedAt  time.Time    `json:"lastUsedAt"`
+	ExpiresAt   *time.Time   `json:"expiresAt,omitempty" doc:"deleted then unless it is opened again"`
+	ImageURL    string       `json:"imageUrl" doc:"opening it counts as a use"`
+	ThumbURL    string       `json:"thumbnailUrl,omitempty" doc:"a small picture for lists, at most 160 px wide; opening it is not a use"`
+	Figma       *FigmaSource `json:"figma,omitempty" doc:"the Figma frame it was imported from"`
+	Layers      int          `json:"layers" doc:"design layers stored with it (GET …/layers); 0 for an image added by hand"`
 }
 
 type ReferenceList struct {
@@ -166,6 +172,7 @@ type ReferenceList struct {
 	Used        int64           `json:"used" doc:"bytes the caller's references take"`
 	MaxAge      int64           `json:"maxAge" doc:"seconds a reference is kept after it was last opened, 0 for no limit"`
 	MaxFileSize int64           `json:"maxFileSize" doc:"bytes"`
+	FigmaToken  bool            `json:"figmaToken" doc:"the server has a Figma token of its own; without one, importing from Figma needs the user's"`
 	Items       []ReferenceView `json:"items"`
 }
 
@@ -173,13 +180,13 @@ func (s *Server) referenceView(m referenceMeta, e *referenceEntry) ReferenceView
 	v := ReferenceView{
 		ID: m.ID, Name: m.Name, Package: m.Package, ContentType: m.ContentType, Width: m.Width, Height: m.Height,
 		Placement: m.Placement, Ignore: m.Ignore, CreatedAt: m.CreatedAt, LastUsedAt: m.CreatedAt,
-		ImageURL: referencesPath + "/" + m.ID + "/image",
+		ImageURL: referencesPath + "/" + m.ID + "/image" + revisionQuery(m.Revision), Figma: m.Figma, Layers: m.Layers,
 	}
 	if v.Ignore == nil {
 		v.Ignore = []Rect{}
 	}
 	if m.ContentType != svgType || e != nil && e.thumb {
-		v.ThumbURL = referencesPath + "/" + m.ID + "/thumbnail"
+		v.ThumbURL = referencesPath + "/" + m.ID + "/thumbnail" + revisionQuery(m.Revision)
 	}
 	if e != nil {
 		v.Size = e.size
@@ -192,6 +199,13 @@ func (s *Server) referenceView(m referenceMeta, e *referenceEntry) ReferenceView
 		v.ExpiresAt = &at
 	}
 	return v
+}
+
+func revisionQuery(rev int) string {
+	if rev == 0 {
+		return ""
+	}
+	return "?v=" + strconv.Itoa(rev)
 }
 
 func (s *Server) referenceUsage(entries []*referenceEntry) int64 {
@@ -292,17 +306,6 @@ func (s *Server) uploadReference(ctx context.Context, in *referenceUploadInput) 
 	}
 
 	who, _ := auth.FromContext(ctx)
-	user := userDir(who.User)
-	if quota := s.limits(ctx, who.User).ReferencesQuota; quota > 0 {
-		entries, err := s.references.list(ctx, user)
-		if err != nil {
-			return ReferenceView{}, err
-		}
-		if s.referenceUsage(entries)+int64(len(raw)) > quota {
-			return ReferenceView{}, errReferenceQuota
-		}
-	}
-
 	now := s.now().UTC()
 	name := cleanReferenceName(form.Name)
 	if name == "" {
@@ -312,9 +315,6 @@ func (s *Server) uploadReference(ctx context.Context, in *referenceUploadInput) 
 		ID: newAppDataID(now), Owner: who.User, Name: cmp.Or(name, "Reference"), Package: strings.TrimSpace(form.Package),
 		ContentType: contentType, Width: cfg.Width, Height: cfg.Height, Placement: Placement{Scale: 1}, CreatedAt: now,
 	}
-	if err := s.references.store.Put(ctx, s.references.key(user, m.ID, ".img"), bytes.NewReader(raw), int64(len(raw))); err != nil {
-		return ReferenceView{}, err
-	}
 	var thumb []byte
 	if form.Thumbnail.IsSet {
 		defer form.Thumbnail.Close()
@@ -322,7 +322,26 @@ func (s *Server) uploadReference(ctx context.Context, in *referenceUploadInput) 
 			thumb = b
 		}
 	}
-	if thumb == nil && contentType != svgType {
+	return s.saveReference(ctx, m, raw, thumb, nil, 0)
+}
+
+// saveReference stores a new image, or a new revision of one that took
+// previous bytes, with its metadata within the owner's quota.
+func (s *Server) saveReference(ctx context.Context, m referenceMeta, raw, thumb []byte, layers *FigmaLayers, previous int64) (ReferenceView, error) {
+	user := userDir(m.Owner)
+	if quota := s.limits(ctx, m.Owner).ReferencesQuota; quota > 0 {
+		entries, err := s.references.list(ctx, user)
+		if err != nil {
+			return ReferenceView{}, err
+		}
+		if s.referenceUsage(entries)-previous+int64(len(raw)) > quota {
+			return ReferenceView{}, errReferenceQuota
+		}
+	}
+	if err := s.references.store.Put(ctx, s.references.key(user, m.ID, ".img"), bytes.NewReader(raw), int64(len(raw))); err != nil {
+		return ReferenceView{}, err
+	}
+	if thumb == nil && m.ContentType != svgType {
 		thumb, _ = makeThumbnail(raw)
 	}
 	if thumb != nil {
@@ -331,11 +350,19 @@ func (s *Server) uploadReference(ctx context.Context, in *referenceUploadInput) 
 			thumb = nil
 		}
 	}
+	if layers != nil {
+		if err := writeJSON(ctx, s.references.store, s.references.key(user, m.ID, ".layers"), layers); err != nil {
+			return ReferenceView{}, err
+		}
+		m.Layers = len(layers.Layers)
+	}
 	if err := writeJSON(ctx, s.references.store, s.references.key(user, m.ID, ".json"), m); err != nil {
-		_ = s.references.remove(ctx, user, m.ID)
+		if m.Revision == 0 {
+			_ = s.references.remove(ctx, user, m.ID)
+		}
 		return ReferenceView{}, err
 	}
-	return s.referenceView(m, &referenceEntry{size: int64(len(raw)), lastUsed: now, thumb: thumb != nil}), nil
+	return s.referenceView(m, &referenceEntry{size: int64(len(raw)), lastUsed: s.now().UTC(), thumb: thumb != nil}), nil
 }
 
 func (s *Server) sweepReferences(ctx context.Context) {
@@ -390,6 +417,7 @@ func (s *Server) registerReferences(api huma.API) {
 		who, _ := auth.FromContext(ctx)
 		cfg := s.cfg.PixelPerfect
 		l.Enabled, l.Quota, l.MaxAge, l.MaxFileSize = true, s.limits(ctx, who.User).ReferencesQuota, int64(cfg.MaxAge/time.Second), int64(cfg.MaxFileSize)
+		l.FigmaToken = !cfg.Figma.Token.IsZero()
 		user := userDir(who.User)
 		entries, err := s.references.list(ctx, user)
 		if err != nil {
@@ -454,6 +482,8 @@ func (s *Server) registerReferences(api huma.API) {
 		return &out[ReferenceView]{s.referenceView(m, e)}, nil
 	})
 
+	s.registerFigma(api)
+
 	huma.Register(api, huma.Operation{
 		OperationID: "deleteReference", Method: http.MethodDelete, Path: referencesPath + "/{id}", Tags: tags, DefaultStatus: http.StatusNoContent,
 	}, func(ctx context.Context, in *referencePath) (*struct{}, error) {
@@ -480,7 +510,7 @@ func (s *Server) serveReferenceImage(w http.ResponseWriter, r *http.Request) {
 			s.log.Warn("reference: marking as used failed", "reference", m.ID, "err", err)
 		}
 	}
-	etag := `"` + m.ID + `"`
+	etag := `"` + m.ID + "-" + strconv.Itoa(m.Revision) + `"`
 	h := w.Header()
 	h.Set("ETag", etag)
 	h.Set("Cache-Control", "private, no-cache")

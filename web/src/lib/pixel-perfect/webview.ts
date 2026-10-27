@@ -209,27 +209,6 @@ export function findOffset(screen: Pixels, view: Pixels): { x: number; y: number
   return search(s, v, [coarse.x * f - f, coarse.x * f + f], [coarse.y * f - f, coarse.y * f + f], 20)
 }
 
-function intersect(a: Box, b: Box) {
-  const w = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)
-  const h = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y)
-  return w > 0 && h > 0 ? w * h : 0
-}
-
-/** The element that fits a region best: most of the region inside it and most of it inside the region. */
-export function matchRegion(region: Box, elements: ScreenElement[]): ScreenElement | null {
-  const area = region.w * region.h
-  let best: { el: ScreenElement; score: number } | null = null
-  for (const el of elements) {
-    const inter = intersect(region, el.box)
-    if (!inter) continue
-    const score = (inter / area) * (inter / (el.box.w * el.box.h))
-    if (!best || score > best.score || (score === best.score && el.box.w * el.box.h < best.el.box.w * best.el.box.h)) {
-      best = { el, score }
-    }
-  }
-  return best && best.score > 0.04 ? best.el : null
-}
-
 /** Finds which probed WebView is on the screen and lays its elements over the analysed pixels. */
 export async function matchWebView(
   probes: WebViewProbe[],

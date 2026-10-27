@@ -1,11 +1,12 @@
 import { Fragment, useMemo, useState } from "react"
 import { CopyButton } from "@/components/copy-button"
 import { PixelCanvas } from "@/components/session/pixel-perfect/mask-canvas"
-import type { PixelPerfect, Result } from "@/components/session/pixel-perfect/state"
+import type { PixelPerfect, RegionMatch, Result } from "@/components/session/pixel-perfect/state"
 import { Slider } from "@/components/ui/slider"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { differencePixels } from "@/lib/pixel-perfect/capture"
 import { describe, type Pixels, type Region, type RegionKind } from "@/lib/pixel-perfect/diff"
+import type { DesignLayer, NativeView } from "@/lib/pixel-perfect/elements"
 import type { ScreenElement } from "@/lib/pixel-perfect/webview"
 import { type Box, percentBox } from "@/lib/pixel-perfect/geometry"
 import { cn } from "@/lib/utils"
@@ -178,12 +179,7 @@ export function Compare({ pp, result, hovered }: { pp: PixelPerfect; result: Res
                 <span className="w-6 shrink-0 font-mono text-xs font-semibold text-red-500">#{i + 1}</span>
                 <span className="grid min-w-0 flex-1">
                   <span className="truncate">{describe(r.kind, result.toDevice)}</span>
-                  {result.elements[i] && (
-                    <span className="text-muted-foreground truncate font-mono text-xs">
-                      {result.elements[i].label}
-                      {result.elements[i].text ? ` “${result.elements[i].text}”` : ""}
-                    </span>
-                  )}
+                  <MatchLines result={result} index={i} />
                 </span>
                 <span className="text-muted-foreground shrink-0 font-mono text-xs">
                   {Math.round(r.w * result.toDevice)}×{Math.round(r.h * result.toDevice)}
@@ -226,7 +222,7 @@ function Inspector({ result, region, diff }: { result: Result; region: Region; d
   }, [result, diff, x, y, w, h])
   const box = { x, y, w, h }
   const inner = { x: region.x - box.x, y: region.y - box.y, w: region.w, h: region.h }
-  const el = result.elements[result.analysis.regions.indexOf(region)] ?? null
+  const m = result.matches[result.analysis.regions.indexOf(region)] ?? null
   return (
     <div className="grid gap-3 px-2 pt-1 pb-3">
       <div className="grid grid-cols-3 gap-2">
@@ -243,8 +239,166 @@ function Inspector({ result, region, diff }: { result: Result; region: Region; d
           </figure>
         ))}
       </div>
-      {el && result.webview && <ElementInfo el={el} kind={region.kind} cssScale={result.webview.scale} />}
+      {m?.element && result.webview && (
+        <ElementInfo el={m.element} kind={region.kind} cssScale={result.webview.scale} />
+      )}
+      {m?.view && !m.element && <ViewInfo view={m.view} result={result} />}
+      {m?.layer && <DesignInfo match={m} layer={m.layer} kind={region.kind} result={result} />}
     </div>
+  )
+}
+
+function MatchLines({ result, index }: { result: Result; index: number }) {
+  const m = result.matches[index]
+  if (!m) return null
+  const unit = designUnitName(result)
+  const own = m.element
+    ? `${m.element.label}${m.element.text ? ` “${m.element.text}”` : ""}`
+    : m.view
+      ? `${m.view.label}${m.view.text || m.view.description ? ` “${m.view.text || m.view.description}”` : ""}`
+      : ""
+  return (
+    <>
+      {own && <span className="text-muted-foreground truncate font-mono text-xs">{own}</span>}
+      {m.layer && (
+        <span className="truncate text-xs text-fuchsia-600 dark:text-fuchsia-400" title={m.layer.path}>
+          ◆ {m.layer.path}
+        </span>
+      )}
+      {m.measures.length > 0 && (
+        <span className="truncate text-xs text-amber-700 dark:text-amber-400">
+          {m.measures.map((x) => `${x.label} ${x.actual} ${unit} instead of ${x.design}`).join(", ")}
+        </span>
+      )}
+    </>
+  )
+}
+
+/** Figma's units are dp for a frame drawn at a phone's width in dp, pixels for a bigger one. */
+function designUnitName(result: Result) {
+  return result.frame.w / result.unit <= 600 ? "dp" : "px"
+}
+
+function Rows({ rows }: { rows: [string, React.ReactNode][] }) {
+  return (
+    <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5 font-mono">
+      {rows.map(([k, v]) => (
+        <Fragment key={k}>
+          <dt className="text-muted-foreground">{k}</dt>
+          <dd className="truncate">{v}</dd>
+        </Fragment>
+      ))}
+    </dl>
+  )
+}
+
+const round1 = (v: number) => Math.round(v * 10) / 10
+
+function ViewInfo({ view, result }: { view: NativeView; result: Result }) {
+  const w = view.box.w * result.toDevice
+  const h = view.box.h * result.toDevice
+  const rows: [string, React.ReactNode][] = [["size", `${Math.round(w)} × ${Math.round(h)} px`]]
+  if (result.density) rows.push(["", `${round1(w / result.density)} × ${round1(h / result.density)} dp`])
+  if (view.text) rows.push(["text", `“${view.text}”`])
+  if (view.description) rows.push(["description", `“${view.description}”`])
+  if (view.path) rows.push(["path", view.path])
+  return (
+    <div className="bg-muted/40 grid gap-2 rounded-lg border p-2 text-xs">
+      <div className="flex items-start gap-2">
+        <div className="grid min-w-0 flex-1 gap-0.5">
+          <code className="truncate font-semibold">{view.label}</code>
+          <code className="text-muted-foreground truncate" title={view.class}>
+            {view.resourceId || view.class}
+          </code>
+        </div>
+        {view.resourceId && <CopyButton text={view.resourceId} label="Copy the resource id" />}
+      </div>
+      <Rows rows={rows} />
+    </div>
+  )
+}
+
+function DesignInfo({
+  match,
+  layer,
+  kind,
+  result,
+}: {
+  match: RegionMatch
+  layer: DesignLayer
+  kind: RegionKind
+  result: Result
+}) {
+  const unit = designUnitName(result)
+  const rows: [string, React.ReactNode][] = [["size", `${layer.w} × ${layer.h} ${unit}`]]
+  if (layer.text) rows.push(["text", `“${layer.text}”`])
+  if (layer.fill) rows.push(["fill", <Swatch key="fill" color={layer.fill} />])
+  if (kind.type === "color") rows.push(["on screen", <Swatch key="screen" color={kind.screen} />])
+  if (layer.stroke)
+    rows.push(["stroke", <Swatch key="stroke" color={layer.stroke} suffix={` ${layer.strokeWeight ?? 1}`} />])
+  if (layer.radius?.length) rows.push(["radius", layer.radius.join(" ")])
+  if (layer.font) {
+    const f = layer.font
+    rows.push(["font", `${f.family} ${f.weight ?? ""} ${f.size}`.replace(/\s+/g, " ")])
+    if (f.lineHeight) rows.push(["line height", String(f.lineHeight)])
+    if (f.letterSpacing) rows.push(["letter spacing", String(f.letterSpacing)])
+  }
+  if (layer.padding) rows.push(["padding", layer.padding.join(" ")])
+  if (layer.gap) rows.push(["gap", String(layer.gap)])
+  if (layer.opacity) rows.push(["opacity", String(layer.opacity)])
+  return (
+    <div className="grid gap-2 rounded-lg border border-fuchsia-500/30 bg-fuchsia-500/5 p-2 text-xs">
+      <div className="grid min-w-0 gap-0.5">
+        <span className="truncate font-semibold">◆ {layer.name}</span>
+        <span className="text-muted-foreground truncate" title={layer.path}>
+          {layer.path} · {layer.type.toLowerCase()} in Figma
+        </span>
+      </div>
+      <Rows rows={rows} />
+      {match.implementation && (
+        <div className="grid gap-1">
+          <span className="text-muted-foreground">
+            On the screen it is <code>{match.implementation.label}</code>
+            {match.measures.length ? ":" : ", where the design puts it."}
+          </span>
+          {match.measures.length > 0 && (
+            <table className="w-fit font-mono">
+              <thead className="text-muted-foreground">
+                <tr>
+                  <th />
+                  <th className="px-2 text-right font-normal">design</th>
+                  <th className="px-2 text-right font-normal">screen</th>
+                  <th className="px-2 text-right font-normal">off by</th>
+                </tr>
+              </thead>
+              <tbody>
+                {match.measures.map((x) => (
+                  <tr key={x.label}>
+                    <td className="text-muted-foreground pr-2">{x.label}</td>
+                    <td className="px-2 text-right">{x.design}</td>
+                    <td className="px-2 text-right">{x.actual}</td>
+                    <td className="px-2 text-right text-amber-700 dark:text-amber-400">
+                      {x.actual > x.design ? "+" : ""}
+                      {round1(x.actual - x.design)} {unit}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Swatch({ color, suffix }: { color: string; suffix?: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span className="ring-border inline-block size-3 rounded-sm ring-1" style={{ background: color }} />
+      {color}
+      {suffix}
+    </span>
   )
 }
 

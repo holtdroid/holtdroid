@@ -1,14 +1,32 @@
 import { type QueryClient, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useState, useSyncExternalStore } from "react"
-import { api, type Display, type ReferenceView, sessionBase, unwrap } from "@/api/client"
+import {
+  api,
+  type Display,
+  type FigmaLayers,
+  type ReferenceView,
+  sessionBase,
+  type UIHierarchy,
+  unwrap,
+} from "@/api/client"
 import { keys } from "@/api/queries"
 import type { LiveScreen } from "@/components/session/live-screen"
 import { loadImage, pixelsOf, referencePixels, toCanvas, workSize } from "@/lib/pixel-perfect/capture"
 import { type Analysis, analyze, boxMask, motionMask, type Pixels } from "@/lib/pixel-perfect/diff"
+import {
+  counterpart,
+  type DesignLayer,
+  type Measure,
+  matchRegion,
+  measure,
+  type NativeView,
+  placeLayers,
+  placeViews,
+  probeViews,
+} from "@/lib/pixel-perfect/elements"
 import { type Box, onScreen, type Placement, placeReference, type Size } from "@/lib/pixel-perfect/geometry"
 import {
   Highlighter,
-  matchRegion,
   matchWebView,
   probeWebViews,
   type ScreenElement,
@@ -21,6 +39,18 @@ export type Tool = "none" | "move" | "ignore"
 
 export type Frozen = { url: string; pixels: Pixels; motion: Uint8Array | null; at: number }
 
+/** What a difference is part of: the page element, the native view and the design layer, and how the layer's implementation is off. */
+export type RegionMatch = {
+  element: ScreenElement | null
+  view: NativeView | null
+  layer: DesignLayer | null
+  /** The element or view drawn where the layer is. */
+  implementation: { label: string; box: Box } | null
+  measures: Measure[]
+}
+
+type Views = { hierarchy: UIHierarchy | null; error: string | null }
+
 export type Result = {
   analysis: Analysis
   screen: Pixels
@@ -32,9 +62,19 @@ export type Result = {
   referenceId: string
   source: "frozen" | "screenshot" | "stream"
   at: number
-  /** The WebView found on the screen, if any, with the element each region most likely belongs to. */
+  /** The WebView found on the screen, if any. */
   webview: WebViewMatch | null
-  elements: (ScreenElement | null)[]
+  /** The native views on the screen, when they could be read. */
+  views: NativeView[]
+  viewsError: string | null
+  /** The reference's Figma layers over the screen. */
+  layers: DesignLayer[]
+  /** Where the reference lies, and analysed pixels per design unit. */
+  frame: Box
+  unit: number
+  /** Device pixels per dp, when the screen's density is known. */
+  density: number | null
+  matches: RegionMatch[]
   /** Video, canvas and frames of the WebView left out of the comparison. */
   media: Box[]
 }
@@ -50,6 +90,7 @@ export type PixelState = {
   ignoreMotion: boolean
   ignoreMedia: boolean
   devtools: boolean
+  views: boolean
   showRegions: boolean
   drafts: Record<string, Draft>
   frozen: Frozen | null
@@ -62,7 +103,7 @@ export type PixelState = {
 
 type Prefs = Pick<
   PixelState,
-  "visible" | "opacity" | "blend" | "ignoreMotion" | "ignoreMedia" | "devtools" | "showRegions"
+  "visible" | "opacity" | "blend" | "ignoreMotion" | "ignoreMedia" | "devtools" | "views" | "showRegions"
 >
 
 const prefsKey = "holtdroid:pixel-perfect"
@@ -73,6 +114,7 @@ const defaults: Prefs = {
   ignoreMotion: true,
   ignoreMedia: true,
   devtools: false,
+  views: true,
   showRegions: true,
 }
 
@@ -104,6 +146,8 @@ export class PixelPerfect {
   #run = 0
   #display: Display | undefined
   #frozenProbes: Promise<WebViewProbe[]> | null = null
+  #frozenViews: Promise<Views> | null = null
+  readonly #layers = new Map<string, Promise<FigmaLayers | null>>()
   readonly #highlighter = new Highlighter()
   constructor(
     readonly live: LiveScreen,
@@ -141,6 +185,7 @@ export class PixelPerfect {
       ignoreMotion: this.#state.ignoreMotion,
       ignoreMedia: this.#state.ignoreMedia,
       devtools: this.#state.devtools,
+      views: this.#state.views,
       showRegions: this.#state.showRegions,
     }
     try {
@@ -163,7 +208,7 @@ export class PixelPerfect {
     if (index === this.#state.hovered) return
     this.set({ hovered: index })
     const result = this.#state.result
-    const el = index === null ? null : result?.elements[index]
+    const el = index === null ? null : result?.matches[index]?.element
     if (!result?.webview) return
     void this.#highlighter.show(result.webview.socket, el ? el.index : null, el?.tag).catch(() => undefined)
   }
@@ -171,6 +216,28 @@ export class PixelPerfect {
   #probe() {
     if (!this.#state.devtools) return Promise.resolve([] as WebViewProbe[])
     return probeWebViews(this.provider, this.id).catch(() => [] as WebViewProbe[])
+  }
+
+  #views(): Promise<Views> {
+    if (!this.#state.views) return Promise.resolve({ hierarchy: null, error: null })
+    return probeViews(this.provider, this.id).then(
+      (hierarchy) => ({ hierarchy, error: null }),
+      (e: unknown) => ({ hierarchy: null, error: e instanceof Error ? e.message : String(e) }),
+    )
+  }
+
+  layers(ref: ReferenceView) {
+    if (!ref.layers) return Promise.resolve(null)
+    const key = ref.imageUrl
+    let p = this.#layers.get(key)
+    if (!p) {
+      p = unwrap(api.GET("/api/v1/pixel-perfect/{id}/layers", { params: { path: { id: ref.id } } })).catch(() => {
+        this.#layers.delete(key)
+        return null
+      })
+      this.#layers.set(key, p)
+    }
+    return p
   }
 
   draft(ref: ReferenceView): Draft {
@@ -219,13 +286,13 @@ export class PixelPerfect {
   }
 
   image(ref: ReferenceView) {
-    let p = this.#images.get(ref.id)
+    let p = this.#images.get(ref.imageUrl)
     if (!p) {
       p = loadImage(ref.imageUrl).catch(() => {
         throw new Error("Could not load the reference")
       })
-      p.catch(() => this.#images.delete(ref.id))
-      this.#images.set(ref.id, p)
+      p.catch(() => this.#images.delete(ref.imageUrl))
+      this.#images.set(ref.imageUrl, p)
     }
     return p
   }
@@ -251,10 +318,12 @@ export class PixelPerfect {
     try {
       const first = await this.#snapshot()
       const probes = this.#probe()
+      const views = this.#views()
       const pixels = await pixelsOf(first)
       const url = URL.createObjectURL(first)
       this.#release()
       this.#frozenProbes = probes
+      this.#frozenViews = views
       this.set({ frozen: { url, pixels, motion: null, at: Date.now() }, result: null, hovered: null })
       const rest: Blob[] = []
       for (let i = 1; i < burst; i++) {
@@ -282,6 +351,7 @@ export class PixelPerfect {
   #release() {
     if (this.#state.frozen) URL.revokeObjectURL(this.#state.frozen.url)
     this.#frozenProbes = null
+    this.#frozenViews = null
     void this.#highlighter.show("", null).catch(() => undefined)
   }
 
@@ -304,17 +374,21 @@ export class PixelPerfect {
       let motion: Uint8Array | null = null
       let source: Result["source"] = "frozen"
       let probes: WebViewProbe[]
+      let views: Views
       if (frozen) {
         screen = frozen.pixels
         motion = frozen.motion
         probes = (await this.#frozenProbes) ?? []
+        views = (await this.#frozenViews) ?? { hierarchy: null, error: null }
       } else {
-        const [shot, frames, found] = await Promise.all([
+        const [shot, frames, found, read] = await Promise.all([
           this.#screenshot().catch(() => null),
           this.#state.ignoreMotion ? this.#burst().catch(() => null) : null,
           this.#probe(),
+          this.#views(),
         ])
         probes = found
+        views = read
         if (shot) {
           const bitmap = await createImageBitmap(shot)
           screen = await pixelsOf(bitmap, workSize({ w: bitmap.width, h: bitmap.height }))
@@ -336,7 +410,7 @@ export class PixelPerfect {
         }
       }
       const size = { w: screen.width, h: screen.height }
-      const image = await this.image(ref)
+      const [image, figma] = await Promise.all([this.image(ref), this.layers(ref)])
       const draft = this.draft(ref)
       const natural = { w: ref.width, h: ref.height }
       const reference = referencePixels(image, natural, size, draft.placement)
@@ -349,6 +423,24 @@ export class PixelPerfect {
       const ignore = boxMask(size.w, size.h, [...ignored, ...media])
       if (this.#state.ignoreMotion && motion) for (let i = 0; i < ignore.length; i++) ignore[i]! |= motion[i]!
       const analysis = analyze(screen, reference, ignore)
+      const native = views.hierarchy ? placeViews(views.hierarchy, toDevice, size) : []
+      const layers = figma ? placeLayers(figma, placed, size) : []
+      const unit = figma && figma.width > 0 ? placed.w / figma.width : 1
+      const implementations = [
+        ...(webview?.elements ?? []).map((e) => ({ label: e.label, box: e.box })),
+        ...native.map((v) => ({ label: v.label, box: v.box })),
+      ]
+      const matches = analysis.regions.map((r): RegionMatch => {
+        const layer = layers.length ? matchRegion(r, layers) : null
+        const implementation = layer ? counterpart(layer.box, implementations) : null
+        return {
+          element: webview ? matchRegion(r, webview.elements) : null,
+          view: matchRegion(r, native),
+          layer,
+          implementation,
+          measures: layer && implementation ? measure(layer.box, implementation.box, placed, unit) : [],
+        }
+      })
       if (run !== this.#run) return
       this.set({
         result: {
@@ -362,7 +454,13 @@ export class PixelPerfect {
           source,
           at: Date.now(),
           webview,
-          elements: webview ? analysis.regions.map((r) => matchRegion(r, webview.elements)) : [],
+          views: native,
+          viewsError: views.error,
+          layers,
+          frame: placed,
+          unit,
+          density: d?.dpi ? d.dpi / 160 : null,
+          matches,
           media,
         },
         hovered: null,
@@ -380,6 +478,7 @@ export class PixelPerfect {
     window.clearTimeout(this.#rerun)
     for (const t of this.#saves.values()) window.clearTimeout(t)
     this.#images.clear()
+    this.#layers.clear()
   }
 }
 
