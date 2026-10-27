@@ -102,7 +102,7 @@ export function RoutesTable({
           Flagged{sum.flagged > 0 ? ` (${sum.flagged})` : ""}
         </Button>
       </div>
-      <div className={cn("grid shrink-0 border-b bg-muted/40 px-2 py-1 text-muted-foreground", cols)}>
+      <div className={cn("grid shrink-0 gap-x-3 border-b bg-muted/40 px-2 py-1 text-muted-foreground", cols)}>
         <span>Name</span>
         <span>Address</span>
         <span>Where</span>
@@ -129,7 +129,7 @@ export function RoutesTable({
               if (e.key === "Enter") onPick(picked === r.key ? null : r.key)
             }}
             className={cn(
-              "grid cursor-default items-center border-b border-border/50 px-2 py-1 hover:bg-accent/50",
+              "grid cursor-default items-center gap-x-3 border-b border-border/50 px-2 py-1 hover:bg-accent/50",
               cols,
               picked === r.key && "bg-accent",
               r.open === 0 && "text-muted-foreground",
@@ -142,7 +142,7 @@ export function RoutesTable({
               {r.addresses[0] ?? "—"}
               {r.addresses.length > 1 && <span className="opacity-60"> +{r.addresses.length - 1}</span>}
             </span>
-            <span className="min-w-0 truncate">
+            <span className="min-w-0 overflow-hidden">
               {r.addresses[0] ? <Place info={geo.info.get(r.addresses[0])} edge={r.edge} /> : null}
             </span>
             <span className="truncate">{r.outbounds.join(", ")}</span>

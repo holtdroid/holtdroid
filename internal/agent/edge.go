@@ -3,6 +3,8 @@ package agent
 import (
 	"bufio"
 	"context"
+	"crypto/tls"
+	"io"
 	"net/http"
 	"net/netip"
 	"net/url"
@@ -14,17 +16,20 @@ import (
 	"github.com/holtdroid/holtdroid/internal/netem"
 )
 
-// edgeProbes is how many hosts the agent asks Cloudflare about per session.
-const edgeProbes = 300
+const (
+	// edgeProbes is how many addresses the agent asks Cloudflare about per session.
+	edgeProbes = 300
+	// edgeHost is a name any Cloudflare address answers for.
+	edgeHost = "www.cloudflare.com"
+)
 
-// edgeProber asks Cloudflare which of its sites answers each host the
-// device reaches through it, with one request to the host's
-// /cdn-cgi/trace through the same location; Cloudflare answers it at the
-// edge, without reaching the host's servers.
+// edgeProber asks Cloudflare which of its sites answers each of its
+// addresses the device reaches, with /cdn-cgi/trace through the same
+// location. Cloudflare answers that path at the edge, so the app's servers
+// never see it.
 type edgeProber struct {
 	tracker *conns.Tracker
-	hc      *http.Client
-	trace   func(host string) string
+	ask     func(ctx context.Context, address, host string) string
 
 	mu    sync.Mutex
 	asked map[[2]string]bool
@@ -32,16 +37,25 @@ type edgeProber struct {
 }
 
 func newEdgeProber(tracker *conns.Tracker, proxy string) *edgeProber {
-	tr := &http.Transport{DisableKeepAlives: true}
-	if u, err := url.Parse(proxy); proxy != "" && err == nil {
-		tr.Proxy = http.ProxyURL(u)
+	client := func(serverName string) *http.Client {
+		tr := &http.Transport{DisableKeepAlives: true, TLSClientConfig: &tls.Config{ServerName: serverName}}
+		if u, err := url.Parse(proxy); proxy != "" && err == nil {
+			tr.Proxy = http.ProxyURL(u)
+		}
+		return &http.Client{Timeout: 5 * time.Second, Transport: tr}
 	}
+	byAddress, byHost := client(edgeHost), client("")
 	return &edgeProber{
 		tracker: tracker,
-		hc:      &http.Client{Timeout: 5 * time.Second, Transport: tr},
-		trace:   func(host string) string { return "https://" + host + "/cdn-cgi/trace" },
-		asked:   map[[2]string]bool{},
-		slots:   make(chan struct{}, 2),
+		ask: func(ctx context.Context, address, host string) string {
+			ap := netip.AddrPortFrom(netip.MustParseAddr(address), 443)
+			if colo := trace(ctx, byAddress, "https://"+ap.String()+"/cdn-cgi/trace", edgeHost); colo != "" || host == "" {
+				return colo
+			}
+			return trace(ctx, byHost, "https://"+host+"/cdn-cgi/trace", "")
+		},
+		asked: map[[2]string]bool{},
+		slots: make(chan struct{}, 2),
 	}
 }
 
@@ -54,45 +68,60 @@ func (p *edgeProber) run(ctx context.Context) {
 			return
 		case c := <-ch:
 			addr, err := netip.ParseAddr(c.Address)
-			if err != nil || c.Host == "" || c.Port != 443 || !c.End.IsZero() || netem.CDN(addr) != "cloudflare" {
+			if err != nil || !c.End.IsZero() || netem.CDN(addr) != "cloudflare" {
 				continue
 			}
-			key := [2]string{c.Host, c.Outbound}
+			key := [2]string{c.Address, c.Outbound}
 			p.mu.Lock()
 			skip := p.asked[key] || len(p.asked) >= edgeProbes
 			p.asked[key] = true
 			p.mu.Unlock()
 			if !skip {
-				go p.probe(ctx, c.Host, c.Outbound)
+				go p.probe(ctx, c.Address, c.Host, c.Outbound)
 			}
 		}
 	}
 }
 
-func (p *edgeProber) probe(ctx context.Context, host, outbound string) {
+func (p *edgeProber) probe(ctx context.Context, address, host, outbound string) {
 	select {
 	case p.slots <- struct{}{}:
 	case <-ctx.Done():
 		return
 	}
 	defer func() { <-p.slots }()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.trace(host), nil)
-	if err != nil {
-		return
+	if colo := p.ask(ctx, address, host); colo != "" {
+		p.tracker.SetEdge(address, outbound, colo)
 	}
-	resp, err := p.hc.Do(req)
+}
+
+// trace asks a /cdn-cgi/trace URL, as host when it is set, for the site
+// that answered; "" when it doesn't say.
+func trace(ctx context.Context, hc *http.Client, u, host string) string {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
-		return
+		return ""
+	}
+	if host != "" {
+		req.Host = host
+	}
+	resp, err := hc.Do(req)
+	if err != nil {
+		return ""
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return
+		return ""
 	}
-	sc := bufio.NewScanner(resp.Body)
+	return colo(resp.Body)
+}
+
+func colo(r io.Reader) string {
+	sc := bufio.NewScanner(r)
 	for sc.Scan() {
-		if colo, ok := strings.CutPrefix(sc.Text(), "colo="); ok && len(colo) == 3 {
-			p.tracker.SetEdge(host, outbound, strings.ToUpper(colo))
-			return
+		if c, ok := strings.CutPrefix(sc.Text(), "colo="); ok && len(c) == 3 {
+			return strings.ToUpper(c)
 		}
 	}
+	return ""
 }

@@ -4797,13 +4797,17 @@ that answered in 8 ms.
   `IPInfo.cdn` names the provider instead of a yes or no. The tab shows
   **anycast**, the provider and, when known, the site, never the
   registered country; the country summary leaves CDN addresses out.
-- For a host behind Cloudflare the agent asks
-  `https://<host>/cdn-cgi/trace` once per host and VPN location, through
-  the sidecar's proxy so it goes out where the device's traffic does, two
-  at a time, at most 300 hosts a session. Cloudflare answers that path at
-  the edge with `colo=VNO`; the request never reaches the host's servers.
-  The code goes on the host's connections as `edge` (live and in
-  recordings).
+- For each Cloudflare address the device reaches, the agent asks
+  `/cdn-cgi/trace` once per address and VPN location, through the
+  sidecar's proxy so it goes out where the device's traffic does: from
+  the address itself, as `www.cloudflare.com` (any Cloudflare address
+  serves it, and the site is picked by the route to the address, not the
+  zone), and, when that fails, from the connection's own host. Two at a
+  time, at most 300 a session. Cloudflare answers that path at the edge
+  with `colo=VNO`; the request never reaches the app's servers. Asking
+  each host first, as the change shipped, left most rows without a site:
+  many zones don't answer it. The code goes on the address's connections
+  as `edge` (live and in recordings).
 - The player also reads the site from the WebView's response headers:
   `cf-ray` (Cloudflare), `x-amz-cf-pop` (CloudFront), the last cache in
   `x-served-by` (Fastly).

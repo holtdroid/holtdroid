@@ -53,9 +53,10 @@ States), which has nothing to do with where it answers, so the tab never
 shows that country. It shows **anycast**, the CDN and, when it is known,
 the site that answered, such as `Vilnius, Lithuania VNO`:
 
-- for a name behind Cloudflare, the agent asks Cloudflare once per name and
-  VPN location (`https://<name>/cdn-cgi/trace` through the same location;
-  Cloudflare answers it at the edge, the app's servers never see it);
+- for a Cloudflare address, the agent asks Cloudflare once per address and
+  VPN location, through the same location: `/cdn-cgi/trace` from that
+  address as `www.cloudflare.com`, or else from the connection's own name.
+  Cloudflare answers it at the edge; the app's servers never see it;
 - in a recording, from the headers of the WebView's responses: Cloudflare's
   `cf-ray`, CloudFront's `x-amz-cf-pop` and Fastly's `x-served-by`.
 

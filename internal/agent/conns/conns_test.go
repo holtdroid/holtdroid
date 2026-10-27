@@ -200,22 +200,22 @@ func TestSingBoxEvents(t *testing.T) {
 
 func TestSetEdge(t *testing.T) {
 	tr, now, next := newTest(t)
-	tr.Open(contract.Connection{ID: "a", Start: *now, Host: "api.example.com", Outbound: "lv"})
-	tr.Open(contract.Connection{ID: "other", Start: *now, Host: "api.example.com", Outbound: "pl"})
+	tr.Open(contract.Connection{ID: "a", Start: *now, Address: "104.18.24.163", Outbound: "lv"})
+	tr.Open(contract.Connection{ID: "other", Start: *now, Address: "104.18.24.163", Outbound: "pl"})
 	next()
 	next()
-	tr.SetEdge("api.example.com", "lv", "VNO")
+	tr.SetEdge("104.18.24.163", "lv", "VNO")
 	if c, ok := next(); !ok || c.ID != "a" || c.Edge != "VNO" {
 		t.Fatalf("resent %+v %v", c, ok)
 	}
 	if c, ok := next(); ok {
 		t.Fatalf("another location's connection got the edge: %+v", c)
 	}
-	tr.Open(contract.Connection{ID: "b", Start: *now, Host: "api.example.com", Outbound: "lv"})
+	tr.Open(contract.Connection{ID: "b", Start: *now, Host: "cdn.example.com", Address: "104.18.24.163", Outbound: "lv"})
 	if c, _ := next(); c.Edge != "VNO" {
 		t.Fatalf("a new connection: %+v", c)
 	}
-	tr.Close("a", now.Add(time.Second), &contract.Connection{ID: "a", Start: *now, Host: "api.example.com", Outbound: "lv", Download: 9})
+	tr.Close("a", now.Add(time.Second), &contract.Connection{ID: "a", Start: *now, Address: "104.18.24.163", Outbound: "lv", Download: 9})
 	if c, _ := next(); c.Edge != "VNO" || c.Download != 9 {
 		t.Fatalf("closed with sing-box's final line: %+v", c)
 	}

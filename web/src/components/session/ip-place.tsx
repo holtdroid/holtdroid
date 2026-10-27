@@ -15,7 +15,7 @@ export function Place({ info, edge, short }: { info?: IPInfo; edge?: string; sho
     const site = edge ? siteName(edge) : undefined
     return (
       <span
-        className="inline-flex min-w-0 items-baseline gap-1"
+        className="flex min-w-0 items-baseline gap-1 overflow-hidden whitespace-nowrap"
         title={[
           `${cdnName(info.cdn)} anycast: the same address is announced from many sites and the nearest answers.`,
           edge ? `The site that answered: ${site ?? edge} (${edge}).` : "Which site answered isn't known.",
@@ -30,19 +30,20 @@ export function Place({ info, edge, short }: { info?: IPInfo; edge?: string; sho
         <span className="shrink-0 rounded-sm bg-sky-500/15 px-1 text-[10.5px] leading-4 text-sky-700 dark:text-sky-300">
           anycast
         </span>
-        <span className="shrink-0">{cdnName(info.cdn)}</span>
-        {edge ? (
+        <span className={edge ? "shrink-0" : "truncate"}>{cdnName(info.cdn)}</span>
+        {edge && (
           <span className="truncate">
             · {site ?? edge} <span className="font-mono text-muted-foreground">{edge}</span>
           </span>
-        ) : (
-          !short && <span className="truncate text-muted-foreground">· nearest site</span>
         )}
       </span>
     )
   }
   return (
-    <span className="inline-flex min-w-0 items-baseline gap-1" title={[info.country, org].filter(Boolean).join(" · ")}>
+    <span
+      className="flex min-w-0 items-baseline gap-1 overflow-hidden whitespace-nowrap"
+      title={[info.country, org].filter(Boolean).join(" · ")}
+    >
       {info.country ? (
         <span className="shrink-0">
           {countryFlag(info.country)} {info.country}

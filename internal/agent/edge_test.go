@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -24,7 +25,9 @@ func TestEdgeProber(t *testing.T) {
 
 	tracker := conns.New(slog.New(slog.DiscardHandler))
 	p := newEdgeProber(tracker, "")
-	p.trace = func(host string) string { return cf.URL + "/cdn-cgi/trace?host=" + host }
+	p.ask = func(ctx context.Context, address, _ string) string {
+		return trace(ctx, cf.Client(), cf.URL+"/cdn-cgi/trace?host="+address, "")
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	watch, stop := tracker.Subscribe()
@@ -34,7 +37,7 @@ func TestEdgeProber(t *testing.T) {
 
 	now := time.Now()
 	tracker.Open(contract.Connection{ID: "a", Start: now, Host: "api.example.com", Address: "104.18.24.163", Port: 443, Outbound: "lv"})
-	tracker.Open(contract.Connection{ID: "b", Start: now, Host: "api.example.com", Address: "104.18.24.163", Port: 443, Outbound: "lv"})
+	tracker.Open(contract.Connection{ID: "b", Start: now, Address: "104.18.24.163", Port: 443, Network: "udp", Outbound: "lv"})
 	tracker.Open(contract.Connection{ID: "origin", Start: now, Host: "s3.example.com", Address: "52.94.0.1", Port: 443, Outbound: "lv"})
 
 	edged := map[string]string{}
@@ -70,6 +73,9 @@ func TestEdgeProber(t *testing.T) {
 		if got["c"] != "" && got["c"] != "VNO" {
 			t.Fatalf("a later connection got %q", got["c"])
 		}
+	}
+	if colo(strings.NewReader("fl=1\ncolo=waw\n")) != "WAW" || colo(strings.NewReader("<html>")) != "" {
+		t.Error("parsing the trace")
 	}
 	time.Sleep(50 * time.Millisecond)
 	if n := asked.Load(); n != 2 {
