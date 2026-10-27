@@ -127,6 +127,23 @@ func TestResolve(t *testing.T) {
 			answers: []string{"CNAME target.example.net", "A 93.184.215.14"}, ttls: []uint32{5, 60},
 		},
 		{
+			name: "encrypted DNS server", host: "chrome.cloudflare-dns.com", typ: dnsmessage.TypeA,
+			result: contract.DNSBlocked, rcode: "NXDOMAIN", rule: encryptedRule,
+		},
+		{
+			name: "encrypted DNS allowed", host: "dns.google", typ: dnsmessage.TypeA, settings: contract.DNSSettings{AllowEncrypted: true},
+			result: contract.DNSAnswered, rcode: "NOERROR", answers: []string{"A 93.184.215.14"}, ttls: []uint32{300},
+		},
+		{
+			name: "a rewrite wins over the block", host: "dns.google", typ: dnsmessage.TypeA,
+			settings: contract.DNSSettings{Rewrites: []contract.DNSRewrite{{Pattern: "dns.google", Kind: contract.DNSRewriteAddress, Addresses: []string{"10.0.0.9"}, Enabled: true}}},
+			result:   contract.DNSRewritten, rcode: "NOERROR", rule: "dns.google", answers: []string{"A 10.0.0.9"}, ttls: []uint32{0},
+		},
+		{
+			name: "a site under a provider's domain", host: "www.cloudflare.com", typ: dnsmessage.TypeA,
+			result: contract.DNSAnswered, rcode: "NOERROR", answers: []string{"A 93.184.215.14"}, ttls: []uint32{300},
+		},
+		{
 			name: "disabled rule", host: "off.example.org", typ: dnsmessage.TypeA, settings: contract.DNSSettings{Rewrites: rewrites},
 			result: contract.DNSAnswered, rcode: "NOERROR", answers: []string{"A 93.184.215.14"}, ttls: []uint32{300},
 		},
@@ -227,6 +244,7 @@ func TestFlushOnRewriteChange(t *testing.T) {
 		{contract.DNSSettings{Rewrites: []contract.DNSRewrite{r}}, 1},
 		{contract.DNSSettings{Rewrites: []contract.DNSRewrite{r}, TTLMode: contract.DNSTTLLimit}, 1},
 		{contract.DNSSettings{}, 2},
+		{contract.DNSSettings{AllowEncrypted: true}, 3},
 	}
 	for i, st := range steps {
 		if _, err := s.Set(t.Context(), st.settings); err != nil {

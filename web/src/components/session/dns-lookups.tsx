@@ -191,6 +191,7 @@ function Badge({ tone, title, children }: { tone: Tone; title?: string; children
 
 function typeTitle(q: DNSQuery) {
   if (q.result === "ipv4-only") return `${q.type}: empty, the sidecar resolves IPv4 only`
+  if (q.result === "blocked") return `${q.type}: blocked, an encrypted DNS server`
   if (q.result === "failed") return `${q.type}: ${q.error ?? q.rcode}`
   const n = q.answers.length
   return `${q.type}: ${q.rcode}, ${n === 0 ? "no records" : `${n} record${n === 1 ? "" : "s"}`}`
@@ -204,6 +205,7 @@ function TypeChip({ q }: { q: DNSQuery }) {
         "shrink-0 rounded-sm border px-1 font-mono text-[10.5px] leading-4",
         q.result === "failed" && "border-stage-error/40 text-stage-error",
         q.result === "rewritten" && "border-violet-500/40 text-violet-700 dark:text-violet-300",
+        q.result === "blocked" && "border-amber-500/40 text-amber-700 dark:text-amber-400",
         (q.result === "ipv4-only" || (q.answers.length === 0 && q.result === "answered")) &&
           "border-dashed text-muted-foreground opacity-70",
       )}
@@ -274,11 +276,13 @@ export function LookupDetails({
               <p className="mt-0.5 text-muted-foreground">
                 {q.result === "ipv4-only"
                   ? "Empty on purpose: the sidecar resolves IPv4 only, so apps connect over IPv4."
-                  : q.rcode === "NXDOMAIN"
-                    ? "The name doesn't exist."
-                    : q.result === "failed"
-                      ? ""
-                      : "No records of this type."}
+                  : q.result === "blocked"
+                    ? "A DNS-over-HTTPS or DNS-over-TLS server, answered as missing on purpose so the app falls back to the device's DNS and its lookups stay in this log. Allow DoH in the toolbar to let it through."
+                    : q.rcode === "NXDOMAIN"
+                      ? "The name doesn't exist."
+                      : q.result === "failed"
+                        ? ""
+                        : "No records of this type."}
               </p>
             ) : (
               <ul className="mt-0.5 grid gap-0.5">

@@ -1826,8 +1826,11 @@ export interface components {
             protocol: "udp" | "tcp";
             /** @description NOERROR, NXDOMAIN, SERVFAIL, … */
             rcode: string;
-            /** @enum {string} */
-            result: "answered" | "rewritten" | "ipv4-only" | "failed";
+            /**
+             * @description blocked is a well-known encrypted DNS server's name, answered NXDOMAIN
+             * @enum {string}
+             */
+            result: "answered" | "rewritten" | "ipv4-only" | "blocked" | "failed";
             /** @description the pattern of the rewrite that answered */
             rule?: string;
             /** @description A, AAAA, HTTPS, … or TYPE<n> */
@@ -1850,6 +1853,8 @@ export interface components {
             ttl: number;
         };
         DNSSettings: {
+            /** @description let apps reach well-known DNS-over-HTTPS and DNS-over-TLS servers; by default their names don't resolve, so apps fall back to the device's DNS */
+            allowEncrypted?: boolean;
             /** Format: int32 */
             maxTtl: number;
             rewrites: components["schemas"]["DNSRewrite"][];

@@ -99,6 +99,7 @@ describe("import", () => {
     expect(got.name).toBe("staging")
     expect(got.settings.ttlMode).toBe("limit")
     expect(got.settings.maxTtl).toBe(5)
+    expect(got.settings.allowEncrypted).toBe(false)
     expect(got.settings.rewrites[0]).toMatchObject({ pattern: "api.example.com", enabled: true, ttl: 0 })
   })
 
@@ -182,6 +183,11 @@ describe("lookups", () => {
     expect(lookupBadges(rw!).map((b) => b.label)).toEqual(["rewrite"])
     const [empty] = groupLookups([q("accounts.example.com", "HTTPS", 0)])
     expect(lookupBadges(empty!).map((b) => b.label)).toEqual(["no records"])
+    const [doh] = groupLookups([
+      q("chrome.cloudflare-dns.com", "A", 0, { result: "blocked", rcode: "NXDOMAIN", rule: "encrypted DNS" }),
+      q("chrome.cloudflare-dns.com", "HTTPS", 1, { result: "blocked", rcode: "NXDOMAIN", rule: "encrypted DNS" }),
+    ])
+    expect(lookupBadges(doh!).map((b) => b.label)).toEqual(["DoH blocked"])
     const [fail] = groupLookups([q("x.example.com", "A", 0, { result: "failed", rcode: "SERVFAIL", error: "timeout" })])
     expect(lookupBadges(fail!).map((b) => b.label)).toEqual(["SERVFAIL"])
   })

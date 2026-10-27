@@ -10,7 +10,8 @@ function summary(s: DNSSettings) {
   const on = s.rewrites.filter((r) => r.enabled)
   const ttl = s.ttlMode === "limit" ? `TTL at most ${s.maxTtl} s` : "TTL as answered"
   const rules = on.map((r) => `${r.pattern} → ${describeRewrite(r)}`).join(", ")
-  return `${on.length === 0 ? "No rewrites" : `${on.length} rewrite${on.length === 1 ? "" : "s"}: ${rules}`} · ${ttl}`
+  const doh = s.allowEncrypted ? " · DoH allowed" : ""
+  return `${on.length === 0 ? "No rewrites" : `${on.length} rewrite${on.length === 1 ? "" : "s"}: ${rules}`} · ${ttl}${doh}`
 }
 
 /** The device's DNS lookups up to the playhead, with the rewrites and cache clears between them. */

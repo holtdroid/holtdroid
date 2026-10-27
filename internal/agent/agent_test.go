@@ -261,6 +261,7 @@ func TestAgentLifecycle(t *testing.T) {
 	h.dev.mu.Unlock()
 	if installs != 2 || !strings.Contains(shells, "pm uninstall com.example.shop") ||
 		strings.Count(shells, "android.app.role.BROWSER com.example.shop") != 2 || !strings.Contains(shells, "--disable-fre") ||
+		!strings.Contains(shells, `--policy='\''{"DnsOverHttpsMode":"off"}'\''`) ||
 		!strings.Contains(shells, "wm dismiss-keyguard") {
 		t.Fatalf("reinstall: installs %d, shells %s", installs, shells)
 	}

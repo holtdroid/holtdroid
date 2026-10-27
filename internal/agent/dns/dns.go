@@ -131,7 +131,7 @@ func (s *Server) Set(ctx context.Context, in contract.DNSSettings) (contract.DNS
 		return contract.DNSSettings{}, err
 	}
 	s.mu.Lock()
-	changed := !slices.EqualFunc(s.settings.Rewrites, in.Rewrites, equalRewrite)
+	changed := !slices.EqualFunc(s.settings.Rewrites, in.Rewrites, equalRewrite) || s.settings.AllowEncrypted != in.AllowEncrypted
 	s.settings, s.rules = in, rules
 	s.publish(contract.DNSEvent{At: s.now(), Settings: new(cloneSettings(in))})
 	s.mu.Unlock()
@@ -302,6 +302,8 @@ func (s *Server) Resolve(ctx context.Context, query []byte, tcp bool) []byte {
 
 	s.mu.Lock()
 	r, matched := match(s.rules, entry.Name)
+	_, blocked := match(encrypted, entry.Name)
+	blocked = blocked && !s.settings.AllowEncrypted
 	limit, limited := s.settings.MaxTTL, s.settings.TTLMode == contract.DNSTTLLimit
 	s.mu.Unlock()
 
@@ -310,6 +312,9 @@ func (s *Server) Resolve(ctx context.Context, query []byte, tcp bool) []byte {
 	case matched:
 		entry.Result, entry.Rule = contract.DNSRewritten, r.Pattern
 		resp, err = s.rewrite(ctx, h, q, r, limit, limited, tcp, &entry)
+	case blocked:
+		entry.Result, entry.Rule = contract.DNSBlocked, encryptedRule
+		resp, err = reply(h, q, dnsmessage.RCodeNameError, nil)
 	case q.Type == dnsmessage.TypeAAAA:
 		entry.Result = contract.DNSIPv4Only
 		resp, err = reply(h, q, dnsmessage.RCodeSuccess, nil)

@@ -4297,3 +4297,34 @@ theme sends nothing and the device keeps its own.
 **Consequences.** On a fresh session the page finds the theme already
 matching and changes nothing. Turning the theme by hand while an app is
 starting can still interrupt its start, as on a real phone.
+
+## 143. Chrome's DoH is off by policy, and DoH servers' names don't resolve
+
+**Context.** The DNS log (decision #133) showed Chrome looking up
+`chrome.cloudflare-dns.com` and then nothing for the pages it loaded:
+redroid hands Android 1.1.1.1 as its DNS server, and Chrome's Secure DNS,
+automatic by default, upgrades a system resolver on its provider list to
+that provider's DoH. Rewrites didn't reach Chrome. Chromium has no
+`DnsOverHttps` feature to turn off any more: the automatic mode is set
+unconditionally in `default_dns_over_https_config_source.cc`. WebView never
+configures DoH (only `//chrome` calls `ConfigureStubHostResolver`).
+
+**Decision.**
+- The agent's `chrome-command-line` (decision #130) also carries
+  `--policy='{"DnsOverHttpsMode":"off"}'`; Chrome's tokenizer keeps the
+  quoted JSON. The command-line policy provider exists on debuggable
+  devices only and refuses Stable and Beta, so it covers Chromium builds,
+  Dev and Canary.
+- For the rest, the forwarder answers `NXDOMAIN` for the names of
+  well-known DoH and DoT servers (Chrome's upgrade list from
+  `doh_provider_entry.cc` plus the ones apps bundle most), logged as
+  `blocked`. Chrome's automatic mode and most DoH libraries fall back to the
+  system resolver when their server doesn't resolve. `allowEncrypted` in the
+  DNS settings (the **Block DoH** switch) lets them through; a rewrite of
+  the same name wins over the block.
+
+**Consequences.** Secure DNS is off in every Chrome or Chromium session,
+with or without a VPN. Handing Android a DNS address that isn't on Chrome's
+list would stop the upgrade without flags or blocks, but that is a change
+to the holtdroid-redroid image; it stays an option. DoH to an IP literal and
+servers missing from the list still bypass the log.

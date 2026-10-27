@@ -30,9 +30,10 @@ type DNSRewrite struct {
 }
 
 type DNSSettings struct {
-	TTLMode  DNSTTLMode   `json:"ttlMode" enum:"keep,limit" doc:"limit caps every TTL the device gets at maxTtl; 0 keeps Android from caching"`
-	MaxTTL   uint32       `json:"maxTtl" maximum:"86400"`
-	Rewrites []DNSRewrite `json:"rewrites" maxItems:"500"`
+	TTLMode        DNSTTLMode   `json:"ttlMode" enum:"keep,limit" doc:"limit caps every TTL the device gets at maxTtl; 0 keeps Android from caching"`
+	MaxTTL         uint32       `json:"maxTtl" maximum:"86400"`
+	Rewrites       []DNSRewrite `json:"rewrites" maxItems:"500"`
+	AllowEncrypted bool         `json:"allowEncrypted,omitempty" doc:"let apps reach well-known DNS-over-HTTPS and DNS-over-TLS servers; by default their names don't resolve, so apps fall back to the device's DNS"`
 }
 
 type DNSState struct {
@@ -46,6 +47,7 @@ const (
 	DNSAnswered  DNSResult = "answered"
 	DNSRewritten DNSResult = "rewritten"
 	DNSIPv4Only  DNSResult = "ipv4-only"
+	DNSBlocked   DNSResult = "blocked"
 	DNSFailed    DNSResult = "failed"
 )
 
@@ -64,7 +66,7 @@ type DNSQuery struct {
 	Name     string      `json:"name"`
 	Type     string      `json:"type" doc:"A, AAAA, HTTPS, … or TYPE<n>"`
 	Protocol string      `json:"protocol" enum:"udp,tcp"`
-	Result   DNSResult   `json:"result" enum:"answered,rewritten,ipv4-only,failed"`
+	Result   DNSResult   `json:"result" enum:"answered,rewritten,ipv4-only,blocked,failed" doc:"blocked is a well-known encrypted DNS server's name, answered NXDOMAIN"`
 	Rcode    string      `json:"rcode" doc:"NOERROR, NXDOMAIN, SERVFAIL, …"`
 	Answers  []DNSAnswer `json:"answers"`
 	Rule     string      `json:"rule,omitempty" doc:"the pattern of the rewrite that answered"`

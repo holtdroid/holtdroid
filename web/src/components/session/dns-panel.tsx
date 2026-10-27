@@ -76,6 +76,7 @@ const ttlChoices = ["keep", "0", "5", "30", "60", "300"]
 const resultFilters = {
   all: "All queries",
   rewritten: "Rewritten",
+  blocked: "Blocked DoH",
   failed: "Failed",
   nxdomain: "NXDOMAIN",
 } as const
@@ -221,6 +222,18 @@ export function DNSPanel({ provider, id }: { provider: string; id: string }) {
               ))}
             </SelectContent>
           </Select>
+          <label
+            className="flex h-6 shrink-0 items-center gap-1.5 px-1.5 text-muted-foreground"
+            title="Encrypted DNS servers (DNS over HTTPS or TLS) don't resolve, so apps use the device's DNS and every lookup shows up here. Chrome's own DoH is off by policy."
+          >
+            <Switch
+              size="sm"
+              checked={!settings.allowEncrypted}
+              disabled={set.isPending}
+              onCheckedChange={(block) => apply({ allowEncrypted: !block })}
+            />
+            Block DoH
+          </label>
           <Button size="xs" variant="ghost" disabled={flush.isPending} onClick={() => flush.mutate()}>
             <EraserIcon />
             Clear DNS cache

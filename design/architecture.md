@@ -526,7 +526,8 @@ codecs and reports that it can't capture audio.
   (`internal/agent/dns`, `127.0.0.1:10053`, UDP and TCP) through a `direct`
   outbound bound to `lo`. The forwarder logs each query (the last 2000,
   `GET /v1/dns/events`, and into the recording as `dns` events), answers
-  rewrites and `AAAA` (empty: IPv4 only, decision #55) itself, caps TTLs
+  rewrites, names of well-known encrypted DNS servers (`NXDOMAIN` unless
+  `allowEncrypted`, decision #143) and `AAAA` (empty: IPv4 only, decision #55) itself, caps TTLs
   (the `SOA` minimum too) and forwards the rest to the sidecar's `direct`
   inbound on `127.0.0.1:10054`, which overrides the destination to
   `vpn.dns:53` and routes it through the selector. Android's cache is

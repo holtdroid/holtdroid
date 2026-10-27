@@ -120,6 +120,7 @@ export function importSettings(text: string): { name?: string; settings: DNSSett
     settings: {
       ttlMode: limit ? "limit" : "keep",
       maxTtl: limit && isObject(s) && typeof s.maxTtl === "number" ? s.maxTtl : 0,
+      allowEncrypted: isObject(s) && s.allowEncrypted === true,
       rewrites,
     },
   }
@@ -158,11 +159,19 @@ export type Tone = "rewrite" | "error" | "warn" | "muted"
 /** What stands out about a lookup; an ordinary answer has no badges. */
 export function lookupBadges(l: Lookup): { label: string; tone: Tone; title: string }[] {
   const out: { label: string; tone: Tone; title: string }[] = []
-  const rule = l.queries.find((q) => q.rule)?.rule
+  const blocked = l.queries.some((q) => q.result === "blocked")
+  if (blocked)
+    out.push({
+      label: "DoH blocked",
+      tone: "warn",
+      title: "An encrypted DNS server: its name doesn't resolve, so apps fall back to the device's DNS",
+    })
+  const rule = l.queries.find((q) => q.rule && q.result === "rewritten")?.rule
   if (rule) out.push({ label: "rewrite", tone: "rewrite", title: `Answered by the rewrite ${rule}` })
   const failed = l.queries.find((q) => q.result === "failed")
   if (failed)
     out.push({ label: failed.rcode || "failed", tone: "error", title: failed.error ?? "The upstream didn't answer" })
+  if (blocked) return out
   if (l.queries.some((q) => q.rcode === "NXDOMAIN"))
     out.push({ label: "NXDOMAIN", tone: "warn", title: "The name doesn't exist" })
   else if (!failed && l.queries.every((q) => q.answers.length === 0))
@@ -214,12 +223,17 @@ export function lookupTTL(l: Lookup): { served: number; original: number } | und
   return { served: Math.min(...pick.map((a) => a.ttl)), original: Math.min(...pick.map((a) => a.originalTtl)) }
 }
 
-export function lookupMatches(l: Lookup, text: string, filter: "all" | "rewritten" | "failed" | "nxdomain") {
+export function lookupMatches(
+  l: Lookup,
+  text: string,
+  filter: "all" | "rewritten" | "blocked" | "failed" | "nxdomain",
+) {
   const byText = !text || l.name.includes(text) || answers(l).some((a) => a.data.includes(text))
   const byResult =
     filter === "all" ||
     (filter === "rewritten" && l.queries.some((q) => q.result === "rewritten")) ||
     (filter === "failed" && l.queries.some((q) => q.result === "failed")) ||
+    (filter === "blocked" && l.queries.some((q) => q.result === "blocked")) ||
     (filter === "nxdomain" && l.queries.some((q) => q.rcode === "NXDOMAIN"))
   return byText && byResult
 }

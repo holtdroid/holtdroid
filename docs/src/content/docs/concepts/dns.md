@@ -77,6 +77,28 @@ empties Android's resolver cache right away.
 The agent turns Android's Private DNS (DNS over TLS) off in these sessions:
 lookups over TLS would bypass the log and the rewrites.
 
+## Encrypted DNS in apps
+
+Browsers and some apps resolve names themselves over DNS over HTTPS (DoH),
+which the log and the rewrites never see. Two things keep them on the
+device's DNS:
+
+- **Chrome and Chromium** get the policy `DnsOverHttpsMode: off` on their
+  command line, next to the flags that skip their welcome screens. Chrome
+  reads command-line policies only on debuggable devices (redroid is) and
+  not in its Stable and Beta channels; Chromium builds, Dev and Canary obey
+  it.
+- **Block DoH** in the toolbar (on by default) answers the names of
+  well-known DoH and DNS-over-TLS servers (Cloudflare, Google, Quad9,
+  OpenDNS, NextDNS, AdGuard, the rest of Chrome's upgrade list) with
+  `NXDOMAIN`. Chrome Stable in its automatic mode, and most apps that bundle
+  DoH, then fall back to the device's DNS. Those lookups are marked
+  **DoH blocked**; a rewrite of the same name wins over the block. Turn the
+  switch off to test an app's own DoH.
+
+WebViews never use DoH: in Chromium only the browser turns it on, so the
+WebView of any provider resolves through the device.
+
 ## Saved sets
 
 **Sets** saves the current rewrites and TTL limit under a name, for you
@@ -96,6 +118,9 @@ violet ticks on the timeline.
 ## Limits
 
 - Only sessions with a VPN sidecar have the tab; physical phones don't yet.
+- Chrome picks up its flags when it starts: one that was already running
+  before a new install keeps its DoH until it restarts. An app that reaches
+  a DoH server by IP address (`https://1.1.1.1/dns-query`) isn't blocked.
 - An app that hard-codes an IP address, or resolves names over its own
   DNS-over-HTTPS, isn't affected by rewrites.
 - Addresses are IPv4 only, like everything the sidecar resolves.
