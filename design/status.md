@@ -162,7 +162,9 @@ deployment"):
   the real Figma API. Figma tokens are saved encrypted with the account
   (decision #141); the Pixel perfect page manages references, the token and
   the tab's defaults. Frames import as PNG 4× with up to 20 components that
-  can be hidden, the frame redrawn without them (decision #145).
+  can be hidden, the frame redrawn without them (decision #145). The tab has
+  a toolbar and Layout / Components / Differences tabs, a work area in dp
+  with column and baseline grids and guides, and presets (decision #147).
 - Session load (decision #40), shown in the cards next to the phone since
   decision #94: the app card has fps, jank and CPU/PSS per process, the
   device card the device, storage, temperatures and the session Pod's

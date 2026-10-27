@@ -53,21 +53,22 @@ type Placement struct {
 
 // referenceMeta is written only by the api: on upload and on every update.
 type referenceMeta struct {
-	ID          string       `json:"id"`
-	Owner       string       `json:"owner"`
-	Name        string       `json:"name"`
-	Package     string       `json:"package,omitempty"`
-	ContentType string       `json:"contentType"`
-	Width       int          `json:"width"`
-	Height      int          `json:"height"`
-	Placement   Placement    `json:"placement"`
-	Ignore      []Rect       `json:"ignore,omitempty"`
-	CreatedAt   time.Time    `json:"createdAt"`
-	Revision    int          `json:"revision,omitempty"`
-	Figma       *FigmaSource `json:"figma,omitempty"`
-	Layers      int          `json:"layers,omitempty"`
-	Components  int          `json:"components,omitempty"`
-	Hidden      []string     `json:"hidden,omitempty"`
+	ID          string           `json:"id"`
+	Owner       string           `json:"owner"`
+	Name        string           `json:"name"`
+	Package     string           `json:"package,omitempty"`
+	ContentType string           `json:"contentType"`
+	Width       int              `json:"width"`
+	Height      int              `json:"height"`
+	Placement   Placement        `json:"placement"`
+	Ignore      []Rect           `json:"ignore,omitempty"`
+	CreatedAt   time.Time        `json:"createdAt"`
+	Revision    int              `json:"revision,omitempty"`
+	Figma       *FigmaSource     `json:"figma,omitempty"`
+	Layers      int              `json:"layers,omitempty"`
+	Components  int              `json:"components,omitempty"`
+	Hidden      []string         `json:"hidden,omitempty"`
+	Layout      *ReferenceLayout `json:"layout,omitempty"`
 }
 
 // referenceStore lays a user's reference images out as
@@ -164,24 +165,25 @@ func (r *referenceStore) touch(ctx context.Context, user, id string) error {
 }
 
 type ReferenceView struct {
-	ID          string       `json:"id"`
-	Name        string       `json:"name"`
-	Package     string       `json:"package,omitempty" doc:"the app it was added for"`
-	ContentType string       `json:"contentType"`
-	Width       int          `json:"width"`
-	Height      int          `json:"height"`
-	Size        int64        `json:"size" doc:"bytes"`
-	Placement   Placement    `json:"placement"`
-	Ignore      []Rect       `json:"ignore" doc:"areas the comparison skips, such as a video under the interface"`
-	CreatedAt   time.Time    `json:"createdAt"`
-	LastUsedAt  time.Time    `json:"lastUsedAt"`
-	ExpiresAt   *time.Time   `json:"expiresAt,omitempty" doc:"deleted then unless it is opened again"`
-	ImageURL    string       `json:"imageUrl" doc:"opening it counts as a use"`
-	ThumbURL    string       `json:"thumbnailUrl,omitempty" doc:"a small picture for lists, at most 160 px wide; opening it is not a use"`
-	Figma       *FigmaSource `json:"figma,omitempty" doc:"the Figma frame it was imported from"`
-	Layers      int          `json:"layers" doc:"design layers stored with it (GET …/layers); 0 for an image added by hand"`
-	Components  int          `json:"components" doc:"parts of a Figma frame that can be hidden (listed with the layers)"`
-	Hidden      []string     `json:"hidden" doc:"ids of the components left out of the reference"`
+	ID          string          `json:"id"`
+	Name        string          `json:"name"`
+	Package     string          `json:"package,omitempty" doc:"the app it was added for"`
+	ContentType string          `json:"contentType"`
+	Width       int             `json:"width"`
+	Height      int             `json:"height"`
+	Size        int64           `json:"size" doc:"bytes"`
+	Placement   Placement       `json:"placement"`
+	Ignore      []Rect          `json:"ignore" doc:"areas the comparison skips, such as a video under the interface"`
+	CreatedAt   time.Time       `json:"createdAt"`
+	LastUsedAt  time.Time       `json:"lastUsedAt"`
+	ExpiresAt   *time.Time      `json:"expiresAt,omitempty" doc:"deleted then unless it is opened again"`
+	ImageURL    string          `json:"imageUrl" doc:"opening it counts as a use"`
+	ThumbURL    string          `json:"thumbnailUrl,omitempty" doc:"a small picture for lists, at most 160 px wide; opening it is not a use"`
+	Figma       *FigmaSource    `json:"figma,omitempty" doc:"the Figma frame it was imported from"`
+	Layers      int             `json:"layers" doc:"design layers stored with it (GET …/layers); 0 for an image added by hand"`
+	Components  int             `json:"components" doc:"parts of a Figma frame that can be hidden (listed with the layers)"`
+	Hidden      []string        `json:"hidden" doc:"ids of the components left out of the reference"`
+	Layout      ReferenceLayout `json:"layout" doc:"the work area it is laid out in, with its grid and guides"`
 }
 
 type ReferenceList struct {
@@ -200,7 +202,10 @@ func (s *Server) referenceView(m referenceMeta, e *referenceEntry) ReferenceView
 		ID: m.ID, Name: m.Name, Package: m.Package, ContentType: m.ContentType, Width: m.Width, Height: m.Height,
 		Placement: m.Placement, Ignore: m.Ignore, CreatedAt: m.CreatedAt, LastUsedAt: m.CreatedAt,
 		ImageURL: referencesPath + "/" + m.ID + "/image" + revisionQuery(m.Revision), Figma: m.Figma, Layers: m.Layers,
-		Components: m.Components, Hidden: m.Hidden,
+		Components: m.Components, Hidden: m.Hidden, Layout: defaultLayout(),
+	}
+	if m.Layout != nil {
+		v.Layout = *m.Layout
 	}
 	if v.Hidden == nil {
 		v.Hidden = []string{}
@@ -291,10 +296,11 @@ type referencePath struct {
 type referenceUpdateInput struct {
 	ID   string `path:"id"`
 	Body struct {
-		Name      string    `json:"name" maxLength:"120"`
-		Placement Placement `json:"placement"`
-		Ignore    []Rect    `json:"ignore" maxItems:"64"`
-		Hidden    *[]string `json:"hidden,omitempty" maxItems:"64" doc:"ids of the components to leave out; unchanged when missing"`
+		Name      string           `json:"name" maxLength:"120"`
+		Placement Placement        `json:"placement"`
+		Ignore    []Rect           `json:"ignore" maxItems:"64"`
+		Hidden    *[]string        `json:"hidden,omitempty" maxItems:"64" doc:"ids of the components to leave out; unchanged when missing"`
+		Layout    *ReferenceLayout `json:"layout,omitempty" doc:"the work area, grid and guides; unchanged when missing"`
 	}
 }
 
@@ -515,6 +521,15 @@ func (s *Server) registerReferences(api huma.API) {
 		m.Placement, m.Ignore = in.Body.Placement, in.Body.Ignore
 		if in.Body.Hidden != nil {
 			m.Hidden = slices.Compact(slices.Sorted(slices.Values(*in.Body.Hidden)))
+		}
+		if l := in.Body.Layout; l != nil {
+			if err := validLayout(*l); err != nil {
+				return nil, httpError(err)
+			}
+			if l.Guides == nil {
+				l.Guides = []Guide{}
+			}
+			m.Layout = l
 		}
 		if err := writeJSON(ctx, s.references.store, s.references.key(user, m.ID, ".json"), m); err != nil {
 			return nil, httpError(err)

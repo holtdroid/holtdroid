@@ -882,6 +882,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/pixel-perfect/presets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The caller's saved work areas with their grids and guides, for any reference and device. */
+        get: operations["getLayoutPresets"];
+        /** @description Replaces the caller's saved work areas. */
+        put: operations["putLayoutPresets"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/pixel-perfect/{id}": {
         parameters: {
             query?: never;
@@ -2594,6 +2612,34 @@ export interface components {
              */
             travelled: number;
         };
+        Grid: {
+            /**
+             * Format: double
+             * @description rows every so many dp, 0 for none
+             */
+            baseline: number;
+            /**
+             * Format: int64
+             * @description 0 for no column grid
+             */
+            columns: number;
+            /** Format: double */
+            gutter: number;
+            /** Format: double */
+            margin: number;
+        };
+        Guide: {
+            /**
+             * @description x: a vertical line at pos from the area's left edge; y: a horizontal one from its top
+             * @enum {string}
+             */
+            axis: "x" | "y";
+            /**
+             * Format: double
+             * @description dp
+             */
+            pos: number;
+        };
         HeartbeatInputBody: {
             /** @description The user interacted with the session page since the last heartbeat */
             active: boolean;
@@ -2668,6 +2714,16 @@ export interface components {
             picture?: string;
             user: string;
         };
+        Insets: {
+            /** Format: double */
+            bottom: number;
+            /** Format: double */
+            left: number;
+            /** Format: double */
+            right: number;
+            /** Format: double */
+            top: number;
+        };
         InstallInputBody: {
             artifactId: string;
             /** @description Install over the current build, upgrade or downgrade, keeping the app's data; otherwise uninstall it first */
@@ -2736,6 +2792,16 @@ export interface components {
         };
         KeepInputBody: {
             keep: boolean;
+        };
+        LayoutPreset: {
+            area: components["schemas"]["WorkArea"];
+            grid: components["schemas"]["Grid"];
+            guides: components["schemas"]["Guide"][];
+            id: string;
+            name: string;
+        };
+        LayoutPresets: {
+            items: components["schemas"]["LayoutPreset"][];
         };
         LocalPort: {
             /** Format: int64 */
@@ -3400,6 +3466,11 @@ export interface components {
              */
             y: number;
         };
+        ReferenceLayout: {
+            area: components["schemas"]["WorkArea"];
+            grid: components["schemas"]["Grid"];
+            guides: components["schemas"]["Guide"][];
+        };
         ReferenceList: {
             enabled: boolean;
             /** @description the caller has a Figma token saved with their account */
@@ -3432,6 +3503,8 @@ export interface components {
             /** @description ids of the components to leave out; unchanged when missing */
             hidden?: string[];
             ignore: components["schemas"]["Rect"][];
+            /** @description the work area, grid and guides; unchanged when missing */
+            layout?: components["schemas"]["ReferenceLayout"];
             name: string;
             placement: components["schemas"]["Placement"];
         };
@@ -3467,6 +3540,8 @@ export interface components {
              * @description design layers stored with it (GET …/layers); 0 for an image added by hand
              */
             layers: number;
+            /** @description the work area it is laid out in, with its grid and guides */
+            layout: components["schemas"]["ReferenceLayout"];
             name: string;
             /** @description the app it was added for */
             package?: string;
@@ -3781,6 +3856,15 @@ export interface components {
             size: number;
             title: string;
             version: string;
+        };
+        WorkArea: {
+            box: components["schemas"]["Rect"];
+            insets: components["schemas"]["Insets"];
+            /**
+             * @description screen: all of it; insets: the screen less these dp; box: a rectangle as fractions of the screen
+             * @enum {string}
+             */
+            kind: "screen" | "insets" | "box";
         };
     };
     responses: never;
@@ -5953,6 +6037,68 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getLayoutPresets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LayoutPresets"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    putLayoutPresets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LayoutPresets"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LayoutPresets"];
+                };
             };
             /** @description Error */
             default: {

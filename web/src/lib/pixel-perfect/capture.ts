@@ -27,9 +27,15 @@ export async function pixelsOf(source: Blob | ImageBitmap | OffscreenCanvas, siz
 }
 
 /** The reference as it lies over a screen of this size; transparent where it doesn't reach. An SVG is drawn at that size, not scaled from pixels. */
-export function referencePixels(image: CanvasImageSource, natural: Size, screen: Size, placement: Placement): Pixels {
+export function referencePixels(
+  image: CanvasImageSource,
+  natural: Size,
+  screen: Size,
+  placement: Placement,
+  area: Box = { x: 0, y: 0, ...screen },
+): Pixels {
   const ctx = context(screen.w, screen.h)
-  const b = placeReference(screen, natural, placement)
+  const b = placeReference(area, natural, placement)
   ctx.imageSmoothingQuality = "high"
   ctx.drawImage(image, b.x, b.y, b.w, b.h)
   return { data: ctx.getImageData(0, 0, screen.w, screen.h).data, width: screen.w, height: screen.h }

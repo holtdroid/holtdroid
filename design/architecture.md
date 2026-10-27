@@ -854,6 +854,8 @@ browser ─POST/PUT/DELETE /api/v1/pixel-perfect─▶ api ──▶ storage: pi
                                                               (frame picture + layers, decision #139)
         ◀─GET /api/v1/pixel-perfect/{id}/layers── the frame's layers: boxes, fills, fonts, auto layout,
                                                     and its components (#145)
+        ─GET/PUT /api/v1/pixel-perfect/presets─▶ api ──▶ storage: pixel-perfect/<user>/presets.json
+                                                    (work areas, grids and guides, decision #147)
         ◀─GET /api/v1/pixel-perfect/{id}/components/{n}── a component's PNG; the browser redraws the frame
                                                     from the background and the visible ones
         ─GET/PUT/DELETE /api/v1/pixel-perfect/figma-token─▶ api ─GET /v1/me─▶ Figma; database: figma_tokens

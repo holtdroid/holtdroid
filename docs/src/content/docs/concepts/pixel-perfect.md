@@ -51,7 +51,7 @@ fill, stroke, effect, clipping, mask or opacity) is replaced by its children,
 so a wrapper is split and a card stays whole. A frame with more than 20
 children keeps them as they are, up to 60.
 
-**Components** in the tab lists them, top first, with a picture each;
+The **Components** tab lists them, top first, with a picture each;
 pointing at one outlines it on the screen and the eye hides it. Hidden
 components are kept with the reference. With all of them shown, the overlay
 is the frame's own rendering; with some hidden, the browser draws the frame
@@ -136,10 +136,22 @@ browser makes when you add an image, so opening the tab doesn't download the
 full images; the server makes them for PNG, JPEG and WebP it got without
 one.
 
+## The tab
+
+The toolbar at the top holds what is used all the time: the reference
+(click it for the list, search, import from Figma or add an image), the eye
+that hides the overlay, its opacity and blend, **Freeze**, the settings and
+**Find differences**. Below it, three tabs:
+
+- **Layout**: the work area, the position, the grid and the guides;
+- **Components** (or **Skip areas** for an image): the Figma components to
+  hide and the ignored areas;
+- **Differences**: the result, which **Find differences** switches to.
+
 ## Over the screen
 
 Picking a reference lays it over the device screen. By default it fills the
-screen's width without going past its height, top-aligned, so a mockup at
+work area's width without going past its height, top-aligned, so a mockup at
 any density (1×, 2×, 3×) fits as is.
 
 - **Opacity** and the **blend**: _Normal_ is the mockup see-through;
@@ -148,9 +160,48 @@ any density (1×, 2×, 3×) fits as is.
   matching areas fade to grey.
 - **Position**: X and Y in the mockup's own pixels and a scale, where 100% is
   the fit above. Turn on **Move** to drag it over the screen or nudge it with
-  the arrow keys (Shift for 10 px). The device stays usable while Move is off:
-  taps go through the overlay.
+  the arrow keys (Shift for 10 px). While dragging, its edges and centre snap
+  to the work area, the grid's columns and the guides; hold Alt not to. The
+  device stays usable while Move is off: taps go through the overlay.
 - The eye button hides the overlay without losing its settings.
+
+## Work area
+
+The work area is the part of the screen you work in, for example the app
+without the status and navigation bars, or a single card. The reference is
+fitted to it, the grid and the guides start at its corner, and the
+comparison skips everything outside it. The area outside is dimmed and the
+area outlined in amber.
+
+- **Whole screen**, the default.
+- **Insets**: top, right, bottom and left in dp, so the same area fits any
+  screen size and density. **App window** reads them from the app's own
+  window (through the native views), **Without system bars** sets 24 and
+  48 dp.
+- **Drawn**: drag a rectangle over the screen; it is kept as fractions of the
+  screen.
+
+Each reference keeps its own area, grid and guides. **Save as a preset**
+(the bookmark button) keeps them under a name for your other references and
+devices, and the list above the switch applies one; presets live with your
+account in the server's storage.
+
+## Grid and guides
+
+The **grid** is drawn inside the work area, in dp: a number of columns with
+a margin on each side and a gutter between them, like Material's layout
+grids, and rows every so many dp for a baseline. **4 columns**, **8 columns**
+and **8 dp rows** fill in common values.
+
+**Guides** are lines at a distance in dp from the work area's left or top
+edge. Turn on **Rulers** and drag from the ruler at the top of the screen
+for a horizontal guide, or from the left one for a vertical guide; drag a
+guide to move it (it snaps to the area and the columns) and drag it out of
+the area to remove it. They are also listed with their positions to type in
+exactly.
+
+**Grid and guides on the screen** in the settings hides them without losing
+them.
 
 ## Freeze frame
 
@@ -179,7 +230,8 @@ back to the stream.
    device's pixels.
 
 The match is the share of compared pixels that agree. Regions are outlined
-and numbered on the screen (**On the screen** turns that off) and in the tab,
+and numbered on the screen (**Differences on the screen** in the settings
+turns that off) and on the **Differences** tab,
 which offers the views that image diffs on code review sites use: **Side by
 side**, **Swipe** (a line to drag across), **Onion skin** and **Difference**
 (black where equal, the size of the error otherwise, with the differing
@@ -199,20 +251,21 @@ any mockup everywhere the video is. Three things keep that out:
   and leaves them out: video and animation under the interface are skipped,
   the still interface over them is compared. The skipped area is shaded blue.
   Freeze frame takes these frames right after the frozen one.
-- **Ignored areas**: turn on **Draw** and drag over the screen to mark areas
+- **Ignored areas**: on the **Components** tab (**Skip areas** for an image
+  without components), turn on **Draw** and drag over the screen to mark areas
   the comparison always skips for this reference, such as a player that may
   be paused.
-- **Skip video, canvas and frames in WebViews** (with **Use DevTools for WebView pages** on, see below): in a WebView
+- **Skip video, canvas and frames in WebViews** (with **Name differences by WebView elements** on, see below): in a WebView
   page, the boxes of `<video>`, `<canvas>`, `<iframe>`, `<embed>` and
   `<object>` elements are left out, paused or not (see below). They are
   hatched violet.
 
 ### Elements
 
-A difference found by pixels says where; the **Elements** section says what
-is there.
+A difference found by pixels says where; elements say what is there. Both
+switches are in the settings (the sliders icon in the toolbar).
 
-**Native views** (on by default) reads the app's views with Android's
+**Name differences by native views** (on by default) reads the app's views with Android's
 `uiautomator`, the way Appium does, without touching the app: each difference
 names the view that fits it, with its class, resource id, text or content
 description, and its size in pixels and dp; pointing at a difference outlines
@@ -232,9 +285,9 @@ magnified crop has a table of the edges and sizes that are off.
 
 ### WebView pages
 
-This part is **experimental** and **off by default**: turn on **Use DevTools
-for WebView pages** under **Elements** in the tab; the choice is
-remembered in the browser.
+This part is **experimental** and **off by default**: turn on **Name
+differences by WebView elements** in the settings; the choice is remembered
+in the browser.
 
 When the screen shows a WebView that DevTools can inspect, the comparison
 also asks the page about itself, through its own DevTools connection next to

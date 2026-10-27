@@ -38,7 +38,7 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
   const [wasReady, setWasReady] = useState(false)
   const [tab, setTab] = useState("devtools")
   const live = useLiveScreen()
-  const pp = usePixelPerfect(live, provider, id)
+  const pp = usePixelPerfect(live, provider, id, session?.capabilities?.screen)
   const adbInfo = useADBInfo()
 
   const agentUp = session !== undefined && session.state !== "provisioning"

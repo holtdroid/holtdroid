@@ -7,13 +7,17 @@ export function fitScale(screen: Size, image: Size) {
   return Math.min(screen.w / image.w, screen.h / image.h)
 }
 
-/** Where the reference lands on the screen, in screen pixels: top-aligned, centred when the height limits it. */
-export function placeReference(screen: Size, image: Size, p: Placement): Box {
-  const fit = fitScale(screen, image)
+/**
+ * Where the reference lands, in screen pixels: fitted to the work area (the
+ * whole screen when it has no corner), top-aligned, centred when the height
+ * limits it.
+ */
+export function placeReference(area: Size & { x?: number; y?: number }, image: Size, p: Placement): Box {
+  const fit = fitScale(area, image)
   const k = fit * p.scale
   return {
-    x: (screen.w - image.w * fit) / 2 + p.x * k,
-    y: p.y * k,
+    x: (area.x ?? 0) + (area.w - image.w * fit) / 2 + p.x * k,
+    y: (area.y ?? 0) + p.y * k,
     w: image.w * k,
     h: image.h * k,
   }

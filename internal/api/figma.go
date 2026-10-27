@@ -527,6 +527,7 @@ func (s *Server) refreshFigma(ctx context.Context, in *figmaRefreshInput) (Refer
 func (s *Server) registerFigma(api huma.API) {
 	tags := []string{"ui"}
 	s.registerFigmaToken(api)
+	s.registerLayoutPresets(api)
 
 	huma.Register(api, huma.Operation{
 		OperationID: "importFigmaReference", Method: http.MethodPost, Path: referencesPath + "/figma", Tags: tags,

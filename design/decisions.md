@@ -4439,3 +4439,44 @@ video file) and one helper per session while a source plays; nothing when
 it is off. The browser's microphone costs about 100 KB/s up. The camera is
 a separate problem: redroid has no camera HAL to feed (the recon on
 Android 15's `virtual_camera` is in the status).
+
+## 147. Pixel perfect lays references out in a work area, with grids and guides
+
+Extends #106.
+
+**Context.** The reference always filled the whole screen's width, while
+designs are usually drawn without the system bars or for one part of the
+screen, and testers want the layout grid and guides they have in Figma. The
+tab had also grown into a column of six cards that was hard to follow.
+
+**Decision.**
+
+- **A work area per reference**: the whole screen, insets in dp, or a
+  rectangle drawn as fractions of the screen. Insets in dp are the default
+  way to describe it, since they fit every size and density; the tab can read
+  them from the app's window in a uiautomator dump (#138). The reference is
+  fitted to the area, its placement stays in the image's own pixels, and the
+  comparison skips everything outside the area by adding it to the ignored
+  mask, so the match counts only what is inside.
+- **Grid and guides in dp from the area's corner**: columns with margin and
+  gutter, baseline rows, and guides dragged from rulers or typed in. Moving
+  the reference snaps its edges and centre to the area, the columns and the
+  guides within 6 screen pixels. dp come from the device's density and the
+  stream's size; without a known density a screen is taken as 360 dp wide.
+- **Stored with the reference** (`layout` in `PUT …/{id}`, unchanged when
+  left out) and as **presets per user** in `pixel-perfect/<user>/presets.json`
+  in the references' storage, replaced as a whole by `PUT …/presets`. Storage
+  rather than the database, so presets survive with `memory` like the
+  references they go with.
+- **The tab is rebuilt** around a toolbar (reference list in a popover, eye,
+  opacity, blend, Freeze, settings, Find differences) and three tabs: Layout,
+  Components (or Skip areas) and Differences. The comparison's switches move
+  into a settings popover with one-line hints; Find differences opens the
+  Differences tab.
+
+**Consequences.** References keep working as before with the whole screen
+as their area. A drawn area is in fractions of the screen, so it doesn't
+carry over between screens of other proportions; insets do. Presets are
+copied into a reference when applied, so changing a preset later doesn't move
+references laid out with it.
+

@@ -13,6 +13,7 @@ import { keys, referenceLayersQuery } from "@/api/queries"
 import type { LiveScreen } from "@/components/session/live-screen"
 import { blobURL, loadImage, pixelsOf, referencePixels, toCanvas, workSize } from "@/lib/pixel-perfect/capture"
 import { composeReference, hiddenFractions, needsComposite } from "@/lib/pixel-perfect/compose"
+import { areaBox, outside, pxPerDp, type ReferenceLayout } from "@/lib/pixel-perfect/layout"
 import { type Analysis, analyze, boxMask, motionMask, type Pixels } from "@/lib/pixel-perfect/diff"
 import {
   counterpart,
@@ -36,7 +37,8 @@ import {
 } from "@/lib/pixel-perfect/webview"
 
 export type Blend = "normal" | "difference" | "invert"
-export type Tool = "none" | "move" | "ignore"
+export type Tool = "none" | "move" | "ignore" | "area" | "guides"
+export type Tab = "layout" | "components" | "compare"
 
 export type Frozen = { url: string; pixels: Pixels; motion: Uint8Array | null; at: number }
 
@@ -80,7 +82,7 @@ export type Result = {
   media: Box[]
 }
 
-export type Draft = { placement: Placement; ignore: Box[]; hidden: string[] }
+export type Draft = { placement: Placement; ignore: Box[]; hidden: string[]; layout: ReferenceLayout }
 
 export type PixelState = {
   referenceId: string | null
@@ -88,11 +90,13 @@ export type PixelState = {
   opacity: number
   blend: Blend
   tool: Tool
+  tab: Tab
   ignoreMotion: boolean
   ignoreMedia: boolean
   devtools: boolean
   views: boolean
   showRegions: boolean
+  showLayout: boolean
   skipHidden: boolean
   drafts: Record<string, Draft>
   /** The reference redrawn without its hidden components, for the overlay. */
@@ -108,7 +112,16 @@ export type PixelState = {
 
 export type Prefs = Pick<
   PixelState,
-  "visible" | "opacity" | "blend" | "ignoreMotion" | "ignoreMedia" | "devtools" | "views" | "showRegions" | "skipHidden"
+  | "visible"
+  | "opacity"
+  | "blend"
+  | "ignoreMotion"
+  | "ignoreMedia"
+  | "devtools"
+  | "views"
+  | "showRegions"
+  | "showLayout"
+  | "skipHidden"
 >
 
 const prefsKey = "holtdroid:pixel-perfect"
@@ -121,6 +134,7 @@ export const defaultPrefs: Prefs = {
   devtools: false,
   views: true,
   showRegions: true,
+  showLayout: true,
   skipHidden: true,
 }
 
@@ -173,6 +187,7 @@ export class PixelPerfect {
       ...loadPrefs(),
       referenceId: null,
       tool: "none",
+      tab: "layout",
       drafts: {},
       composite: null,
       hoveredComponent: null,
@@ -186,6 +201,25 @@ export class PixelPerfect {
   }
 
   get = () => this.#state
+
+  setDisplay(display: Display | undefined) {
+    if (!display || display === this.#display) return
+    this.#display = display
+    this.set({})
+  }
+
+  /** Screen pixels per dp on a screen drawn at this size. */
+  pxPerDp(size: Size) {
+    return pxPerDp(this.#display, size)
+  }
+
+  layout(ref: ReferenceView) {
+    return this.draft(ref).layout
+  }
+
+  editLayout(ref: ReferenceView, patch: Partial<ReferenceLayout>) {
+    this.edit(ref, { layout: { ...this.layout(ref), ...patch } })
+  }
 
   subscribe = (l: () => void) => {
     this.#listeners.add(l)
@@ -203,6 +237,7 @@ export class PixelPerfect {
       devtools: this.#state.devtools,
       views: this.#state.views,
       showRegions: this.#state.showRegions,
+      showLayout: this.#state.showLayout,
       skipHidden: this.#state.skipHidden,
     }
     savePrefs(prefs)
@@ -245,7 +280,14 @@ export class PixelPerfect {
   }
 
   draft(ref: ReferenceView): Draft {
-    return this.#state.drafts[ref.id] ?? { placement: ref.placement, ignore: ref.ignore, hidden: ref.hidden }
+    return (
+      this.#state.drafts[ref.id] ?? {
+        placement: ref.placement,
+        ignore: ref.ignore,
+        hidden: ref.hidden,
+        layout: ref.layout,
+      }
+    )
   }
 
   select(id: string | null) {
@@ -321,7 +363,13 @@ export class PixelPerfect {
       const saved = await unwrap(
         api.PUT("/api/v1/pixel-perfect/{id}", {
           params: { path: { id } },
-          body: { name: ref.name, placement: draft.placement, ignore: draft.ignore, hidden: draft.hidden },
+          body: {
+            name: ref.name,
+            placement: draft.placement,
+            ignore: draft.ignore,
+            hidden: draft.hidden,
+            layout: draft.layout,
+          },
         }),
       )
       this.queryClient.setQueryData<{ items: ReferenceView[] }>(keys.references, (old) =>
@@ -412,7 +460,8 @@ export class PixelPerfect {
     return r.blob()
   }
 
-  async analyze(display?: Display) {
+  /** Finds the differences; show switches the tab to them. */
+  async analyze(display?: Display, show = false) {
     if (display) this.#display = display
     const ref = this.reference()
     if (!ref) return
@@ -465,8 +514,9 @@ export class PixelPerfect {
       const composite = await this.#composite(ref, figma, this.draft(ref).hidden)
       const draft = this.draft(ref)
       const natural = { w: ref.width, h: ref.height }
-      const reference = referencePixels(composite?.canvas ?? image, natural, size, draft.placement)
-      const placed = placeReference(size, natural, draft.placement)
+      const area = areaBox(draft.layout.area, size, pxPerDp(this.#display, size))
+      const reference = referencePixels(composite?.canvas ?? image, natural, size, draft.placement, area)
+      const placed = placeReference(area, natural, draft.placement)
       const ignored = [
         ...draft.ignore,
         ...(this.#state.skipHidden && composite ? hiddenFractions(figma, draft.hidden) : []),
@@ -475,7 +525,7 @@ export class PixelPerfect {
       const toDevice = d && d.width > 0 && d.height > 0 ? Math.max(d.width, d.height) / Math.max(size.w, size.h) : 1
       const webview = await matchWebView(probes, screen, toDevice).catch(() => null)
       const media = this.#state.ignoreMedia ? (webview?.media ?? []) : []
-      const ignore = boxMask(size.w, size.h, [...ignored, ...media])
+      const ignore = boxMask(size.w, size.h, [...ignored, ...media, ...outside(area, size)])
       if (this.#state.ignoreMotion && motion) for (let i = 0; i < ignore.length; i++) ignore[i]! |= motion[i]!
       const analysis = analyze(screen, reference, ignore)
       const native = views.hierarchy ? placeViews(views.hierarchy, toDevice, size) : []
@@ -519,6 +569,7 @@ export class PixelPerfect {
           media,
         },
         hovered: null,
+        ...(show ? { tab: "compare" as const } : {}),
       })
     } catch (e) {
       if (run === this.#run) this.set({ error: e instanceof Error ? e.message : String(e) })
@@ -538,9 +589,10 @@ export class PixelPerfect {
   }
 }
 
-export function usePixelPerfect(live: LiveScreen, provider: string, id: string) {
+export function usePixelPerfect(live: LiveScreen, provider: string, id: string, display?: Display) {
   const qc = useQueryClient()
   const [pp] = useState(() => new PixelPerfect(live, provider, id, qc))
+  useEffect(() => pp.setDisplay(display), [pp, display])
   useEffect(() => () => pp.dispose(), [pp])
   return pp
 }

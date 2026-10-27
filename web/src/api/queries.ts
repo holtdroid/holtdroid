@@ -15,6 +15,7 @@ import {
   type MarkerIcon,
   type RecordingManifest,
   type RecordingMarker,
+  type LayoutPreset,
   type ReferenceView,
   type ArtifactView,
   type ArtifactsEvent,
@@ -42,6 +43,7 @@ export const keys = {
   references: ["pixel-perfect"] as const,
   media: ["media"] as const,
   figmaToken: ["pixel-perfect", "figma-token"] as const,
+  layoutPresets: ["pixel-perfect", "presets"] as const,
   referenceLayers: (ref: ReferenceView) => ["pixel-perfect", ref.id, "layers", ref.imageUrl] as const,
   apps: ["apps"] as const,
 }
@@ -675,5 +677,21 @@ export function useDeleteMedia() {
   return useMutation({
     mutationFn: (id: string) => unwrap(api.DELETE("/api/v1/media/{id}", { params: { path: { id } } })),
     onSuccess: () => void qc.invalidateQueries({ queryKey: keys.media }),
+  })
+}
+
+export function useLayoutPresets() {
+  return useQuery({
+    queryKey: keys.layoutPresets,
+    queryFn: () => unwrap(api.GET("/api/v1/pixel-perfect/presets")),
+    staleTime: 60_000,
+  })
+}
+
+export function useSaveLayoutPresets() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (items: LayoutPreset[]) => unwrap(api.PUT("/api/v1/pixel-perfect/presets", { body: { items } })),
+    onSuccess: (data) => qc.setQueryData(keys.layoutPresets, data),
   })
 }

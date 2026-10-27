@@ -363,6 +363,7 @@ const switches: { key: keyof Prefs; label: string; hint: string }[] = [
   },
   { key: "ignoreMedia", label: "Skip video, canvas and frames in WebViews", hint: "With DevTools on." },
   { key: "showRegions", label: "Differences on the screen", hint: "Outline and number them over the device." },
+  { key: "showLayout", label: "Grid and guides on the screen", hint: "The work area, columns, rows and guides." },
   {
     key: "skipHidden",
     label: "Skip hidden components",

@@ -260,6 +260,7 @@ Lay design mockups over the screen and find where the app differs (decision #106
 - [x] SVG references drawn at the size needed, Copy as SVG pasted as text, small thumbnails for the list (decision #109)
 - [x] Native views from `uiautomator dump` through the agent (`GET /v1/device/ui`): differences named by view with resource id, text and size in dp, outlined over the screen (decision #138)
 - [x] Figma import by frame link with the server's or the user's token: SVG or PNG 3×, layers with boxes, fills, fonts and auto layout; differences name the layer, its implementation and how far it is off in dp; update in place (decision #139)
+- [x] New tab: toolbar with the reference list, Layout / Components / Differences tabs and a settings menu; work area (screen, insets in dp read from the app window, drawn) that the reference is fitted to and the comparison is limited to; column and baseline grids and guides on rulers with snapping; presets saved per user (decision #147)
 - [x] Figma frames as PNG 4× by default, up to 20 components rendered on their own and redrawn in the browser without the hidden ones, which the comparison skips (decision #145)
 - [x] Figma tokens saved with the account, encrypted with a key derived from `auth.sessionKey` (browser storage with an in-memory database); guide on the account and Pixel perfect pages; the Pixel perfect page for references, quota and the tab's defaults (decision #141)
 - [ ] Try it on a redroid session with an app over a video

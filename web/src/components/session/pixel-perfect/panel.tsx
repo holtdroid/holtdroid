@@ -1,4 +1,5 @@
 import {
+  ChevronsUpDownIcon,
   DownloadIcon,
   EyeIcon,
   EyeOffIcon,
@@ -6,11 +7,10 @@ import {
   ImageIcon,
   ImagePlusIcon,
   Loader2Icon,
-  MoveIcon,
-  PencilIcon,
   RefreshCwIcon,
-  RotateCcwIcon,
   ScanSearchIcon,
+  SearchIcon,
+  Settings2Icon,
   SnowflakeIcon,
   SquareDashedIcon,
   Trash2Icon,
@@ -25,27 +25,36 @@ import {
   useReferenceLayers,
   useReferences,
   useRefreshFigma,
-  useUpdateReference,
   useUploadReference,
 } from "@/api/queries"
 import { IconButton } from "@/components/session/icon-button"
 import { Compare } from "@/components/session/pixel-perfect/compare"
 import { ComponentsList } from "@/components/session/pixel-perfect/components-list"
 import { FigmaImport } from "@/components/session/pixel-perfect/figma-import"
-import { type Blend, type PixelPerfect, usePixelState } from "@/components/session/pixel-perfect/state"
+import { Block, BlockHead, LayoutTab } from "@/components/session/pixel-perfect/layout-tab"
+import {
+  type Blend,
+  type PixelPerfect,
+  type Prefs,
+  type Result,
+  type Tab,
+  usePixelState,
+} from "@/components/session/pixel-perfect/state"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Progress } from "@/components/ui/progress"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { download } from "@/lib/adb"
 import { browserFigmaToken, isFigmaLink } from "@/lib/figma-token"
+import { formatBytes, formatRelative } from "@/lib/format"
 import { makeThumbnail } from "@/lib/pixel-perfect/capture"
-import { formatBytes, formatRelative, formatSpan } from "@/lib/format"
 import { renderReport } from "@/lib/pixel-perfect/report"
 import { cn } from "@/lib/utils"
 
@@ -75,12 +84,15 @@ export function PixelPerfectPanel({
   const upload = useUploadReference()
   const importFigma = useImportFigma()
   const [figmaUrl, setFigmaUrl] = useState<string | null>(null)
+  const [picking, setPicking] = useState(false)
   const input = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
+  const [preparing, setPreparing] = useState(0)
   const items = refs.data?.items ?? []
   const ref = items.find((r) => r.id === state.referenceId) ?? null
+  const hasToken = !!(refs.data?.figmaToken || refs.data?.figmaSaved || browserFigmaToken())
+  const busy = upload.isPending || preparing > 0 || importFigma.isPending
 
-  const [preparing, setPreparing] = useState(0)
   const add = async (file: Blob, name: string) => {
     if (!accepted.includes(file.type)) {
       toast.error("Only SVG, PNG, JPEG and WebP images can be references")
@@ -98,23 +110,33 @@ export function PixelPerfectPanel({
     )
   }
 
+  const imported = (v: ReferenceView) => {
+    pp.select(v.id)
+    setPicking(false)
+    if (v.components)
+      toast.success(`“${v.name}” imported`, {
+        description: `Hide live content such as a video placeholder on the Components tab (${v.components}).`,
+      })
+  }
+
   const onPaste = useEffectEvent((e: ClipboardEvent) => {
     if (e.target instanceof HTMLElement && e.target.closest("input, textarea, [contenteditable]")) return
     const file = Array.from(e.clipboardData?.files ?? []).find((f) => accepted.includes(f.type))
     const text = file ? "" : (e.clipboardData?.getData("text/plain") ?? "").trim()
     if (isFigmaLink(text)) {
       e.preventDefault()
-      const token = browserFigmaToken()
-      if (!refs.data?.figmaToken && !refs.data?.figmaSaved && !token) {
+      if (!hasToken) {
         setFigmaUrl(text)
+        setPicking(true)
         return
       }
       importFigma.mutate(
-        { url: text, format: "svg", pkg: session.package, token },
+        { url: text, format: "png", pkg: session.package, token: browserFigmaToken() },
         {
-          onSuccess: (v) => pp.select(v.id),
+          onSuccess: imported,
           onError: (err) => {
             setFigmaUrl(text)
+            setPicking(true)
             toast.error("Could not import from Figma", { description: err.message })
           },
         },
@@ -147,9 +169,26 @@ export function PixelPerfectPanel({
     )
   }
 
+  const library = (
+    <Library
+      pp={pp}
+      items={items}
+      selected={state.referenceId}
+      pkg={session.package}
+      busy={busy}
+      quota={refs.data}
+      hasToken={hasToken}
+      figmaUrl={figmaUrl}
+      onFigmaUrl={setFigmaUrl}
+      onAdd={() => input.current?.click()}
+      onPicked={() => setPicking(false)}
+      onImported={imported}
+    />
+  )
+
   return (
     <div
-      className={cn("@container relative h-full min-h-0 overflow-y-auto", dragging && "bg-primary/5")}
+      className={cn("@container relative flex h-full min-h-0 flex-col", dragging && "bg-primary/5")}
       onDragOver={(e) => {
         if (e.dataTransfer.types.includes("Files")) {
           e.preventDefault()
@@ -172,31 +211,44 @@ export function PixelPerfectPanel({
           e.target.value = ""
         }}
       />
-      <div className="grid gap-4 p-3 @3xl:grid-cols-[17rem_minmax(0,1fr)]">
-        <Library
-          pp={pp}
-          items={items}
-          selected={state.referenceId}
-          pkg={session.package}
-          uploading={upload.isPending || preparing > 0 || importFigma.isPending}
-          onAdd={() => input.current?.click()}
-          rules={refs.data}
-          figmaUrl={figmaUrl}
-          hasToken={!!(refs.data?.figmaToken || refs.data?.figmaSaved || browserFigmaToken())}
-          onFigmaUrl={setFigmaUrl}
-        />
-        <div className="grid min-w-0 content-start gap-4">
-          {state.error && (
-            <Alert variant="destructive">
-              <AlertDescription>{state.error}</AlertDescription>
-            </Alert>
-          )}
-          {ref ? (
-            <Controls pp={pp} reference={ref} session={session} />
-          ) : (
-            <Empty onAdd={() => input.current?.click()} hasItems={items.length > 0} />
-          )}
-        </div>
+      <Toolbar pp={pp} reference={ref} session={session}>
+        <Popover open={picking} onOpenChange={setPicking}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className="h-9 max-w-64 min-w-0 justify-start gap-2 px-2">
+              {ref ? <Thumb reference={ref} className="size-6" /> : <ImageIcon />}
+              <span className="truncate">{ref?.name ?? "Choose a reference"}</span>
+              {busy ? (
+                <Loader2Icon className="ml-auto animate-spin" />
+              ) : (
+                <ChevronsUpDownIcon className="ml-auto opacity-60" />
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-[22rem] p-0">
+            {library}
+          </PopoverContent>
+        </Popover>
+      </Toolbar>
+      {state.error && (
+        <Alert variant="destructive" className="m-3 mb-0 w-auto">
+          <AlertDescription>{state.error}</AlertDescription>
+        </Alert>
+      )}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {ref ? (
+          <ReferenceTabs pp={pp} reference={ref} session={session} />
+        ) : (
+          <div className="mx-auto grid max-w-md gap-4 p-6">
+            <div className="text-center">
+              <h3 className="font-medium">Lay a design over the screen</h3>
+              <p className="text-muted-foreground mt-1 text-sm">
+                Paste a Figma frame&apos;s link (Copy link to selection) or an image with ⌘V / Ctrl+V, drop a file here,
+                or pick one you added before.
+              </p>
+            </div>
+            <div className="rounded-xl border">{library}</div>
+          </div>
+        )}
       </div>
       {dragging && (
         <div className="border-primary bg-background/70 pointer-events-none absolute inset-2 grid place-items-center rounded-xl border-2 border-dashed text-sm font-medium">
@@ -207,29 +259,170 @@ export function PixelPerfectPanel({
   )
 }
 
-function Empty({ onAdd, hasItems }: { onAdd: () => void; hasItems: boolean }) {
+function Thumb({ reference: r, className }: { reference: ReferenceView; className?: string }) {
   return (
-    <div className="text-muted-foreground grid place-items-center gap-3 rounded-xl border border-dashed p-8 text-center text-sm">
-      <ImagePlusIcon className="size-8 opacity-60" />
-      <p className="max-w-sm">
-        {hasItems
-          ? "Pick a reference to lay it over the screen, or add another one."
-          : "Add a design mockup to lay it over the screen."}{" "}
-        Drop an image here, paste one copied from Figma (⌘V / Ctrl+V) or choose a file.
-      </p>
-      <p className="max-w-sm text-xs">
-        Or import a frame straight from Figma: paste its link (Copy link to selection). Its layers come with it, so each
-        difference names the layer and shows the sizes, colours and fonts the design asks for.
-      </p>
-      <p className="max-w-sm text-xs">
-        Tip: export frames from Figma as <strong>SVG</strong> (Export → SVG, or right-click → Copy as → Copy as SVG and
-        paste here). It stays sharp at any scale and lines up to the pixel; a PNG at 3× is the next best.
-      </p>
-      <Button size="sm" variant="outline" onClick={onAdd}>
-        <ImagePlusIcon />
-        Add image
-      </Button>
+    <span
+      className={cn(
+        "bg-muted grid shrink-0 place-items-center overflow-hidden rounded ring-1 ring-black/10",
+        className,
+      )}
+    >
+      {r.thumbnailUrl ? (
+        <img src={r.thumbnailUrl} alt="" loading="lazy" width={160} className="size-full object-cover object-top" />
+      ) : (
+        <ImageIcon className="text-muted-foreground size-4" />
+      )}
+    </span>
+  )
+}
+
+function Toolbar({
+  pp,
+  reference: r,
+  session,
+  children,
+}: {
+  pp: PixelPerfect
+  reference: ReferenceView | null
+  session: SessionView
+  children: React.ReactNode
+}) {
+  const state = usePixelState(pp)
+  return (
+    <div className="flex flex-wrap items-center gap-2 border-b p-2">
+      {children}
+      {r && (
+        <>
+          <div className="flex items-center gap-1">
+            <IconButton
+              label={state.visible ? "Hide the overlay" : "Show the overlay"}
+              onClick={() => pp.set({ visible: !state.visible })}
+              aria-pressed={!state.visible}
+            >
+              {state.visible ? <EyeIcon /> : <EyeOffIcon />}
+            </IconButton>
+            <Slider
+              className="w-20"
+              value={[Math.round(state.opacity * 100)]}
+              onValueChange={([v]) => pp.set({ opacity: (v ?? 50) / 100 })}
+              aria-label="Overlay opacity"
+              disabled={!state.visible}
+            />
+            <span className="text-muted-foreground w-9 text-right font-mono text-xs tabular-nums">
+              {Math.round(state.opacity * 100)}%
+            </span>
+          </div>
+          <Select value={state.blend} onValueChange={(v) => pp.set({ blend: v as Blend })}>
+            <SelectTrigger size="sm" aria-label="Blend" title={blends.find((b) => b.value === state.blend)?.hint}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {blends.map((b) => (
+                <SelectItem key={b.value} value={b.value}>
+                  <span className="grid">
+                    <span>{b.label}</span>
+                    <span className="text-muted-foreground text-xs">{b.hint}</span>
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="ml-auto flex items-center gap-1">
+            <Button
+              size="sm"
+              variant={state.frozen ? "secondary" : "ghost"}
+              disabled={state.freezing}
+              onClick={() => (state.frozen ? pp.unfreeze() : void pp.freeze())}
+              title="Keep the current picture of the screen to compare at leisure"
+            >
+              {state.freezing ? <Loader2Icon className="animate-spin" /> : <SnowflakeIcon />}
+              {state.frozen ? "Live" : "Freeze"}
+            </Button>
+            <SettingsMenu pp={pp} />
+            <Button
+              size="sm"
+              disabled={state.analyzing}
+              onClick={() => void pp.analyze(session.capabilities?.screen, true)}
+            >
+              {state.analyzing ? <Loader2Icon className="animate-spin" /> : <ScanSearchIcon />}
+              Find differences
+            </Button>
+          </div>
+        </>
+      )}
     </div>
+  )
+}
+
+const settings: { key: keyof Prefs; label: string; hint: string; reanalyze?: boolean }[] = [
+  { key: "showLayout", label: "Grid and guides on the screen", hint: "The work area, columns, rows and guides." },
+  { key: "showRegions", label: "Differences on the screen", hint: "Outlined and numbered over the device." },
+  {
+    key: "ignoreMotion",
+    label: "Skip what moves",
+    hint: "A few frames are compared first; video and animation under the interface don't count.",
+    reanalyze: true,
+  },
+  {
+    key: "views",
+    label: "Name differences by native views",
+    hint: "Reads the app's views with uiautomator; adds a second or two.",
+    reanalyze: true,
+  },
+  {
+    key: "devtools",
+    label: "Name differences by WebView elements",
+    hint: "Experimental: reads the page through its own DevTools connection.",
+    reanalyze: true,
+  },
+  {
+    key: "ignoreMedia",
+    label: "Skip video, canvas and frames in WebViews",
+    hint: "Their boxes come from DevTools, so a paused player is skipped too.",
+    reanalyze: true,
+  },
+  {
+    key: "skipHidden",
+    label: "Skip hidden components",
+    hint: "The place of a hidden Figma component doesn't count.",
+    reanalyze: true,
+  },
+]
+
+function SettingsMenu({ pp }: { pp: PixelPerfect }) {
+  const state = usePixelState(pp)
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button size="icon-sm" variant="ghost" aria-label="Comparison settings" title="Settings">
+          <Settings2Icon />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="grid w-80 gap-3">
+        {settings
+          .filter((s) => s.key !== "ignoreMedia" || state.devtools)
+          .map((s) => (
+            <div key={s.key} className="flex items-start gap-3">
+              <Switch
+                id={`pp-${s.key}`}
+                size="sm"
+                checked={!!state[s.key]}
+                onCheckedChange={(v) => {
+                  pp.set({ [s.key]: v })
+                  if (s.reanalyze && state.result) void pp.analyze()
+                }}
+              />
+              <Label htmlFor={`pp-${s.key}`} className="grid gap-0.5 font-normal">
+                <span className="text-sm">{s.label}</span>
+                <span className="text-muted-foreground text-xs">{s.hint}</span>
+              </Label>
+            </div>
+          ))}
+        <Link to="/pixel-perfect" className="text-muted-foreground text-xs underline">
+          Defaults, references and your Figma token
+        </Link>
+      </PopoverContent>
+    </Popover>
   )
 }
 
@@ -238,89 +431,99 @@ function Library({
   items,
   selected,
   pkg,
-  uploading,
-  onAdd,
-  rules,
-  figmaUrl,
+  busy,
+  quota,
   hasToken,
+  figmaUrl,
   onFigmaUrl,
+  onAdd,
+  onPicked,
+  onImported,
 }: {
   pp: PixelPerfect
   items: ReferenceView[]
   selected: string | null
   pkg: string
-  uploading: boolean
-  onAdd: () => void
-  rules?: { quota: number; used: number; maxAge: number }
-  figmaUrl: string | null
+  busy: boolean
+  quota?: { quota: number; used: number }
   hasToken: boolean
+  figmaUrl: string | null
   onFigmaUrl: (url: string | null) => void
+  onAdd: () => void
+  onPicked: () => void
+  onImported: (v: ReferenceView) => void
 }) {
-  const sorted = items.toSorted((a, b) => Number(b.package === pkg) - Number(a.package === pkg))
+  const [query, setQuery] = useState("")
+  const q = query.trim().toLowerCase()
+  const sorted = items
+    .filter((r) => !q || r.name.toLowerCase().includes(q))
+    .toSorted((a, b) => Number(b.package === pkg) - Number(a.package === pkg))
   return (
-    <section className="grid content-start gap-2">
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-medium">References</h3>
-        <div className="flex gap-1">
-          <Button
-            size="sm"
-            variant={figmaUrl !== null ? "secondary" : "outline"}
-            onClick={() => onFigmaUrl(figmaUrl === null ? "" : null)}
-            title="Import a frame from Figma"
-          >
-            <FrameIcon />
-            Figma
-          </Button>
-          <Button size="sm" variant="outline" onClick={onAdd} disabled={uploading}>
-            {uploading ? <Loader2Icon className="animate-spin" /> : <ImagePlusIcon />}
-            Add
-          </Button>
+    <div className="grid">
+      <div className="flex items-center gap-2 border-b p-2">
+        <div className="relative flex-1">
+          <SearchIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2" />
+          <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find" className="h-8 pl-7" />
         </div>
+        <Button
+          size="sm"
+          variant={figmaUrl !== null ? "secondary" : "outline"}
+          onClick={() => onFigmaUrl(figmaUrl === null ? "" : null)}
+        >
+          <FrameIcon />
+          Figma
+        </Button>
+        <Button size="sm" variant="outline" onClick={onAdd} disabled={busy}>
+          {busy ? <Loader2Icon className="animate-spin" /> : <ImagePlusIcon />}
+          Image
+        </Button>
       </div>
       {figmaUrl !== null && (
-        <FigmaImport
-          key={figmaUrl}
-          pkg={pkg}
-          hasToken={hasToken}
-          initialUrl={figmaUrl}
-          onDone={(v) => {
-            onFigmaUrl(null)
-            if (v) {
-              pp.select(v.id)
-              if (v.components)
-                toast.success(`“${v.name}” imported`, {
-                  description: `Hide live content such as a video placeholder under Components (${v.components}).`,
-                })
-            }
-          }}
-        />
-      )}
-      {sorted.length > 0 && (
-        <ul className="grid max-h-[50vh] gap-1 overflow-y-auto @3xl:max-h-none">
-          {sorted.map((r) => (
-            <ReferenceItem key={r.id} pp={pp} reference={r} active={r.id === selected} thisApp={r.package === pkg} />
-          ))}
-        </ul>
-      )}
-      {rules && (
-        <div className="text-muted-foreground grid gap-1.5 text-xs">
-          {rules.quota > 0 && (
-            <>
-              <Progress value={Math.min(100, (rules.used / rules.quota) * 100)} className="h-1" />
-              <span>
-                {formatBytes(rules.used)} of {formatBytes(rules.quota)}
-              </span>
-            </>
-          )}
-          {rules.maxAge > 0 && <span>Images unused for {formatSpan(rules.maxAge)} are deleted.</span>}
-          <span>Paste an image or a Figma link (⌘V / Ctrl+V), or drop an image here to add it.</span>
-          <span>From Figma, SVG is sharpest: Copy as SVG and paste, or export SVG.</span>
-          <Link to="/pixel-perfect" className="underline">
-            Manage references, your Figma token and defaults
-          </Link>
+        <div className="border-b p-2">
+          <FigmaImport
+            key={figmaUrl}
+            pkg={pkg}
+            hasToken={hasToken}
+            initialUrl={figmaUrl}
+            onDone={(v) => {
+              onFigmaUrl(null)
+              if (v) onImported(v)
+            }}
+          />
         </div>
       )}
-    </section>
+      {sorted.length > 0 ? (
+        <ul className="grid max-h-80 gap-0.5 overflow-y-auto p-1">
+          {sorted.map((r) => (
+            <ReferenceItem
+              key={r.id}
+              pp={pp}
+              reference={r}
+              active={r.id === selected}
+              thisApp={r.package === pkg}
+              onPicked={onPicked}
+            />
+          ))}
+        </ul>
+      ) : (
+        <p className="text-muted-foreground p-4 text-center text-sm">
+          {q ? "Nothing matches." : "No references yet: import a Figma frame or add an image."}
+        </p>
+      )}
+      <div className="text-muted-foreground flex items-center gap-2 border-t px-3 py-2 text-xs">
+        {quota && quota.quota > 0 && (
+          <>
+            <Progress value={Math.min(100, (quota.used / quota.quota) * 100)} className="h-1 w-16" />
+            <span>
+              {formatBytes(quota.used)} of {formatBytes(quota.quota)}
+            </span>
+          </>
+        )}
+        <Link to="/pixel-perfect" className="ml-auto underline">
+          Manage
+        </Link>
+      </div>
+    </div>
   )
 }
 
@@ -329,90 +532,47 @@ function ReferenceItem({
   reference: r,
   active,
   thisApp,
+  onPicked,
 }: {
   pp: PixelPerfect
   reference: ReferenceView
   active: boolean
   thisApp: boolean
+  onPicked: () => void
 }) {
-  const rename = useUpdateReference()
   const remove = useDeleteReference()
   const refresh = useRefreshFigma()
-  const [name, setName] = useState<string | null>(null)
-
-  const save = () => {
-    if (name === null) return
-    const next = name.trim()
-    setName(null)
-    if (!next || next === r.name) return
-    rename.mutate(
-      { ref: { ...r, ...pp.draft(r) }, name: next },
-      { onError: (e) => toast.error("Could not rename", { description: e.message }) },
-    )
-  }
-
   return (
     <li
       className={cn(
-        "group/item hover:bg-muted/60 flex items-center gap-2 rounded-lg p-1.5",
+        "group/item hover:bg-muted/70 flex items-center gap-2 rounded-md p-1.5",
         active && "bg-muted ring-primary/40 ring-1",
       )}
     >
       <button
         type="button"
-        className="bg-muted size-12 shrink-0 cursor-pointer overflow-hidden rounded-md ring-1 ring-black/10"
-        onClick={() => pp.select(active ? null : r.id)}
-        aria-label={active ? `Hide ${r.name}` : `Use ${r.name}`}
+        className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
+        onClick={() => {
+          pp.select(active ? null : r.id)
+          onPicked()
+        }}
       >
-        {r.thumbnailUrl ? (
-          <img src={r.thumbnailUrl} alt="" loading="lazy" width={160} className="size-full object-cover object-top" />
-        ) : (
-          <ImageIcon className="text-muted-foreground m-auto size-5" />
-        )}
-      </button>
-      <div className="grid min-w-0 flex-1">
-        {name !== null ? (
-          <Input
-            autoFocus
-            value={name}
-            maxLength={120}
-            className="h-7 text-sm"
-            onChange={(e) => setName(e.target.value)}
-            onBlur={save}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") save()
-              if (e.key === "Escape") setName(null)
-            }}
-          />
-        ) : (
-          <button
-            type="button"
-            className="cursor-pointer truncate text-left text-sm font-medium"
-            onClick={() => pp.select(active ? null : r.id)}
-            onDoubleClick={() => setName(r.name)}
-            title={r.name}
-          >
+        <Thumb reference={r} className="size-10" />
+        <span className="grid min-w-0">
+          <span className="truncate text-sm font-medium" title={r.name}>
             {r.name}
-          </button>
-        )}
-        <span className="text-muted-foreground truncate text-xs">
-          {r.width}×{r.height} · {formatBytes(r.size)}
-          {thisApp ? " · this app" : r.package ? ` · ${r.package}` : ""}
+          </span>
+          <span className="text-muted-foreground truncate text-xs">
+            {r.figma ? "Figma · " : ""}
+            {r.width}×{r.height}
+            {thisApp ? " · this app" : ""} · used {formatRelative(r.lastUsedAt)}
+          </span>
         </span>
-        <span className="text-muted-foreground truncate text-xs">
-          {r.figma
-            ? `Figma, ${r.layers} layers, synced ${formatRelative(r.figma.syncedAt)}`
-            : `Used ${formatRelative(r.lastUsedAt)}`}
-        </span>
-      </div>
-      <div className="flex shrink-0 flex-col opacity-0 transition-opacity group-hover/item:opacity-100 focus-within:opacity-100">
-        <IconButton label="Rename" className="size-6" onClick={() => setName(r.name)}>
-          <PencilIcon />
-        </IconButton>
+      </button>
+      <div className="flex shrink-0 opacity-0 transition-opacity group-hover/item:opacity-100 focus-within:opacity-100">
         {r.figma && (
           <IconButton
             label="Update from Figma"
-            className="size-6"
             disabled={refresh.isPending}
             onClick={() =>
               refresh.mutate(
@@ -429,7 +589,6 @@ function ReferenceItem({
         )}
         <IconButton
           label="Delete"
-          className="size-6"
           disabled={remove.isPending}
           onClick={() => {
             if (!window.confirm(`Delete the reference “${r.name}”?`)) return
@@ -444,65 +603,143 @@ function ReferenceItem({
   )
 }
 
-function NumberField({
-  label,
-  value,
-  onChange,
-  suffix,
-  step = 1,
+function ReferenceTabs({
+  pp,
+  reference: r,
+  session,
 }: {
-  label: string
-  value: number
-  onChange: (v: number) => void
-  suffix?: string
-  step?: number
+  pp: PixelPerfect
+  reference: ReferenceView
+  session: SessionView
 }) {
+  const state = usePixelState(pp)
+  const result = state.result?.referenceId === r.id ? state.result : null
+  const draft = pp.draft(r)
+  const skipped = draft.hidden.length + draft.ignore.length
   return (
-    <label className="grid gap-1 text-xs">
-      <span className="text-muted-foreground">{label}</span>
-      <div className="relative">
-        <Input
-          type="number"
-          step={step}
-          value={Number.isFinite(value) ? value : 0}
-          onChange={(e) => {
-            const v = e.target.valueAsNumber
-            if (Number.isFinite(v)) onChange(v)
-          }}
-          className="h-8 pr-7 font-mono text-sm tabular-nums"
-        />
-        {suffix && (
-          <span className="text-muted-foreground pointer-events-none absolute top-1/2 right-2 -translate-y-1/2">
-            {suffix}
-          </span>
-        )}
-      </div>
-    </label>
+    <Tabs value={state.tab} onValueChange={(v) => pp.set({ tab: v as Tab })} className="gap-0">
+      <TabsList variant="line" className="h-10 w-full justify-start gap-3 border-b px-3">
+        <TabsTrigger value="layout">Layout</TabsTrigger>
+        <TabsTrigger value="components">
+          {r.components ? "Components" : "Skip areas"}
+          {skipped > 0 && (
+            <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">
+              {skipped}
+            </Badge>
+          )}
+        </TabsTrigger>
+        <TabsTrigger value="compare">
+          Differences
+          {result && (
+            <Badge
+              variant={result.analysis.regions.length ? "destructive" : "secondary"}
+              className="h-4 px-1.5 text-[10px]"
+            >
+              {result.analysis.regions.length}
+            </Badge>
+          )}
+        </TabsTrigger>
+      </TabsList>
+      <TabsContent value="layout">
+        <LayoutTab pp={pp} reference={r} session={session} />
+      </TabsContent>
+      <TabsContent value="components">
+        <SkipTab pp={pp} reference={r} />
+      </TabsContent>
+      <TabsContent value="compare">
+        <DifferencesTab pp={pp} reference={r} session={session} result={result} />
+      </TabsContent>
+    </Tabs>
   )
 }
 
-function Section({ children }: { children: React.ReactNode }) {
-  return <section className="grid gap-3 rounded-xl border p-3">{children}</section>
-}
-
-function SectionHead({ title, children }: { title: string; children?: React.ReactNode }) {
+function SkipTab({ pp, reference: r }: { pp: PixelPerfect; reference: ReferenceView }) {
+  const state = usePixelState(pp)
+  const layers = useReferenceLayers(r)
+  const draft = pp.draft(r)
   return (
-    <div className="flex items-center justify-between gap-2">
-      <h4 className="text-sm font-medium">{title}</h4>
-      {children}
+    <div className="grid">
+      {r.components > 0 && (
+        <Block>
+          <BlockHead title="Components" />
+          {layers.data ? (
+            <ComponentsList
+              layers={layers.data}
+              hidden={draft.hidden}
+              onChange={(hidden) => pp.edit(r, { hidden })}
+              onHover={(id) => pp.hoverComponent(id)}
+            />
+          ) : (
+            <Loader2Icon className="text-muted-foreground size-4 animate-spin" />
+          )}
+          <p className="text-muted-foreground text-xs">
+            A hidden component is left out of the overlay
+            {state.skipHidden ? " and its place out of the comparison" : ""}; the frame is drawn again without it.
+          </p>
+        </Block>
+      )}
+      <Block>
+        <BlockHead title="Ignored areas">
+          <div className="flex gap-1">
+            <Button
+              size="sm"
+              variant={state.tool === "ignore" ? "secondary" : "ghost"}
+              onClick={() => pp.set({ tool: state.tool === "ignore" ? "none" : "ignore" })}
+            >
+              <SquareDashedIcon />
+              Draw
+            </Button>
+            {draft.ignore.length > 0 && (
+              <Button size="sm" variant="ghost" onClick={() => pp.edit(r, { ignore: [] })}>
+                Clear {draft.ignore.length}
+              </Button>
+            )}
+          </div>
+        </BlockHead>
+        <p className="text-muted-foreground text-xs">
+          Drag over the screen to always skip an area for this reference, such as a player or a map. They move with the
+          reference.
+        </p>
+      </Block>
     </div>
   )
 }
 
-function Controls({ pp, reference: r, session }: { pp: PixelPerfect; reference: ReferenceView; session: SessionView }) {
+function DifferencesTab({
+  pp,
+  reference: r,
+  session,
+  result,
+}: {
+  pp: PixelPerfect
+  reference: ReferenceView
+  session: SessionView
+  result: Result | null
+}) {
   const state = usePixelState(pp)
-  const draft = pp.draft(r)
-  const p = draft.placement
-  const result = state.result?.referenceId === r.id ? state.result : null
   const [exporting, setExporting] = useState(false)
 
+  if (!result) {
+    return (
+      <div className="text-muted-foreground grid place-items-center gap-3 p-8 text-center text-sm">
+        <ScanSearchIcon className="size-8 opacity-50" />
+        <p className="max-w-xs">
+          Line the reference up on the Layout tab, then press <strong>Find differences</strong>. Freeze the screen first
+          to compare something that is only there for a moment.
+        </p>
+        <Button
+          size="sm"
+          disabled={state.analyzing}
+          onClick={() => void pp.analyze(session.capabilities?.screen, true)}
+        >
+          {state.analyzing ? <Loader2Icon className="animate-spin" /> : <ScanSearchIcon />}
+          Find differences
+        </Button>
+      </div>
+    )
+  }
+
   const exportReport = async () => {
-    if (!result) return
     setExporting(true)
     try {
       const blob = await renderReport({
@@ -536,316 +773,63 @@ function Controls({ pp, reference: r, session }: { pp: PixelPerfect; reference: 
   }
 
   return (
-    <>
-      <div className="flex flex-wrap items-center gap-2">
-        <h3 className="min-w-0 flex-1 truncate font-medium" title={r.name}>
-          {r.name}
-        </h3>
-        <IconButton
-          label={state.visible ? "Hide the overlay" : "Show the overlay"}
-          onClick={() => pp.set({ visible: !state.visible })}
-          aria-pressed={!state.visible}
-        >
-          {state.visible ? <EyeIcon /> : <EyeOffIcon />}
-        </IconButton>
+    <div className="grid gap-3 p-3">
+      <div className="flex flex-wrap items-start gap-2">
+        <Summary result={result} devtools={state.devtools} views={state.views} />
         <Button
           size="sm"
-          variant={state.frozen ? "secondary" : "outline"}
-          disabled={state.freezing}
-          onClick={() => (state.frozen ? pp.unfreeze() : void pp.freeze())}
-        >
-          {state.freezing ? <Loader2Icon className="animate-spin" /> : <SnowflakeIcon />}
-          {state.frozen ? "Back to live" : "Freeze frame"}
-        </Button>
-        <Button size="sm" disabled={state.analyzing} onClick={() => void pp.analyze(session.capabilities?.screen)}>
-          {state.analyzing ? <Loader2Icon className="animate-spin" /> : <ScanSearchIcon />}
-          Find differences
-        </Button>
-      </div>
-
-      <Section>
-        <SectionHead title="Overlay" />
-        <div className="grid gap-2">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">Opacity</span>
-            <span className="font-mono tabular-nums">{Math.round(state.opacity * 100)}%</span>
-          </div>
-          <Slider
-            value={[Math.round(state.opacity * 100)]}
-            onValueChange={([v]) => pp.set({ opacity: (v ?? 50) / 100 })}
-            aria-label="Opacity"
-          />
-        </div>
-        <ToggleGroup
-          type="single"
           variant="outline"
-          size="sm"
-          value={state.blend}
-          onValueChange={(v) => v && pp.set({ blend: v as Blend })}
-          className="flex-wrap"
+          className="ml-auto"
+          disabled={exporting}
+          onClick={() => void exportReport()}
         >
-          {blends.map((b) => (
-            <ToggleGroupItem key={b.value} value={b.value} title={b.hint}>
-              {b.label}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
-      </Section>
-
-      <Section>
-        <SectionHead title="Position">
-          <div className="flex gap-1">
-            <Button
-              size="sm"
-              variant={state.tool === "move" ? "secondary" : "ghost"}
-              onClick={() => pp.set({ tool: state.tool === "move" ? "none" : "move" })}
-            >
-              <MoveIcon />
-              Move
-            </Button>
-            <IconButton
-              label="Back to the screen's width"
-              onClick={() => pp.edit(r, { placement: { x: 0, y: 0, scale: 1 } })}
-              disabled={p.x === 0 && p.y === 0 && p.scale === 1}
-            >
-              <RotateCcwIcon />
-            </IconButton>
-          </div>
-        </SectionHead>
-        <div className="grid grid-cols-3 gap-2">
-          <NumberField label="X" value={p.x} suffix="px" onChange={(x) => pp.edit(r, { placement: { ...p, x } })} />
-          <NumberField label="Y" value={p.y} suffix="px" onChange={(y) => pp.edit(r, { placement: { ...p, y } })} />
-          <NumberField
-            label="Scale"
-            value={Math.round(p.scale * 1000) / 10}
-            suffix="%"
-            step={0.5}
-            onChange={(v) => pp.edit(r, { placement: { ...p, scale: Math.min(2000, Math.max(5, v)) / 100 } })}
-          />
-        </div>
-        <p className="text-muted-foreground text-xs">
-          100% fits the image to the screen&apos;s width without going past its height. X and Y are in the image&apos;s
-          own pixels ({r.width}×{r.height}). With Move on, drag it or use the arrow keys (Shift for 10 px).
-        </p>
-      </Section>
-
-      {r.components > 0 && <ComponentsSection pp={pp} reference={r} />}
-
-      <Section>
-        <SectionHead title="Ignored areas">
-          <div className="flex gap-1">
-            <Button
-              size="sm"
-              variant={state.tool === "ignore" ? "secondary" : "ghost"}
-              onClick={() => pp.set({ tool: state.tool === "ignore" ? "none" : "ignore" })}
-            >
-              <SquareDashedIcon />
-              Draw
-            </Button>
-            {draft.ignore.length > 0 && (
-              <Button size="sm" variant="ghost" onClick={() => pp.edit(r, { ignore: [] })}>
-                Clear {draft.ignore.length}
-              </Button>
-            )}
-          </div>
-        </SectionHead>
-        <div className="flex items-start gap-3">
-          <Switch
-            id="pp-motion"
-            checked={state.ignoreMotion}
-            onCheckedChange={(v) => {
-              pp.set({ ignoreMotion: v })
-              if (state.result) void pp.analyze()
-            }}
-          />
-          <Label htmlFor="pp-motion" className="grid gap-0.5 font-normal">
-            <span className="text-sm">Skip what moves</span>
-            <span className="text-muted-foreground text-xs">
-              A few frames are compared first: video, animations and live content under the interface stay out of the
-              comparison, only the interface above them counts.
-            </span>
-          </Label>
-        </div>
-        <p className="text-muted-foreground text-xs">
-          Draw areas over the screen to always skip them for this reference, such as a player or a map.
-        </p>
-      </Section>
-
-      <Section>
-        <SectionHead title="Elements" />
-        <div className="flex items-start gap-3">
-          <Switch
-            id="pp-views"
-            checked={state.views}
-            onCheckedChange={(v) => {
-              pp.set({ views: v })
-              if (state.result) void pp.analyze()
-            }}
-          />
-          <Label htmlFor="pp-views" className="grid gap-0.5 font-normal">
-            <span className="text-sm">Native views</span>
-            <span className="text-muted-foreground text-xs">
-              Reads the app&apos;s views with uiautomator: differences name their view with its resource id, text and
-              size in dp. Adds a second or two; doesn&apos;t work while the screen keeps animating.
-            </span>
-          </Label>
-        </div>
-        <div className="flex items-start gap-3">
-          <Switch
-            id="pp-devtools"
-            checked={state.devtools}
-            onCheckedChange={(v) => {
-              pp.set({ devtools: v })
-              if (state.result) void pp.analyze()
-            }}
-          />
-          <Label htmlFor="pp-devtools" className="grid gap-0.5 font-normal">
-            <span className="flex items-center gap-2 text-sm">
-              Use DevTools for WebView pages <Badge variant="outline">Experimental</Badge>
-            </span>
-            <span className="text-muted-foreground text-xs">
-              Reads the page on the screen through its own DevTools connection: differences name their element with its
-              selector and styles, pointing at one highlights it on the device. Works where the DevTools tab does.
-            </span>
-          </Label>
-        </div>
-        {state.devtools && (
-          <div className="flex items-start gap-3">
-            <Switch
-              id="pp-media"
-              checked={state.ignoreMedia}
-              onCheckedChange={(v) => {
-                pp.set({ ignoreMedia: v })
-                if (state.result) void pp.analyze()
-              }}
-            />
-            <Label htmlFor="pp-media" className="grid gap-0.5 font-normal">
-              <span className="text-sm">Skip video, canvas and frames in WebViews</span>
-              <span className="text-muted-foreground text-xs">
-                Their boxes come from the page through DevTools, so a paused player is skipped too.
-              </span>
-            </Label>
-          </div>
-        )}
-      </Section>
-
-      {result && (
-        <Section>
-          <SectionHead title="Differences">
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-2 text-xs">
-                <Switch
-                  id="pp-regions"
-                  size="sm"
-                  checked={state.showRegions}
-                  onCheckedChange={(v) => pp.set({ showRegions: v })}
-                />
-                <Label htmlFor="pp-regions" className="text-xs font-normal">
-                  On the screen
-                </Label>
-              </div>
-              <Button size="sm" variant="outline" disabled={exporting} onClick={() => void exportReport()}>
-                {exporting ? <Loader2Icon className="animate-spin" /> : <DownloadIcon />}
-                Report
-              </Button>
-            </div>
-          </SectionHead>
-          <Summary result={result} devtools={state.devtools} views={state.views} />
-          <Compare pp={pp} result={result} hovered={state.hovered} />
-        </Section>
-      )}
-    </>
-  )
-}
-
-function ComponentsSection({ pp, reference: r }: { pp: PixelPerfect; reference: ReferenceView }) {
-  const state = usePixelState(pp)
-  const layers = useReferenceLayers(r)
-  const draft = pp.draft(r)
-  return (
-    <Section>
-      <SectionHead title="Components" />
-      {layers.data ? (
-        <ComponentsList
-          layers={layers.data}
-          hidden={draft.hidden}
-          onChange={(hidden) => pp.edit(r, { hidden })}
-          onHover={(id) => pp.hoverComponent(id)}
-        />
-      ) : (
-        <Loader2Icon className="text-muted-foreground size-4 animate-spin" />
-      )}
-      <div className="flex items-start gap-3">
-        <Switch
-          id="pp-skip-hidden"
-          checked={state.skipHidden}
-          onCheckedChange={(v) => {
-            pp.set({ skipHidden: v })
-            if (state.result) void pp.analyze()
-          }}
-        />
-        <Label htmlFor="pp-skip-hidden" className="grid gap-0.5 font-normal">
-          <span className="text-sm">Skip hidden components</span>
-          <span className="text-muted-foreground text-xs">
-            Leave their place out of the comparison, so the live video or map under a hidden placeholder doesn&apos;t
-            count as a difference.
-          </span>
-        </Label>
+          {exporting ? <Loader2Icon className="animate-spin" /> : <DownloadIcon />}
+          Report
+        </Button>
       </div>
-    </Section>
+      <Compare pp={pp} result={result} hovered={state.hovered} />
+    </div>
   )
 }
 
-function Summary({
-  result,
-  devtools,
-  views,
-}: {
-  result: NonNullable<ReturnType<PixelPerfect["get"]>["result"]>
-  devtools: boolean
-  views: boolean
-}) {
+function Summary({ result, devtools, views }: { result: Result; devtools: boolean; views: boolean }) {
   const a = result.analysis
   const pct = (a.match * 100).toFixed(a.match > 0.999 && a.match < 1 ? 2 : 1)
   const from = { screenshot: "a screenshot", frozen: "the frozen frame", stream: "the stream" }[result.source]
+  const notes = [
+    result.motion && "moving content skipped",
+    result.media.length > 0 &&
+      `${result.media.length} media ${result.media.length === 1 ? "element" : "elements"} skipped`,
+    devtools &&
+      (result.webview
+        ? `WebView “${result.webview.target.title || result.webview.target.url}”`
+        : "no inspectable WebView"),
+    views &&
+      (result.views.length
+        ? `${result.views.length} native views`
+        : `views unread${result.viewsError ? ` (${result.viewsError})` : ""}`),
+    result.layers.length > 0 && `${result.layers.length} Figma layers`,
+  ].filter(Boolean)
   return (
-    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-      <span className={cn("text-2xl font-semibold tabular-nums", a.regions.length ? "text-red-500" : "text-green-600")}>
-        {pct}%
-      </span>
-      <span className="text-sm">
-        {a.regions.length === 0
-          ? "No differences"
-          : a.regions.length === 1
-            ? "1 difference"
-            : `${a.regions.length} differences`}
-      </span>
+    <div className="grid min-w-0 gap-0.5">
+      <div className="flex items-baseline gap-2">
+        <span
+          className={cn("text-2xl font-semibold tabular-nums", a.regions.length ? "text-red-500" : "text-green-600")}
+        >
+          {pct}%
+        </span>
+        <span className="text-sm">
+          {a.regions.length === 0
+            ? "No differences"
+            : a.regions.length === 1
+              ? "1 difference"
+              : `${a.regions.length} differences`}
+        </span>
+      </div>
       <span className="text-muted-foreground text-xs">
-        compared with {from}
-        {result.motion ? ", moving content skipped" : ""}
-        {result.media.length
-          ? `, ${result.media.length} media ${result.media.length === 1 ? "element" : "elements"} skipped`
-          : ""}
+        Compared with {from}
+        {notes.length ? ` · ${notes.join(" · ")}` : ""}
       </span>
-      {devtools && (
-        <span className="text-muted-foreground basis-full text-xs">
-          {result.webview
-            ? `WebView found: ${result.webview.target.title || result.webview.target.url}; differences inside it name their elements, pointing at one highlights it on the device.`
-            : "No inspectable WebView found on the screen, so differences aren't tied to page elements."}
-        </span>
-      )}
-      {views && (
-        <span className="text-muted-foreground basis-full text-xs">
-          {result.views.length
-            ? `${result.views.length} native views read; pointing at a difference outlines its view on the screen.`
-            : `Native views couldn't be read${result.viewsError ? `: ${result.viewsError}` : ""}.`}
-        </span>
-      )}
-      {result.layers.length > 0 && (
-        <span className="text-muted-foreground basis-full text-xs">
-          {result.layers.length} Figma layers over the screen; differences name the layer the design has there.
-        </span>
-      )}
     </div>
   )
 }

@@ -3,7 +3,7 @@ import { type RefObject, useEffect, useMemo, useRef, useState } from "react"
 import type { ReferenceView } from "@/api/client"
 import { useReferenceLayers, useReferences } from "@/api/queries"
 import { PixelCanvas } from "@/components/session/pixel-perfect/mask-canvas"
-import { type PixelPerfect, type Result, usePixelState } from "@/components/session/pixel-perfect/state"
+import { type PixelPerfect, type Result, type Tool, usePixelState } from "@/components/session/pixel-perfect/state"
 import {
   type Box,
   fitScale,
@@ -15,6 +15,15 @@ import {
   spanBox,
 } from "@/lib/pixel-perfect/geometry"
 import { componentFraction } from "@/lib/pixel-perfect/compose"
+import {
+  areaBox,
+  baselineRows,
+  type Guide,
+  gridColumns,
+  guideAt,
+  guidePos,
+  snapOffset,
+} from "@/lib/pixel-perfect/layout"
 import { cn } from "@/lib/utils"
 
 const blendStyle = {
@@ -41,7 +50,10 @@ const motionColor: [number, number, number, number] = [56, 189, 248, 70]
 
 type Drag =
   | { kind: "move"; x: number; y: number; px: number; py: number; perPixel: number }
-  | { kind: "draw"; x: number; y: number; box: Box }
+  | { kind: "draw" | "area"; x: number; y: number; box: Box }
+  | { kind: "guide"; index: number | null; axis: Guide["axis"]; at: number; perPixel: number }
+
+const ruler = 18
 
 export function PixelOverlay({ pp, canvasRef }: { pp: PixelPerfect; canvasRef: RefObject<HTMLCanvasElement | null> }) {
   const state = usePixelState(pp)
@@ -70,7 +82,19 @@ export function PixelOverlay({ pp, canvasRef }: { pp: PixelPerfect; canvasRef: R
 
   const draft = pp.draft(ref)
   const image = { w: ref.width, h: ref.height }
-  const placed = placeReference(size, image, draft.placement)
+  const layout = draft.layout
+  const k = pp.pxPerDp(size)
+  const area = areaBox(layout.area, size, k)
+  const placed = placeReference(area, image, draft.placement)
+  const columns = gridColumns(layout.grid, area, k)
+  const guides = layout.guides.map((g) => ({ ...g, at: guideAt(g, area, k) }))
+  const snapX = [
+    area.x,
+    area.x + area.w,
+    ...columns.flatMap((c) => [c.x, c.x + c.w]),
+    ...guides.filter((g) => g.axis === "x").map((g) => g.at),
+  ]
+  const snapY = [area.y, area.y + area.h, ...guides.filter((g) => g.axis === "y").map((g) => g.at)]
   const toScreen = (e: React.PointerEvent) => {
     const r = layer.current?.getBoundingClientRect()
     if (!r) return { x: 0, y: 0, perPixel: 1 }
@@ -85,8 +109,19 @@ export function PixelOverlay({ pp, canvasRef }: { pp: PixelPerfect; canvasRef: R
     const p = toScreen(e)
     if (state.tool === "move") {
       setDrag({ kind: "move", x: p.x, y: p.y, px: draft.placement.x, py: draft.placement.y, perPixel: p.perPixel })
+    } else if (state.tool === "guides") {
+      const near = guides.findIndex((g) => Math.abs((g.axis === "x" ? p.x : p.y) - g.at) <= 6 * p.perPixel)
+      if (near >= 0) {
+        const g = guides[near]!
+        setDrag({ kind: "guide", index: near, axis: g.axis, at: g.at, perPixel: p.perPixel })
+      } else if (p.y <= ruler * p.perPixel) {
+        setDrag({ kind: "guide", index: null, axis: "y", at: p.y, perPixel: p.perPixel })
+      } else if (p.x <= ruler * p.perPixel) {
+        setDrag({ kind: "guide", index: null, axis: "x", at: p.x, perPixel: p.perPixel })
+      }
     } else {
-      setDrag({ kind: "draw", x: p.x, y: p.y, box: { x: p.x, y: p.y, w: 0, h: 0 } })
+      const kind = state.tool === "area" ? "area" : "draw"
+      setDrag({ kind, x: p.x, y: p.y, box: { x: p.x, y: p.y, w: 0, h: 0 } })
     }
   }
 
@@ -94,14 +129,20 @@ export function PixelOverlay({ pp, canvasRef }: { pp: PixelPerfect; canvasRef: R
     if (!drag) return
     const p = toScreen(e)
     if (drag.kind === "move") {
-      const k = fitScale(size, image) * draft.placement.scale
-      pp.edit(ref, {
-        placement: {
-          ...draft.placement,
-          x: Math.round(drag.px + (p.x - drag.x) / k),
-          y: Math.round(drag.py + (p.y - drag.y) / k),
-        },
-      })
+      const ki = fitScale(area, image) * draft.placement.scale
+      let x = drag.px + (p.x - drag.x) / ki
+      let y = drag.py + (p.y - drag.y) / ki
+      if (!e.altKey) {
+        const at = placeReference(area, image, { ...draft.placement, x, y })
+        const threshold = 6 * drag.perPixel
+        x += snapOffset([at.x, at.x + at.w / 2, at.x + at.w], snapX, threshold) / ki
+        y += snapOffset([at.y, at.y + at.h / 2, at.y + at.h], snapY, threshold) / ki
+      }
+      pp.edit(ref, { placement: { ...draft.placement, x: Math.round(x), y: Math.round(y) } })
+    } else if (drag.kind === "guide") {
+      const raw = drag.axis === "x" ? p.x : p.y
+      const at = e.altKey ? raw : raw + snapOffset([raw], drag.axis === "x" ? snapX : snapY, 6 * drag.perPixel)
+      setDrag({ ...drag, at })
     } else {
       setDrag({ ...drag, box: spanBox(drag.x, drag.y, p.x, p.y) })
     }
@@ -111,8 +152,27 @@ export function PixelOverlay({ pp, canvasRef }: { pp: PixelPerfect; canvasRef: R
     if (!drag) return
     e.currentTarget.releasePointerCapture(e.pointerId)
     if (drag.kind === "draw" && drag.box.w > 4 && drag.box.h > 4) {
-      const area = onReference(placed, drag.box)
-      if (area) pp.edit(ref, { ignore: [...draft.ignore, area] })
+      const skip = onReference(placed, drag.box)
+      if (skip) pp.edit(ref, { ignore: [...draft.ignore, skip] })
+    }
+    if (drag.kind === "area" && drag.box.w > 8 && drag.box.h > 8) {
+      const b = drag.box
+      pp.editLayout(ref, {
+        area: {
+          ...layout.area,
+          kind: "box",
+          box: { x: b.x / size.w, y: b.y / size.h, w: b.w / size.w, h: b.h / size.h },
+        },
+      })
+      pp.set({ tool: "none" })
+    }
+    if (drag.kind === "guide") {
+      const gone =
+        drag.at < (drag.axis === "x" ? area.x : area.y) - 4 * drag.perPixel ||
+        drag.at > (drag.axis === "x" ? area.x + area.w : area.y + area.h) + 4 * drag.perPixel
+      const next = layout.guides.filter((_, i) => i !== drag.index)
+      if (!gone) next.push({ axis: drag.axis, pos: guidePos(drag.axis, drag.at, area, k) })
+      pp.editLayout(ref, { guides: next })
     }
     setDrag(null)
   }
@@ -149,6 +209,21 @@ export function PixelOverlay({ pp, canvasRef }: { pp: PixelPerfect; canvasRef: R
           style={{ ...percentBox(placed, size), opacity: state.opacity, ...blendStyle[state.blend] }}
         />
       )}
+      {state.showLayout && (
+        <LayoutLayer
+          size={size}
+          area={area}
+          dim={state.tool === "area" || layout.area.kind !== "screen"}
+          columns={columns}
+          rows={baselineRows(layout.grid, area, k)}
+          guides={guides.filter((_, i) => drag?.kind !== "guide" || drag.index !== i)}
+          k={k}
+        />
+      )}
+      {drag?.kind === "guide" && (
+        <GuideLine size={size} axis={drag.axis} at={drag.at} label={`${guidePos(drag.axis, drag.at, area, k)} dp`} />
+      )}
+      {state.tool === "guides" && <Rulers size={size} area={area} k={k} />}
       {result && state.showRegions && motion && (
         <PixelCanvas mask={motion} color={motionColor} className="pointer-events-none absolute inset-0 size-full" />
       )}
@@ -227,12 +302,10 @@ export function PixelOverlay({ pp, canvasRef }: { pp: PixelPerfect; canvasRef: R
           ref={layer}
           tabIndex={0}
           role="application"
-          aria-label={
-            state.tool === "move" ? "Drag the reference; arrow keys move it by a pixel" : "Draw an area to ignore"
-          }
+          aria-label={toolLabel[state.tool]}
           className={cn(
             "absolute inset-0 touch-none outline-none",
-            state.tool === "move" ? "cursor-move" : "cursor-crosshair",
+            state.tool === "move" ? "cursor-move" : state.tool === "guides" ? "cursor-default" : "cursor-crosshair",
           )}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
@@ -240,9 +313,12 @@ export function PixelOverlay({ pp, canvasRef }: { pp: PixelPerfect; canvasRef: R
           onPointerCancel={onPointerUp}
           onKeyDown={onKeyDown}
         >
-          {drag?.kind === "draw" && (
+          {(drag?.kind === "draw" || drag?.kind === "area") && (
             <div
-              className="pointer-events-none absolute border border-sky-400 bg-sky-400/20"
+              className={cn(
+                "pointer-events-none absolute border",
+                drag.kind === "area" ? "border-amber-400 bg-amber-400/10" : "border-sky-400 bg-sky-400/20",
+              )}
               style={percentBox(drag.box, size)}
             />
           )}
@@ -284,15 +360,167 @@ function HoveredMatch({ result, index }: { result: Result; index: number }) {
   )
 }
 
-function ToolHint({ reference, tool, onDone }: { reference: ReferenceView; tool: string; onDone: () => void }) {
+const toolLabel: Record<Tool, string> = {
+  none: "",
+  move: "Drag the reference; arrow keys move it by a pixel",
+  ignore: "Draw an area to ignore",
+  area: "Draw the work area",
+  guides: "Drag from a ruler to add a guide; drag a guide out of the area to remove it",
+}
+
+function LayoutLayer({
+  size,
+  area,
+  dim,
+  columns,
+  rows,
+  guides,
+  k,
+}: {
+  size: Size
+  area: Box
+  dim: boolean
+  columns: Box[]
+  rows: number[]
+  guides: (Guide & { at: number })[]
+  k: number
+}) {
+  return (
+    <svg
+      className="pointer-events-none absolute inset-0 size-full"
+      viewBox={`0 0 ${size.w} ${size.h}`}
+      preserveAspectRatio="none"
+      aria-hidden
+    >
+      {dim && (
+        <path
+          d={`M0 0H${size.w}V${size.h}H0Z M${area.x} ${area.y}V${area.y + area.h}H${area.x + area.w}V${area.y}Z`}
+          fill="rgb(0 0 0 / 0.35)"
+          fillRule="evenodd"
+        />
+      )}
+      {columns.map((c) => (
+        <rect key={c.x} x={c.x} y={c.y} width={c.w} height={c.h} fill="rgb(244 63 94 / 0.1)" />
+      ))}
+      {rows.map((y) => (
+        <line
+          key={y}
+          x1={area.x}
+          x2={area.x + area.w}
+          y1={y}
+          y2={y}
+          stroke="rgb(34 211 238 / 0.25)"
+          strokeWidth={Math.max(1, k * 0.5)}
+        />
+      ))}
+      {dim && (
+        <rect
+          x={area.x}
+          y={area.y}
+          width={area.w}
+          height={area.h}
+          fill="none"
+          stroke="rgb(251 191 36)"
+          strokeDasharray={`${6 * k} ${4 * k}`}
+          strokeWidth={Math.max(1, k)}
+        />
+      )}
+      {guides.map((g) => (
+        <line
+          key={`${g.axis}${g.pos}`}
+          x1={g.axis === "x" ? g.at : 0}
+          x2={g.axis === "x" ? g.at : size.w}
+          y1={g.axis === "y" ? g.at : 0}
+          y2={g.axis === "y" ? g.at : size.h}
+          stroke="rgb(217 70 239)"
+          strokeWidth={Math.max(1, k * 0.75)}
+        />
+      ))}
+    </svg>
+  )
+}
+
+function GuideLine({ size, axis, at, label }: { size: Size; axis: Guide["axis"]; at: number; label: string }) {
+  const style =
+    axis === "x"
+      ? { left: `${(at / size.w) * 100}%`, top: 0, bottom: 0, width: 1 }
+      : { top: `${(at / size.h) * 100}%`, left: 0, right: 0, height: 1 }
+  return (
+    <div className="pointer-events-none absolute bg-fuchsia-500" style={style}>
+      <span className="absolute top-5 left-1 rounded-sm bg-fuchsia-600 px-1 font-mono text-[10px] leading-4 whitespace-nowrap text-white">
+        {label}
+      </span>
+    </div>
+  )
+}
+
+/** dp rulers along the top and left edges, counted from the work area's corner. */
+function Rulers({ size, area, k }: { size: Size; area: Box; k: number }) {
+  const step = k * 8 >= 6 ? 8 : 16
+  const ticks = (from: number, length: number, origin: number) => {
+    const out: { at: number; dp: number }[] = []
+    const first = Math.ceil((from - origin) / k / step) * step
+    for (let dp = first; origin + dp * k <= from + length && out.length < 600; dp += step)
+      out.push({ at: origin + dp * k, dp })
+    return out
+  }
+  return (
+    <>
+      <svg
+        className="pointer-events-none absolute inset-x-0 top-0 w-full bg-neutral-900/75"
+        style={{ height: ruler }}
+        viewBox={`0 0 ${size.w} ${ruler}`}
+        preserveAspectRatio="none"
+        aria-hidden
+      >
+        {ticks(0, size.w, area.x).map((t) => (
+          <line
+            key={t.at}
+            x1={t.at}
+            x2={t.at}
+            y1={t.dp % (step * 5) === 0 ? 4 : 12}
+            y2={ruler}
+            stroke="white"
+            strokeOpacity={0.6}
+          />
+        ))}
+      </svg>
+      <svg
+        className="pointer-events-none absolute inset-y-0 left-0 h-full bg-neutral-900/75"
+        style={{ width: ruler }}
+        viewBox={`0 0 ${ruler} ${size.h}`}
+        preserveAspectRatio="none"
+        aria-hidden
+      >
+        {ticks(0, size.h, area.y).map((t) => (
+          <line
+            key={t.at}
+            y1={t.at}
+            y2={t.at}
+            x1={t.dp % (step * 5) === 0 ? 4 : 12}
+            x2={ruler}
+            stroke="white"
+            strokeOpacity={0.6}
+          />
+        ))}
+      </svg>
+    </>
+  )
+}
+
+function ToolHint({ reference, tool, onDone }: { reference: ReferenceView; tool: Tool; onDone: () => void }) {
   if (tool === "none") return null
   return (
     <div className="absolute inset-x-0 bottom-3 z-10 flex justify-center px-3">
       <div className="flex max-w-full items-center gap-2 rounded-full bg-neutral-900/80 py-1 pr-1 pl-3 text-xs text-white shadow-lg backdrop-blur">
         <span className="truncate">
           {tool === "move"
-            ? `Moving “${reference.name}”: drag, or arrows (Shift for 10 px)`
-            : "Drag over what the comparison should skip"}
+            ? `Moving “${reference.name}”: drag (Alt: no snapping), or arrows (Shift for 10 px)`
+            : tool === "area"
+              ? "Drag the work area over the screen"
+              : tool === "guides"
+                ? "Drag from a ruler to add a guide; drag one off the area to remove it"
+                : "Drag over what the comparison should skip"}
         </span>
         <button
           type="button"
