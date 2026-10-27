@@ -21,8 +21,8 @@ A save is taken when:
 
 - you press **Stop**, or the session is stopped for being idle or reaching
   its maximum lifetime, and **Save app data when the session ends** was
-  ticked when it was launched. It is off by default. The launch dialog
-  remembers the box in your browser and applies it to every launch from
+  on when it was launched. It is off by default. The launch dialog
+  remembers the switch in your browser and applies it to every launch from
   then on, quick launch and launch links included;
 - you press **Save app data now** next to the app's name in the session
   header. The app is stopped while it is copied and started again.

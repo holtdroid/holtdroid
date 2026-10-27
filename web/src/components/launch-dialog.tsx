@@ -422,13 +422,13 @@ function LaunchFlow({
                     </Label>
                   </div>
                 )}
-                <div className="flex items-center gap-2">
-                  <Checkbox
+                <div className="flex items-center gap-2.5">
+                  <Switch
                     id="launch-save-data"
                     checked={saveData}
                     onCheckedChange={(v) => {
-                      setSaveData(v === true)
-                      rememberSaveAppData(v === true)
+                      setSaveData(v)
+                      rememberSaveAppData(v)
                     }}
                   />
                   <Label htmlFor="launch-save-data" className="font-normal">
