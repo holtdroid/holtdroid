@@ -106,6 +106,8 @@ export type PixelState = {
   loupe: Pixels | null
   /** A work area being considered, as fractions of the screen, outlined until it is picked. */
   preview: Box | null
+  /** The Pixel perfect tab is open; nothing is drawn over the screen otherwise. */
+  shown: boolean
   frozen: Frozen | null
   freezing: boolean
   analyzing: boolean
@@ -199,6 +201,7 @@ export class PixelPerfect {
       hoveredComponent: null,
       loupe: null,
       preview: null,
+      shown: false,
       frozen: null,
       freezing: false,
       analyzing: false,

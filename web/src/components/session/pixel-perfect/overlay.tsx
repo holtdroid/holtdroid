@@ -73,7 +73,7 @@ export function PixelOverlay({ pp, canvasRef }: { pp: PixelPerfect; canvasRef: R
     [result],
   )
 
-  if (!size || (!ref && !state.frozen)) return null
+  if (!size || !state.shown || (!ref && !state.frozen)) return null
 
   const frozen = state.frozen && (
     <>

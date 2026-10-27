@@ -159,6 +159,11 @@ that hides the overlay, its opacity and blend, **Freeze**, the settings and
 When the panel is wide (DevTools stretched across the window), the three are
 shown side by side as columns instead of tabs.
 
+Nothing of Pixel perfect is drawn over the screen while another tool tab
+(DevTools, Logcat, …) is open: the reference, a frozen frame, the
+differences, the work area, the grid and the guides come back as they were
+when you return to the tab.
+
 ## Over the screen
 
 Picking a reference lays it over the device screen. By default it fills the

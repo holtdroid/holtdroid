@@ -149,6 +149,9 @@ export function PixelPerfectPanel({
     void add(file ?? (svg as Blob), `Pasted ${new Date().toLocaleString()}`)
   })
   useEffect(() => {
+    if (pp.get().shown !== active) pp.set({ shown: active })
+  }, [pp, active])
+  useEffect(() => {
     if (!active) return undefined
     const listener = (e: ClipboardEvent) => onPaste(e)
     document.addEventListener("paste", listener)
