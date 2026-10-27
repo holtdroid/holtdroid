@@ -21,6 +21,7 @@ import { SessionStateBadge } from "@/components/session-state-badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useActivityHeartbeat } from "@/hooks/use-activity-heartbeat"
+import { useDocumentTitle } from "@/hooks/use-document-title"
 import { useEventSource } from "@/hooks/use-event-source"
 import { useNow } from "@/hooks/use-now"
 import { formatDuration } from "@/lib/format"
@@ -34,6 +35,7 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
   const navigate = useNavigate()
   const now = useNow()
   const registerFrame = useActivityHeartbeat(provider, id)
+  useDocumentTitle(session ? session.label || session.package : undefined)
   const [status, setStatus] = useState<StatusEvent | null>(null)
   const [wasReady, setWasReady] = useState(false)
   const [tab, setTab] = useState("devtools")

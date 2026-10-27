@@ -36,6 +36,9 @@ reason stays visible on the home page.
 
 ## The app inside a session
 
+The browser tab of a session page is titled with the app's name, so several
+open sessions are easy to tell apart.
+
 When the app is closed or crashes it stays closed: the device stays `ready`
 and the play button next to the app's name in the session header starts it
 again; restart, reinstall and **Save app data now** sit next to it. Starting
