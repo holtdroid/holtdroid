@@ -163,6 +163,13 @@ reusable link with the _waiting for approval_ role is an open sign-up page
 whose newcomers you approve by hand. Each link stays in the list with a copy
 button until it expires or is used up; revoke it there when it leaks.
 
+**Creating users.** Instead of an invite, an admin can add someone directly
+with **New user** on the Users page: name, email and role. The account starts
+without a passkey, and the dialog shows a single-use link, valid for an hour
+to 30 days (a week by default), that you send them; opening it registers their
+first passkey and signs them in. It is a recovery link, so a lost one is
+replaced from the user's page.
+
 **Domains.** `allowedDomains` and an invite's domains check the email's
 domain when someone signs up, but nothing sends mail to verify the address:
 treat the check as a guard against typos and the wrong people using a shared

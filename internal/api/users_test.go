@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/descope/virtualwebauthn"
 
@@ -173,6 +174,23 @@ func TestUsersMode(t *testing.T) {
 	newBob.expect(newBob.do(http.MethodDelete, "/api/v1/account/passkeys/"+acct.Passkeys[0].ID, nil), http.StatusOK)
 	newBob.expect(newBob.do(http.MethodDelete, "/api/v1/account/passkeys/"+acct.Passkeys[1].ID, nil), http.StatusConflict)
 	bob.expect(bob.signIn(), http.StatusUnauthorized)
+
+	admin.expect(admin.do(http.MethodPost, "/api/v1/admin/users", map[string]any{"name": "Dan", "email": "ada@example.com", "role": "user"}), http.StatusConflict)
+	made := decode[UserCreated](t, admin.do(http.MethodPost, "/api/v1/admin/users", map[string]any{"name": "Dan", "email": "Dan@example.com", "role": "user"}))
+	if made.User.Email != "dan@example.com" || len(made.User.Passkeys) != 0 || made.Link.ExpiresAt.Sub(h.clock.Now()) != 7*24*time.Hour {
+		t.Fatalf("created = %+v", made)
+	}
+	dt := "/api/v1/auth/invites/" + token(made.Link.Link)
+	dan := h.browser()
+	if info := decode[users.InviteInfo](t, dan.do(http.MethodGet, dt, nil)); info.Kind != users.KindRecovery || !info.Setup || info.Name != "Dan" {
+		t.Fatalf("setup info = %+v", info)
+	}
+	rec = dan.register(dt+"/begin", dt+"/finish", map[string]string{})
+	dan.expect(rec, http.StatusOK)
+	if st := decode[AuthStatus](t, rec); st.Identity == nil || st.Identity.User != made.User.ID || st.Identity.Pending {
+		t.Fatalf("dan after setup: %+v", st.Identity)
+	}
+	dan.expect(dan.do(http.MethodGet, "/api/v1/sessions", nil), http.StatusOK)
 
 	me := decode[auth.Identity](t, admin.do(http.MethodGet, "/api/v1/me", nil))
 	admin.expect(admin.do(http.MethodPut, "/api/v1/admin/users/"+me.User, map[string]any{

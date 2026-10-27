@@ -282,7 +282,8 @@ export interface paths {
         /** @description Everyone in the users mode's directory, people waiting for approval first. Admins only. */
         get: operations["listUsers"];
         put?: never;
-        post?: never;
+        /** @description Add a user without a passkey and return a single-use link with which they register one. */
+        post: operations["createUser"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1700,6 +1701,18 @@ export interface components {
             /** @description a build from GET /api/v1/webviews to install over the built-in WebView; only providers with the webview capability take it */
             webview?: string;
         };
+        CreateUserRequest: {
+            email: string;
+            name: string;
+            /** @enum {string} */
+            role: "admin" | "user" | "";
+            /**
+             * Format: int64
+             * @description seconds the link lasts
+             * @default 604800
+             */
+            ttl: number;
+        };
         CredentialBody: {
             /** @description the PublicKeyCredential from the browser, as JSON */
             credential: unknown;
@@ -2605,6 +2618,8 @@ export interface components {
             name?: string;
             /** @enum {string} */
             role: "admin" | "user" | "";
+            /** @description the recovery link's user has no passkey yet, e.g. an account an admin created */
+            setup?: boolean;
         };
         Item: {
             /** @enum {string} */
@@ -3514,6 +3529,11 @@ export interface components {
              */
             temporaryTtl: number;
         };
+        UserCreated: {
+            /** @description a recovery link with which the user registers their first passkey */
+            link: components["schemas"]["RecoveryLink"];
+            user: components["schemas"]["UserDetail"];
+        };
         UserDetail: {
             /** Format: date-time */
             createdAt: string;
@@ -4219,6 +4239,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserList"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    createUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateUserRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserCreated"];
                 };
             };
             /** @description Error */

@@ -148,6 +148,18 @@ function useUserMutation<T>(fn: (input: T) => Promise<UserDetail | undefined>) {
   })
 }
 
+export function useCreateUser() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: { name: string; email: string; role: Role; ttl: number }) =>
+      unwrap(api.POST("/api/v1/admin/users", { body })),
+    onSuccess: (created) => {
+      qc.setQueryData(userKeys.user(created.user.id), created.user)
+      void qc.invalidateQueries({ queryKey: userKeys.users })
+    },
+  })
+}
+
 export function useUpdateUser() {
   return useUserMutation((input: { id: string; name: string; email: string; role: Role; limits: Overrides }) =>
     unwrap(

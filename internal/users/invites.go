@@ -31,6 +31,7 @@ type InviteInfo struct {
 	Domains []string `json:"domains" doc:"allowed email domains, from the server and the invite"`
 	Name    string   `json:"name,omitempty" doc:"the user a recovery link is for"`
 	Email   string   `json:"email,omitempty"`
+	Setup   bool     `json:"setup,omitempty" doc:"the recovery link's user has no passkey yet, e.g. an account an admin created"`
 }
 
 type NewInvite struct {
@@ -161,6 +162,11 @@ func (s *Service) InviteInfo(ctx context.Context, token string) (InviteInfo, err
 			return InviteInfo{}, ErrExpired
 		}
 		info.Name, info.Email = u.Name, u.Email
+		n, err := s.db.CountPasskeys(ctx, u.ID)
+		if err != nil {
+			return InviteInfo{}, err
+		}
+		info.Setup = n == 0
 	}
 	return info, nil
 }

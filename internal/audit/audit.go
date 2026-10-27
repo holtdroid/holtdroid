@@ -61,6 +61,7 @@ const (
 	ReferenceDelete  Action = "reference.delete"
 	Maintenance      Action = "provider.maintenance"
 	UserSignUp       Action = "user.signup"
+	UserCreate       Action = "user.create"
 	UserUpdate       Action = "user.update"
 	UserDelete       Action = "user.delete"
 	UserRecovery     Action = "user.recovery"
@@ -75,7 +76,7 @@ const (
 var Actions = []Action{
 	SignIn, SignOut, SessionLaunch, SessionStop, SessionReap, SessionExtend, SessionInstall, SessionLocation,
 	SessionClipboard, ArtifactUpload, ArtifactUpdate, ArtifactDelete, ArtifactDownload, SSHEnroll, SSHConnect, SSHDisconnect, SSHTunnel,
-	ADBConnect, ADBDisconnect, AuditExport, Maintenance, UserSignUp, UserUpdate, UserDelete, UserRecovery, InviteCreate, InviteDelete,
+	ADBConnect, ADBDisconnect, AuditExport, Maintenance, UserSignUp, UserCreate, UserUpdate, UserDelete, UserRecovery, InviteCreate, InviteDelete,
 	PasskeyAdd, PasskeyDelete, AppUpdate,
 }
 

@@ -10,6 +10,7 @@ import {
   type UserDetail,
   type UserView,
   useCreateInvite,
+  useCreateUser,
   useDeleteInvite,
   useDeleteUser,
   useDeleteUserPasskey,
@@ -61,7 +62,8 @@ export function UsersPage() {
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Users</h1>
           <p className="text-muted-foreground text-sm">
-            People sign up with an invite link and sign in with passkeys.
+            People sign up with an invite link, or you create their account and send them a link to register a passkey.
+            They sign in with passkeys.
             {list.data && list.data.allowedDomains.length > 0 && (
               <> Only addresses at {list.data.allowedDomains.join(", ")} may sign up.</>
             )}
@@ -79,7 +81,13 @@ export function UsersPage() {
             </TabsTrigger>
             <TabsTrigger value="invites">Invite links</TabsTrigger>
           </TabsList>
-          <TabsContent value="users" className="mt-3">
+          <TabsContent value="users" className="mt-3 grid gap-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-muted-foreground text-sm">
+                A new user gets a single-use link to register their first passkey.
+              </p>
+              <NewUser onOpen={setSelected} />
+            </div>
             {list.isPending ? (
               <Skeleton className="h-60 rounded-xl" />
             ) : (
@@ -340,6 +348,7 @@ const ttlOptions = [
   { value: "3600", label: "1 hour" },
   { value: "86400", label: "1 day" },
   { value: "604800", label: "7 days" },
+  { value: "2592000", label: "30 days" },
 ]
 
 function RecoverySection({ id }: { id: string }) {
@@ -351,7 +360,7 @@ function RecoverySection({ id }: { id: string }) {
         <LifeBuoyIcon className="size-4" />
         <span className="flex-1 text-sm">Recovery link to register a new passkey</span>
         <Select value={ttl} onValueChange={setTtl}>
-          <SelectTrigger size="sm" className="w-28">
+          <SelectTrigger size="sm" className="w-30">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -616,6 +625,125 @@ function NewInvite() {
               <Button key="create" type="submit" form="new-invite" disabled={create.isPending}>
                 <UserPlusIcon />
                 Create link
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
+
+function NewUser({ onOpen }: { onOpen: (id: string) => void }) {
+  const create = useCreateUser()
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState("")
+  const [email, setEmail] = useState("")
+  const [role, setRole] = useState<Role>("user")
+  const [ttl, setTtl] = useState("604800")
+
+  const start = () => {
+    create.reset()
+    setName("")
+    setEmail("")
+    setOpen(true)
+  }
+  const submit = (e: FormEvent) => {
+    e.preventDefault()
+    create.mutate({ name, email, role, ttl: Number(ttl) })
+  }
+
+  return (
+    <>
+      <Button size="sm" onClick={start}>
+        <UserPlusIcon />
+        New user
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="grid-cols-[minmax(0,1fr)]">
+          <DialogHeader>
+            <DialogTitle>{create.data ? `${create.data.user.name} is added` : "New user"}</DialogTitle>
+            <DialogDescription>
+              {create.data
+                ? "Send them this link: it registers their first passkey and signs them in."
+                : "The account has no passkey until they open the link you send them."}
+            </DialogDescription>
+          </DialogHeader>
+          {create.data ? (
+            <LinkBox
+              link={create.data.link.link}
+              note={`Single use, expires ${new Date(create.data.link.expiresAt).toLocaleString()}. It is shown only now; make a new one from the user's page if it gets lost.`}
+            />
+          ) : (
+            <form id="new-user" onSubmit={submit} className="grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="new-user-name">Name</Label>
+                <Input id="new-user-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={100} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="new-user-email">Email</Label>
+                <Input id="new-user-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="grid gap-2">
+                  <Label>Role</Label>
+                  <Select value={toSelect(role)} onValueChange={(v) => setRole(fromSelect(v))}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="user">User</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value={PENDING}>Waiting for approval</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Link expires in</Label>
+                  <Select value={ttl} onValueChange={setTtl}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ttlOptions.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              {create.isError && <p className="text-destructive text-sm">{create.error.message}</p>}
+            </form>
+          )}
+          <DialogFooter>
+            {create.data ? (
+              <>
+                <Button
+                  key="open"
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setOpen(false)
+                    if (create.data) onOpen(create.data.user.id)
+                  }}
+                >
+                  Set limits
+                </Button>
+                <Button key="done" type="button" onClick={() => setOpen(false)}>
+                  Done
+                </Button>
+              </>
+            ) : (
+              <Button
+                key="create"
+                type="submit"
+                form="new-user"
+                disabled={create.isPending || name.trim() === "" || !email.includes("@")}
+              >
+                <UserPlusIcon />
+                Create user
               </Button>
             )}
           </DialogFooter>

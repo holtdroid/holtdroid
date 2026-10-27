@@ -52,15 +52,19 @@ function RegisterForm({ token, info }: { token: string; info: InviteInfo }) {
   return (
     <form onSubmit={submit} className="grid gap-4">
       <div className="grid gap-1">
-        <h2 className="font-medium">{recovery ? "Register a new passkey" : "Create your account"}</h2>
+        <h2 className="font-medium">
+          {info.setup ? "Set up your account" : recovery ? "Register a new passkey" : "Create your account"}
+        </h2>
         <p className="text-muted-foreground text-sm">
-          {recovery
-            ? `For ${info.name} (${info.email}). Your other passkeys keep working.`
-            : info.kind === "bootstrap"
-              ? "You are setting up the first admin of this server."
-              : info.role === ""
-                ? "An admin approves new accounts before they can launch devices."
-                : `You'll join as ${roleLabel[info.role].toLowerCase()}.`}{" "}
+          {info.setup
+            ? `An admin created an account for ${info.name} (${info.email}). Register a passkey to sign in.`
+            : recovery
+              ? `For ${info.name} (${info.email}). Your other passkeys keep working.`
+              : info.kind === "bootstrap"
+                ? "You are setting up the first admin of this server."
+                : info.role === ""
+                  ? "An admin approves new accounts before they can launch devices."
+                  : `You'll join as ${roleLabel[info.role].toLowerCase()}.`}{" "}
           You sign in with a passkey: Touch ID, Face ID, Windows Hello, a security key or your password manager.
         </p>
       </div>

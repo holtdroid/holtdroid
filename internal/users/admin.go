@@ -25,8 +25,9 @@ func (s *Service) List(ctx context.Context) ([]User, error) {
 	return out, nil
 }
 
-// Create adds a user without a passkey, for accounts that only ever sign in
-// with a session minted by the holtdroid users session command (bots).
+// Create adds a user without a passkey: a bot that signs in with a session
+// minted by the holtdroid users session command, or a person who registers
+// their first passkey with a recovery link.
 func (s *Service) Create(ctx context.Context, name, email, role string, limits Overrides) (User, error) {
 	name, err := cleanName(name)
 	if err != nil {
@@ -48,7 +49,7 @@ func (s *Service) Create(ctx context.Context, name, email, role string, limits O
 		}
 		return q.UpdateUser(ctx, db.UpdateUserParams{
 			Email: email, Name: name, Role: role, MaxSessions: limits.MaxSessions, MaxSessionTtl: limits.MaxSessionTTL,
-			RecordingsQuota: limits.RecordingsQuota, AppDataQuota: limits.AppDataMaxSize, ID: id,
+			RecordingsQuota: limits.RecordingsQuota, AppDataQuota: limits.AppDataMaxSize, ReferencesQuota: limits.ReferencesQuota, ID: id,
 		})
 	})
 	if err != nil {

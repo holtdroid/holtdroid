@@ -94,6 +94,11 @@ type InviteCreated struct {
 	Link   string       `json:"link"`
 }
 
+type UserCreated struct {
+	User UserDetail   `json:"user"`
+	Link RecoveryLink `json:"link" doc:"a recovery link with which the user registers their first passkey"`
+}
+
 type RecoveryLink struct {
 	Link      string    `json:"link" doc:"shown only once"`
 	ExpiresAt time.Time `json:"expiresAt"`
@@ -440,6 +445,38 @@ func (s *Server) registerUserAdmin(api huma.API) {
 		}
 		return &out[UserDetail]{d}, nil
 	}
+
+	huma.Register(api, huma.Operation{
+		OperationID: "createUser", Method: http.MethodPost, Path: "/api/v1/admin/users", Tags: tags, DefaultStatus: http.StatusCreated,
+		Description: "Add a user without a passkey and return a single-use link with which they register one.",
+	}, func(ctx context.Context, in *struct {
+		Body struct {
+			Name  string `json:"name" maxLength:"100"`
+			Email string `json:"email" maxLength:"254"`
+			Role  string `json:"role" enum:"admin,user,"`
+			TTL   int64  `json:"ttl,omitempty" minimum:"300" maximum:"2592000" default:"604800" doc:"seconds the link lasts"`
+		}
+	},
+	) (*out[UserCreated], error) {
+		if err := s.usersAdmin(ctx); err != nil {
+			return nil, err
+		}
+		who, _ := auth.FromContext(ctx)
+		u, err := s.users.Create(ctx, in.Body.Name, in.Body.Email, in.Body.Role, users.Overrides{})
+		s.emitResult(ctx, audit.Event{Action: audit.UserCreate, Details: map[string]string{"user": u.ID, "email": u.Email, "role": in.Body.Role}}, err)
+		if err != nil {
+			return nil, usersError(err)
+		}
+		link, expires, err := s.users.RecoveryLink(ctx, u.ID, time.Duration(in.Body.TTL)*time.Second, who.User)
+		if err != nil {
+			return nil, usersError(err)
+		}
+		d, err := detail(ctx, u.ID)
+		if err != nil {
+			return nil, err
+		}
+		return &out[UserCreated]{UserCreated{User: d.Body, Link: RecoveryLink{Link: link, ExpiresAt: expires}}}, nil
+	})
 
 	huma.Register(api, huma.Operation{OperationID: "getUser", Method: http.MethodGet, Path: "/api/v1/admin/users/{id}", Tags: tags},
 		func(ctx context.Context, in *UserPath) (*out[UserDetail], error) {

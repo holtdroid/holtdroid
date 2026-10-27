@@ -879,6 +879,8 @@ opened for `pixelPerfect.maxAge`.
   and `/s/` requires an identity. `allowedGroups` restricts `oidc`/`header`.
 - The `users` mode (decision #103, `internal/users`) keeps users, passkeys
   (WebAuthn, go-webauthn) and invite/recovery links in the api's database.
+  An admin-created user starts without a passkey and registers the first
+  one with a recovery link returned by `POST /api/v1/admin/users`.
   Its cookie carries only the user id: every request looks the user up, so
   deleting a user or changing a role takes effect at once, and a user with
   an empty role (waiting for approval) gets 403 everywhere but
