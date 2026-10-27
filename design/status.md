@@ -24,8 +24,9 @@ deployment"):
   the media library, or the browser's camera. Checked in a scratch Pod on
   k3s-3 with Android 15: Camera2 showed the agent's test card upright and
   switched to black live, a photo was saved, and the HAL exited 5 s after
-  the camera closed. The image change must be released in holtdroid-redroid
-  before sessions have the camera; until then the card stays hidden.
+  the camera closed; on the live deployment Android 15 showed the test
+  card, black and a library image. Android 13 and 14 keep the HAL running
+  (their cameraserver crashes on a stopped lazy provider).
   `virtual_camera` (the recon) was dropped: ANGLE on anv hangs the GPU.
 
 - The DNS tab (decision #133): the agent answers redroid sessions' DNS

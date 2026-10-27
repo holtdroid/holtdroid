@@ -343,7 +343,7 @@ Goal: several Android devices per node instead of one emulator per node.
 - [x] CDN addresses show anycast and the site that answered (Cloudflare's /cdn-cgi/trace from the agent, CDN headers in recordings) instead of the registered country (decision #157)
 - [ ] Trace a server's path from the session's exit through an outside measurement service (RIPE Atlas, Globalping), off by default (decision #151)
 - [x] A replaced microphone on redroid (decision #146): `Mic.java` routes every recording to a remote submix through an AudioPolicy; the agent feeds it a line-up tone, beeps, pink noise, a file from the user's media library (`media.quota`, 5 GiB) or the browser's microphone; checked on Android 11 and 15
-- [x] A camera on redroid 13–15 (decision #155): holtdroid-redroid's own lazy AIDL camera HAL, fed by the agent over `@holtdroid-camera` with a test card, black, an image or a video from the media library, or the browser's camera; nothing runs while no app has the camera open
+- [x] A camera on redroid 13–15 (decision #155): holtdroid-redroid's own AIDL camera HAL (lazy on 15), fed by the agent over `@holtdroid-camera` with a test card, black, an image or a video from the media library, or the browser's camera; nothing renders while no app has the camera open
 - [ ] A camera on Android 11 and 12 (a HIDL camera provider)
 
 ## Later

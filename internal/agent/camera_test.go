@@ -111,11 +111,11 @@ func TestCameraArgs(t *testing.T) {
 		{contract.CameraBars, false, "-re -f lavfi -i smptehdbars=size=720x1280:rate=30 -an -vf drawtext=fontfile=f.ttf:text='%{localtime}'"},
 		{contract.CameraBlack, false, "-i color=c=black:size=720x1280:rate=30 -an -vf scale=720:1280"},
 		{contract.CameraFile, false, "-re -stream_loop -1 -i /m/a.mp4 -an"},
-		{contract.CameraFile, true, "-re -loop 1 -framerate 30 -i /m/a.mp4 -an"},
+		{contract.CameraFile, true, "-re -loop 1 -framerate 1 -i /m/a.mp4 -an"},
 		{contract.CameraBrowser, false, "-f image2pipe -framerate 30 -c:v mjpeg -i pipe:0"},
 	} {
 		got := strings.Join(cameraArgs(tc.src, "/m/a.mp4", tc.image, "f.ttf", 1280, 720, 30), " ")
-		if !strings.Contains(got, tc.want) || !strings.Contains(got, "crop=720:1280,setsar=1,fps=30,transpose=2,format=yuv420p") ||
+		if !strings.Contains(got, tc.want) || !strings.Contains(got, "crop=720:1280,setsar=1,transpose=2,format=yuv420p,fps=30 ") ||
 			!strings.HasSuffix(got, "-f rawvideo -pix_fmt yuv420p pipe:1") {
 			t.Errorf("%s: %s", tc.src, got)
 		}

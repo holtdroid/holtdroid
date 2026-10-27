@@ -35,16 +35,18 @@ card. Each user has `media.quota` (5 GiB by default).
 
 ## Load
 
-Nothing runs while no app uses the camera. The camera HAL starts when an app
-opens the camera and exits a few seconds after it closes it; the agent
-renders frames only for an open camera. While one is open, a 1080p stream
+Nothing renders while no app uses the camera: the agent makes frames only
+for an open camera. On Android 15 the camera HAL itself starts when an app
+opens the camera and exits a few seconds after it closes it; on 13 and 14 it
+stays up but idle (about 16 MB of memory, no CPU), because their
+cameraserver can't cope with a stopped one. While one is open, a 1080p stream
 costs about a third of a CPU core (ffmpeg making the picture and the HAL
 copying it into the app's buffers).
 
 ## How it works
 
 holtdroid-redroid's images for Android 13 to 15 carry a small camera HAL
-(an AIDL camera provider, declared lazy). When an app configures a stream it
+(an AIDL camera provider, lazy on 15). When an app configures a stream it
 connects to the agent over the abstract socket `@holtdroid-camera`, asks for
 the largest stream's size and reads raw frames that ffmpeg renders from the
 chosen source; it scales them into each of the app's buffers and encodes

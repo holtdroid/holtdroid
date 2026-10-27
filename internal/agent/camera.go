@@ -304,11 +304,13 @@ func (f *frameWriter) Write(p []byte) (int, error) {
 // cameraArgs makes ffmpeg read a source in real time as I420 frames of w×h.
 // The HAL's sensor is mounted at 90° like a phone's back camera, so a
 // picture drawn upright in portrait is turned a quarter counter-clockwise.
+// fps comes last, so a still image is scaled once a second and only copied
+// in between (a sixth of the CPU of scaling every frame).
 func cameraArgs(src contract.CameraSource, path string, image bool, font string, w, h, fps int) []string {
 	pw, ph, rate := strconv.Itoa(h), strconv.Itoa(w), strconv.Itoa(fps)
 	size := pw + "x" + ph
 	var input []string
-	filters := "scale=" + pw + ":" + ph + ":force_original_aspect_ratio=increase,crop=" + pw + ":" + ph + ",setsar=1,fps=" + rate
+	filters := "scale=" + pw + ":" + ph + ":force_original_aspect_ratio=increase,crop=" + pw + ":" + ph + ",setsar=1"
 	switch src {
 	case contract.CameraBars:
 		input = []string{"-re", "-f", "lavfi", "-i", "smptehdbars=size=" + size + ":rate=" + rate}
@@ -318,7 +320,7 @@ func cameraArgs(src contract.CameraSource, path string, image bool, font string,
 		input = []string{"-re", "-f", "lavfi", "-i", "color=c=black:size=" + size + ":rate=" + rate}
 	case contract.CameraFile:
 		if image {
-			input = []string{"-re", "-loop", "1", "-framerate", rate, "-i", path}
+			input = []string{"-re", "-loop", "1", "-framerate", "1", "-i", path}
 		} else {
 			input = []string{"-re", "-stream_loop", "-1", "-i", path}
 		}
@@ -326,5 +328,5 @@ func cameraArgs(src contract.CameraSource, path string, image bool, font string,
 		input = []string{"-f", "image2pipe", "-framerate", rate, "-c:v", "mjpeg", "-i", "pipe:0"}
 	}
 	args := append([]string{"-hide_banner", "-loglevel", "error"}, input...)
-	return append(args, "-an", "-vf", filters+",transpose=2,format=yuv420p", "-f", "rawvideo", "-pix_fmt", "yuv420p", "pipe:1")
+	return append(args, "-an", "-vf", filters+",transpose=2,format=yuv420p,fps="+rate, "-f", "rawvideo", "-pix_fmt", "yuv420p", "pipe:1")
 }

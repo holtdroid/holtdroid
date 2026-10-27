@@ -4707,12 +4707,15 @@ app uses the camera.
   with 1920×1080, 1280×720, 640×480 and 320×240 streams of YUV and JPEG.
   Frames are written by the CPU through `AHardwareBuffer` locks, so no GPU,
   ANGLE or gralloc patch is needed.
-- **Lazy**: the provider registers with `registerLazyService`, starts once
+- **Lazy on Android 15**: the provider registers with `registerLazyService`, starts once
   at boot so cameraserver enumerates it (`oneshot`, not `disabled`:
   cameraserver doesn't start declared AIDL providers itself), and
   `ro.camera.enableLazyHal` lets cameraserver drop it, so it exits a few
   seconds after the camera closes and init starts it again on the next
-  open.
+  open. Android 13 and 14's cameraserver crashes on a stopped lazy provider
+  (a null dereference in `AidlProviderInfo::startProviderInterface`, hit by
+  `dumpsys media.camera` and by opening the camera), so there
+  `ro.camera.enableLazyHal` stays unset and the HAL stays up, idle.
 - **Frames from the agent**: once a stream is configured the HAL connects to
   the abstract Unix socket `@holtdroid-camera` (the Pod's containers share
   it; Android's eBPF firewall refuses TCP from the cameraserver uid with
@@ -4729,8 +4732,9 @@ app uses the camera.
   the microphone and sounds for the camera.
 
 **Consequences.** Measured on k3s-3 with Camera2 at 1080p: the HAL about
-0.1 core and ffmpeg about 0.27 core while a camera is open, nothing when it
-is closed. Android 11 and 12 (HIDL camera providers) and phones have no
+0.1 core and ffmpeg about 0.27 core while a camera is open (a still image
+about 0.05: ffmpeg scales it once a second and copies it in between),
+nothing when it is closed; on 13 and 14 the idle HAL keeps about 16 MB. Android 11 and 12 (HIDL camera providers) and phones have no
 Holtdroid camera. The browser's camera costs 3–7 Mbit/s up at 15 frames a
 second.
 
