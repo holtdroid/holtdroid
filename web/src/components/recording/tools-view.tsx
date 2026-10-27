@@ -1,5 +1,6 @@
 import {
   CableIcon,
+  DatabaseZapIcon,
   GlobeIcon,
   type LucideIcon,
   RouteIcon,
@@ -8,12 +9,15 @@ import {
   TerminalIcon,
   FrameIcon,
 } from "lucide-react"
+import { useMemo } from "react"
 import type { Connection, DNSEvent, Network } from "@/api/client"
+import { CacheView } from "@/components/recording/cache-view"
 import { DNSView } from "@/components/recording/dns-view"
 import { RoutesView } from "@/components/recording/routes-view"
 import { ClocksContext, type Clocks, PlayheadContext } from "@/components/recording/json-view"
 import { ConsoleView, NetworkView, SocketsView } from "@/components/recording/devtools-view"
 import { LogcatView } from "@/components/recording/logcat-view"
+import { analyzeCache } from "@/lib/recording/cache"
 import { type DevToolsLog, requestPhase } from "@/lib/recording/devtools"
 import { type PlayerView, type ToolTab, toolTabs } from "@/lib/recording/link"
 import type { At } from "@/lib/recording/timeline"
@@ -38,7 +42,7 @@ export function savedTab(): ToolTab {
   return "logcat"
 }
 
-/** The left column of the player: logcat and the WebViews' network, console and WebSockets. */
+/** The left column of the player: logcat and the WebViews' network, console, WebSockets and caching. */
 export function RecordingTools({
   player,
   time,
@@ -81,12 +85,23 @@ export function RecordingTools({
   ).length
   const messages = log.consoleUntil(time)
   const errors = messages.filter((c) => c.level === "error").length
+  const count = requests.length
+  const cache = useMemo(() => analyzeCache(log.requests.slice(0, count)), [log, count])
   const tabs: { id: Tab; label: string; icon: LucideIcon; count?: number; alert?: number }[] = [
     { id: "logcat", label: "Logcat", icon: SquareTerminalIcon },
     { id: "network", label: "Network", icon: GlobeIcon, count: requests.length, alert: failed },
     { id: "console", label: "Console", icon: TerminalIcon, count: messages.length, alert: errors },
     { id: "sockets", label: "WebSockets", icon: CableIcon, count: log.socketsUntil(time).length },
   ]
+  if (log.requests.length > 0) {
+    tabs.push({
+      id: "cache",
+      label: "Cache",
+      icon: DatabaseZapIcon,
+      count: cache.findings.length,
+      alert: cache.summary.errors + cache.summary.warnings,
+    })
+  }
   if (dns.length > 0) {
     const queries = dns.filter((e) => e.v.query && e.t <= time)
     tabs.push({
@@ -134,7 +149,11 @@ export function RecordingTools({
                   "min-w-5 rounded-full px-1.5 text-center text-[11px] leading-[18px] tabular-nums",
                   t.alert ? "bg-stage-error text-stage-on-error" : "bg-muted text-muted-foreground",
                 )}
-                title={t.alert ? `${t.alert} ${t.id === "network" ? "failed" : "errors"}` : undefined}
+                title={
+                  t.alert
+                    ? `${t.alert} ${t.id === "network" ? "failed" : t.id === "cache" ? "errors and warnings" : "errors"}`
+                    : undefined
+                }
               >
                 {t.alert || t.count}
               </span>
@@ -176,6 +195,16 @@ export function RecordingTools({
                 share={share}
                 picked={view.route}
                 onPick={(route) => onView({ route })}
+              />
+            )}
+            {tab === "cache" && (
+              <CacheView
+                report={cache}
+                onSeek={seek}
+                picked={view.finding}
+                onPick={(finding) => onView({ finding })}
+                onReveal={(request) => onView({ tab: "network", request })}
+                empty="No requests yet"
               />
             )}
             {tab === "sockets" && (

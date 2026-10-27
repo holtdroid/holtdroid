@@ -779,8 +779,8 @@ func (a *Agent) WatchStatus(ctx context.Context, send func(contract.StatusEvent)
 	}
 }
 
-func (a *Agent) WatchSockets(ctx context.Context, send func(contract.DevToolsEntry) error) error {
-	return a.watch.watchSockets(ctx, send)
+func (a *Agent) WatchDevTools(ctx context.Context, send func(contract.DevToolsEntry) error) error {
+	return a.watch.watchLive(ctx, send)
 }
 
 func (a *Agent) Targets(ctx context.Context) ([]contract.DevToolsTarget, error) {

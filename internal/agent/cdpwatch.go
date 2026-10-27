@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -37,15 +38,38 @@ type devtoolsWatch struct {
 	procs map[string]*cdpProcess
 	subs  map[chan contract.DevToolsEntry]struct{}
 
-	seq     int64
-	history []contract.DevToolsEntry
-	kept    int
-	maxKept int
+	seq      int64
+	sockets  liveHistory
+	requests liveHistory
 }
 
-// socketHistory is how much of the live socket lines the agent keeps for
-// watchers that come later, such as a session page that was reloaded.
-const socketHistory = 16 << 20
+// How much of the live lines the agent keeps for watchers that come later,
+// such as a session page that was reloaded: socket traffic and targets, and
+// requests without their bodies, each on its own so one can't push out the
+// other.
+const (
+	socketHistory  = 16 << 20
+	requestHistory = 8 << 20
+)
+
+type liveHistory struct {
+	lines []contract.DevToolsEntry
+	kept  int
+	max   int
+}
+
+func (h *liveHistory) add(e contract.DevToolsEntry) {
+	h.lines = append(h.lines, e)
+	h.kept += lineSize(e)
+	drop := 0
+	for h.kept > h.max && drop < len(h.lines)-1 {
+		h.kept -= lineSize(h.lines[drop])
+		drop++
+	}
+	if drop > 0 {
+		h.lines = append(h.lines[:0:0], h.lines[drop:]...)
+	}
+}
 
 func lineSize(e contract.DevToolsEntry) int {
 	n := 256
@@ -58,11 +82,23 @@ func lineSize(e contract.DevToolsEntry) int {
 	if e.Page != nil {
 		n += len(e.Page.URL) + len(e.Page.Title)
 	}
+	if r := e.Request; r != nil {
+		n += len(r.URL) + len(r.Redirect) + len(r.Error)
+		for k, v := range r.RequestHeaders {
+			n += len(k) + len(v)
+		}
+		for k, v := range r.ResponseHeaders {
+			n += len(k) + len(v)
+		}
+	}
 	return n
 }
 
 func newDevToolsWatch(dt *DevTools, log *slog.Logger) *devtoolsWatch {
-	return &devtoolsWatch{dt: dt, log: log, start: time.Now(), procs: map[string]*cdpProcess{}, subs: map[chan contract.DevToolsEntry]struct{}{}, maxKept: socketHistory}
+	return &devtoolsWatch{
+		dt: dt, log: log, start: time.Now(), procs: map[string]*cdpProcess{}, subs: map[chan contract.DevToolsEntry]struct{}{},
+		sockets: liveHistory{max: socketHistory}, requests: liveHistory{max: requestHistory},
+	}
 }
 
 func (w *devtoolsWatch) Clock() int64 { return time.Since(w.start).Milliseconds() + 1 }
@@ -92,7 +128,7 @@ func (w *devtoolsWatch) DevTools(e contract.DevToolsEntry) {
 	}
 }
 
-// Watching is always true: socket lines are kept for later watchers too.
+// Watching is always true: live lines are kept for later watchers too.
 func (w *devtoolsWatch) Watching() bool { return true }
 
 // Live stamps a line with the agent's clock, the recording time and a
@@ -103,15 +139,10 @@ func (w *devtoolsWatch) Live(e contract.DevToolsEntry) {
 	e = w.stampLocked(e)
 	w.seq++
 	e.Seq = w.seq
-	w.history = append(w.history, e)
-	w.kept += lineSize(e)
-	drop := 0
-	for w.kept > w.maxKept && drop < len(w.history)-1 {
-		w.kept -= lineSize(w.history[drop])
-		drop++
-	}
-	if drop > 0 {
-		w.history = append(w.history[:0:0], w.history[drop:]...)
+	if e.Request != nil {
+		w.requests.add(e)
+	} else {
+		w.sockets.add(e)
 	}
 	for ch := range w.subs {
 		select {
@@ -132,17 +163,19 @@ func (w *devtoolsWatch) stampLocked(e contract.DevToolsEntry) contract.DevToolsE
 	return e
 }
 
-// watchSockets sends the kept history, then the targets and the sockets open
-// now (numbered 0, as they repeat what is known), then every change and
-// frame, until ctx ends or send fails.
-func (w *devtoolsWatch) watchSockets(ctx context.Context, send func(contract.DevToolsEntry) error) error {
+// watchLive sends the kept history in order, then the targets and the
+// sockets open now (numbered 0, as they repeat what is known), then every
+// change, frame and finished request, until ctx ends or send fails.
+func (w *devtoolsWatch) watchLive(ctx context.Context, send func(contract.DevToolsEntry) error) error {
 	var current []contract.DevToolsEntry
 	for _, p := range w.pages() {
 		current = append(current, p.current()...)
 	}
 	ch := make(chan contract.DevToolsEntry, 1024)
 	w.mu.Lock()
-	first := append([]contract.DevToolsEntry(nil), w.history...)
+	first := make([]contract.DevToolsEntry, 0, len(w.sockets.lines)+len(w.requests.lines)+len(current))
+	first = append(append(first, w.sockets.lines...), w.requests.lines...)
+	slices.SortFunc(first, func(a, b contract.DevToolsEntry) int { return cmp.Compare(a.Seq, b.Seq) })
 	for _, e := range current {
 		e.T = w.Clock()
 		first = append(first, w.stampLocked(e))

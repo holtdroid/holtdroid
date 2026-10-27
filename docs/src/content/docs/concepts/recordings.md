@@ -140,6 +140,8 @@ turn red when requests failed or the page logged errors.
   carries video or another media stream (its frames look like H.264, MP4,
   WebM, JPEG and the like, or it moves a steady flow of data) is marked
   **media stream**: from then on its frames are counted but not recorded.
+- **Cache** checks how the requests up to that moment use the WebView's
+  cache and a CDN in front of the server (see [Cache](#cache)).
 
 JSON is shown as a tree you can open and close, also when it sits in a
 string field. Messages and bodies in common framings are split into their
@@ -184,6 +186,55 @@ panel (drop it there), and so do Charles, Fiddler or HAR viewers.
 Taps and swipes show on the phone as green circles with a fading trail, and
 the navigation keys as a label at the bottom. The pointer button in the player's controls hides them (it only appears when something was touched);
 the downloaded video always has them.
+
+### Cache
+
+The **Cache** tab reads the recorded requests' headers and says where caching
+goes wrong. Its top row counts the requests a cache could keep (GET and HEAD
+that finished with a cacheable status), how many the WebView served itself
+(memory, disk, service worker or a `304`), the CDN's hit rate when the
+responses come through one, what was downloaded and how much of it a cache
+could have served. Below are the findings, errors first, each with the
+requests behind it; click one for the explanation, the requests with their
+time (a click seeks there), status, CDN status and where they came from, and
+the caching headers of the one you pick. **Open in Network** shows that
+request on the Network tab.
+
+It looks for:
+
+- **The request time in the URL**: a query parameter or path segment that
+  holds a Unix time (seconds or milliseconds), an ISO 8601 time within an
+  hour of when the request was sent, or the day's date (`_=1730032212345`,
+  `ts=…`, `/feed/2026-10-27/`). Every request then has a URL of its own, so
+  neither the WebView nor the CDN can reuse a response, whatever its headers
+  say. It is an error when the headers or a CDN would have cached it.
+- **A parameter that changes on every request**: three or more requests to
+  the same URL where one value (with digits, six characters or more) is new
+  each time, such as a nonce or random cache-buster.
+- **The same file downloaded again** in full, and why: no caching headers,
+  revalidation without `ETag` or `Last-Modified`, a server that answers
+  with the body instead of `304`, or a request that asked for a fresh copy.
+- **Cloudflare** (`cf-cache-status`) and other CDNs (`x-cache`,
+  `x-cache-status`): a hit on a response marked `private` or `no-store` or
+  one that sets a cookie (another user may get it), `BYPASS` with the reason
+  the headers give, `DYNAMIC` on static files or on responses whose headers
+  allow caching, the same URL missed again and again, and a hit older than
+  its lifetime. `CDN-Cache-Control` and `Cloudflare-CDN-Cache-Control` count
+  for the CDN.
+- **Headers**: static files without `Cache-Control` or `Expires`, or with
+  `no-store`; `no-cache` or `max-age=0` without a validator; files with a
+  content hash in their name and a short lifetime (they can be
+  `max-age=31536000, immutable`); `Set-Cookie` on files or on responses
+  marked for shared caches; `Vary` by `*`, `Cookie`, `User-Agent` or
+  `Authorization`; `Pragma` without `Cache-Control`.
+- **Requests that asked for a fresh copy** (`Cache-Control: no-cache` or
+  `Pragma: no-cache` on the request): when almost all do, DevTools' **Disable
+  cache** is probably on, and what the tab shows isn't how the app caches.
+
+The headers are the ones that went over the wire, `Set-Cookie` and the
+network stack's own request headers included. A session's live **Cache**
+tab does the same as the requests finish (see
+[DevTools](/concepts/devtools/)).
 
 ### Pixel perfect
 
@@ -292,8 +343,8 @@ download the logcat, but the page has no video download.
 
 The link you copy carries the moment you are at, like a video link with a
 time: `#t=46.2&tab=network&request=…` opens the recording there, on the same
-tab (Logcat, Network, Console, WebSockets, DNS or Routes), with the request,
-console message, socket frame or name you had open opened and scrolled to. `t` also takes
+tab (Logcat, Network, Console, WebSockets, DNS, Routes or Cache), with the request,
+console message, socket frame, name or cache finding you had open opened and scrolled to. `t` also takes
 `1m20s`. On a shared recording, **Link to 00:46** copies such a link for the
 page you are on. Someone signed in to the portal who opens a share link sees it inside the
 portal, with its header and menus.

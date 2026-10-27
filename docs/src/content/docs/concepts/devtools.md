@@ -91,6 +91,17 @@ frames left out. While the session records, a frame's time is a marker
 button: a click pins that moment on the recording, hovering offers the
 other marker icons and **Open the recording from here**.
 
+The **Cache** tab next to it checks the WebViews' finished requests for how
+they use the WebView's cache and a CDN such as Cloudflare: timestamps in
+URLs, missing or contradicting caching headers, CDN misses, bypasses and
+hits that shouldn't be, files downloaded again. It finds the same things as
+the [recording player's Cache tab](/concepts/recordings/#cache), with the
+device clock as each request's time. The agent keeps the session's requests
+without their bodies, up to 8 MB apart from the socket traffic, so the tab
+also covers what loaded before it was opened or the page reloaded; it keeps
+the newest 5000 requests in the browser. **Clear** and pause work as on the
+WebSockets tab.
+
 The settings button next to the target selector holds two switches, saved
 in your browser:
 

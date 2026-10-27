@@ -1,5 +1,6 @@
 import {
   CableIcon,
+  DatabaseZapIcon,
   FolderIcon,
   FrameIcon,
   GlobeIcon,
@@ -14,6 +15,7 @@ import { type ReactNode, useMemo, useState } from "react"
 import type { SessionView } from "@/api/client"
 import { useReferences } from "@/api/queries"
 import { AdbGate } from "@/components/session/adb-gate"
+import { CachePanel } from "@/components/session/cache-panel"
 import { DNSPanel } from "@/components/session/dns-panel"
 import type { AdbSession } from "@/components/session/adb-session"
 import { FilesPanel } from "@/components/session/files-panel"
@@ -75,7 +77,7 @@ export function ToolTabs({
   const current =
     (adb && tabs.some((t) => t.value === tab)) ||
     (pixelPerfect && tab === "pixel-perfect") ||
-    (devtools && tab === "websockets") ||
+    (devtools && (tab === "websockets" || tab === "cache")) ||
     (network && tab === "network") ||
     (dns && tab === "dns") ||
     (routes && tab === "routes")
@@ -103,6 +105,12 @@ export function ToolTabs({
             <TabsTrigger value="websockets" className={trigger}>
               <CableIcon />
               WebSockets
+            </TabsTrigger>
+          )}
+          {devtools && (
+            <TabsTrigger value="cache" className={trigger}>
+              <DatabaseZapIcon />
+              Cache
             </TabsTrigger>
           )}
           {network && (
@@ -152,6 +160,11 @@ export function ToolTabs({
       {devtools && opened.has("websockets") && (
         <TabsContent value="websockets" forceMount className="min-h-0 data-[state=inactive]:hidden">
           <SocketsPanel provider={session.provider} id={session.id} />
+        </TabsContent>
+      )}
+      {devtools && opened.has("cache") && (
+        <TabsContent value="cache" forceMount className="min-h-0 data-[state=inactive]:hidden">
+          <CachePanel provider={session.provider} id={session.id} />
         </TabsContent>
       )}
       {network && opened.has("network") && (

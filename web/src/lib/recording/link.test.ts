@@ -20,3 +20,9 @@ test("a route opens on the Routes tab", () => {
   expect(hash).toBe("#t=1&tab=routes&route=api.example.com")
   expect(parseView(hash)).toEqual({ t: 1000, tab: "routes", route: "api.example.com" })
 })
+
+test("a cache finding stays only with its tab", () => {
+  const hash = viewHash({ t: 1000, tab: "cache", finding: "buster:GET https://a.example/x", request: "P1/r1" })
+  expect(hash).toBe("#t=1&tab=cache&finding=buster%3AGET+https%3A%2F%2Fa.example%2Fx")
+  expect(parseView(hash)).toEqual({ t: 1000, tab: "cache", finding: "buster:GET https://a.example/x" })
+})

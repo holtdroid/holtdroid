@@ -50,7 +50,7 @@ export function SocketsPanel({ provider, id }: { provider: string; id: string })
   const device = useDevice(provider, id)
   const now = useNow(1000)
 
-  useEventSource<{ line: DevToolsEntry }>(paused ? null : `${sessionBase(provider, id)}/v1/devtools/sockets`, {
+  useEventSource<{ line: DevToolsEntry }>(paused ? null : `${sessionBase(provider, id)}/v1/devtools/live`, {
     line: (e) => {
       if (e.seq) {
         if (e.seq <= lastSeq.current) return

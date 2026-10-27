@@ -168,15 +168,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/devtools/sockets": {
+    "/v1/devtools/live": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** @description The WebViews' WebSockets and event streams live: first every target and the sockets open now, then each change and frame, with the agent's clock and, while recording, the recording time. */
-        get: operations["watchSockets"];
+        /** @description The WebViews' traffic live: the kept lines, then every target and the sockets open now, then each change, frame and finished request (without bodies), with the agent's clock and, while recording, the recording time. */
+        get: operations["watchDevTools"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1893,7 +1893,7 @@ export interface operations {
             };
         };
     };
-    watchSockets: {
+    watchDevTools: {
         parameters: {
             query?: never;
             header?: never;

@@ -17,6 +17,7 @@ import (
 
 const (
 	cdpBodyLimit    = 1 << 20
+	cdpEarlyLimit   = 512
 	cdpPostLimit    = 256 << 10
 	cdpTextFrame    = 128 << 10
 	cdpBinaryFrame  = 16 << 10
@@ -53,6 +54,7 @@ type cdpPage struct {
 	mu        sync.Mutex
 	page      contract.DevToolsPage
 	requests  map[string]*cdpRequest
+	early     map[string]*cdpExtra
 	redirects map[string]int
 	sockets   map[string]*cdpSocket
 }
@@ -62,6 +64,12 @@ type cdpRequest struct {
 	sentAt      float64
 	timing      *cdpTiming
 	cachedEvent bool
+}
+
+// cdpExtra is what the ExtraInfo events add: the headers that went over the
+// wire, Set-Cookie and the network stack's own Cache-Control included.
+type cdpExtra struct {
+	request, response map[string]string
 }
 
 type cdpSocket struct {
@@ -80,14 +88,14 @@ type cdpFrameStat struct {
 func newCDPPage(target string, sink devtoolsSink) *cdpPage {
 	return &cdpPage{
 		target: target, kind: "page", sink: sink, slots: make(chan struct{}, 4),
-		requests: map[string]*cdpRequest{}, redirects: map[string]int{}, sockets: map[string]*cdpSocket{},
+		requests: map[string]*cdpRequest{}, early: map[string]*cdpExtra{}, redirects: map[string]int{}, sockets: map[string]*cdpSocket{},
 	}
 }
 
 // emit writes a line while a recording runs; its times are the watch's
 // clock until here, and a T of 0 is now.
 func (p *cdpPage) emit(e contract.DevToolsEntry) {
-	live := p.sink.Watching() && (e.Type == contract.DevToolsPageEntry || e.Type == contract.DevToolsSocketEntry || e.Type == contract.DevToolsFrameEntry)
+	live := p.sink.Watching() && e.Type != contract.DevToolsConsoleEntry
 	if !p.sink.Recording() && !live {
 		return
 	}
@@ -96,7 +104,7 @@ func (p *cdpPage) emit(e contract.DevToolsEntry) {
 		e.T = p.sink.Clock()
 	}
 	if live {
-		p.sink.Live(e)
+		p.sink.Live(liveLine(e))
 	}
 	if !p.sink.Recording() {
 		return
@@ -114,6 +122,16 @@ func (p *cdpPage) emit(e contract.DevToolsEntry) {
 		e.Request = &r
 	}
 	p.sink.DevTools(e)
+}
+
+// liveLine leaves a request's bodies out of what live watchers get.
+func liveLine(e contract.DevToolsEntry) contract.DevToolsEntry {
+	if e.Request != nil {
+		r := *e.Request
+		r.PostData, r.PostDataTruncated, r.Body, r.BodyBase64, r.BodyTruncated = "", false, "", false, false
+		e.Request = &r
+	}
+	return e
 }
 
 // replay writes what a recording that starts now needs to know: the target
@@ -316,6 +334,10 @@ func (p *cdpPage) handle(method string, raw json.RawMessage) {
 		r.ID, r.Start, r.Method, r.URL, r.ResourceType = id, now, e.Request.Method, e.Request.URL, e.Type
 		r.Wall = int64(e.WallTime * 1000)
 		r.RequestHeaders = e.Request.Headers.strings()
+		if x := p.early[e.RequestID]; x != nil && x.request != nil {
+			r.RequestHeaders = mergeHeaders(r.RequestHeaders, x.request)
+			x.request = nil
+		}
 		r.PostData, r.PostDataTruncated = cut(e.Request.PostData, cdpPostLimit)
 		if e.Request.HasPostData && e.Request.PostData == "" {
 			r.PostDataTruncated = true
@@ -349,6 +371,40 @@ func (p *cdpPage) handle(method string, raw json.RawMessage) {
 		p.mu.Lock()
 		if r, ok := p.requests[e.RequestID]; ok {
 			r.respond(&e.Response, now)
+			if x := p.early[e.RequestID]; x != nil && x.response != nil {
+				r.ResponseHeaders = mergeHeaders(r.ResponseHeaders, x.response)
+			}
+		}
+		delete(p.early, e.RequestID)
+		p.mu.Unlock()
+	case "Network.requestWillBeSentExtraInfo", "Network.responseReceivedExtraInfo":
+		var e struct {
+			RequestID string     `json:"requestId"`
+			Headers   cdpHeaders `json:"headers"`
+		}
+		if json.Unmarshal(raw, &e) != nil || len(e.Headers) == 0 {
+			return
+		}
+		h := e.Headers.strings()
+		response := method == "Network.responseReceivedExtraInfo"
+		p.mu.Lock()
+		r, ok := p.requests[e.RequestID]
+		switch {
+		case ok && !response:
+			r.RequestHeaders = mergeHeaders(r.RequestHeaders, h)
+		case ok && r.Response > 0:
+			r.ResponseHeaders = mergeHeaders(r.ResponseHeaders, h)
+		case len(p.early) < cdpEarlyLimit:
+			x := p.early[e.RequestID]
+			if x == nil {
+				x = &cdpExtra{}
+				p.early[e.RequestID] = x
+			}
+			if response {
+				x.response = h
+			} else {
+				x.request = h
+			}
 		}
 		p.mu.Unlock()
 	case "Network.loadingFinished":
@@ -364,6 +420,7 @@ func (p *cdpPage) handle(method string, raw json.RawMessage) {
 		p.mu.Lock()
 		r, ok := p.requests[e.RequestID]
 		delete(p.requests, e.RequestID)
+		delete(p.early, e.RequestID)
 		p.mu.Unlock()
 		if !ok {
 			return
@@ -403,6 +460,7 @@ func (p *cdpPage) handle(method string, raw json.RawMessage) {
 		p.mu.Lock()
 		r, ok := p.requests[e.RequestID]
 		delete(p.requests, e.RequestID)
+		delete(p.early, e.RequestID)
 		p.mu.Unlock()
 		if !ok {
 			return
@@ -620,6 +678,22 @@ func (r *cdpRequest) respond(resp *cdpResponse, now int64) {
 		r.Size = int64(resp.EncodedDataLength)
 	}
 	r.timing = resp.Timing
+}
+
+// mergeHeaders adds extra to h, replacing names that differ only in case.
+func mergeHeaders(h, extra map[string]string) map[string]string {
+	if h == nil {
+		h = make(map[string]string, len(extra))
+	}
+	for k, v := range extra {
+		for old := range h {
+			if old != k && strings.EqualFold(old, k) {
+				delete(h, old)
+			}
+		}
+		h[k] = v
+	}
+	return h
 }
 
 func joinHostPort(host string, port int) string {

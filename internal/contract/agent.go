@@ -16,7 +16,7 @@ type Agent interface {
 	Status(ctx context.Context) StatusEvent
 	WatchStatus(ctx context.Context, send func(StatusEvent) error) error
 	Targets(ctx context.Context) ([]DevToolsTarget, error)
-	WatchSockets(ctx context.Context, send func(DevToolsEntry) error) error
+	WatchDevTools(ctx context.Context, send func(DevToolsEntry) error) error
 	Clipboard(ctx context.Context) (string, error)
 	SetClipboard(ctx context.Context, text string) error
 	WatchClipboard(ctx context.Context, send func(Clipboard) error) error
@@ -158,11 +158,11 @@ func RegisterAgent(api huma.API, a Agent) {
 	})
 
 	sse.Register(api, huma.Operation{
-		OperationID: "watchSockets", Method: http.MethodGet, Path: "/v1/devtools/sockets", Tags: tags,
-		Description: "The WebViews' WebSockets and event streams live: first every target and the sockets open now, then each change and frame, with the agent's clock and, while recording, the recording time.",
+		OperationID: "watchDevTools", Method: http.MethodGet, Path: "/v1/devtools/live", Tags: tags,
+		Description: "The WebViews' traffic live: the kept lines, then every target and the sockets open now, then each change, frame and finished request (without bodies), with the agent's clock and, while recording, the recording time.",
 	}, map[string]any{"line": DevToolsEntry{}},
 		func(ctx context.Context, _ *struct{}, send sse.Sender) {
-			_ = a.WatchSockets(ctx, func(e DevToolsEntry) error { return send.Data(e) })
+			_ = a.WatchDevTools(ctx, func(e DevToolsEntry) error { return send.Data(e) })
 		})
 
 	sse.Register(api, huma.Operation{OperationID: "watchClipboard", Method: http.MethodGet, Path: "/v1/clipboard/events", Tags: tags},

@@ -4660,3 +4660,47 @@ with its exact times and bytes. Phones may still miss one shorter than a
 quarter of a second. The agent depends on a sing-box API that is not
 versioned apart from sing-box, pinned at 1.14.2 with the sidecar image;
 checked against that version in Docker.
+
+
+## 154. The Cache tab checks caching in the browser, from the requests' headers
+
+**Context.** Testers want to know whether an app's requests are cached as
+intended: that `Cache-Control` is set, that Cloudflare caches what it should
+and nothing personal, and that no timestamp in the URL makes every request
+new. Recordings already keep every request's headers, its cache source and
+the device clock when it was sent (decision #112), but reading that out of
+the Network tab request by request doesn't scale. The same question comes
+up while the session runs, and the live stream (decision #117) had sockets
+only.
+
+**Decision.**
+
+- The analysis is a pure function in the web app (`lib/recording/cache.ts`)
+  over `DevToolsRequest`s: rules with a severity, grouped by URL (with the
+  timestamp parts left out), each finding listing its requests and the bytes
+  a cache could have saved. A timestamp is a URL part `detectStamp` reads as
+  a time within an hour of the request's `wall` (the day's date within a day
+  and a half); values that differ on every one of three or more requests
+  count as cache-busters too. Cloudflare is read from `cf-cache-status`,
+  other CDNs from `x-cache`/`x-cache-status`; `CDN-Cache-Control` and
+  `Cloudflare-CDN-Cache-Control` set the shared lifetime. Nothing new is
+  recorded, so old recordings and `.holtdroid` files get the tab too.
+- The agent merges `Network.requestWillBeSentExtraInfo` and
+  `responseReceivedExtraInfo` into the request's headers (kept for up to 512
+  requests when they come first), since `responseReceived` leaves out
+  `Set-Cookie` and the request headers the network stack adds, the ones
+  Disable cache sets.
+- The live stream carries finished requests without bodies and is renamed
+  `GET /v1/devtools/live` (`WatchDevTools`). The agent keeps them in a
+  history of their own, 8 MB, so a busy page can't push the socket traffic
+  out of its 16 MB and the other way round; a watcher gets both merged in
+  `seq` order. The session page's **Cache** tab keeps the newest 5000 and
+  analyses them in batches every 300 ms.
+
+**Consequences.** The rules are heuristics: a 10-digit id that happens to
+match the time, or a parameter that is meant to differ, can be flagged. The
+player analyses the requests up to the playhead again whenever one more
+starts. A request served from the WebView's cache has no ExtraInfo, so its
+headers are the ones Chromium kept. Live requests carry no bodies, so the
+tab only reads headers; the Network tab of the live session's DevTools is
+still the place for bodies.

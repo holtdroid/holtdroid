@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -98,6 +99,13 @@ func (d *device) recordDevTools(ctx context.Context, rec *recording.Recorder) {
 			frame(false, fmt.Sprintf(`{"type":"price","sku":"A-100","price":12.5,"ts":%d}`, now.UnixMilli()))
 		case 3:
 			request(n, "GET", "https://cdn.example.net/config.json", "", 0, "", "net::ERR_NAME_NOT_RESOLVED")
+			for i := range 3 {
+				r := assetRequest(n+i, now)
+				r.ID = "fake.asset." + strconv.Itoa(n+i)
+				r.Start = rec.Elapsed()
+				r.Response, r.End = r.Start+21, r.Start+34
+				emit(contract.DevToolsEntry{T: r.End, Type: contract.DevToolsRequestEntry, Request: &r})
+			}
 			console("warning", "warn", "config unavailable, using defaults")
 		case 0:
 			frame(true, `{"op":"ping"}`)
@@ -117,9 +125,9 @@ func (d *device) recordDevTools(ctx context.Context, rec *recording.Recorder) {
 	}
 }
 
-// WatchSockets makes up a live socket: the page, a JSON WebSocket and a
-// Socket.IO one with a frame every two seconds.
-func (d *device) WatchSockets(ctx context.Context, send func(contract.DevToolsEntry) error) error {
+// WatchDevTools makes up live traffic: the page, a JSON WebSocket and a
+// Socket.IO one with a frame every two seconds, and a request to a CDN.
+func (d *device) WatchDevTools(ctx context.Context, send func(contract.DevToolsEntry) error) error {
 	const target = "F1"
 	started := time.Now()
 	line := func(e contract.DevToolsEntry) error {
@@ -154,6 +162,12 @@ func (d *device) WatchSockets(ctx context.Context, send func(contract.DevToolsEn
 		if n%3 == 0 {
 			frames = append(frames, contract.DevToolsFrame{Socket: "ws.1", Sent: true, Opcode: 1, Data: `{"op":"ping"}`})
 		}
+		r := assetRequest(n, now)
+		r.Start = time.Since(started).Milliseconds()
+		r.Response, r.End = r.Start+21, r.Start+34
+		if err := line(contract.DevToolsEntry{Type: contract.DevToolsRequestEntry, Request: &r}); err != nil {
+			return err
+		}
 		for _, f := range frames {
 			f.Size = len(f.Data)
 			if err := line(contract.DevToolsEntry{Type: contract.DevToolsFrameEntry, Frame: &f}); err != nil {
@@ -161,4 +175,51 @@ func (d *device) WatchSockets(ctx context.Context, send func(contract.DevToolsEn
 			}
 		}
 	}
+}
+
+// assetRequest is the n-th of a round of requests whose caching goes wrong
+// in the usual ways, for the Cache tab: an immutable bundle Cloudflare
+// serves, an image without caching headers, an API call with a timestamp in
+// the URL, a stylesheet with a session cookie, a font that revalidates.
+func assetRequest(n int, now time.Time) contract.DevToolsRequest {
+	date := now.UTC().Format(http.TimeFormat)
+	r := contract.DevToolsRequest{
+		ID: "fake.cdn." + strconv.Itoa(n), Wall: now.UnixMilli(), Method: "GET", Status: 200, StatusText: "OK",
+		Protocol: "h2", RemoteAddress: "203.0.113.20:443",
+		RequestHeaders: map[string]string{"Accept": "*/*", "User-Agent": "Mozilla/5.0 (Linux; Android 15; wv)"},
+		Timing:         &contract.DevToolsTiming{Blocked: 0.8, DNS: -1, Connect: -1, SSL: -1, Send: 0.2, Wait: 19.4, Receive: 12.1},
+	}
+	cf := func(status string, h map[string]string) map[string]string {
+		h["date"], h["server"], h["cf-ray"], h["cf-cache-status"] = date, "cloudflare", "8f1c2a3b4c5d6e7f-WAW", status
+		return h
+	}
+	switch n % 5 {
+	case 0:
+		r.URL, r.ResourceType, r.MimeType = "https://shop.example.com/assets/app.3f9a8c1d.js", "Script", "application/javascript"
+		r.ResponseHeaders = cf("HIT", map[string]string{"cache-control": "public, max-age=31536000, immutable", "age": "5120", "etag": `"3f9a8c1d"`})
+		r.Size = 182_400
+		if n >= 5 {
+			r.Cached, r.Size, r.Timing = "memory", 0, nil
+		}
+	case 1:
+		r.URL, r.ResourceType, r.MimeType = "https://shop.example.com/assets/logo.png", "Image", "image/png"
+		r.ResponseHeaders = cf("DYNAMIC", map[string]string{"content-type": "image/png"})
+		r.Size = 48_210
+	case 2:
+		r.URL, r.ResourceType, r.MimeType = "https://api.example.com/v1/catalog?lang=en&_="+strconv.FormatInt(now.UnixMilli()-40, 10), "Fetch", "application/json"
+		r.ResponseHeaders = cf("MISS", map[string]string{"cache-control": "public, max-age=300", "content-type": "application/json", "vary": "Accept-Encoding, User-Agent"})
+		r.Size = 12_800
+	case 3:
+		r.URL, r.ResourceType, r.MimeType = "https://shop.example.com/styles.css", "Stylesheet", "text/css"
+		r.ResponseHeaders = cf("BYPASS", map[string]string{"cache-control": "no-cache", "set-cookie": "sid=fake; Path=/; HttpOnly"})
+		r.Size = 23_100
+	default:
+		r.URL, r.ResourceType, r.MimeType = "https://cdn.example.net/fonts/inter.woff2", "Font", "font/woff2"
+		r.ResponseHeaders = map[string]string{"date": date, "cache-control": "max-age=0, must-revalidate", "etag": `"inter-4"`, "last-modified": "Tue, 01 Oct 2024 10:00:00 GMT"}
+		r.Size = 96_000
+		if n >= 5 {
+			r.Status, r.StatusText, r.Size = 304, "Not Modified", 180
+		}
+	}
+	return r
 }

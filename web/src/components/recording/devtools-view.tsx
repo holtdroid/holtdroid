@@ -156,7 +156,7 @@ export function Chip({
   )
 }
 
-function TimeButton({ t, onSeek }: { t: number; onSeek: (t: number) => void }) {
+export function TimeButton({ t, onSeek }: { t: number; onSeek: (t: number) => void }) {
   return (
     <button
       type="button"
@@ -172,12 +172,12 @@ function TimeButton({ t, onSeek }: { t: number; onSeek: (t: number) => void }) {
   )
 }
 
-function Empty({ children }: { children: ReactNode }) {
+export function Empty({ children }: { children: ReactNode }) {
   return <p className="px-3 py-8 text-center text-sm text-stage-outline">{children}</p>
 }
 
 /** The lower half of a panel once a row is picked. */
-function Details({
+export function Details({
   title,
   onClose,
   actions,
@@ -207,7 +207,7 @@ function Details({
   )
 }
 
-function Section({ title, children, aside }: { title: string; children: ReactNode; aside?: ReactNode }) {
+export function Section({ title, children, aside }: { title: string; children: ReactNode; aside?: ReactNode }) {
   return (
     <section className="mt-3 first:mt-0">
       <h3 className="mb-1.5 flex items-center gap-2 text-xs font-medium tracking-wide text-stage-outline uppercase">
@@ -228,7 +228,7 @@ const phaseStyle: Record<RequestPhase, string> = {
   "server-error": "bg-stage-error-container text-stage-error",
 }
 
-function StatusBadge({ r, t }: { r: DevToolsRequest; t: number }) {
+export function StatusBadge({ r, t }: { r: DevToolsRequest; t: number }) {
   const phase = requestPhase(r, t)
   const label =
     phase === "pending"

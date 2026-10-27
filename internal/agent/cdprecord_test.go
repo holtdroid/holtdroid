@@ -391,7 +391,7 @@ func TestDevToolsWatchStreamsSocketsLive(t *testing.T) {
 
 	got := make(chan contract.DevToolsEntry, 16)
 	ctx := t.Context()
-	go func() { _ = w.watchSockets(ctx, func(e contract.DevToolsEntry) error { got <- e; return nil }) }()
+	go func() { _ = w.watchLive(ctx, func(e contract.DevToolsEntry) error { got <- e; return nil }) }()
 	next := func() contract.DevToolsEntry {
 		t.Helper()
 		select {
@@ -446,7 +446,7 @@ func waitSubscribed(t *testing.T, w *devtoolsWatch) {
 
 func TestDevToolsWatchKeepsSocketHistoryForLaterWatchers(t *testing.T) {
 	w := newDevToolsWatch(nil, slog.New(slog.DiscardHandler))
-	w.maxKept = 4 * (256 + 10)
+	w.sockets.max = 4 * (256 + 10)
 	pg := newCDPPage("P1", w)
 	w.procs["webview_devtools_remote_1"] = &cdpProcess{w: w, pages: map[string]*cdpPage{"S1": pg}}
 	cdpEvent(t, pg, "Network.webSocketCreated", `{"requestId":"s1","url":"wss://a.example/"}`)
@@ -459,7 +459,7 @@ func TestDevToolsWatchKeepsSocketHistoryForLaterWatchers(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		_ = w.watchSockets(ctx, func(e contract.DevToolsEntry) error {
+		_ = w.watchLive(ctx, func(e contract.DevToolsEntry) error {
 			got = append(got, e)
 			if len(got) == 6 {
 				cancel()
@@ -479,5 +479,67 @@ func TestDevToolsWatchKeepsSocketHistoryForLaterWatchers(t *testing.T) {
 	}
 	if last := got[len(got)-1]; last.Type != contract.DevToolsSocketEntry || last.Seq != 0 || last.Socket.URL != "wss://a.example/" || last.Socket.Frames != 10 {
 		t.Fatalf("the socket as it is now: %+v", last)
+	}
+}
+
+func TestDevToolsWatchStreamsRequestsWithoutBodies(t *testing.T) {
+	w := newDevToolsWatch(nil, slog.New(slog.DiscardHandler))
+	pg := newCDPPage("P1", w)
+	w.procs["webview_devtools_remote_1"] = &cdpProcess{w: w, pages: map[string]*cdpPage{"S1": pg}}
+	cdpEvent(t, pg, "Network.requestWillBeSentExtraInfo", `{"requestId":"r1","headers":{"Cache-Control":"no-cache","Pragma":"no-cache"}}`)
+	cdpEvent(t, pg, "Network.requestWillBeSent", `{"requestId":"r1","timestamp":1,"wallTime":1700000000,"type":"Fetch","request":{"url":"https://api.example.com/a","method":"POST","headers":{"cache-control":"max-age=0"},"postData":"secret"}}`)
+	cdpEvent(t, pg, "Network.responseReceived", `{"requestId":"r1","response":{"status":200,"headers":{"Cache-Control":"public, max-age=60"}}}`)
+	cdpEvent(t, pg, "Network.responseReceivedExtraInfo", `{"requestId":"r1","headers":{"cache-control":"public, max-age=60","set-cookie":"sid=1"}}`)
+	cdpEvent(t, pg, "Network.loadingFinished", `{"requestId":"r1","timestamp":2,"encodedDataLength":120}`)
+
+	var got []contract.DevToolsEntry
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	_ = w.watchLive(ctx, func(e contract.DevToolsEntry) error {
+		got = append(got, e)
+		if e.Type == contract.DevToolsPageEntry {
+			cancel()
+		}
+		return nil
+	})
+	if len(got) < 1 || got[0].Request == nil {
+		t.Fatalf("lines %+v", got)
+	}
+	r := got[0].Request
+	if r.PostData != "" || r.Body != "" || got[0].Seq != 1 || r.Wall != 1700000000000 {
+		t.Fatalf("live request %+v", r)
+	}
+	if r.RequestHeaders["Cache-Control"] != "no-cache" || r.RequestHeaders["Pragma"] != "no-cache" || len(r.RequestHeaders) != 2 {
+		t.Fatalf("request headers %v", r.RequestHeaders)
+	}
+	if r.ResponseHeaders["set-cookie"] != "sid=1" || r.ResponseHeaders["cache-control"] != "public, max-age=60" || len(r.ResponseHeaders) != 2 {
+		t.Fatalf("response headers %v", r.ResponseHeaders)
+	}
+	if len(pg.early) != 0 {
+		t.Fatalf("early extra info left: %v", pg.early)
+	}
+}
+
+func TestDevToolsWatchKeepsRequestsApartFromSockets(t *testing.T) {
+	w := newDevToolsWatch(nil, slog.New(slog.DiscardHandler))
+	w.requests.max = 2 * 300
+	pg := newCDPPage("P1", w)
+	cdpEvent(t, pg, "Network.webSocketCreated", `{"requestId":"s1","url":"wss://a.example/"}`)
+	for i := range 5 {
+		id := fmt.Sprintf("r%d", i)
+		b, _ := json.Marshal(map[string]any{"requestId": id, "timestamp": 1, "request": map[string]any{"url": "https://a.example/" + id, "method": "GET"}})
+		pg.handle("Network.requestWillBeSent", b)
+		b, _ = json.Marshal(map[string]any{"requestId": id, "timestamp": 2})
+		pg.handle("Network.loadingFinished", b)
+	}
+	if len(w.sockets.lines) != 1 || w.sockets.lines[0].Socket == nil {
+		t.Fatalf("socket history %+v", w.sockets.lines)
+	}
+	var urls []string
+	for _, e := range w.requests.lines {
+		urls = append(urls, e.Request.URL)
+	}
+	if !slices.Equal(urls, []string{"https://a.example/r3", "https://a.example/r4"}) {
+		t.Fatalf("kept requests %v", urls)
 	}
 }

@@ -816,7 +816,7 @@ device ─scrcpy H.264─▶ agent ──tee──▶ viewer's WebSocket
                         api ──▶ storage: recordings/meta/…, recordings/files/…, recordings/shares/…
                          ▲ GET /api/v1/recordings/{id}/files/…, /events, /devtools (or /api/v1/shared/{token}/…)
 browser: mediabunny decodes one init+segment at a time; the player shows the
-         tools (logcat, network, console, WebSockets) | phone | app, time, device,
+         tools (logcat, network, console, WebSockets, cache) | phone | app, time, device,
          network, load as HTML, and the MP4 download (WebCodecs encode into OPFS)
          draws phone | panels on a canvas
 ```
