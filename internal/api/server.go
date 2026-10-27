@@ -47,6 +47,7 @@ type Server struct {
 	appData        *appDataStore
 	recordings     *recordingStore
 	references     *referenceStore
+	media          *mediaStore
 	webviews       *webviewCatalog
 	activity       *activity
 	warm           chan warmItem
@@ -186,6 +187,16 @@ func New(ctx context.Context, cfg Config, opts ...Option) (*Server, error) {
 				return nil, fmt.Errorf("pixelPerfect.storage: %w", err)
 			}
 			s.references = &referenceStore{store: store}
+		}
+	}
+	if cfg.Media.Enabled {
+		s.media = &mediaStore{store: s.store, prefix: mediaPrefix}
+		if cfg.Media.Storage.Type != "" {
+			store, err := storage.New(ctx, cfg.Media.Storage, s.secrets)
+			if err != nil {
+				return nil, fmt.Errorf("media.storage: %w", err)
+			}
+			s.media = &mediaStore{store: store}
 		}
 	}
 	if s.webviews, err = newWebViewCatalog(ctx, cfg.WebView, s); err != nil {
@@ -373,6 +384,7 @@ func (s *Server) InternalHandler() http.Handler {
 	})
 	mux.HandleFunc("GET /internal/app-data/{key...}", s.serveInternalAppData)
 	mux.HandleFunc("GET /internal/webview/{id}", s.serveInternalWebView)
+	mux.HandleFunc("GET /internal/media/{user}/{id}", s.serveInternalMedia)
 	mux.HandleFunc("PUT /internal/recordings/{user}/{id}/{secret}/{file}", s.serveRecordingUpload)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
 	contract.RegisterSSHSessions(contract.NewAPI(mux, "Holtdroid api internal"), s)

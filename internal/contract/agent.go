@@ -42,6 +42,8 @@ type Agent interface {
 	SetDNS(ctx context.Context, settings DNSSettings) (DNSState, error)
 	FlushDNS(ctx context.Context) error
 	WatchDNS(ctx context.Context, send func(DNSEvent) error) error
+	Microphone(ctx context.Context) Microphone
+	SetMicrophone(ctx context.Context, in SetMicrophone) (Microphone, error)
 }
 
 type AppAction string
@@ -105,6 +107,7 @@ type screenshotOutput struct {
 
 func RegisterAgent(api huma.API, a Agent) {
 	tags := []string{"agent"}
+	registerMicrophone(api, a, tags)
 
 	huma.Register(api, huma.Operation{OperationID: "agentHealth", Method: http.MethodGet, Path: "/v1/health", Tags: tags},
 		func(ctx context.Context, _ *struct{}) (*body[Health], error) {

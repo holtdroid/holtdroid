@@ -62,6 +62,10 @@ func (s *Server) proxy(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "install builds through /api/v1/sessions/{provider}/{id}/install", http.StatusForbidden)
 		return
 	}
+	if rel == "/v1/microphone" && r.Method != http.MethodGet {
+		http.Error(w, "the microphone is set through /api/v1/sessions/{provider}/{id}/microphone", http.StatusForbidden)
+		return
+	}
 	if rel == "/v1/app-data" || strings.HasPrefix(rel, "/v1/app-data/") {
 		http.Error(w, "app data is saved through /api/v1/sessions/{provider}/{id}/app-data", http.StatusForbidden)
 		return

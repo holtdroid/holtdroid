@@ -40,6 +40,7 @@ export const keys = {
   webviews: ["webviews"] as const,
   map: ["map"] as const,
   references: ["pixel-perfect"] as const,
+  media: ["media"] as const,
   figmaToken: ["pixel-perfect", "figma-token"] as const,
   referenceLayers: (ref: ReferenceView) => ["pixel-perfect", ref.id, "layers", ref.imageUrl] as const,
   apps: ["apps"] as const,
@@ -645,5 +646,34 @@ export function useDeleteFigmaToken() {
   return useMutation({
     mutationFn: () => unwrap(api.DELETE("/api/v1/pixel-perfect/figma-token")),
     onSuccess: () => void qc.invalidateQueries({ queryKey: keys.references }),
+  })
+}
+
+export function useMedia(enabled = true) {
+  return useQuery({
+    queryKey: keys.media,
+    queryFn: () => unwrap(api.GET("/api/v1/media")),
+    staleTime: 30_000,
+    enabled,
+  })
+}
+
+export function useUploadMedia() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (file: File) => {
+      const form = new FormData()
+      form.append("file", file, file.name)
+      return unwrap(api.POST("/api/v1/media", { body: { file: "" }, bodySerializer: () => form }))
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.media }),
+  })
+}
+
+export function useDeleteMedia() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => unwrap(api.DELETE("/api/v1/media/{id}", { params: { path: { id } } })),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.media }),
   })
 }

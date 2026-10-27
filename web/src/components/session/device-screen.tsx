@@ -12,6 +12,7 @@ import { ClipboardWidget } from "@/components/session/clipboard-widget"
 import { DisplayWidget } from "@/components/session/display-widget"
 import { GpsWidget } from "@/components/session/gps-widget"
 import { LanguageWidget } from "@/components/session/language-widget"
+import { MicrophoneWidget } from "@/components/session/microphone-widget"
 import { NetworkWidget } from "@/components/session/network-widget"
 import { PixelOverlay } from "@/components/session/pixel-perfect/overlay"
 import type { PixelPerfect } from "@/components/session/pixel-perfect/state"
@@ -315,6 +316,7 @@ export function DeviceScreen({
         <StreamWidget provider={provider} id={id} live={live} />
         <DisplayWidget provider={provider} id={id} />
         {clipboard && <ClipboardWidget provider={provider} id={id} />}
+        <MicrophoneWidget provider={provider} id={id} />
         <BatteryWidget provider={provider} id={id} />
         <LanguageWidget provider={provider} id={id} />
         <TimeWidget provider={provider} id={id} />

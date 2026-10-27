@@ -115,6 +115,7 @@ providers:
 | `appData.*`             | off              | Save app data between sessions, see [App data](/holtdroid/concepts/app-data/)                                                                                                |
 | `recordings.*`          | off              | Record sessions on the server, see [Recordings](/holtdroid/concepts/recordings/)                                                                                             |
 | `pixelPerfect.*`        | on               | Reference images for the Pixel perfect tab, see [Pixel perfect](/holtdroid/concepts/pixel-perfect/)                                                                          |
+| `media.*`               | on, 5 GiB a user | Audio and video files a session's microphone plays, see [Microphone](/holtdroid/concepts/microphone/)                                                                        |
 | `devTools.frontend`     | Google's host    | Where the portal fetches the DevTools frontend from; empty lets the session's agent serve it                                                                                 |
 | `devTools.storage`      | the api's        | Where crawled DevTools frontends are archived, one tar.gz per revision; give it an S3 prefix when `storage` is a cache volume, see [DevTools](/holtdroid/concepts/devtools/) |
 | `webview.storage`       | off              | The WebView catalog, see [WebView versions](/holtdroid/concepts/webview-versions/)                                                                                           |

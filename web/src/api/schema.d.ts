@@ -777,6 +777,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/media": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The caller's audio and video files for the device's microphone, newest first, with their quota. */
+        get: operations["listMedia"];
+        put?: never;
+        /** @description Adds an audio or video file, at most media.maxFileSize. Fails with 507 when it would go over the caller's quota. */
+        post: operations["uploadMedia"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/media/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["deleteMedia"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/network-backends/{package}": {
         parameters: {
             query?: never;
@@ -1143,6 +1177,23 @@ export interface paths {
         put?: never;
         /** @description Replaces the app in a running session with another build of the same package and starts it. */
         post: operations["installSessionArtifact"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{provider}/{id}/microphone": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Replaces what the session's microphone hears: a test signal, a file of the caller's media library, or nothing. */
+        put: operations["setSessionMicrophone"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2294,6 +2345,11 @@ export interface components {
             maxSessions: number;
             /**
              * Format: int64
+             * @description bytes of the media library, 0 for no limit
+             */
+            mediaQuota: number;
+            /**
+             * Format: int64
              * @description bytes, 0 for no limit
              */
             recordingsQuota: number;
@@ -2715,6 +2771,39 @@ export interface components {
             /** @description MapLibre style URL, proxied through the portal */
             style?: string;
         };
+        MediaList: {
+            enabled: boolean;
+            items: components["schemas"]["MediaView"][];
+            /**
+             * Format: int64
+             * @description bytes
+             */
+            maxFileSize: number;
+            /**
+             * Format: int64
+             * @description bytes a user's files may take, 0 for no limit
+             */
+            quota: number;
+            /**
+             * Format: int64
+             * @description bytes the caller's files take
+             */
+            used: number;
+        };
+        MediaView: {
+            contentType: string;
+            /** Format: date-time */
+            createdAt: string;
+            id: string;
+            /** @enum {string} */
+            kind: "audio" | "video";
+            name: string;
+            /**
+             * Format: int64
+             * @description bytes
+             */
+            size: number;
+        };
         Meta: {
             /** @description What changed in this build, plain text or Markdown */
             changelog?: string;
@@ -2778,6 +2867,21 @@ export interface components {
              */
             interval: number;
             thermal: components["schemas"]["Temperature"][];
+        };
+        Microphone: {
+            /** @description the device's microphone can be replaced (Android sessions on redroid) */
+            available: boolean;
+            /** @description why the last source stopped */
+            error?: string;
+            /** @description its name */
+            file?: string;
+            /** @description the media file playing while the source is file */
+            mediaId?: string;
+            /**
+             * @description off: the device's own silent microphone; tone: a 1 kHz line-up tone; beeps: a short beep every second; noise: pink noise; file: a media file on repeat; browser: the viewer's microphone
+             * @enum {string}
+             */
+            source: "off" | "tone" | "beeps" | "noise" | "file" | "browser";
         };
         Network: {
             country?: string;
@@ -2952,6 +3056,11 @@ export interface components {
              * @description 0 for no limit
              */
             maxSessions?: number;
+            /**
+             * Format: int64
+             * @description bytes of the media library, 0 for no limit
+             */
+            mediaQuota?: number;
             /**
              * Format: int64
              * @description bytes, 0 for no limit
@@ -3503,6 +3612,15 @@ export interface components {
         SessionsEvent: {
             errors: components["schemas"]["SourceError"][];
             items: components["schemas"]["SessionView"][];
+        };
+        SetSessionMicrophone: {
+            /** @description a file of the caller's media library, for the file source */
+            mediaId?: string;
+            /**
+             * @description the browser's microphone takes over through the session's /microphone/browser WebSocket instead
+             * @enum {string}
+             */
+            source: "off" | "tone" | "beeps" | "noise" | "file";
         };
         Slot: {
             /** @description what this slot's device can do, when it differs from device to device; empty means the provider's capabilities */
@@ -5492,6 +5610,101 @@ export interface operations {
             };
         };
     };
+    listMedia: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaList"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    uploadMedia: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                    name?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    deleteMedia: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     getNetworkBackends: {
         parameters: {
             query?: never;
@@ -6474,6 +6687,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SessionView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    setSessionMicrophone: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetSessionMicrophone"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Microphone"];
                 };
             };
             /** @description Error */

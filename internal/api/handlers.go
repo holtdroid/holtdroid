@@ -245,6 +245,7 @@ func (s *Server) register(api huma.API) {
 	s.registerAppData(api)
 	s.registerRecordings(api)
 	s.registerReferences(api)
+	s.registerMedia(api)
 	s.registerInventory(api)
 	s.registerDevToolsFrontends(api)
 	s.registerMap(api)
@@ -266,7 +267,7 @@ func httpError(err error) error {
 		return huma.Error422UnprocessableEntity(err.Error())
 	case errors.Is(err, errForbidden), errors.Is(err, source.ErrReadOnly), errors.Is(err, errUploadsDisabled), errors.Is(err, errDownloadsAdmin),
 		errors.Is(err, errAppDataDisabled), errors.Is(err, errAppDataExport), errors.Is(err, errRecordAlways), errors.Is(err, errRecordingsDisabled), errors.Is(err, errSharingDisabled),
-		errors.Is(err, errReferencesDisabled):
+		errors.Is(err, errReferencesDisabled), errors.Is(err, errMediaDisabled):
 		return huma.Error403Forbidden(err.Error())
 	case errors.Is(err, contract.ErrBusy):
 		return huma.Error423Locked(err.Error())

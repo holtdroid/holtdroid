@@ -89,4 +89,5 @@ type User struct {
 	RecordingsQuota *int64
 	AppDataQuota    *int64
 	ReferencesQuota *int64
+	MediaQuota      *int64
 }

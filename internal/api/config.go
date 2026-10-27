@@ -117,6 +117,15 @@ type PixelPerfectConfig struct {
 	Figma         FigmaConfig
 }
 
+// MediaConfig is the media library: users' audio and video files that a
+// session's microphone plays (decision #146).
+type MediaConfig struct {
+	Enabled     bool
+	Storage     storage.Config
+	Quota       config.ByteSize
+	MaxFileSize config.ByteSize
+}
+
 // FigmaConfig is how references are imported from Figma (decision #139).
 type FigmaConfig struct {
 	// Token is a personal access token used for everyone; when empty, users
@@ -149,6 +158,7 @@ type Config struct {
 	AppData        AppDataConfig
 	Recordings     RecordingsConfig
 	PixelPerfect   PixelPerfectConfig
+	Media          MediaConfig
 	DevTools       DevToolsConfig
 	WebView        WebViewConfig
 	Map            MapConfig
@@ -191,6 +201,7 @@ func DefaultConfig() Config {
 			Enabled: true, Quota: 1 << 30, MaxAge: 30 * 24 * time.Hour, MaxFileSize: 25 << 20, SweepInterval: time.Hour,
 			Figma: FigmaConfig{URL: "https://api.figma.com"},
 		},
+		Media:   MediaConfig{Enabled: true, Quota: 5 << 30, MaxFileSize: 1 << 30},
 		Map:     MapConfig{URL: "https://tiles.openfreemap.org", Style: "styles/liberty", DarkStyle: "styles/dark"},
 		Routing: RoutingConfig{URL: "https://valhalla1.openstreetmap.de"},
 		Sources: []source.Config{{

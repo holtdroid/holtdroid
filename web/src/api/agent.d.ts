@@ -269,6 +269,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/microphone": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getMicrophone"];
+        /** @description Replaces what the device's microphone hears. The browser's microphone takes over through /microphone/browser instead. */
+        put: operations["setMicrophone"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/network": {
         parameters: {
             query?: never;
@@ -1090,6 +1107,21 @@ export interface components {
             interval: number;
             thermal: components["schemas"]["Temperature"][];
         };
+        Microphone: {
+            /** @description the device's microphone can be replaced (Android sessions on redroid) */
+            available: boolean;
+            /** @description why the last source stopped */
+            error?: string;
+            /** @description its name */
+            file?: string;
+            /** @description the media file playing while the source is file */
+            mediaId?: string;
+            /**
+             * @description off: the device's own silent microphone; tone: a 1 kHz line-up tone; beeps: a short beep every second; noise: pink noise; file: a media file on repeat; browser: the viewer's microphone
+             * @enum {string}
+             */
+            source: "off" | "tone" | "beeps" | "noise" | "file" | "browser";
+        };
         Network: {
             country?: string;
             externalIp?: string;
@@ -1313,6 +1345,17 @@ export interface components {
         };
         SetLocation: {
             location: string;
+        };
+        SetMicrophone: {
+            file?: string;
+            /**
+             * Format: uri
+             * @description where the agent downloads the file; only for the file source
+             */
+            fileUrl?: string;
+            mediaId?: string;
+            /** @enum {string} */
+            source: "off" | "tone" | "beeps" | "noise" | "file";
         };
         StatusEvent: {
             /** @description The app is running under instrumentation; once it is closed it stays closed until it is started again */
@@ -1998,6 +2041,68 @@ export interface operations {
                         /** @description The retry time in milliseconds. */
                         retry?: number;
                     }[];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getMicrophone: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Microphone"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    setMicrophone: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetMicrophone"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Microphone"];
                 };
             };
             /** @description Error */

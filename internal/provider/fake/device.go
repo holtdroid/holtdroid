@@ -50,6 +50,7 @@ type device struct {
 	recTarget *contract.RecordingTarget
 	recID     string
 	recAt     time.Time
+	mic       contract.Microphone
 }
 
 func newDevice(s contract.Session, step time.Duration, offers func(string) bool, req contract.CreateSession) *device {

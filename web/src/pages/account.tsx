@@ -133,6 +133,7 @@ export function LimitsSummary({ limits }: { limits: EffectiveLimits }) {
         value={limits.appDataMaxSize > 0 ? formatBytes(limits.appDataMaxSize) : "No limit"}
       />
       <Limit label="References" value={limits.referencesQuota > 0 ? formatBytes(limits.referencesQuota) : "No limit"} />
+      <Limit label="Media library" value={limits.mediaQuota > 0 ? formatBytes(limits.mediaQuota) : "No limit"} />
     </dl>
   )
 }

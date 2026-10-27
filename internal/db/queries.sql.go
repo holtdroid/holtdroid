@@ -394,7 +394,7 @@ func (q *Queries) GetPasskey(ctx context.Context, id []byte) (Passkey, error) {
 }
 
 const getUser = `-- name: GetUser :one
-SELECT id, handle, email, name, role, created_at, last_seen_at, max_sessions, max_session_ttl, recordings_quota, app_data_quota, references_quota FROM users WHERE id = ?
+SELECT id, handle, email, name, role, created_at, last_seen_at, max_sessions, max_session_ttl, recordings_quota, app_data_quota, references_quota, media_quota FROM users WHERE id = ?
 `
 
 func (q *Queries) GetUser(ctx context.Context, id string) (User, error) {
@@ -413,12 +413,13 @@ func (q *Queries) GetUser(ctx context.Context, id string) (User, error) {
 		&i.RecordingsQuota,
 		&i.AppDataQuota,
 		&i.ReferencesQuota,
+		&i.MediaQuota,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, handle, email, name, role, created_at, last_seen_at, max_sessions, max_session_ttl, recordings_quota, app_data_quota, references_quota FROM users WHERE email = ?
+SELECT id, handle, email, name, role, created_at, last_seen_at, max_sessions, max_session_ttl, recordings_quota, app_data_quota, references_quota, media_quota FROM users WHERE email = ?
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
@@ -437,12 +438,13 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.RecordingsQuota,
 		&i.AppDataQuota,
 		&i.ReferencesQuota,
+		&i.MediaQuota,
 	)
 	return i, err
 }
 
 const getUserByHandle = `-- name: GetUserByHandle :one
-SELECT id, handle, email, name, role, created_at, last_seen_at, max_sessions, max_session_ttl, recordings_quota, app_data_quota, references_quota FROM users WHERE handle = ?
+SELECT id, handle, email, name, role, created_at, last_seen_at, max_sessions, max_session_ttl, recordings_quota, app_data_quota, references_quota, media_quota FROM users WHERE handle = ?
 `
 
 func (q *Queries) GetUserByHandle(ctx context.Context, handle []byte) (User, error) {
@@ -461,6 +463,7 @@ func (q *Queries) GetUserByHandle(ctx context.Context, handle []byte) (User, err
 		&i.RecordingsQuota,
 		&i.AppDataQuota,
 		&i.ReferencesQuota,
+		&i.MediaQuota,
 	)
 	return i, err
 }
@@ -621,7 +624,7 @@ func (q *Queries) ListSessionEvents(ctx context.Context, arg ListSessionEventsPa
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT users.id, users.handle, users.email, users.name, users.role, users.created_at, users.last_seen_at, users.max_sessions, users.max_session_ttl, users.recordings_quota, users.app_data_quota, users.references_quota, (SELECT COUNT(*) FROM passkeys WHERE passkeys.user_id = users.id) AS passkeys
+SELECT users.id, users.handle, users.email, users.name, users.role, users.created_at, users.last_seen_at, users.max_sessions, users.max_session_ttl, users.recordings_quota, users.app_data_quota, users.references_quota, users.media_quota, (SELECT COUNT(*) FROM passkeys WHERE passkeys.user_id = users.id) AS passkeys
 FROM users
 ORDER BY role = '' DESC, created_at
 `
@@ -639,6 +642,7 @@ type ListUsersRow struct {
 	RecordingsQuota *int64
 	AppDataQuota    *int64
 	ReferencesQuota *int64
+	MediaQuota      *int64
 	Passkeys        int64
 }
 
@@ -664,6 +668,7 @@ func (q *Queries) ListUsers(ctx context.Context) ([]ListUsersRow, error) {
 			&i.RecordingsQuota,
 			&i.AppDataQuota,
 			&i.ReferencesQuota,
+			&i.MediaQuota,
 			&i.Passkeys,
 		); err != nil {
 			return nil, err
@@ -823,7 +828,7 @@ func (q *Queries) UpdateDNSPreset(ctx context.Context, arg UpdateDNSPresetParams
 
 const updateUser = `-- name: UpdateUser :exec
 UPDATE users
-SET email = ?, name = ?, role = ?, max_sessions = ?, max_session_ttl = ?, recordings_quota = ?, app_data_quota = ?, references_quota = ?
+SET email = ?, name = ?, role = ?, max_sessions = ?, max_session_ttl = ?, recordings_quota = ?, app_data_quota = ?, references_quota = ?, media_quota = ?
 WHERE id = ?
 `
 
@@ -836,6 +841,7 @@ type UpdateUserParams struct {
 	RecordingsQuota *int64
 	AppDataQuota    *int64
 	ReferencesQuota *int64
+	MediaQuota      *int64
 	ID              string
 }
 
@@ -849,6 +855,7 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) error {
 		arg.RecordingsQuota,
 		arg.AppDataQuota,
 		arg.ReferencesQuota,
+		arg.MediaQuota,
 		arg.ID,
 	)
 	return err

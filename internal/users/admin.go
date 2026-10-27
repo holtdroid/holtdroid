@@ -20,6 +20,7 @@ func (s *Service) List(ctx context.Context) ([]User, error) {
 		out = append(out, fromRow(db.User{
 			ID: r.ID, Handle: r.Handle, Email: r.Email, Name: r.Name, Role: r.Role, CreatedAt: r.CreatedAt, LastSeenAt: r.LastSeenAt,
 			MaxSessions: r.MaxSessions, MaxSessionTtl: r.MaxSessionTtl, RecordingsQuota: r.RecordingsQuota, AppDataQuota: r.AppDataQuota, ReferencesQuota: r.ReferencesQuota,
+			MediaQuota: r.MediaQuota,
 		}, r.Passkeys))
 	}
 	return out, nil
@@ -49,7 +50,7 @@ func (s *Service) Create(ctx context.Context, name, email, role string, limits O
 		}
 		return q.UpdateUser(ctx, db.UpdateUserParams{
 			Email: email, Name: name, Role: role, MaxSessions: limits.MaxSessions, MaxSessionTtl: limits.MaxSessionTTL,
-			RecordingsQuota: limits.RecordingsQuota, AppDataQuota: limits.AppDataMaxSize, ReferencesQuota: limits.ReferencesQuota, ID: id,
+			RecordingsQuota: limits.RecordingsQuota, AppDataQuota: limits.AppDataMaxSize, ReferencesQuota: limits.ReferencesQuota, MediaQuota: limits.MediaQuota, ID: id,
 		})
 	})
 	if err != nil {
@@ -98,7 +99,7 @@ func (s *Service) Update(ctx context.Context, id string, in Update) (User, error
 	if !ValidRole(in.Role) {
 		return User{}, fmt.Errorf("%w: unknown role %q", ErrInvalid, in.Role)
 	}
-	for _, v := range []*int64{in.Limits.MaxSessions, in.Limits.MaxSessionTTL, in.Limits.RecordingsQuota, in.Limits.AppDataMaxSize, in.Limits.ReferencesQuota} {
+	for _, v := range []*int64{in.Limits.MaxSessions, in.Limits.MaxSessionTTL, in.Limits.RecordingsQuota, in.Limits.AppDataMaxSize, in.Limits.ReferencesQuota, in.Limits.MediaQuota} {
 		if v != nil && *v < 0 {
 			return User{}, fmt.Errorf("%w: limits can't be negative", ErrInvalid)
 		}
@@ -119,7 +120,7 @@ func (s *Service) Update(ctx context.Context, id string, in Update) (User, error
 		return q.UpdateUser(ctx, db.UpdateUserParams{
 			Email: email, Name: name, Role: in.Role, MaxSessions: in.Limits.MaxSessions, MaxSessionTtl: in.Limits.MaxSessionTTL,
 			RecordingsQuota: in.Limits.RecordingsQuota, AppDataQuota: in.Limits.AppDataMaxSize,
-			ReferencesQuota: in.Limits.ReferencesQuota, ID: id,
+			ReferencesQuota: in.Limits.ReferencesQuota, MediaQuota: in.Limits.MediaQuota, ID: id,
 		})
 	})
 	if err != nil {

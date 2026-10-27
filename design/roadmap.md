@@ -332,6 +332,8 @@ Goal: several Android devices per node instead of one emulator per node.
 - [ ] A session's root that can't reach the node: user namespaces were tried and dropped (decision #83); next candidates are a per-session binder allowlist from a node helper, token-authenticated frida-server and a non-root adbd for users
 - [x] DNS tab (decision #133): the agent answers the device's DNS behind the sidecar, with a live log, rewrites (address, block, CNAME, NXDOMAIN; exact and `*.` names), a TTL limit, clearing Android's cache, `dns` events in recordings and per-user saved sets in the api's database
 - [ ] DNS log and rewrites on physical phones (their sing-box runs on the host, `RenderProxy`)
+- [x] A replaced microphone on redroid (decision #146): `Mic.java` routes every recording to a remote submix through an AudioPolicy; the agent feeds it a line-up tone, beeps, pink noise, a file from the user's media library (`media.quota`, 5 GiB) or the browser's microphone; checked on Android 11 and 15
+- [ ] An emulated camera on redroid: there is no camera HAL; Android 15's `virtual_camera` registers through ANGLE but minigbm refuses its YUV render buffers (recon in progress)
 
 ## Later
 

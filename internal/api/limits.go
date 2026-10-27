@@ -18,6 +18,7 @@ type limits struct {
 	RecordingsQuota int64
 	AppDataMaxSize  int64
 	ReferencesQuota int64
+	MediaQuota      int64
 }
 
 // roleLimits is the server-wide settings with a role's nonzero limits from
@@ -26,7 +27,7 @@ func (s *Server) roleLimits(r auth.Limits) limits {
 	l := limits{
 		MaxSessions: s.cfg.Sessions.MaxPerUser, MaxSessionTTL: s.cfg.Sessions.MaxTTL,
 		RecordingsQuota: int64(s.cfg.Recordings.Quota), AppDataMaxSize: int64(s.cfg.AppData.MaxSize),
-		ReferencesQuota: int64(s.cfg.PixelPerfect.Quota),
+		ReferencesQuota: int64(s.cfg.PixelPerfect.Quota), MediaQuota: int64(s.cfg.Media.Quota),
 	}
 	if r.MaxSessions > 0 {
 		l.MaxSessions = r.MaxSessions
@@ -42,6 +43,9 @@ func (s *Server) roleLimits(r auth.Limits) limits {
 	}
 	if r.ReferencesQuota > 0 {
 		l.ReferencesQuota = int64(r.ReferencesQuota)
+	}
+	if r.MediaQuota > 0 {
+		l.MediaQuota = int64(r.MediaQuota)
 	}
 	return l
 }
@@ -71,6 +75,9 @@ func (s *Server) limits(ctx context.Context, user string) limits {
 	}
 	if own.ReferencesQuota != nil {
 		l.ReferencesQuota = *own.ReferencesQuota
+	}
+	if own.MediaQuota != nil {
+		l.MediaQuota = *own.MediaQuota
 	}
 	return l
 }

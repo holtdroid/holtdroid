@@ -874,6 +874,22 @@ The api only stores and imports from Figma; quota (`pixelPerfect.quota`, per use
 upload and import, and a sweep every `pixelPerfect.sweepInterval` deletes references not
 opened for `pixelPerfect.maxAge`.
 
+## Microphone
+
+What the device's microphone hears (decision #146, `internal/agent/microphone.go`,
+`images/session/Mic.java`, `internal/api/media.go`):
+
+```
+browser ─POST/DELETE /api/v1/media─▶ api ──▶ storage: media/<user>/<id>.json|.bin (media.quota per user)
+        ─PUT /api/v1/sessions/{p}/{id}/microphone {source, mediaId?}─▶ api ─PUT /v1/microphone {fileUrl}─▶ agent
+        ─WS /s/…/microphone/browser (16-bit mono, 48 kHz)──────────────────────────────────────────────▶ agent
+agent ─GET <internal>/internal/media/<user>/<id>─▶ api   (one file kept in the agent's cache)
+agent: ffmpeg -re (sine, aevalsrc beeps, pink anoisesrc, file on repeat) or the browser's samples
+       ─adb forward localabstract:holtdroid_mic_*─▶ Mic (app_process as root): AudioPolicy with a loop-back
+       AudioMix over every capture preset → remote submix ← AudioTrack from createAudioTrackSource
+apps' AudioRecord (any preset, WebView included) ─▶ remote submix; the helper's exit drops the policy
+```
+
 ## Security model
 
 - Sign-in is `auth.mode`: `anonymous` (random names), `password`, `oidc`,

@@ -64,6 +64,12 @@ config:
     # A Figma personal access token for everyone's imports; without one each
     # user enters their own in the tab.
     # figma: { token: env:FIGMA_TOKEN }
+  # Audio and video files a session's microphone plays (docs: Concepts →
+  # Microphone): 5 GiB per user, kept until deleted. Without a storage of
+  # its own they sit on the cache volume and are lost on restart.
+  media:
+    enabled: true
+    # storage: { type: s3, s3: { endpoint: …, bucket: …, prefix: media, … } }
   # Crawled DevTools frontends, one tar.gz per Chromium revision (docs:
   # Concepts → DevTools). Without a storage of their own they sit on the
   # cache volume and are crawled again after every restart.

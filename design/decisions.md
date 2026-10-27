@@ -4393,3 +4393,49 @@ that a hidden part's shadow fell on. An import takes one more Figma call
 and a few more MB of storage. References imported before keep working
 without components until updated from Figma.
 
+
+## 146. The microphone is replaced through an AudioPolicy, fed by the agent
+
+**Context.** redroid has no microphone: its stub audio HAL records silence,
+so apps with voice input, speech recognition or calls can't be tested. The
+maintainer asked for a test signal, a pre-recorded file and the browser's own
+microphone. A virtual sound card (snd-aloop) would be a node kernel module
+and a new audio HAL per Android version; a Frida hook on `AudioRecord` misses
+native and WebView recordings.
+
+**Decision.**
+
+- `Mic.java` (in `tools.dex`, run by root through `app_process`) registers
+  an `AudioPolicy` with one loop-back `AudioMix` that matches every capture
+  preset (default, mic, camcorder, voice recognition and communication,
+  unprocessed, performance), so every recording reads a remote submix. It
+  plays what it gets on a `localabstract` socket into
+  `createAudioTrackSource(mix)`: signed 16-bit stereo at 48 kHz. Remote
+  submix is already there for scrcpy's capture. `registerAudioPolicyStatic`
+  doesn't exist, so the helper calls `IAudioService.registerAudioPolicy`
+  itself, its arguments filled by type (Android 15 added an
+  `AttributionSource`). When the helper exits, binder death unregisters the
+  policy and recordings are silent again. Checked on Android 11 and 15: a
+  scrcpy `audio_source=mic` capture reads exactly the tone that was sent.
+- The agent (`internal/agent/microphone.go`) runs one source at a time:
+  ffmpeg (`-re`, in the session image) for the line-up tone (1 kHz at
+  -18 dBFS, ffmpeg's default sine level), beeps (100 ms each second, for
+  delay), pink noise and files on repeat; or the browser's samples from
+  `WS /microphone/browser` (mono, duplicated to stereo). It is offered only
+  on redroid; phones keep their own microphone, which is denied to the app
+  under test (#72).
+- Files come from a **media library** in the api, built like the Pixel
+  perfect references (#106): `media/<user>/<id>.json|.bin` in the storage,
+  `media.quota` (5 GiB) per user, per role and per user (`mediaQuota`, a
+  `users` column), `media.maxFileSize` (1 GiB). Files are kept as uploaded,
+  and ffmpeg resamples. `PUT /api/v1/sessions/{provider}/{id}/microphone`
+  checks ownership and hands the agent an internal URL of the file; the
+  proxy refuses `PUT /v1/microphone` from browsers, like `/v1/install`.
+- No aspect ratio or quality settings: Android asks for the rate and
+  channels it records at, and AudioFlinger converts from the mix.
+
+**Consequences.** One ffmpeg (about 5% of a core for a signal, more for a
+video file) and one helper per session while a source plays; nothing when
+it is off. The browser's microphone costs about 100 KB/s up. The camera is
+a separate problem: redroid has no camera HAL to feed (the recon on
+Android 15's `virtual_camera` is in the status).

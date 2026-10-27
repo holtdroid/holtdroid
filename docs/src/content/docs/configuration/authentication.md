@@ -224,10 +224,12 @@ without one uses the server-wide setting.
 | `recordingsQuota` | `recordings.quota`    | Storage for the user's recordings; 0 for no limit               |
 | `appDataMaxSize`  | `appData.maxSize`     | Largest app data save; 0 for no limit                           |
 | `referencesQuota` | `pixelPerfect.quota`  | Storage for the user's Pixel perfect references; 0 for no limit |
+| `mediaQuota`      | `media.quota`         | Storage for the user's media library; 0 for no limit            |
 
 Deleting a user signs them out at once and removes their passkeys. Devices
 they run keep going until stopped or reaped, and their recordings, app data
-and references stay until they expire.
+and references stay until they expire; their media library stays until an
+admin deletes it from the storage.
 
 ## Forward-auth headers
 

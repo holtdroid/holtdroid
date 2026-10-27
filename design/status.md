@@ -4,12 +4,23 @@ Snapshot for whoever continues the work — human or agent. Update the
 "Where things stand" and "Next steps" sections whenever a phase moves; the
 rest changes rarely.
 
-_Last updated: 2026-10-26._
+_Last updated: 2026-10-27._
 
 ## Where things stand
 
 **Works today** (deployed at https://holtdroid.homelab.example, see "Maintainer's
 deployment"):
+
+- A replaced microphone on redroid (decision #146): the session page's
+  Microphone card plays a line-up tone, beeps, pink noise, a file from the
+  user's media library or the browser's microphone into every app's
+  recordings. `Mic.java` was checked by hand on Android 11 and 15 (a scrcpy
+  mic capture read the exact tone sent); the agent, the api and the card are
+  covered by tests but not yet tried end to end in a live session. The
+  camera is not done: redroid has no camera HAL, and Android 15's
+  `virtual_camera` registers through ANGLE (`persist.graphics.egl=angle`)
+  but shows no picture because minigbm refuses YUV buffers that are both a
+  camera and a GPU render target; a patched minigbm is being looked into.
 
 - The DNS tab (decision #133): the agent answers redroid sessions' DNS
   behind the sidecar with a live log, rewrites, a TTL limit and cache

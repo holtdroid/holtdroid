@@ -97,6 +97,7 @@ type Limits struct {
 	RecordingsQuota config.ByteSize
 	AppDataMaxSize  config.ByteSize
 	ReferencesQuota config.ByteSize
+	MediaQuota      config.ByteSize
 }
 
 func DefaultConfig() Config {

@@ -53,10 +53,11 @@ type EffectiveLimits struct {
 	RecordingsQuota int64 `json:"recordingsQuota" doc:"bytes, 0 for no limit"`
 	AppDataMaxSize  int64 `json:"appDataMaxSize" doc:"bytes, 0 for no limit"`
 	ReferencesQuota int64 `json:"referencesQuota" doc:"bytes of pixel perfect references, 0 for no limit"`
+	MediaQuota      int64 `json:"mediaQuota" doc:"bytes of the media library, 0 for no limit"`
 }
 
 func effective(l limits) EffectiveLimits {
-	return EffectiveLimits{l.MaxSessions, int64(l.MaxSessionTTL / time.Second), l.RecordingsQuota, l.AppDataMaxSize, l.ReferencesQuota}
+	return EffectiveLimits{l.MaxSessions, int64(l.MaxSessionTTL / time.Second), l.RecordingsQuota, l.AppDataMaxSize, l.ReferencesQuota, l.MediaQuota}
 }
 
 type Account struct {
