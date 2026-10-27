@@ -102,6 +102,8 @@ export type PixelState = {
   /** The reference redrawn without its hidden components, for the overlay. */
   composite: { key: string; url: string } | null
   hoveredComponent: string | null
+  /** A still picture of the screen for the loupe while drawing. */
+  loupe: Pixels | null
   frozen: Frozen | null
   freezing: boolean
   analyzing: boolean
@@ -165,6 +167,8 @@ export function savePrefs(prefs: Prefs) {
   }
 }
 
+const precise = new Set<Tool>(["area", "ignore", "guides"])
+
 export class PixelPerfect {
   #state: PixelState
   readonly #listeners = new Set<() => void>()
@@ -191,6 +195,7 @@ export class PixelPerfect {
       drafts: {},
       composite: null,
       hoveredComponent: null,
+      loupe: null,
       frozen: null,
       freezing: false,
       analyzing: false,
@@ -201,6 +206,16 @@ export class PixelPerfect {
   }
 
   get = () => this.#state
+
+  async #loadLoupe() {
+    try {
+      const frozen = this.#state.frozen
+      const pixels = frozen ? frozen.pixels : await pixelsOf(await this.#snapshot())
+      if (precise.has(this.#state.tool)) this.set({ loupe: pixels })
+    } catch {
+      // without a picture the loupe isn't shown; drawing still works
+    }
+  }
 
   setDisplay(display: Display | undefined) {
     if (!display || display === this.#display) return
@@ -227,7 +242,12 @@ export class PixelPerfect {
   }
 
   set(patch: Partial<PixelState>) {
+    const tool = this.#state.tool
     this.#state = { ...this.#state, ...patch }
+    if (patch.tool && patch.tool !== tool) {
+      if (precise.has(patch.tool)) void this.#loadLoupe()
+      else this.#state = { ...this.#state, loupe: null }
+    }
     const prefs: Prefs = {
       visible: this.#state.visible,
       opacity: this.#state.opacity,

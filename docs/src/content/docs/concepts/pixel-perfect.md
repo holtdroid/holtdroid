@@ -145,6 +145,9 @@ that hides the overlay, its opacity and blend, **Freeze**, the settings and
   hide and the ignored areas;
 - **Differences**: the result, which **Find differences** switches to.
 
+When the panel is wide (DevTools stretched across the window), the three are
+shown side by side as columns instead of tabs.
+
 ## Over the screen
 
 Picking a reference lays it over the device screen. By default it fills the
@@ -177,6 +180,13 @@ area outlined in amber.
   48 dp.
 - **Drawn**: drag a rectangle over the screen; it is kept as fractions of the
   screen.
+
+While drawing the work area, an ignored area or a guide, a **loupe** next to
+the pointer shows the screen magnified with its pixel grid. Corners land on
+pixel boundaries and snap to the nearest contrasting edge within four
+pixels, such as a card's border; hold Alt to place them freely. The loupe
+uses a picture of the screen taken when the tool is turned on, or the frozen
+frame.
 
 Each reference keeps its own area, grid and guides. **Save as a preset**
 (the bookmark button) keeps them under a name for your other references and

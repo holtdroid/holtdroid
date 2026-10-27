@@ -314,7 +314,7 @@ function Toolbar({
           </div>
           <Select value={state.blend} onValueChange={(v) => pp.set({ blend: v as Blend })}>
             <SelectTrigger size="sm" aria-label="Blend" title={blends.find((b) => b.value === state.blend)?.hint}>
-              <SelectValue />
+              <SelectValue>{blends.find((b) => b.value === state.blend)?.label}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               {blends.map((b) => (
@@ -603,6 +603,20 @@ function ReferenceItem({
   )
 }
 
+const wideWidth = 1100
+
+function useWidth(ref: React.RefObject<HTMLElement | null>) {
+  const [width, setWidth] = useState(0)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return undefined
+    const observer = new ResizeObserver(([entry]) => setWidth(Math.round(entry?.contentRect.width ?? 0)))
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [ref])
+  return width
+}
+
 function ReferenceTabs({
   pp,
   reference: r,
@@ -613,43 +627,81 @@ function ReferenceTabs({
   session: SessionView
 }) {
   const state = usePixelState(pp)
+  const box = useRef<HTMLDivElement>(null)
+  const wide = useWidth(box) >= wideWidth
   const result = state.result?.referenceId === r.id ? state.result : null
   const draft = pp.draft(r)
   const skipped = draft.hidden.length + draft.ignore.length
+  const skipTitle = r.components ? "Components" : "Skip areas"
+  const regions = result ? result.analysis.regions.length : null
+  const layout = <LayoutTab pp={pp} reference={r} session={session} />
+  const skip = <SkipTab pp={pp} reference={r} />
+  const differences = <DifferencesTab pp={pp} reference={r} session={session} result={result} />
+
   return (
-    <Tabs value={state.tab} onValueChange={(v) => pp.set({ tab: v as Tab })} className="gap-0">
-      <TabsList variant="line" className="h-10 w-full justify-start gap-3 border-b px-3">
-        <TabsTrigger value="layout">Layout</TabsTrigger>
-        <TabsTrigger value="components">
-          {r.components ? "Components" : "Skip areas"}
-          {skipped > 0 && (
-            <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">
-              {skipped}
-            </Badge>
-          )}
-        </TabsTrigger>
-        <TabsTrigger value="compare">
-          Differences
-          {result && (
-            <Badge
-              variant={result.analysis.regions.length ? "destructive" : "secondary"}
-              className="h-4 px-1.5 text-[10px]"
-            >
-              {result.analysis.regions.length}
-            </Badge>
-          )}
-        </TabsTrigger>
-      </TabsList>
-      <TabsContent value="layout">
-        <LayoutTab pp={pp} reference={r} session={session} />
-      </TabsContent>
-      <TabsContent value="components">
-        <SkipTab pp={pp} reference={r} />
-      </TabsContent>
-      <TabsContent value="compare">
-        <DifferencesTab pp={pp} reference={r} session={session} result={result} />
-      </TabsContent>
-    </Tabs>
+    <div ref={box}>
+      {wide ? (
+        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)_minmax(0,1.35fr)] divide-x">
+          <Column title="Layout">{layout}</Column>
+          <Column title={skipTitle} count={skipped || null}>
+            {skip}
+          </Column>
+          <Column title="Differences" count={regions} alert={!!regions}>
+            {differences}
+          </Column>
+        </div>
+      ) : (
+        <Tabs value={state.tab} onValueChange={(v) => pp.set({ tab: v as Tab })} className="gap-0">
+          <TabsList variant="line" className="h-10 w-full justify-start gap-4 border-b px-3">
+            <TabsTrigger value="layout" className="flex-none px-0.5">
+              Layout
+            </TabsTrigger>
+            <TabsTrigger value="components" className="flex-none px-0.5">
+              {skipTitle}
+              <CountBadge count={skipped || null} />
+            </TabsTrigger>
+            <TabsTrigger value="compare" className="flex-none px-0.5">
+              Differences
+              <CountBadge count={regions} alert={!!regions} />
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="layout">{layout}</TabsContent>
+          <TabsContent value="components">{skip}</TabsContent>
+          <TabsContent value="compare">{differences}</TabsContent>
+        </Tabs>
+      )}
+    </div>
+  )
+}
+
+function CountBadge({ count, alert }: { count: number | null; alert?: boolean }) {
+  if (count === null) return null
+  return (
+    <Badge variant={alert ? "destructive" : "secondary"} className="h-4 px-1.5 text-[10px]">
+      {count}
+    </Badge>
+  )
+}
+
+function Column({
+  title,
+  count = null,
+  alert,
+  children,
+}: {
+  title: string
+  count?: number | null
+  alert?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <section className="min-w-0">
+      <h3 className="bg-background sticky top-0 z-10 flex h-10 items-center gap-2 border-b px-3 text-sm font-medium">
+        {title}
+        <CountBadge count={count} alert={alert} />
+      </h3>
+      {children}
+    </section>
   )
 }
 

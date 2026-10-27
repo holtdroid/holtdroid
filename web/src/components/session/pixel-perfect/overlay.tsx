@@ -15,6 +15,8 @@ import {
   spanBox,
 } from "@/lib/pixel-perfect/geometry"
 import { componentFraction } from "@/lib/pixel-perfect/compose"
+import type { Pixels } from "@/lib/pixel-perfect/diff"
+import { cropPixels, snapPoint } from "@/lib/pixel-perfect/loupe"
 import {
   areaBox,
   baselineRows,
@@ -61,6 +63,7 @@ export function PixelOverlay({ pp, canvasRef }: { pp: PixelPerfect; canvasRef: R
   const size = useCanvasSize(canvasRef)
   const layer = useRef<HTMLDivElement>(null)
   const [drag, setDrag] = useState<Drag | null>(null)
+  const [pointer, setPointer] = useState<{ x: number; y: number } | null>(null)
   const ref = refs.data?.items.find((r) => r.id === state.referenceId) ?? null
   const layers = useReferenceLayers(ref).data
   const result = state.result?.referenceId === ref?.id ? state.result : null
@@ -101,6 +104,9 @@ export function PixelOverlay({ pp, canvasRef }: { pp: PixelPerfect; canvasRef: R
     const perPixel = size.w / r.width
     return { x: (e.clientX - r.left) * perPixel, y: (e.clientY - r.top) * perPixel, perPixel }
   }
+  const precise = state.tool === "area" || state.tool === "ignore" || state.tool === "guides"
+  const loupeScale = state.loupe ? state.loupe.width / size.w : 1
+  const snap = (x: number, y: number, edges: boolean) => snapPoint(state.loupe, x, y, loupeScale, edges)
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return
@@ -121,13 +127,17 @@ export function PixelOverlay({ pp, canvasRef }: { pp: PixelPerfect; canvasRef: R
       }
     } else {
       const kind = state.tool === "area" ? "area" : "draw"
-      setDrag({ kind, x: p.x, y: p.y, box: { x: p.x, y: p.y, w: 0, h: 0 } })
+      const s = snap(p.x, p.y, !e.altKey)
+      setPointer(s)
+      setDrag({ kind, x: s.x, y: s.y, box: { x: s.x, y: s.y, w: 0, h: 0 } })
     }
   }
 
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!drag) return
     const p = toScreen(e)
+    const s = precise ? snap(p.x, p.y, !e.altKey) : null
+    if (s) setPointer(s)
+    if (!drag) return
     if (drag.kind === "move") {
       const ki = fitScale(area, image) * draft.placement.scale
       let x = drag.px + (p.x - drag.x) / ki
@@ -141,10 +151,12 @@ export function PixelOverlay({ pp, canvasRef }: { pp: PixelPerfect; canvasRef: R
       pp.edit(ref, { placement: { ...draft.placement, x: Math.round(x), y: Math.round(y) } })
     } else if (drag.kind === "guide") {
       const raw = drag.axis === "x" ? p.x : p.y
-      const at = e.altKey ? raw : raw + snapOffset([raw], drag.axis === "x" ? snapX : snapY, 6 * drag.perPixel)
+      const onLayout = e.altKey ? 0 : snapOffset([raw], drag.axis === "x" ? snapX : snapY, 6 * drag.perPixel)
+      const at = onLayout ? raw + onLayout : (s ?? { x: raw, y: raw })[drag.axis]
       setDrag({ ...drag, at })
     } else {
-      setDrag({ ...drag, box: spanBox(drag.x, drag.y, p.x, p.y) })
+      const end = s ?? p
+      setDrag({ ...drag, box: spanBox(drag.x, drag.y, end.x, end.y) })
     }
   }
 
@@ -311,6 +323,7 @@ export function PixelOverlay({ pp, canvasRef }: { pp: PixelPerfect; canvasRef: R
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
+          onPointerLeave={() => setPointer(null)}
           onKeyDown={onKeyDown}
         >
           {(drag?.kind === "draw" || drag?.kind === "area") && (
@@ -323,6 +336,9 @@ export function PixelOverlay({ pp, canvasRef }: { pp: PixelPerfect; canvasRef: R
             />
           )}
         </div>
+      )}
+      {precise && pointer && state.loupe && (
+        <Loupe pixels={state.loupe} scale={loupeScale} at={pointer} size={size} k={k} />
       )}
       <ToolHint reference={ref} tool={state.tool} onDone={() => pp.set({ tool: "none" })} />
     </>
@@ -357,6 +373,66 @@ function HoveredMatch({ result, index }: { result: Result; index: number }) {
         </div>
       )}
     </>
+  )
+}
+
+const loupeCells = 15
+const loupeCell = 9
+
+/** The screen magnified around the pointer, with a pixel grid and the point drawing snaps to. */
+function Loupe({
+  pixels,
+  scale,
+  at,
+  size,
+  k,
+}: {
+  pixels: Pixels
+  scale: number
+  at: { x: number; y: number }
+  size: Size
+  k: number
+}) {
+  const half = Math.floor(loupeCells / 2)
+  const cx = Math.round(at.x * scale)
+  const cy = Math.round(at.y * scale)
+  const crop = useMemo(
+    () => cropPixels(pixels, cx - half - 1, cy - half - 1, loupeCells, loupeCells),
+    [pixels, cx, cy, half],
+  )
+  const side = loupeCells * loupeCell
+  const flipX = at.x / size.w > 0.6
+  const flipY = at.y / size.h > 0.7
+  const line = (half + 1) * loupeCell
+  return (
+    <div
+      className="pointer-events-none absolute z-20 grid gap-1"
+      style={{
+        left: `${(at.x / size.w) * 100}%`,
+        top: `${(at.y / size.h) * 100}%`,
+        transform: `translate(${flipX ? "calc(-100% - 20px)" : "20px"}, ${flipY ? "calc(-100% - 20px)" : "20px"})`,
+      }}
+    >
+      <div
+        className="relative overflow-hidden rounded-lg bg-black shadow-xl ring-2 ring-white/80"
+        style={{ width: side, height: side }}
+      >
+        <PixelCanvas pixels={crop} className="size-full [image-rendering:pixelated]" />
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage:
+              "linear-gradient(to right, rgb(255 255 255 / 0.14) 1px, transparent 1px), linear-gradient(to bottom, rgb(255 255 255 / 0.14) 1px, transparent 1px)",
+            backgroundSize: `${loupeCell}px ${loupeCell}px`,
+          }}
+        />
+        <div className="absolute inset-y-0 w-px bg-amber-400" style={{ left: line }} />
+        <div className="absolute inset-x-0 h-px bg-amber-400" style={{ top: line }} />
+      </div>
+      <span className="justify-self-center rounded bg-neutral-900/85 px-1.5 font-mono text-[10px] leading-4 text-white">
+        {Math.round((at.x / k) * 2) / 2} · {Math.round((at.y / k) * 2) / 2} dp
+      </span>
+    </div>
   )
 }
 
