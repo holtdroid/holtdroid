@@ -4480,3 +4480,20 @@ carry over between screens of other proportions; insets do. Presets are
 copied into a reference when applied, so changing a preset later doesn't move
 references laid out with it.
 
+## 148. Figma frames are always imported as PNG
+
+Supersedes the SVG option of #139 and #145.
+
+**Context.** Since #145 components are rendered as PNG and the frame is
+redrawn from them, so an SVG frame would be mixed with PNG parts, and SVG
+loses corner smoothing and background blur anyway. The choice only confused.
+
+**Decision.** The import takes no format: the frame is always Figma's PNG at
+the scale of #145. `format` is gone from the import request and from
+`FigmaSource`; a reference imported as SVG becomes a PNG on its next
+**Update from Figma**. Uploaded SVG files stay supported.
+
+**Consequences.** A Figma reference is resampled to the screen's density
+instead of drawn at it, a pixel or two at most, which the comparison's
+anti-aliasing tolerance absorbs.
+

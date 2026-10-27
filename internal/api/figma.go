@@ -37,7 +37,6 @@ type FigmaSource struct {
 	FileKey  string    `json:"fileKey"`
 	NodeID   string    `json:"nodeId"`
 	URL      string    `json:"url"`
-	Format   string    `json:"format" enum:"svg,png"`
 	Scale    float64   `json:"scale,omitempty" doc:"pixels per frame unit of the PNG and the components"`
 	SyncedAt time.Time `json:"syncedAt"`
 }
@@ -357,37 +356,17 @@ func (s *Server) fetchFigma(ctx context.Context, token string, src FigmaSource) 
 	f := figmaFrame{name: doc.Name, layers: flattenFigma(doc), scale: figmaScale(doc.Box.Width, doc.Box.Height)}
 	max := int64(s.cfg.PixelPerfect.MaxFileSize)
 	scale := strconv.FormatFloat(f.scale, 'f', -1, 64)
-	q := url.Values{"use_absolute_bounds": {"true"}}
-	if src.Format == "png" {
-		q.Set("format", "png")
-		q.Set("scale", scale)
-	} else {
-		q.Set("format", "svg")
-		q.Set("svg_outline_text", "true")
-	}
+	q := url.Values{"use_absolute_bounds": {"true"}, "format": {"png"}, "scale": {scale}}
 	frame, err := s.figmaRender(ctx, token, src.FileKey, []string{src.NodeID}, q, max)
 	if err != nil {
 		return figmaFrame{}, err
 	}
 	f.raw = frame[src.NodeID]
-	if src.Format == "png" {
-		cfg, format, err := image.DecodeConfig(bytes.NewReader(f.raw))
-		if err != nil || format != "png" {
-			return figmaFrame{}, errors.New("figma sent an image that isn't a PNG")
-		}
-		f.contentType, f.w, f.h = "image/png", cfg.Width, cfg.Height
-	} else {
-		w, h, ok := svgSize(f.raw)
-		if !ok {
-			return figmaFrame{}, errors.New("figma sent an SVG without a size")
-		}
-		f.contentType, f.w, f.h = svgType, w, h
-		small := math.Max(0.01, math.Min(1, float64(thumbWidth)*2/doc.Box.Width))
-		if thumb, err := s.figmaRender(ctx, token, src.FileKey, []string{src.NodeID},
-			url.Values{"format": {"png"}, "scale": {strconv.FormatFloat(round2(small), 'f', -1, 64)}}, 8<<20); err == nil {
-			f.thumb, _ = makeThumbnail(thumb[src.NodeID])
-		}
+	cfg, format, err := image.DecodeConfig(bytes.NewReader(f.raw))
+	if err != nil || format != "png" {
+		return figmaFrame{}, errors.New("figma sent an image that isn't a PNG")
 	}
+	f.contentType, f.w, f.h = "image/png", cfg.Width, cfg.Height
 	if f.w <= 0 || f.h <= 0 || f.w*f.h > 64<<20 {
 		return figmaFrame{}, fmt.Errorf("%w: the frame is %d×%d; at most 64 megapixels", contract.ErrInvalid, f.w, f.h)
 	}
@@ -450,7 +429,6 @@ type figmaImportInput struct {
 		URL     string `json:"url" maxLength:"2048" doc:"a link to a frame: Copy link to selection in Figma"`
 		Name    string `json:"name,omitempty" maxLength:"120" doc:"defaults to the frame's name"`
 		Package string `json:"package,omitempty" maxLength:"255"`
-		Format  string `json:"format,omitempty" enum:"svg,png" default:"png" doc:"png is Figma's own rendering at up to 4× (less for very tall frames), exact for effects and corner smoothing; svg is drawn at any size but loses corner smoothing, background blur and some blend modes"`
 		Token   string `json:"token,omitempty" maxLength:"512" doc:"a Figma personal access token kept in the browser; when empty, the one saved with the caller's account, then the server's pixelPerfect.figma.token. Used for this request only"`
 	}
 }
@@ -470,7 +448,6 @@ func (s *Server) importFigma(ctx context.Context, in *figmaImportInput) (Referen
 	if err != nil {
 		return ReferenceView{}, err
 	}
-	src.Format = cmp.Or(in.Body.Format, "png")
 	token, err := s.figmaToken(ctx, in.Body.Token)
 	if err != nil {
 		return ReferenceView{}, err

@@ -6,7 +6,6 @@ import { useImportFigma } from "@/api/queries"
 import { FigmaTokenSection } from "@/components/figma-token"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { browserFigmaToken, isFigmaLink } from "@/lib/figma-token"
 
 export function FigmaImport({
@@ -22,12 +21,11 @@ export function FigmaImport({
 }) {
   const run = useImportFigma()
   const [url, setUrl] = useState(initialUrl ?? "")
-  const [format, setFormat] = useState<"svg" | "png">("png")
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
     run.mutate(
-      { url: url.trim(), format, pkg, token: browserFigmaToken() },
+      { url: url.trim(), pkg, token: browserFigmaToken() },
       {
         onSuccess: (v) => onDone(v),
         onError: (err) => toast.error("Could not import from Figma", { description: err.message }),
@@ -53,28 +51,7 @@ export function FigmaImport({
           <FigmaTokenSection />
         </div>
       )}
-      <div className="flex flex-wrap items-center gap-2">
-        <ToggleGroup
-          type="single"
-          variant="outline"
-          size="sm"
-          value={format}
-          onValueChange={(v) => v && setFormat(v as "svg" | "png")}
-        >
-          <ToggleGroupItem
-            value="png"
-            title="Figma's own rendering at up to 4×: exact corner smoothing, shadows, blurs and text"
-          >
-            PNG 4×
-          </ToggleGroupItem>
-          <ToggleGroupItem
-            value="svg"
-            title="Drawn at any size, but loses corner smoothing, background blur and some blend modes"
-          >
-            SVG
-          </ToggleGroupItem>
-        </ToggleGroup>
-        <div className="flex-1" />
+      <div className="flex justify-end gap-2">
         <Button type="button" size="sm" variant="ghost" onClick={() => onDone(null)}>
           Cancel
         </Button>

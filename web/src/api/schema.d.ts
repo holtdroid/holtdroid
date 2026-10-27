@@ -2466,12 +2466,6 @@ export interface components {
             weight?: number;
         };
         FigmaImportInputBody: {
-            /**
-             * @description png is Figma's own rendering at up to 4× (less for very tall frames), exact for effects and corner smoothing; svg is drawn at any size but loses corner smoothing, background blur and some blend modes
-             * @default png
-             * @enum {string}
-             */
-            format: "svg" | "png";
             /** @description defaults to the frame's name */
             name?: string;
             package?: string;
@@ -2542,8 +2536,6 @@ export interface components {
         };
         FigmaSource: {
             fileKey: string;
-            /** @enum {string} */
-            format: "svg" | "png";
             nodeId: string;
             /**
              * Format: double

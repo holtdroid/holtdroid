@@ -131,7 +131,7 @@ export function PixelPerfectPanel({
         return
       }
       importFigma.mutate(
-        { url: text, format: "png", pkg: session.package, token: browserFigmaToken() },
+        { url: text, pkg: session.package, token: browserFigmaToken() },
         {
           onSuccess: imported,
           onError: (err) => {

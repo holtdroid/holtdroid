@@ -603,10 +603,10 @@ export function useDeleteReference() {
 export function useImportFigma() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (body: { url: string; format: "svg" | "png"; pkg: string; token: string }) =>
+    mutationFn: (body: { url: string; pkg: string; token: string }) =>
       unwrap(
         api.POST("/api/v1/pixel-perfect/figma", {
-          body: { url: body.url, format: body.format, package: body.pkg || undefined, token: body.token || undefined },
+          body: { url: body.url, package: body.pkg || undefined, token: body.token || undefined },
         }),
       ),
     onSuccess: () => void qc.invalidateQueries({ queryKey: keys.references }),

@@ -71,9 +71,6 @@ func fakeFigma(t *testing.T, token string) (*httptest.Server, *atomic.Int32) {
 	var srv *httptest.Server
 	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
-		case r.URL.Path == "/render.svg":
-			_, _ = w.Write([]byte(`<svg xmlns="http://www.w3.org/2000/svg" width="360" height="800" viewBox="0 0 360 800"><rect width="360" height="800" fill="#fff"/></svg>`))
-			return
 		case r.URL.Path == "/render.png":
 			_, _ = w.Write(testPNG(t, 1080, 2400))
 			return
@@ -125,13 +122,13 @@ func TestFigmaImport(t *testing.T) {
 		t.Fatalf("a missing frame: %d %s", rec.Code, rec.Body.String())
 	}
 
-	rec = h.do(http.MethodPost, referencesPath+"/figma", "alice", "", map[string]any{"url": link, "token": "user-token", "package": "com.example", "format": "svg"})
+	rec = h.do(http.MethodPost, referencesPath+"/figma", "alice", "", map[string]any{"url": link, "token": "user-token", "package": "com.example"})
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("import: %d %s", rec.Code, rec.Body.String())
 	}
 	v := decode[ReferenceView](t, rec)
-	if v.Name != "Checkout" || v.ContentType != "image/svg+xml" || v.Width != 360 || v.Height != 800 || v.Layers != 2 ||
-		v.Figma == nil || v.Figma.FileKey != "AbC123" || v.Figma.NodeID != "1:2" || v.Figma.Format != "svg" || v.ThumbURL == "" || v.Package != "com.example" {
+	if v.Name != "Checkout" || v.ContentType != "image/png" || v.Width != 1080 || v.Height != 2400 || v.Layers != 2 ||
+		v.Figma == nil || v.Figma.FileKey != "AbC123" || v.Figma.NodeID != "1:2" || v.Figma.Scale != 4 || v.ThumbURL == "" || v.Package != "com.example" {
 		t.Fatalf("view: %+v", v)
 	}
 	if rec := h.do(http.MethodGet, v.ThumbURL, "alice", "", nil); rec.Code != http.StatusOK || rec.Header().Get("Content-Type") != "image/jpeg" {
@@ -201,13 +198,13 @@ func TestFigmaServerTokenAndPNG(t *testing.T) {
 		t.Fatal("the server's token isn't reported")
 	}
 	rec := h.do(http.MethodPost, referencesPath+"/figma", "alice", "", map[string]any{
-		"url": "https://www.figma.com/design/AbC123/Shop?node-id=1-2", "format": "png", "name": "Checkout 3x",
+		"url": "https://www.figma.com/design/AbC123/Shop?node-id=1-2", "name": "Checkout 3x",
 	})
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("import: %d %s", rec.Code, rec.Body.String())
 	}
 	v := decode[ReferenceView](t, rec)
-	if v.ContentType != "image/png" || v.Width != 1080 || v.Height != 2400 || v.Name != "Checkout 3x" || v.Figma.Format != "png" || v.Layers != 2 {
+	if v.ContentType != "image/png" || v.Width != 1080 || v.Height != 2400 || v.Name != "Checkout 3x" || v.Layers != 2 {
 		t.Fatalf("view: %+v", v)
 	}
 }

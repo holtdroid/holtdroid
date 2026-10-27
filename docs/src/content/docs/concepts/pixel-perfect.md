@@ -17,14 +17,13 @@ A reference is an image: SVG, PNG, JPEG or WebP, up to
 `pixelPerfect.maxFileSize` (25 MiB). Add one by dropping it on the tab,
 choosing a file, or pasting it with ⌘V / Ctrl+V while the tab is open.
 
-:::tip[Export SVG from Figma]
-SVG is the best format for a reference: it is drawn at whatever size the
-screen needs, so it stays sharp at any scale and its edges line up to the
-pixel, where a PNG is resampled and blurs. In Figma, select the frame and
-either **Export → SVG**, or right-click → **Copy as → Copy as SVG** and paste
-it into the tab. Keep the frame the size of the phone's screen in dp (for
-example 360 × 800); Holtdroid scales it to the screen's width. If a frame
-can't be an SVG (photos, heavy effects), export a PNG at 3×.
+:::tip[From Figma, paste the link]
+For a Figma frame, paste its link instead of an exported image (see
+[Import from Figma](#import-from-figma)): it comes with its layers and
+components, rendered by Figma itself. Keep the frame the size of the phone's
+screen in dp (for example 360 × 800); Holtdroid fits it to the work area. An
+exported image still works: a PNG at 3× or 4×, or an SVG for a flat frame
+(Figma's SVG export loses corner smoothing and background blur).
 :::
 
 An SVG needs a size: `width` and `height` on its root, or a `viewBox`, which
@@ -34,12 +33,10 @@ Figma always writes.
 
 A frame can come straight from Figma, together with its layers: select it,
 **Copy link to selection** (⌘L / Ctrl+L), and paste the link into the tab, or
-use **Figma** above the list. By default Figma renders it as a **PNG at 4×**
+use **Figma** in the reference list. Figma renders it as a **PNG at 4×**
 (less for very tall frames, to stay under 24 megapixels): its own rendering,
-exact for corner smoothing, shadows, blurs and text. **SVG** is drawn at any
-size, but Figma's SVG export turns smoothed corners into plain rounded ones
-and drops background blur and some blend modes, so it is only the better
-choice for flat frames.
+exact for corner smoothing, shadows, blurs and text, and the same as the
+components it is split into. There is no format to choose.
 
 ### Components
 
