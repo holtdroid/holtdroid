@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -85,7 +86,7 @@ func (m *Microphone) Set(ctx context.Context, in contract.SetMicrophone) (contra
 	switch in.Source {
 	case contract.MicOff:
 	case contract.MicTone, contract.MicBeeps, contract.MicNoise:
-		args := micArgs(in.Source, "")
+		args := micArgs(in.Source, "", true)
 		produce = func(ctx context.Context, w io.Writer) error { return m.runFFmpeg(ctx, args, w) }
 	case contract.MicFile:
 		if !micMediaID.MatchString(in.MediaID) || in.FileURL == "" {
@@ -96,7 +97,7 @@ func (m *Microphone) Set(ctx context.Context, in contract.SetMicrophone) (contra
 			return contract.Microphone{}, err
 		}
 		next.MediaID, next.File = in.MediaID, in.File
-		args := micArgs(contract.MicFile, path)
+		args := micArgs(contract.MicFile, path, m.mono(ctx, path))
 		produce = func(ctx context.Context, w io.Writer) error { return m.runFFmpeg(ctx, args, w) }
 	default:
 		return contract.Microphone{}, fmt.Errorf("%w: unknown microphone source %q", contract.ErrInvalid, in.Source)
@@ -178,8 +179,9 @@ func browserEnded(ctx context.Context, err error) error {
 
 // micArgs reads a source with ffmpeg in real time as the helper's PCM:
 // signed 16-bit stereo at 48 kHz. The tone is the EBU line-up level,
-// -18 dBFS, which is ffmpeg's default sine amplitude.
-func micArgs(source contract.MicrophoneSource, file string) []string {
+// -18 dBFS, which is ffmpeg's default sine amplitude. A mono source is
+// copied to both channels: ffmpeg's own upmix takes 3 dB off.
+func micArgs(source contract.MicrophoneSource, file string, mono bool) []string {
 	rate := strconv.Itoa(contract.MicrophoneRate)
 	var input []string
 	switch source {
@@ -193,7 +195,18 @@ func micArgs(source contract.MicrophoneSource, file string) []string {
 		input = []string{"-stream_loop", "-1", "-i", file}
 	}
 	args := append([]string{"-hide_banner", "-loglevel", "error", "-nostdin", "-re"}, input...)
+	if mono {
+		args = append(args, "-af", "pan=stereo|c0=c0|c1=c0")
+	}
 	return append(args, "-vn", "-ac", "2", "-ar", rate, "-f", "s16le", "pipe:1")
+}
+
+// mono says whether the file's first audio stream has one channel; ffprobe
+// sits next to ffmpeg.
+func (m *Microphone) mono(ctx context.Context, path string) bool {
+	probe := strings.TrimSuffix(m.ffmpeg, "ffmpeg") + "ffprobe"
+	out, err := exec.CommandContext(ctx, probe, "-v", "error", "-select_streams", "a:0", "-show_entries", "stream=channels", "-of", "csv=p=0", path).Output()
+	return err == nil && strings.TrimSpace(string(out)) == "1"
 }
 
 func (m *Microphone) runFFmpeg(ctx context.Context, args []string, w io.Writer) error {

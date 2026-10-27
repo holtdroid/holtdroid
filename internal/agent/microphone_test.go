@@ -162,12 +162,12 @@ func TestMicArgs(t *testing.T) {
 		source contract.MicrophoneSource
 		want   string
 	}{
-		{contract.MicTone, "-re -f lavfi -i sine=frequency=1000:sample_rate=48000 -vn"},
+		{contract.MicTone, "-re -f lavfi -i sine=frequency=1000:sample_rate=48000 -af pan=stereo|c0=c0|c1=c0 -vn"},
 		{contract.MicBeeps, `-i aevalsrc=0.5*sin(2*PI*1000*t)*lt(mod(t\,1)\,0.1):s=48000`},
 		{contract.MicNoise, "-i anoisesrc=color=pink:amplitude=0.25:sample_rate=48000"},
 		{contract.MicFile, "-re -stream_loop -1 -i /tmp/a b.mp3 -vn"},
 	} {
-		got := strings.Join(micArgs(tc.source, "/tmp/a b.mp3"), " ")
+		got := strings.Join(micArgs(tc.source, "/tmp/a b.mp3", tc.source != contract.MicFile), " ")
 		if !strings.Contains(got, tc.want) || !strings.HasSuffix(got, "-ac 2 -ar 48000 -f s16le pipe:1") {
 			t.Errorf("%s: %s", tc.source, got)
 		}
