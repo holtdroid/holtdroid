@@ -300,7 +300,7 @@ export interface paths {
         /** @description Replace a user's name, email, role (empty: waiting for approval) and own limits (null: role default). */
         put: operations["updateUser"];
         post?: never;
-        /** @description Delete a user and their passkeys; they are signed out on their next request. Their devices keep running until reaped. */
+        /** @description Delete a user, their passkeys and their Figma token; they are signed out on their next request. Their devices keep running until reaped. */
         delete: operations["deleteUser"];
         options?: never;
         head?: never;
@@ -824,6 +824,24 @@ export interface paths {
         /** @description Adds a Figma frame as a reference: its picture and its layers with their boxes, colours, fonts and auto layout spacing. Fails with 507 over the caller's quota. */
         post: operations["importFigmaReference"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pixel-perfect/figma-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Whether the caller has a Figma token with their account and where the UI should keep one. Never returns the token. */
+        get: operations["getFigmaToken"];
+        /** @description Checks a Figma personal access token with Figma (GET /v1/me) and, where storage is account, keeps it encrypted with the caller's account. With browser storage it is only checked. */
+        put: operations["putFigmaToken"];
+        post?: never;
+        delete: operations["deleteFigmaToken"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2336,7 +2354,7 @@ export interface components {
             /** @description defaults to the frame's name */
             name?: string;
             package?: string;
-            /** @description the user's Figma personal access token; the server's pixelPerfect.figma.token when empty. Used for this request only, never stored */
+            /** @description a Figma personal access token kept in the browser; when empty, the one saved with the caller's account, then the server's pixelPerfect.figma.token. Used for this request only */
             token?: string;
             /** @description a link to a frame: Copy link to selection in Figma */
             url: string;
@@ -2399,6 +2417,26 @@ export interface components {
             /** Format: date-time */
             syncedAt: string;
             url: string;
+        };
+        FigmaTokenPutBody: {
+            token: string;
+        };
+        FigmaTokenView: {
+            /** @description the Figma account the token belongs to */
+            handle?: string;
+            /** @description the token's last four characters */
+            hint?: string;
+            /** @description the server keeps a token for the caller */
+            saved: boolean;
+            /** @description the server has a token of its own for everyone (pixelPerfect.figma.token) */
+            server: boolean;
+            /**
+             * @description account: the server keeps the caller's token, encrypted; browser: the database is in memory or auth.sessionKey isn't set, so the UI keeps it in the browser
+             * @enum {string}
+             */
+            storage: "account" | "browser";
+            /** Format: date-time */
+            updatedAt?: string;
         };
         GeoPoint: {
             /** Format: double */
@@ -3191,6 +3229,8 @@ export interface components {
         };
         ReferenceList: {
             enabled: boolean;
+            /** @description the caller has a Figma token saved with their account */
+            figmaSaved: boolean;
             /** @description the server has a Figma token of its own; without one, importing from Figma needs the user's */
             figmaToken: boolean;
             items: components["schemas"]["ReferenceView"][];
@@ -5498,6 +5538,95 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ReferenceView"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getFigmaToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FigmaTokenView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    putFigmaToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FigmaTokenPutBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FigmaTokenView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    deleteFigmaToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

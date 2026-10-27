@@ -59,6 +59,8 @@ func fakeFigma(t *testing.T, token string) (*httptest.Server, *atomic.Int32) {
 		case r.Header.Get("X-Figma-Token") != token:
 			w.WriteHeader(http.StatusForbidden)
 			_, _ = w.Write([]byte(`{"status":403,"err":"Invalid token"}`))
+		case r.URL.Path == "/v1/me":
+			_, _ = w.Write([]byte(`{"id":"1","handle":"Ann","email":"ann@example.com"}`))
 		case r.URL.Path == "/v1/files/AbC123/nodes" && r.URL.Query().Get("ids") == "1:2":
 			_, _ = w.Write([]byte(figmaFrameJSON))
 		case r.URL.Path == "/v1/files/AbC123/nodes":
@@ -180,5 +182,54 @@ func TestFigmaServerTokenAndPNG(t *testing.T) {
 	v := decode[ReferenceView](t, rec)
 	if v.ContentType != "image/png" || v.Width != 1080 || v.Height != 2400 || v.Name != "Checkout 3x" || v.Figma.Format != "png" || v.Layers != 2 {
 		t.Fatalf("view: %+v", v)
+	}
+}
+
+func TestFigmaTokenWithAccount(t *testing.T) {
+	figma, _ := fakeFigma(t, "figd_user-token-abcd")
+	t.Setenv("TEST_SESSION_KEY", strings.Repeat("k", 40))
+	h := newHarnessWith(t, 1, func(c *Config) {
+		c.PixelPerfect.Figma.URL = figma.URL
+		c.Auth.SessionKey = "env:TEST_SESSION_KEY"
+	})
+	if v := decode[FigmaTokenView](t, h.do(http.MethodGet, figmaTokenPath, "alice", "", nil)); v.Storage != "browser" || v.Saved {
+		t.Fatalf("in memory: %+v", v)
+	}
+	rec := h.do(http.MethodPut, figmaTokenPath, "alice", "", map[string]any{"token": "figd_user-token-abcd"})
+	if v := decode[FigmaTokenView](t, rec); rec.Code != http.StatusOK || v.Saved || v.Handle != "Ann (ann@example.com)" || v.Hint != "abcd" {
+		t.Fatalf("checked in memory: %d %+v", rec.Code, v)
+	}
+
+	h.srv.cfg.Database.Type = "sqlite"
+	if rec := h.do(http.MethodPut, figmaTokenPath, "alice", "", map[string]any{"token": "figd_wrong-token"}); rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("a wrong token: %d %s", rec.Code, rec.Body.String())
+	}
+	rec = h.do(http.MethodPut, figmaTokenPath, "alice", "", map[string]any{"token": " figd_user-token-abcd "})
+	if v := decode[FigmaTokenView](t, rec); rec.Code != http.StatusOK || !v.Saved || v.Storage != "account" || v.UpdatedAt == nil {
+		t.Fatalf("save: %d %+v", rec.Code, v)
+	}
+	if strings.Contains(h.do(http.MethodGet, figmaTokenPath, "alice", "", nil).Body.String(), "user-token") {
+		t.Fatal("the token is sent back")
+	}
+	if l := h.references("alice"); !l.FigmaSaved || l.FigmaToken {
+		t.Fatalf("list: %+v", l)
+	}
+	if v := decode[FigmaTokenView](t, h.do(http.MethodGet, figmaTokenPath, "bob", "", nil)); v.Saved {
+		t.Fatal("bob sees alice's token")
+	}
+
+	link := "https://www.figma.com/design/AbC123/Shop?node-id=1-2"
+	if rec := h.do(http.MethodPost, referencesPath+"/figma", "alice", "", map[string]any{"url": link}); rec.Code != http.StatusCreated {
+		t.Fatalf("import with the saved token: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := h.do(http.MethodPost, referencesPath+"/figma", "bob", "", map[string]any{"url": link}); rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("bob imports without a token: %d", rec.Code)
+	}
+
+	if rec := h.do(http.MethodDelete, figmaTokenPath, "alice", "", nil); rec.Code != http.StatusNoContent {
+		t.Fatalf("delete: %d", rec.Code)
+	}
+	if rec := h.do(http.MethodPost, referencesPath+"/figma", "alice", "", map[string]any{"url": link}); rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("import after delete: %d", rec.Code)
 	}
 }

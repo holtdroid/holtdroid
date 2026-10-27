@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"crypto/hkdf"
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
@@ -124,6 +125,7 @@ var (
 type Authenticator struct {
 	cfg      Config
 	key      []byte
+	keySet   bool
 	password string
 	secure   bool
 	oidc     *oidcClient
@@ -170,6 +172,11 @@ func New(ctx context.Context, cfg Config, reg *secrets.Registry, publicURL strin
 		if cfg.Header.User == "" {
 			return nil, errors.New("auth: header.user is required for the header mode")
 		}
+		if !cfg.SessionKey.IsZero() {
+			if err := a.loadKey(ctx, reg); err != nil {
+				return nil, err
+			}
+		}
 		return a, nil
 	case ModeNone:
 		return a, nil
@@ -182,15 +189,8 @@ func New(ctx context.Context, cfg Config, reg *secrets.Registry, publicURL strin
 		a.key = make([]byte, 32)
 		_, _ = rand.Read(a.key)
 		a.log.Warn("auth.sessionKey is not set: using a random key, sign-ins won't survive restarts or work across replicas")
-	} else {
-		key, err := reg.Resolve(ctx, cfg.SessionKey)
-		if err != nil {
-			return nil, fmt.Errorf("auth.sessionKey: %w", err)
-		}
-		if len(key) < 32 {
-			return nil, errors.New("auth.sessionKey must be at least 32 bytes")
-		}
-		a.key = []byte(key)
+	} else if err := a.loadKey(ctx, reg); err != nil {
+		return nil, err
 	}
 
 	switch cfg.Mode {
@@ -220,6 +220,28 @@ func New(ctx context.Context, cfg Config, reg *secrets.Registry, publicURL strin
 }
 
 func (a *Authenticator) Mode() string { return a.cfg.Mode }
+
+func (a *Authenticator) loadKey(ctx context.Context, reg *secrets.Registry) error {
+	key, err := reg.Resolve(ctx, a.cfg.SessionKey)
+	if err != nil {
+		return fmt.Errorf("auth.sessionKey: %w", err)
+	}
+	if len(key) < 32 {
+		return errors.New("auth.sessionKey must be at least 32 bytes")
+	}
+	a.key, a.keySet = []byte(key), true
+	return nil
+}
+
+// DataKey is a 32-byte key for purpose derived from auth.sessionKey, for data
+// the api encrypts at rest; false when no session key is configured.
+func (a *Authenticator) DataKey(purpose string) ([]byte, bool) {
+	if !a.keySet {
+		return nil, false
+	}
+	k, err := hkdf.Key(sha256.New, a.key, nil, "holtdroid "+purpose, 32)
+	return k, err == nil
+}
 
 // Pseudonym is a stable name for user that doesn't reveal it, keyed with the
 // session key in the cookie-based modes. In the header and none modes there

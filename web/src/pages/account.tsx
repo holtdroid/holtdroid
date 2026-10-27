@@ -27,11 +27,14 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
+import { useReferences } from "@/api/queries"
+import { FigmaTokenSection } from "@/components/figma-token"
 import { useNow } from "@/hooks/use-now"
 import { formatBytes, formatRelative, formatSpan } from "@/lib/format"
 
 export function AccountPage() {
   const account = useAccount()
+  const references = useReferences()
   const now = useNow(30_000)
   const data = account.data
   const user = data?.user
@@ -41,7 +44,9 @@ export function AccountPage() {
       <div className="mx-auto grid max-w-3xl content-start gap-6 p-4 lg:p-6">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Account</h1>
-          <p className="text-muted-foreground text-sm">Your profile and the passkeys you sign in with.</p>
+          <p className="text-muted-foreground text-sm">
+            Your profile, the passkeys you sign in with and your Figma token.
+          </p>
         </div>
         {account.isError && (
           <Alert variant="destructive">
@@ -76,6 +81,20 @@ export function AccountPage() {
                 doesn&apos;t lock you out. If it does, an admin can send you a recovery link.
               </p>
             </section>
+            {references.data?.enabled && (
+              <section className="grid gap-3">
+                <div>
+                  <h2 className="font-semibold">Figma</h2>
+                  <p className="text-muted-foreground text-sm">
+                    A personal access token lets you import frames from Figma into the Pixel perfect tab, with their
+                    layers.
+                  </p>
+                </div>
+                <div className="rounded-xl border p-4">
+                  <FigmaTokenSection />
+                </div>
+              </section>
+            )}
           </>
         )}
       </div>

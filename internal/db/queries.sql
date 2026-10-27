@@ -122,3 +122,13 @@ SELECT backends FROM network_backends WHERE owner = ? AND package = ?;
 -- name: PutNetworkBackends :exec
 INSERT INTO network_backends (owner, package, backends, updated_at) VALUES (?, ?, ?, ?)
 ON CONFLICT (owner, package) DO UPDATE SET backends = excluded.backends, updated_at = excluded.updated_at;
+
+-- name: GetFigmaToken :one
+SELECT sealed, handle, hint, updated_at FROM figma_tokens WHERE owner = ?;
+
+-- name: PutFigmaToken :exec
+INSERT INTO figma_tokens (owner, sealed, handle, hint, updated_at) VALUES (?, ?, ?, ?, ?)
+ON CONFLICT (owner) DO UPDATE SET sealed = excluded.sealed, handle = excluded.handle, hint = excluded.hint, updated_at = excluded.updated_at;
+
+-- name: DeleteFigmaToken :exec
+DELETE FROM figma_tokens WHERE owner = ?;

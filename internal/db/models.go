@@ -17,6 +17,14 @@ type DnsPreset struct {
 	UpdatedAt time.Time
 }
 
+type FigmaToken struct {
+	Owner     string
+	Sealed    []byte
+	Handle    string
+	Hint      string
+	UpdatedAt time.Time
+}
+
 type Invite struct {
 	ID        string
 	TokenHash []byte

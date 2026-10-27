@@ -148,7 +148,9 @@ deployment"):
   Figma by link bring their layers, so a difference names the layer and how
   far its view is off in dp (decision #139). Covered by api, agent and web
   unit tests against fakes; not yet tried on a redroid session or against
-  the real Figma API.
+  the real Figma API. Figma tokens are saved encrypted with the account
+  (decision #141); the Pixel perfect page manages references, the token and
+  the tab's defaults.
 - Session load (decision #40), shown in the cards next to the phone since
   decision #94: the app card has fps, jank and CPU/PSS per process, the
   device card the device, storage, temperatures and the session Pod's

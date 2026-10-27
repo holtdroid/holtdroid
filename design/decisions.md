@@ -4244,3 +4244,39 @@ the player and the video export read it through mediabunny unchanged.
 Linux) gets "can't play AAC" for Android 11 instead of sound. AAC frames
 lean on the one before, so each 10 s segment, decoded by itself, starts
 with one frame of decoder warm-up.
+
+## 141. Figma tokens are kept with the account, encrypted
+
+Extends #139.
+
+**Context.** #139 kept a user's Figma token only in their browser, so it
+had to be entered again in every browser, and the tab's small form was the
+only place to manage it.
+
+**Decision.**
+
+- **The api keeps the token in its database** (`figma_tokens`, one per user)
+  when the database is `sqlite` and `auth.sessionKey` is set, sealed with
+  AES-GCM under a key derived from `auth.sessionKey` by HKDF-SHA256 (purpose
+  `holtdroid figma-token`) with the user as associated data, so a row can't
+  be moved to another user. No new key to configure: `auth.sessionKey` is
+  already the secret every replica shares; `mode: header` now loads it too
+  when it is set. The token never leaves the api again: the UI sees the
+  Figma handle and the last four characters.
+- **It is checked before it is kept** with Figma's `GET /v1/me`, which needs
+  the Current user scope; the guide asks for it.
+- **Otherwise the browser keeps it**, as before: with an in-memory database
+  it would be gone on the next restart (the rule for `memory`), and without
+  a session key there is nothing stable to encrypt with. The same endpoint
+  then only checks the token.
+- **Imports use** the token sent with the request (the browser's), then the
+  account's, then `pixelPerfect.figma.token`. Deleting a user deletes theirs.
+- **A Pixel perfect page** (`/pixel-perfect`) manages references outside a
+  session, the token with a step-by-step guide (also on the Account page in
+  the `users` mode) and the tab's defaults, which stay per browser.
+
+**Consequences.** Rotating `auth.sessionKey` makes saved tokens unreadable;
+the api treats them as missing and users save them again. The api now holds
+user credentials for a third party, readable by whoever has both the
+database and the session key.
+

@@ -12,6 +12,7 @@ import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { AccountPage } from "@/pages/account"
 import { AppDataPage } from "@/pages/app-data"
+import { PixelPerfectPage } from "@/pages/pixel-perfect"
 import { AuditPage, validateAuditSearch } from "@/pages/audit"
 import { ComputersPage } from "@/pages/computers"
 import { HomePage } from "@/pages/home"
@@ -150,6 +151,12 @@ const inventoryDevToolsRoute = createRoute({
 
 const appDataRoute = createRoute({ getParentRoute: () => portalRoute, path: "/app-data", component: AppDataPage })
 
+const pixelPerfectRoute = createRoute({
+  getParentRoute: () => portalRoute,
+  path: "/pixel-perfect",
+  component: PixelPerfectPage,
+})
+
 const accountRoute = createRoute({ getParentRoute: () => portalRoute, path: "/account", component: AccountPage })
 
 const usersRoute = createRoute({ getParentRoute: () => portalRoute, path: "/users", component: UsersPage })
@@ -182,6 +189,7 @@ const router = createRouter({
       inventorySessionsRoute,
       inventoryDevToolsRoute,
       appDataRoute,
+      pixelPerfectRoute,
       accountRoute,
       usersRoute,
       recordingsRoute,

@@ -38,6 +38,7 @@ export const keys = {
   webviews: ["webviews"] as const,
   map: ["map"] as const,
   references: ["pixel-perfect"] as const,
+  figmaToken: ["pixel-perfect", "figma-token"] as const,
   apps: ["apps"] as const,
 }
 
@@ -590,6 +591,30 @@ export function useRefreshFigma() {
           body: { token: token || undefined },
         }),
       ),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.references }),
+  })
+}
+
+export function useFigmaToken() {
+  return useQuery({
+    queryKey: keys.figmaToken,
+    queryFn: () => unwrap(api.GET("/api/v1/pixel-perfect/figma-token")),
+    staleTime: 60_000,
+  })
+}
+
+export function useSaveFigmaToken() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (token: string) => unwrap(api.PUT("/api/v1/pixel-perfect/figma-token", { body: { token } })),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.references }),
+  })
+}
+
+export function useDeleteFigmaToken() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => unwrap(api.DELETE("/api/v1/pixel-perfect/figma-token")),
     onSuccess: () => void qc.invalidateQueries({ queryKey: keys.references }),
   })
 }

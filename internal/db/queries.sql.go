@@ -213,6 +213,15 @@ func (q *Queries) DeleteDNSPreset(ctx context.Context, arg DeleteDNSPresetParams
 	return result.RowsAffected()
 }
 
+const deleteFigmaToken = `-- name: DeleteFigmaToken :exec
+DELETE FROM figma_tokens WHERE owner = ?
+`
+
+func (q *Queries) DeleteFigmaToken(ctx context.Context, owner string) error {
+	_, err := q.db.ExecContext(ctx, deleteFigmaToken, owner)
+	return err
+}
+
 const deleteInvite = `-- name: DeleteInvite :execrows
 DELETE FROM invites WHERE id = ? AND kind = 'invite'
 `
@@ -281,6 +290,29 @@ func (q *Queries) GetDNSPreset(ctx context.Context, arg GetDNSPresetParams) (Dns
 		&i.Name,
 		&i.Settings,
 		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getFigmaToken = `-- name: GetFigmaToken :one
+SELECT sealed, handle, hint, updated_at FROM figma_tokens WHERE owner = ?
+`
+
+type GetFigmaTokenRow struct {
+	Sealed    []byte
+	Handle    string
+	Hint      string
+	UpdatedAt time.Time
+}
+
+func (q *Queries) GetFigmaToken(ctx context.Context, owner string) (GetFigmaTokenRow, error) {
+	row := q.db.QueryRowContext(ctx, getFigmaToken, owner)
+	var i GetFigmaTokenRow
+	err := row.Scan(
+		&i.Sealed,
+		&i.Handle,
+		&i.Hint,
 		&i.UpdatedAt,
 	)
 	return i, err
@@ -645,6 +677,30 @@ func (q *Queries) ListUsers(ctx context.Context) ([]ListUsersRow, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const putFigmaToken = `-- name: PutFigmaToken :exec
+INSERT INTO figma_tokens (owner, sealed, handle, hint, updated_at) VALUES (?, ?, ?, ?, ?)
+ON CONFLICT (owner) DO UPDATE SET sealed = excluded.sealed, handle = excluded.handle, hint = excluded.hint, updated_at = excluded.updated_at
+`
+
+type PutFigmaTokenParams struct {
+	Owner     string
+	Sealed    []byte
+	Handle    string
+	Hint      string
+	UpdatedAt time.Time
+}
+
+func (q *Queries) PutFigmaToken(ctx context.Context, arg PutFigmaTokenParams) error {
+	_, err := q.db.ExecContext(ctx, putFigmaToken,
+		arg.Owner,
+		arg.Sealed,
+		arg.Handle,
+		arg.Hint,
+		arg.UpdatedAt,
+	)
+	return err
 }
 
 const putNetworkBackends = `-- name: PutNetworkBackends :exec

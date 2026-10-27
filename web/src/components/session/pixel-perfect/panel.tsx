@@ -16,6 +16,7 @@ import {
   Trash2Icon,
 } from "lucide-react"
 import { type DragEvent, useEffect, useEffectEvent, useRef, useState } from "react"
+import { Link } from "@tanstack/react-router"
 import { toast } from "sonner"
 import type { ReferenceView, SessionView } from "@/api/client"
 import {
@@ -28,7 +29,7 @@ import {
 } from "@/api/queries"
 import { IconButton } from "@/components/session/icon-button"
 import { Compare } from "@/components/session/pixel-perfect/compare"
-import { FigmaImport, isFigmaLink, storedFigmaToken } from "@/components/session/pixel-perfect/figma-import"
+import { FigmaImport } from "@/components/session/pixel-perfect/figma-import"
 import { type Blend, type PixelPerfect, usePixelState } from "@/components/session/pixel-perfect/state"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -40,6 +41,7 @@ import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { download } from "@/lib/adb"
+import { browserFigmaToken, isFigmaLink } from "@/lib/figma-token"
 import { makeThumbnail } from "@/lib/pixel-perfect/capture"
 import { formatBytes, formatRelative, formatSpan } from "@/lib/format"
 import { renderReport } from "@/lib/pixel-perfect/report"
@@ -100,8 +102,8 @@ export function PixelPerfectPanel({
     const text = file ? "" : (e.clipboardData?.getData("text/plain") ?? "").trim()
     if (isFigmaLink(text)) {
       e.preventDefault()
-      const token = storedFigmaToken()
-      if (!refs.data?.figmaToken && !token) {
+      const token = browserFigmaToken()
+      if (!refs.data?.figmaToken && !refs.data?.figmaSaved && !token) {
         setFigmaUrl(text)
         return
       }
@@ -178,7 +180,7 @@ export function PixelPerfectPanel({
           onAdd={() => input.current?.click()}
           rules={refs.data}
           figmaUrl={figmaUrl}
-          serverToken={refs.data?.figmaToken ?? false}
+          hasToken={!!(refs.data?.figmaToken || refs.data?.figmaSaved || browserFigmaToken())}
           onFigmaUrl={setFigmaUrl}
         />
         <div className="grid min-w-0 content-start gap-4">
@@ -238,7 +240,7 @@ function Library({
   onAdd,
   rules,
   figmaUrl,
-  serverToken,
+  hasToken,
   onFigmaUrl,
 }: {
   pp: PixelPerfect
@@ -249,7 +251,7 @@ function Library({
   onAdd: () => void
   rules?: { quota: number; used: number; maxAge: number }
   figmaUrl: string | null
-  serverToken: boolean
+  hasToken: boolean
   onFigmaUrl: (url: string | null) => void
 }) {
   const sorted = items.toSorted((a, b) => Number(b.package === pkg) - Number(a.package === pkg))
@@ -277,7 +279,7 @@ function Library({
         <FigmaImport
           key={figmaUrl}
           pkg={pkg}
-          serverToken={serverToken}
+          hasToken={hasToken}
           initialUrl={figmaUrl}
           onDone={(v) => {
             onFigmaUrl(null)
@@ -305,6 +307,9 @@ function Library({
           {rules.maxAge > 0 && <span>Images unused for {formatSpan(rules.maxAge)} are deleted.</span>}
           <span>Paste an image or a Figma link (⌘V / Ctrl+V), or drop an image here to add it.</span>
           <span>From Figma, SVG is sharpest: Copy as SVG and paste, or export SVG.</span>
+          <Link to="/pixel-perfect" className="underline">
+            Manage references, your Figma token and defaults
+          </Link>
         </div>
       )}
     </section>
@@ -403,7 +408,7 @@ function ReferenceItem({
             disabled={refresh.isPending}
             onClick={() =>
               refresh.mutate(
-                { id: r.id, token: storedFigmaToken() },
+                { id: r.id, token: browserFigmaToken() },
                 {
                   onSuccess: () => toast.success(`“${r.name}” is up to date with Figma`),
                   onError: (e) => toast.error("Could not update from Figma", { description: e.message }),

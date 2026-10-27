@@ -101,13 +101,13 @@ export type PixelState = {
   error: string | null
 }
 
-type Prefs = Pick<
+export type Prefs = Pick<
   PixelState,
   "visible" | "opacity" | "blend" | "ignoreMotion" | "ignoreMedia" | "devtools" | "views" | "showRegions"
 >
 
 const prefsKey = "holtdroid:pixel-perfect"
-const defaults: Prefs = {
+export const defaultPrefs: Prefs = {
   visible: true,
   opacity: 0.5,
   blend: "normal",
@@ -118,11 +118,11 @@ const defaults: Prefs = {
   showRegions: true,
 }
 
-function loadPrefs(): Prefs {
+export function loadPrefs(): Prefs {
   try {
-    return { ...defaults, ...(JSON.parse(localStorage.getItem(prefsKey) ?? "{}") as Partial<Prefs>) }
+    return { ...defaultPrefs, ...(JSON.parse(localStorage.getItem(prefsKey) ?? "{}") as Partial<Prefs>) }
   } catch {
-    return defaults
+    return defaultPrefs
   }
 }
 
@@ -135,6 +135,14 @@ function sleep(ms: number) {
 
 function frame() {
   return new Promise((resolve) => requestAnimationFrame(resolve))
+}
+
+export function savePrefs(prefs: Prefs) {
+  try {
+    localStorage.setItem(prefsKey, JSON.stringify(prefs))
+  } catch {
+    // storage may be unavailable; the settings then last for the page
+  }
 }
 
 export class PixelPerfect {
@@ -188,11 +196,7 @@ export class PixelPerfect {
       views: this.#state.views,
       showRegions: this.#state.showRegions,
     }
-    try {
-      localStorage.setItem(prefsKey, JSON.stringify(prefs))
-    } catch {
-      // storage may be unavailable; the settings then last for the page
-    }
+    savePrefs(prefs)
     for (const l of this.#listeners) l()
   }
 

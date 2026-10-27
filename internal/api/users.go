@@ -475,12 +475,15 @@ func (s *Server) registerUserAdmin(api huma.API) {
 
 	huma.Register(api, huma.Operation{
 		OperationID: "deleteUser", Method: http.MethodDelete, Path: "/api/v1/admin/users/{id}", Tags: tags, DefaultStatus: http.StatusNoContent,
-		Description: "Delete a user and their passkeys; they are signed out on their next request. Their devices keep running until reaped.",
+		Description: "Delete a user, their passkeys and their Figma token; they are signed out on their next request. Their devices keep running until reaped.",
 	}, func(ctx context.Context, in *UserPath) (*struct{}, error) {
 		if err := s.usersAdmin(ctx); err != nil {
 			return nil, err
 		}
 		err := s.users.Delete(ctx, in.ID)
+		if err == nil {
+			_ = s.db.DeleteFigmaToken(ctx, in.ID)
+		}
 		s.emitResult(ctx, audit.Event{Action: audit.UserDelete, Details: map[string]string{"user": in.ID}}, err)
 		return nil, usersError(err)
 	})

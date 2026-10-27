@@ -30,7 +30,7 @@ const (
 	figmaPNGScale  = 3
 )
 
-var errFigmaToken = fmt.Errorf("%w: importing from Figma needs a personal access token: add yours in the Pixel perfect tab, or set pixelPerfect.figma.token on the server", contract.ErrInvalid)
+var errFigmaToken = fmt.Errorf("%w: importing from Figma needs a personal access token: add yours on the Pixel perfect page, or set pixelPerfect.figma.token on the server", contract.ErrInvalid)
 
 type FigmaSource struct {
 	FileKey  string    `json:"fileKey"`
@@ -363,6 +363,9 @@ func (s *Server) figmaToken(ctx context.Context, given string) (string, error) {
 	if t := strings.TrimSpace(given); t != "" {
 		return t, nil
 	}
+	if t := s.storedFigmaToken(ctx); t != "" {
+		return t, nil
+	}
 	ref := s.cfg.PixelPerfect.Figma.Token
 	if ref.IsZero() {
 		return "", errFigmaToken
@@ -381,7 +384,7 @@ type figmaImportInput struct {
 		Name    string `json:"name,omitempty" maxLength:"120" doc:"defaults to the frame's name"`
 		Package string `json:"package,omitempty" maxLength:"255"`
 		Format  string `json:"format,omitempty" enum:"svg,png" default:"svg" doc:"svg is drawn at any size; png is rendered at 3×"`
-		Token   string `json:"token,omitempty" maxLength:"512" doc:"the user's Figma personal access token; the server's pixelPerfect.figma.token when empty. Used for this request only, never stored"`
+		Token   string `json:"token,omitempty" maxLength:"512" doc:"a Figma personal access token kept in the browser; when empty, the one saved with the caller's account, then the server's pixelPerfect.figma.token. Used for this request only"`
 	}
 }
 
@@ -449,6 +452,7 @@ func (s *Server) refreshFigma(ctx context.Context, in *figmaRefreshInput) (Refer
 
 func (s *Server) registerFigma(api huma.API) {
 	tags := []string{"ui"}
+	s.registerFigmaToken(api)
 
 	huma.Register(api, huma.Operation{
 		OperationID: "importFigmaReference", Method: http.MethodPost, Path: referencesPath + "/figma", Tags: tags,

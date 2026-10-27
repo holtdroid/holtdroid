@@ -37,11 +37,44 @@ A frame can come straight from Figma, together with its layers: select it,
 use **Figma** above the list. The frame is rendered as SVG with its text
 drawn as outlines, or as a PNG at 3× for frames with photos or heavy effects.
 
-Importing needs a Figma **personal access token** (Figma → Settings →
-Security → Personal access tokens, with read access to files). The server may
-have one for everyone (`pixelPerfect.figma.token`); otherwise the tab asks for
-yours. It stays in your browser and goes to the server only with an import or
-an update, which doesn't keep it.
+Importing needs a Figma **personal access token**. The server may have one
+for everyone (`pixelPerfect.figma.token`); otherwise add yours on the
+**Pixel perfect** page (the frame icon in the header), under **Account** in
+the `users` sign-in mode, or right in the import form. Each of them has the
+same step-by-step guide:
+
+1. In Figma, click your name or avatar in the top left corner → **Settings**
+   → **Security**.
+2. Under **Personal access tokens**, **Generate new token**, name it
+   `holtdroid` and pick the longest expiration Figma offers.
+3. Scopes: **File content** read-only and **Current user** read (Holtdroid
+   checks the token with it and shows whose it is); nothing else.
+4. Copy the token (it starts with `figd_`, Figma shows it once), paste it and
+   **Check and save**.
+
+The token reads only the files your Figma account can open. Where it is
+kept depends on the server:
+
+- **With your account** when the database is `sqlite` and `auth.sessionKey`
+  is set: the api checks it with Figma, encrypts it (AES-GCM with a key
+  derived from `auth.sessionKey`) and never sends it back, so it works in
+  every browser you sign in with. Changing `auth.sessionKey` makes saved
+  tokens unreadable; everyone then saves theirs again.
+- **In this browser** otherwise (an in-memory database would lose it on the
+  next restart): the api only checks it, and the browser sends it with each
+  import or update.
+
+When the token expires, imports say Figma refused it: generate a new one and
+**Replace** it.
+
+## Pixel perfect page
+
+The frame icon in the header opens the page for your references outside a
+session: all of them grouped by app, with search, the space they take and
+when they will be deleted; import from Figma or add an image, rename,
+download, delete, open a Figma reference's frame in Figma or update it. It
+also holds your Figma token and how the tab starts in this browser
+(opacity, blend, and which of the switches below are on).
 
 The import keeps the layers under the frame: their boxes, the top fill and
 stroke, corner radius, opacity, font (family, weight, size, line height,

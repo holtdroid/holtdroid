@@ -173,6 +173,7 @@ type ReferenceList struct {
 	MaxAge      int64           `json:"maxAge" doc:"seconds a reference is kept after it was last opened, 0 for no limit"`
 	MaxFileSize int64           `json:"maxFileSize" doc:"bytes"`
 	FigmaToken  bool            `json:"figmaToken" doc:"the server has a Figma token of its own; without one, importing from Figma needs the user's"`
+	FigmaSaved  bool            `json:"figmaSaved" doc:"the caller has a Figma token saved with their account"`
 	Items       []ReferenceView `json:"items"`
 }
 
@@ -417,7 +418,8 @@ func (s *Server) registerReferences(api huma.API) {
 		who, _ := auth.FromContext(ctx)
 		cfg := s.cfg.PixelPerfect
 		l.Enabled, l.Quota, l.MaxAge, l.MaxFileSize = true, s.limits(ctx, who.User).ReferencesQuota, int64(cfg.MaxAge/time.Second), int64(cfg.MaxFileSize)
-		l.FigmaToken = !cfg.Figma.Token.IsZero()
+		ft := s.figmaTokenView(ctx)
+		l.FigmaToken, l.FigmaSaved = ft.Server, ft.Saved
 		user := userDir(who.User)
 		entries, err := s.references.list(ctx, user)
 		if err != nil {

@@ -852,6 +852,8 @@ browser ─POST/PUT/DELETE /api/v1/pixel-perfect─▶ api ──▶ storage: pi
         ─POST /api/v1/pixel-perfect/figma {url, token?}─▶ api ─GET /v1/files/{key}/nodes, /v1/images/{key}─▶ Figma
                                                               (frame picture + layers, decision #139)
         ◀─GET /api/v1/pixel-perfect/{id}/layers── the frame's layers: boxes, fills, fonts, auto layout
+        ─GET/PUT/DELETE /api/v1/pixel-perfect/figma-token─▶ api ─GET /v1/me─▶ Figma; database: figma_tokens
+                                                              (AES-GCM, key from auth.sessionKey, decision #141)
         ◀─GET /api/v1/pixel-perfect/{id}/image── api (rewrites .used at most hourly)
         ◀─GET /api/v1/pixel-perfect/{id}/thumbnail── 160 px JPEG for lists, from the browser or made by the api (#109)
 browser: <img> over the screen canvas (opacity, difference, invert); Freeze frame = the decoder's snapshot;

@@ -3,6 +3,7 @@ import {
   BookOpenIcon,
   ClapperboardIcon,
   DatabaseIcon,
+  FrameIcon,
   LayoutGridIcon,
   LaptopIcon,
   LogOutIcon,
@@ -17,7 +18,7 @@ import {
 } from "lucide-react"
 import { useTheme } from "next-themes"
 import { type ReactNode, useState } from "react"
-import { useAppData, useAuth, useLogout, useRecordings, useSessionEvents } from "@/api/queries"
+import { useAppData, useAuth, useLogout, useRecordings, useReferences, useSessionEvents } from "@/api/queries"
 import { useComputers, useSSHInfo } from "@/api/ssh"
 import { HeaderSlotProvider } from "@/components/header-slot"
 import { Button } from "@/components/ui/button"
@@ -40,6 +41,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const online = computers.data?.computers.length ?? 0
   const auth = useAuth()
   const appData = useAppData()
+  const references = useReferences()
   const recordings = useRecordings()
   const logout = useLogout()
   const matchRoute = useMatchRoute()
@@ -87,6 +89,19 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </Button>
               </TooltipTrigger>
               <TooltipContent>App data</TooltipContent>
+            </Tooltip>
+          )}
+          {references.data?.enabled && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" asChild>
+                  <Link to="/pixel-perfect" activeProps={{ className: "bg-muted" }}>
+                    <FrameIcon />
+                    <span className="sr-only">Pixel perfect</span>
+                  </Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Pixel perfect: references and Figma</TooltipContent>
             </Tooltip>
           )}
           {recordings.data?.enabled && (
