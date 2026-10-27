@@ -247,6 +247,7 @@ the portal and download them as a video (decision #96).
 - [x] Recording links with the moment, the tab and the open item (decision #115); time chips against the playhead; text in binary frames
 - [x] Live WebSockets tab on the session page with markers at a frame's time; recording page with the session's cards and a DevTools-style tools panel; video with an opening card and a compact column; preview before the nearest touch (decision #117)
 - [x] Cache tab in the player and on the session page (decision #154): timestamps and changing values in URLs, missing or contradicting caching headers, Cloudflare and other CDNs' statuses checked against them, repeated downloads with the bytes they cost, Disable cache noticed; the agent streams finished requests live without bodies and merges the ExtraInfo headers
+- [x] Images and SVG tabs in the player and on the session page (decision #156): pages report every second which images they draw where; images loaded but not on screen within 10 s, bigger than drawn at the screen's density, PNG/JPEG/GIF against WebP measured in the browser, barely compressed WebP and AVIF; SVG path data in scripts, pages, stylesheets, SVG files and inline SVGs with excess decimals, svgo's shorter commands and paths shipped twice
 - [ ] Logcat filter for the app's own processes in the player
 
 ## Phase 4.13 — Pixel perfect

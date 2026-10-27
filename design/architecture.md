@@ -816,7 +816,7 @@ device ─scrcpy H.264─▶ agent ──tee──▶ viewer's WebSocket
                         api ──▶ storage: recordings/meta/…, recordings/files/…, recordings/shares/…
                          ▲ GET /api/v1/recordings/{id}/files/…, /events, /devtools (or /api/v1/shared/{token}/…)
 browser: mediabunny decodes one init+segment at a time; the player shows the
-         tools (logcat, network, console, WebSockets, cache) | phone | app, time, device,
+         tools (logcat, network, console, WebSockets, cache, images, SVG) | phone | app, time, device,
          network, load as HTML, and the MP4 download (WebCodecs encode into OPFS)
          draws phone | panels on a canvas
 ```
@@ -829,7 +829,9 @@ enables `Network`, `Runtime` and `Log` in each (`internal/agent/cdprecord.go`)
 and makes each attach its own children; a WebView without a browser target
 gets its pages followed one by one. It tracks open sockets and requests in
 flight all the time but writes lines only while a recording runs, starting
-with the targets and sockets already open. It writes requests (with bodies up to 1 MB, except images, media and fonts),
+with the targets and sockets already open. It writes requests (with bodies up to 1 MB, images up to 512 KB, none for media and fonts),
+what each page and iframe draws of its images (`images` lines: an `imagescan.js` evaluated
+every second keeps in the page what it reported and returns the changes and new inline SVGs),
 console messages with their objects as JSON, exceptions, browser messages,
 and WebSocket and EventSource frames. A socket whose frames look like video
 or another media stream (container or picture signatures, or a steady flow

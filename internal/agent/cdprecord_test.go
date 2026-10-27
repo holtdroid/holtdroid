@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -13,6 +14,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -541,5 +543,94 @@ func TestDevToolsWatchKeepsRequestsApartFromSockets(t *testing.T) {
 	}
 	if !slices.Equal(urls, []string{"https://a.example/r3", "https://a.example/r4"}) {
 		t.Fatalf("kept requests %v", urls)
+	}
+}
+
+func TestCDPPageWatchesImages(t *testing.T) {
+	sink := &devtoolsLines{t: 1000}
+	pg := newCDPPage("P1", sink)
+	var evals atomic.Int32
+	pg.call = func(_ context.Context, method string, params any) (json.RawMessage, error) {
+		if method != "Runtime.evaluate" || params.(map[string]any)["expression"] != imageScan {
+			return nil, fmt.Errorf("unexpected %s", method)
+		}
+		if evals.Add(1) > 1 {
+			return json.RawMessage(`{"result":{"type":"object","value":null}}`), nil
+		}
+		return json.RawMessage(`{"result":{"type":"object","value":{"url":"https://shop.example/","width":412,"height":915,"dpr":2.625,` +
+			`"uses":[{"element":1,"src":"https://shop.example/a.png","kind":"img","width":32,"height":32,"naturalWidth":512,"naturalHeight":512,"shown":true}],` +
+			`"svgs":["<svg><path d=\"M0 0h24v24H0z\"/></svg>"]}}}`), nil
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan struct{})
+	go func() {
+		pg.watchImages(ctx)
+		close(done)
+	}()
+	waitLines(t, sink, func() bool { return evals.Load() >= 2 })
+	cancel()
+	<-done
+	lines := sink.of(contract.DevToolsImagesEntry)
+	if len(lines) != 1 || lines[0].Target != "P1" {
+		t.Fatalf("images lines %+v", lines)
+	}
+	im := lines[0].Images
+	if im.DPR != 2.625 || len(im.Uses) != 1 || im.Uses[0].NaturalWidth != 512 || !im.Uses[0].Shown || len(im.SVGs) != 1 {
+		t.Fatalf("images %+v", im)
+	}
+
+	worker := newCDPPage("W1", sink)
+	worker.kind = "worker"
+	worker.watchImages(t.Context())
+}
+
+func TestDevToolsRecorderKeepsImageBodiesUpToTheirLimit(t *testing.T) {
+	small := base64.StdEncoding.EncodeToString(make([]byte, 1000))
+	big := base64.StdEncoding.EncodeToString(make([]byte, cdpImageLimit+1))
+	for _, tc := range []struct {
+		name, body string
+		size       int
+		skipped    string
+	}{
+		{"small", small, 1000, ""},
+		{"cached but too big", big, 0, "size"},
+		{"too big on the wire", small, cdpImageLimit + 1, "size"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sink := &devtoolsLines{t: 1000}
+			pg := newCDPPage("P1", sink)
+			pg.call = func(context.Context, string, any) (json.RawMessage, error) {
+				return json.Marshal(map[string]any{"body": tc.body, "base64Encoded": true})
+			}
+			cdpEvent(t, pg, "Network.requestWillBeSent", `{"requestId":"i1","timestamp":1,"type":"Image","request":{"url":"https://shop.example/a.png","method":"GET"}}`)
+			cdpEvent(t, pg, "Network.loadingFinished", fmt.Sprintf(`{"requestId":"i1","timestamp":2,"encodedDataLength":%d}`, tc.size))
+			waitLines(t, sink, func() bool { return len(sink.of(contract.DevToolsRequestEntry)) == 1 })
+			r := sink.of(contract.DevToolsRequestEntry)[0].Request
+			if r.BodySkipped != tc.skipped || (tc.skipped == "" && (r.Body != small || !r.BodyBase64)) || (tc.skipped != "" && r.Body != "") {
+				t.Fatalf("image request: skipped %q, body %d bytes", r.BodySkipped, len(r.Body))
+			}
+		})
+	}
+}
+
+func TestDevToolsWatchHandsOutBodies(t *testing.T) {
+	w := newDevToolsWatch(nil, slog.New(slog.DiscardHandler))
+	pg := newCDPPage("P1", w)
+	pg.call = func(_ context.Context, method string, params any) (json.RawMessage, error) {
+		if params.(map[string]any)["requestId"] != "r1" {
+			return nil, errors.New("no resource with given identifier found")
+		}
+		return json.RawMessage(`{"body":"const a=1","base64Encoded":false}`), nil
+	}
+	w.procs["webview_devtools_remote_1"] = &cdpProcess{w: w, pages: map[string]*cdpPage{"S1": pg}}
+	b, err := w.body(t.Context(), "P1", "r1")
+	if err != nil || b.Body != "const a=1" || b.Base64 {
+		t.Fatalf("body %+v, %v", b, err)
+	}
+	if _, err := w.body(t.Context(), "P1", "r2"); !errors.Is(err, contract.ErrNotFound) {
+		t.Fatalf("missing body: %v", err)
+	}
+	if _, err := w.body(t.Context(), "P9", "r1"); !errors.Is(err, contract.ErrNotFound) {
+		t.Fatalf("missing target: %v", err)
 	}
 }

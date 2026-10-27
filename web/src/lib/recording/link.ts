@@ -1,4 +1,14 @@
-export type ToolTab = "logcat" | "network" | "console" | "sockets" | "dns" | "routes" | "pixel-perfect" | "cache"
+export type ToolTab =
+  | "logcat"
+  | "network"
+  | "console"
+  | "sockets"
+  | "dns"
+  | "routes"
+  | "pixel-perfect"
+  | "cache"
+  | "images"
+  | "svg"
 
 export const toolTabs: ToolTab[] = [
   "logcat",
@@ -9,9 +19,11 @@ export const toolTabs: ToolTab[] = [
   "routes",
   "pixel-perfect",
   "cache",
+  "images",
+  "svg",
 ]
 
-/** What a link to a recording opens: a moment, a tab and the request, message, socket, frame, route or cache finding open in it. */
+/** What a link to a recording opens: a moment, a tab and the request, message, socket, frame, route or finding open in it. */
 export type PlayerView = {
   t?: number
   tab?: ToolTab
@@ -57,6 +69,8 @@ export function viewHash(view: PlayerView) {
     routes: ["route"],
     "pixel-perfect": [],
     cache: ["finding"],
+    images: ["finding"],
+    svg: ["finding"],
   }
   for (const f of view.tab ? keep[view.tab] : []) {
     const v = view[f]

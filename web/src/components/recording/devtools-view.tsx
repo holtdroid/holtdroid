@@ -579,9 +579,11 @@ function RequestDetails({
               {r.error
                 ? `No response: ${r.error}`
                 : r.bodySkipped === "type"
-                  ? "Images, media and fonts are recorded without their bodies."
+                  ? r.resourceType === "Image"
+                    ? "Images were recorded without their bodies when this recording was made."
+                    : "Media and fonts are recorded without their bodies."
                   : r.bodySkipped === "size"
-                    ? `The body (${formatBytes(r.size ?? 0)}) was over the 1 MB limit.`
+                    ? `The body (${formatBytes(r.size ?? 0)}) was over the ${r.resourceType === "Image" ? "512 KB" : "1 MB"} limit.`
                     : r.bodySkipped === "unavailable"
                       ? localScheme(r.url)
                         ? `The WebView doesn't hand out the bodies of ${localScheme(r.url)}: URLs.`

@@ -2,6 +2,7 @@ import type {
   DevToolsConsole,
   DevToolsEntry,
   DevToolsFrame,
+  DevToolsImages,
   DevToolsPage,
   DevToolsRequest,
   DevToolsSocket,
@@ -40,6 +41,8 @@ export class DevToolsLog {
   readonly sockets: SocketTrack[] = []
   readonly pages: { t: number; target: string; v: DevToolsPage }[] = []
   readonly dropped: { t: number; n: number }[] = []
+  /** what the pages drew of their images, in time order */
+  readonly images: (DevToolsImages & { t: number; target: string })[] = []
 
   constructor(entries: DevToolsEntry[]) {
     const sockets = new Map<string, SocketTrack>()
@@ -70,6 +73,8 @@ export class DevToolsLog {
         socket(target, e.frame.socket, e.t).frames.push({ ...e.frame, key: `f${i}`, t: e.t })
       } else if (e.page) {
         this.pages.push({ t: e.t, target, v: e.page })
+      } else if (e.images) {
+        this.images.push({ ...e.images, t: e.t, target })
       } else if (e.dropped) {
         this.dropped.push({ t: e.t, n: e.dropped })
       }
@@ -83,6 +88,7 @@ export class DevToolsLog {
     }
     this.sockets.sort((a, b) => a.t - b.t)
     this.pages.sort((a, b) => a.t - b.t)
+    this.images.sort((a, b) => a.t - b.t)
   }
 
   get empty() {

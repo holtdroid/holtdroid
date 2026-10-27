@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	_ "embed"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 	"unicode/utf8"
 
 	"github.com/holtdroid/holtdroid/internal/contract"
@@ -17,6 +19,8 @@ import (
 
 const (
 	cdpBodyLimit    = 1 << 20
+	cdpImageLimit   = 512 << 10
+	cdpImageScan    = time.Second
 	cdpEarlyLimit   = 512
 	cdpPostLimit    = 256 << 10
 	cdpTextFrame    = 128 << 10
@@ -431,15 +435,19 @@ func (p *cdpPage) handle(method string, raw json.RawMessage) {
 		}
 		r.finishTiming(e.Timestamp)
 		req := r.DevToolsRequest
+		limit := cdpBodyLimit
+		if req.ResourceType == "Image" {
+			limit = cdpImageLimit
+		}
 		switch {
-		case req.ResourceType == "Image" || req.ResourceType == "Media" || req.ResourceType == "Font":
+		case req.ResourceType == "Media" || req.ResourceType == "Font":
 			req.BodySkipped = "type"
-		case req.Size > cdpBodyLimit:
+		case req.Size > int64(limit):
 			req.BodySkipped = "size"
 		case p.call == nil || !p.sink.Recording():
 		default:
 			p.background(func(ctx context.Context) {
-				p.body(ctx, e.RequestID, &req)
+				p.body(ctx, e.RequestID, &req, limit, req.ResourceType == "Image")
 				p.emit(contract.DevToolsEntry{T: now, Type: contract.DevToolsRequestEntry, Request: &req})
 			})
 			return
@@ -743,24 +751,87 @@ func (r *cdpRequest) finishTiming(end float64) {
 
 func round3(v float64) float64 { return math.Round(v*1000) / 1000 }
 
-func (p *cdpPage) body(ctx context.Context, requestID string, req *contract.DevToolsRequest) {
-	res, err := p.call(ctx, "Network.getResponseBody", map[string]any{"requestId": requestID})
+// body adds a response body cut at limit bytes, or none when whole says a
+// part is no use, as with an image.
+func (p *cdpPage) body(ctx context.Context, requestID string, req *contract.DevToolsRequest, limit int, whole bool) {
+	b, err := p.responseBody(ctx, requestID, limit)
+	switch {
+	case err != nil:
+		req.BodySkipped = "unavailable"
+	case b.Truncated && whole:
+		req.BodySkipped = "size"
+	default:
+		req.Body, req.BodyBase64, req.BodyTruncated = b.Body, b.Base64, b.Truncated
+	}
+}
+
+func (p *cdpPage) responseBody(ctx context.Context, requestID string, limit int) (contract.DevToolsBody, error) {
+	p.mu.Lock()
+	call := p.call
+	p.mu.Unlock()
+	if call == nil {
+		return contract.DevToolsBody{}, contract.ErrNotFound
+	}
+	res, err := call(ctx, "Network.getResponseBody", map[string]any{"requestId": requestID})
 	var b struct {
 		Body          string `json:"body"`
 		Base64Encoded bool   `json:"base64Encoded"`
 	}
 	if err != nil || json.Unmarshal(res, &b) != nil {
-		req.BodySkipped = "unavailable"
+		return contract.DevToolsBody{}, fmt.Errorf("%w: no body for this request", contract.ErrNotFound)
+	}
+	out := contract.DevToolsBody{Body: b.Body, Base64: b.Base64Encoded}
+	if !b.Base64Encoded {
+		out.Body, out.Truncated = cut(b.Body, limit)
+		return out, nil
+	}
+	n := base64.StdEncoding.DecodedLen(len(b.Body)) - strings.Count(b.Body[max(0, len(b.Body)-2):], "=")
+	if n > limit {
+		out.Body, out.Truncated = b.Body[:min(len(b.Body), limit/3*4)], true
+	}
+	return out, nil
+}
+
+//go:embed imagescan.js
+var imageScan string
+
+// watchImages asks a page every second which images it draws where, and
+// writes a line when that changed. The script keeps what it reported in
+// the page, so a navigation starts over with everything on the new page.
+func (p *cdpPage) watchImages(ctx context.Context) {
+	if p.kind != "page" && p.kind != "iframe" {
 		return
 	}
-	limit := cdpBodyLimit
-	if b.Base64Encoded {
-		limit = base64.StdEncoding.EncodedLen(cdpBodyLimit)
-	}
-	req.Body, req.BodyTruncated = cut(b.Body, limit)
-	req.BodyBase64 = b.Base64Encoded
-	if req.BodyTruncated && b.Base64Encoded {
-		req.Body = req.Body[:len(req.Body)/4*4]
+	tick := time.NewTicker(cdpImageScan)
+	defer tick.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick.C:
+		}
+		p.mu.Lock()
+		closed, call := p.page.Closed, p.call
+		p.mu.Unlock()
+		if closed {
+			return
+		}
+		if call == nil {
+			continue
+		}
+		res, err := call(ctx, "Runtime.evaluate", map[string]any{"expression": imageScan, "returnByValue": true, "silent": true})
+		if err != nil {
+			continue
+		}
+		var r struct {
+			Result struct {
+				Value *contract.DevToolsImages `json:"value"`
+			} `json:"result"`
+		}
+		if json.Unmarshal(res, &r) != nil || r.Result.Value == nil {
+			continue
+		}
+		p.emit(contract.DevToolsEntry{Type: contract.DevToolsImagesEntry, Images: r.Result.Value})
 	}
 }
 

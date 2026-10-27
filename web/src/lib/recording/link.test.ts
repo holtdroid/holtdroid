@@ -26,3 +26,11 @@ test("a cache finding stays only with its tab", () => {
   expect(hash).toBe("#t=1&tab=cache&finding=buster%3AGET+https%3A%2F%2Fa.example%2Fx")
   expect(parseView(hash)).toEqual({ t: 1000, tab: "cache", finding: "buster:GET https://a.example/x" })
 })
+
+test("images and SVG findings stay with their tabs", () => {
+  expect(parseView(viewHash({ tab: "images", finding: "oversized:https://a.example/a.png", socket: "s" }))).toEqual({
+    tab: "images",
+    finding: "oversized:https://a.example/a.png",
+  })
+  expect(parseView(viewHash({ tab: "svg", finding: "duplicate" }))).toEqual({ tab: "svg", finding: "duplicate" })
+})

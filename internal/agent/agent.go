@@ -795,6 +795,10 @@ func (a *Agent) WatchDevTools(ctx context.Context, send func(contract.DevToolsEn
 	return a.watch.watchLive(ctx, send)
 }
 
+func (a *Agent) DevToolsBody(ctx context.Context, target, request string) (contract.DevToolsBody, error) {
+	return a.watch.body(ctx, target, request)
+}
+
 func (a *Agent) Targets(ctx context.Context) ([]contract.DevToolsTarget, error) {
 	return a.devtools.Targets(ctx)
 }

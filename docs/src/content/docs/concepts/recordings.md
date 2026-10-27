@@ -130,7 +130,7 @@ turn red when requests failed or the page logged errors.
   Filter by URL, by type (Fetch/XHR, Doc, JS and so on) or to errors only.
   Click a request for its headers, query string and body (**Payload**), the
   **Response** and its **Timing**, or copy it as cURL or as a `fetch()` call. Bodies are kept up to
-  1 MB; images, media and fonts are recorded without theirs.
+  1 MB and images up to 512 KB; media and fonts are recorded without theirs.
 - **Console** has `console.*` calls, uncaught exceptions with their stack and
   the WebView's own messages (failed loads, violations, deprecations), with
   level filters and search. Click a message to open the objects it logged
@@ -142,6 +142,10 @@ turn red when requests failed or the page logged errors.
   **media stream**: from then on its frames are counted but not recorded.
 - **Cache** checks how the requests up to that moment use the WebView's
   cache and a CDN in front of the server (see [Cache](#cache)).
+- **Images** checks the images loaded up to that moment against how the
+  pages drew them (see [Images](#images)).
+- **SVG** checks the SVG paths in the recorded scripts, pages, stylesheets,
+  SVG files and inline SVGs (see [SVG paths](#svg-paths)).
 
 JSON is shown as a tree you can open and close, also when it sits in a
 string field. Messages and bodies in common framings are split into their
@@ -235,6 +239,72 @@ The headers are the ones that went over the wire, `Set-Cookie` and the
 network stack's own request headers included. A session's live **Cache**
 tab does the same as the requests finish (see
 [DevTools](/concepts/devtools/)).
+
+### Images
+
+While it records, the agent asks every page once a second which images it
+draws: each `<img>` (its chosen `srcset` candidate), CSS background (also on
+`::before` and `::after`), SVG `<image>`, video poster and image button, with
+the box it is drawn in, `object-fit` or `background-size`, the screen's
+density, and whether it is on screen, off screen or hidden. A line is
+written only when something changes. The **Images** tab puts that next to
+the recorded image requests. The top row counts the images, what they took
+to download, what loaded without being shown, and what could be saved if
+each image were as small as it can be. Click a finding for a preview, the
+image's format, size in bytes and pixels, the most device pixels any use
+draws it at, its uses with their time, and its requests (**Open in Network**).
+
+It looks for:
+
+- **Images not on screen within 10 seconds of loading**: below the fold,
+  outside the viewport or hidden by every element that uses them. They are
+  candidates for `loading="lazy"` or loading later. An image that shows up
+  later than that is a hint, with how long it waited. An image no `<img>`,
+  background, `<image>` or poster used at all is flagged too; it may be a
+  preload for another screen. Images of workers aren't expected on screen.
+- **Images bigger than they are drawn**: the natural size against the
+  biggest place that draws it, counting the screen's density, `object-fit`
+  and `background-size`. A 512 px file for a 32 px icon at density 2.625 has
+  about 37 times the pixels it needs. Images used in several places are
+  judged by the largest.
+- **PNG, JPEG, GIF and BMP**, with what the same image weighs as WebP. Your
+  browser decodes the recorded file and re-encodes it as WebP at quality 85,
+  whole and at the size drawn; without a recorded body (over 512 KB, or a
+  recording made before images were kept) it is a guess and marked so. GIFs
+  are always a guess, since an animation would lose its frames.
+- **WebP and AVIF that look barely compressed**: re-encoded at quality 85
+  they shrink by a third or more, or, without a body to try, they take more
+  bits per pixel than lossy images usually do.
+
+Recordings made before pages reported their images get only the checks on
+the files themselves.
+
+### SVG paths
+
+The **SVG** tab finds path data (`d`) in the recorded JavaScript, HTML,
+CSS, JSON and SVG files and in the inline `<svg>` elements the pages drew:
+markup, compiled JSX (`d:"M…"`), JSON, `setAttribute("d", …)`, and SVG data
+URIs, URL-encoded or base64. For each file it says how much path data it
+holds and what could be saved:
+
+- **Too many decimals**: digits after the point beyond what the path's size
+  needs. The size is the nearest `viewBox`, else the path's own extent: 2
+  digits for a 24-unit icon, 1 for a few hundred units, none from 1000. The
+  saving is what rounding alone takes off.
+- **Longer commands than needed**: what svgo's `convertPathData` saves on top
+  of rounding, by choosing relative or absolute coordinates per segment,
+  dropping separators and repeated commands, and turning lines into `H` and
+  `V` and curves into shorthand or arcs. Your browser runs svgo when the tab
+  opens.
+- **Paths shipped more than once**: the same path data in several files, or
+  several times in one, with the bytes the copies take. Inline SVGs only
+  count paths no file brought, so a page that renders an icon from the
+  bundle isn't counted twice.
+
+Click a finding for its file (**Open in Network**) and the paths, with their
+length before and after, a small preview when the `viewBox` is known, and
+for repeated paths where they appear. Savings are bytes before gzip or
+Brotli, which take off part of them.
 
 ### Pixel perfect
 
@@ -343,8 +413,8 @@ download the logcat, but the page has no video download.
 
 The link you copy carries the moment you are at, like a video link with a
 time: `#t=46.2&tab=network&request=…` opens the recording there, on the same
-tab (Logcat, Network, Console, WebSockets, DNS, Routes or Cache), with the request,
-console message, socket frame, name or cache finding you had open opened and scrolled to. `t` also takes
+tab (Logcat, Network, Console, WebSockets, DNS, Routes, Cache, Images or SVG), with the request,
+console message, socket frame, name or finding you had open opened and scrolled to. `t` also takes
 `1m20s`. On a shared recording, **Link to 00:46** copies such a link for the
 page you are on. Someone signed in to the portal who opens a share link sees it inside the
 portal, with its header and menus.

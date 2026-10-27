@@ -161,6 +161,7 @@ const (
 	DevToolsSocketEntry  DevToolsEntryType = "socket"
 	DevToolsFrameEntry   DevToolsEntryType = "frame"
 	DevToolsDroppedEntry DevToolsEntryType = "dropped"
+	DevToolsImagesEntry  DevToolsEntryType = "images"
 )
 
 // DevToolsEntry is one line of a recording's devtools files, written by the
@@ -168,15 +169,17 @@ const (
 // recording started, and exactly one of the payloads is set. A request is
 // written once it ends (or when the recording does), with the times of its
 // stages; a WebSocket's state and each of its frames get lines of their own.
+// A page's images line says which pictures it draws where, when that changes.
 type DevToolsEntry struct {
 	T       int64             `json:"t"`
-	Type    DevToolsEntryType `json:"type" enum:"page,request,console,socket,frame,dropped"`
+	Type    DevToolsEntryType `json:"type" enum:"page,request,console,socket,frame,dropped,images"`
 	Target  string            `json:"target,omitempty" doc:"the DevTools target (page) it came from"`
 	Page    *DevToolsPage     `json:"page,omitempty"`
 	Request *DevToolsRequest  `json:"request,omitempty"`
 	Console *DevToolsConsole  `json:"console,omitempty"`
 	Socket  *DevToolsSocket   `json:"socket,omitempty"`
 	Frame   *DevToolsFrame    `json:"frame,omitempty"`
+	Images  *DevToolsImages   `json:"images,omitempty"`
 	Dropped int               `json:"dropped,omitempty" doc:"lines left out because one upload got too big"`
 	Wall    int64             `json:"wall,omitempty" doc:"live stream only: the agent's clock, milliseconds since the epoch; t is then the recording time, or 0 without a recording"`
 	Rec     string            `json:"recording,omitempty" doc:"live stream only: the recording t belongs to"`
@@ -217,7 +220,7 @@ type DevToolsRequest struct {
 	Body              string            `json:"body,omitempty"`
 	BodyBase64        bool              `json:"bodyBase64,omitempty"`
 	BodyTruncated     bool              `json:"bodyTruncated,omitempty"`
-	BodySkipped       string            `json:"bodySkipped,omitempty" enum:"type,size,unavailable" doc:"why there is no body: a media, font, image, script or style resource, too big, or the WebView had none"`
+	BodySkipped       string            `json:"bodySkipped,omitempty" enum:"type,size,unavailable" doc:"why there is no body: a media or font resource, too big, or the WebView had none"`
 	Redirect          string            `json:"redirect,omitempty" doc:"the URL it was redirected to"`
 	Error             string            `json:"error,omitempty"`
 	Canceled          bool              `json:"canceled,omitempty"`
@@ -272,5 +275,39 @@ type DevToolsFrame struct {
 	Opcode    int    `json:"opcode" doc:"1 text, 2 binary"`
 	Size      int    `json:"size" doc:"payload bytes"`
 	Data      string `json:"data,omitempty" doc:"the text, or base64 of a binary payload, cut at the limit"`
+	Truncated bool   `json:"truncated,omitempty"`
+}
+
+// DevToolsImages is what a page draws of its images, checked every second:
+// the uses that are new or changed since its last line (an element appearing,
+// resized, or scrolled into view for the first time) and the inline SVGs it
+// added.
+type DevToolsImages struct {
+	URL    string             `json:"url,omitempty" doc:"the document"`
+	Width  float64            `json:"width" doc:"the viewport in CSS pixels"`
+	Height float64            `json:"height"`
+	DPR    float64            `json:"dpr" doc:"device pixels per CSS pixel"`
+	Uses   []DevToolsImageUse `json:"uses,omitempty"`
+	SVGs   []string           `json:"svgs,omitempty" doc:"markup of inline <svg> elements new since the last line, each at most 64 KB"`
+}
+
+type DevToolsImageUse struct {
+	Element       int     `json:"element" doc:"the element's number within the document"`
+	Src           string  `json:"src" doc:"the absolute URL drawn"`
+	Kind          string  `json:"kind" enum:"img,css,svg,poster,input" doc:"an <img>, a CSS background, an SVG <image>, a video poster or an image button"`
+	Width         float64 `json:"width" doc:"the box it is drawn in, CSS pixels"`
+	Height        float64 `json:"height"`
+	NaturalWidth  int     `json:"naturalWidth,omitempty"`
+	NaturalHeight int     `json:"naturalHeight,omitempty"`
+	Fit           string  `json:"fit,omitempty" doc:"an <img>'s object-fit or a background's background-size"`
+	Shown         bool    `json:"shown,omitempty" doc:"rendered and inside the viewport"`
+	Hidden        bool    `json:"hidden,omitempty" doc:"not rendered: display none, invisible or no size"`
+}
+
+// DevToolsBody is a finished request's response body, while the WebView
+// still keeps it.
+type DevToolsBody struct {
+	Body      string `json:"body"`
+	Base64    bool   `json:"base64,omitempty"`
 	Truncated bool   `json:"truncated,omitempty"`
 }

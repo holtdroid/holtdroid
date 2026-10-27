@@ -4733,3 +4733,52 @@ app uses the camera.
 is closed. Android 11 and 12 (HIDL camera providers) and phones have no
 Holtdroid camera. The browser's camera costs 3–7 Mbit/s up at 15 frames a
 second.
+
+
+## 156. Images and SVG tabs: pages report what they draw, the browser measures
+
+**Context.** Testers want to see images an app downloads but doesn't show,
+images far bigger than the place they are drawn, formats WebP beats, and
+SVG icons that carry six decimals or ship twice. The recorded requests (and
+the live stream, decision #154) say what was downloaded, not where a page
+draws it, and images were recorded without their bodies.
+
+**Decision.**
+
+- The agent evaluates `internal/agent/imagescan.js` in every page and
+  iframe once a second (`Runtime.evaluate`, by value). The script installs
+  itself on the window the first time, so a navigation starts over, and
+  returns only what changed since the last call: uses of `<img>`
+  (`currentSrc`), CSS backgrounds (also `::before`/`::after`, rescanned at
+  most every 3 s after a DOM or class/style change), SVG `<image>`, posters
+  and image buttons, each with its box, `object-fit`/`background-size`,
+  natural size and whether it is shown (rendered and in the viewport) or
+  hidden, plus the markup of inline `<svg>` elements new since then (64 KB
+  each, 1 MB a document). A use is reported again only when its size
+  changes or it comes on screen the first time. The answer is an `images`
+  `DevToolsEntry`, recorded and kept live with the requests.
+- Image bodies are recorded up to 512 KB; one over that, on the wire or
+  cached, gets `bodySkipped: size` rather than a cut file. Live, the agent
+  hands out a body by target and request id (`GET /v1/devtools/body`) from
+  `Network.getResponseBody` while the WebView keeps it.
+- The analyses are pure functions in the web app (`lib/recording/images.ts`,
+  `lib/recording/svgpaths.ts`), like the cache's. "Not shown" means no
+  shown use within 10 s of the request finishing, decided only once 10 s of
+  lines followed it. The size an image needs is the largest use's box (or
+  its fitted image) times the screen's density. WebP sizes are measured by
+  the viewer's browser (`createImageBitmap`, `OffscreenCanvas.convertToBlob`
+  at quality 85), whole and at the needed size, once the tab is open; when
+  that can't run, fixed ratios per format stand in and the finding says it
+  is a guess. Path data is optimized with svgo's `convertPathData` in the
+  browser, loaded on demand; the precision is chosen from the nearest
+  `viewBox` or the path's extent (3 digits for a unit, none from 1000).
+
+**Consequences.** One evaluation a second per page costs a little layout
+work on the device, more on pages with thousands of elements whose classes
+keep changing. Recordings with many images grow by their bodies. Images
+drawn only in canvases, CSS masks or `border-image` aren't seen, so they
+count as drawn nowhere. Same-process iframes are part of their parent's
+DOM, which the script doesn't descend into. The SVG savings are before
+compression, which takes off much of the repetition. Live, a body the
+WebView already dropped (past its 32 MB of buffered responses) can't be
+measured or searched.

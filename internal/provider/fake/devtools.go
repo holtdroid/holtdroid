@@ -72,6 +72,11 @@ func (d *device) recordDevTools(ctx context.Context, rec *recording.Recorder) {
 	io(false, `40{"sid":"wZX3oN0bSVIhsaknAAAI"}`)
 	socket("ws.2", "wss://cam.example.com/stream", "open", 0, 0)
 	frame(true, `{"op":"subscribe","topics":["cart","prices"]}`)
+	for _, a := range fakeAssets() {
+		r := a.request(time.Now(), rec.Elapsed(), true)
+		emit(contract.DevToolsEntry{T: r.End, Type: contract.DevToolsRequestEntry, Request: &r})
+	}
+	emit(contract.DevToolsEntry{Type: contract.DevToolsImagesEntry, Images: fakeImages(false)})
 	tick := time.NewTicker(2 * time.Second)
 	defer tick.Stop()
 	for n := 1; ; n++ {
@@ -110,6 +115,9 @@ func (d *device) recordDevTools(ctx context.Context, rec *recording.Recorder) {
 		case 0:
 			frame(true, `{"op":"ping"}`)
 			frame(false, `{"op":"pong"}`)
+			if n == 8 {
+				emit(contract.DevToolsEntry{Type: contract.DevToolsImagesEntry, Images: fakeImages(true)})
+			}
 			if n == 4 {
 				socket("ws.2", "wss://cam.example.com/stream", "stream", 61, 2_400_000)
 				emit(contract.DevToolsEntry{Type: contract.DevToolsFrameEntry, Frame: &contract.DevToolsFrame{
@@ -125,8 +133,9 @@ func (d *device) recordDevTools(ctx context.Context, rec *recording.Recorder) {
 	}
 }
 
-// WatchDevTools makes up live traffic: the page, a JSON WebSocket and a
-// Socket.IO one with a frame every two seconds, and a request to a CDN.
+// WatchDevTools makes up live traffic: the page and its pictures, a JSON
+// WebSocket and a Socket.IO one with a frame every two seconds, and a
+// request to a CDN.
 func (d *device) WatchDevTools(ctx context.Context, send func(contract.DevToolsEntry) error) error {
 	const target = "F1"
 	started := time.Now()
@@ -146,6 +155,15 @@ func (d *device) WatchDevTools(ctx context.Context, send func(contract.DevToolsE
 			return err
 		}
 	}
+	for _, a := range fakeAssets() {
+		r := a.request(started, 1, false)
+		if err := line(contract.DevToolsEntry{Type: contract.DevToolsRequestEntry, Request: &r}); err != nil {
+			return err
+		}
+	}
+	if err := line(contract.DevToolsEntry{Type: contract.DevToolsImagesEntry, Images: fakeImages(false)}); err != nil {
+		return err
+	}
 	tick := time.NewTicker(2 * time.Second)
 	defer tick.Stop()
 	for n := 1; ; n++ {
@@ -161,6 +179,11 @@ func (d *device) WatchDevTools(ctx context.Context, send func(contract.DevToolsE
 		}
 		if n%3 == 0 {
 			frames = append(frames, contract.DevToolsFrame{Socket: "ws.1", Sent: true, Opcode: 1, Data: `{"op":"ping"}`})
+		}
+		if n == 8 {
+			if err := line(contract.DevToolsEntry{Type: contract.DevToolsImagesEntry, Images: fakeImages(true)}); err != nil {
+				return err
+			}
 		}
 		r := assetRequest(n, now)
 		r.Start = time.Since(started).Milliseconds()

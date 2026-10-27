@@ -185,6 +185,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/devtools/body": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A finished request's response body from the live stream, while the WebView still keeps it (bodies over 1 MB are cut). */
+        get: operations["getDevToolsBody"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/devtools/live": {
         parameters: {
             query?: never;
@@ -667,6 +684,11 @@ export interface components {
             available: boolean;
             settings: components["schemas"]["DNSSettings"];
         };
+        DevToolsBody: {
+            base64?: boolean;
+            body: string;
+            truncated?: boolean;
+        };
         DevToolsConsole: {
             args?: components["schemas"]["DevToolsValue"][];
             /** Format: int64 */
@@ -699,6 +721,7 @@ export interface components {
              */
             dropped?: number;
             frame?: components["schemas"]["DevToolsFrame"];
+            images?: components["schemas"]["DevToolsImages"];
             page?: components["schemas"]["DevToolsPage"];
             /** @description live stream only: the recording t belongs to */
             recording?: string;
@@ -714,7 +737,7 @@ export interface components {
             /** @description the DevTools target (page) it came from */
             target?: string;
             /** @enum {string} */
-            type: "page" | "request" | "console" | "socket" | "frame" | "dropped";
+            type: "page" | "request" | "console" | "socket" | "frame" | "dropped" | "images";
             /**
              * Format: int64
              * @description live stream only: the agent's clock, milliseconds since the epoch; t is then the recording time, or 0 without a recording
@@ -738,6 +761,56 @@ export interface components {
             socket: string;
             truncated?: boolean;
         };
+        DevToolsImageUse: {
+            /**
+             * Format: int64
+             * @description the element's number within the document
+             */
+            element: number;
+            /** @description an <img>'s object-fit or a background's background-size */
+            fit?: string;
+            /** Format: double */
+            height: number;
+            /** @description not rendered: display none, invisible or no size */
+            hidden?: boolean;
+            /**
+             * @description an <img>, a CSS background, an SVG <image>, a video poster or an image button
+             * @enum {string}
+             */
+            kind: "img" | "css" | "svg" | "poster" | "input";
+            /** Format: int64 */
+            naturalHeight?: number;
+            /** Format: int64 */
+            naturalWidth?: number;
+            /** @description rendered and inside the viewport */
+            shown?: boolean;
+            /** @description the absolute URL drawn */
+            src: string;
+            /**
+             * Format: double
+             * @description the box it is drawn in, CSS pixels
+             */
+            width: number;
+        };
+        DevToolsImages: {
+            /**
+             * Format: double
+             * @description device pixels per CSS pixel
+             */
+            dpr: number;
+            /** Format: double */
+            height: number;
+            /** @description markup of inline <svg> elements new since the last line, each at most 64 KB */
+            svgs?: string[];
+            /** @description the document */
+            url?: string;
+            uses?: components["schemas"]["DevToolsImageUse"][];
+            /**
+             * Format: double
+             * @description the viewport in CSS pixels
+             */
+            width: number;
+        };
         DevToolsPage: {
             closed?: boolean;
             /** @description the target it belongs to: the page of an iframe or a dedicated worker */
@@ -755,7 +828,7 @@ export interface components {
             body?: string;
             bodyBase64?: boolean;
             /**
-             * @description why there is no body: a media, font, image, script or style resource, too big, or the WebView had none
+             * @description why there is no body: a media or font resource, too big, or the WebView had none
              * @enum {string}
              */
             bodySkipped?: "type" | "size" | "unavailable";
@@ -1989,6 +2062,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UIHierarchy"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getDevToolsBody: {
+        parameters: {
+            query: {
+                /** @description the target the request came from */
+                target: string;
+                /** @description the request's id */
+                request: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DevToolsBody"];
                 };
             };
             /** @description Error */

@@ -2,7 +2,9 @@ import {
   CableIcon,
   DatabaseZapIcon,
   GlobeIcon,
+  ImageIcon,
   type LucideIcon,
+  PenToolIcon,
   RouteIcon,
   SignpostIcon,
   SquareTerminalIcon,
@@ -13,11 +15,16 @@ import { useMemo } from "react"
 import type { Connection, DNSEvent, Network } from "@/api/client"
 import { CacheView } from "@/components/recording/cache-view"
 import { DNSView } from "@/components/recording/dns-view"
+import { ImagesView } from "@/components/recording/images-view"
+import { SvgView } from "@/components/recording/svg-view"
+import { useImageReport, useSvgReport } from "@/components/recording/use-audits"
 import { RoutesView } from "@/components/recording/routes-view"
 import { ClocksContext, type Clocks, PlayheadContext } from "@/components/recording/json-view"
 import { ConsoleView, NetworkView, SocketsView } from "@/components/recording/devtools-view"
 import { LogcatView } from "@/components/recording/logcat-view"
 import { analyzeCache } from "@/lib/recording/cache"
+import { isImageRequest } from "@/lib/recording/images"
+import { svgSources } from "@/lib/recording/svgpaths"
 import { type DevToolsLog, requestPhase } from "@/lib/recording/devtools"
 import { type PlayerView, type ToolTab, toolTabs } from "@/lib/recording/link"
 import type { At } from "@/lib/recording/timeline"
@@ -42,7 +49,7 @@ export function savedTab(): ToolTab {
   return "logcat"
 }
 
-/** The left column of the player: logcat and the WebViews' network, console, WebSockets and caching. */
+/** The left column of the player: logcat and the WebViews' network, console, WebSockets, caching, images and SVG paths. */
 export function RecordingTools({
   player,
   time,
@@ -87,6 +94,27 @@ export function RecordingTools({
   const errors = messages.filter((c) => c.level === "error").length
   const count = requests.length
   const cache = useMemo(() => analyzeCache(log.requests.slice(0, count)), [log, count])
+  const second = Math.floor(time / 1000) * 1000
+  const hasImages = useMemo(() => log.requests.some(isImageRequest), [log])
+  const imageInput = useMemo(
+    () => ({
+      requests: log.requests.flatMap((r) => (r.end && r.end <= second ? [{ ...r, at: r.end }] : [])),
+      shots: log.images.filter((s) => s.t <= second).map((s) => ({ ...s, at: s.t })),
+      kinds: new Map(log.contexts().map((c) => [c.target, c.page.type ?? "page"])),
+      now: second,
+    }),
+    [log, second],
+  )
+  const images = useImageReport(imageInput, tab === "images")
+  const sources = useMemo(
+    () =>
+      svgSources(
+        log.requests,
+        log.images.flatMap((s) => (s.svgs?.length ? [{ target: s.target, url: s.url ?? "", svgs: s.svgs }] : [])),
+      ),
+    [log],
+  )
+  const svg = useSvgReport(sources, tab === "svg")
   const tabs: { id: Tab; label: string; icon: LucideIcon; count?: number; alert?: number }[] = [
     { id: "logcat", label: "Logcat", icon: SquareTerminalIcon },
     { id: "network", label: "Network", icon: GlobeIcon, count: requests.length, alert: failed },
@@ -100,6 +128,24 @@ export function RecordingTools({
       icon: DatabaseZapIcon,
       count: cache.findings.length,
       alert: cache.summary.errors + cache.summary.warnings,
+    })
+  }
+  if (hasImages) {
+    tabs.push({
+      id: "images",
+      label: "Images",
+      icon: ImageIcon,
+      count: images.findings.length,
+      alert: images.summary.errors + images.summary.warnings,
+    })
+  }
+  if (svg.summary.paths > 0) {
+    tabs.push({
+      id: "svg",
+      label: "SVG",
+      icon: PenToolIcon,
+      count: svg.findings.length,
+      alert: svg.summary.errors + svg.summary.warnings,
     })
   }
   if (dns.length > 0) {
@@ -151,7 +197,7 @@ export function RecordingTools({
                 )}
                 title={
                   t.alert
-                    ? `${t.alert} ${t.id === "network" ? "failed" : t.id === "cache" ? "errors and warnings" : "errors"}`
+                    ? `${t.alert} ${t.id === "network" ? "failed" : t.id === "cache" || t.id === "images" || t.id === "svg" ? "errors and warnings" : "errors"}`
                     : undefined
                 }
               >
@@ -205,6 +251,25 @@ export function RecordingTools({
                 onPick={(finding) => onView({ finding })}
                 onReveal={(request) => onView({ tab: "network", request })}
                 empty="No requests yet"
+              />
+            )}
+            {tab === "images" && (
+              <ImagesView
+                report={images}
+                onSeek={seek}
+                picked={view.finding}
+                onPick={(finding) => onView({ finding })}
+                onReveal={(request) => onView({ tab: "network", request })}
+                empty="No images loaded yet"
+              />
+            )}
+            {tab === "svg" && (
+              <SvgView
+                report={svg}
+                picked={view.finding}
+                onPick={(finding) => onView({ finding })}
+                onReveal={(request) => onView({ tab: "network", request })}
+                empty="No SVG paths in the recorded files"
               />
             )}
             {tab === "sockets" && (

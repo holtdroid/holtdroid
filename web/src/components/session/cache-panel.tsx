@@ -1,7 +1,7 @@
-import { PauseIcon, PlayIcon, Trash2Icon } from "lucide-react"
 import { useMemo, useRef, useState } from "react"
 import { type DevToolsEntry, sessionBase } from "@/api/client"
 import { CacheView } from "@/components/recording/cache-view"
+import { LiveToolbar } from "@/components/session/live-toolbar"
 import { useEventSource } from "@/hooks/use-event-source"
 import { analyzeCache, type CacheRequest } from "@/lib/recording/cache"
 
@@ -50,30 +50,16 @@ export function CachePanel({ provider, id }: { provider: string; id: string }) {
 
   return (
     <div className="devtools-skin flex h-full flex-col bg-background text-[12px]">
-      <div className="mb-2 flex h-8 shrink-0 items-center gap-1 border-b px-2">
-        <button
-          type="button"
-          aria-label={paused ? "Resume" : "Pause"}
-          title={paused ? "Resume" : "Pause"}
-          onClick={() => setPaused((v) => !v)}
-          className="grid size-6 place-items-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground [&_svg]:size-3.5"
-        >
-          {paused ? <PlayIcon /> : <PauseIcon />}
-        </button>
-        <button
-          type="button"
-          aria-label="Clear"
-          title="Clear"
-          onClick={() => {
-            setRequests(new Map())
-            setPicked(undefined)
-          }}
-          className="grid size-6 place-items-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground [&_svg]:size-3.5"
-        >
-          <Trash2Icon />
-        </button>
-        <span className="ml-auto text-muted-foreground">{requests.size} requests</span>
-      </div>
+      <LiveToolbar
+        paused={paused}
+        onPause={() => setPaused((v) => !v)}
+        onClear={() => {
+          setRequests(new Map())
+          setPicked(undefined)
+        }}
+      >
+        {requests.size} requests
+      </LiveToolbar>
       <div className="flex min-h-0 flex-1 flex-col">
         <CacheView
           report={report}
