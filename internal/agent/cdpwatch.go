@@ -443,7 +443,8 @@ func (p *cdpProcess) close(pg *cdpPage) {
 }
 
 // prepare turns a new target's domains on, makes it attach its own iframes
-// and workers, and lets it run.
+// and workers, and lets it run. The commands are pipelined: a paused target
+// answers some of them (Runtime.enable) only once it runs.
 func (p *cdpProcess) prepare(ctx context.Context, conn *cdpConn, session string, waiting bool) {
 	for _, m := range []struct {
 		method string
@@ -454,9 +455,16 @@ func (p *cdpProcess) prepare(ctx context.Context, conn *cdpConn, session string,
 		{"Log.enable", nil},
 		{"Target.setAutoAttach", map[string]any{"autoAttach": true, "waitForDebuggerOnStart": true, "flatten": true}},
 	} {
-		if _, err := conn.call(ctx, session, m.method, m.params); err != nil {
+		wait, err := conn.send(ctx, session, m.method, m.params)
+		if err != nil {
 			p.w.log.Debug("devtools watch: enable", "session", session, "method", m.method, "err", err)
+			continue
 		}
+		go func() {
+			if _, err := wait(); err != nil {
+				p.w.log.Debug("devtools watch: enable", "session", session, "method", m.method, "err", err)
+			}
+		}()
 	}
 	if waiting {
 		_, _ = conn.call(ctx, session, "Runtime.runIfWaitingForDebugger", nil)
@@ -558,6 +566,14 @@ func (c *cdpConn) close() {
 }
 
 func (c *cdpConn) call(ctx context.Context, session, method string, params any) (json.RawMessage, error) {
+	wait, err := c.send(ctx, session, method, params)
+	if err != nil {
+		return nil, err
+	}
+	return wait()
+}
+
+func (c *cdpConn) send(ctx context.Context, session, method string, params any) (func() (json.RawMessage, error), error) {
 	c.mu.Lock()
 	c.next++
 	id := c.next
@@ -570,21 +586,25 @@ func (c *cdpConn) call(ctx context.Context, session, method string, params any) 
 	}
 	msg, err := json.Marshal(m)
 	if err != nil {
+		c.forget(id)
 		return nil, err
 	}
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
 	if err := c.c.Write(ctx, websocket.MessageText, msg); err != nil {
+		cancel()
 		c.forget(id)
 		return nil, err
 	}
-	select {
-	case r := <-ch:
-		return r.result, r.err
-	case <-ctx.Done():
-		c.forget(id)
-		return nil, ctx.Err()
-	}
+	return func() (json.RawMessage, error) {
+		defer cancel()
+		select {
+		case r := <-ch:
+			return r.result, r.err
+		case <-ctx.Done():
+			c.forget(id)
+			return nil, ctx.Err()
+		}
+	}, nil
 }
 
 func (c *cdpConn) forget(id int64) {

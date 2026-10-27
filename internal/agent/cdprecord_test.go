@@ -122,6 +122,7 @@ func fakeWebView(t *testing.T, browser bool, events map[string][]string) int {
 		}
 		defer func() { _ = c.CloseNow() }()
 		ctx := r.Context()
+		held := map[string][]int64{}
 		send := func(v any) {
 			b, _ := json.Marshal(v)
 			_ = c.Write(ctx, websocket.MessageText, b)
@@ -154,11 +155,25 @@ func fakeWebView(t *testing.T, browser bool, events map[string][]string) int {
 			case "Runtime.callFunctionOn":
 				result = `{"result":{"type":"string","value":"{\"total\":3}"}}`
 			}
-			reply := map[string]any{"id": m.ID, "result": json.RawMessage(result)}
-			if m.SessionID != "" {
-				reply["sessionId"] = m.SessionID
+			reply := func(id int64) {
+				r := map[string]any{"id": id, "result": json.RawMessage(result)}
+				if m.SessionID != "" {
+					r["sessionId"] = m.SessionID
+				}
+				send(r)
 			}
-			send(reply)
+			switch {
+			case attach && m.SessionID != "" && m.Method == "Runtime.enable":
+				held[m.SessionID] = append(held[m.SessionID], m.ID)
+			case attach && m.Method == "Runtime.runIfWaitingForDebugger":
+				reply(m.ID)
+				for _, id := range held[m.SessionID] {
+					reply(id)
+				}
+				delete(held, m.SessionID)
+			default:
+				reply(m.ID)
+			}
 			switch {
 			case attach && m.Method == "Target.setAutoAttach" && m.SessionID == "":
 				send(map[string]any{"method": "Target.attachedToTarget", "params": map[string]any{
