@@ -64,8 +64,8 @@ config:
     # A Figma personal access token for everyone's imports; without one each
     # user enters their own in the tab.
     # figma: { token: env:FIGMA_TOKEN }
-  # Audio and video files a session's microphone plays (docs: Concepts →
-  # Microphone): 5 GiB per user, kept until deleted. Without a storage of
+  # Audio, video and image files a session's microphone and camera play
+  # (docs: Concepts → Microphone, Camera): 5 GiB per user, kept until deleted. Without a storage of
   # its own they sit on the cache volume and are lost on restart.
   media:
     enabled: true

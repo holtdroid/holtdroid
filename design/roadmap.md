@@ -341,7 +341,8 @@ Goal: several Android devices per node instead of one emulator per node.
 - [x] Connections as they open and close from sing-box's `api` service on redroid, so short ones aren't missed; phones read the clash API every 250 ms (decision #153)
 - [ ] Trace a server's path from the session's exit through an outside measurement service (RIPE Atlas, Globalping), off by default (decision #151)
 - [x] A replaced microphone on redroid (decision #146): `Mic.java` routes every recording to a remote submix through an AudioPolicy; the agent feeds it a line-up tone, beeps, pink noise, a file from the user's media library (`media.quota`, 5 GiB) or the browser's microphone; checked on Android 11 and 15
-- [ ] An emulated camera on redroid: there is no camera HAL; Android 15's `virtual_camera` registers through ANGLE but minigbm refuses its YUV render buffers (recon in progress)
+- [x] A camera on redroid 13–15 (decision #155): holtdroid-redroid's own lazy AIDL camera HAL, fed by the agent over `@holtdroid-camera` with a test card, black, an image or a video from the media library, or the browser's camera; nothing runs while no app has the camera open
+- [ ] A camera on Android 11 and 12 (a HIDL camera provider)
 
 ## Later
 

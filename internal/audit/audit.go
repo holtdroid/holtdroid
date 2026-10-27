@@ -37,6 +37,7 @@ const (
 	SessionLocation   Action = "session.location"
 	SessionClipboard  Action = "session.clipboard"
 	SessionMicrophone Action = "session.microphone"
+	SessionCamera     Action = "session.camera"
 	ArtifactUpload    Action = "artifact.upload"
 	ArtifactUpdate    Action = "artifact.update"
 	ArtifactDelete    Action = "artifact.delete"

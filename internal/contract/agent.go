@@ -46,6 +46,8 @@ type Agent interface {
 	WatchConnections(ctx context.Context, send func(Connection) error) error
 	Microphone(ctx context.Context) Microphone
 	SetMicrophone(ctx context.Context, in SetMicrophone) (Microphone, error)
+	Camera(ctx context.Context) Camera
+	SetCamera(ctx context.Context, in SetCamera) (Camera, error)
 }
 
 type AppAction string
@@ -110,6 +112,7 @@ type screenshotOutput struct {
 func RegisterAgent(api huma.API, a Agent) {
 	tags := []string{"agent"}
 	registerMicrophone(api, a, tags)
+	registerCamera(api, a, tags)
 
 	huma.Register(api, huma.Operation{OperationID: "agentHealth", Method: http.MethodGet, Path: "/v1/health", Tags: tags},
 		func(ctx context.Context, _ *struct{}) (*body[Health], error) {

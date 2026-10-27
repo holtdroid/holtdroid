@@ -33,6 +33,7 @@ func (d *device) buildHandler() http.Handler {
 	mux.HandleFunc("GET /display/audio", serveAudio)
 	mux.HandleFunc("GET "+contract.AgentADBPath, d.tunnels.ServeADB(contract.ADBClientBrowser))
 	mux.HandleFunc("GET "+contract.AgentMicrophonePath, d.serveMicrophone)
+	mux.HandleFunc("GET "+contract.AgentCameraPath, d.serveCamera)
 	mux.HandleFunc("GET /devtools-frontend/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_ = devtoolsPage.Execute(w, r.URL.Query().Get("wss"))

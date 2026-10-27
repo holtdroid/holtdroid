@@ -32,7 +32,8 @@ Holtdroid denies it to the app under test, see
 ## Media library
 
 Files you add to the library belong to you, not to a session, so every
-session can play them. Anything ffmpeg reads works: MP3, AAC, Opus, WAV,
+session can play them. The library also holds the images and videos the
+[camera](/holtdroid/concepts/camera/) shows. Anything ffmpeg reads works: MP3, AAC, Opus, WAV,
 FLAC, or a video, whose sound is played. Files keep their format; nothing is
 converted on upload, and the sound is resampled to what the app records at.
 

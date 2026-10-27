@@ -410,7 +410,6 @@ that. Listing reads the store on every request (sidecars are memoised by
 revision); very large buckets would need a listing cache. Other replicas
 see uploads at their next poll.
 
-
 ## 28. VPN locations are plain sing-box outbounds; vendors live in a shared gateway
 
 Supersedes the WireGuard-per-location part of #7 and the planned `nordvpn`
@@ -504,7 +503,6 @@ reaction marks a message as announced.
 don't move with Slack's API. A change to the layout, the sidecar or the
 launch link has to be mirrored in the sync repos, and their copied packages
 can drift from upstream: port fixes both ways.
-
 
 ## 31. Device controls go through adb shell; the language through system_server
 
@@ -708,7 +706,6 @@ source lists nothing while nobody has approved a login; copies stay. The
 token cache is the job's only state and holds credentials, so it lives on a
 private volume.
 
-
 ## 38. SSH tunnels: status from the agent, a port list in the browser, privileged ports allowed
 
 **Context.** Using the gateway from decision #21 means typing a `-R` per
@@ -750,7 +747,6 @@ sessions already are. The default command opens 13 tunnels, inside the
 default `maxTunnelsPerConnection` of 32, which the api mirrors so the UI
 can warn. A list stays in one browser, like SSH keys do.
 
-
 ## 39. Session containers get no CPU limit
 
 **Context.** Sessions felt sluggish over both noVNC and scrcpy. The
@@ -771,7 +767,6 @@ emulator may use the whole node.
 only matters if other workloads share session nodes; operators who need a
 cap set `resources.limits.cpu` themselves. Host GPU rendering stays open
 (it would need an X server on the iGPU inside the session image).
-
 
 ## 40. Session metrics come from the agent, sampled only while watched
 
@@ -813,7 +808,6 @@ emptyDir, so its total is the node's disk. (Superseded by #111: the
 thermal HAL; the UI says so and shows the node's zones next to them. GPU
 load isn't reported: with SwiftShader it is CPU time (decision #39), and
 fps/jank describe the effect better.
-
 
 ## 41. Sessions render on the node's GPU through VirtualGL
 
@@ -1494,7 +1488,6 @@ already cached.
 its next use. Bump `apk.ParserVersion` whenever extraction gets better.
 holtdroid-sync carries the same `internal/apk` copy and gets the same change.
 
-
 ## 64. Tunnels through a connect client with SSH certificates
 
 **Context.** SSH access (decisions #21, #38, #46, #50, #61) needs a key on
@@ -2123,7 +2116,6 @@ gone-error, re-resolves it via `frida.DeviceByID` and retries the op once (at
 `Spawn`, `Watch` and `callSystem`); the match is narrow so other errors still
 propagate.
 
-
 ## 81. The project lives in the `holtdroid` GitHub organization
 
 **Context.** Holtdroid had grown to four repositories under a personal
@@ -2442,7 +2434,6 @@ the screen to the UI.
 last step be one click. Quick launch is unchanged and uses the remembered
 screen and Android version.
 
-
 ## 88. Sessions can start with a chosen WebView build
 
 **Context.** A WebView bug often depends on the WebView version, not on the
@@ -2579,7 +2570,6 @@ caches) and Argo CD's poll (two minutes, one more of jitter).
 **Consequences.** A session whose VPN endpoint is down has no network until
 it is back, which is the point. The first release after the change builds
 without a cache.
-
 
 ## 91. Chromium browser builds from the snapshot bucket, thinned with age
 
@@ -3178,7 +3168,6 @@ leaves streaming to the running api; `users create` and `users session` add
 passkey-less bot accounts and mint their cookies the same way, for whoever
 can exec into the api anyway.
 
-
 ## 105. A real Wi-Fi in redroid sessions through mac80211_hwsim
 
 Supersedes the Wi-Fi half of #101.
@@ -3457,7 +3446,6 @@ instead of `df`, which shows the node's disk under an emptyDir.
 still reports every core of the node, which is what Android may use.
 Physical phones are unchanged: no Pod, no data limit.
 
-
 ## 112. Recordings keep the WebViews' DevTools traffic, recorded by the agent's own CDP client
 
 **Context.** A recording showed the screen, the device and logcat, but not
@@ -3724,7 +3712,6 @@ unchanged. Every session starts a second zygote: about 40 MB PSS
 libraries fail to install instead of crashing; Android 11's system
 `build.prop` still lists `armeabi-v7a`.
 
-
 ## 121. Quick launch defaults to the newest stable Chromium WebView
 
 **Context.** With a WebView catalog configured, a session started with the
@@ -3916,7 +3903,6 @@ the builds; the app's card shows the first two lines.
 limited to admins later, it's one check in the handler. Plain text only: no
 Markdown, so nothing to sanitize.
 
-
 ## 130. Chrome and Chromium start without the welcome screens and as the default browser
 
 **Context.** Every session of a browser build (the `chromium` source, Google
@@ -3994,7 +3980,6 @@ sing-box. IPv6 isn't classified (it takes the servers' path). Nodes now
 also need `sch_htb`. `cdn.txt` is refreshed by hand from the three
 providers' lists. Per-request latency of particular endpoints (server
 think time, errors) is a different layer and not part of this.
-
 
 ## 133. The agent answers a session's DNS: a log, rewrites, a TTL limit and saved sets
 
@@ -4393,7 +4378,6 @@ that a hidden part's shadow fell on. An import takes one more Figma call
 and a few more MB of storage. References imported before keep working
 without components until updated from Figma.
 
-
 ## 146. The microphone is replaced through an AudioPolicy, fed by the agent
 
 **Context.** redroid has no microphone: its stub audio HAL records silence,
@@ -4523,7 +4507,6 @@ than 20. A grid whose cells are different components still comes apart; the
 eye on a whole grid hides all of it. Existing references are regrouped on
 their next Update from Figma.
 
-
 ## 150. The api runs Litestream's compactions itself and stops them before closing
 
 **Context.** `TestPersistence` failed now and then under `-race`.
@@ -4633,7 +4616,6 @@ canvas the size of the screen, the way a live session does.
 noisier than with a screenshot; the stream quality while recording decides
 how much.
 
-
 ## 153. Connections come from sing-box's API service as they open and close
 
 **Context.** Decision #151 read the clash API's open connections once a
@@ -4660,7 +4642,6 @@ with its exact times and bytes. Phones may still miss one shorter than a
 quarter of a second. The agent depends on a sing-box API that is not
 versioned apart from sing-box, pinned at 1.14.2 with the sidecar image;
 checked against that version in Docker.
-
 
 ## 154. The Cache tab checks caching in the browser, from the requests' headers
 
@@ -4704,3 +4685,51 @@ starts. A request served from the WebView's cache has no ExtraInfo, so its
 headers are the ones Chromium kept. Live requests carry no bodies, so the
 tab only reads headers; the Network tab of the live session's DevTools is
 still the place for bodies.
+
+## 155. redroid gets its own camera HAL, fed by the agent and started only on use
+
+Supersedes the camera part of #146's consequences.
+
+**Context.** The maintainer wanted a camera showing a test card, a file or
+the browser's camera. redroid has no camera HAL; none of the images we
+borrow from has a V4L2 one (so v4l2loopback alone doesn't help); Android
+15's `virtual_camera` needs YUV rendering on the GPU, which hangs Intel's
+anv through ANGLE (the recon in the status). It had to cost nothing while no
+app uses the camera.
+
+**Decision.**
+
+- holtdroid-redroid builds `android.hardware.camera.provider-holtdroid`
+  (`build/camera/hal.cpp`) with the NDK against the image's own libraries:
+  the AIDL camera provider V1 (accepted by Android 13 to 15) generated with
+  `aidl --lang=ndk` from AOSP's frozen interfaces, `camera_metadata` from
+  AOSP, `stb_image_write` for JPEG. One LIMITED back camera (sensor at 90°)
+  with 1920×1080, 1280×720, 640×480 and 320×240 streams of YUV and JPEG.
+  Frames are written by the CPU through `AHardwareBuffer` locks, so no GPU,
+  ANGLE or gralloc patch is needed.
+- **Lazy**: the provider registers with `registerLazyService`, starts once
+  at boot so cameraserver enumerates it (`oneshot`, not `disabled`:
+  cameraserver doesn't start declared AIDL providers itself), and
+  `ro.camera.enableLazyHal` lets cameraserver drop it, so it exits a few
+  seconds after the camera closes and init starts it again on the next
+  open.
+- **Frames from the agent**: once a stream is configured the HAL connects to
+  the abstract Unix socket `@holtdroid-camera` (the Pod's containers share
+  it; Android's eBPF firewall refuses TCP from the cameraserver uid with
+  `EPERM`), sends `<width> <height> <fps>` for the largest stream and reads
+  I420 frames, which it scales into every buffer. Without the agent, or 2 s
+  without a frame, it shows plain color bars. The agent (`camera.go`) runs
+  one ffmpeg per connection: a test card (`smptehdbars` with the clock),
+  black, a media file (images with `-loop 1`, videos on repeat) or the
+  browser's JPEG frames from `WS /camera/browser`, scaled to cover, cropped
+  at the center and turned a quarter counter-clockwise so the picture is
+  upright in portrait. A source switch restarts ffmpeg on the same
+  connection; only whole frames reach the HAL.
+- The media library (#146) also takes images; the api refuses images for
+  the microphone and sounds for the camera.
+
+**Consequences.** Measured on k3s-3 with Camera2 at 1080p: the HAL about
+0.1 core and ffmpeg about 0.27 core while a camera is open, nothing when it
+is closed. Android 11 and 12 (HIDL camera providers) and phones have no
+Holtdroid camera. The browser's camera costs 3–7 Mbit/s up at 15 frames a
+second.

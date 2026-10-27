@@ -801,10 +801,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The caller's audio and video files for the device's microphone, newest first, with their quota. */
+        /** @description The caller's audio, video and image files for the device's microphone and camera, newest first, with their quota. */
         get: operations["listMedia"];
         put?: never;
-        /** @description Adds an audio or video file, at most media.maxFileSize. Fails with 507 when it would go over the caller's quota. */
+        /** @description Adds an audio, video or image file, at most media.maxFileSize. Fails with 507 when it would go over the caller's quota. */
         post: operations["uploadMedia"];
         delete?: never;
         options?: never;
@@ -1163,6 +1163,23 @@ export interface paths {
         put?: never;
         /** @description Saves the app's data now into the session owner's app data. The app is stopped while it is copied and started again. */
         post: operations["saveSessionAppData"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{provider}/{id}/camera": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Replaces what the session's camera shows: a test card, black, or an image or a video of the caller's media library. */
+        put: operations["setSessionCamera"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1684,6 +1701,23 @@ export interface components {
         BeginInviteRegistrationRequest: {
             email?: string;
             name?: string;
+        };
+        Camera: {
+            /** @description the device has Holtdroid's camera (redroid images with the camera HAL) */
+            available: boolean;
+            /** @description why the last source stopped */
+            error?: string;
+            /** @description its name */
+            file?: string;
+            /** @description an app has the camera open now */
+            inUse: boolean;
+            /** @description the media file showing while the source is file */
+            mediaId?: string;
+            /**
+             * @description bars: a test card with a running clock; black: no picture; file: an image or a video from the media library, on repeat; browser: the viewer's camera
+             * @enum {string}
+             */
+            source: "bars" | "black" | "file" | "browser";
         };
         Capabilities: {
             abis: string[];
@@ -2941,7 +2975,7 @@ export interface components {
             createdAt: string;
             id: string;
             /** @enum {string} */
-            kind: "audio" | "video";
+            kind: "audio" | "video" | "image";
             name: string;
             /**
              * Format: int64
@@ -3770,6 +3804,15 @@ export interface components {
         SessionsEvent: {
             errors: components["schemas"]["SourceError"][];
             items: components["schemas"]["SessionView"][];
+        };
+        SetSessionCamera: {
+            /** @description an image or a video of the caller's media library, for the file source */
+            mediaId?: string;
+            /**
+             * @description the browser's camera takes over through the session's /camera/browser WebSocket instead
+             * @enum {string}
+             */
+            source: "bars" | "black" | "file";
         };
         SetSessionMicrophone: {
             /** @description a file of the caller's media library, for the file source */
@@ -6847,6 +6890,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AppDataView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    setSessionCamera: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetSessionCamera"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Camera"];
                 };
             };
             /** @description Error */

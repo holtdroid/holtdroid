@@ -111,3 +111,38 @@ func TestSessionMicrophone(t *testing.T) {
 		t.Fatalf("audit: %s", h.audit.String())
 	}
 }
+
+func TestSessionCamera(t *testing.T) {
+	h := newHarness(t, 1)
+	v := h.create("otter")
+	base := "/s/fake/" + v.ID
+	path := "/api/v1/sessions/fake/" + v.ID + "/camera"
+
+	h.expect(http.StatusForbidden, http.MethodPut, base+"/v1/camera", "otter", "", contract.SetCamera{Source: contract.CameraFile, FileURL: "http://evil/x", MediaID: "x"})
+	h.expect(http.StatusForbidden, http.MethodPut, path, "beaver", "", SetSessionCamera{Source: contract.CameraBlack})
+
+	c := decode[contract.Camera](t, h.do(http.MethodGet, base+"/v1/camera", "otter", "", nil))
+	if !c.Available || c.Source != contract.CameraBars {
+		t.Fatalf("default: %+v", c)
+	}
+	c = decode[contract.Camera](t, h.do(http.MethodPut, path, "otter", "", SetSessionCamera{Source: contract.CameraBlack}))
+	if c.Source != contract.CameraBlack {
+		t.Fatalf("black: %+v", c)
+	}
+
+	qr := decode[MediaView](t, h.uploadMedia("otter", "login-qr.png", "image/png", []byte("png")))
+	song := decode[MediaView](t, h.uploadMedia("otter", "song.mp3", "audio/mpeg", []byte("id3")))
+	if qr.Kind != "image" || song.Kind != "audio" {
+		t.Fatalf("kinds %q %q", qr.Kind, song.Kind)
+	}
+	h.expect(http.StatusUnprocessableEntity, http.MethodPut, path, "otter", "", SetSessionCamera{Source: contract.CameraFile, MediaID: song.ID})
+	h.expect(http.StatusUnprocessableEntity, http.MethodPut, "/api/v1/sessions/fake/"+v.ID+"/microphone", "otter", "",
+		SetSessionMicrophone{Source: contract.MicFile, MediaID: qr.ID})
+	c = decode[contract.Camera](t, h.do(http.MethodPut, path, "otter", "", SetSessionCamera{Source: contract.CameraFile, MediaID: qr.ID}))
+	if c.Source != contract.CameraFile || c.MediaID != qr.ID || c.File != "login-qr" {
+		t.Fatalf("file: %+v", c)
+	}
+	if !strings.Contains(h.audit.String(), `"session.camera"`) {
+		t.Fatalf("audit: %s", h.audit.String())
+	}
+}

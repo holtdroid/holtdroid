@@ -47,8 +47,12 @@ type Config struct {
 	Script       string
 	ToolsDex     string
 	FFmpeg       string
-	Scrcpy       ScrcpyConfig
-	ClashAPI     string
+	// CameraFeed is where holtdroid-redroid's camera HAL asks for frames;
+	// CameraFont draws the test card's clock.
+	CameraFeed string
+	CameraFont string
+	Scrcpy     ScrcpyConfig
+	ClashAPI   string
 	// ConnectionsAPI is the sidecar's sing-box API service; without one the
 	// agent polls the clash API for connections.
 	ConnectionsAPI string
@@ -101,6 +105,8 @@ func DefaultConfig() Config {
 		Script:       "/opt/holtdroid/script",
 		ToolsDex:     "/opt/holtdroid/tools.dex",
 		FFmpeg:       "ffmpeg",
+		CameraFeed:   "@holtdroid-camera",
+		CameraFont:   "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
 		Scrcpy:       DefaultScrcpyConfig(),
 		IPInfoURL:    "https://ipinfo.io/json",
 		ChromiumDash: "https://chromiumdash.appspot.com",
@@ -175,6 +181,7 @@ type Agent struct {
 	vibes    *Vibrations
 	display  *ScreenState
 	mic      *Microphone
+	cam      *Camera
 	actions  chan appRequest
 	launches chan App
 	busy     atomic.Bool
@@ -219,6 +226,7 @@ func New(cfg Config, dev Device, inst Instrumenter, boot BootFunc, log *slog.Log
 		metrics:  NewMetrics(dev, cfg.Package, host, cgroup, cfg.PodUID, cfg.DataLimit, log),
 		vibes:    NewVibrations(dev, log),
 		display:  NewScreenState(dev, log),
+		cam:      NewCamera(dev, cfg.FFmpeg, cfg.CameraFont, filepath.Join(cfg.CacheDir, "camera"), log),
 		mic:      NewMicrophone(dev, cfg.ToolsDex, cfg.FFmpeg, filepath.Join(cfg.CacheDir, "media"), cfg.Root && !cfg.RootShell, log),
 		actions:  make(chan appRequest, 1),
 		launches: make(chan App),
@@ -264,6 +272,7 @@ func (a *Agent) Handler() http.Handler {
 	a.screen.Register(mux)
 	mux.HandleFunc("GET "+contract.AgentADBPath, a.tunnels.ServeADB(contract.ADBClientBrowser))
 	mux.HandleFunc("GET "+contract.AgentMicrophonePath, a.mic.ServeBrowser)
+	mux.HandleFunc("GET "+contract.AgentCameraPath, a.cam.ServeBrowser)
 	mux.HandleFunc("GET /devtools/{socket}/page/{id}", a.devtools.ServeCDP)
 	return mux
 }
@@ -316,6 +325,9 @@ func (a *Agent) Run(parent context.Context) {
 	go a.watch.run(ctx, time.Second)
 	go a.screen.Run(ctx)
 	go a.mic.Run(ctx)
+	if a.cfg.Root && !a.cfg.RootShell {
+		go a.cam.Run(ctx, a.cfg.CameraFeed)
+	}
 	go a.clip.Run(ctx, a.onClip)
 	go a.controls.syncRadios(ctx, 2*time.Second, a.log)
 	if err := a.controls.resetNetwork(ctx); err != nil {
@@ -957,6 +969,12 @@ func (a *Agent) WatchMetrics(ctx context.Context, send func(contract.Metrics) er
 var errNoDNS = fmt.Errorf("%w: this device's DNS doesn't go through the agent", contract.ErrInvalid)
 
 func (a *Agent) Microphone(context.Context) contract.Microphone { return a.mic.State() }
+
+func (a *Agent) Camera(context.Context) contract.Camera { return a.cam.State() }
+
+func (a *Agent) SetCamera(ctx context.Context, in contract.SetCamera) (contract.Camera, error) {
+	return a.cam.Set(ctx, in)
+}
 
 func (a *Agent) SetMicrophone(ctx context.Context, in contract.SetMicrophone) (contract.Microphone, error) {
 	return a.mic.Set(ctx, in)

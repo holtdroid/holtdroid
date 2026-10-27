@@ -900,6 +900,20 @@ agent: ffmpeg -re (sine, aevalsrc beeps, pink anoisesrc, file on repeat) or the 
 apps' AudioRecord (any preset, WebView included) ─▶ remote submix; the helper's exit drops the policy
 ```
 
+## Camera
+
+What the device's camera shows (decision #155, holtdroid-redroid `build/camera/hal.cpp`,
+`internal/agent/camera.go`):
+
+```
+browser ─PUT /api/v1/sessions/{p}/{id}/camera {source, mediaId?}─▶ api ─PUT /v1/camera {fileUrl, image}─▶ agent
+        ─WS /s/…/camera/browser (JPEG frames, 15 a second)─────────────────────────────────────────────▶ agent
+app ─Camera2─▶ cameraserver ─AIDL ICameraProvider/holtdroid/0 (lazy: started on open, exits after close)─▶ HAL
+HAL ─connect @holtdroid-camera "<w> <h> <fps>"─▶ agent: ffmpeg (smptehdbars + clock | black | file | browser)
+    ◀──────────────── I420 frames, portrait picture turned a quarter, whole frames only ──────────────────
+HAL: scales into each YUV buffer (AHardwareBuffer lock, CPU), JPEG with stb for BLOB streams
+```
+
 ## Security model
 
 - Sign-in is `auth.mode`: `anonymous` (random names), `password`, `oidc`,

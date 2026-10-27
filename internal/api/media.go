@@ -97,7 +97,7 @@ type MediaView struct {
 	ID          string    `json:"id"`
 	Name        string    `json:"name"`
 	ContentType string    `json:"contentType"`
-	Kind        string    `json:"kind" enum:"audio,video"`
+	Kind        string    `json:"kind" enum:"audio,video,image"`
 	Size        int64     `json:"size" doc:"bytes"`
 	CreatedAt   time.Time `json:"createdAt"`
 }
@@ -111,19 +111,16 @@ type MediaList struct {
 }
 
 func mediaView(m mediaMeta, size int64) MediaView {
-	kind := "audio"
-	if strings.HasPrefix(m.ContentType, "video/") {
-		kind = "video"
-	}
+	kind, _, _ := strings.Cut(m.ContentType, "/")
 	return MediaView{ID: m.ID, Name: m.Name, ContentType: m.ContentType, Kind: kind, Size: size, CreatedAt: m.CreatedAt}
 }
 
-// mediaType is the file's audio or video type, from the browser or else its
-// extension; anything else is not a media file.
+// mediaType is the file's audio, video or image type, from the browser or
+// else its extension; anything else is not a media file.
 func mediaType(header, filename string) string {
 	for _, t := range []string{header, mime.TypeByExtension(strings.ToLower(filepath.Ext(filename)))} {
 		t, _, _ = mime.ParseMediaType(t)
-		if strings.HasPrefix(t, "audio/") || strings.HasPrefix(t, "video/") {
+		if strings.HasPrefix(t, "audio/") || strings.HasPrefix(t, "video/") || strings.HasPrefix(t, "image/") {
 			return t
 		}
 	}
@@ -148,7 +145,7 @@ func (s *Server) ownMedia(ctx context.Context, id string) (mediaMeta, string, er
 
 type mediaUploadInput struct {
 	RawBody huma.MultipartFormFiles[struct {
-		File huma.FormFile `form:"file" contentType:"audio/*,video/*,application/octet-stream" required:"true"`
+		File huma.FormFile `form:"file" contentType:"audio/*,video/*,image/*,application/octet-stream" required:"true"`
 		Name string        `form:"name" maxLength:"120" required:"false"`
 	}]
 }
@@ -168,7 +165,7 @@ func (s *Server) uploadMedia(ctx context.Context, in *mediaUploadInput) (MediaVi
 	}
 	contentType := mediaType(form.File.ContentType, form.File.Filename)
 	if contentType == "" {
-		return MediaView{}, fmt.Errorf("%w: not an audio or video file", contract.ErrInvalid)
+		return MediaView{}, fmt.Errorf("%w: not an audio, video or image file", contract.ErrInvalid)
 	}
 	who, _ := auth.FromContext(ctx)
 	user := userDir(who.User)
@@ -250,8 +247,11 @@ func (s *Server) setSessionMicrophone(ctx context.Context, in *sessionMicrophone
 		if err != nil {
 			return contract.Microphone{}, err
 		}
+		if strings.HasPrefix(m.ContentType, "image/") {
+			return contract.Microphone{}, fmt.Errorf("%w: %s is an image, not a sound", contract.ErrInvalid, m.Name)
+		}
 		req.MediaID, req.File = m.ID, m.Name
-		req.FileURL = strings.TrimRight(s.cfg.InternalURL, "/") + "/internal/media/" + user + "/" + m.ID
+		req.FileURL = s.mediaURL(user, m.ID)
 	}
 	c, err := s.agentClient(ctx, in.Provider, sess.ID)
 	if err != nil {
@@ -261,12 +261,52 @@ func (s *Server) setSessionMicrophone(ctx context.Context, in *sessionMicrophone
 	return c.SetMicrophone(ctx, req)
 }
 
+func (s *Server) mediaURL(user, id string) string {
+	return strings.TrimRight(s.cfg.InternalURL, "/") + "/internal/media/" + user + "/" + id
+}
+
+type SetSessionCamera struct {
+	Source  contract.CameraSource `json:"source" enum:"bars,black,file" doc:"the browser's camera takes over through the session's /camera/browser WebSocket instead"`
+	MediaID string                `json:"mediaId,omitempty" doc:"an image or a video of the caller's media library, for the file source"`
+}
+
+type sessionCameraInput struct {
+	Provider string `path:"provider"`
+	ID       string `path:"id"`
+	Body     SetSessionCamera
+}
+
+func (s *Server) setSessionCamera(ctx context.Context, in *sessionCameraInput) (contract.Camera, error) {
+	_, sess, err := s.ownedSession(ctx, in.Provider, in.ID)
+	if err != nil {
+		return contract.Camera{}, err
+	}
+	req := contract.SetCamera{Source: in.Body.Source}
+	if in.Body.Source == contract.CameraFile {
+		m, user, err := s.ownMedia(ctx, in.Body.MediaID)
+		if err != nil {
+			return contract.Camera{}, err
+		}
+		if strings.HasPrefix(m.ContentType, "audio/") {
+			return contract.Camera{}, fmt.Errorf("%w: %s is a sound, not a picture", contract.ErrInvalid, m.Name)
+		}
+		req.MediaID, req.File, req.FileURL = m.ID, m.Name, s.mediaURL(user, m.ID)
+		req.Image = strings.HasPrefix(m.ContentType, "image/")
+	}
+	c, err := s.agentClient(ctx, in.Provider, sess.ID)
+	if err != nil {
+		return contract.Camera{}, err
+	}
+	s.activity.Mark(sessionKey{in.Provider, sess.ID})
+	return c.SetCamera(ctx, req)
+}
+
 func (s *Server) registerMedia(api huma.API) {
 	tags := []string{"ui"}
 
 	huma.Register(api, huma.Operation{
 		OperationID: "listMedia", Method: http.MethodGet, Path: mediaPath, Tags: tags,
-		Description: "The caller's audio and video files for the device's microphone, newest first, with their quota.",
+		Description: "The caller's audio, video and image files for the device's microphone and camera, newest first, with their quota.",
 	}, func(ctx context.Context, _ *struct{}) (*out[MediaList], error) {
 		l, err := s.listMedia(ctx)
 		if err != nil {
@@ -278,7 +318,7 @@ func (s *Server) registerMedia(api huma.API) {
 	huma.Register(api, huma.Operation{
 		OperationID: "uploadMedia", Method: http.MethodPost, Path: mediaPath, Tags: tags,
 		DefaultStatus: http.StatusCreated, MaxBodyBytes: int64(s.cfg.Media.MaxFileSize) + 1<<20, BodyReadTimeout: -1,
-		Description: "Adds an audio or video file, at most media.maxFileSize. Fails with 507 when it would go over the caller's quota.",
+		Description: "Adds an audio, video or image file, at most media.maxFileSize. Fails with 507 when it would go over the caller's quota.",
 	}, func(ctx context.Context, in *mediaUploadInput) (*out[MediaView], error) {
 		v, err := s.uploadMedia(ctx, in)
 		s.emitResult(ctx, audit.Event{Action: audit.MediaUpload, Details: map[string]string{"media": v.ID, "name": v.Name}}, err)
@@ -300,6 +340,22 @@ func (s *Server) registerMedia(api huma.API) {
 		}
 		s.emitResult(ctx, audit.Event{Action: audit.MediaDelete, Details: map[string]string{"media": in.ID, "name": m.Name}}, err)
 		return nil, httpError(err)
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "setSessionCamera", Method: http.MethodPut, Path: "/api/v1/sessions/{provider}/{id}/camera", Tags: tags,
+		Description: "Replaces what the session's camera shows: a test card, black, or an image or a video of the caller's media library.",
+	}, func(ctx context.Context, in *sessionCameraInput) (*out[contract.Camera], error) {
+		c, err := s.setSessionCamera(ctx, in)
+		details := map[string]string{"source": string(in.Body.Source)}
+		if in.Body.MediaID != "" {
+			details["media"] = in.Body.MediaID
+		}
+		s.emitResult(ctx, audit.Event{Action: audit.SessionCamera, Provider: in.Provider, Session: in.ID, Details: details}, err)
+		if err != nil {
+			return nil, httpError(err)
+		}
+		return &out[contract.Camera]{c}, nil
 	})
 
 	huma.Register(api, huma.Operation{

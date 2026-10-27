@@ -16,11 +16,17 @@ deployment"):
   user's media library or the browser's microphone into every app's
   recordings. `Mic.java` was checked by hand on Android 11 and 15 (a scrcpy
   mic capture read the exact tone sent); the agent, the api and the card are
-  covered by tests but not yet tried end to end in a live session. The
-  camera is not done: redroid has no camera HAL, and Android 15's
-  `virtual_camera` registers through ANGLE (`persist.graphics.egl=angle`)
-  but shows no picture because minigbm refuses YUV buffers that are both a
-  camera and a GPU render target; a patched minigbm is being looked into.
+  covered by tests and were tried in a live session on Android 15 (tone,
+  noise, file, off).
+- A camera on redroid 13–15 (decision #155): holtdroid-redroid's own
+  lazy camera HAL (branch `feat/camera-hal` there) gets frames from the
+  agent's ffmpeg: a test card with a clock, black, an image or a video from
+  the media library, or the browser's camera. Checked in a scratch Pod on
+  k3s-3 with Android 15: Camera2 showed the agent's test card upright and
+  switched to black live, a photo was saved, and the HAL exited 5 s after
+  the camera closed. The image change must be released in holtdroid-redroid
+  before sessions have the camera; until then the card stays hidden.
+  `virtual_camera` (the recon) was dropped: ANGLE on anv hangs the GPU.
 
 - The DNS tab (decision #133): the agent answers redroid sessions' DNS
   behind the sidecar with a live log, rewrites, a TTL limit and cache

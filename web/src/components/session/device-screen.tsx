@@ -7,6 +7,7 @@ import { displayURL, type LiveScreen, useDecodableCodecs } from "@/components/se
 import type { AdbSession } from "@/components/session/adb-session"
 import { AppWidget } from "@/components/session/app-widget"
 import { BatteryWidget } from "@/components/session/battery-widget"
+import { CameraWidget } from "@/components/session/camera-widget"
 import { DeviceWidget } from "@/components/session/device-widget"
 import { ClipboardWidget } from "@/components/session/clipboard-widget"
 import { DisplayWidget } from "@/components/session/display-widget"
@@ -317,6 +318,7 @@ export function DeviceScreen({
         <DisplayWidget provider={provider} id={id} />
         {clipboard && <ClipboardWidget provider={provider} id={id} />}
         <MicrophoneWidget provider={provider} id={id} />
+        <CameraWidget provider={provider} id={id} />
         <BatteryWidget provider={provider} id={id} />
         <LanguageWidget provider={provider} id={id} />
         <TimeWidget provider={provider} id={id} />

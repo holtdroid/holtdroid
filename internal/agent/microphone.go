@@ -87,18 +87,18 @@ func (m *Microphone) Set(ctx context.Context, in contract.SetMicrophone) (contra
 	case contract.MicOff:
 	case contract.MicTone, contract.MicBeeps, contract.MicNoise:
 		args := micArgs(in.Source, "", true)
-		produce = func(ctx context.Context, w io.Writer) error { return m.runFFmpeg(ctx, args, w) }
+		produce = func(ctx context.Context, w io.Writer) error { return runFFmpeg(ctx, m.ffmpeg, args, nil, w) }
 	case contract.MicFile:
 		if !micMediaID.MatchString(in.MediaID) || in.FileURL == "" {
 			return contract.Microphone{}, fmt.Errorf("%w: the file source needs a media id and a file URL", contract.ErrInvalid)
 		}
-		path, err := m.download(ctx, in.MediaID, in.FileURL)
+		path, err := downloadMedia(ctx, m.hc, m.dir, in.MediaID, in.FileURL)
 		if err != nil {
 			return contract.Microphone{}, err
 		}
 		next.MediaID, next.File = in.MediaID, in.File
 		args := micArgs(contract.MicFile, path, m.mono(ctx, path))
-		produce = func(ctx context.Context, w io.Writer) error { return m.runFFmpeg(ctx, args, w) }
+		produce = func(ctx context.Context, w io.Writer) error { return runFFmpeg(ctx, m.ffmpeg, args, nil, w) }
 	default:
 		return contract.Microphone{}, fmt.Errorf("%w: unknown microphone source %q", contract.ErrInvalid, in.Source)
 	}
@@ -209,10 +209,10 @@ func (m *Microphone) mono(ctx context.Context, path string) bool {
 	return err == nil && strings.TrimSpace(string(out)) == "1"
 }
 
-func (m *Microphone) runFFmpeg(ctx context.Context, args []string, w io.Writer) error {
+func runFFmpeg(ctx context.Context, ffmpeg string, args []string, in io.Reader, w io.Writer) error {
 	var stderr bytes.Buffer
-	cmd := exec.CommandContext(ctx, m.ffmpeg, args...)
-	cmd.Stdout, cmd.Stderr = w, &stderr
+	cmd := exec.CommandContext(ctx, ffmpeg, args...)
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = in, w, &stderr
 	cmd.WaitDelay = 2 * time.Second
 	if err := cmd.Run(); err != nil && ctx.Err() == nil {
 		if msg := bytes.TrimSpace(stderr.Bytes()); len(msg) > 0 {
@@ -230,12 +230,12 @@ func lastLine(b []byte) string {
 	return string(b)
 }
 
-// download keeps one media file at a time: the one playing.
-func (m *Microphone) download(ctx context.Context, id, url string) (string, error) {
-	if err := os.MkdirAll(m.dir, 0o755); err != nil {
+// downloadMedia keeps one media file at a time in dir: the one playing.
+func downloadMedia(ctx context.Context, hc *http.Client, dir, id, url string) (string, error) {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}
-	path := filepath.Join(m.dir, id)
+	path := filepath.Join(dir, id)
 	if _, err := os.Stat(path); err == nil {
 		return path, nil
 	}
@@ -243,7 +243,7 @@ func (m *Microphone) download(ctx context.Context, id, url string) (string, erro
 	if err != nil {
 		return "", err
 	}
-	resp, err := m.hc.Do(req)
+	resp, err := hc.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("download the media file: %w", err)
 	}
@@ -251,7 +251,7 @@ func (m *Microphone) download(ctx context.Context, id, url string) (string, erro
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("download the media file: %s", resp.Status)
 	}
-	f, err := os.CreateTemp(m.dir, ".download-*")
+	f, err := os.CreateTemp(dir, ".download-*")
 	if err != nil {
 		return "", err
 	}
@@ -260,10 +260,10 @@ func (m *Microphone) download(ctx context.Context, id, url string) (string, erro
 	if err = errors.Join(err, f.Close()); err != nil {
 		return "", fmt.Errorf("download the media file: %w", err)
 	}
-	if entries, err := os.ReadDir(m.dir); err == nil {
+	if entries, err := os.ReadDir(dir); err == nil {
 		for _, e := range entries {
 			if e.Name() != filepath.Base(f.Name()) {
-				_ = os.Remove(filepath.Join(m.dir, e.Name()))
+				_ = os.Remove(filepath.Join(dir, e.Name()))
 			}
 		}
 	}

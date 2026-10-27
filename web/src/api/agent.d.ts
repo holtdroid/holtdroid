@@ -37,6 +37,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/camera": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getCamera"];
+        /** @description Replaces what the device's camera shows. The browser's camera takes over through /camera/browser instead. */
+        put: operations["setCamera"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/clipboard": {
         parameters: {
             query?: never;
@@ -513,6 +530,23 @@ export interface components {
             jank: number;
             /** @description the app's processes and its WebView renderers */
             processes: components["schemas"]["ProcessLoad"][];
+        };
+        Camera: {
+            /** @description the device has Holtdroid's camera (redroid images with the camera HAL) */
+            available: boolean;
+            /** @description why the last source stopped */
+            error?: string;
+            /** @description its name */
+            file?: string;
+            /** @description an app has the camera open now */
+            inUse: boolean;
+            /** @description the media file showing while the source is file */
+            mediaId?: string;
+            /**
+             * @description bars: a test card with a running clock; black: no picture; file: an image or a video from the media library, on repeat; browser: the viewer's camera
+             * @enum {string}
+             */
+            source: "bars" | "black" | "file" | "browser";
         };
         Clipboard: {
             text: string;
@@ -1411,6 +1445,19 @@ export interface components {
             /** @description the display is awake; false while it is off or dozing */
             on: boolean;
         };
+        SetCamera: {
+            file?: string;
+            /**
+             * Format: uri
+             * @description where the agent downloads the file; only for the file source
+             */
+            fileUrl?: string;
+            /** @description the file is a still image */
+            image?: boolean;
+            mediaId?: string;
+            /** @enum {string} */
+            source: "bars" | "black" | "file";
+        };
         SetLocation: {
             location: string;
         };
@@ -1561,6 +1608,68 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getCamera: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Camera"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    setCamera: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetCamera"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Camera"];
+                };
             };
             /** @description Error */
             default: {
