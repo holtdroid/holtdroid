@@ -41,6 +41,7 @@ export const keys = {
   map: ["map"] as const,
   references: ["pixel-perfect"] as const,
   figmaToken: ["pixel-perfect", "figma-token"] as const,
+  referenceLayers: (ref: ReferenceView) => ["pixel-perfect", ref.id, "layers", ref.imageUrl] as const,
   apps: ["apps"] as const,
 }
 
@@ -535,6 +536,21 @@ export function useReferences() {
   })
 }
 
+export function referenceLayersQuery(ref: ReferenceView) {
+  return {
+    queryKey: keys.referenceLayers(ref),
+    queryFn: () => unwrap(api.GET("/api/v1/pixel-perfect/{id}/layers", { params: { path: { id: ref.id } } })),
+    staleTime: Infinity,
+  }
+}
+
+export function useReferenceLayers(ref: ReferenceView | null) {
+  return useQuery({
+    ...referenceLayersQuery(ref ?? ({ id: "", imageUrl: "" } as ReferenceView)),
+    enabled: !!ref?.layers,
+  })
+}
+
 export function useUploadReference() {
   const qc = useQueryClient()
   return useMutation({
@@ -562,11 +578,11 @@ export function useUploadReference() {
 export function useUpdateReference() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ ref, name }: { ref: ReferenceView; name: string }) =>
+    mutationFn: ({ ref, name, hidden }: { ref: ReferenceView; name: string; hidden?: string[] }) =>
       unwrap(
         api.PUT("/api/v1/pixel-perfect/{id}", {
           params: { path: { id: ref.id } },
-          body: { name, placement: ref.placement, ignore: ref.ignore },
+          body: { name, placement: ref.placement, ignore: ref.ignore, hidden },
         }),
       ),
     onSuccess: () => void qc.invalidateQueries({ queryKey: keys.references }),

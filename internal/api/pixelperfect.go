@@ -66,6 +66,8 @@ type referenceMeta struct {
 	Revision    int          `json:"revision,omitempty"`
 	Figma       *FigmaSource `json:"figma,omitempty"`
 	Layers      int          `json:"layers,omitempty"`
+	Components  int          `json:"components,omitempty"`
+	Hidden      []string     `json:"hidden,omitempty"`
 }
 
 // referenceStore lays a user's reference images out as
@@ -75,6 +77,7 @@ type referenceMeta struct {
 //	<user>/<id>.thumb a small JPEG (or the browser's picture of an SVG) for lists
 //	<user>/<id>.used  rewritten when the image is opened; its time is the last use
 //	<user>/<id>.layers FigmaLayers of a frame imported from Figma
+//	<user>/<id>.part-<n> the picture of its component n
 //
 // so one listing gives sizes and last uses without reading anything.
 type referenceStore struct {
@@ -119,12 +122,12 @@ func (r *referenceStore) list(ctx context.Context, user string) ([]*referenceEnt
 			byID[u+"/"+id] = e
 			order = append(order, e)
 		}
-		switch ext {
-		case "img":
-			e.size = o.Size
-		case "json":
+		switch {
+		case ext == "img", strings.HasPrefix(ext, "part-"):
+			e.size += o.Size
+		case ext == "json":
 			e.meta = true
-		case "thumb":
+		case ext == "thumb":
 			e.thumb = true
 		}
 		if (ext == "used" || ext == "json") && o.Modified.After(e.lastUsed) {
@@ -135,8 +138,21 @@ func (r *referenceStore) list(ctx context.Context, user string) ([]*referenceEnt
 }
 
 func (r *referenceStore) remove(ctx context.Context, user, id string) error {
-	for _, ext := range []string{".json", ".img", ".thumb", ".used", ".layers"} {
-		if err := r.store.Delete(ctx, r.key(user, id, ext)); err != nil && !errors.Is(err, storage.ErrNotExist) {
+	return r.removeMatching(ctx, user, id, func(string) bool { return true })
+}
+
+// removeMatching deletes a reference's objects whose extension matches.
+func (r *referenceStore) removeMatching(ctx context.Context, user, id string, match func(ext string) bool) error {
+	objs, err := r.store.List(ctx, r.key(user, id, "."))
+	if err != nil {
+		return err
+	}
+	for _, o := range objs {
+		ext := strings.TrimPrefix(o.Key, r.key(user, id, "."))
+		if strings.Contains(ext, "/") || !match(ext) {
+			continue
+		}
+		if err := r.store.Delete(ctx, o.Key); err != nil && !errors.Is(err, storage.ErrNotExist) {
 			return err
 		}
 	}
@@ -164,6 +180,8 @@ type ReferenceView struct {
 	ThumbURL    string       `json:"thumbnailUrl,omitempty" doc:"a small picture for lists, at most 160 px wide; opening it is not a use"`
 	Figma       *FigmaSource `json:"figma,omitempty" doc:"the Figma frame it was imported from"`
 	Layers      int          `json:"layers" doc:"design layers stored with it (GET …/layers); 0 for an image added by hand"`
+	Components  int          `json:"components" doc:"parts of a Figma frame that can be hidden (listed with the layers)"`
+	Hidden      []string     `json:"hidden" doc:"ids of the components left out of the reference"`
 }
 
 type ReferenceList struct {
@@ -182,6 +200,10 @@ func (s *Server) referenceView(m referenceMeta, e *referenceEntry) ReferenceView
 		ID: m.ID, Name: m.Name, Package: m.Package, ContentType: m.ContentType, Width: m.Width, Height: m.Height,
 		Placement: m.Placement, Ignore: m.Ignore, CreatedAt: m.CreatedAt, LastUsedAt: m.CreatedAt,
 		ImageURL: referencesPath + "/" + m.ID + "/image" + revisionQuery(m.Revision), Figma: m.Figma, Layers: m.Layers,
+		Components: m.Components, Hidden: m.Hidden,
+	}
+	if v.Hidden == nil {
+		v.Hidden = []string{}
 	}
 	if v.Ignore == nil {
 		v.Ignore = []Rect{}
@@ -272,6 +294,7 @@ type referenceUpdateInput struct {
 		Name      string    `json:"name" maxLength:"120"`
 		Placement Placement `json:"placement"`
 		Ignore    []Rect    `json:"ignore" maxItems:"64"`
+		Hidden    *[]string `json:"hidden,omitempty" maxItems:"64" doc:"ids of the components to leave out; unchanged when missing"`
 	}
 }
 
@@ -323,25 +346,42 @@ func (s *Server) uploadReference(ctx context.Context, in *referenceUploadInput) 
 			thumb = b
 		}
 	}
-	return s.saveReference(ctx, m, raw, thumb, nil, 0)
+	return s.saveReference(ctx, m, raw, thumb, nil, nil, 0)
 }
 
 // saveReference stores a new image, or a new revision of one that took
 // previous bytes, with its metadata within the owner's quota.
-func (s *Server) saveReference(ctx context.Context, m referenceMeta, raw, thumb []byte, layers *FigmaLayers, previous int64) (ReferenceView, error) {
+func (s *Server) saveReference(ctx context.Context, m referenceMeta, raw, thumb []byte, layers *FigmaLayers, parts [][]byte, previous int64) (ReferenceView, error) {
 	user := userDir(m.Owner)
 	if quota := s.limits(ctx, m.Owner).ReferencesQuota; quota > 0 {
 		entries, err := s.references.list(ctx, user)
 		if err != nil {
 			return ReferenceView{}, err
 		}
-		if s.referenceUsage(entries)-previous+int64(len(raw)) > quota {
+		added := int64(len(raw))
+		for _, p := range parts {
+			added += int64(len(p))
+		}
+		if s.referenceUsage(entries)-previous+added > quota {
 			return ReferenceView{}, errReferenceQuota
 		}
 	}
 	if err := s.references.store.Put(ctx, s.references.key(user, m.ID, ".img"), bytes.NewReader(raw), int64(len(raw))); err != nil {
 		return ReferenceView{}, err
 	}
+	if m.Revision > 0 {
+		if err := s.references.removeMatching(ctx, user, m.ID, func(ext string) bool { return strings.HasPrefix(ext, "part-") }); err != nil {
+			return ReferenceView{}, err
+		}
+	}
+	size := int64(len(raw))
+	for i, p := range parts {
+		if err := s.references.store.Put(ctx, s.references.key(user, m.ID, partExt(i)), bytes.NewReader(p), int64(len(p))); err != nil {
+			return ReferenceView{}, err
+		}
+		size += int64(len(p))
+	}
+	m.Components = len(parts)
 	if thumb == nil && m.ContentType != svgType {
 		thumb, _ = makeThumbnail(raw)
 	}
@@ -363,8 +403,10 @@ func (s *Server) saveReference(ctx context.Context, m referenceMeta, raw, thumb 
 		}
 		return ReferenceView{}, err
 	}
-	return s.referenceView(m, &referenceEntry{size: int64(len(raw)), lastUsed: s.now().UTC(), thumb: thumb != nil}), nil
+	return s.referenceView(m, &referenceEntry{size: size, lastUsed: s.now().UTC(), thumb: thumb != nil}), nil
 }
+
+func partExt(i int) string { return fmt.Sprintf(".part-%02d", i) }
 
 func (s *Server) sweepReferences(ctx context.Context) {
 	if s.cfg.PixelPerfect.MaxAge <= 0 {
@@ -471,6 +513,9 @@ func (s *Server) registerReferences(api huma.API) {
 			m.Name = name
 		}
 		m.Placement, m.Ignore = in.Body.Placement, in.Body.Ignore
+		if in.Body.Hidden != nil {
+			m.Hidden = slices.Compact(slices.Sorted(slices.Values(*in.Body.Hidden)))
+		}
 		if err := writeJSON(ctx, s.references.store, s.references.key(user, m.ID, ".json"), m); err != nil {
 			return nil, httpError(err)
 		}
@@ -532,6 +577,30 @@ func (s *Server) serveReferenceImage(w http.ResponseWriter, r *http.Request) {
 		h.Set("Content-Security-Policy", "sandbox; default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src data:")
 	}
 	h.Set("Content-Length", strconv.FormatInt(size, 10))
+	_, _ = io.Copy(w, rc)
+}
+
+// serveReferenceComponent sends the picture of one of a Figma reference's
+// components. It doesn't count as a use: the reference's image does.
+func (s *Server) serveReferenceComponent(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	m, user, err := s.ownReference(ctx, r.PathValue("id"))
+	n, nerr := strconv.Atoi(r.PathValue("n"))
+	if err != nil || nerr != nil || n < 0 || n >= m.Components {
+		http.NotFound(w, r)
+		return
+	}
+	rc, size, err := s.references.store.Get(ctx, s.references.key(user, m.ID, partExt(n)))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	defer rc.Close()
+	h := w.Header()
+	h.Set("Content-Type", "image/png")
+	h.Set("Content-Length", strconv.FormatInt(size, 10))
+	h.Set("Cache-Control", "private, max-age=31536000, immutable")
+	h.Set("X-Content-Type-Options", "nosniff")
 	_, _ = io.Copy(w, rc)
 }
 

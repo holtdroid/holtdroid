@@ -9,9 +9,10 @@ import {
   type UIHierarchy,
   unwrap,
 } from "@/api/client"
-import { keys } from "@/api/queries"
+import { keys, referenceLayersQuery } from "@/api/queries"
 import type { LiveScreen } from "@/components/session/live-screen"
-import { loadImage, pixelsOf, referencePixels, toCanvas, workSize } from "@/lib/pixel-perfect/capture"
+import { blobURL, loadImage, pixelsOf, referencePixels, toCanvas, workSize } from "@/lib/pixel-perfect/capture"
+import { composeReference, hiddenFractions, needsComposite } from "@/lib/pixel-perfect/compose"
 import { type Analysis, analyze, boxMask, motionMask, type Pixels } from "@/lib/pixel-perfect/diff"
 import {
   counterpart,
@@ -79,7 +80,7 @@ export type Result = {
   media: Box[]
 }
 
-export type Draft = { placement: Placement; ignore: Box[] }
+export type Draft = { placement: Placement; ignore: Box[]; hidden: string[] }
 
 export type PixelState = {
   referenceId: string | null
@@ -92,7 +93,11 @@ export type PixelState = {
   devtools: boolean
   views: boolean
   showRegions: boolean
+  skipHidden: boolean
   drafts: Record<string, Draft>
+  /** The reference redrawn without its hidden components, for the overlay. */
+  composite: { key: string; url: string } | null
+  hoveredComponent: string | null
   frozen: Frozen | null
   freezing: boolean
   analyzing: boolean
@@ -103,7 +108,7 @@ export type PixelState = {
 
 export type Prefs = Pick<
   PixelState,
-  "visible" | "opacity" | "blend" | "ignoreMotion" | "ignoreMedia" | "devtools" | "views" | "showRegions"
+  "visible" | "opacity" | "blend" | "ignoreMotion" | "ignoreMedia" | "devtools" | "views" | "showRegions" | "skipHidden"
 >
 
 const prefsKey = "holtdroid:pixel-perfect"
@@ -116,6 +121,7 @@ export const defaultPrefs: Prefs = {
   devtools: false,
   views: true,
   showRegions: true,
+  skipHidden: true,
 }
 
 export function loadPrefs(): Prefs {
@@ -155,7 +161,7 @@ export class PixelPerfect {
   #display: Display | undefined
   #frozenProbes: Promise<WebViewProbe[]> | null = null
   #frozenViews: Promise<Views> | null = null
-  readonly #layers = new Map<string, Promise<FigmaLayers | null>>()
+  readonly #composites = new Map<string, Promise<OffscreenCanvas>>()
   readonly #highlighter = new Highlighter()
   constructor(
     readonly live: LiveScreen,
@@ -168,6 +174,8 @@ export class PixelPerfect {
       referenceId: null,
       tool: "none",
       drafts: {},
+      composite: null,
+      hoveredComponent: null,
       frozen: null,
       freezing: false,
       analyzing: false,
@@ -195,6 +203,7 @@ export class PixelPerfect {
       devtools: this.#state.devtools,
       views: this.#state.views,
       showRegions: this.#state.showRegions,
+      skipHidden: this.#state.skipHidden,
     }
     savePrefs(prefs)
     for (const l of this.#listeners) l()
@@ -230,26 +239,59 @@ export class PixelPerfect {
     )
   }
 
-  layers(ref: ReferenceView) {
+  layers(ref: ReferenceView): Promise<FigmaLayers | null> {
     if (!ref.layers) return Promise.resolve(null)
-    const key = ref.imageUrl
-    let p = this.#layers.get(key)
-    if (!p) {
-      p = unwrap(api.GET("/api/v1/pixel-perfect/{id}/layers", { params: { path: { id: ref.id } } })).catch(() => {
-        this.#layers.delete(key)
-        return null
-      })
-      this.#layers.set(key, p)
-    }
-    return p
+    return this.queryClient.fetchQuery(referenceLayersQuery(ref)).catch(() => null)
   }
 
   draft(ref: ReferenceView): Draft {
-    return this.#state.drafts[ref.id] ?? { placement: ref.placement, ignore: ref.ignore }
+    return this.#state.drafts[ref.id] ?? { placement: ref.placement, ignore: ref.ignore, hidden: ref.hidden }
   }
 
   select(id: string | null) {
-    this.set({ referenceId: id, result: null, hovered: null, tool: "none", error: null })
+    this.set({ referenceId: id, result: null, hovered: null, hoveredComponent: null, tool: "none", error: null })
+    const ref = this.reference(id)
+    if (ref) void this.#compose(ref)
+  }
+
+  /** The reference without its hidden components, or null when nothing is hidden. */
+  async #composite(ref: ReferenceView, layers: FigmaLayers | null, hidden: string[]) {
+    if (!layers || !needsComposite(layers, hidden)) return null
+    const key = `${ref.imageUrl}#${hidden.toSorted().join(",")}`
+    let p = this.#composites.get(key)
+    if (!p) {
+      p = composeReference(layers, hidden, (url) => this.#loadImage(url))
+      p.catch(() => this.#composites.delete(key))
+      this.#composites.set(key, p)
+    }
+    return { key, canvas: await p }
+  }
+
+  async #compose(ref: ReferenceView) {
+    try {
+      const hidden = this.draft(ref).hidden
+      const made = await this.#composite(ref, await this.layers(ref), hidden)
+      const current = this.#state.composite
+      if (made && current?.key === made.key) return
+      const url = made ? await blobURL(made.canvas) : null
+      if (this.reference()?.id !== ref.id || this.draft(ref).hidden !== hidden) {
+        if (url) URL.revokeObjectURL(url)
+        return
+      }
+      if (current) URL.revokeObjectURL(current.url)
+      this.set({ composite: made && url ? { key: made.key, url } : null })
+    } catch (e) {
+      this.set({ error: e instanceof Error ? e.message : String(e) })
+    }
+  }
+
+  overlaySource(ref: ReferenceView) {
+    const c = this.#state.composite
+    return c?.key.startsWith(`${ref.imageUrl}#`) ? c.url : ref.imageUrl
+  }
+
+  hoverComponent(id: string | null) {
+    if (id !== this.#state.hoveredComponent) this.set({ hoveredComponent: id })
   }
 
   edit(ref: ReferenceView, patch: Partial<Draft>) {
@@ -260,6 +302,7 @@ export class PixelPerfect {
       ref.id,
       window.setTimeout(() => void this.#save(ref.id), 700),
     )
+    if (patch.hidden) void this.#compose(ref)
     if (this.#state.result?.referenceId === ref.id) {
       if (this.#state.frozen) {
         window.clearTimeout(this.#rerun)
@@ -278,7 +321,7 @@ export class PixelPerfect {
       const saved = await unwrap(
         api.PUT("/api/v1/pixel-perfect/{id}", {
           params: { path: { id } },
-          body: { name: ref.name, placement: draft.placement, ignore: draft.ignore },
+          body: { name: ref.name, placement: draft.placement, ignore: draft.ignore, hidden: draft.hidden },
         }),
       )
       this.queryClient.setQueryData<{ items: ReferenceView[] }>(keys.references, (old) =>
@@ -290,13 +333,17 @@ export class PixelPerfect {
   }
 
   image(ref: ReferenceView) {
-    let p = this.#images.get(ref.imageUrl)
+    return this.#loadImage(ref.imageUrl)
+  }
+
+  #loadImage(url: string) {
+    let p = this.#images.get(url)
     if (!p) {
-      p = loadImage(ref.imageUrl).catch(() => {
+      p = loadImage(url).catch(() => {
         throw new Error("Could not load the reference")
       })
-      p.catch(() => this.#images.delete(ref.imageUrl))
-      this.#images.set(ref.imageUrl, p)
+      p.catch(() => this.#images.delete(url))
+      this.#images.set(url, p)
     }
     return p
   }
@@ -415,11 +462,15 @@ export class PixelPerfect {
       }
       const size = { w: screen.width, h: screen.height }
       const [image, figma] = await Promise.all([this.image(ref), this.layers(ref)])
+      const composite = await this.#composite(ref, figma, this.draft(ref).hidden)
       const draft = this.draft(ref)
       const natural = { w: ref.width, h: ref.height }
-      const reference = referencePixels(image, natural, size, draft.placement)
+      const reference = referencePixels(composite?.canvas ?? image, natural, size, draft.placement)
       const placed = placeReference(size, natural, draft.placement)
-      const ignored = draft.ignore.map((r) => onScreen(placed, r))
+      const ignored = [
+        ...draft.ignore,
+        ...(this.#state.skipHidden && composite ? hiddenFractions(figma, draft.hidden) : []),
+      ].map((r) => onScreen(placed, r))
       const d = this.#display
       const toDevice = d && d.width > 0 && d.height > 0 ? Math.max(d.width, d.height) / Math.max(size.w, size.h) : 1
       const webview = await matchWebView(probes, screen, toDevice).catch(() => null)
@@ -482,7 +533,8 @@ export class PixelPerfect {
     window.clearTimeout(this.#rerun)
     for (const t of this.#saves.values()) window.clearTimeout(t)
     this.#images.clear()
-    this.#layers.clear()
+    this.#composites.clear()
+    if (this.#state.composite) URL.revokeObjectURL(this.#state.composite.url)
   }
 }
 

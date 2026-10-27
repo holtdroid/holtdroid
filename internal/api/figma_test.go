@@ -44,6 +44,27 @@ const figmaFrameJSON = `{"nodes":{"1:2":{"document":{
      ]}
   ]}}}}`
 
+const figmaComponentsJSON = `{"nodes":{"1:20":{"document":{
+  "id":"1:20","name":"Player","type":"FRAME","absoluteBoundingBox":{"x":0,"y":0,"width":360,"height":800},
+  "fills":[{"type":"SOLID","color":{"r":0,"g":0,"b":0,"a":1}},{"type":"SOLID","color":{"r":1,"g":1,"b":1,"a":1},"opacity":0.5}],
+  "children":[
+    {"id":"2:1","name":"Status bar","type":"FRAME","absoluteBoundingBox":{"x":0,"y":0,"width":360,"height":24},
+     "fills":[{"type":"SOLID","color":{"r":0,"g":0,"b":0,"a":1}}],
+     "children":[{"id":"2:9","name":"Clock","type":"TEXT","characters":"12:30","absoluteBoundingBox":{"x":8,"y":4,"width":40,"height":16}}]},
+    {"id":"2:2","name":"Stream","type":"RECTANGLE","absoluteBoundingBox":{"x":0,"y":24,"width":360,"height":200},
+     "fills":[{"type":"IMAGE","scaleMode":"FILL"}]},
+    {"id":"2:3","name":"Content","type":"FRAME","absoluteBoundingBox":{"x":0,"y":224,"width":360,"height":500},"fills":[],
+     "children":[
+       {"id":"2:4","name":"Title","type":"TEXT","characters":"Live","absoluteBoundingBox":{"x":16,"y":240,"width":100,"height":24}},
+       {"id":"2:5","name":"Off","type":"TEXT","visible":false,"absoluteBoundingBox":{"x":16,"y":270,"width":100,"height":24}},
+       {"id":"2:6","name":"Pay","type":"INSTANCE","absoluteBoundingBox":{"x":16,"y":600,"width":328,"height":48},
+        "fills":[{"type":"SOLID","color":{"r":0,"g":0.4,"b":1,"a":1}}]}
+     ]},
+    {"id":"2:7","name":"Tab bar","type":"FRAME","absoluteBoundingBox":{"x":0,"y":736,"width":360,"height":64},
+     "absoluteRenderBounds":{"x":0,"y":728,"width":360,"height":72},
+     "effects":[{"type":"DROP_SHADOW","visible":true}],"fills":[{"type":"SOLID","color":{"r":1,"g":1,"b":1,"a":1}}]}
+  ]}}}}`
+
 func fakeFigma(t *testing.T, token string) (*httptest.Server, *atomic.Int32) {
 	t.Helper()
 	var renders atomic.Int32
@@ -63,12 +84,18 @@ func fakeFigma(t *testing.T, token string) (*httptest.Server, *atomic.Int32) {
 			_, _ = w.Write([]byte(`{"id":"1","handle":"Ann","email":"ann@example.com"}`))
 		case r.URL.Path == "/v1/files/AbC123/nodes" && r.URL.Query().Get("ids") == "1:2":
 			_, _ = w.Write([]byte(figmaFrameJSON))
+		case r.URL.Path == "/v1/files/AbC123/nodes" && r.URL.Query().Get("ids") == "1:20":
+			_, _ = w.Write([]byte(figmaComponentsJSON))
 		case r.URL.Path == "/v1/files/AbC123/nodes":
 			_, _ = w.Write([]byte(`{"nodes":{"9:9":null}}`))
 		case r.URL.Path == "/v1/images/AbC123":
 			renders.Add(1)
 			ext := r.URL.Query().Get("format")
-			_ = json.NewEncoder(w).Encode(map[string]any{"err": nil, "images": map[string]string{"1:2": srv.URL + "/render." + ext}})
+			images := map[string]string{}
+			for id := range strings.SplitSeq(r.URL.Query().Get("ids"), ",") {
+				images[id] = srv.URL + "/render." + ext + "?id=" + id
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"err": nil, "images": images})
 		default:
 			http.NotFound(w, r)
 		}
@@ -98,7 +125,7 @@ func TestFigmaImport(t *testing.T) {
 		t.Fatalf("a missing frame: %d %s", rec.Code, rec.Body.String())
 	}
 
-	rec = h.do(http.MethodPost, referencesPath+"/figma", "alice", "", map[string]any{"url": link, "token": "user-token", "package": "com.example"})
+	rec = h.do(http.MethodPost, referencesPath+"/figma", "alice", "", map[string]any{"url": link, "token": "user-token", "package": "com.example", "format": "svg"})
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("import: %d %s", rec.Code, rec.Body.String())
 	}
@@ -231,5 +258,110 @@ func TestFigmaTokenWithAccount(t *testing.T) {
 	}
 	if rec := h.do(http.MethodPost, referencesPath+"/figma", "alice", "", map[string]any{"url": link}); rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("import after delete: %d", rec.Code)
+	}
+}
+
+func TestFigmaComponents(t *testing.T) {
+	figma, _ := fakeFigma(t, "user-token")
+	h := newHarnessWith(t, 1, func(c *Config) { c.PixelPerfect.Figma.URL = figma.URL })
+	rec := h.do(http.MethodPost, referencesPath+"/figma", "alice", "", map[string]any{
+		"url": "https://www.figma.com/design/AbC123/Shop?node-id=1-20", "token": "user-token",
+	})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("import: %d %s", rec.Code, rec.Body.String())
+	}
+	v := decode[ReferenceView](t, rec)
+	if v.ContentType != "image/png" || v.Components != 5 || v.Figma.Scale != 4 || len(v.Hidden) != 0 {
+		t.Fatalf("view: %+v %+v", v, v.Figma)
+	}
+	l := decode[FigmaLayers](t, h.do(http.MethodGet, referencesPath+"/"+v.ID+"/layers", "alice", "", nil))
+	var names []string
+	for _, c := range l.Components {
+		names = append(names, c.Name)
+	}
+	if strings.Join(names, ",") != "Status bar,Stream,Title,Pay,Tab bar" {
+		t.Fatalf("components: %v", names)
+	}
+	if !l.Composable || l.Background != "#808080" || l.Scale != 4 {
+		t.Fatalf("layers: composable %v background %q scale %v", l.Composable, l.Background, l.Scale)
+	}
+	byName := map[string]FigmaComponent{}
+	for _, c := range l.Components {
+		byName[c.Name] = c
+	}
+	if !byName["Stream"].Live || byName["Status bar"].Live || byName["Tab bar"].Y != 728 || byName["Tab bar"].H != 72 || byName["Stream"].Layer < 0 {
+		t.Fatalf("components: %+v", l.Components)
+	}
+	if rec := h.do(http.MethodGet, l.Components[1].URL, "alice", "", nil); rec.Code != http.StatusOK || rec.Header().Get("Content-Type") != "image/png" {
+		t.Fatalf("component picture: %d", rec.Code)
+	}
+	if rec := h.do(http.MethodGet, l.Components[1].URL, "bob", "", nil); rec.Code != http.StatusNotFound {
+		t.Fatalf("bob's component picture: %d", rec.Code)
+	}
+	if rec := h.do(http.MethodGet, referencesPath+"/"+v.ID+"/components/9", "alice", "", nil); rec.Code != http.StatusNotFound {
+		t.Fatalf("missing component: %d", rec.Code)
+	}
+	if used := h.references("alice").Used; used <= int64(len(testPNG(t, 1080, 2400))) {
+		t.Fatalf("components aren't counted: %d", used)
+	}
+
+	put := map[string]any{"name": v.Name, "placement": v.Placement, "ignore": []any{}, "hidden": []string{"2:2", "2:2", "gone"}}
+	rec = h.do(http.MethodPut, referencesPath+"/"+v.ID, "alice", "", put)
+	if got := decode[ReferenceView](t, rec); rec.Code != http.StatusOK || strings.Join(got.Hidden, ",") != "2:2,gone" {
+		t.Fatalf("hide: %d %+v", rec.Code, got.Hidden)
+	}
+	rename := map[string]any{"name": "Stream screen", "placement": v.Placement, "ignore": []any{}}
+	if got := decode[ReferenceView](t, h.do(http.MethodPut, referencesPath+"/"+v.ID, "alice", "", rename)); strings.Join(got.Hidden, ",") != "2:2,gone" {
+		t.Fatalf("a rename drops hidden: %+v", got.Hidden)
+	}
+	rec = h.do(http.MethodPost, referencesPath+"/"+v.ID+"/figma", "alice", "", map[string]any{"token": "user-token"})
+	if got := decode[ReferenceView](t, rec); rec.Code != http.StatusOK || strings.Join(got.Hidden, ",") != "2:2" || got.Components != 5 {
+		t.Fatalf("refresh: %d %+v", rec.Code, got)
+	}
+	if rec := h.do(http.MethodDelete, referencesPath+"/"+v.ID, "alice", "", nil); rec.Code != http.StatusNoContent {
+		t.Fatalf("delete: %d", rec.Code)
+	}
+	if l := h.references("alice"); l.Used != 0 {
+		t.Fatalf("parts left after delete: %d", l.Used)
+	}
+}
+
+func TestPickComponents(t *testing.T) {
+	leaf := func(id string, area float64) figmaNodeDoc {
+		return figmaNodeDoc{ID: id, Type: "RECTANGLE", Box: &figmaBox{Width: area, Height: 1}}
+	}
+	group := func(id string, kids ...figmaNodeDoc) figmaNodeDoc {
+		var a float64
+		for _, k := range kids {
+			a += area(k)
+		}
+		return figmaNodeDoc{ID: id, Type: "GROUP", Box: &figmaBox{Width: a, Height: 1}, Children: kids}
+	}
+	ids := func(ns []figmaNodeDoc) string {
+		var out []string
+		for _, n := range ns {
+			out = append(out, n.ID)
+		}
+		return strings.Join(out, ",")
+	}
+	frame := figmaNodeDoc{Children: []figmaNodeDoc{
+		leaf("a", 5),
+		group("big", leaf("b1", 50), group("b2", leaf("b21", 10), leaf("b22", 10))),
+		group("small", leaf("s1", 1), leaf("s2", 1)),
+	}}
+	for _, tc := range []struct {
+		max  int
+		want string
+	}{
+		{3, "a,big,small"},
+		{4, "a,b1,b2,small"},
+		{5, "a,b1,b21,b22,small"},
+		{6, "a,b1,b21,b22,s1,s2"},
+		{20, "a,b1,b21,b22,s1,s2"},
+		{1, "a,big,small"},
+	} {
+		if got := ids(pickComponents(frame, tc.max)); got != tc.want {
+			t.Errorf("max %d: %s, want %s", tc.max, got, tc.want)
+		}
 	}
 }

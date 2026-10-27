@@ -47,7 +47,14 @@ const layer = (name: string, parent: number, x: number, y: number, w: number, h:
 test("design layers follow the frame's placement and name their parents", () => {
   const placed = { x: 10, y: 20, w: 720, h: 1600 }
   const layers = placeLayers(
-    { width: 360, height: 800, layers: [layer("Card", -1, 16, 100, 328, 120), layer("Pay", 0, 16, 160, 328, 48)] },
+    {
+      width: 360,
+      height: 800,
+      layers: [layer("Card", -1, 16, 100, 328, 120), layer("Pay", 0, 16, 160, 328, 48)],
+      components: [],
+      composable: false,
+      scale: 1,
+    },
     placed,
     { w: 740, h: 1620 },
   )

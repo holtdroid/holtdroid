@@ -150,7 +150,8 @@ deployment"):
   unit tests against fakes; not yet tried on a redroid session or against
   the real Figma API. Figma tokens are saved encrypted with the account
   (decision #141); the Pixel perfect page manages references, the token and
-  the tab's defaults.
+  the tab's defaults. Frames import as PNG 4× with up to 20 components that
+  can be hidden, the frame redrawn without them (decision #145).
 - Session load (decision #40), shown in the cards next to the phone since
   decision #94: the app card has fps, jank and CPU/PSS per process, the
   device card the device, storage, temperatures and the session Pod's

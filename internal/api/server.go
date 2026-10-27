@@ -323,6 +323,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/recordings/{id}/export", s.serveRecordingExport)
 	mux.HandleFunc("GET "+referencesPath+"/{id}/image", s.serveReferenceImage)
 	mux.HandleFunc("GET "+referencesPath+"/{id}/thumbnail", s.serveReferenceThumbnail)
+	mux.HandleFunc("GET "+referencesPath+"/{id}/components/{n}", s.serveReferenceComponent)
 	mux.HandleFunc("GET /api/v1/shared/{token}/files/{file}", s.serveRecordingFile)
 	mux.HandleFunc("GET /api/v1/shared/{token}/logcat.txt", s.serveRecordingLogcat)
 	mux.HandleFunc("GET /api/v1/shared/{token}/logcat.log", s.serveRecordingLogcat)

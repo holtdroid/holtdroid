@@ -16,9 +16,11 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/holtdroid/holtdroid/internal/audit"
 	"github.com/holtdroid/holtdroid/internal/auth"
@@ -27,7 +29,6 @@ import (
 
 const (
 	maxFigmaLayers = 4000
-	figmaPNGScale  = 3
 )
 
 var errFigmaToken = fmt.Errorf("%w: importing from Figma needs a personal access token: add yours on the Pixel perfect page, or set pixelPerfect.figma.token on the server", contract.ErrInvalid)
@@ -37,6 +38,7 @@ type FigmaSource struct {
 	NodeID   string    `json:"nodeId"`
 	URL      string    `json:"url"`
 	Format   string    `json:"format" enum:"svg,png"`
+	Scale    float64   `json:"scale,omitempty" doc:"pixels per frame unit of the PNG and the components"`
 	SyncedAt time.Time `json:"syncedAt"`
 }
 
@@ -46,6 +48,12 @@ type FigmaLayers struct {
 	Width  float64      `json:"width"`
 	Height float64      `json:"height"`
 	Layers []FigmaLayer `json:"layers" doc:"depth first, the frame itself left out"`
+	// Components redraw the frame when some are hidden: the background, then
+	// each visible one in order.
+	Components []FigmaComponent `json:"components"`
+	Background string           `json:"background,omitempty" doc:"the frame's own fill, #rrggbb or #rrggbbaa; empty for none"`
+	Composable bool             `json:"composable" doc:"the frame can be redrawn from its components; false when its fill isn't plain colour or a mask spans them"`
+	Scale      float64          `json:"scale" doc:"pixels per frame unit of the components' pictures"`
 }
 
 type FigmaLayer struct {
@@ -110,18 +118,23 @@ type figmaPaint struct {
 }
 
 type figmaNodeDoc struct {
-	ID                   string                                 `json:"id"`
-	Name                 string                                 `json:"name"`
-	Type                 string                                 `json:"type"`
-	Visible              *bool                                  `json:"visible"`
-	Box                  *struct{ X, Y, Width, Height float64 } `json:"absoluteBoundingBox"`
-	Fills                []figmaPaint                           `json:"fills"`
-	Strokes              []figmaPaint                           `json:"strokes"`
-	StrokeWeight         float64                                `json:"strokeWeight"`
-	CornerRadius         float64                                `json:"cornerRadius"`
-	RectangleCornerRadii []float64                              `json:"rectangleCornerRadii"`
-	Opacity              *float64                               `json:"opacity"`
-	Characters           string                                 `json:"characters"`
+	ID                   string        `json:"id"`
+	Name                 string        `json:"name"`
+	Type                 string        `json:"type"`
+	Visible              *bool         `json:"visible"`
+	Box                  *figmaBox     `json:"absoluteBoundingBox"`
+	RenderBox            *figmaBox     `json:"absoluteRenderBounds"`
+	Effects              []figmaEffect `json:"effects"`
+	ClipsContent         bool          `json:"clipsContent"`
+	IsMask               bool          `json:"isMask"`
+	BlendMode            string        `json:"blendMode"`
+	Fills                []figmaPaint  `json:"fills"`
+	Strokes              []figmaPaint  `json:"strokes"`
+	StrokeWeight         float64       `json:"strokeWeight"`
+	CornerRadius         float64       `json:"cornerRadius"`
+	RectangleCornerRadii []float64     `json:"rectangleCornerRadii"`
+	Opacity              *float64      `json:"opacity"`
+	Characters           string        `json:"characters"`
 	Style                *struct {
 		FontFamily    string  `json:"fontFamily"`
 		FontWeight    float64 `json:"fontWeight"`
@@ -260,23 +273,42 @@ func (s *Server) figmaGet(ctx context.Context, token, path string, q url.Values,
 	return json.Unmarshal(body, v)
 }
 
-func (s *Server) figmaRender(ctx context.Context, token string, src FigmaSource, q url.Values, max int64) ([]byte, error) {
-	q.Set("ids", src.NodeID)
+// figmaRender renders nodes of a file with Figma and downloads the pictures,
+// each at most max bytes.
+func (s *Server) figmaRender(ctx context.Context, token, file string, ids []string, q url.Values, max int64) (map[string][]byte, error) {
+	q.Set("ids", strings.Join(ids, ","))
 	var r struct {
 		Err    *string            `json:"err"`
 		Images map[string]*string `json:"images"`
 	}
-	if err := s.figmaGet(ctx, token, "/v1/images/"+src.FileKey, q, &r); err != nil {
+	if err := s.figmaGet(ctx, token, "/v1/images/"+file, q, &r); err != nil {
 		return nil, err
 	}
-	link := r.Images[src.NodeID]
-	if link == nil || *link == "" {
-		if r.Err != nil {
-			return nil, fmt.Errorf("figma couldn't render the frame: %s", *r.Err)
+	out := make(map[string][]byte, len(ids))
+	var mu sync.Mutex
+	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(6)
+	for _, id := range ids {
+		link := r.Images[id]
+		if link == nil || *link == "" {
+			if r.Err != nil {
+				return nil, fmt.Errorf("figma couldn't render %s: %s", id, *r.Err)
+			}
+			return nil, fmt.Errorf("figma couldn't render %s", id)
 		}
-		return nil, errors.New("figma couldn't render the frame")
+		g.Go(func() error {
+			raw, err := s.figmaDownload(gctx, *link, max)
+			mu.Lock()
+			out[id] = raw
+			mu.Unlock()
+			return err
+		})
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, *link, nil)
+	return out, g.Wait()
+}
+
+func (s *Server) figmaDownload(ctx context.Context, link string, max int64) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, link, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -293,7 +325,7 @@ func (s *Server) figmaRender(ctx context.Context, token string, src FigmaSource,
 		return nil, err
 	}
 	if int64(len(raw)) > max {
-		return nil, fmt.Errorf("%w: the frame's image is larger than %d bytes; try PNG or SVG instead", contract.ErrTooLarge, max)
+		return nil, fmt.Errorf("%w: a picture from Figma is larger than %d bytes; try SVG instead", contract.ErrTooLarge, max)
 	}
 	return raw, nil
 }
@@ -303,7 +335,9 @@ type figmaFrame struct {
 	raw, thumb  []byte
 	contentType string
 	w, h        int
+	scale       float64
 	layers      FigmaLayers
+	parts       [][]byte
 }
 
 func (s *Server) fetchFigma(ctx context.Context, token string, src FigmaSource) (figmaFrame, error) {
@@ -316,47 +350,80 @@ func (s *Server) fetchFigma(ctx context.Context, token string, src FigmaSource) 
 		return figmaFrame{}, err
 	}
 	n := nodes.Nodes[src.NodeID]
-	if n == nil || n.Document.Box == nil || n.Document.Box.Width <= 0 || n.Document.Box.Height <= 0 {
+	if n == nil || !n.Document.shown() {
 		return figmaFrame{}, fmt.Errorf("%w: Figma has no frame %s in this file", contract.ErrNotFound, src.NodeID)
 	}
 	doc := n.Document
-	f := figmaFrame{name: doc.Name, layers: flattenFigma(doc)}
+	f := figmaFrame{name: doc.Name, layers: flattenFigma(doc), scale: figmaScale(doc.Box.Width, doc.Box.Height)}
 	max := int64(s.cfg.PixelPerfect.MaxFileSize)
+	scale := strconv.FormatFloat(f.scale, 'f', -1, 64)
 	q := url.Values{"use_absolute_bounds": {"true"}}
 	if src.Format == "png" {
 		q.Set("format", "png")
-		q.Set("scale", strconv.Itoa(figmaPNGScale))
+		q.Set("scale", scale)
 	} else {
 		q.Set("format", "svg")
 		q.Set("svg_outline_text", "true")
 	}
-	raw, err := s.figmaRender(ctx, token, src, q, max)
+	frame, err := s.figmaRender(ctx, token, src.FileKey, []string{src.NodeID}, q, max)
 	if err != nil {
 		return figmaFrame{}, err
 	}
-	f.raw = raw
+	f.raw = frame[src.NodeID]
 	if src.Format == "png" {
-		cfg, format, err := image.DecodeConfig(bytes.NewReader(raw))
+		cfg, format, err := image.DecodeConfig(bytes.NewReader(f.raw))
 		if err != nil || format != "png" {
 			return figmaFrame{}, errors.New("figma sent an image that isn't a PNG")
 		}
 		f.contentType, f.w, f.h = "image/png", cfg.Width, cfg.Height
 	} else {
-		w, h, ok := svgSize(raw)
+		w, h, ok := svgSize(f.raw)
 		if !ok {
 			return figmaFrame{}, errors.New("figma sent an SVG without a size")
 		}
 		f.contentType, f.w, f.h = svgType, w, h
-		scale := math.Max(0.01, math.Min(1, float64(thumbWidth)*2/doc.Box.Width))
-		small, err := s.figmaRender(ctx, token, src, url.Values{"format": {"png"}, "scale": {strconv.FormatFloat(round2(scale), 'f', -1, 64)}}, 8<<20)
-		if err == nil {
-			f.thumb, _ = makeThumbnail(small)
+		small := math.Max(0.01, math.Min(1, float64(thumbWidth)*2/doc.Box.Width))
+		if thumb, err := s.figmaRender(ctx, token, src.FileKey, []string{src.NodeID},
+			url.Values{"format": {"png"}, "scale": {strconv.FormatFloat(round2(small), 'f', -1, 64)}}, 8<<20); err == nil {
+			f.thumb, _ = makeThumbnail(thumb[src.NodeID])
 		}
 	}
 	if f.w <= 0 || f.h <= 0 || f.w*f.h > 64<<20 {
 		return figmaFrame{}, fmt.Errorf("%w: the frame is %d×%d; at most 64 megapixels", contract.ErrInvalid, f.w, f.h)
 	}
+	if err := s.figmaComponents(ctx, token, src, doc, scale, &f); err != nil {
+		return figmaFrame{}, err
+	}
 	return f, nil
+}
+
+// figmaComponents renders the frame's parts on their own, at the frame's scale.
+func (s *Server) figmaComponents(ctx context.Context, token string, src FigmaSource, doc figmaNodeDoc, scale string, f *figmaFrame) error {
+	f.layers.Components, f.layers.Scale = []FigmaComponent{}, f.scale
+	background, ok := figmaComposable(doc)
+	parts := pickComponents(doc, maxFigmaComponents)
+	if !ok || len(parts) < 2 {
+		return nil
+	}
+	ids := make([]string, len(parts))
+	for i, p := range parts {
+		ids[i] = p.ID
+	}
+	pics, err := s.figmaRender(ctx, token, src.FileKey, ids, url.Values{"format": {"png"}, "scale": {scale}}, int64(s.cfg.PixelPerfect.MaxFileSize))
+	if err != nil {
+		return err
+	}
+	ox, oy := doc.Box.X, doc.Box.Y
+	for _, p := range parts {
+		b := p.renderBounds()
+		f.layers.Components = append(f.layers.Components, FigmaComponent{
+			ID: p.ID, Name: p.Name, Type: p.Type, Layer: componentLayer(f.layers.Layers, p.ID),
+			X: round2(b.X - ox), Y: round2(b.Y - oy), W: round2(b.Width), H: round2(b.Height), Live: looksLive(p),
+		})
+		f.parts = append(f.parts, pics[p.ID])
+	}
+	f.layers.Background, f.layers.Composable = background, true
+	return nil
 }
 
 func (s *Server) figmaToken(ctx context.Context, given string) (string, error) {
@@ -383,7 +450,7 @@ type figmaImportInput struct {
 		URL     string `json:"url" maxLength:"2048" doc:"a link to a frame: Copy link to selection in Figma"`
 		Name    string `json:"name,omitempty" maxLength:"120" doc:"defaults to the frame's name"`
 		Package string `json:"package,omitempty" maxLength:"255"`
-		Format  string `json:"format,omitempty" enum:"svg,png" default:"svg" doc:"svg is drawn at any size; png is rendered at 3×"`
+		Format  string `json:"format,omitempty" enum:"svg,png" default:"png" doc:"png is Figma's own rendering at up to 4× (less for very tall frames), exact for effects and corner smoothing; svg is drawn at any size but loses corner smoothing, background blur and some blend modes"`
 		Token   string `json:"token,omitempty" maxLength:"512" doc:"a Figma personal access token kept in the browser; when empty, the one saved with the caller's account, then the server's pixelPerfect.figma.token. Used for this request only"`
 	}
 }
@@ -403,7 +470,7 @@ func (s *Server) importFigma(ctx context.Context, in *figmaImportInput) (Referen
 	if err != nil {
 		return ReferenceView{}, err
 	}
-	src.Format = cmp.Or(in.Body.Format, "svg")
+	src.Format = cmp.Or(in.Body.Format, "png")
 	token, err := s.figmaToken(ctx, in.Body.Token)
 	if err != nil {
 		return ReferenceView{}, err
@@ -414,13 +481,13 @@ func (s *Server) importFigma(ctx context.Context, in *figmaImportInput) (Referen
 	}
 	who, _ := auth.FromContext(ctx)
 	now := s.now().UTC()
-	src.SyncedAt = now
+	src.SyncedAt, src.Scale = now, f.scale
 	m := referenceMeta{
 		ID: newAppDataID(now), Owner: who.User, Name: cmp.Or(cleanReferenceName(in.Body.Name), cleanReferenceName(f.name), "Figma frame"),
 		Package: strings.TrimSpace(in.Body.Package), ContentType: f.contentType, Width: f.w, Height: f.h,
 		Placement: Placement{Scale: 1}, CreatedAt: now, Figma: &src,
 	}
-	return s.saveReference(ctx, m, f.raw, f.thumb, &f.layers, 0)
+	return s.saveReference(ctx, m, f.raw, f.thumb, &f.layers, f.parts, 0)
 }
 
 func (s *Server) refreshFigma(ctx context.Context, in *figmaRefreshInput) (ReferenceView, error) {
@@ -440,14 +507,21 @@ func (s *Server) refreshFigma(ctx context.Context, in *figmaRefreshInput) (Refer
 		return ReferenceView{}, err
 	}
 	var previous int64
-	if o, err := s.references.store.Stat(ctx, s.references.key(user, m.ID, ".img")); err == nil {
-		previous = o.Size
+	if entries, err := s.references.list(ctx, user); err == nil {
+		for _, e := range entries {
+			if e.id == m.ID {
+				previous = e.size
+			}
+		}
 	}
 	src := *m.Figma
-	src.SyncedAt = s.now().UTC()
+	src.SyncedAt, src.Scale = s.now().UTC(), f.scale
 	m.Figma, m.ContentType, m.Width, m.Height = &src, f.contentType, f.w, f.h
+	m.Hidden = slices.DeleteFunc(m.Hidden, func(id string) bool {
+		return !slices.ContainsFunc(f.layers.Components, func(c FigmaComponent) bool { return c.ID == id })
+	})
 	m.Revision++
-	return s.saveReference(ctx, m, f.raw, f.thumb, &f.layers, previous)
+	return s.saveReference(ctx, m, f.raw, f.thumb, &f.layers, f.parts, previous)
 }
 
 func (s *Server) registerFigma(api huma.API) {
@@ -498,6 +572,12 @@ func (s *Server) registerFigma(api huma.API) {
 		}
 		if err != nil {
 			return nil, httpError(err)
+		}
+		if l.Components == nil {
+			l.Components = []FigmaComponent{}
+		}
+		for i := range l.Components {
+			l.Components[i].URL = fmt.Sprintf("%s/%s/components/%d%s", referencesPath, m.ID, i, revisionQuery(m.Revision))
 		}
 		return &out[FigmaLayers]{l}, nil
 	})

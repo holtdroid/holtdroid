@@ -2352,6 +2352,31 @@ export interface components {
              */
             type: string;
         };
+        FigmaComponent: {
+            /** Format: double */
+            h: number;
+            id: string;
+            /**
+             * Format: int64
+             * @description its index in layers, -1 when it isn't listed
+             */
+            layer: number;
+            /** @description looks like live content (an image or video fill, or a name like video, player, camera, map), which the app shows differently every time */
+            live?: boolean;
+            name: string;
+            type: string;
+            /** @description its picture, a PNG at the frame's scale */
+            url: string;
+            /** Format: double */
+            w: number;
+            /**
+             * Format: double
+             * @description where its picture goes, in the frame's units: its rendered bounds, shadows included
+             */
+            x: number;
+            /** Format: double */
+            y: number;
+        };
         FigmaFont: {
             family: string;
             /** Format: double */
@@ -2368,8 +2393,8 @@ export interface components {
         };
         FigmaImportInputBody: {
             /**
-             * @description svg is drawn at any size; png is rendered at 3×
-             * @default svg
+             * @description png is Figma's own rendering at up to 4× (less for very tall frames), exact for effects and corner smoothing; svg is drawn at any size but loses corner smoothing, background blur and some blend modes
+             * @default png
              * @enum {string}
              */
             format: "svg" | "png";
@@ -2421,10 +2446,20 @@ export interface components {
             y: number;
         };
         FigmaLayers: {
+            /** @description the frame's own fill, #rrggbb or #rrggbbaa; empty for none */
+            background?: string;
+            components: components["schemas"]["FigmaComponent"][];
+            /** @description the frame can be redrawn from its components; false when its fill isn't plain colour or a mask spans them */
+            composable: boolean;
             /** Format: double */
             height: number;
             /** @description depth first, the frame itself left out */
             layers: components["schemas"]["FigmaLayer"][];
+            /**
+             * Format: double
+             * @description pixels per frame unit of the components' pictures
+             */
+            scale: number;
             /** Format: double */
             width: number;
         };
@@ -2436,6 +2471,11 @@ export interface components {
             /** @enum {string} */
             format: "svg" | "png";
             nodeId: string;
+            /**
+             * Format: double
+             * @description pixels per frame unit of the PNG and the components
+             */
+            scale?: number;
             /** Format: date-time */
             syncedAt: string;
             url: string;
@@ -3280,11 +3320,18 @@ export interface components {
             used: number;
         };
         ReferenceUpdateInputBody: {
+            /** @description ids of the components to leave out; unchanged when missing */
+            hidden?: string[];
             ignore: components["schemas"]["Rect"][];
             name: string;
             placement: components["schemas"]["Placement"];
         };
         ReferenceView: {
+            /**
+             * Format: int64
+             * @description parts of a Figma frame that can be hidden (listed with the layers)
+             */
+            components: number;
             contentType: string;
             /** Format: date-time */
             createdAt: string;
@@ -3297,6 +3344,8 @@ export interface components {
             figma?: components["schemas"]["FigmaSource"];
             /** Format: int64 */
             height: number;
+            /** @description ids of the components left out of the reference */
+            hidden: string[];
             id: string;
             /** @description areas the comparison skips, such as a video under the interface */
             ignore: components["schemas"]["Rect"][];

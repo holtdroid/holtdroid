@@ -34,8 +34,42 @@ Figma always writes.
 
 A frame can come straight from Figma, together with its layers: select it,
 **Copy link to selection** (⌘L / Ctrl+L), and paste the link into the tab, or
-use **Figma** above the list. The frame is rendered as SVG with its text
-drawn as outlines, or as a PNG at 3× for frames with photos or heavy effects.
+use **Figma** above the list. By default Figma renders it as a **PNG at 4×**
+(less for very tall frames, to stay under 24 megapixels): its own rendering,
+exact for corner smoothing, shadows, blurs and text. **SVG** is drawn at any
+size, but Figma's SVG export turns smoothed corners into plain rounded ones
+and drops background blur and some blend modes, so it is only the better
+choice for flat frames.
+
+### Components
+
+The import also renders up to 20 parts of the frame on their own, so you can
+leave some out of the reference, such as a placeholder where the app shows a
+video, a camera picture or a map. The parts are the frame's children; while
+there is room, the largest group or frame that adds nothing of its own (no
+fill, stroke, effect, clipping, mask or opacity) is replaced by its children,
+so a wrapper is split and a card stays whole. A frame with more than 20
+children keeps them as they are, up to 60.
+
+**Components** in the tab lists them, top first, with a picture each;
+pointing at one outlines it on the screen and the eye hides it. Hidden
+components are kept with the reference. With all of them shown, the overlay
+is the frame's own rendering; with some hidden, the browser draws the frame
+again from its background colour and the visible components, in order.
+**Skip hidden components** (on by default) also leaves their place out of the
+comparison, so the video under a hidden placeholder isn't a difference.
+
+Parts whose fill is an image or a video, or whose name says video, player,
+stream, camera, preview or map, are marked **live?**, and **Hide live
+content** hides them at once.
+
+Redrawing works when the frame's own fill is plain colour and no mask spans
+its parts; otherwise the tab says so and ignored areas are the way to skip
+them. A redrawn frame can differ from Figma's rendering where hidden and
+shown parts interact: background blur over a hidden part, or blend modes
+between them. The pictures count towards your quota (usually a few MB) and
+are fetched again by **Update from Figma**, which keeps the hidden ones that
+still exist.
 
 Importing needs a Figma **personal access token**. The server may have one
 for everyone (`pixelPerfect.figma.token`); otherwise add yours on the
@@ -72,7 +106,8 @@ When the token expires, imports say Figma refused it: generate a new one and
 The frame icon in the header opens the page for your references outside a
 session: all of them grouped by app, with search, the space they take and
 when they will be deleted; import from Figma or add an image, rename,
-download, delete, open a Figma reference's frame in Figma or update it. It
+download, delete, open a Figma reference's frame in Figma or update it, and
+show or hide its components (the layers button). It
 also holds your Figma token and how the tab starts in this browser
 (opacity, blend, and which of the switches below are on).
 

@@ -22,7 +22,7 @@ export function FigmaImport({
 }) {
   const run = useImportFigma()
   const [url, setUrl] = useState(initialUrl ?? "")
-  const [format, setFormat] = useState<"svg" | "png">("svg")
+  const [format, setFormat] = useState<"svg" | "png">("png")
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -61,11 +61,17 @@ export function FigmaImport({
           value={format}
           onValueChange={(v) => v && setFormat(v as "svg" | "png")}
         >
-          <ToggleGroupItem value="svg" title="Drawn at any size, sharp edges">
-            SVG
+          <ToggleGroupItem
+            value="png"
+            title="Figma's own rendering at up to 4×: exact corner smoothing, shadows, blurs and text"
+          >
+            PNG 4×
           </ToggleGroupItem>
-          <ToggleGroupItem value="png" title="Rendered at 3×, for frames with photos or heavy effects">
-            PNG 3×
+          <ToggleGroupItem
+            value="svg"
+            title="Drawn at any size, but loses corner smoothing, background blur and some blend modes"
+          >
+            SVG
           </ToggleGroupItem>
         </ToggleGroup>
         <div className="flex-1" />
@@ -78,8 +84,8 @@ export function FigmaImport({
         </Button>
       </div>
       <p className="text-muted-foreground">
-        Brings the frame&apos;s picture and its layers: differences then name the layer and show its size, colours, font
-        and spacing from the design.
+        Brings the frame&apos;s picture, its layers and up to 20 of its parts on their own: hide a placeholder for video
+        or a map, and differences name the layer with its size, colours, font and spacing from the design.
       </p>
     </form>
   )

@@ -4347,3 +4347,49 @@ dialog's checkbox is off by default and remembered in the browser, and
 
 **Consequences.** A user who never ticks the box gets saves only by hand.
 The choice is per browser, not per account.
+
+## 145. Figma frames come as PNG with components that can be hidden
+
+Extends #139.
+
+**Context.** Figma's SVG export turns corner smoothing (iOS-style
+superellipses) into plain rounded corners and drops background blur, so an
+SVG reference differs from the design exactly where testers look. A frame
+also often holds a placeholder for live content (a video, a camera picture,
+a map) that covers what the app shows there and spoils the overlay.
+
+**Decision.**
+
+- **PNG is the default**, rendered by Figma at up to 4× (lower for frames
+  over 24 megapixels at 4×). A pixel or two of resampling to the screen's
+  density matters less than Figma's own rendering. SVG stays an option.
+- **Up to 20 components are rendered on their own**, in the same
+  `/v1/images` call for all of them, at the frame's scale, placed by their
+  `absoluteRenderBounds` so shadows come along. They are the frame's
+  children, the largest splittable one replaced by its children while the
+  count stays within 20. A node is splittable when drawing its children one
+  by one gives the same picture: a frame, group, component or instance with
+  no fill, stroke, effect, clipping, mask, opacity or blend mode of its own.
+  A frame with more than 20 children keeps them, up to 60; beyond that there
+  are no components. Rendering arbitrary sets of siblings isn't possible
+  through the API, so grouping is limited to the file's own nesting.
+- **The browser redraws the frame** from its background colour and the
+  visible components in order, only when something is hidden; otherwise the
+  overlay and the comparison use Figma's rendering of the whole frame. A
+  frame is redrawable when its own fills are solid colours and no mask spans
+  its children. Hidden components are kept with the reference
+  (`hidden` in `PUT …/{id}`, unchanged when left out) and their places are
+  skipped by the comparison unless the user turns that off.
+- **Live content is only suggested**: parts with an image or video fill or a
+  telling name are marked, and one button hides them; nothing is hidden by
+  default.
+- **Pictures are kept as `<id>.part-NN`**, served at
+  `GET …/{id}/components/{n}` (immutable, with the revision in the URL) and
+  counted towards the quota with the image.
+
+**Consequences.** A redrawn frame can differ from Figma's rendering where
+parts interact: background blur and blend modes across parts, or a part
+that a hidden part's shadow fell on. An import takes one more Figma call
+and a few more MB of storage. References imported before keep working
+without components until updated from Figma.
+

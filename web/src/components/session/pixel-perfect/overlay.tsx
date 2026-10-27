@@ -1,7 +1,7 @@
 import { SnowflakeIcon, XIcon } from "lucide-react"
 import { type RefObject, useEffect, useMemo, useRef, useState } from "react"
 import type { ReferenceView } from "@/api/client"
-import { useReferences } from "@/api/queries"
+import { useReferenceLayers, useReferences } from "@/api/queries"
 import { PixelCanvas } from "@/components/session/pixel-perfect/mask-canvas"
 import { type PixelPerfect, type Result, usePixelState } from "@/components/session/pixel-perfect/state"
 import {
@@ -14,6 +14,7 @@ import {
   type Size,
   spanBox,
 } from "@/lib/pixel-perfect/geometry"
+import { componentFraction } from "@/lib/pixel-perfect/compose"
 import { cn } from "@/lib/utils"
 
 const blendStyle = {
@@ -49,6 +50,7 @@ export function PixelOverlay({ pp, canvasRef }: { pp: PixelPerfect; canvasRef: R
   const layer = useRef<HTMLDivElement>(null)
   const [drag, setDrag] = useState<Drag | null>(null)
   const ref = refs.data?.items.find((r) => r.id === state.referenceId) ?? null
+  const layers = useReferenceLayers(ref).data
   const result = state.result?.referenceId === ref?.id ? state.result : null
   const motion = useMemo(
     () =>
@@ -140,7 +142,7 @@ export function PixelOverlay({ pp, canvasRef }: { pp: PixelPerfect; canvasRef: R
       {frozen}
       {state.visible && (
         <img
-          src={ref.imageUrl}
+          src={pp.overlaySource(ref)}
           alt=""
           draggable={false}
           className="pointer-events-none absolute max-w-none select-none"
@@ -204,6 +206,21 @@ export function PixelOverlay({ pp, canvasRef }: { pp: PixelPerfect; canvasRef: R
             </span>
           </div>
         ))}
+      {layers &&
+        state.hoveredComponent &&
+        layers.components
+          .filter((c) => c.id === state.hoveredComponent)
+          .map((c) => (
+            <div
+              key={c.id}
+              className="pointer-events-none absolute bg-sky-400/15 outline-2 -outline-offset-1 outline-sky-500"
+              style={percentBox(onScreen(placed, componentFraction(layers, c)), size)}
+            >
+              <span className="absolute top-0 left-0 max-w-full -translate-y-full truncate rounded-sm bg-sky-600 px-1 text-[10px] leading-4 font-medium text-white">
+                {c.name}
+              </span>
+            </div>
+          ))}
       {result && state.hovered !== null && <HoveredMatch result={result} index={state.hovered} />}
       {interactive && (
         <div

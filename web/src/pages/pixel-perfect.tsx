@@ -5,6 +5,7 @@ import {
   ImageIcon,
   ImagePlusIcon,
   InfoIcon,
+  LayersIcon,
   Loader2Icon,
   PencilIcon,
   RefreshCwIcon,
@@ -16,6 +17,7 @@ import { toast } from "sonner"
 import type { ReferenceView } from "@/api/client"
 import {
   useDeleteReference,
+  useReferenceLayers,
   useReferences,
   useRefreshFigma,
   useUpdateReference,
@@ -23,6 +25,7 @@ import {
 } from "@/api/queries"
 import { FigmaTokenSection } from "@/components/figma-token"
 import { IconButton } from "@/components/session/icon-button"
+import { ComponentsList } from "@/components/session/pixel-perfect/components-list"
 import { FigmaImport } from "@/components/session/pixel-perfect/figma-import"
 import { type Blend, defaultPrefs, loadPrefs, type Prefs, savePrefs } from "@/components/session/pixel-perfect/state"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -133,7 +136,12 @@ export function PixelPerfectPage() {
               hasToken={hasToken}
               onDone={(v) => {
                 setImporting(false)
-                if (v) toast.success(`“${v.name}” imported with ${v.layers} layers`)
+                if (v)
+                  toast.success(`“${v.name}” imported`, {
+                    description: v.components
+                      ? `${v.layers} layers and ${v.components} components: open the components to hide live content such as a video placeholder.`
+                      : `${v.layers} layers.`,
+                  })
               }}
             />
           )}
@@ -208,6 +216,7 @@ function ReferenceRow({ reference: r, now }: { reference: ReferenceView; now: nu
   const remove = useDeleteReference()
   const refresh = useRefreshFigma()
   const [name, setName] = useState<string | null>(null)
+  const [open, setOpen] = useState(false)
 
   const save = () => {
     if (name === null) return
@@ -221,91 +230,120 @@ function ReferenceRow({ reference: r, now }: { reference: ReferenceView; now: nu
   }
 
   return (
-    <li className="flex items-center gap-3 p-3">
-      <div className="bg-muted size-14 shrink-0 overflow-hidden rounded-md ring-1 ring-black/10">
-        {r.thumbnailUrl ? (
-          <img src={r.thumbnailUrl} alt="" loading="lazy" width={160} className="size-full object-cover object-top" />
-        ) : (
-          <ImageIcon className="text-muted-foreground m-auto mt-4 size-5" />
-        )}
-      </div>
-      <div className="grid min-w-0 flex-1 gap-0.5">
-        {name !== null ? (
-          <Input
-            autoFocus
-            value={name}
-            maxLength={120}
-            className="h-7 text-sm"
-            onChange={(e) => setName(e.target.value)}
-            onBlur={save}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") save()
-              if (e.key === "Escape") setName(null)
+    <li className="grid gap-2 p-3">
+      <div className="flex items-center gap-3">
+        <div className="bg-muted size-14 shrink-0 overflow-hidden rounded-md ring-1 ring-black/10">
+          {r.thumbnailUrl ? (
+            <img src={r.thumbnailUrl} alt="" loading="lazy" width={160} className="size-full object-cover object-top" />
+          ) : (
+            <ImageIcon className="text-muted-foreground m-auto mt-4 size-5" />
+          )}
+        </div>
+        <div className="grid min-w-0 flex-1 gap-0.5">
+          {name !== null ? (
+            <Input
+              autoFocus
+              value={name}
+              maxLength={120}
+              className="h-7 text-sm"
+              onChange={(e) => setName(e.target.value)}
+              onBlur={save}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") save()
+                if (e.key === "Escape") setName(null)
+              }}
+            />
+          ) : (
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="truncate font-medium" title={r.name}>
+                {r.name}
+              </span>
+              {r.figma && <Badge variant="outline">Figma</Badge>}
+            </div>
+          )}
+          <span className="text-muted-foreground truncate text-xs">
+            {r.width}×{r.height} · {r.contentType.replace("image/", "").replace("+xml", "").toUpperCase()} ·{" "}
+            {formatBytes(r.size)}
+            {r.figma ? ` · ${r.layers} layers · synced ${formatRelative(r.figma.syncedAt, now)}` : ""}
+          </span>
+          <span className="text-muted-foreground truncate text-xs">
+            Used {formatRelative(r.lastUsedAt, now)}
+            {r.expiresAt ? ` · deleted ${formatRelative(r.expiresAt, now)} unless opened` : ""}
+          </span>
+        </div>
+        <div className="flex shrink-0 items-center">
+          {r.figma && (
+            <>
+              <IconButton label="Open in Figma" asChild>
+                <a href={r.figma.url} target="_blank" rel="noreferrer">
+                  <ExternalLinkIcon />
+                </a>
+              </IconButton>
+              <IconButton
+                label="Update from Figma"
+                disabled={refresh.isPending}
+                onClick={() =>
+                  refresh.mutate(
+                    { id: r.id, token: browserFigmaToken() },
+                    {
+                      onSuccess: () => toast.success(`“${r.name}” is up to date with Figma`),
+                      onError: (e) => toast.error("Could not update from Figma", { description: e.message }),
+                    },
+                  )
+                }
+              >
+                <RefreshCwIcon className={refresh.isPending ? "animate-spin" : undefined} />
+              </IconButton>
+            </>
+          )}
+          {r.components > 0 && (
+            <Button size="sm" variant={open ? "secondary" : "ghost"} onClick={() => setOpen(!open)}>
+              <LayersIcon />
+              {r.hidden.length ? `${r.components - r.hidden.length}/${r.components}` : r.components}
+            </Button>
+          )}
+          <IconButton label="Download the image" asChild>
+            <a href={r.imageUrl} download={r.name}>
+              <DownloadIcon />
+            </a>
+          </IconButton>
+          <IconButton label="Rename" onClick={() => setName(r.name)}>
+            <PencilIcon />
+          </IconButton>
+          <IconButton
+            label="Delete"
+            disabled={remove.isPending}
+            onClick={() => {
+              if (!window.confirm(`Delete the reference “${r.name}”?`)) return
+              remove.mutate(r.id, { onError: (e) => toast.error("Could not delete", { description: e.message }) })
             }}
-          />
-        ) : (
-          <div className="flex min-w-0 items-center gap-2">
-            <span className="truncate font-medium" title={r.name}>
-              {r.name}
-            </span>
-            {r.figma && <Badge variant="outline">Figma</Badge>}
-          </div>
-        )}
-        <span className="text-muted-foreground truncate text-xs">
-          {r.width}×{r.height} · {r.contentType.replace("image/", "").replace("+xml", "").toUpperCase()} ·{" "}
-          {formatBytes(r.size)}
-          {r.figma ? ` · ${r.layers} layers · synced ${formatRelative(r.figma.syncedAt, now)}` : ""}
-        </span>
-        <span className="text-muted-foreground truncate text-xs">
-          Used {formatRelative(r.lastUsedAt, now)}
-          {r.expiresAt ? ` · deleted ${formatRelative(r.expiresAt, now)} unless opened` : ""}
-        </span>
+          >
+            <Trash2Icon />
+          </IconButton>
+        </div>
       </div>
-      <div className="flex shrink-0 items-center">
-        {r.figma && (
-          <>
-            <IconButton label="Open in Figma" asChild>
-              <a href={r.figma.url} target="_blank" rel="noreferrer">
-                <ExternalLinkIcon />
-              </a>
-            </IconButton>
-            <IconButton
-              label="Update from Figma"
-              disabled={refresh.isPending}
-              onClick={() =>
-                refresh.mutate(
-                  { id: r.id, token: browserFigmaToken() },
-                  {
-                    onSuccess: () => toast.success(`“${r.name}” is up to date with Figma`),
-                    onError: (e) => toast.error("Could not update from Figma", { description: e.message }),
-                  },
-                )
-              }
-            >
-              <RefreshCwIcon className={refresh.isPending ? "animate-spin" : undefined} />
-            </IconButton>
-          </>
-        )}
-        <IconButton label="Download the image" asChild>
-          <a href={r.imageUrl} download={r.name}>
-            <DownloadIcon />
-          </a>
-        </IconButton>
-        <IconButton label="Rename" onClick={() => setName(r.name)}>
-          <PencilIcon />
-        </IconButton>
-        <IconButton
-          label="Delete"
-          disabled={remove.isPending}
-          onClick={() => {
-            if (!window.confirm(`Delete the reference “${r.name}”?`)) return
-            remove.mutate(r.id, { onError: (e) => toast.error("Could not delete", { description: e.message }) })
-          }}
-        >
-          <Trash2Icon />
-        </IconButton>
-      </div>
+      {open && <RowComponents reference={r} />}
     </li>
+  )
+}
+
+function RowComponents({ reference: r }: { reference: ReferenceView }) {
+  const layers = useReferenceLayers(r)
+  const update = useUpdateReference()
+  if (!layers.data) return <Loader2Icon className="text-muted-foreground size-4 animate-spin" />
+  return (
+    <div className="ml-17 max-w-xl">
+      <ComponentsList
+        layers={layers.data}
+        hidden={r.hidden}
+        onChange={(hidden) =>
+          update.mutate(
+            { ref: r, name: r.name, hidden },
+            { onError: (e) => toast.error("Could not save", { description: e.message }) },
+          )
+        }
+      />
+    </div>
   )
 }
 
@@ -325,6 +363,11 @@ const switches: { key: keyof Prefs; label: string; hint: string }[] = [
   },
   { key: "ignoreMedia", label: "Skip video, canvas and frames in WebViews", hint: "With DevTools on." },
   { key: "showRegions", label: "Differences on the screen", hint: "Outline and number them over the device." },
+  {
+    key: "skipHidden",
+    label: "Skip hidden components",
+    hint: "Leave a hidden Figma component's place out of the comparison.",
+  },
 ]
 
 function Defaults() {

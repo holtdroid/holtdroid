@@ -849,10 +849,13 @@ Design mockups over the screen (decision #106, `internal/api/pixelperfect.go`,
 `web/src/lib/pixel-perfect`, `web/src/components/session/pixel-perfect`):
 
 ```
-browser ─POST/PUT/DELETE /api/v1/pixel-perfect─▶ api ──▶ storage: pixel-perfect/<user>/<id>.json|.img|.thumb|.used|.layers
+browser ─POST/PUT/DELETE /api/v1/pixel-perfect─▶ api ──▶ storage: pixel-perfect/<user>/<id>.json|.img|.thumb|.used|.layers|.part-NN
         ─POST /api/v1/pixel-perfect/figma {url, token?}─▶ api ─GET /v1/files/{key}/nodes, /v1/images/{key}─▶ Figma
                                                               (frame picture + layers, decision #139)
-        ◀─GET /api/v1/pixel-perfect/{id}/layers── the frame's layers: boxes, fills, fonts, auto layout
+        ◀─GET /api/v1/pixel-perfect/{id}/layers── the frame's layers: boxes, fills, fonts, auto layout,
+                                                    and its components (#145)
+        ◀─GET /api/v1/pixel-perfect/{id}/components/{n}── a component's PNG; the browser redraws the frame
+                                                    from the background and the visible ones
         ─GET/PUT/DELETE /api/v1/pixel-perfect/figma-token─▶ api ─GET /v1/me─▶ Figma; database: figma_tokens
                                                               (AES-GCM, key from auth.sessionKey, decision #141)
         ◀─GET /api/v1/pixel-perfect/{id}/image── api (rewrites .used at most hourly)

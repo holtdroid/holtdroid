@@ -22,6 +22,7 @@ import type { ReferenceView, SessionView } from "@/api/client"
 import {
   useDeleteReference,
   useImportFigma,
+  useReferenceLayers,
   useReferences,
   useRefreshFigma,
   useUpdateReference,
@@ -29,6 +30,7 @@ import {
 } from "@/api/queries"
 import { IconButton } from "@/components/session/icon-button"
 import { Compare } from "@/components/session/pixel-perfect/compare"
+import { ComponentsList } from "@/components/session/pixel-perfect/components-list"
 import { FigmaImport } from "@/components/session/pixel-perfect/figma-import"
 import { type Blend, type PixelPerfect, usePixelState } from "@/components/session/pixel-perfect/state"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -283,7 +285,13 @@ function Library({
           initialUrl={figmaUrl}
           onDone={(v) => {
             onFigmaUrl(null)
-            if (v) pp.select(v.id)
+            if (v) {
+              pp.select(v.id)
+              if (v.components)
+                toast.success(`“${v.name}” imported`, {
+                  description: `Hide live content such as a video placeholder under Components (${v.components}).`,
+                })
+            }
           }}
         />
       )}
@@ -621,6 +629,8 @@ function Controls({ pp, reference: r, session }: { pp: PixelPerfect; reference: 
         </p>
       </Section>
 
+      {r.components > 0 && <ComponentsSection pp={pp} reference={r} />}
+
       <Section>
         <SectionHead title="Ignored areas">
           <div className="flex gap-1">
@@ -745,6 +755,44 @@ function Controls({ pp, reference: r, session }: { pp: PixelPerfect; reference: 
         </Section>
       )}
     </>
+  )
+}
+
+function ComponentsSection({ pp, reference: r }: { pp: PixelPerfect; reference: ReferenceView }) {
+  const state = usePixelState(pp)
+  const layers = useReferenceLayers(r)
+  const draft = pp.draft(r)
+  return (
+    <Section>
+      <SectionHead title="Components" />
+      {layers.data ? (
+        <ComponentsList
+          layers={layers.data}
+          hidden={draft.hidden}
+          onChange={(hidden) => pp.edit(r, { hidden })}
+          onHover={(id) => pp.hoverComponent(id)}
+        />
+      ) : (
+        <Loader2Icon className="text-muted-foreground size-4 animate-spin" />
+      )}
+      <div className="flex items-start gap-3">
+        <Switch
+          id="pp-skip-hidden"
+          checked={state.skipHidden}
+          onCheckedChange={(v) => {
+            pp.set({ skipHidden: v })
+            if (state.result) void pp.analyze()
+          }}
+        />
+        <Label htmlFor="pp-skip-hidden" className="grid gap-0.5 font-normal">
+          <span className="text-sm">Skip hidden components</span>
+          <span className="text-muted-foreground text-xs">
+            Leave their place out of the comparison, so the live video or map under a hidden placeholder doesn&apos;t
+            count as a difference.
+          </span>
+        </Label>
+      </div>
+    </Section>
   )
 }
 
