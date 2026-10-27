@@ -24,9 +24,10 @@ deployment"):
   the media library, or the browser's camera. Checked in a scratch Pod on
   k3s-3 with Android 15: Camera2 showed the agent's test card upright and
   switched to black live, a photo was saved, and the HAL exited 5 s after
-  the camera closed; on the live deployment Android 15 showed the test
-  card, black and a library image. Android 13 and 14 keep the HAL running
-  (their cameraserver crashes on a stopped lazy provider).
+  the camera closed. On the live deployment on 2026-10-27 Android 13, 14
+  and 15 showed the test card, black and a library image in Camera2, and
+  the agent's ffmpeg stopped when the camera closed. Android 13 and 14 keep
+  the HAL running (their cameraserver crashes on a stopped lazy provider).
   `virtual_camera` (the recon) was dropped: ANGLE on anv hangs the GPU.
 
 - The DNS tab (decision #133): the agent answers redroid sessions' DNS
