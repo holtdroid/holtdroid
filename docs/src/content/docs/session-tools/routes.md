@@ -2,7 +2,7 @@
 title: Routes
 description: Where a session's connections go — the servers behind each name, their country and network, the VPN location they left through, and what makes a path slower than it needs to be.
 sidebar:
-  order: 5
+  order: 9
 ---
 
 Sessions with a [VPN](/holtdroid/concepts/vpn/) know every connection the
@@ -74,7 +74,7 @@ recording, the details also show the median connect, TLS and waiting times
 of the WebView's requests to that name, and how many of them opened a new
 connection.
 
-The [DNS](/holtdroid/concepts/dns/) tab places the addresses it answered the
+The [DNS](/holtdroid/session-tools/dns/) tab places the addresses it answered the
 same way and marks a lookup **far** when every address in it is on another
 continent than the exit.
 
@@ -84,6 +84,12 @@ continent than the exit.
 player has the same tab: it shows the connections as they stood at the
 playhead. Places are looked up when the recording is watched, so they are
 where the addresses are now.
+
+A name's details in a recording also show how fast the WebView reached it:
+the median **connect**, **TLS** and **waiting** (time to first byte) of the
+WebView's requests to that name up to the playhead, and how many of them
+opened a new connection. Slow TLS or many new connections point at the
+connection setup; a long wait points at the server.
 
 ## Limits
 

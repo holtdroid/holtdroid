@@ -2,7 +2,7 @@
 title: DNS log and rewrites
 description: Every name a session's device looks up, rewrites of names to other addresses, a TTL limit and saved sets of rewrites.
 sidebar:
-  order: 4
+  order: 8
 ---
 
 Sessions with a [VPN](/holtdroid/concepts/vpn/) answer the device's DNS
@@ -32,7 +32,7 @@ An ordinary answer has no marks; what stands out does:
 - **SERVFAIL** (red): the upstream didn't answer;
 - **no records**: the name exists but has none of these types;
 - **far** (amber): every address answered is on another continent than
-  the session's exit (see [Routes](/holtdroid/concepts/routes/)).
+  the session's exit (see [Routes](/holtdroid/session-tools/routes/)).
 
 A dashed type means an empty answer: `AAAA` is always empty because the
 sidecar resolves IPv4 only, so apps connect over IPv4. A click on a row

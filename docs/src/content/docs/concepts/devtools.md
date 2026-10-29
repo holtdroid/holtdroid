@@ -77,44 +77,13 @@ the console's top left, the one that reads `top ▾`; Elements, Sources and
 Network already show it as part of the page. The target selector says the
 same at the bottom of its list.
 
-The **WebSockets** tab next to DevTools shows the WebViews' WebSockets and
-event streams as they happen, in DevTools' own look: the sockets on the
-left, their frames with the direction, the payload (parsed like in a
-recording, with time hints) and the time. It works without DevTools open.
-The agent keeps the socket traffic of the whole session, up to 16 MB of it
-(the oldest goes first), so the tab shows everything since the app started
-even after you reload the page or open the session somewhere else. **Clear**
-empties the tab in this browser only; **Hide under 15 B** leaves out short
-frames such as pings and acks, and your browser remembers it; pause stops it, and resuming fills in
-what came meanwhile. The tab keeps at most 5000 frames a socket. Sockets streaming video are marked and their
-frames left out. While the session records, a frame's time is a marker
-button: a click pins that moment on the recording, hovering offers the
-other marker icons and **Open the recording from here**.
-
-The **Cache** tab next to it checks the WebViews' finished requests for how
-they use the WebView's cache and a CDN such as Cloudflare: timestamps in
-URLs, missing or contradicting caching headers, CDN misses, bypasses and
-hits that shouldn't be, files downloaded again. It finds the same things as
-the [recording player's Cache tab](/concepts/recordings/#cache), with the
-device clock as each request's time. The agent keeps the session's requests
-without their bodies, up to 8 MB apart from the socket traffic, so the tab
-also covers what loaded before it was opened or the page reloaded; it keeps
-the newest 5000 requests in the browser. **Clear** and pause work as on the
-WebSockets tab.
-
-The **Images** and **SVG** tabs do the same for the [recording player's
-Images and SVG paths](/concepts/recordings/#images) checks, all the time and
-not only while recording. When the session runs with the image scan (the launch option **Check how
-pages draw their images**), the agent asks each page and iframe once a second which
-images it draws where, and keeps those lines with the requests. The bodies
-come from the WebView while it still has them (it keeps 32 MB, 2 MB a
-file): the newest 300 images, to measure them as WebP, and the newest 200
-scripts, pages, stylesheets and SVG files, to search them for paths.
-Without it the Images tab checks only the files, the SVG tab only the
-files' paths, and both offer **Turn on**: from then on the pages report what
-they show, and reloading the page in the app also checks how it loads.
-**Image scan on · turn off** in the tab's toolbar takes the script out of
-the pages again.
+Next to DevTools are tabs built on the same connection, which work without
+DevTools open: [WebSockets](/holtdroid/session-tools/websockets/),
+[Cache](/holtdroid/session-tools/cache/),
+[Images](/holtdroid/session-tools/images/) and
+[SVG](/holtdroid/session-tools/svg/). The agent keeps the session's socket
+traffic and requests, so they also show what happened before they were
+opened or the page reloaded.
 
 The settings button next to the target selector holds two switches, saved
 in your browser:

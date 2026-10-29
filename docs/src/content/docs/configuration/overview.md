@@ -114,7 +114,7 @@ providers:
 | `downloads.adminOnly`        | `false`                 | Only admins may download APKs, see [Downloads](/holtdroid/sources/overview/#downloads)                                                                                       |
 | `appData.*`                  | off                     | Save app data between sessions, see [App data](/holtdroid/concepts/app-data/)                                                                                                |
 | `recordings.*`               | off                     | Record sessions on the server, see [Recordings](/holtdroid/concepts/recordings/)                                                                                             |
-| `pixelPerfect.*`             | on                      | Reference images for the Pixel perfect tab, see [Pixel perfect](/holtdroid/concepts/pixel-perfect/)                                                                          |
+| `pixelPerfect.*`             | on                      | Reference images for the Pixel perfect tab, see [Pixel perfect](/holtdroid/session-tools/pixel-perfect/)                                                                     |
 | `media.*`                    | on, 5 GiB a user        | Audio, video and image files for a session's microphone and camera, see [Microphone](/holtdroid/concepts/microphone/)                                                        |
 | `devTools.frontend`          | Google's host           | Where the portal fetches the DevTools frontend from; empty lets the session's agent serve it                                                                                 |
 | `devTools.storage`           | the api's               | Where crawled DevTools frontends are archived, one tar.gz per revision; give it an S3 prefix when `storage` is a cache volume, see [DevTools](/holtdroid/concepts/devtools/) |
@@ -163,7 +163,7 @@ long routes, since the public server limits the rate and the distance.
 
 ### IP geolocation
 
-The [Routes](/holtdroid/concepts/routes/) and DNS tabs show the country and
+The [Routes](/holtdroid/session-tools/routes/) and DNS tabs show the country and
 network of each server. The api looks them up in two MaxMind-format
 databases, which the image ships: this month's
 [DB-IP Lite](https://db-ip.com/db/lite.php) country and ASN databases

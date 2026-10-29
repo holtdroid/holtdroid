@@ -38,7 +38,7 @@ restart signs everybody out and each replica rejects the others' cookies.
 :::
 
 The same key encrypts the Figma tokens users save on the Pixel perfect page
-(see [Pixel perfect](/holtdroid/concepts/pixel-perfect/)); with `mode: header`
+(see [Pixel perfect](/holtdroid/session-tools/pixel-perfect/)); with `mode: header`
 it is optional and used only for that.
 
 The cookie is marked `Secure` when `publicURL` starts with `https://`.

@@ -22,9 +22,9 @@ recording keeps more than the picture:
   scenarios; a region with what it adds to CDN and server round trips) and
   which links are on;
 - the **DNS** log: every query with its answers and TTLs, and when rewrites,
-  the TTL limit or the cache changed (see [DNS log and rewrites](/holtdroid/concepts/dns/));
+  the TTL limit or the cache changed (see [DNS log and rewrites](/holtdroid/session-tools/dns/));
 - the **connections**: every server the device talked to, through which
-  location, with its bytes (see [Routes](/holtdroid/concepts/routes/));
+  location, with its bytes (see [Routes](/holtdroid/session-tools/routes/));
 - the **time**: real time next to the device clock, with its time zone and
   how far it was set off real time;
 - the **load** every two seconds: device and app CPU, memory, frames and
@@ -82,31 +82,103 @@ encoder doesn't start. A device that can't capture sound is asked once and
 then left alone: its recordings are silent.
 When the device is silent, the recording is too.
 
-## Watching
+## The recordings list
 
 **Recordings** in the header (the clapperboard) lists your recordings,
-newest first, with a preview, the app, the length and the size. The preview
-is the screen just before the touch nearest to the fifth second of the
+newest first. Each card has a preview, the app, the length, the size, when it
+was made and when retention deletes it (or **kept** and **shared**). The
+preview is the screen just before the touch nearest to the fifth second of the
 recording, so it shows what someone was about to tap, or the screen at the
-fifth second when nobody touched it. A recording
-still in progress is marked and can be watched while it grows.
+fifth second when nobody touched it. A recording still in progress is marked
+and can be watched while it grows.
 
-When a recording has sound, a speaker button next to the speeds turns it on or off. It plays
-at 1× only, since at other speeds it would change its pitch; at 0.5×, 2× and 4× the
-player is silent. The downloaded video carries the sound (AAC, or Opus where
-the browser has no AAC encoder) and so does the `.holtdroid` file.
+The buttons on a card **keep** the recording past the retention period (or let
+it expire again), make and copy a **share link**, stop sharing, and
+**delete** it. The **Storage** box beside the list shows how much of your
+space is used and the server's rules: how long recordings are kept, the
+shortest one that is kept and whether share links are allowed. **Open a file**
+plays a `.holtdroid` file from your disk (see [Recording file](#recording-file-holtdroid)).
+
+## The player
+
+A recording opens on a page laid out like the session it came from:
+
+- **cards on the left**, as on the session page: **Time** (the place in the
+  recording; hover for the device clock, its time zone and offset next to
+  real time), **App** (its name, package, version and whether it runs),
+  **Device** (the battery on the card; the model, Android, screen and the
+  quick settings that were on in its panel), **Network** (the VPN location,
+  the network conditions and the traffic) and **Load** (CPU and memory on the
+  card, the rest in its panel). They change as the video plays, a card that
+  differs from normal is highlighted, and hovering one shows its details at
+  that moment;
+- **the phone** in the middle, playing the screen, with taps and swipes drawn
+  over it;
+- **the tools on the right**: Logcat, and, when the app had WebViews,
+  Network, Console, WebSockets, Cache, Images and SVG, plus DNS and Routes
+  when the session had them and Pixel perfect for signed-in viewers. Every tab
+  shows what had happened up to the moment you are at.
 
 Everything beside the phone is ordinary page text, so you can select and
-copy it. In the logcat panel:
+copy it.
+
+### Timeline and controls
+
+The timeline under the phone shows the whole recording:
+
+- **grey** where there is video;
+- **red marks** where the app closed or crashed;
+- **violet marks** where DNS rewrites or the TTL limit changed or the DNS
+  cache was cleared;
+- **pins** for markers (see [Markers](#markers)).
+
+Hover the timeline to see the time under the pointer; click or drag to go
+there. Hover a mark for what happened.
+
+Next to it are play and pause, five seconds back and forward, the speeds
+**0.5×**, **1×**, **2×** and **4×**, **Marker**, and on the right **Keep**,
+**Share**, **Download**, the pointer button and full screen.
+
+| Key                              | Does                                    |
+| -------------------------------- | --------------------------------------- |
+| <kbd>Space</kbd> or <kbd>K</kbd> | play or pause                           |
+| <kbd>←</kbd> / <kbd>→</kbd>      | five seconds back / forward             |
+| <kbd>M</kbd>                     | pin a marker here (your own recordings) |
+
+Taps and swipes show on the phone as green circles with a fading trail, and
+the navigation keys as a label at the bottom. The pointer button hides them
+(it only appears when something was touched); the downloaded video always has
+them.
+
+When a recording has sound, a speaker button next to the speeds turns it on
+or off. It plays at 1× only, since at other speeds it would change its pitch;
+at 0.5×, 2× and 4× the player is silent. The downloaded video carries the
+sound (AAC, or Opus where the browser has no AAC encoder) and so does the
+`.holtdroid` file.
+
+### Markers
+
+A marker is a pin on the timeline with an icon (pin, bug, flag, star, warning
+or done) and a short note. Click the **Recording** card on the session page
+while it records, or press **Marker** (or <kbd>M</kbd>) in the player to pin
+the moment you are at. Click a pin to jump there, rename it, change its icon
+or delete it. Anyone with a share link sees the markers but can't change them.
+The downloaded video shows each marker as a label over the phone for a few
+seconds, and a recording with a marker is never deleted for being too short.
+
+### Logcat
+
+The **Logcat** tab has the whole device's logcat, each line with its time in
+the recording:
 
 - the level menu hides quieter lines (for example **Warnings and above**) and
   the filter box searches tags and messages;
 - click a line's time to jump to it in the recording;
 - while you hold a selection the panel stops following the video, so the text
   doesn't scroll away; click elsewhere to follow again;
-- the copy button puts the lines on screen on the clipboard, and **Logcat**
-  below downloads the whole logcat as one text file, each line starting with
-  its time in the recording.
+- the copy button puts the lines on screen on the clipboard.
+
+The live tab is described in [Logcat](/holtdroid/session-tools/logcat/).
 
 ### Network, console and WebSockets
 
@@ -129,7 +201,10 @@ turn red when requests failed or the page logged errors.
   response is complete at that moment), method, name, host, size and time.
   Filter by URL, by type (Fetch/XHR, Doc, JS and so on) or to errors only.
   Click a request for its headers, query string and body (**Payload**), the
-  **Response** and its **Timing**, or copy it as cURL or as a `fetch()` call. Bodies are kept up to
+  **Response** and its **Timing**, or copy it as cURL or as a `fetch()` call.
+  **Timing** splits the request's time into **Queued, stalled**, **DNS**,
+  **Connect** (TLS included), **Send**, **Waiting (TTFB)** and **Download**,
+  so you can tell a slow server from a slow network or a queue in the app. Bodies are kept up to
   1 MB and images up to 512 KB; media and fonts are recorded without theirs.
 - **Console** has `console.*` calls, uncaught exceptions with their stack and
   the WebView's own messages (failed loads, violations, deprecations), with
@@ -141,11 +216,11 @@ turn red when requests failed or the page logged errors.
   WebM, JPEG and the like, or it moves a steady flow of data) is marked
   **media stream**: from then on its frames are counted but not recorded.
 - **Cache** checks how the requests up to that moment use the WebView's
-  cache and a CDN in front of the server (see [Cache](#cache)).
+  cache and a CDN in front of the server (see [Cache](/holtdroid/session-tools/cache/)).
 - **Images** checks the images loaded up to that moment against how the
-  pages drew them (see [Images](#images)).
+  pages drew them (see [Images](/holtdroid/session-tools/images/)).
 - **SVG** checks the SVG paths in the recorded scripts, pages, stylesheets,
-  SVG files and inline SVGs (see [SVG paths](#svg-paths)).
+  SVG files and inline SVGs (see [SVG paths](/holtdroid/session-tools/svg/)).
 
 JSON is shown as a tree you can open and close, also when it sits in a
 string field. Messages and bodies in common framings are split into their
@@ -183,142 +258,36 @@ tokens included, and anyone with a share link or the `.holtdroid` file sees
 them.
 :::
 
-**Download → Network (.har)** saves the requests, with their bodies, and the
-WebSocket messages as a HAR file; Chrome DevTools opens it in its Network
-panel (drop it there), and so do Charles, Fiddler or HAR viewers.
+### Cache, Images and SVG
 
-Taps and swipes show on the phone as green circles with a fading trail, and
-the navigation keys as a label at the bottom. The pointer button in the player's controls hides them (it only appears when something was touched);
-the downloaded video always has them.
+These tabs run the same checks as in a live session, on what was recorded up
+to the moment you are at:
 
-### Cache
+- **Cache** reads the recorded requests' headers and says where caching goes
+  wrong: the request time in the URL, parameters that change on every
+  request, the same file downloaded again, CDN misses and hits that shouldn't
+  be, and weak headers. See [Cache](/holtdroid/session-tools/cache/).
+- **Images** compares the recorded image files with how the pages drew them:
+  images not on screen within 10 seconds of loading, bigger than they are
+  drawn, in PNG, JPEG, GIF or BMP, or barely compressed. See
+  [Images](/holtdroid/session-tools/images/).
+- **SVG** finds path data with too many decimals, longer commands than needed
+  and paths shipped more than once. See [SVG](/holtdroid/session-tools/svg/).
 
-The **Cache** tab reads the recorded requests' headers and says where caching
-goes wrong. Its top row counts the requests a cache could keep (GET and HEAD
-that finished with a cacheable status), how many the WebView served itself
-(memory, disk, service worker or a `304`), the CDN's hit rate when the
-responses come through one, what was downloaded and how much of it a cache
-could have served. Below are the findings, errors first, each with the
-requests behind it; click one for the explanation, the requests with their
-time (a click seeks there), status, CDN status and where they came from, and
-the caching headers of the one you pick. **Open in Network** shows that
-request on the Network tab.
-
-It looks for:
-
-- **The request time in the URL**: a query parameter or path segment that
-  holds a Unix time (seconds or milliseconds), an ISO 8601 time within an
-  hour of when the request was sent, or the day's date (`_=1730032212345`,
-  `ts=…`, `/feed/2026-10-27/`). Every request then has a URL of its own, so
-  neither the WebView nor the CDN can reuse a response, whatever its headers
-  say. It is an error when the headers or a CDN would have cached it.
-- **A parameter that changes on every request**: three or more requests to
-  the same URL where one value (with digits, six characters or more) is new
-  each time, such as a nonce or random cache-buster.
-- **The same file downloaded again** in full, and why: no caching headers,
-  revalidation without `ETag` or `Last-Modified`, a server that answers
-  with the body instead of `304`, or a request that asked for a fresh copy.
-- **Cloudflare** (`cf-cache-status`) and other CDNs (`x-cache`,
-  `x-cache-status`): a hit on a response marked `private` or `no-store` or
-  one that sets a cookie (another user may get it), `BYPASS` with the reason
-  the headers give, `DYNAMIC` on static files or on responses whose headers
-  allow caching, the same URL missed again and again, and a hit older than
-  its lifetime. `CDN-Cache-Control` and `Cloudflare-CDN-Cache-Control` count
-  for the CDN.
-- **Headers**: static files without `Cache-Control` or `Expires`, or with
-  `no-store`; `no-cache` or `max-age=0` without a validator; files with a
-  content hash in their name and a short lifetime (they can be
-  `max-age=31536000, immutable`); `Set-Cookie` on files or on responses
-  marked for shared caches; `Vary` by `*`, `Cookie`, `User-Agent` or
-  `Authorization`; `Pragma` without `Cache-Control`.
-- **Requests that asked for a fresh copy** (`Cache-Control: no-cache` or
-  `Pragma: no-cache` on the request): when almost all do, DevTools' **Disable
-  cache** is probably on, and what the tab shows isn't how the app caches.
-
-The headers are the ones that went over the wire, `Set-Cookie` and the
-network stack's own request headers included. A session's live **Cache**
-tab does the same as the requests finish (see
-[DevTools](/concepts/devtools/)).
-
-### Images
-
-When the session was launched with **Check how pages draw their images**
-(off by default; the launch dialog remembers your choice in this browser), or
-it was turned on in the session's Images tab, the agent asks every page and
-every iframe in it once a second which images it draws: each `<img>` (its chosen `srcset` candidate), CSS background (also on
-`::before` and `::after`), SVG `<image>`, video poster and image button, with
-the box it is drawn in, `object-fit` or `background-size`, the screen's
-density, and whether it is on screen, off screen or hidden. On screen means
-inside the phone's screen: an image in an iframe that is scrolled away or
-clipped by the page counts as off screen. A line is
-written only when something changes. The **Images** tab puts that next to
-the recorded image requests. The top row counts the images, what they took
-to download, what loaded without being shown, and what could be saved if
-each image were as small as it can be. Click a finding for a preview, the
-image's format, size in bytes and pixels, the most device pixels any use
-draws it at, its uses with their time, and its requests (**Open in Network**).
-
-It looks for:
-
-- **Images not on screen within 10 seconds of loading**: below the fold,
-  outside the viewport or hidden by every element that uses them. They are
-  candidates for `loading="lazy"` or loading later. An image that shows up
-  later than that is a hint, with how long it waited. An image no `<img>`,
-  background, `<image>` or poster used at all is flagged too; it may be a
-  preload for another screen. Images of workers aren't expected on screen.
-- **Images bigger than they are drawn**: the natural size against the
-  biggest place that draws it, counting the screen's density, `object-fit`
-  and `background-size`. A 512 px file for a 32 px icon at density 2.625 has
-  about 37 times the pixels it needs. Images used in several places are
-  judged by the largest.
-- **PNG, JPEG, GIF and BMP**, with what the same image weighs as WebP. Your
-  browser decodes the recorded file and re-encodes it as WebP at quality 85,
-  whole and at the size drawn; without a recorded body (over 512 KB, or a
-  recording made before images were kept) it is a guess and marked so. GIFs
-  are always a guess, since an animation would lose its frames.
-- **WebP and AVIF that look barely compressed**: re-encoded at quality 85
-  they shrink by a third or more, or, without a body to try, they take more
-  bits per pixel than lossy images usually do.
-
-For that it runs a small script in the app's pages through DevTools; the APK
-isn't touched, but the pages get a `window.__holtdroidImages` object and two
-observers while it runs. Recordings without it, or made before pages reported
-their images, get only the checks on the files themselves. A recording that
-starts in the middle of a session makes the pages report everything again.
-Images that loaded before the pages were first scanned aren't judged by when
-they showed up.
-
-### SVG paths
-
-The **SVG** tab finds path data (`d`) in the recorded JavaScript, HTML,
-CSS, JSON and SVG files and in the inline `<svg>` elements the pages drew:
-markup, compiled JSX (`d:"M…"`), JSON, `setAttribute("d", …)`, and SVG data
-URIs, URL-encoded or base64. For each file it says how much path data it
-holds and what could be saved:
-
-- **Too many decimals**: digits after the point beyond what the path's size
-  needs. The size is the nearest `viewBox`, else the path's own extent: 2
-  digits for a 24-unit icon, 1 for a few hundred units, none from 1000. The
-  saving is what rounding alone takes off.
-- **Longer commands than needed**: what svgo's `convertPathData` saves on top
-  of rounding, by choosing relative or absolute coordinates per segment,
-  dropping separators and repeated commands, and turning lines into `H` and
-  `V` and curves into shorthand or arcs. Your browser runs svgo when the tab
-  opens.
-- **Paths shipped more than once**: the same path data in several files, or
-  several times in one, with the bytes the copies take. Inline SVGs only
-  count paths no file brought, so a page that renders an icon from the
-  bundle isn't counted twice.
-
-Click a finding for its file (**Open in Network**) and the paths, with their
-length before and after, a small preview when the `viewBox` is known, and
-for repeated paths where they appear. Savings are bytes before gzip or
-Brotli, which take off part of them.
+In a finding, a request's time seeks there and **Open in Network** shows it
+on the Network tab. A recording keeps image bodies up to 512 KB; bigger ones,
+and recordings made before images were kept, are judged by a guess that is
+marked so. How pages drew their images is recorded only when **Check how
+pages draw their images** was on (at launch or in the session's Images tab);
+without it only the files themselves are checked. A recording that starts in
+the middle of a session makes the pages report everything again, and images
+that loaded before the pages were first scanned aren't judged by when they
+showed up.
 
 ### Pixel perfect
 
 Signed-in viewers get a **Pixel perfect** tab next to the others, with the
-same panel as in a session (see [Pixel perfect](/holtdroid/concepts/pixel-perfect/)):
+same panel as in a session (see [Pixel perfect](/holtdroid/session-tools/pixel-perfect/)):
 the reference is laid over the video, and **Find differences** pauses
 playback and compares the frame at the playhead. **Skip what moves** takes
 the next few frames of the recording. A recording has no device behind it,
@@ -329,29 +298,34 @@ recording gives a cleaner comparison. Recordings made since this was added
 keep the device's screen size and density, so dp are exact; older ones take
 the screen as 360 dp wide.
 
-### Markers
+### DNS and Routes
 
-A marker is a pin on the timeline with an icon (pin, bug, flag, star, warning
-or done) and a short note. Click the **Recording** card on the session page
-while it records, press **Marker** (or <kbd>M</kbd>) in the player to pin the
-moment you are at, and click a pin to rename it, change its icon, jump there
-or delete it. Anyone with a share link sees the markers but can't change them.
-The downloaded video shows each marker as a label over the phone for a few
-seconds.
+**DNS** lists the names the device looked up up to that moment, with their
+answers, and **Routes** where the connections went, as in a session (see
+[DNS log and rewrites](/holtdroid/session-tools/dns/#recordings) and
+[Routes](/holtdroid/session-tools/routes/#in-recordings)).
 
-The timeline shows where there is video (grey) and where the app closed (red
-marks). Play and pause, five-second steps, speeds from 0.5× to 4× and full
-screen are next to it. <kbd>Space</kbd> plays and pauses, <kbd>←</kbd> and
-<kbd>→</kbd> step.
+## Downloads
 
-**Download → Logcat** gives the whole logcat. The **colored
-.log** keeps the levels and colours as ANSI codes (the level letter in bold, tags
-and the lines of warnings and errors coloured), so it reads well with
-`less -R`, `bat`, `lnav` or an editor with ANSI support; the **plain text**
-version has the same lines without colour codes. Each line starts with its time
-in the recording, followed by the usual `threadtime` line.
+**Download** under the player offers:
 
-## Downloading a video
+| Item                            | What you get                                                           | Who has it                                |
+| ------------------------------- | ---------------------------------------------------------------------- | ----------------------------------------- |
+| **Video (.mp4)**                | the screen with the device's cards beside it, rendered in your browser | your own recordings, once they have ended |
+| **Recording file (.holtdroid)** | everything in one file, to watch again without the server              | your own and shared recordings            |
+| **Network (.har)**              | the WebViews' requests with their bodies and the WebSocket messages    | when the app had WebViews                 |
+| **Logcat, colored (.log)**      | the whole logcat with levels and colours as ANSI codes                 | everyone                                  |
+| **Logcat, plain text (.txt)**   | the same lines without colour codes                                    | everyone                                  |
+
+The **HAR** file opens in Chrome DevTools' Network panel (drop it there), and
+in Charles, Fiddler or HAR viewers.
+
+In both logcat files each line starts with its time in the recording,
+followed by the usual `threadtime` line. The colored one keeps the level
+letter in bold and colours tags and the lines of warnings and errors, so it
+reads well with `less -R`, `bat`, `lnav` or an editor with ANSI support.
+
+### Video (.mp4)
 
 **Download → Video (.mp4)** renders the recording into an MP4 file in your browser,
 frame by frame, with the Holtdroid logo on top (the text is part of the
@@ -376,17 +350,9 @@ storage as they go and download it at the end. It needs a browser with
 WebCodecs (Chrome, Edge, Safari 17+, Firefox 130+) that can encode a video this
 size.
 
-## Naming
+### Recording file (.holtdroid)
 
-A recording is named after its app. The pencil next to the name, on a
-recording's card and on its page, gives it a name of your own (up to 120
-characters); leaving it empty goes back to the app's. The name shows to
-anyone with the share link, in the `.holtdroid` file and in the video's
-header.
-
-## Recording files
-
-**Download → Recording file (.holtdroid)** saves everything in one file: the
+This saves everything in one file: the
 video segments, the events (device state, network, load, taps), the logcat, the
 WebViews' requests, console and WebSockets, the markers, the preview and the app's icon. It is an ordinary ZIP archive whose
 video and logs are stored as they are, so any archiver opens it. It points back
@@ -410,6 +376,14 @@ change or frame),
 `thumb.jpg` and `icon.png`. To get a plain video of a recording without
 a new epoch (the screen didn't turn or restart), join an init file and its segments
 in order: `cat init-0.mp4 seg-1.m4s seg-2.m4s … > video.mp4`.
+
+## Naming
+
+A recording is named after its app. The pencil next to the name, on a
+recording's card and on its page, gives it a name of your own (up to 120
+characters); leaving it empty goes back to the app's. The name shows to
+anyone with the share link, in the `.holtdroid` file and in the video's
+header.
 
 ## Sharing
 

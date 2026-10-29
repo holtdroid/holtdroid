@@ -8,7 +8,7 @@ sidebar:
 The api keeps a small SQL database: session events and, in the
 [`users` auth mode](/holtdroid/configuration/authentication/#users-and-passkeys),
 users, passkeys and invite links, everyone's saved
-[DNS rewrite sets](/holtdroid/concepts/dns/#saved-sets) and backends for
+[DNS rewrite sets](/holtdroid/session-tools/dns/#saved-sets) and backends for
 [network regions](/holtdroid/configuration/emulator/#regions), and the last
 [route measured](/holtdroid/configuration/emulator/#the-sessions-route)
 through each VPN location (gone after a restart with `memory`; the

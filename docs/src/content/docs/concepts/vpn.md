@@ -26,7 +26,7 @@ in the Pod's network namespace, which Android shares:
 - the device's DNS queries are captured from the tunnel and handed to the
   session's agent, which logs them, answers your rewrites and resolves the
   rest through the selected location, so lookups don't leak (see
-  [DNS log and rewrites](/holtdroid/concepts/dns/));
+  [DNS log and rewrites](/holtdroid/session-tools/dns/));
 - those lookups return IPv4 addresses only (`AAAA` answers are empty), so
   the device never tries IPv6 through a location that can't carry it.
 

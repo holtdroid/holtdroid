@@ -2,7 +2,7 @@
 title: Pixel perfect
 description: Lay a design mockup over the device screen, find where the app differs from it and export a report.
 sidebar:
-  order: 8
+  order: 2
 ---
 
 The **Pixel perfect** tab next to DevTools lays a design mockup over the

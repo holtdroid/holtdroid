@@ -54,6 +54,11 @@ export default defineConfig({
 				},
 				{ label: 'Start here', items: [{ autogenerate: { directory: 'start' } }] },
 				{ label: 'Concepts', items: [{ autogenerate: { directory: 'concepts' } }] },
+				{
+					label: 'Session tools',
+					translations: { ru: 'Инструменты сессии', uk: 'Інструменти сесії' },
+					items: [{ autogenerate: { directory: 'session-tools' } }],
+				},
 				{ label: 'Configuration', items: [{ autogenerate: { directory: 'configuration' } }] },
 				{ label: 'APK sources', items: [{ autogenerate: { directory: 'sources' } }] },
 				{ label: 'Tools', items: [{ autogenerate: { directory: 'tools' } }] },
