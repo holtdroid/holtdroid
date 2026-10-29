@@ -1,6 +1,12 @@
 <p align="center">
-  <strong>Holtdroid</strong><br>
-  <em>A cozy holt for your test Androids.</em>
+  <a href="https://holtdroid.github.io/holtdroid/"><img src="https://github.com/holtdroid/.github/raw/main/profile/assets/social-holtdroid.png" alt="Holtdroid — a cozy holt for your test Androids"></a>
+</p>
+
+<p align="center">
+  <a href="https://holtdroid.github.io/holtdroid/"><b>Documentation</b></a> ·
+  <a href="https://holtdroid.github.io/holtdroid/start/introduction/">Introduction</a> ·
+  <a href="https://holtdroid.github.io/holtdroid/start/installation/">Installation</a> ·
+  <a href="https://github.com/holtdroid">All repositories</a>
 </p>
 
 Holtdroid is a self-hosted, browser-based Android sandbox for testing APKs.
