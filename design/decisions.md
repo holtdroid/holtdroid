@@ -5032,3 +5032,20 @@ supersedes the "home page components share its card style" part of #165.
 theme switcher, and is English only. Its links into the docs are built
 with `localized()` from `docs/src/topics.mjs`, so moving a docs page means
 updating the landing page too; `make docs` doesn't check them.
+
+## 167. The docs are dark only, laid out like the landing page
+
+**Context.** After the landing page (decision #166) the docs' warm light
+theme and header tabs (decision #165) looked like a different site.
+
+**Decision.** The docs use the landing page's palette and are always dark:
+`ThemeProvider` is overridden to set `data-theme="dark"` and `ThemeSelect`
+renders nothing. The section switch moves from header tabs to a list with
+icons at the top of the sidebar (Documentation, Guides, GitHub,
+Repositories), the sidebar and the table of contents have no background or
+border of their own, and code blocks use `github-dark-default` on the
+landing page's card colour. This supersedes the header tabs and the light
+palette of #165; the split into topics stays.
+
+**Consequences.** Readers who prefer light pages can't switch. The guides'
+portal scenes always render in their dark theme.

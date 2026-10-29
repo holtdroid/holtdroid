@@ -34,12 +34,26 @@ export default defineConfig({
 			},
 			customCss: ['@fontsource-variable/geist', './src/styles/theme.css', './src/styles/custom.css'],
 			components: {
-				Header: './src/components/overrides/Header.astro',
 				PageTitle: './src/components/overrides/PageTitle.astro',
 				Sidebar: './src/components/overrides/Sidebar.astro',
+				ThemeProvider: './src/components/overrides/ThemeProvider.astro',
+				ThemeSelect: './src/components/overrides/ThemeSelect.astro',
 			},
 			expressiveCode: {
-				styleOverrides: { borderRadius: '0.75rem', codeFontSize: '0.8125rem', frames: { shadowColor: 'transparent' } },
+				themes: ['github-dark-default'],
+				styleOverrides: {
+					borderRadius: '0.75rem',
+					borderColor: 'rgb(255 255 255 / 0.08)',
+					codeBackground: '#0f110e',
+					codeFontSize: '0.8125rem',
+					frames: {
+						shadowColor: 'transparent',
+						editorTabBarBackground: '#0f110e',
+						editorActiveTabBackground: '#0f110e',
+						terminalTitlebarBackground: '#121411',
+						terminalBackground: '#0f110e',
+					},
+				},
 			},
 			plugins: [
 				starlightSidebarTopics(topics),

@@ -20,7 +20,7 @@ export const scenes: Scene[] = [
 
 function Scene({ guide, onFinish }: { guide: string; onFinish: () => void }) {
   const sc = use(loadScenario(guide))
-  return <Player sc={sc} lang="en" onFinish={onFinish} compact />
+  return <Player sc={{ ...sc, steps: sc.steps.slice(0, 6) }} lang="en" onFinish={onFinish} compact pace={0.55} />
 }
 
 export default function Showcase() {
@@ -34,7 +34,7 @@ export default function Showcase() {
       <div
         role="tablist"
         aria-label="What you can do"
-        className="mx-auto flex max-w-full gap-1 overflow-x-auto rounded-full border border-white/10 bg-white/[0.03] p-1"
+        className="flex w-fit max-w-full justify-self-center gap-1 overflow-x-auto rounded-full border border-white/10 bg-white/[0.03] p-1"
       >
         {scenes.map((s, i) => (
           <button
@@ -58,7 +58,10 @@ export default function Showcase() {
           <Scene key={scene.guide} guide={scene.guide} onFinish={() => setIndex((index + 1) % scenes.length)} />
         </Suspense>
       </div>
-      <a href={scene.href} className="mx-auto text-sm text-neutral-400 no-underline transition-colors hover:text-white">
+      <a
+        href={scene.href}
+        className="justify-self-center text-sm text-neutral-400 no-underline transition-colors hover:text-white"
+      >
         Open this as a step-by-step guide →
       </a>
     </div>

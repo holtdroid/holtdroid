@@ -1,19 +1,33 @@
 ---
 import { Icon } from "@astrojs/starlight/components"
 import Default from "@astrojs/starlight/components/Sidebar.astro"
-import { localized, topics } from "../../topics.mjs"
+import { externalLinks, localized, topics } from "../../topics.mjs"
 
 const { locale } = Astro.locals.starlightRoute
 const current = Astro.locals.starlightSidebarTopics?.topics ?? []
 ---
 
-<ul class="hd-topics md:sl-hidden">
+<ul class="hd-topics">
   {
     topics.map((t, i) => (
       <li>
         <a href={localized(t.link, locale)} aria-current={current[i]?.isCurrent ? "page" : undefined}>
-          <Icon name={t.icon} />
+          <span class="hd-topic-icon">
+            <Icon name={t.icon} />
+          </span>
           {current[i]?.label ?? t.label.en}
+        </a>
+      </li>
+    ))
+  }
+  {
+    externalLinks.map((l) => (
+      <li>
+        <a href={l.href} rel="noopener">
+          <span class="hd-topic-icon">
+            <Icon name={l.icon} />
+          </span>
+          {l.label}
         </a>
       </li>
     ))

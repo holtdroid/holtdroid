@@ -90,11 +90,13 @@ export function Player({
   lang,
   onFinish,
   compact,
+  pace = 1,
 }: {
   sc: Scenario
   lang: Lang
   onFinish?: () => void
   compact?: boolean
+  pace?: number
 }) {
   const t = ui[lang]
   const height = sc.height ?? HEIGHT
@@ -175,13 +177,13 @@ export function Player({
     } else if (play.auto) {
       timer =
         play.index < last
-          ? window.setTimeout(() => dispatch({ type: "goto", index: play.index + 1 }), readTime(step, lang))
+          ? window.setTimeout(() => dispatch({ type: "goto", index: play.index + 1 }), readTime(step, lang) * pace)
           : onFinish
-            ? window.setTimeout(onFinish, readTime(step, lang))
+            ? window.setTimeout(onFinish, readTime(step, lang) * pace)
             : window.setTimeout(() => dispatch({ type: "auto", auto: false }), 0)
     }
     return () => window.clearTimeout(timer)
-  }, [play, visible, step, last, lang, onFinish])
+  }, [play, visible, step, last, lang, onFinish, pace])
 
   useEffect(() => {
     if (!visible || !step.target) return undefined
