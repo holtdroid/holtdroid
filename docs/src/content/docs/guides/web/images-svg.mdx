@@ -1,0 +1,58 @@
+---
+title: Find heavy images and SVG icons
+description: See which images a screen downloads for nothing or too big, and which SVG icons ship with extra digits or several times.
+sidebar:
+  order: 4
+tableOfContents: false
+---
+
+import Guide from "../../../../components/Guide.astro"
+import Hint from "../../../../components/Hint.astro"
+
+**Why:** the first screen is slow, and most of its bytes are often images nobody sees and icons with path data no
+one needs. These tabs say which files to fix first and how much each fix saves, without a DevTools window.
+
+<Guide id="images-svg" />
+
+## What happens
+
+1. The <Hint to="tab-images" step={1}>Images</Hint> tab checks every image the app's WebViews load.
+2. <Hint to="img-scan-on" step={2}>Turn on the image scan</Hint> so it also sees where and how big the pages draw
+   each image.
+3. <Hint to="img-stats" step={3}>The numbers on top</Hint> add up what was downloaded, what never appeared on screen
+   and what could be saved.
+4. Findings explain each problem: <Hint to="img-finding-banner" step={4}>not on screen</Hint>,
+   <Hint to="img-finding-hero" step={5}>bigger than drawn</Hint>, a PNG that would be smaller as WebP.
+5. <Hint to="img-filter-warnings" step={6}>Warnings</Hint> leaves what is worth fixing first.
+6. The <Hint to="tab-svg" step={7}>SVG</Hint> tab finds path data with <Hint to="svg-finding-decimals" step={8}>too
+   many decimals</Hint>, longer commands than needed and <Hint to="svg-finding-dupes" step={9}>icons shipped
+   twice</Hint>.
+
+## Examples
+
+- **The first screen is slow.** Launch with **Check how pages draw their images**, open the screen, wait ten seconds
+  and read the warnings: _wasn't on screen_ and _draws it nowhere_ are bytes the first screen paid for and didn't
+  show.
+- **Report an image to a designer.** Open the finding: natural size, drawn size and the WebP sizes are exactly what
+  is needed to export it right.
+- **Check a fix.** Clear the tab, reload the page in the app and compare **Downloaded** and **Could save** with
+  before.
+- **Trim an icon set.** _Too many decimals_ in `icons.js` means the export kept six digits where two are enough;
+  _shipped more than once_ means the same icon is bundled into several chunks.
+
+## Good to know
+
+- The image scan runs a small script in the app's pages; the APK isn't changed. It also lets the SVG tab see the
+  pages' inline `<svg>` elements.
+- Savings are measured by re-encoding the real file as WebP in your browser; when that isn't possible the finding
+  says _about_.
+- [Recordings](/holtdroid/guides/recordings/record-share/) keep both tabs and judge everything up to the playhead.
+
+## If it doesn't work
+
+- **The tabs are missing**: the device doesn't support DevTools.
+- **No _not on screen_ findings**: the image scan is off, or the images loaded before it was turned on. Reload the
+  page in the app.
+- **An image isn't listed**: images inlined as `data:` URLs, redirects and failed requests are skipped.
+
+More details: [Images](/holtdroid/session-tools/images/), [SVG](/holtdroid/session-tools/svg/).

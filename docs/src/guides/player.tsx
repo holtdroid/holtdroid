@@ -102,7 +102,7 @@ export function Player({
   const height = sc.height ?? HEIGHT
   const last = sc.steps.length - 1
   const [play, dispatch] = useReducer(reduce, { index: 0, phase: "move", typed: 0, auto: false, started: false })
-  const [width, setWidth] = useState(WIDTH)
+  const [width, setWidth] = useState<number | null>(null)
   const [visible, setVisible] = useState(false)
   const [hint, setHint] = useState<string | null>(null)
   const frameRef = useRef<HTMLDivElement>(null)
@@ -111,7 +111,7 @@ export function Player({
   const pointerRef = useRef<SVGSVGElement>(null)
   const rippleRef = useRef<HTMLSpanElement>(null)
   const focusRef = useRef<HTMLDivElement>(null)
-  const scale = Math.min(1, width / WIDTH)
+  const scale = Math.min(1, (width ?? WIDTH) / WIDTH)
   const step = sc.steps[play.index]!
   const s = stateAt(sc, play)
 
@@ -250,7 +250,7 @@ export function Player({
         aria-label={t.tap}
         title={t.tap}
         className="relative cursor-pointer overflow-hidden rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-sky-400/60"
-        style={{ height: height * scale }}
+        style={{ aspectRatio: `${WIDTH} / ${height}`, maxHeight: height }}
         onClick={() =>
           finished ? go(0) : play.phase === "done" ? go(play.index + 1) : dispatch({ type: "phase", phase: "done" })
         }
@@ -268,7 +268,12 @@ export function Player({
           ref={stageRef}
           inert
           className="pointer-events-none absolute top-0 left-0 origin-top-left select-none"
-          style={{ width: WIDTH, height, transform: `scale(${scale})` }}
+          style={{
+            width: WIDTH,
+            height,
+            transform: `scale(${scale})`,
+            visibility: width === null ? "hidden" : undefined,
+          }}
         >
           <Portal s={s} />
           <div

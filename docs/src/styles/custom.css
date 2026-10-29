@@ -2,6 +2,28 @@ html:has(.hd-guide) {
   --sl-content-width: 64rem;
 }
 
+.hd-guide astro-island:empty {
+  display: block;
+  margin-block: 1.5rem;
+}
+
+.hd-guide astro-island:empty::before {
+  content: "";
+  display: block;
+  aspect-ratio: 1180 / 720;
+  border-radius: 0.75rem;
+  background: rgb(255 255 255 / 0.03);
+}
+
+.hd-guide astro-island:empty::after {
+  content: "";
+  display: block;
+  height: 6.6rem;
+  margin-top: 0.75rem;
+  border-radius: 0.75rem;
+  background: rgb(255 255 255 / 0.02);
+}
+
 .hd-hint {
   cursor: help;
   border-radius: 0.25rem;

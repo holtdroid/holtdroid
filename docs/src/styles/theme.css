@@ -69,6 +69,11 @@ body {
 
   :root[data-has-sidebar] {
     --sl-content-inline-start: calc(var(--hd-gutter) + var(--sl-sidebar-width));
+    --sl-content-margin-inline: 0 auto;
+  }
+
+  :root[data-has-sidebar]:not([data-has-toc]) .main-pane {
+    width: calc(100% - var(--hd-gutter));
   }
 
   .sidebar-pane {
@@ -117,12 +122,15 @@ body {
   }
 }
 
+.content-panel {
+  border-top: 0 !important;
+}
+
 /* Header */
 
 header.header {
   background: rgb(10 11 9 / 0.6);
   backdrop-filter: blur(16px) saturate(150%);
-  -webkit-backdrop-filter: blur(16px) saturate(150%);
 }
 
 .site-title {
@@ -385,19 +393,93 @@ site-search button[data-open-modal]:hover {
   border-color: var(--hd-line);
 }
 
-.sl-markdown-content table {
-  overflow: hidden;
+.sl-markdown-content table:not(:where(.not-content *)) {
   border: 1px solid var(--hd-line);
-  border-radius: 0.75rem;
+  border-radius: 0.9rem;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--sl-text-sm);
+  line-height: 1.6;
 }
 
-.sl-markdown-content :is(th, td) {
-  border-color: var(--hd-line);
+.sl-markdown-content :is(th, td):not(:where(.not-content *)) {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--hd-line);
 }
 
-.sl-markdown-content th {
+.sl-markdown-content :is(th, td):first-child:not(:where(.not-content *)) {
+  padding-inline-start: 1rem;
+  white-space: nowrap;
+}
+
+.sl-markdown-content :is(th, td):last-child:not(:where(.not-content *)) {
+  padding-inline-end: 1rem;
+}
+
+.sl-markdown-content tr:last-child > td:not(:where(.not-content *)) {
+  border-bottom: 0;
+}
+
+.sl-markdown-content th:not(:where(.not-content *)) {
   background: rgb(255 255 255 / 0.03);
   color: var(--sl-color-white);
+  font-weight: 600;
+  text-align: start;
+}
+
+.sl-markdown-content tbody tr:hover > td {
+  background: rgb(255 255 255 / 0.02);
+}
+
+.sl-markdown-content td :is(a, strong) {
+  white-space: nowrap;
+}
+
+/* Mermaid diagrams */
+
+.sl-markdown-content pre.mermaid {
+  display: flex;
+  justify-content: center;
+  padding: 2rem 1.5rem;
+  border: 1px solid var(--hd-line);
+  border-radius: 1rem;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgb(61 220 132 / 0.06), transparent 60%),
+    linear-gradient(var(--hd-line) 1px, transparent 1px) 0 0 / 28px 28px,
+    linear-gradient(90deg, var(--hd-line) 1px, transparent 1px) 0 0 / 28px 28px,
+    #0d0f0c;
+}
+
+.mermaid svg :is(.node rect, .node polygon, rect.basic, .statediagram-state rect, .actor) {
+  rx: 10px;
+  ry: 10px;
+}
+
+.mermaid svg :is(.flowchart-link, .transition, .messageLine0, .messageLine1) {
+  stroke-dasharray: 6 5 !important;
+  animation: hd-flow 1.1s linear infinite;
+}
+
+.mermaid svg :is(.node, .statediagram-state, .actor) {
+  filter: drop-shadow(0 6px 18px rgb(0 0 0 / 0.45));
+}
+
+.mermaid svg .cluster rect {
+  rx: 14px;
+  ry: 14px;
+  stroke-dasharray: 4 4;
+}
+
+@keyframes hd-flow {
+  to {
+    stroke-dashoffset: -22;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mermaid svg :is(.flowchart-link, .transition, .messageLine0, .messageLine1) {
+    animation: none;
+  }
 }
 
 .sl-markdown-content img {

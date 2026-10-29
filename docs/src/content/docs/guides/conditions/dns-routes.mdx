@@ -1,0 +1,58 @@
+---
+title: See where the app's traffic goes
+description: Read every DNS lookup, point a name at a staging server, and find far servers and wasted connections in the routes.
+sidebar:
+  order: 6
+tableOfContents: false
+---
+
+import Guide from "../../../../components/Guide.astro"
+import Hint from "../../../../components/Hint.astro"
+
+**Why:** a slow screen is often not the app but the network around it: a CDN on another continent, a name that
+doesn't exist, a new TLS connection for every request. And to test against staging you shouldn't need a special
+build.
+
+<Guide id="dns-routes" />
+
+## What happens
+
+1. The <Hint to="tab-dns" step={1}>DNS</Hint> tab lists every name the device looks up, as it happens.
+2. Marks show what stands out: <Hint to="dns-row-ads" step={2}>NXDOMAIN</Hint> for a name that doesn't exist,
+   <Hint to="dns-row-img" step={3}>far</Hint> when every address is on another continent than the VPN exit, and
+   <Hint to="dns-row-doh" step={4}>DoH blocked</Hint> for encrypted DNS that would skip the log.
+3. <Hint to="dns-row-api" step={5}>A row's details</Hint> show the `CNAME` chain and each address with its country
+   and network.
+4. <Hint to="dns-rewrite-btn" step={6}>Rewrite this name</Hint> answers it with your own address, blocks it or makes
+   it not exist.
+5. The <Hint to="tab-routes" step={8}>Routes</Hint> tab follows the connections from the device through the VPN to
+   each server, with <Hint to="route-row-api" step={10}>no reuse</Hint>, far, bypass and HTTP flags.
+6. <Hint to="routes-flagged" step={11}>Flagged</Hint> leaves only the names that look off.
+
+## Examples
+
+- **Production app against staging.** Rewrite `api.example.com` to the staging server's IP address and restart the
+  app. Turn the rule off to go back; with TTL 0 it applies at once.
+- **What if analytics is down?** Rewrite the analytics domain to **Doesn't exist** or **Block** and check that the
+  app still opens and doesn't hang on a spinner.
+- **Why are images slow in Kazakhstan?** Switch the [country](/holtdroid/guides/conditions/vpn/) to Kazakhstan and
+  look for **far** in Routes: an image CDN without an edge nearby shows up right away.
+- **Too many handshakes.** **no reuse** on your API means every request opens a new TCP and TLS connection. Send the
+  connection list from the details to the backend team.
+
+## Good to know
+
+- Both tabs need a session with a VPN location: its sidecar sees the device's DNS and connections.
+- Rewrites clear Android's DNS cache, but a WebView can keep a name for up to a minute. Restart the app when a
+  rewrite must apply to everything.
+- Save a set of rewrites under **Sets** and load it into another session later.
+- [Recordings](/holtdroid/guides/recordings/record-share/) keep both tabs, so a link to a recording shows the DNS
+  answers and connections at the moment of the bug.
+
+## If it doesn't work
+
+- **There is no DNS or Routes tab**: the session has no VPN location. Physical phones have Routes but no DNS tab yet.
+- **A rewrite has no effect**: the app hard-codes an IP address or resolves names over its own DNS over HTTPS.
+- **Countries are missing**: this Holtdroid has no geolocation databases configured.
+
+More details: [DNS log and rewrites](/holtdroid/session-tools/dns/), [Routes](/holtdroid/session-tools/routes/).

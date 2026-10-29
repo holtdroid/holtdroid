@@ -116,6 +116,17 @@ export type PortalState = {
   filesFolder: "" | "shared_prefs" | "Download"
   fileUploaded: boolean
 
+  dnsView: "queries" | "rewrites"
+  dnsQuery: "none" | "api"
+  dnsRewrite: boolean
+  routeName: "none" | "api"
+  routesFlagged: boolean
+
+  imgScan: boolean
+  imgFinding: "none" | "hero" | "banner"
+  imgFilter: "all" | "warnings"
+  svgFinding: "none" | "decimals" | "dupes"
+
   ppReference: boolean
   ppOpacity: number
   ppCompare: boolean

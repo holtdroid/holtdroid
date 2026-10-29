@@ -9,6 +9,8 @@ const scenarios: Record<string, () => Promise<{ default: Scenario }>> = {
   devtools: () => import("./devtools"),
   websockets: () => import("./websockets"),
   "webview-version": () => import("./webview-version"),
+  "images-svg": () => import("./images-svg"),
+  "dns-routes": () => import("./dns-routes"),
   vpn: () => import("./vpn"),
   network: () => import("./network"),
   gps: () => import("./gps"),

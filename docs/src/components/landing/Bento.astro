@@ -16,6 +16,12 @@ const countries = [
 ]
 const slots = ["busy", "busy", "idle", "busy", "free", "free"]
 const contracts = ["Provider", "Agent", "Source", "VPN", "Secrets", "Sign-in"]
+const dns = [
+  { name: "api.shop.example.com", answer: "10.0.4.12", mark: "rewrite", tone: "violet" },
+  { name: "img.example-cdn.com.br", answer: "200.147.3.157", mark: "far", tone: "amber" },
+  { name: "metrics.example-ads.com", answer: "", mark: "NXDOMAIN", tone: "amber" },
+  { name: "shop.example.com", answer: "anycast · AMS", mark: "", tone: "" },
+]
 const bars = Array.from({ length: 48 }, (_, i) => 20 + Math.round(Math.abs(Math.sin(i * 1.7) * 60 + Math.cos(i * 0.6) * 20)))
 ---
 
@@ -131,6 +137,46 @@ const bars = Array.from({ length: 48 }, (_, i) => 20 + Math.round(Math.abs(Math.
         </div>
       </a>
 
+      <a class="l-card tile wide" href={url("/guides/conditions/dns-routes/")}>
+        <div class="copy">
+          <h3>See every lookup and connection</h3>
+          <p>
+            The DNS log and the routes behind each name: far servers, missing names, connections that aren't reused.
+            Point a name at staging without a rebuild.
+          </p>
+        </div>
+        <div class="dns" aria-hidden="true">
+          <div class="path">
+            <span>Device</span><i></i><span class="vpn-node">VPN · NL</span><i></i><span>185.107.56.12</span><i></i
+            ><span>4 servers</span>
+          </div>
+          {
+            dns.map((q, i) => (
+              <div class="q" style={`--d: ${i * 0.5}s`}>
+                <span class="n">{q.name}</span>
+                <span class="a">{q.answer}</span>
+                {q.mark && <span class:list={["mk", q.tone]}>{q.mark}</span>}
+              </div>
+            ))
+          }
+        </div>
+      </a>
+
+      <a class="l-card tile" href={url("/guides/web/images-svg/")}>
+        <div class="copy">
+          <h3>Heavy images and SVG icons</h3>
+          <p>What a screen downloads for nothing, too big or in an old format, and icons with extra digits.</p>
+        </div>
+        <div class="img" aria-hidden="true">
+          <div class="meter">
+            <i class="shown"></i><i class="hidden"></i><i class="save"></i>
+          </div>
+          <div class="legend"><span>3.4 MB</span><span class="h">1.1 MB unseen</span><span class="v">−2.2 MB</span></div>
+          <code class="before">d="M12.000000 4.500000L18.250000…"</code>
+          <code class="after">d="M12 4.5l6.25…"</code>
+        </div>
+      </a>
+
       <a class="l-card tile" href={url("/extending/contracts/")}>
         <div class="copy">
           <h3>Pluggable by contract</h3>
@@ -158,6 +204,7 @@ const bars = Array.from({ length: 48 }, (_, i) => 20 + Math.round(Math.abs(Math.
   .bento {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-auto-flow: row dense;
     gap: 1rem;
   }
   .tile {
@@ -509,6 +556,141 @@ const bars = Array.from({ length: 48 }, (_, i) => 20 + Math.round(Math.abs(Math.
     animation: snap 6s var(--d) infinite;
   }
 
+  .dns {
+    display: grid;
+    gap: 0.3rem;
+    margin-top: auto;
+    padding: 0.75rem;
+    border: 1px solid var(--l-line);
+    border-radius: 0.9rem;
+    background: rgb(0 0 0 / 0.35);
+    font-family: var(--l-mono);
+    font-size: 0.75rem;
+  }
+  .path {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    align-items: center;
+    margin-bottom: 0.4rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid var(--l-line);
+    color: var(--l-muted);
+  }
+  .path i {
+    width: 1.5rem;
+    height: 2px;
+    background: repeating-linear-gradient(90deg, var(--l-green) 0 4px, transparent 4px 8px);
+    background-size: 16px 2px;
+    animation: flow-dash 0.8s linear infinite;
+  }
+  .vpn-node {
+    padding: 0.1rem 0.45rem;
+    border: 1px solid rgb(61 220 132 / 0.45);
+    border-radius: 0.4rem;
+    color: var(--l-green);
+  }
+  .q {
+    display: grid;
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto;
+    gap: 0.75rem;
+    align-items: center;
+    padding: 0.25rem 0.25rem;
+    opacity: 0;
+    animation: row-in 7s var(--d) infinite;
+  }
+  .n,
+  .a {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .a {
+    color: var(--l-muted);
+  }
+  .mk {
+    padding: 0.05rem 0.4rem;
+    border-radius: 0.35rem;
+    font-family: var(--l-font);
+    font-size: 0.68rem;
+  }
+  .mk.violet {
+    background: rgb(167 139 250 / 0.15);
+    color: #c4b5fd;
+  }
+  .mk.amber {
+    background: rgb(245 180 70 / 0.15);
+    color: #f5c46b;
+  }
+
+  .img {
+    display: grid;
+    gap: 0.5rem;
+    margin-top: auto;
+  }
+  .meter {
+    display: flex;
+    overflow: hidden;
+    height: 0.6rem;
+    border-radius: 999px;
+    background: rgb(255 255 255 / 0.05);
+  }
+  .meter i {
+    height: 100%;
+    transform-origin: left;
+    animation: grow 6s infinite;
+  }
+  .meter .shown {
+    width: 35%;
+    background: rgb(255 255 255 / 0.25);
+  }
+  .meter .hidden {
+    width: 32%;
+    background: #f5b446;
+    animation-delay: 0.4s;
+  }
+  .meter .save {
+    width: 33%;
+    background: var(--l-green);
+    animation-delay: 0.8s;
+  }
+  .legend {
+    display: flex;
+    justify-content: space-between;
+    color: var(--l-dim);
+    font-family: var(--l-mono);
+    font-size: 0.7rem;
+  }
+  .legend .h {
+    color: #f5c46b;
+  }
+  .legend .v {
+    color: var(--l-green);
+  }
+  .img code {
+    overflow: hidden;
+    padding: 0.4rem 0.6rem;
+    border-radius: 0.5rem;
+    background: rgb(0 0 0 / 0.35);
+    font-family: var(--l-mono);
+    font-size: 0.72rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .before {
+    color: #ff9a9a;
+    text-decoration: line-through;
+    text-decoration-color: rgb(255 93 93 / 0.5);
+  }
+  .after {
+    color: var(--l-green);
+  }
+
+  @keyframes flow-dash {
+    to {
+      background-position: 16px 0;
+    }
+  }
   @keyframes row-in {
     0%,
     4% {

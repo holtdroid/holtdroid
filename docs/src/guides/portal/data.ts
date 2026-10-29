@@ -61,6 +61,17 @@ export const defaults: PortalState = {
   filesFolder: "",
   fileUploaded: false,
 
+  dnsView: "queries",
+  dnsQuery: "none",
+  dnsRewrite: false,
+  routeName: "none",
+  routesFlagged: false,
+
+  imgScan: false,
+  imgFinding: "none",
+  imgFilter: "all",
+  svgFinding: "none",
+
   ppReference: false,
   ppOpacity: 50,
   ppCompare: false,

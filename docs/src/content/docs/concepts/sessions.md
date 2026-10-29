@@ -14,19 +14,18 @@ place a session can run: for the emulator provider, one of a node's
 
 ```mermaid
 stateDiagram-v2
-  [*] --> provisioning
-  provisioning --> booting
-  booting --> installing
-  installing --> restoring
-  installing --> instrumenting
-  restoring --> instrumenting
-  instrumenting --> ready
+  [*] --> starting
+  state starting {
+    direction LR
+    provisioning --> booting
+    booting --> installing
+    installing --> restoring
+    installing --> instrumenting
+    restoring --> instrumenting
+  }
+  starting --> ready: instrumented
+  starting --> failed: any step fails
   ready --> stopping
-  provisioning --> failed
-  booting --> failed
-  installing --> failed
-  restoring --> failed
-  instrumenting --> failed
   failed --> stopping
   stopping --> [*]
 ```

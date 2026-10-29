@@ -5069,3 +5069,21 @@ collapsed and the one holding the current page opens.
 but a Starlight upgrade that changes them or the layout variables the frame
 overrides can break the sidebar. A new top-level group needs an icon in
 `groupIcons`, in the same position.
+
+## 169. Diagrams stay in Mermaid, themed and animated by the docs
+
+**Context.** The docs' five diagrams used Mermaid's stock dark theme, which
+didn't match the site, and the session state diagram drew an edge from
+every starting state to `failed`, which tangled it.
+
+**Decision.** Keep Mermaid: the diagrams stay plain text next to the prose
+and need no build tool. `astro.config.mjs` gives it the `base` theme with
+the site's colours and Geist, `theme.css` rounds the boxes and runs a
+dashed flow along the edges (off with reduced motion), and the state
+diagram groups the starting states into one box with a single edge to
+`failed`. D2 and React Flow would look better but need a binary in CI or a
+client runtime for five diagrams.
+
+**Consequences.** Mermaid class names (`.flowchart-link`, `.transition`,
+`.messageLine0`) are what the animation hooks into; a Mermaid upgrade that
+renames them stops the animation but leaves the diagrams readable.

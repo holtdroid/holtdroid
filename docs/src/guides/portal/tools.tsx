@@ -33,6 +33,7 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { PortalState, Tab } from "../types"
 import { frames, issues, locationOf, logLines, networkProfiles, requests } from "./data"
+import { Dns, Images, Routes, Svg } from "./insights"
 
 const tabs: [Tab, string, LucideIcon][] = [
   ["devtools", "DevTools", SquareCodeIcon],
@@ -79,6 +80,10 @@ export function ToolTabs({ s }: { s: PortalState }) {
         {s.tab === "terminal" && <Terminal />}
         {s.tab === "pixel-perfect" && <PixelPerfect s={s} />}
         {s.tab === "network" && <Network s={s} />}
+        {s.tab === "dns" && <Dns s={s} />}
+        {s.tab === "routes" && <Routes s={s} />}
+        {s.tab === "images" && <Images s={s} />}
+        {s.tab === "svg" && <Svg s={s} />}
       </div>
     </div>
   )

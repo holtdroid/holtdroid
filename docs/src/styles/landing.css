@@ -96,7 +96,6 @@ body.l-page {
 
 .l-grad {
   background: linear-gradient(100deg, var(--l-green) 10%, #b6f5d1 55%, var(--l-sand) 100%);
-  -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
