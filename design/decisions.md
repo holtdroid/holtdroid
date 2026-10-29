@@ -3712,6 +3712,11 @@ unchanged. Every session starts a second zygote: about 40 MB PSS
 (180 MB RSS, mostly shared). On Android 12 to 15 apps with only 32-bit ARM
 libraries fail to install instead of crashing; Android 11's system
 `build.prop` still lists `armeabi-v7a`.
+Android 14 and later warn that an app with only 32-bit libraries "isn't
+compatible with the latest version of Android" when it starts, which hit
+Chrome versions whose newest patch APKMirror has only as `x86`. The agent
+sets `debug.wm.disable_deprecated_abi_dialog` before it launches the app, on
+every device.
 
 ## 121. Quick launch defaults to the newest stable Chromium WebView
 
@@ -4990,7 +4995,9 @@ through translation. The translation rule lives in the UI; the api only
 refuses ABIs a device can't run at all, so an API client can still start
 an ARM Chrome on redroid. Two uploads of one version with overlapping ABIs stay separate
 rows. A sync job that wants its x86 and ARM copies merged gives them the
-same title.
+same title. An app's page lists its rows by the highest version code
+in each, not by upload date: the sync jobs date a build by its release, so a
+new patch of an older milestone would otherwise sit above a newer one.
 
 ## 165. The docs site has Documentation and Guides as separate sections, in its own theme
 

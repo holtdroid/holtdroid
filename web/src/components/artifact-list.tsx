@@ -66,6 +66,8 @@ export function appTitle(a: ArtifactView) {
   return a.app?.label || artifactTitle(a)
 }
 
+const newestCode = (builds: ArtifactView[]) => Math.max(...builds.map((b) => b.app?.versionCode ?? 0))
+
 type AppGroup = { key: string; pkg?: string; items: ArtifactView[] }
 
 function groupByPackage(items: ArtifactView[]) {
@@ -113,7 +115,7 @@ export function ArtifactList({ onLaunch, pkg }: { onLaunch: (artifact: ArtifactV
   )
   const q = query.trim().toLowerCase()
   const items = useMemo(() => (q ? all.filter((a) => matches(a, q)) : all), [all, q])
-  const rows = useMemo(() => groupVariants(items), [items])
+  const rows = useMemo(() => groupVariants(items).toSorted((a, b) => newestCode(b) - newestCode(a)), [items])
   const groups = useMemo(
     () => (pkg ? [] : groupByPackage(all).filter((g) => !q || g.items.some((a) => matches(a, q)))),
     [all, pkg, q],

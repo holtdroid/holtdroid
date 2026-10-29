@@ -44,7 +44,8 @@ sources:
 Every `*.apk` (any depth, case-insensitive) is an artifact; other files,
 hidden files and directories that can't be read (`lost+found`) are ignored.
 Newest first, by `uploadedAt` from the sidecar or else the file's
-modification time.
+modification time. An app's page orders its builds by version code instead,
+highest first.
 
 ## Include rules
 

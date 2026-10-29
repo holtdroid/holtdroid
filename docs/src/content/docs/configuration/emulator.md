@@ -224,6 +224,10 @@ startup with "WebView cannot be started with a browser process type". ARM
 translation is 64-bit only: the Android 12 to 15 images list `arm64-v8a`
 but not `armeabi-v7a`, so an app whose native libraries are only 32-bit ARM
 doesn't install there (Android 11 lists it and the app crashes instead).
+Android warns that an app with only 32-bit libraries "isn't compatible with
+the latest version of Android" when it starts; the agent turns that
+warning off (`debug.wm.disable_deprecated_abi_dialog`) on every device, so
+APKMirror's `x86` Chrome builds open without it.
 
 With a WebView catalog (`webview.storage`), the launch dialog also offers a
 WebView build for the chosen Android version, which the agent installs over

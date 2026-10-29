@@ -338,6 +338,9 @@ func (a *Agent) Run(parent context.Context) {
 	if err := a.controls.resetNetwork(ctx); err != nil {
 		a.log.Warn("reset network profile", "err", err)
 	}
+	if _, err := a.dev.Shell(ctx, "setprop debug.wm.disable_deprecated_abi_dialog true"); err != nil {
+		a.log.Warn("turn the 32-bit app warning off", "err", err)
+	}
 	if a.resolver != nil {
 		go a.learnBackends(ctx)
 		if _, err := a.dev.Shell(ctx, "settings put global private_dns_mode off"); err != nil {
