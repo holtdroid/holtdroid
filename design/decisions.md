@@ -5049,3 +5049,23 @@ palette of #165; the split into topics stays.
 
 **Consequences.** Readers who prefer light pages can't switch. The guides'
 portal scenes always render in their dark theme.
+
+## 168. The docs draw their own sidebar list in a centred frame
+
+**Context.** With the sidebar fixed to the left edge, wide screens left the
+navigation far from the text, and Starlight's sidebar list has no icons and
+opens every group.
+
+**Decision.** Header, sidebar, content and table of contents sit in one
+centred frame (`--hd-frame` in `docs/src/styles/theme.css`), the same width
+as the landing page's navigation, so the logo stays in the same place
+between the two. The `Sidebar` override renders its own list
+(`docs/src/components/overrides/SidebarList.astro`) with an icon per
+top-level group (`groupIcons` in `docs/src/topics.mjs`); groups start
+collapsed and the one holding the current page opens.
+
+**Consequences.** The list reuses Starlight's `SidebarPersister` and
+`SidebarRestorePoint`, so it keeps the scroll and open groups across pages,
+but a Starlight upgrade that changes them or the layout variables the frame
+overrides can break the sidebar. A new top-level group needs an icon in
+`groupIcons`, in the same position.

@@ -55,6 +55,10 @@ body.l-page {
   padding-inline: 1.5rem;
 }
 
+.l-wrap-wide {
+  max-width: 86rem;
+}
+
 .l-section {
   position: relative;
   padding-block: 6rem;

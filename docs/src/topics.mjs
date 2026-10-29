@@ -2,25 +2,28 @@
 const guides = (label, ru, uk, directory) => ({
   label,
   translations: { ru, uk },
+  collapsed: true,
   items: [{ autogenerate: { directory: `guides/${directory}` } }],
 })
 
-/** @param {string} label @param {string} directory */
-const section = (label, directory) => ({ label, items: [{ autogenerate: { directory } }] })
+/** @param {string} label @param {string} directory @param {Record<string, string>} [translations] */
+const section = (label, directory, translations) => ({
+  label,
+  translations,
+  collapsed: true,
+  items: [{ autogenerate: { directory } }],
+})
 
 export const topics = [
   {
     label: { en: "Documentation", ru: "Документация", uk: "Документація" },
     link: "/start/introduction/",
     icon: "open-book",
+    groupIcons: ["rocket", "information", "laptop", "setting", "cloud-download", "mobile-android", "server", "puzzle"],
     items: [
       section("Start here", "start"),
       section("Concepts", "concepts"),
-      {
-        label: "Session tools",
-        translations: { ru: "Инструменты сессии", uk: "Інструменти сесії" },
-        items: [{ autogenerate: { directory: "session-tools" } }],
-      },
+      section("Session tools", "session-tools", { ru: "Инструменты сессии", uk: "Інструменти сесії" }),
       section("Configuration", "configuration"),
       section("APK sources", "sources"),
       section("Tools", "tools"),
@@ -31,7 +34,8 @@ export const topics = [
   {
     label: { en: "Guides", ru: "Гайды", uk: "Посібники" },
     link: "/guides/first-steps/launch-app/",
-    icon: "rocket",
+    icon: "approve-check-circle",
+    groupIcons: ["rocket", "chrome", "signal", "mobile-android", "pencil", "notes", "code-branch"],
     items: [
       guides("First steps", "Первые шаги", "Перші кроки", "first-steps"),
       guides("Debugging web content", "Отладка веба", "Налагодження вебу", "web"),

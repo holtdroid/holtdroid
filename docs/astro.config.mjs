@@ -56,7 +56,7 @@ export default defineConfig({
 				},
 			},
 			plugins: [
-				starlightSidebarTopics(topics),
+				starlightSidebarTopics(topics.map(({ groupIcons: _, ...topic }) => topic)),
 			],
 		}),
 	],

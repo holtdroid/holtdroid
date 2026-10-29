@@ -5,7 +5,7 @@ import { localized as url } from "../../topics.mjs"
 ---
 
 <header class="nav">
-  <div class="l-wrap bar">
+  <div class="l-wrap l-wrap-wide bar">
     <a class="brand" href={url("/")}>
       <img src={logo.src} alt="" width="28" height="28" />
       Holtdroid
@@ -32,8 +32,8 @@ import { localized as url } from "../../topics.mjs"
     z-index: 50;
     border-bottom: 1px solid transparent;
     background: rgb(10 11 9 / 0.6);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(16px) saturate(150%);
+    -webkit-backdrop-filter: blur(16px) saturate(150%);
     transition: border-color 0.2s;
   }
   :global(html[data-scrolled]) .nav {

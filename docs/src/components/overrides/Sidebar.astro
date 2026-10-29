@@ -1,10 +1,14 @@
 ---
 import { Icon } from "@astrojs/starlight/components"
-import Default from "@astrojs/starlight/components/Sidebar.astro"
+import SidebarPersister from "@astrojs/starlight/components/SidebarPersister.astro"
+import MobileMenuFooter from "@astrojs/starlight/components/MobileMenuFooter.astro"
 import { externalLinks, localized, topics } from "../../topics.mjs"
+import SidebarList from "./SidebarList.astro"
 
-const { locale } = Astro.locals.starlightRoute
+const { locale, sidebar } = Astro.locals.starlightRoute
 const current = Astro.locals.starlightSidebarTopics?.topics ?? []
+const active = current.findIndex((t) => t.isCurrent)
+const topic = active >= 0 ? topics[active] : undefined
 ---
 
 <ul class="hd-topics">
@@ -33,4 +37,13 @@ const current = Astro.locals.starlightSidebarTopics?.topics ?? []
     ))
   }
 </ul>
-<Default><slot /></Default>
+
+{topic && <p class="hd-nav-title">{current[active]?.label}</p>}
+
+<SidebarPersister>
+  <SidebarList entries={sidebar} icons={topic?.groupIcons} />
+</SidebarPersister>
+
+<div class="md:sl-hidden">
+  <MobileMenuFooter />
+</div>
