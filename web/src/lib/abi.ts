@@ -12,7 +12,16 @@ export function abiRank(build: Build, device: string[] | undefined) {
   return ranks.length > 0 ? Math.min(...ranks) : Infinity
 }
 
-export const runsOn = (build: Build, device: string[] | undefined) => abiRank(build, device) < Infinity
+const family = (abi: string) => (abi.startsWith("x86") ? "x86" : abi.startsWith("arm") ? "arm" : abi)
+
+// native: the build has code for the device's own processor family, not
+// only for one it translates (ARM on x86).
+export function native(build: Build, device: string[] | undefined) {
+  const abis = build.app?.abis ?? []
+  const own = device?.[0]
+  if (!own || abis.length === 0) return true
+  return abis.some((abi) => device.includes(abi) && family(abi) === family(own))
+}
 
 const disjoint = (a: string[], b: string[]) => a.length > 0 && b.length > 0 && !a.some((abi) => b.includes(abi))
 
@@ -40,10 +49,19 @@ export function variantsOf<T extends Build>(builds: T[], build: T): T[] {
   return group ?? [build]
 }
 
-export function bestVariant<T extends Build>(variants: T[], device: string[] | undefined): T | undefined {
+// bestVariant takes the variant whose ABI the device prefers. A build that
+// needs translation only counts when no build among siblings (the app's other
+// builds) runs natively: that one is a build for another kind of device.
+export function bestVariant<T extends Build>(
+  variants: T[],
+  device: string[] | undefined,
+  siblings: T[] = variants,
+): T | undefined {
+  const nativeExists = siblings.some((b) => (b.app?.abis.length ?? 0) > 0 && native(b, device))
   let best: T | undefined
   let rank = Infinity
   for (const v of variants) {
+    if (nativeExists && !native(v, device)) continue
     const r = abiRank(v, device)
     if (r < rank) [best, rank] = [v, r]
   }

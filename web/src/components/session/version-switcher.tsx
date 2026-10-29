@@ -32,18 +32,17 @@ export function VersionSwitcher({
   const now = useNow(30_000)
 
   const abis = session.capabilities?.abis
-  const builds = useMemo(
-    () =>
-      groupVariants((artifacts.data?.items ?? []).filter((a) => a.app?.package === session.package))
-        .map(
-          (variants) =>
-            variants.find((a) => a.source === session.source && a.id === session.artifactId) ??
-            bestVariant(variants, abis),
-        )
-        .filter((a) => !!a)
-        .toSorted((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()),
-    [artifacts.data, session.package, session.source, session.artifactId, abis],
-  )
+  const builds = useMemo(() => {
+    const siblings = (artifacts.data?.items ?? []).filter((a) => a.app?.package === session.package)
+    return groupVariants(siblings)
+      .map(
+        (variants) =>
+          variants.find((a) => a.source === session.source && a.id === session.artifactId) ??
+          bestVariant(variants, abis, siblings),
+      )
+      .filter((a) => !!a)
+      .toSorted((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime())
+  }, [artifacts.data, session.package, session.source, session.artifactId, abis])
   const current = builds.find((a) => a.source === session.source && a.id === session.artifactId)
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase()

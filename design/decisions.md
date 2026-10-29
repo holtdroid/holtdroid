@@ -4975,15 +4975,19 @@ when there is no title) whose ABIs don't overlap are variants of one build.
 The app page shows them as one row with every ABI and a download per
 variant. The launch dialog, quick launch and Switch version take the variant
 whose ABI comes first in the device's list, so providers list the ABI they
-run natively first: redroid now reports `x86_64, x86, arm64-v8a`. Providers
+run natively first: redroid now reports `x86_64, x86, arm64-v8a`. A build
+that only runs through translation (ARM code on redroid) counts only when
+no build of the app runs natively there: then it is a build for phones,
+like Chrome 157, which APKMirror has only for ARM. Providers
 and phones that run no variant are greyed out and Launch is disabled. The
 api checks the same on its side: a launch only goes to providers and slots
 that list one of the APK's ABIs (or report none), and installing another
 build into a session needs one of the session's ABIs, so launch links and
 API clients can't start an x86 build on an ARM phone either.
 
-**Consequences.** An ARM-only build still launches on redroid when no x86
-variant of that version exists, as other ARM-only apps do through
-translation. Two uploads of one version with overlapping ABIs stay separate
+**Consequences.** Apps that ship only ARM code still launch on redroid
+through translation. The translation rule lives in the UI; the api only
+refuses ABIs a device can't run at all, so an API client can still start
+an ARM Chrome on redroid. Two uploads of one version with overlapping ABIs stay separate
 rows. A sync job that wants its x86 and ARM copies merged gives them the
 same title.

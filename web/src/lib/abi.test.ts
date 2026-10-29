@@ -69,4 +69,12 @@ describe("bestVariant", () => {
   test("nothing runs", () => {
     expect(bestVariant([x86], phone)).toBeUndefined()
   })
+  test("translation only when the app has no native build", () => {
+    const arm157 = build("arm157", ["arm64-v8a"], "Chrome 157")
+    expect(bestVariant([arm157], emulator, [x86, arm, arm157])).toBeUndefined()
+    expect(bestVariant([arm157], emulator, [arm157])).toBe(arm157)
+    expect(bestVariant([arm157], phone, [x86, arm, arm157])).toBe(arm157)
+    const plain = build("plain", [])
+    expect(bestVariant([plain], emulator, [x86, plain])).toBe(plain)
+  })
 })

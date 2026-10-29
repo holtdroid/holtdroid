@@ -133,8 +133,9 @@ function LaunchFlow({
   const providers = useProviders()
   const usable = useMemo(() => (providers.data ?? []).filter((p) => !p.error), [providers.data])
   const builds = useArtifacts("").data?.items ?? []
+  const siblings = builds.filter((b) => b.app && b.app.package === artifact.app?.package)
   const variants = variantsOf(builds, artifact)
-  const runsOn = (abis: string[] | undefined) => !!bestVariant(variants, abis)
+  const runsOn = (abis: string[] | undefined) => !!bestVariant(variants, abis, siblings)
   const [picked, setPicked] = useState<string | null>(null)
   const [step, setStep] = useState<"provider" | "options">("provider")
   const [chosenLocation, setChosenLocation] = useState<string | null>(null)
@@ -179,10 +180,16 @@ function LaunchFlow({
   )
   const launch = useStartSession()
   const abis = slot?.capabilities?.abis ?? provider?.capabilities.abis
-  const build = bestVariant(variants, abis)
+  const build = bestVariant(variants, abis, siblings)
   const shown = build ?? artifact
   const alternativeFor = (v: string) =>
-    runs(v) || !artifact.app ? undefined : newestRunnable(builds, artifact.app.package, apiLevels[v], abis)
+    runs(v) || !artifact.app
+      ? undefined
+      : newestRunnable(
+          siblings.filter((b) => bestVariant([b], abis, siblings)),
+          artifact.app.package,
+          apiLevels[v],
+        )
   const appData = useAppDataFor(artifact.app?.package)
   const recordings = useRecordings()
   const [record, setRecord] = useState(recordPreference)

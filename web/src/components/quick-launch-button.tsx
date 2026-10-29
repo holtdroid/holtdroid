@@ -28,7 +28,8 @@ export function QuickLaunchButton({ artifact }: { artifact: ArtifactView }) {
   const launch = useStartSession()
   const appData = useAppData()
   const builds = useArtifacts("").data?.items ?? []
-  const build = provider ? bestVariant(variantsOf(builds, artifact), provider.capabilities.abis) : artifact
+  const siblings = builds.filter((b) => b.app && b.app.package === artifact.app?.package)
+  const build = provider ? bestVariant(variantsOf(builds, artifact), provider.capabilities.abis, siblings) : artifact
   const [mode, setMode] = useState<QuickLaunchMode>(quickLaunchMode)
   const [open, setOpen] = useState(false)
   const closeTimer = useRef<number | undefined>(undefined)

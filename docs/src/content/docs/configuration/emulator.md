@@ -128,7 +128,8 @@ Sessions run `x86_64` and 32-bit `x86` apps natively. Apps with only
 `arm64-v8a` native code run through `libndk_translation`; separate ARM
 executables don't (that would need `binfmt_misc` on the node). When a
 version of an app has both an x86 and an ARM build, a launch on a virtual
-device takes the x86 one.
+device takes the x86 one; an ARM-only version of an app that has x86 builds
+(Chrome 157 from APKMirror, say) can't be launched there.
 
 ## Pod layout
 
