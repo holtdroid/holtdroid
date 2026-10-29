@@ -15,7 +15,7 @@ const topic = active >= 0 ? topics[active] : undefined
   {
     topics.map((t, i) => (
       <li>
-        <a href={localized(t.link, locale)} aria-current={current[i]?.isCurrent ? "page" : undefined}>
+        <a href={localized(t.link, t.link.startsWith("/guides/") ? locale : undefined)} aria-current={current[i]?.isCurrent ? "page" : undefined}>
           <span class="hd-topic-icon">
             <Icon name={t.icon} />
           </span>

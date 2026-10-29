@@ -11,6 +11,7 @@ import { topics } from './src/topics.mjs';
 export default defineConfig({
 	site: 'https://holtdroid.github.io',
 	base: '/holtdroid',
+	redirects: { '/uk': '/holtdroid/', '/ru': '/holtdroid/' },
 	vite: {
 		plugins: [tailwindcss()],
 		resolve: { alias: { '@': fileURLToPath(new URL('../web/src', import.meta.url)) } },
@@ -80,12 +81,14 @@ export default defineConfig({
 			defaultLocale: 'root',
 			locales: {
 				root: { label: 'English', lang: 'en' },
-				ru: { label: 'Русский', lang: 'ru' },
 				uk: { label: 'Українська', lang: 'uk' },
+				ru: { label: 'Русский', lang: 'ru' },
 			},
+			routeMiddleware: './src/routeData.ts',
 			customCss: ['@fontsource-variable/geist', './src/styles/theme.css', './src/styles/custom.css'],
 			components: {
 				PageTitle: './src/components/overrides/PageTitle.astro',
+				LanguageSelect: './src/components/overrides/LanguageSelect.astro',
 				Sidebar: './src/components/overrides/Sidebar.astro',
 				ThemeProvider: './src/components/overrides/ThemeProvider.astro',
 				ThemeSelect: './src/components/overrides/ThemeSelect.astro',

@@ -32,7 +32,7 @@ export const scenes: Scene[] = [
 
 function Scene({ guide, onFinish }: { guide: string; onFinish: () => void }) {
   const sc = use(loadScenario(guide))
-  return <Player sc={{ ...sc, steps: sc.steps.slice(0, 6) }} lang="en" onFinish={onFinish} compact pace={0.55} />
+  return <Player sc={{ ...sc, steps: sc.steps.slice(0, 4) }} lang="en" onFinish={onFinish} compact pace={0.3} />
 }
 
 for (const s of scenes) void loadScenario(s.guide)

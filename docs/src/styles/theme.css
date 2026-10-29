@@ -163,6 +163,10 @@ site-search button[data-open-modal]:hover {
   border-color: var(--hd-line);
 }
 
+.right-group:not(:has(starlight-lang-select)) .social-icons::after {
+  display: none;
+}
+
 /* Sidebar */
 
 .sidebar-pane {
@@ -391,6 +395,17 @@ site-search button[data-open-modal]:hover {
 
 .sl-markdown-content hr {
   border-color: var(--hd-line);
+}
+
+@media (min-width: 50rem) {
+  .sl-markdown-content table:not(:where(.not-content *)) {
+    display: table;
+    width: 100%;
+  }
+
+  .sl-markdown-content td code {
+    overflow-wrap: anywhere;
+  }
 }
 
 .sl-markdown-content table:not(:where(.not-content *)) {

@@ -154,7 +154,10 @@ export function Player({
     const action = step.action ?? (step.type ? "type" : step.target ? "click" : "look")
     let timer = 0
     if (play.phase === "move") {
-      timer = window.setTimeout(() => dispatch({ type: "phase", phase: "act" }), step.target ? 950 : 300)
+      timer = window.setTimeout(
+        () => dispatch({ type: "phase", phase: "act" }),
+        (step.target ? 950 : 300) * Math.max(pace, 0.45),
+      )
     } else if (play.phase === "act") {
       if (action === "type" && step.type) {
         timer =
@@ -284,7 +287,10 @@ export function Player({
           <div
             ref={cursorRef}
             className="hd-cursor pointer-events-none absolute top-0 left-0 z-[70]"
-            style={{ transform: `translate(${WIDTH / 2}px, ${height - 60}px)` }}
+            style={{
+              transform: `translate(${WIDTH / 2}px, ${height - 60}px)`,
+              transitionDuration: pace < 1 ? `${Math.round(750 * Math.max(pace, 0.45))}ms` : undefined,
+            }}
           >
             <span ref={rippleRef} className="absolute top-0 left-0 size-14 rounded-full bg-sky-500/50 opacity-0" />
             <svg ref={pointerRef} width="26" height="30" viewBox="0 0 26 30" className="origin-top-left drop-shadow-md">
