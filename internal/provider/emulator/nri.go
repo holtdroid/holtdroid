@@ -157,5 +157,5 @@ func statDevice(path string) (int64, int64, error) {
 	if st.Mode&unix.S_IFMT != unix.S_IFCHR {
 		return 0, 0, &fs.PathError{Op: "stat", Path: path, Err: errors.New("not a character device")}
 	}
-	return int64(unix.Major(uint64(st.Rdev))), int64(unix.Minor(uint64(st.Rdev))), nil
+	return int64(unix.Major(uint64(st.Rdev))), int64(unix.Minor(uint64(st.Rdev))), nil //nolint:unconvert // Rdev is int32 on darwin
 }
