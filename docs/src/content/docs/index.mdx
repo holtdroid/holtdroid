@@ -3,9 +3,10 @@ title: Holtdroid
 description: Self-hosted, browser-based Android sandboxes for testing APKs — screen, WebView DevTools, clipboard and VPN in one tab.
 template: splash
 hero:
-  tagline: A cozy holt for your test Androids. Pick an APK from Slack, get a running device with its WebViews already open in Chrome DevTools — all in the browser.
+  title: A cozy holt for your test Androids
+  tagline: Pick a build from Slack, S3 or GitHub and get a running Android device in your browser, with the app's WebViews already open in Chrome DevTools. Self-hosted, on your Kubernetes.
   image:
-    file: ../../assets/logo.svg
+    file: ../../assets/hero.svg
   actions:
     - text: What is Holtdroid?
       link: /holtdroid/start/introduction/
@@ -14,18 +15,24 @@ hero:
       link: /holtdroid/guides/first-steps/launch-app/
       icon: open-book
       variant: secondary
-    - text: View on GitHub
-      link: https://github.com/holtdroid/holtdroid
-      icon: external
+    - text: GitHub
+      link: https://github.com/holtdroid
+      icon: github
       variant: minimal
 ---
 
-import { Card, CardGrid, Aside } from "@astrojs/starlight/components"
+import { Aside, Card, CardGrid, Tabs, TabItem } from "@astrojs/starlight/components"
+import Pipeline from "../../components/Pipeline.astro"
+import Repos from "../../components/Repos.astro"
+import Showcase from "../../components/Showcase.astro"
 
-<Aside type="caution" title="Pre-alpha">
-  Holtdroid is being built in the open. These docs describe the target design; sections marked *planned* are not
-  implemented yet. Follow the [roadmap](https://github.com/holtdroid/holtdroid/blob/main/design/roadmap.md).
-</Aside>
+## See it in action
+
+Every picture below is the portal itself, played step by step. Pick a topic or let it run.
+
+<Showcase />
+
+## Why Holtdroid
 
 <CardGrid stagger>
   <Card title="No APK patching" icon="approve-check">
@@ -36,7 +43,7 @@ import { Card, CardGrid, Aside } from "@astrojs/starlight/components"
     needed.
   </Card>
   <Card title="ARM APKs on x86 nodes" icon="rocket">
-    Android 15 in containers on the node's kernel (redroid), several per node, with ARM translation for ARM-only builds.
+    Android in containers on the node's kernel (redroid), several per node, with ARM translation for ARM-only builds.
   </Card>
   <Card title="Per-session VPN" icon="random">
     Each device gets its own egress. Switch the country from the network card next to the device without restarting
@@ -45,12 +52,51 @@ import { Card, CardGrid, Aside } from "@astrojs/starlight/components"
   <Card title="Sessions that clean up" icon="seti:clock">
     Bounded slots, idle timeout and max TTL. See who is using what, extend with one click.
   </Card>
-  <Card title="A WebView browser for testing" icon="setting">
-    [Holtdroid WebView](/holtdroid/tools/webview/) opens pages with DevTools unlocked, presets of WebView settings and
-    live control over adb.
-  </Card>
   <Card title="Pluggable by contract" icon="puzzle">
     Artifact sources, device providers, VPN vendors, secret backends and auth are swappable. Real phones on USB work
-    too, without root, as an early stage.
+    too, without root.
   </Card>
 </CardGrid>
+
+## How it fits together
+
+A build travels from wherever your team posts it to a device that only you are using, and the device comes to your
+browser. Each step lives in its own repository.
+
+<Pipeline />
+
+## Repositories
+
+<Repos />
+
+## Try it
+
+<Tabs>
+  <TabItem label="On your laptop" icon="laptop">
+    Simulated devices, no cluster and no KVM: enough to click through the whole UI.
+
+    ```sh
+    git clone https://github.com/holtdroid/holtdroid && cd holtdroid
+    mise install
+    make dev    # http://localhost:8080, APKs from internal/apk/testdata
+    ```
+
+    More in [Local development](/holtdroid/start/local-development/).
+
+  </TabItem>
+  <TabItem label="On Kubernetes" icon="rocket">
+    One Helm chart; nodes with binder run the Android containers.
+
+    ```sh
+    helm install holtdroid oci://ghcr.io/holtdroid/charts/holtdroid -n holtdroid -f values.yaml
+    ```
+
+    What goes into `values.yaml` is in [Installation](/holtdroid/start/installation/).
+
+  </TabItem>
+</Tabs>
+
+<Aside type="caution" title="Pre-alpha">
+  Holtdroid is being built in the open, and everything may change until the first tagged release. Follow the
+  [roadmap](https://github.com/holtdroid/holtdroid/blob/main/design/roadmap.md).
+</Aside>

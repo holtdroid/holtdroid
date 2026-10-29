@@ -1,0 +1,6 @@
+<script>
+  const root = document.documentElement
+  const sync = () => root.classList.toggle("dark", root.dataset.theme === "dark")
+  sync()
+  new MutationObserver(sync).observe(root, { attributes: true, attributeFilter: ["data-theme"] })
+</script>

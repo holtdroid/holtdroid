@@ -1,0 +1,128 @@
+---
+import { Image } from "astro:assets"
+import { repos } from "./repos"
+---
+
+<div class="hd-repos not-content">
+  {
+    repos.map((r) => (
+      <article class="hd-repo" id={`repo-${r.name}`}>
+        <Image src={r.icon} alt="" width={56} height={56} class="hd-repo-icon" />
+        <div class="hd-repo-body">
+          <p class="hd-repo-role">{r.role}</p>
+          <h3>
+            <a href={`https://github.com/holtdroid/${r.name}`}>holtdroid/{r.name}</a>
+          </h3>
+          <p>{r.description}</p>
+          <div class="hd-repo-foot">
+            <ul class="hd-tags">
+              {r.tags.map((t) => (
+                <li>{t}</li>
+              ))}
+            </ul>
+            <a class="hd-repo-docs" href={r.docs}>
+              Docs →
+            </a>
+          </div>
+        </div>
+      </article>
+    ))
+  }
+</div>
+
+<style>
+  .hd-repos {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
+    gap: 1rem;
+    margin-block: 1.5rem;
+  }
+  .hd-repo {
+    display: flex;
+    gap: 1rem;
+    padding: 1.25rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 1rem;
+    background: var(--sl-color-black);
+    transition:
+      border-color 0.2s,
+      transform 0.2s;
+  }
+  .hd-repo:hover {
+    border-color: var(--sl-color-accent);
+    transform: translateY(-2px);
+  }
+  .hd-repo:target {
+    border-color: var(--sl-color-accent);
+    box-shadow: 0 0 0 3px var(--sl-color-accent-low);
+  }
+  .hd-repo-icon {
+    flex-shrink: 0;
+    width: 3.5rem;
+    height: 3.5rem;
+  }
+  .hd-repo-body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 0.4rem;
+    min-width: 0;
+  }
+  .hd-repo-role {
+    margin: 0;
+    color: var(--sl-color-accent-high);
+    font-size: var(--sl-text-xs);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .hd-repo h3 {
+    margin: 0;
+    font-family: var(--__sl-font-mono);
+    font-size: var(--sl-text-base);
+    overflow-wrap: anywhere;
+  }
+  .hd-repo h3 a {
+    color: var(--sl-color-white);
+    text-decoration: none;
+  }
+  .hd-repo h3 a:hover {
+    color: var(--sl-color-accent-high);
+  }
+  .hd-repo p {
+    margin: 0;
+    color: var(--sl-color-gray-2);
+    font-size: var(--sl-text-sm);
+    line-height: 1.55;
+  }
+  .hd-repo-foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-top: auto;
+    padding-top: 0.5rem;
+  }
+  .hd-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .hd-tags li {
+    margin: 0;
+    padding: 0.1rem 0.55rem;
+    border-radius: 999px;
+    background: var(--sl-color-gray-6);
+    color: var(--sl-color-gray-2);
+    font-size: var(--sl-text-xs);
+  }
+  .hd-repo-docs {
+    font-size: var(--sl-text-sm);
+    font-weight: 600;
+    text-decoration: none;
+  }
+</style>

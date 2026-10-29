@@ -1,0 +1,189 @@
+---
+import { Icon } from "@astrojs/starlight/components"
+import { Image } from "astro:assets"
+import { byName } from "./repos"
+
+type IconName = Parameters<typeof Icon>[0]["name"]
+
+const stages: { icon: IconName; title: string; items: string[]; repos: string[] }[] = [
+  {
+    icon: "download",
+    title: "Builds come in",
+    items: ["Slack channels and threads", "S3 buckets, GitHub releases", "Uploads from the browser", "Chromium of any version"],
+    repos: ["holtdroid-sync", "chromium-builds"],
+  },
+  {
+    icon: "laptop",
+    title: "The portal",
+    items: ["Lists apps and their builds", "Hands out device slots", "Proxies screen and DevTools", "Signs people in"],
+    repos: ["holtdroid"],
+  },
+  {
+    icon: "rocket",
+    title: "Devices",
+    items: ["Android 11+ in containers", "ARM apps on x86 nodes", "Real phones over USB", "Own country per device"],
+    repos: ["holtdroid-redroid", "holtdroid-tunnel", "holtdroid-webview"],
+  },
+  {
+    icon: "seti:html",
+    title: "Your browser",
+    items: ["Live screen and touch", "Chrome DevTools for WebViews", "Clipboard, files, logcat", "Recordings to share"],
+    repos: [],
+  },
+]
+---
+
+<ol class="hd-pipeline not-content">
+  {
+    stages.map((s, i) => (
+      <li class="hd-stage" style={`--i: ${i}`}>
+        <div class="hd-stage-head">
+          <span class="hd-stage-icon">
+            <Icon name={s.icon} size="1.25rem" />
+          </span>
+          <h3>{s.title}</h3>
+        </div>
+        <ul>
+          {s.items.map((item) => (
+            <li>{item}</li>
+          ))}
+        </ul>
+        {s.repos.length > 0 && (
+          <div class="hd-stage-repos">
+            {s.repos.map((name) => (
+              <a href={`#repo-${name}`} title={`holtdroid/${name}`}>
+                <Image src={byName(name).icon} alt="" width={20} height={20} />
+                {name}
+              </a>
+            ))}
+          </div>
+        )}
+      </li>
+    ))
+  }
+</ol>
+
+<style>
+  .hd-pipeline {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 2.25rem;
+    margin: 1.5rem 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: stage;
+  }
+  .hd-stage {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin: 0;
+    padding: 1.1rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 1rem;
+    background: var(--sl-color-black);
+    animation: hd-rise 0.6s calc(var(--i) * 0.12s) both ease-out;
+  }
+  .hd-stage:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    top: 1.95rem;
+    left: 100%;
+    width: 2.25rem;
+    height: 2px;
+    background: repeating-linear-gradient(90deg, var(--sl-color-accent) 0 6px, transparent 6px 12px);
+    background-size: 24px 2px;
+    animation: hd-flow 0.8s linear infinite;
+  }
+  .hd-stage-head {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .hd-stage-icon {
+    display: grid;
+    place-items: center;
+    width: 2.2rem;
+    height: 2.2rem;
+    border-radius: 0.6rem;
+    background: var(--sl-color-accent-low);
+    color: var(--sl-color-accent-high);
+  }
+  .hd-stage h3 {
+    margin: 0;
+    font-size: var(--sl-text-base);
+  }
+  .hd-stage ul {
+    display: grid;
+    gap: 0.3rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: var(--sl-color-gray-2);
+    font-size: var(--sl-text-sm);
+  }
+  .hd-stage ul li {
+    margin: 0;
+    padding-left: 1rem;
+    background: radial-gradient(circle at 0.25rem 0.7em, var(--sl-color-accent) 0 2.5px, transparent 3px) no-repeat;
+  }
+  .hd-stage-repos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: auto;
+  }
+  .hd-stage-repos a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.15rem 0.55rem 0.15rem 0.3rem;
+    border-radius: 999px;
+    background: var(--sl-color-gray-6);
+    color: var(--sl-color-gray-1);
+    font-family: var(--__sl-font-mono);
+    font-size: var(--sl-text-xs);
+    text-decoration: none;
+  }
+  .hd-stage-repos a:hover {
+    color: var(--sl-color-accent-high);
+  }
+  .hd-stage-repos img {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+  @keyframes hd-flow {
+    to {
+      background-position: 24px 0;
+    }
+  }
+  @keyframes hd-rise {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+  }
+  @media (max-width: 64rem) {
+    .hd-pipeline {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .hd-stage:nth-child(2)::after {
+      display: none;
+    }
+  }
+  @media (max-width: 40rem) {
+    .hd-pipeline {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .hd-stage::after {
+      display: none;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hd-stage,
+    .hd-stage::after {
+      animation: none;
+    }
+  }
+</style>

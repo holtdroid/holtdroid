@@ -85,7 +85,7 @@ function center(stage: HTMLElement, target: string | undefined, scale: number) {
   }
 }
 
-function Player({ sc, lang }: { sc: Scenario; lang: Lang }) {
+export function Player({ sc, lang, onFinish }: { sc: Scenario; lang: Lang; onFinish?: () => void }) {
   const t = ui[lang]
   const height = sc.height ?? HEIGHT
   const last = sc.steps.length - 1
@@ -166,10 +166,12 @@ function Player({ sc, lang }: { sc: Scenario; lang: Lang }) {
       timer =
         play.index < last
           ? window.setTimeout(() => dispatch({ type: "goto", index: play.index + 1 }), readTime(step, lang))
-          : window.setTimeout(() => dispatch({ type: "auto", auto: false }), 0)
+          : onFinish
+            ? window.setTimeout(onFinish, readTime(step, lang))
+            : window.setTimeout(() => dispatch({ type: "auto", auto: false }), 0)
     }
     return () => window.clearTimeout(timer)
-  }, [play, visible, step, last, lang])
+  }, [play, visible, step, last, lang, onFinish])
 
   useEffect(() => {
     if (!visible || !step.target) return undefined
