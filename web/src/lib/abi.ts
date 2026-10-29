@@ -17,7 +17,10 @@ const family = (abi: string) => (abi.startsWith("x86") ? "x86" : abi.startsWith(
 // native: the build has code for the device's own processor family, not
 // only for one it translates (ARM on x86).
 export function native(build: Build, device: string[] | undefined) {
-  const abis = build.app?.abis ?? []
+  return runsNatively(build.app?.abis ?? [], device)
+}
+
+export function runsNatively(abis: string[], device: string[] | undefined) {
   const own = device?.[0]
   if (!own || abis.length === 0) return true
   return abis.some((abi) => device.includes(abi) && family(abi) === family(own))

@@ -1,6 +1,7 @@
 import { useNavigate, useSearch } from "@tanstack/react-router"
 import { useMemo } from "react"
-import type { AppDataChoice, AppDataList, ArtifactView, ProviderView } from "@/api/client"
+import type { AppDataChoice, AppDataList, ArtifactView, ProviderView, WebViewView } from "@/api/client"
+import { runsNatively } from "@/lib/abi"
 import { useProviders, useWebViews } from "@/api/queries"
 import { apiLevels } from "@/lib/android"
 import {
@@ -17,6 +18,11 @@ const freeSlots = (p: ProviderView) => p.capacity.slots.filter((s) => s.state ==
 
 const offers = (p: ProviderView, location: string | undefined) =>
   !location || p.capabilities.locations.some((l) => l.id === location)
+
+const takes = (p: ProviderView, w: WebViewView, abis = p.capabilities.abis) =>
+  !!p.capabilities.webview &&
+  (!p.capabilities.webviewPackages?.length || p.capabilities.webviewPackages.includes(w.package)) &&
+  runsNatively(w.abis, abis)
 
 const distinct = <T extends { id: string }>(items: T[]) =>
   items.filter((x, i, all) => all.findIndex((o) => o.id === x.id) === i)
@@ -63,9 +69,17 @@ export function useLaunchTarget(
   )
   const webviewCapable = pool.some((p) => p.capabilities.webview)
   const catalog = useWebViews(webviewCapable)
-  const level = android ? apiLevels[android] : undefined
-  const webviews = webviewCapable ? (catalog.data ?? []).filter((w) => !level || w.minSdk <= level) : []
-  const newestStable = webviews.find((w) => w.channels.includes("stable")) ?? webviews[0]
+  const deviceAndroid = android ?? slot?.capabilities?.android
+  const level = deviceAndroid ? apiLevels[deviceAndroid] : undefined
+  const webviews = webviewCapable
+    ? (catalog.data ?? []).filter(
+        (w) => (!level || w.minSdk <= level) && pool.some((p) => takes(p, w, slot?.capabilities?.abis)),
+      )
+    : []
+  const defaults = webviews.filter((w) =>
+    pool.some((p) => p.capabilities.kind !== "physical" && takes(p, w, slot?.capabilities?.abis)),
+  )
+  const newestStable = defaults.find((w) => w.channels.includes("stable")) ?? defaults[0]
   const known = (id: string | null): id is string => id === "" || (id !== null && webviews.some((w) => w.id === id))
   const remembered = restore ? lastWebView(provider?.name ?? "") : null
   const webview = known(chosenWebView) ? chosenWebView : known(remembered) ? remembered : (newestStable?.id ?? "")

@@ -75,8 +75,8 @@ Chromium's snapshots are built without proprietary codecs: H.264, AAC and
 HEVC in `<video>` and Media Source Extensions don't play in them. The
 WebView built into the Android images does play them, and so does Google's
 Android System WebView, `com.google.android.webview`, which a second
-catalog can hold: the x86_64 APKs of Google WebView from APKMirror, with the
-same tags as the Chromium catalog plus `package`.
+catalog can hold: the APKs of Google WebView from APKMirror, with the same
+tags as the Chromium catalog plus `package` and `abis`.
 
 A Google WebView build doesn't replace the built-in one. The agent installs
 it next to `com.android.webview` and makes it the device's WebView with
@@ -85,6 +85,18 @@ the [holtdroid-redroid](https://github.com/holtdroid/holtdroid-redroid)
 images list it as a WebView provider (not a default one, so a session
 without a choice keeps the built-in WebView). Uninstalling
 `com.google.android.webview` brings the built-in one back.
+
+### On phones
+
+A phone's Android takes only WebViews signed by Google, so the launch
+dialog offers phones only Google WebView builds for their processor
+(`arm64-v8a`), never Chromium snapshots. The agent installs the build as an
+update of the phone's own `com.google.android.webview`, which works only for
+a version newer than the phone's: a failed install fails the session. When
+the phone is cleaned (before a session and after it ends) every system
+WebView with an update installed over it goes back to its factory version,
+including an update the Play Store installed. Quick launch keeps a phone's
+built-in WebView unless one was picked for it before.
 
 Fill it with a job of your own that writes APKs and sidecars to a prefix of
 its own (each job prunes its prefix), and list that prefix under
@@ -99,8 +111,12 @@ webview:
 ```
 
 A build's sidecar needs the tags `version` and `milestone`, `package:
-com.google.android.webview`, and `minSdk` or `requiresSdk` for the Android
-versions it runs on.
+com.google.android.webview`, `minSdk` or `requiresSdk` for the Android
+versions it runs on, and `abis` (comma-separated, e.g.
+`arm64-v8a,armeabi-v7a`). A device is offered only builds whose `abis` it
+runs natively; WebView crashes under ARM translation. Without `abis` a build
+is offered everywhere. ARM builds for phones go to a prefix of their own,
+listed as one more catalog.
 
 ## Filling the catalog
 
@@ -157,8 +173,8 @@ cache.
 
 ## Limits
 
-- Virtual devices only. Phones keep their own WebView, which is signed by
-  Google, so a snapshot can't replace it.
+- Phones take only Google WebView builds for ARM, newer than their own
+  WebView. Chromium snapshots are virtual devices only.
 - Chromium builds have no proprietary codecs; Google WebView builds do.
 - x86_64 builds from Chromium 129 on; earlier versions only as a built-in
   WebView.

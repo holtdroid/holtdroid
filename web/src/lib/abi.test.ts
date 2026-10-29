@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { abiRank, bestVariant, groupVariants, variantsOf } from "@/lib/abi"
+import { abiRank, bestVariant, groupVariants, runsNatively, variantsOf } from "@/lib/abi"
 
 const build = (
   id: string,
@@ -76,5 +76,14 @@ describe("bestVariant", () => {
     expect(bestVariant([arm157], phone, [x86, arm, arm157])).toBe(arm157)
     const plain = build("plain", [])
     expect(bestVariant([plain], emulator, [x86, plain])).toBe(plain)
+  })
+})
+
+describe("runsNatively", () => {
+  test("a WebView runs only on its own processor family", () => {
+    expect(runsNatively(["arm64-v8a", "armeabi-v7a"], phone)).toBe(true)
+    expect(runsNatively(["arm64-v8a", "armeabi-v7a"], emulator)).toBe(false)
+    expect(runsNatively(["x86_64"], phone)).toBe(false)
+    expect(runsNatively([], phone)).toBe(true)
   })
 })

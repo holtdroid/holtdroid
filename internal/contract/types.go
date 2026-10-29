@@ -40,6 +40,7 @@ type Capabilities struct {
 	Screens         []Display   `json:"screens,omitempty" doc:"screens a session can be launched with (virtual devices); the first is the default"`
 	Versions        []string    `json:"versions,omitempty" doc:"Android versions a session can be launched with (virtual devices), newest first"`
 	WebView         bool        `json:"webview,omitempty" doc:"a session can start with a WebView build from the portal's catalog instead of the built-in one"`
+	WebViewPackages []string    `json:"webviewPackages,omitempty" doc:"the WebView packages the catalog builds must be, e.g. com.google.android.webview for phones, whose Android takes only Google-signed WebViews; empty means any"`
 }
 
 // Display is a virtual device's screen: size, density and the emulated

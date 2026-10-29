@@ -16,6 +16,12 @@ type cleanADB struct {
 func (f *cleanADB) Shell(ctx context.Context, cmd string) (string, error) {
 	_, _ = f.fakeADB.Shell(ctx, cmd)
 	switch {
+	case cmd == "dumpsys webviewupdate":
+		return "Current WebView Update Service state\n  Current WebView package (name, version): (com.google.android.webview, 156.0.8078.47)\n  WebView packages:\n" +
+			"    Valid package com.google.android.webview (versionName: 156.0.8078.47, versionCode: 807804733, targetSdkVersion: 36) is  installed/enabled for all users\n" +
+			"    com.google.android.webview.beta is NOT installed.\n    Invalid package com.android.webview (versionName: 1, versionCode: 1, targetSdkVersion: 30), reason: Incorrect signature\n", nil
+	case cmd == "pm list packages -s -f":
+		return "package:/data/app/~~x==/com.google.android.webview-y==/base.apk=com.google.android.webview\npackage:/system/app/Settings/Settings.apk=com.android.settings\npackage:/product/app/Chrome/Chrome.apk=com.android.chrome\n", nil
 	case strings.HasPrefix(cmd, "pm list packages"):
 		return f.packages, nil
 	case strings.HasPrefix(cmd, "settings list "):
@@ -73,6 +79,7 @@ func TestClean(t *testing.T) {
 	calls := strings.Join(adb.calls, "\n")
 	for _, want := range []string{
 		"pm uninstall com.example.shop",
+		"pm uninstall com.google.android.webview",
 		"cmd package install-existing --user 0 com.android.vending",
 		"pm clear --user 0 com.sec.android.app.sbrowser",
 		"am force-stop com.android.vending",
@@ -98,6 +105,8 @@ func TestClean(t *testing.T) {
 	}
 	for _, unwanted := range []string{
 		"pm uninstall " + TunnelPackage,
+		"pm uninstall com.android.chrome",
+		"pm uninstall com.android.webview",
 		"pm clear --user 0 com.android.settings",
 		"pm suspend --user 0 com.example.shop",
 		"pm clear --user 0 com.sec.android.app.launcher",

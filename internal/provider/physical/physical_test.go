@@ -157,7 +157,8 @@ func TestProviderRoundTrip(t *testing.T) {
 	ctx := context.Background()
 
 	caps, err := c.Capabilities(ctx)
-	if err != nil || caps.Kind != "physical" || !slices.Equal(caps.ABIs, []string{"arm64-v8a"}) || len(caps.Locations) != 0 {
+	if err != nil || caps.Kind != "physical" || !slices.Equal(caps.ABIs, []string{"arm64-v8a"}) || len(caps.Locations) != 0 ||
+		!caps.WebView || !slices.Equal(caps.WebViewPackages, []string{"com.google.android.webview"}) {
 		t.Fatalf("capabilities %+v, %v", caps, err)
 	}
 	capacity, err := c.Capacity(ctx)
@@ -177,19 +178,21 @@ func TestProviderRoundTrip(t *testing.T) {
 		{ArtifactURL: "http://api/x", ArtifactRef: "src/x", Package: "x; reboot", Owner: "otter"},
 		{ArtifactURL: "http://api/x", ArtifactRef: "src/x", Package: "com.x", Owner: "otter", Location: "pl"},
 		{ArtifactURL: "http://api/x", ArtifactRef: "src/x", Package: "com.x", Owner: "otter", AppData: &contract.AppDataRestore{URL: "http://api/d"}},
+		{ArtifactURL: "http://api/x", ArtifactRef: "src/x", Package: "com.x", Owner: "otter", WebView: &contract.WebViewInstall{URL: "http://api/w", Version: "158.0.1"}},
 	} {
 		if _, err := c.Create(ctx, req); !errors.Is(err, contract.ErrInvalid) {
 			t.Errorf("create %+v: %v, want invalid", req, err)
 		}
 	}
 
-	s, err := c.Create(ctx, contract.CreateSession{ArtifactURL: "http://api/x", ArtifactRef: "src/x@1", Package: "com.x", Owner: "otter"})
-	if err != nil || s.Slot != "A1" || s.AgentURL != "http://phones/agents/"+s.ID || s.TunnelURL != "http://phones:8081/agents/"+s.ID ||
+	webview := &contract.WebViewInstall{URL: "http://api/w", Version: "156.0.8078.47", Package: "com.google.android.webview"}
+	s, err := c.Create(ctx, contract.CreateSession{ArtifactURL: "http://api/x", ArtifactRef: "src/x@1", Package: "com.x", Owner: "otter", WebView: webview})
+	if err != nil || s.Slot != "A1" || s.WebView != "156.0.8078.47" || s.AgentURL != "http://phones/agents/"+s.ID || s.TunnelURL != "http://phones:8081/agents/"+s.ID ||
 		s.Capabilities == nil || s.Capabilities.Root || s.Capabilities.DevTools != contract.DevToolsDebuggable {
 		t.Fatalf("create %+v, %v", s, err)
 	}
 	cfg := host.agent(0).cfg
-	if cfg.Serial != "A1" || cfg.Package != "com.x" || cfg.ArtifactURL != "http://api/x" || cfg.Root || cfg.HostCgroup != "" || cfg.Resume || cfg.ADBAddr != "" ||
+	if cfg.Serial != "A1" || cfg.Package != "com.x" || cfg.ArtifactURL != "http://api/x" || cfg.WebView != *webview || cfg.Root || cfg.HostCgroup != "" || cfg.Resume || cfg.ADBAddr != "" ||
 		cfg.ADBServer != "127.0.0.1:5037" || cfg.ADBShell != agent.ShellAllowlist {
 		t.Fatalf("agent config %+v", cfg)
 	}

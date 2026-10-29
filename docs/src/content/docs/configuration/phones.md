@@ -290,6 +290,9 @@ after it, the phone is cleaned against that baseline:
 - the tunnel is stopped and background apps are killed;
 - every package that wasn't in the baseline is uninstalled, and baseline
   packages someone removed are installed again (`install-existing`);
+- system WebViews with an update installed over them (a Google WebView a
+  session was launched with, or one from the Play Store) go back to their
+  factory version;
 - the data of every app on the launcher is cleared (browsers, gallery,
   files, …), except Settings, the launcher and Holtdroid Tunnel, and the apps
   in recents are closed;

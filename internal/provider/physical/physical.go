@@ -282,7 +282,7 @@ func New(cfg Config, host Host, opts ...Option) (*Provider, error) {
 			continue
 		}
 		p.mu.Lock()
-		p.start(s.Session, s.ArtifactURL, nil, nil, true, v)
+		p.start(s.Session, s.ArtifactURL, nil, nil, nil, true, v)
 		p.mu.Unlock()
 	}
 	p.mu.Lock()
@@ -438,8 +438,12 @@ func (p *Provider) Capabilities(context.Context) (contract.Capabilities, error) 
 		Locations:       p.cfg.VPN.Offered(),
 		DefaultLocation: p.cfg.VPN.DefaultLocation(),
 		ABIs:            abis,
+		WebView:         true,
+		WebViewPackages: []string{googleWebView},
 	}, nil
 }
+
+const googleWebView = "com.google.android.webview"
 
 func (p *Provider) Capacity(context.Context) (contract.Capacity, error) {
 	p.mu.Lock()
@@ -515,8 +519,8 @@ func (p *Provider) Create(ctx context.Context, req contract.CreateSession) (cont
 		return contract.Session{}, fmt.Errorf("%w: bad package name %q", contract.ErrInvalid, req.Package)
 	case req.Location != "" && !slices.ContainsFunc(p.cfg.VPN.Offered(), func(l contract.Location) bool { return l.ID == req.Location }):
 		return contract.Session{}, fmt.Errorf("%w: unknown location %q", contract.ErrInvalid, req.Location)
-	case req.WebView != nil:
-		return contract.Session{}, fmt.Errorf("%w: phones keep their own WebView", contract.ErrInvalid)
+	case req.WebView != nil && req.WebView.Package != googleWebView:
+		return contract.Session{}, fmt.Errorf("%w: phones take only Google's WebView, which their Android checks the signature of", contract.ErrInvalid)
 	}
 	id := randomID()
 	v, err := p.prepareVPN(ctx, id, location)
@@ -544,6 +548,7 @@ func (p *Provider) Create(ctx context.Context, req contract.CreateSession) (cont
 		ArtifactRef:  req.ArtifactRef,
 		Location:     location,
 		SaveAppData:  req.SaveAppData,
+		WebView:      webviewVersion(req.WebView),
 		ImageScan:    req.ImageScan,
 		State:        contract.StateProvisioning,
 		Capabilities: slots[i].Capabilities,
@@ -554,7 +559,7 @@ func (p *Provider) Create(ctx context.Context, req contract.CreateSession) (cont
 	if p.cfg.TunnelURL != "" {
 		s.TunnelURL = strings.TrimRight(p.cfg.TunnelURL, "/") + "/agents/" + id
 	}
-	sess := p.start(s, req.ArtifactURL, req.Recording, req.DarkMode, false, v)
+	sess := p.start(s, req.ArtifactURL, req.WebView, req.Recording, req.DarkMode, false, v)
 	if err := p.saveLocked(); err != nil {
 		sess.cancel()
 		delete(p.sessions, id)
@@ -565,9 +570,12 @@ func (p *Provider) Create(ctx context.Context, req contract.CreateSession) (cont
 
 // start runs the session's agent, and its sing-box when v is set; p.mu must
 // be held.
-func (p *Provider) start(s contract.Session, artifactURL string, rec *contract.RecordingTarget, dark *bool, resume bool, v *vpnRun) *session {
+func (p *Provider) start(s contract.Session, artifactURL string, webview *contract.WebViewInstall, rec *contract.RecordingTarget, dark *bool, resume bool, v *vpnRun) *session {
 	cfg := agent.DefaultConfig()
 	cfg.ArtifactURL = artifactURL
+	if webview != nil {
+		cfg.WebView = *webview
+	}
 	cfg.DarkMode = dark
 	cfg.ImageScan = s.ImageScan
 	if rec != nil {
@@ -905,4 +913,11 @@ func randomID() string {
 	b := make([]byte, 5)
 	_, _ = rand.Read(b)
 	return hex.EncodeToString(b)
+}
+
+func webviewVersion(w *contract.WebViewInstall) string {
+	if w == nil {
+		return ""
+	}
+	return w.Version
 }

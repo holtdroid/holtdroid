@@ -143,6 +143,7 @@ type Capabilities struct {
 	Screens   []Display  // optional (virtual devices): screens a launch may pick; the first is the default (decision #83)
 	Versions  []string   // optional (virtual devices): Android versions a launch may pick, newest first
 	WebView   bool       // a launch may install a WebView build from the api's catalog over the built-in one (decision #88)
+	WebViewPackages []string // the packages those builds must be; empty means any. Phones: com.google.android.webview (decision #172)
 }
 
 type Display struct {

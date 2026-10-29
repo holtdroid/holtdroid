@@ -128,6 +128,9 @@ func Clean(ctx context.Context, adb ADB, c Cleanup) error {
 	if c.Baseline == nil && packageName.MatchString(c.Package) {
 		cmds = append(cmds, "pm uninstall "+c.Package+" >/dev/null 2>&1")
 	}
+	for _, p := range updatedWebViews(ctx, adb) {
+		cmds = append(cmds, "pm uninstall "+p+" >/dev/null 2>&1")
+	}
 	for _, p := range launcherPackages(ctx, adb) {
 		if p != home && !slices.Contains(keep, p) {
 			cmds = append(cmds, "am force-stop "+p+"; pm clear --user 0 "+p+" >/dev/null 2>&1")
@@ -181,6 +184,38 @@ func Clean(ctx context.Context, adb ADB, c Cleanup) error {
 		run("wake", "cmd power set-mode 0; svc power stayon usb; "+brightness(c.Baseline)+"; true")
 	}
 	return errors.Join(append(errs, adb.RemoveAll(ctx))...)
+}
+
+var webviewProvider = regexp.MustCompile(`(?m)^\s+(?:Valid package |Invalid package )?([A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)+)[ (]`)
+
+// updatedWebViews are the phone's WebView providers that are system apps
+// with an update installed over them; uninstalling one removes the update and
+// leaves the factory WebView.
+func updatedWebViews(ctx context.Context, adb ADB) []string {
+	dump, err := adb.Shell(ctx, "dumpsys webviewupdate")
+	if err != nil {
+		return nil
+	}
+	_, list, _ := strings.Cut(dump, "WebView packages:")
+	var providers []string
+	for _, m := range webviewProvider.FindAllStringSubmatch(list, -1) {
+		providers = append(providers, m[1])
+	}
+	if len(providers) == 0 {
+		return nil
+	}
+	system, err := adb.Shell(ctx, "pm list packages -s -f")
+	if err != nil {
+		return nil
+	}
+	var out []string
+	for line := range strings.SplitSeq(system, "\n") {
+		path, pkg, ok := strings.Cut(strings.TrimPrefix(strings.TrimSpace(line), "package:"), ".apk=")
+		if ok && strings.HasPrefix(path, "/data/") && slices.Contains(providers, pkg) && !slices.Contains(out, pkg) {
+			out = append(out, pkg)
+		}
+	}
+	return out
 }
 
 const sharedDirs = "Alarms Audiobooks DCIM Documents Download Movies Music Notifications Pictures Podcasts Recordings Ringtones"

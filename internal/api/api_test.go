@@ -740,6 +740,14 @@ func (p noWebView) Capabilities(ctx context.Context) (contract.Capabilities, err
 	return c, err
 }
 
+type googlePhone struct{ contract.Provider }
+
+func (p googlePhone) Capabilities(ctx context.Context) (contract.Capabilities, error) {
+	c, err := p.Provider.Capabilities(ctx)
+	c.ABIs, c.WebViewPackages = []string{"arm64-v8a", "armeabi-v7a"}, []string{"com.google.android.webview"}
+	return c, err
+}
+
 type recordCreate struct {
 	contract.Provider
 	last *contract.CreateSession
@@ -828,7 +836,8 @@ func TestWebViewCatalog(t *testing.T) {
 	write := func(name, body, meta string) { writeIn(dir, name, body, meta) }
 	write("chromium-157.apk", "webview 157", `{"title":"Chromium 157","tags":{"milestone":"157","version":"157.0.8000.0","minSdk":"29","channel":"beta"}}`)
 	write("chromium-158.apk", "webview 158", `{"title":"Chromium 158","tags":{"milestone":"158","version":"158.0.8123.0","minSdk":"29","requiresSdk":"34","channel":"dev,canary","frontend":"7d74334854bbfcbaf1c955e86589d8b7cc9acc31"}}`)
-	writeIn(google, "chromium-157.apk", "google webview 156", `{"title":"Google WebView 156","tags":{"package":"com.google.android.webview","milestone":"156","version":"156.0.8078.47","requiresSdk":"34","channel":"stable"}}`)
+	writeIn(google, "chromium-157.apk", "google webview 156", `{"title":"Google WebView 156","tags":{"package":"com.google.android.webview","milestone":"156","version":"156.0.8078.47","requiresSdk":"34","channel":"stable","abis":"x86,x86_64"}}`)
+	writeIn(google, "google-arm-156.apk", "google webview 156 arm", `{"title":"Google WebView 156","tags":{"package":"com.google.android.webview","milestone":"156","version":"156.0.8078.47","channel":"stable","abis":"arm64-v8a,armeabi-v7a"}}`)
 	write("stray.apk", "not a webview", "")
 
 	h := newHarnessWith(t, 2, func(c *Config) {
@@ -836,16 +845,22 @@ func TestWebViewCatalog(t *testing.T) {
 		c.WebView.Catalogs = []storage.Config{{Type: "filesystem", Filesystem: storage.FilesystemConfig{Dir: google}}}
 	})
 	h.srv.providers["phones"] = noWebView{fake.New(fake.Config{Slots: 1, StepDelay: time.Hour, PublicURL: "http://agents"})}
-	h.srv.provOrder = append([]string{"phones"}, h.srv.provOrder...)
+	h.srv.providers["pixels"] = googlePhone{fake.New(fake.Config{Slots: 1, StepDelay: time.Hour, PublicURL: "http://agents"})}
+	h.srv.provOrder = append([]string{"phones", "pixels"}, h.srv.provOrder...)
 
 	rec := h.do(http.MethodGet, "/api/v1/webviews", "otter", "", nil)
 	list := decode[[]WebViewView](t, rec)
-	if rec.Code != http.StatusOK || len(list) != 3 || list[0].Milestone != 158 || list[0].Version != "158.0.8123.0" ||
+	if rec.Code != http.StatusOK || len(list) != 4 || len(list[0].ABIs) != 0 || list[0].Milestone != 158 || list[0].Version != "158.0.8123.0" ||
 		!slices.Equal(list[0].Channels, []string{"dev", "canary"}) || list[0].MinSDK != 34 || list[1].MinSDK != 29 || list[1].Title != "Chromium 157" ||
 		list[0].Package != "com.android.webview" || list[2].Package != "com.google.android.webview" || list[2].Title != "Google WebView 156" {
 		t.Fatalf("webviews %d %+v", rec.Code, list)
 	}
 	id := list[0].ID
+	x86 := slices.IndexFunc(list, func(w WebViewView) bool { return slices.Equal(w.ABIs, []string{"x86", "x86_64"}) })
+	arm := slices.IndexFunc(list, func(w WebViewView) bool { return slices.Equal(w.ABIs, []string{"arm64-v8a", "armeabi-v7a"}) })
+	if x86 < 0 || arm < 0 {
+		t.Fatalf("ABIs %+v", list)
+	}
 
 	launch := func(body map[string]string) *httptest.ResponseRecorder {
 		body["source"], body["artifactId"] = "local", encodeID("hello.apk")
@@ -856,6 +871,18 @@ func TestWebViewCatalog(t *testing.T) {
 	}
 	if rec := launch(map[string]string{"webview": id, "android": "13"}); rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "needs Android API level 34") {
 		t.Fatalf("a build too new for the Android version: %d %s", rec.Code, rec.Body.String())
+	}
+	for name, body := range map[string]map[string]string{
+		"a Chromium build on a phone":              {"provider": "pixels", "webview": id},
+		"an x86 build on an ARM phone":             {"provider": "pixels", "webview": list[x86].ID},
+		"an ARM build on a device translating ARM": {"provider": "fake", "webview": list[arm].ID},
+	} {
+		if rec := launch(body); rec.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("%s: %d %s", name, rec.Code, rec.Body.String())
+		}
+	}
+	if rec := launch(map[string]string{"webview": list[arm].ID}); rec.Code != http.StatusCreated || decode[SessionView](t, rec).Provider != "pixels" {
+		t.Fatalf("an ARM Google WebView goes to the phone: %d %s", rec.Code, rec.Body.String())
 	}
 	if rec := launch(map[string]string{"webview": encodeID("nope.apk")}); rec.Code != http.StatusNotFound {
 		t.Fatalf("an unknown build: %d %s", rec.Code, rec.Body.String())
@@ -877,7 +904,7 @@ func TestWebViewCatalog(t *testing.T) {
 
 	for path, want := range map[string]string{
 		"/internal/webview/" + id:                      "webview 158",
-		"/internal/webview/" + list[2].ID:              "google webview 156",
+		"/internal/webview/" + list[x86].ID:            "google webview 156",
 		"/internal/webview/" + encodeID("stray.apk"):   "",
 		"/internal/webview/" + encodeID("1:stray.apk"): "",
 	} {

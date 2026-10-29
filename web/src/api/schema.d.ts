@@ -1734,6 +1734,8 @@ export interface components {
             versions?: string[];
             /** @description a session can start with a WebView build from the portal's catalog instead of the built-in one */
             webview?: boolean;
+            /** @description the WebView packages the catalog builds must be, e.g. com.google.android.webview for phones, whose Android takes only Google-signed WebViews; empty means any */
+            webviewPackages?: string[];
         };
         Capacity: {
             /** @description the whole provider is held for maintenance */
@@ -4024,6 +4026,8 @@ export interface components {
             role: "admin" | "user" | "";
         };
         WebViewView: {
+            /** @description the ABIs it has native code for, from the sidecar's abis tag; empty when the catalog doesn't say */
+            abis: string[];
             /** @description Android release channels this milestone is on now: stable, beta, dev, canary */
             channels: string[];
             id: string;

@@ -2490,7 +2490,7 @@ versions without a history. Before the change, a spike on a live session
 - The emulator provider offers it (`holtdroid/webview` annotation,
   `HOLTDROID_WEBVIEW__*` env). The fake provider takes it for UI work.
   Phones refuse it: their WebView belongs to the phone and is signed by
-  Google.
+  Google (phones take Google's own builds since decision #172).
 - The launch dialog shows a WebView step when the provider has the
   capability and the catalog has builds for the chosen Android version
   (`minSdk`): "Built-in" plus one card per milestone with its channels.
@@ -5152,3 +5152,33 @@ shims follow Android, not the kernel: a newer Android 16 base or Android
 netbpfload service revisited, and a kernel with ACK's ashmem support or an
 LTS version netbpfload knows makes them no-ops. Apps can still find the
 shim in `/proc/self/maps`.
+
+## 172. Phones take Google WebView builds for ARM
+
+**Context.** Phones refused a WebView from the catalog (decision #88):
+their Android checks a WebView provider's signature, so a Chromium snapshot
+can't serve there. The catalog also holds Google WebView builds from
+APKMirror, which are signed by Google, but only for x86_64, and the api
+didn't know what processor a catalog build is for.
+
+**Decision.** Catalog sidecars carry an `abis` tag, which the APKMirror job
+reads from each APK's `lib/` entries and the api reports as `abis`.
+`Capabilities.WebViewPackages` names the packages a provider takes; the
+physical provider takes `com.google.android.webview` and sets
+`Capabilities.WebView`. The api only sends a WebView to providers that list
+its package and run one of its ABIs natively (the device's preferred ABI's
+family), since WebView crashes under ARM translation; the launch dialog
+offers the same builds. The agent installs it the same way as on redroid,
+which on a phone is an update of its own Google WebView. The phone cleanup
+uninstalls the update of every system WebView provider that has one, so the
+phone gets its factory WebView back without the provider remembering what a
+session installed. The APKMirror job syncs Google WebView a second time for
+`arm64-v8a` under a prefix of its own, listed as one more catalog.
+
+**Consequences.** Only versions newer than the phone's own WebView install;
+an older one fails the session. A Play Store update of the phone's WebView
+is removed by the next cleanup. Quick launch defaults to the newest stable
+build only among those virtual devices take, so "any provider" doesn't end
+up on a phone because of its WebView, and a phone keeps its built-in
+WebView unless one was picked for it. Sidecars without `abis` are offered
+to every provider, as before.

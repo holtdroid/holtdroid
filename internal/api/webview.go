@@ -37,6 +37,7 @@ type WebViewView struct {
 	Package   string    `json:"package" doc:"the WebView provider: com.android.webview (Chromium builds) or com.google.android.webview (Google's, with proprietary codecs)"`
 	Channels  []string  `json:"channels" doc:"Android release channels this milestone is on now: stable, beta, dev, canary"`
 	MinSDK    int       `json:"minSdk" doc:"the oldest Android API level it works on: the APK's minSdk, or the catalog's requiresSdk when that is higher"`
+	ABIs      []string  `json:"abis" doc:"the ABIs it has native code for, from the sidecar's abis tag; empty when the catalog doesn't say"`
 	Released  time.Time `json:"released"`
 	Size      int64     `json:"size"`
 }
@@ -91,20 +92,25 @@ func webviewOf(id string, a source.Artifact) (webviewBuild, bool) {
 	milestone, _ := strconv.Atoi(t["milestone"])
 	minSDK, _ := strconv.Atoi(t["minSdk"])
 	requires, _ := strconv.Atoi(t["requiresSdk"])
-	channels := []string{}
-	for c := range strings.SplitSeq(t["channel"], ",") {
-		if c = strings.TrimSpace(c); c != "" {
-			channels = append(channels, c)
-		}
-	}
+	channels, abis := tagList(t["channel"]), tagList(t["abis"])
 	return webviewBuild{
 		view: WebViewView{
 			ID: id, Title: cmp.Or(a.Meta.Title, "WebView "+version), Version: version, Milestone: milestone,
 			Package:  cmp.Or(t["package"], chromiumWebView),
-			Channels: channels, MinSDK: max(minSDK, requires), Released: a.UploadedAt(), Size: a.Size,
+			Channels: channels, MinSDK: max(minSDK, requires), ABIs: abis, Released: a.UploadedAt(), Size: a.Size,
 		},
 		frontend: t["frontend"],
 	}, true
+}
+
+func tagList(tag string) []string {
+	out := []string{}
+	for v := range strings.SplitSeq(tag, ",") {
+		if v = strings.TrimSpace(v); v != "" {
+			out = append(out, v)
+		}
+	}
+	return out
 }
 
 func (c *webviewCatalog) list(ctx context.Context) ([]WebViewView, error) {
@@ -172,12 +178,12 @@ func (s *Server) webviewFor(ctx context.Context, id, android string, candidates 
 	}
 	var able []string
 	for _, name := range candidates {
-		if caps, err := s.providers[name].Capabilities(ctx); err == nil && caps.WebView {
+		if caps, err := s.providers[name].Capabilities(ctx); err == nil && takesWebView(caps, b.view) {
 			able = append(able, name)
 		}
 	}
 	if len(able) == 0 {
-		return nil, nil, fmt.Errorf("%w: no provider here can change the WebView", contract.ErrInvalid)
+		return nil, nil, fmt.Errorf("%w: no provider here can install %s %s", contract.ErrInvalid, b.view.Title, b.view.Version)
 	}
 	return &contract.WebViewInstall{
 		URL:      strings.TrimRight(s.cfg.InternalURL, "/") + "/internal/webview/" + b.view.ID,
@@ -185,6 +191,32 @@ func (s *Server) webviewFor(ctx context.Context, id, android string, candidates 
 		Package:  b.view.Package,
 		Frontend: validFrontend(b.frontend),
 	}, able, nil
+}
+
+// takesWebView: a WebView has to be one of the provider's WebView packages
+// and run natively there, since WebView crashes under ARM translation.
+func takesWebView(caps contract.Capabilities, w WebViewView) bool {
+	return caps.WebView && (len(caps.WebViewPackages) == 0 || slices.Contains(caps.WebViewPackages, w.Package)) && runsNatively(caps.ABIs, w.ABIs)
+}
+
+func abiFamily(abi string) string {
+	switch {
+	case strings.HasPrefix(abi, "x86"):
+		return "x86"
+	case strings.HasPrefix(abi, "arm"):
+		return "arm"
+	}
+	return abi
+}
+
+// runsNatively: one of the APK's ABIs is the device's, of the same family as
+// its preferred (first) one.
+func runsNatively(device, apk []string) bool {
+	if len(apk) == 0 || len(device) == 0 {
+		return true
+	}
+	own := abiFamily(device[0])
+	return slices.ContainsFunc(apk, func(abi string) bool { return slices.Contains(device, abi) && abiFamily(abi) == own })
 }
 
 func validFrontend(rev string) string {
