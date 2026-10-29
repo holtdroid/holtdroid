@@ -179,7 +179,7 @@ while their regular logs go to stderr. Every audit line has
 | `passkey.delete`           | `user`                                                        | A user or an admin removed a passkey                                                                                      |
 
 Session actions are also kept in the api's
-[database](/holtdroid/configuration/database/).
+[database](/configuration/database/).
 
 ### Other destinations
 

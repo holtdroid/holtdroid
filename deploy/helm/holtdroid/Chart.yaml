@@ -4,7 +4,7 @@ description: Browser-based Android sandboxes for testing APKs
 type: application
 version: 0.1.0
 appVersion: "0.1.0"
-home: https://holtdroid.github.io/holtdroid/
+home: https://holtdroid.github.io/
 sources:
   - https://github.com/holtdroid/holtdroid
 icon: https://raw.githubusercontent.com/holtdroid/holtdroid/main/docs/src/assets/logo.svg

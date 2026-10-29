@@ -5,7 +5,7 @@ sidebar:
   order: 9
 ---
 
-Sessions with a [VPN](/holtdroid/concepts/vpn/) know every connection the
+Sessions with a [VPN](/concepts/vpn/) know every connection the
 device opens: the sidecar that carries its traffic reports them to the
 session's agent. The **Routes** tab next to DevTools turns them into the
 path the app's traffic takes, from the device through the VPN location to
@@ -74,13 +74,13 @@ recording, the details also show the median connect, TLS and waiting times
 of the WebView's requests to that name, and how many of them opened a new
 connection.
 
-The [DNS](/holtdroid/session-tools/dns/) tab places the addresses it answered the
+The [DNS](/session-tools/dns/) tab places the addresses it answered the
 same way and marks a lookup **far** when every address in it is on another
 continent than the exit.
 
 ## In recordings
 
-[Recordings](/holtdroid/concepts/recordings/) keep the connections, and the
+[Recordings](/concepts/recordings/) keep the connections, and the
 player has the same tab: it shows the connections as they stood at the
 playhead. Places are looked up when the recording is watched, so they are
 where the addresses are now.
@@ -94,12 +94,12 @@ connection setup; a long wait points at the server.
 ## Limits
 
 - Emulator sessions see every connection as it opens and closes, however
-  short, with its final bytes. On [phones](/holtdroid/configuration/phones/)
+  short, with its final bytes. On [phones](/configuration/phones/)
   the open connections are read four times a second, so one shorter than
   that may be missing, or shown without its last bytes.
 - Places are per country, from the [DB-IP Lite](https://db-ip.com)
   databases in the portal's image (`geoIP` in the
-  [configuration](/holtdroid/configuration/overview/#ip-geolocation)); a
+  [configuration](/configuration/overview/#ip-geolocation)); a
   portal without them shows no countries or networks, only CDN sites.
 - Holtdroid doesn't trace the hops to a server: from inside the session a
   trace stops at the tunnel, and the exit belongs to the VPN.

@@ -22,9 +22,9 @@ recording keeps more than the picture:
   scenarios; a region with what it adds to CDN and server round trips) and
   which links are on;
 - the **DNS** log: every query with its answers and TTLs, and when rewrites,
-  the TTL limit or the cache changed (see [DNS log and rewrites](/holtdroid/session-tools/dns/));
+  the TTL limit or the cache changed (see [DNS log and rewrites](/session-tools/dns/));
 - the **connections**: every server the device talked to, through which
-  location, with its bytes (see [Routes](/holtdroid/session-tools/routes/));
+  location, with its bytes (see [Routes](/session-tools/routes/));
 - the **time**: real time next to the device clock, with its time zone and
   how far it was set off real time;
 - the **load** every two seconds: device and app CPU, memory, frames and
@@ -178,7 +178,7 @@ the recording:
   doesn't scroll away; click elsewhere to follow again;
 - the copy button puts the lines on screen on the clipboard.
 
-The live tab is described in [Logcat](/holtdroid/session-tools/logcat/).
+The live tab is described in [Logcat](/session-tools/logcat/).
 
 ### Network, console and WebSockets
 
@@ -216,11 +216,11 @@ turn red when requests failed or the page logged errors.
   WebM, JPEG and the like, or it moves a steady flow of data) is marked
   **media stream**: from then on its frames are counted but not recorded.
 - **Cache** checks how the requests up to that moment use the WebView's
-  cache and a CDN in front of the server (see [Cache](/holtdroid/session-tools/cache/)).
+  cache and a CDN in front of the server (see [Cache](/session-tools/cache/)).
 - **Images** checks the images loaded up to that moment against how the
-  pages drew them (see [Images](/holtdroid/session-tools/images/)).
+  pages drew them (see [Images](/session-tools/images/)).
 - **SVG** checks the SVG paths in the recorded scripts, pages, stylesheets,
-  SVG files and inline SVGs (see [SVG paths](/holtdroid/session-tools/svg/)).
+  SVG files and inline SVGs (see [SVG paths](/session-tools/svg/)).
 
 JSON is shown as a tree you can open and close, also when it sits in a
 string field. Messages and bodies in common framings are split into their
@@ -266,13 +266,13 @@ to the moment you are at:
 - **Cache** reads the recorded requests' headers and says where caching goes
   wrong: the request time in the URL, parameters that change on every
   request, the same file downloaded again, CDN misses and hits that shouldn't
-  be, and weak headers. See [Cache](/holtdroid/session-tools/cache/).
+  be, and weak headers. See [Cache](/session-tools/cache/).
 - **Images** compares the recorded image files with how the pages drew them:
   images not on screen within 10 seconds of loading, bigger than they are
   drawn, in PNG, JPEG, GIF or BMP, or barely compressed. See
-  [Images](/holtdroid/session-tools/images/).
+  [Images](/session-tools/images/).
 - **SVG** finds path data with too many decimals, longer commands than needed
-  and paths shipped more than once. See [SVG](/holtdroid/session-tools/svg/).
+  and paths shipped more than once. See [SVG](/session-tools/svg/).
 
 In a finding, a request's time seeks there and **Open in Network** shows it
 on the Network tab. A recording keeps image bodies up to 512 KB; bigger ones,
@@ -287,7 +287,7 @@ showed up.
 ### Pixel perfect
 
 Signed-in viewers get a **Pixel perfect** tab next to the others, with the
-same panel as in a session (see [Pixel perfect](/holtdroid/session-tools/pixel-perfect/)):
+same panel as in a session (see [Pixel perfect](/session-tools/pixel-perfect/)):
 the reference is laid over the video, and **Find differences** pauses
 playback and compares the frame at the playhead. **Skip what moves** takes
 the next few frames of the recording. A recording has no device behind it,
@@ -302,8 +302,8 @@ the screen as 360 dp wide.
 
 **DNS** lists the names the device looked up up to that moment, with their
 answers, and **Routes** where the connections went, as in a session (see
-[DNS log and rewrites](/holtdroid/session-tools/dns/#recordings) and
-[Routes](/holtdroid/session-tools/routes/#in-recordings)).
+[DNS log and rewrites](/session-tools/dns/#recordings) and
+[Routes](/session-tools/routes/#in-recordings)).
 
 ## Downloads
 

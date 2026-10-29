@@ -15,7 +15,7 @@ version.
 ## Where the builds come from
 
 Chromium's x86_64 snapshot builds in the public `chromium-browser-snapshots`
-bucket, the same ones the [WebView catalog](/holtdroid/concepts/webview-versions/)
+bucket, the same ones the [WebView catalog](/concepts/webview-versions/)
 uses: `ChromePublic.apk`, Chromium as `org.chromium.chrome`, one APK with no
 splits. It is Chromium, not Google Chrome, so Google sign-in, sync and Play
 services features are missing. Builds go back to Chromium 129 (mid-2024),

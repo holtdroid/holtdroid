@@ -1,11 +1,11 @@
 <p align="center">
-  <a href="https://holtdroid.github.io/holtdroid/"><img src="https://github.com/holtdroid/.github/raw/main/profile/assets/social-holtdroid.png" alt="Holtdroid — a cozy holt for your test Androids"></a>
+  <a href="https://holtdroid.github.io/"><img src="https://github.com/holtdroid/.github/raw/main/profile/assets/social-holtdroid.png" alt="Holtdroid — a cozy holt for your test Androids"></a>
 </p>
 
 <p align="center">
-  <a href="https://holtdroid.github.io/holtdroid/"><b>Documentation</b></a> ·
-  <a href="https://holtdroid.github.io/holtdroid/start/introduction/">Introduction</a> ·
-  <a href="https://holtdroid.github.io/holtdroid/start/installation/">Installation</a> ·
+  <a href="https://holtdroid.github.io/"><b>Documentation</b></a> ·
+  <a href="https://holtdroid.github.io/start/introduction/">Introduction</a> ·
+  <a href="https://holtdroid.github.io/start/installation/">Installation</a> ·
   <a href="https://github.com/holtdroid">All repositories</a>
 </p>
 
@@ -21,8 +21,8 @@ clipboard sync and a VPN location switcher. Idle devices shut themselves down.
 > come in through [holtdroid-sync](https://github.com/holtdroid/holtdroid-sync); pages are tested in
 > [Holtdroid WebView](https://github.com/holtdroid/holtdroid-webview), a WebView browser with
 > DevTools unlocked. The plan lives in [`design/`](design/README.md),
-> the docs at [holtdroid.github.io/holtdroid](https://holtdroid.github.io/holtdroid/), with
-> [interactive guides](https://holtdroid.github.io/holtdroid/guides/first-steps/launch-app/) in English,
+> the docs at [holtdroid.github.io](https://holtdroid.github.io/), with
+> [interactive guides](https://holtdroid.github.io/guides/first-steps/launch-app/) in English,
 > Russian and Ukrainian.
 
 ## Try it

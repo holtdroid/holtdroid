@@ -78,7 +78,7 @@ nodeInfo:
 | `agentResources`           | Agent container resources                                                                                                                                                                                                                                                                           |
 | `nodes`                    | Per-node overrides by node name: `slots` and `resources`                                                                                                                                                                                                                                            |
 | `vpn`                      | Per-session VPN, see below                                                                                                                                                                                                                                                                          |
-| `sessionTelemetry`         | Metrics port and tracing settings passed to session agents, see [Monitoring](/holtdroid/operations/monitoring/)                                                                                                                                                                                     |
+| `sessionTelemetry`         | Metrics port and tracing settings passed to session agents, see [Monitoring](/operations/monitoring/)                                                                                                                                                                                               |
 | `maintenance`              | Name of the ConfigMap in `namespace` that keeps maintenance holds. The provider creates it on the first hold. Empty turns holds off                                                                                                                                                                 |
 | `nodeInfo`                 | Label `selector` and `port` of the `holtdroid node-info` Pods that describe session nodes on the Inventory page. Empty selector: Node objects only                                                                                                                                                  |
 
@@ -122,7 +122,7 @@ whatever else the node runs.
   (only `NET_ADMIN` in the Pod's network namespace, for network conditions),
   users' ADB runs only allowlisted commands by default, and the image's init
   wrapper keeps Android from rewriting the node's sysctls. See
-  [Security](/holtdroid/operations/security/).
+  [Security](/operations/security/).
 
 Sessions run `x86_64` and 32-bit `x86` apps natively. Apps with only
 `arm64-v8a` native code run through `libndk_translation`; separate ARM
@@ -233,7 +233,7 @@ With a WebView catalog (`webview.storage`), the launch dialog also offers a
 WebView build for the chosen Android version, which the agent installs over
 the built-in one. This needs holtdroid-redroid images that re-sign the
 built-in WebView with Chromium's debug key, which every published tag does.
-See [WebView versions](/holtdroid/concepts/webview-versions/).
+See [WebView versions](/concepts/webview-versions/).
 
 ## Users' ADB inside Android
 
@@ -388,9 +388,9 @@ images; with a pinned tag or `IfNotPresent` the refresh does nothing.
 ## VPN
 
 With at least one location, every session Pod gets a `vpn` sidecar (see
-[Per-session VPN](/holtdroid/concepts/vpn/)). Each location is a sing-box
+[Per-session VPN](/concepts/vpn/)). Each location is a sing-box
 outbound; the usual one points at a
-[shared VPN gateway](/holtdroid/operations/vpn-gateway/):
+[shared VPN gateway](/operations/vpn-gateway/):
 
 ```yaml
 vpn:
@@ -416,17 +416,17 @@ vpn:
       outbound: openbao:secret/holtdroid#vpn_nl # the outbound as JSON
 ```
 
-| Key               | Meaning                                                                                                                                                                                                                                                                                                                   |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `vpn.image`       | sing-box image for the sidecar (1.12 or newer)                                                                                                                                                                                                                                                                            |
-| `vpn.bypassCIDRs` | Ranges that never go through the tunnel. Must include your Pod and Service CIDRs, and the gateway's address                                                                                                                                                                                                               |
-| `vpn.dns`         | Resolver (IP) for the device's DNS, queried through the selected location                                                                                                                                                                                                                                                 |
-| `vpn.resolver`    | Resolver (IP) for host names inside outbounds. Empty uses the Pod's `/etc/resolv.conf`, but sing-box sends `*.local` names to mDNS, so set your cluster DNS here when outbounds use `*.cluster.local`                                                                                                                     |
-| `vpn.direct`      | Offer a `direct` location (no VPN). Default `true`; set `false` so every session always goes out through a VPN location. Apps then have no network at all while the tunnel is down, instead of falling back to the Pod's own address                                                                                      |
-| `vpn.default`     | Location a session starts in when the user picks none. Default: `direct`, or the first location                                                                                                                                                                                                                           |
-| `vpn.locations`   | `id` (lowercase letters, digits, `-`; quote ids YAML reads as booleans, such as `"no"` for Norway), `label`, `outbound`, and optionally `defaultFor`                                                                                                                                                                      |
-| `…[].defaultFor`  | Package names whose sessions start in this location instead of `vpn.default`, e.g. `[com.example.app]`. A package may be listed under one location only                                                                                                                                                                   |
-| `…[].outbound`    | A sing-box outbound or endpoint object without `tag`, or a [secret reference](/holtdroid/configuration/secrets/) whose value is that object as JSON. Inside an object, any string value that is a secret reference (`env:`, `file:`, `openbao:`) is replaced by the secret, at any depth: use that for passwords and keys |
+| Key               | Meaning                                                                                                                                                                                                                                                                                                         |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `vpn.image`       | sing-box image for the sidecar (1.12 or newer)                                                                                                                                                                                                                                                                  |
+| `vpn.bypassCIDRs` | Ranges that never go through the tunnel. Must include your Pod and Service CIDRs, and the gateway's address                                                                                                                                                                                                     |
+| `vpn.dns`         | Resolver (IP) for the device's DNS, queried through the selected location                                                                                                                                                                                                                                       |
+| `vpn.resolver`    | Resolver (IP) for host names inside outbounds. Empty uses the Pod's `/etc/resolv.conf`, but sing-box sends `*.local` names to mDNS, so set your cluster DNS here when outbounds use `*.cluster.local`                                                                                                           |
+| `vpn.direct`      | Offer a `direct` location (no VPN). Default `true`; set `false` so every session always goes out through a VPN location. Apps then have no network at all while the tunnel is down, instead of falling back to the Pod's own address                                                                            |
+| `vpn.default`     | Location a session starts in when the user picks none. Default: `direct`, or the first location                                                                                                                                                                                                                 |
+| `vpn.locations`   | `id` (lowercase letters, digits, `-`; quote ids YAML reads as booleans, such as `"no"` for Norway), `label`, `outbound`, and optionally `defaultFor`                                                                                                                                                            |
+| `…[].defaultFor`  | Package names whose sessions start in this location instead of `vpn.default`, e.g. `[com.example.app]`. A package may be listed under one location only                                                                                                                                                         |
+| `…[].outbound`    | A sing-box outbound or endpoint object without `tag`, or a [secret reference](/configuration/secrets/) whose value is that object as JSON. Inside an object, any string value that is a secret reference (`env:`, `file:`, `openbao:`) is replaced by the secret, at any depth: use that for passwords and keys |
 
 Any outbound works, for example a WireGuard endpoint straight in the sidecar
 (set `mtu: 1280` on overlay networks such as flannel VXLAN). But a WireGuard
@@ -474,7 +474,7 @@ addresses. The agent answers the device's DNS, so it takes the addresses
 the device gets when it looks a backend up, and shapes them about a second
 later; exact names are also resolved up front. The tab lists the addresses
 found so far. The list is saved per user and app, in the database when it
-is [persistent](/holtdroid/configuration/database/) (`sqlite`) and in the
+is [persistent](/configuration/database/) (`sqlite`) and in the
 browser otherwise, and filled in when a region is picked in the app's next
 session. A CDN often puts many of its
 customers' hosts on the same addresses, and those take the servers' path

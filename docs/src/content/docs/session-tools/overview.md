@@ -13,28 +13,28 @@ shell.
 Not every tab is there in every session: a tab appears only when the session
 can use it.
 
-| Tab                                                          | What it is for                                                                      | When it appears                                            |
-| ------------------------------------------------------------ | ----------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| **DevTools**                                                 | Chrome DevTools for the app's WebViews: Elements, Console, Network, Sources         | always ([WebView DevTools](/holtdroid/concepts/devtools/)) |
-| [**Pixel perfect**](/holtdroid/session-tools/pixel-perfect/) | lay a design mockup over the screen and find where the app differs                  | unless the server turned it off (`pixelPerfect.enabled`)   |
-| [**WebSockets**](/holtdroid/session-tools/websockets/)       | the WebViews' sockets and event streams, frame by frame                             | when the app has a WebView DevTools can reach              |
-| [**Cache**](/holtdroid/session-tools/cache/)                 | how the WebViews' requests use the HTTP cache and a CDN                             | same as WebSockets                                         |
-| [**Images**](/holtdroid/session-tools/images/)               | images that are too big, in old formats or loaded but never shown                   | same as WebSockets                                         |
-| [**SVG**](/holtdroid/session-tools/svg/)                     | SVG path data that could be smaller                                                 | same as WebSockets                                         |
-| [**Network**](/holtdroid/session-tools/network/)             | slow, lossy or offline network conditions for the whole device                      | in emulator sessions with VPN locations                    |
-| [**DNS**](/holtdroid/session-tools/dns/)                     | every name the device looks up, and rewrites of names to other addresses            | in sessions with a [VPN](/holtdroid/concepts/vpn/)         |
-| [**Routes**](/holtdroid/session-tools/routes/)               | where the connections go: servers, countries, networks, the VPN exit and slow paths | in sessions with a VPN                                     |
-| [**Logcat**](/holtdroid/session-tools/logcat/)               | the device's log, with the app's lines and crashes                                  | when the session has ADB                                   |
-| [**Files**](/holtdroid/session-tools/files/)                 | the app's private data and the shared storage                                       | when the session has ADB                                   |
-| [**Terminal**](/holtdroid/session-tools/terminal/)           | a shell on the device                                                               | when the session has ADB and the device a shell            |
+| Tab                                                | What it is for                                                                      | When it appears                                          |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| **DevTools**                                       | Chrome DevTools for the app's WebViews: Elements, Console, Network, Sources         | always ([WebView DevTools](/concepts/devtools/))         |
+| [**Pixel perfect**](/session-tools/pixel-perfect/) | lay a design mockup over the screen and find where the app differs                  | unless the server turned it off (`pixelPerfect.enabled`) |
+| [**WebSockets**](/session-tools/websockets/)       | the WebViews' sockets and event streams, frame by frame                             | when the app has a WebView DevTools can reach            |
+| [**Cache**](/session-tools/cache/)                 | how the WebViews' requests use the HTTP cache and a CDN                             | same as WebSockets                                       |
+| [**Images**](/session-tools/images/)               | images that are too big, in old formats or loaded but never shown                   | same as WebSockets                                       |
+| [**SVG**](/session-tools/svg/)                     | SVG path data that could be smaller                                                 | same as WebSockets                                       |
+| [**Network**](/session-tools/network/)             | slow, lossy or offline network conditions for the whole device                      | in emulator sessions with VPN locations                  |
+| [**DNS**](/session-tools/dns/)                     | every name the device looks up, and rewrites of names to other addresses            | in sessions with a [VPN](/concepts/vpn/)                 |
+| [**Routes**](/session-tools/routes/)               | where the connections go: servers, countries, networks, the VPN exit and slow paths | in sessions with a VPN                                   |
+| [**Logcat**](/session-tools/logcat/)               | the device's log, with the app's lines and crashes                                  | when the session has ADB                                 |
+| [**Files**](/session-tools/files/)                 | the app's private data and the shared storage                                       | when the session has ADB                                 |
+| [**Terminal**](/session-tools/terminal/)           | a shell on the device                                                               | when the session has ADB and the device a shell          |
 
 Logcat, Files and Terminal talk to the device over ADB straight from your
-browser (see [ADB tools](/holtdroid/concepts/adb/)). The connection opens
+browser (see [ADB tools](/concepts/adb/)). The connection opens
 when you first open one of them; if it drops, the tab offers **Reconnect**.
 
 ## In recordings
 
-A [recording](/holtdroid/concepts/recordings/) keeps what most of these tabs
+A [recording](/concepts/recordings/) keeps what most of these tabs
 show: its player has Logcat, the WebViews' Network, Console and WebSockets,
 Cache, Images, SVG, DNS, Routes and Pixel perfect, each as it was at the
 moment you are at. Files and Terminal aren't recorded.

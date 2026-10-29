@@ -38,7 +38,7 @@ restart signs everybody out and each replica rejects the others' cookies.
 :::
 
 The same key encrypts the Figma tokens users save on the Pixel perfect page
-(see [Pixel perfect](/holtdroid/session-tools/pixel-perfect/)); with `mode: header`
+(see [Pixel perfect](/session-tools/pixel-perfect/)); with `mode: header`
 it is optional and used only for that.
 
 The cookie is marked `Secure` when `publicURL` starts with `https://`.
@@ -116,7 +116,7 @@ identity_providers:
 ## Users and passkeys
 
 The `users` mode keeps its own user directory in the api's
-[database](/holtdroid/configuration/database/). People sign up through an
+[database](/configuration/database/). People sign up through an
 invite link with their name and email and sign in with a **passkey** (Touch
 ID, Face ID, Windows Hello, a security key or a password manager); there are
 no passwords. Admins get a **Users** page: everyone's role, limits and

@@ -21,7 +21,7 @@ it: it is synced through scrcpy, like the screen.
 :::note
 Apps with root, emulator or instrumentation detection may refuse to run.
 That is the main limitation of the emulator provider. A
-[phone without root](/holtdroid/configuration/phones/) runs such apps, but
+[phone without root](/configuration/phones/) runs such apps, but
 shows DevTools only for debuggable builds: the app turns WebView debugging on
 by itself there, without Frida.
 :::
@@ -49,8 +49,8 @@ named `webview_devtools_remote_<pid>`. The agent:
    one (it is fetched afresh on the next open) or fetch it ahead of the
    queue. Chromium snapshot builds report no revision, so
    the agent uses the `frontend` tag
-   of the [WebView build](/holtdroid/concepts/webview-versions/) or of the
-   [Chromium build](/holtdroid/sources/chromium/) the session started with.
+   of the [WebView build](/concepts/webview-versions/) or of the
+   [Chromium build](/sources/chromium/) the session started with.
    Built-in WebViews of some Android images report a revision that is no
    real commit; for those the agent looks up the commit of the WebView's
    version in Chromium Dash.
@@ -78,10 +78,10 @@ Network already show it as part of the page. The target selector says the
 same at the bottom of its list.
 
 Next to DevTools are tabs built on the same connection, which work without
-DevTools open: [WebSockets](/holtdroid/session-tools/websockets/),
-[Cache](/holtdroid/session-tools/cache/),
-[Images](/holtdroid/session-tools/images/) and
-[SVG](/holtdroid/session-tools/svg/). The agent keeps the session's socket
+DevTools open: [WebSockets](/session-tools/websockets/),
+[Cache](/session-tools/cache/),
+[Images](/session-tools/images/) and
+[SVG](/session-tools/svg/). The agent keeps the session's socket
 traffic and requests, so they also show what happened before they were
 opened or the page reloaded.
 

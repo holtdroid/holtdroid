@@ -5094,3 +5094,24 @@ client runtime for five diagrams.
 **Consequences.** Mermaid class names (`.flowchart-link`, `.transition`,
 `.messageLine0`) are what the animation hooks into; a Mermaid upgrade that
 renames them stops the animation but leaves the diagrams readable.
+
+## 170. The docs are served from holtdroid.github.io, built from this repository
+
+**Context.** As a project site the docs lived under
+`https://holtdroid.github.io/holtdroid/`. GitHub serves the root of
+`holtdroid.github.io` only from a repository named `holtdroid.github.io`,
+and moving the docs' sources there would split them from the code they
+describe, which every change updates together (AGENTS.md).
+
+**Decision.** The sources stay in `docs/`. The `docs` workflow builds them
+with `base: /` and pushes the result to `holtdroid/holtdroid.github.io`
+(branch `main`, no sources of its own) with a deploy key that can write
+only to that repository (`PAGES_DEPLOY_KEY`). This repository's own Pages
+site now serves a page that sends every `/holtdroid/…` URL to the same path
+on the root, so old links keep working. This supersedes the docs URL in
+decision #81.
+
+**Consequences.** Publishing the docs needs the deploy key and its secret;
+without them the workflow fails and the published site stays as it was.
+Links inside the docs are root-relative (`/start/…`), and anything that
+links to the docs from outside uses `https://holtdroid.github.io/`.

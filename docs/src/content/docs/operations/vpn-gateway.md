@@ -6,7 +6,7 @@ sidebar:
 ---
 
 Holtdroid gives every session its own sing-box sidecar, and each location is
-a plain sing-box outbound (see [Per-session VPN](/holtdroid/concepts/vpn/)).
+a plain sing-box outbound (see [Per-session VPN](/concepts/vpn/)).
 Putting WireGuard straight into those outbounds breaks as soon as two
 sessions use the same location: VPN services hand out one key per account,
 and one key connected from several places at once makes the peers fight.
@@ -208,7 +208,7 @@ vpn:
 names, `*.cluster.local` included, to mDNS. Alternatively use the Service's
 ClusterIP as `server`. The gateway's address must be inside
 `vpn.bypassCIDRs` (the default private ranges cover usual clusters). All keys
-are on the [emulator provider](/holtdroid/configuration/emulator/#vpn) page.
+are on the [emulator provider](/configuration/emulator/#vpn) page.
 
 ## Without Kubernetes
 

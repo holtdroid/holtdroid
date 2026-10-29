@@ -6,11 +6,11 @@ sidebar:
 ---
 
 There is no plugin API for sources. The contract is the file layout: a job
-that writes `*.apk` files and their [sidecars](/holtdroid/sources/overview/#the-metajson-sidecar)
+that writes `*.apk` files and their [sidecars](/sources/overview/#the-metajson-sidecar)
 into a folder or an S3 prefix is a source integration. It can be written in
 any language and deployed and released apart from Holtdroid.
-[holtdroid-slack-sync](/holtdroid/sources/slack/) and
-[holtdroid-github-sync](/holtdroid/sources/github/) are examples.
+[holtdroid-slack-sync](/sources/slack/) and
+[holtdroid-github-sync](/sources/github/) are examples.
 
 The simplest integration is a CI step:
 
@@ -75,7 +75,7 @@ in the job's environment. Nothing secret goes into keys or sidecars:
 everything in a sidecar is shown to every user who can see the build.
 
 **Link back into the portal.** To announce a build (chat message, PR
-comment), use a [launch link](/holtdroid/sources/overview/#launch-links):
+comment), use a [launch link](/sources/overview/#launch-links):
 `{portal}/?source={source name}&launch={base64url(key)}`.
 
 ## Checklist

@@ -20,7 +20,7 @@ providers:
 
 ## What the api expects
 
-The endpoints are listed in [Contracts](/holtdroid/extending/contracts/#device-provider);
+The endpoints are listed in [Contracts](/extending/contracts/#device-provider);
 the request and response shapes are the Go types in
 [`internal/contract/types.go`](https://github.com/holtdroid/holtdroid/blob/main/internal/contract/types.go)
 and the OpenAPI document a Go provider serves at `/openapi.json`.
@@ -49,7 +49,7 @@ and the OpenAPI document a Go provider serves at `/openapi.json`.
    `com.google.android.webview` as a WebView provider. In that case, pass
    `CreateSession.webview` to the agent, which installs `webview.url`
    before the APK and switches to `webview.package` when it is set (see
-   [WebView versions](/holtdroid/concepts/webview-versions/)).
+   [WebView versions](/concepts/webview-versions/)).
 5. **`POST /v1/sessions/{id}/touch` stores activity.** The api batches the
    last user activity and flushes it every `sessions.flushInterval`; return
    it as `lastActivity` so the idle timeout survives an api restart.
@@ -87,7 +87,7 @@ session.
 ## The agent
 
 Every session needs an agent next to the device that implements the
-[agent API](/holtdroid/extending/contracts/#device-agent): status, the
+[agent API](/extending/contracts/#device-agent): status, the
 scrcpy screen stream, DevTools targets and their WebSockets, clipboard,
 network and device controls. The browser talks to it directly through the
 api's proxy, so whatever your device is, the UI works the same.
@@ -122,4 +122,4 @@ run `holtdroid api` with your provider in `providers`.
 
 Propagate the W3C `traceparent` header from the api's requests into your
 own spans, and the api's traces continue through your provider. See
-[Monitoring and audit](/holtdroid/operations/monitoring/).
+[Monitoring and audit](/operations/monitoring/).

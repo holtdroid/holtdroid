@@ -39,7 +39,7 @@ includes `arm64-v8a` (or `x86_64`).
 
 - ARM-only native libraries run through Android's ARM translation layer;
   a few libraries (heavy NEON assembly, JIT engines, some DRM) don't work
-  under it. `adb logcat` from your [connected computer](/holtdroid/concepts/ssh/)
+  under it. `adb logcat` from your [connected computer](/concepts/ssh/)
   shows `libndk_translation` in the crash's backtrace.
 - The app may detect root, an emulator or Frida and exit. The agent log shows
   the Frida spawn and the app's exit. Holtdroid never repackages an APK, so
@@ -91,7 +91,7 @@ outbound HTTPS for that; session Pods don't.
 - A WireGuard tunnel that drops whenever another session starts: the same
   key is in use from several places (other session Pods, or a client outside
   Holtdroid on the same server). Move WireGuard into a
-  [shared VPN gateway](/holtdroid/operations/vpn-gateway/) and give it
+  [shared VPN gateway](/operations/vpn-gateway/) and give it
   servers nobody else uses with that key.
 - WireGuard logs `sendmmsg: message too long`: lower its `mtu` to 1280 on
   overlay networks.

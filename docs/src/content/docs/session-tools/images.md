@@ -14,7 +14,7 @@ first screen and for developers deciding which images to fix first.
 
 It needs no DevTools window: the session's agent follows every page and
 iframe of the WebViews from their first request (see
-[DevTools](/holtdroid/concepts/devtools/)), so the tab shows images that
+[DevTools](/concepts/devtools/)), so the tab shows images that
 loaded before you opened it, also after a reload of the session page.
 
 ## When the tab appears
@@ -37,7 +37,7 @@ browser. **Turn on** in the tab starts it in a running session: it sees
 what the pages show from then on, so reload the page in the app to also
 check how it loads. **Image scan on · turn off** in the toolbar stops it and
 takes the script out of the pages. The setting belongs to the session, so it
-changes the [SVG](/holtdroid/session-tools/svg/) tab and everyone watching
+changes the [SVG](/session-tools/svg/) tab and everyone watching
 the session too.
 
 The APK isn't touched, but while the scan runs the pages have a
@@ -126,7 +126,7 @@ first screen paid for and didn't show; **Not on screen** adds them up.
 
 **Report an image.** Open the finding: the URL, natural size, drawn size and
 the WebP sizes are what a developer needs to export it right. With a
-[recording](/holtdroid/concepts/recordings/#cache-images-and-svg), **Open in Network**
+[recording](/concepts/recordings/#cache-images-and-svg), **Open in Network**
 takes you to the request itself.
 
 **Look at an image that doesn't show.** Its **Drawn by** rows say whether
@@ -135,7 +135,7 @@ downloaded for nothing).
 
 ## In recordings
 
-A [recording](/holtdroid/concepts/recordings/#cache-images-and-svg) has the same tab with
+A [recording](/concepts/recordings/#cache-images-and-svg) has the same tab with
 the same checks, judged up to the playhead: a time there seeks the video and
 **Open in Network** opens the request. Recordings keep image files up to
 512 KB to measure; without the image scan they get only the checks on the

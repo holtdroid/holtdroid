@@ -15,8 +15,8 @@ lists the requests behind it and the headers to fix.
 ## When the tab is there
 
 The tab sits next to DevTools whenever the session has WebView DevTools:
-always on emulators, and on [phones](/holtdroid/configuration/phones/) only
-for debuggable builds (see [WebView DevTools](/holtdroid/concepts/devtools/)).
+always on emulators, and on [phones](/configuration/phones/) only
+for debuggable builds (see [WebView DevTools](/concepts/devtools/)).
 The agent follows every page, iframe, worker and service worker of the
 WebViews for the whole session, so the tab sees requests made before you
 opened it, and fills again after a reload of the portal page.
@@ -141,7 +141,7 @@ every request** findings name the parameter and its value; the
 
 ## In recordings
 
-A [recording](/holtdroid/concepts/recordings/#cache-images-and-svg) has the same Cache
+A [recording](/concepts/recordings/#cache-images-and-svg) has the same Cache
 tab, checked over the requests up to the playhead. There a request's time
 seeks the video to it, and **Open in Network** opens the request you picked
 on the recording's Network tab with all its headers and the body.

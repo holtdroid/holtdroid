@@ -17,7 +17,7 @@ import { loadScenario } from "./scenarios"
 
 type Scene = { guide: string; label: string; icon: LucideIcon; href: string }
 
-const base = "/holtdroid/guides"
+const base = "/guides"
 
 export const scenes: Scene[] = [
   { guide: "launch-app", label: "Launch", icon: RocketIcon, href: `${base}/first-steps/launch-app/` },

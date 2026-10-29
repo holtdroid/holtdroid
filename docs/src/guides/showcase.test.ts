@@ -15,6 +15,6 @@ const { guideIds } = await import("./scenarios")
 
 test.each(scenes.map((s) => [s.guide, s] as const))("%s is a guide with a page", (guide, scene) => {
   expect(guideIds).toContain(guide)
-  const page = scene.href.replace(/^\/holtdroid\//, "").replace(/\/$/, ".mdx")
+  const page = scene.href.replace(/^\//, "").replace(/\/$/, ".mdx")
   expect(existsSync(join(import.meta.dir, "../content/docs", page))).toBe(true)
 })

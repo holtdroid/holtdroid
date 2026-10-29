@@ -16,23 +16,46 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  site:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - uses: jdx/mise-action@v3
       - run: bun install --frozen-lockfile
       - run: bun run --cwd docs build
-      - uses: actions/upload-pages-artifact@v4
+      - uses: peaceiris/actions-gh-pages@v4
         with:
-          path: docs/dist
+          deploy_key: ${{ secrets.PAGES_DEPLOY_KEY }}
+          external_repository: holtdroid/holtdroid.github.io
+          publish_branch: main
+          publish_dir: docs/dist
+          force_orphan: true
+          user_name: github-actions[bot]
+          user_email: 41898282+github-actions[bot]@users.noreply.github.com
+          full_commit_message: "docs: ${{ github.repository }}@${{ github.sha }}"
 
-  deploy:
-    needs: build
+  redirect:
+    needs: site
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - run: |
+          mkdir redirect
+          cat > redirect/404.html <<'EOF'
+          <!doctype html>
+          <meta charset="utf-8">
+          <title>Holtdroid docs moved</title>
+          <meta name="robots" content="noindex">
+          <script>
+            location.replace("https://holtdroid.github.io" + location.pathname.replace(/^\/holtdroid/, "") + location.search + location.hash)
+          </script>
+          <p>The Holtdroid docs moved to <a href="https://holtdroid.github.io/">holtdroid.github.io</a>.</p>
+          EOF
+          cp redirect/404.html redirect/index.html
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: redirect
       - id: deployment
         uses: actions/deploy-pages@v4

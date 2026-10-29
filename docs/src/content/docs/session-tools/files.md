@@ -8,7 +8,7 @@ sidebar:
 The **Files** tab is a file browser for the session's device. Use it to grab
 a file the app wrote (a database, a log, an export), to put a file on the
 device for the app to pick, or to look at what an app keeps in its private
-data. It works over [ADB in the browser](/holtdroid/concepts/adb/), so you
+data. It works over [ADB in the browser](/concepts/adb/), so you
 need nothing installed on your computer.
 
 ## When the tab appears
@@ -59,7 +59,7 @@ where ADB runs any shell command, **Delete** show up when you hover a row.
 
 `App data` holds what the app keeps for itself: `shared_prefs`, `databases`,
 `files`, and the WebView's cookies and storage under `app_webview`. The
-[App data](/holtdroid/concepts/app-data/) feature saves and restores this
+[App data](/concepts/app-data/) feature saves and restores this
 folder between sessions.
 
 ## Common tasks
@@ -89,7 +89,7 @@ moment: an app that keeps the database open may still have changes in its
 
 ## Recordings
 
-[Recordings](/holtdroid/concepts/recordings/) don't keep anything of this
+[Recordings](/concepts/recordings/) don't keep anything of this
 tab: the player has no Files tab, and browsing, uploads and deletions are
 not recorded. What you do in the app with an uploaded file shows up on the
 recorded screen like anything else.
@@ -98,10 +98,10 @@ recorded screen like anything else.
 
 - **Delete** and **New folder** run shell commands (`rm` and `mkdir`), so
   they are only shown where the provider lets ADB run any command, which is
-  also when the [Terminal](/holtdroid/session-tools/terminal/) tab shows up
+  also when the [Terminal](/session-tools/terminal/) tab shows up
   (`redroid.shell: full` on emulators, `adb.shell: full` on phones, see
-  [Emulator provider](/holtdroid/configuration/emulator/#users-adb-inside-android)
-  and [ADB on phones](/holtdroid/configuration/phones/#adb-on-phones)). By
+  [Emulator provider](/configuration/emulator/#users-adb-inside-android)
+  and [ADB on phones](/configuration/phones/#adb-on-phones)). By
   default both run only an allowlist of read-only commands and package
   operations, and the tab browses, downloads and uploads. Those are file
   transfer and work under every setting, even `off`.
@@ -119,4 +119,4 @@ recorded screen like anything else.
 - Symbolic links are listed like folders. A link to a file can't be opened
   or downloaded from the tab.
 - Everything is gone when the session ends, except what
-  [App data](/holtdroid/concepts/app-data/) saves.
+  [App data](/concepts/app-data/) saves.

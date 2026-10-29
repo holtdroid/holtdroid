@@ -10,17 +10,17 @@ The **Logcat** tab is Android's log, live, in the session page: what
 only your app's lines, so QA can see the error behind a broken screen and
 developers can follow their own tags without the rest of the system.
 
-The session page reads it over [ADB in the browser](/holtdroid/concepts/adb/),
+The session page reads it over [ADB in the browser](/concepts/adb/),
 from the device's `main`, `system` and `crash` buffers.
 
 ## When the tab appears
 
-Logcat, [Files and Terminal](/holtdroid/concepts/adb/) are the tabs that need
+Logcat, [Files and Terminal](/concepts/adb/) are the tabs that need
 ADB. They appear when the portal lets the session page open ADB
 (`adb.browser`, on by default) and you may use it: with `adb.ownerOnly` (the
 default) only the session's owner and admins get them; everyone else sees
 the screen and DevTools only. See
-[ADB tools](/holtdroid/concepts/adb/#configuration).
+[ADB tools](/concepts/adb/#configuration).
 
 Collecting starts once the device is first ready, whether or not the tab is
 open, and keeps going while the app restarts or another build is installed.
@@ -99,11 +99,11 @@ holds only what happened since.
 
 For a bug report with a screenshot, device and app details and this log
 (the whole device, whatever the filters), use **Bundle** in the **Device**
-card: see [ADB tools](/holtdroid/concepts/adb/).
+card: see [ADB tools](/concepts/adb/).
 
 ## In recordings
 
-A [recording](/holtdroid/concepts/recordings/#logcat) keeps its own logcat,
+A [recording](/concepts/recordings/#logcat) keeps its own logcat,
 written on the server: the whole device, each line stamped with its time in
 the recording. Its player has a logcat panel with the same level and text
 filters, follows the playhead, and downloads the whole log as plain text or
@@ -119,8 +119,8 @@ when nobody had the session page open.
 - The log lives in the browser tab, not on the server. Two people watching
   the same session each collect their own.
 - Logcat runs as a shell command: with `redroid.shell: off` on emulators,
-  or `adb.shell: off` on [phones](/holtdroid/configuration/phones/#adb-on-phones),
+  or `adb.shell: off` on [phones](/configuration/phones/#adb-on-phones),
   the tab stays empty. See
-  [Emulator provider](/holtdroid/configuration/emulator/#users-adb-inside-android).
+  [Emulator provider](/configuration/emulator/#users-adb-inside-android).
 - When the ADB connection drops, the tab stops getting lines. **Reconnect**
   opens it again, and logcat carries on from the last line it had.

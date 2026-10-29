@@ -27,18 +27,18 @@ session page.
 The card is there only on devices whose microphone can be replaced: redroid
 sessions on Android 11 and later. Phones keep their own microphone (and
 Holtdroid denies it to the app under test, see
-[Phones](/holtdroid/configuration/phones/#sound-microphone-and-camera)).
+[Phones](/configuration/phones/#sound-microphone-and-camera)).
 
 ## Media library
 
 Files you add to the library belong to you, not to a session, so every
 session can play them. The library also holds the images and videos the
-[camera](/holtdroid/concepts/camera/) shows. Anything ffmpeg reads works: MP3, AAC, Opus, WAV,
+[camera](/concepts/camera/) shows. Anything ffmpeg reads works: MP3, AAC, Opus, WAV,
 FLAC, or a video, whose sound is played. Files keep their format; nothing is
 converted on upload, and the sound is resampled to what the app records at.
 
 Each user has `media.quota` (5 GiB by default; per role and per user in the
-`users` auth mode, see [Authentication](/holtdroid/configuration/authentication/)),
+`users` auth mode, see [Authentication](/configuration/authentication/)),
 and one file can be up to `media.maxFileSize` (1 GiB). Files stay until you
 delete them.
 

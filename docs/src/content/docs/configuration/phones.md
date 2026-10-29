@@ -154,7 +154,7 @@ providers:
 | `phone.misses`         | `3`                       | Missed checks in a row after which the session fails with "phone disconnected"                                                                               |
 | `phone.suspend`        | Settings, Contacts, …     | Packages kept suspended so sessions can't open them (see below)                                                                                              |
 | `phone.protectBattery` | `true`                    | Turn on Samsung's _Protect battery_ (charging stops at 80% on One UI 6): phones stay plugged in                                                              |
-| `vpn.*`                | no locations              | Locations, exactly as for the [emulator provider](/holtdroid/configuration/emulator/#vpn)                                                                    |
+| `vpn.*`                | no locations              | Locations, exactly as for the [emulator provider](/configuration/emulator/#vpn)                                                                              |
 | `singBox`              | `sing-box`                | The sing-box binary the provider runs per session when `vpn.locations` is set                                                                                |
 | `tunnel.apk`           |                           | Holtdroid Tunnel APK, installed on a phone when it is missing or not `tunnel.version`                                                                        |
 | `tunnel.version`       |                           | The version `tunnel.apk` is; empty installs only when the app is missing                                                                                     |
@@ -187,7 +187,7 @@ device side of the adb protocol itself (without an authorization prompt:
 the portal or the SSH gateway has already signed the user in), reads the
 service of every stream a client opens and replays allowed ones through the
 host's adb server. The portal's ADB tools in the browser and
-[ADB over SSH](/holtdroid/concepts/ssh/) both go through it.
+[ADB over SSH](/concepts/ssh/) both go through it.
 
 Always refused: `reboot` (any mode), `root`, `unroot`, `remount`, `tcpip`,
 `usb`, `sideload`, `disable-verity`, `enable-verity`, reverse forwards
@@ -457,5 +457,5 @@ would have to be shaped on the host).
 Phones are not disposable like emulators, so a phone still needs more than it
 has: the root hardening that keeps root from users (above), a deeper cleanup
 with a check before a phone is offered again, and power cycling through the
-USB hub. [Rooting a phone](/holtdroid/configuration/rooting/) is written up
+USB hub. [Rooting a phone](/configuration/rooting/) is written up
 separately, as a record of what it takes and costs on one device.

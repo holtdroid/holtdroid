@@ -11,7 +11,7 @@ Agents fetch the APK from the api, never from the source.
 
 The store is a **cache**: sources stay the source of truth, and anything
 missing is downloaded again on demand, so it needs no backup. The api's
-[database](/holtdroid/configuration/database/) is separate.
+[database](/configuration/database/) is separate.
 
 ## Filesystem
 
@@ -47,17 +47,17 @@ storage:
     pathStyle: true
 ```
 
-| Key                | Meaning                                                                                                                                                              |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `endpoint`         | Base URL; `https://` enables TLS                                                                                                                                     |
-| `region`           | Bucket region, if your store cares                                                                                                                                   |
-| `bucket`           | Existing bucket                                                                                                                                                      |
-| `prefix`           | Optional key prefix, to share a bucket                                                                                                                               |
-| `accessKey`        | Secret reference; leave both keys empty to use IAM roles / instance profile                                                                                          |
-| `secretKey`        | Secret reference                                                                                                                                                     |
-| `pathStyle`        | `true` for most self-hosted stores (`endpoint/bucket/key`)                                                                                                           |
-| `credentialsURL`   | Fetch temporary keys instead, in the ECS container credentials format (e.g. from [holtdroid-s3-sync](/holtdroid/sources/s3/)'s broker); refreshed before they expire |
-| `credentialsToken` | Secret reference sent as the `Authorization` header to `credentialsURL`                                                                                              |
+| Key                | Meaning                                                                                                                                                    |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `endpoint`         | Base URL; `https://` enables TLS                                                                                                                           |
+| `region`           | Bucket region, if your store cares                                                                                                                         |
+| `bucket`           | Existing bucket                                                                                                                                            |
+| `prefix`           | Optional key prefix, to share a bucket                                                                                                                     |
+| `accessKey`        | Secret reference; leave both keys empty to use IAM roles / instance profile                                                                                |
+| `secretKey`        | Secret reference                                                                                                                                           |
+| `pathStyle`        | `true` for most self-hosted stores (`endpoint/bucket/key`)                                                                                                 |
+| `credentialsURL`   | Fetch temporary keys instead, in the ECS container credentials format (e.g. from [holtdroid-s3-sync](/sources/s3/)'s broker); refreshed before they expire |
+| `credentialsToken` | Secret reference sent as the `Authorization` header to `credentialsURL`                                                                                    |
 
 The api needs `GetObject`, `PutObject`, `DeleteObject` and `ListBucket` on
 the bucket/prefix.

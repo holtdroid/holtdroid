@@ -14,7 +14,7 @@ import { Steps, Aside } from "@astrojs/starlight/components"
 
 <Steps>
 
-1. **Pick a sign-in mode** — see [Authentication](/holtdroid/configuration/authentication/). Every mode except
+1. **Pick a sign-in mode** — see [Authentication](/configuration/authentication/). Every mode except
    `header`/`none` needs a session signing key:
 
    ```sh
@@ -71,7 +71,7 @@ import { Steps, Aside } from "@astrojs/starlight/components"
    ```
 
    For builds that arrive from CI or Slack, point a sync job at an S3 bucket and add it as a
-   [source](/holtdroid/sources/overview/).
+   [source](/sources/overview/).
 
 </Steps>
 
@@ -114,20 +114,20 @@ pod may wait in `ImagePullBackOff` for a few minutes until that commit's image i
 
 ## Chart values
 
-| Value                      | Default                       | Meaning                                                                                   |
-| -------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------- |
-| `image.repository` / `tag` | `ghcr.io/holtdroid/holtdroid` | Tag defaults to the chart's `appVersion`                                                  |
-| `publicURL`                | –                             | External URL; needed for OIDC and secure cookies                                          |
-| `existingSecret`           | –                             | Secret exposed as env to every component (for `env:` references)                          |
-| `config`                   | anonymous, filesystem         | Merged into the api config, see [Configuration](/holtdroid/configuration/overview/)       |
-| `api.replicas`             | `1`                           | Safe to raise with a shared `sessionKey`                                                  |
-| `api.cacheVolume`          | `emptyDir` 25Gi               | Volume for `storage.type: filesystem`                                                     |
-| `api.persistence.*`        | RWO PVC, 10Gi                 | Mounted at `/var/lib/holtdroid`: the default `local` source and uploads                   |
-| `providers.fake.enabled`   | `false`                       | Simulated devices                                                                         |
-| `providers.emulator.*`     | disabled                      | Emulator sessions, see [Emulator provider](/holtdroid/configuration/emulator/#helm-chart) |
-| `providers.physical.*`     | disabled                      | Phones on USB, see [Phone provider](/holtdroid/configuration/phones/#helm-chart)          |
-| `extraProviders`           | `[]`                          | Out-of-tree providers: `[{name, url}]`                                                    |
-| `ingress.*`                | disabled                      | Standard Ingress                                                                          |
-| `telemetry.*`              | off                           | Prometheus metrics and tracing, see [Monitoring](/holtdroid/operations/monitoring/)       |
-| `audit.*`                  | stdout                        | Audit log of the api and ssh-gateway, same page                                           |
-| `extraObjects`             | `[]`                          | Extra manifests, rendered with `tpl`                                                      |
+| Value                      | Default                       | Meaning                                                                         |
+| -------------------------- | ----------------------------- | ------------------------------------------------------------------------------- |
+| `image.repository` / `tag` | `ghcr.io/holtdroid/holtdroid` | Tag defaults to the chart's `appVersion`                                        |
+| `publicURL`                | –                             | External URL; needed for OIDC and secure cookies                                |
+| `existingSecret`           | –                             | Secret exposed as env to every component (for `env:` references)                |
+| `config`                   | anonymous, filesystem         | Merged into the api config, see [Configuration](/configuration/overview/)       |
+| `api.replicas`             | `1`                           | Safe to raise with a shared `sessionKey`                                        |
+| `api.cacheVolume`          | `emptyDir` 25Gi               | Volume for `storage.type: filesystem`                                           |
+| `api.persistence.*`        | RWO PVC, 10Gi                 | Mounted at `/var/lib/holtdroid`: the default `local` source and uploads         |
+| `providers.fake.enabled`   | `false`                       | Simulated devices                                                               |
+| `providers.emulator.*`     | disabled                      | Emulator sessions, see [Emulator provider](/configuration/emulator/#helm-chart) |
+| `providers.physical.*`     | disabled                      | Phones on USB, see [Phone provider](/configuration/phones/#helm-chart)          |
+| `extraProviders`           | `[]`                          | Out-of-tree providers: `[{name, url}]`                                          |
+| `ingress.*`                | disabled                      | Standard Ingress                                                                |
+| `telemetry.*`              | off                           | Prometheus metrics and tracing, see [Monitoring](/operations/monitoring/)       |
+| `audit.*`                  | stdout                        | Audit log of the api and ssh-gateway, same page                                 |
+| `extraObjects`             | `[]`                          | Extra manifests, rendered with `tpl`                                            |

@@ -5,7 +5,7 @@ sidebar:
   order: 8
 ---
 
-Sessions with a [VPN](/holtdroid/concepts/vpn/) answer the device's DNS
+Sessions with a [VPN](/concepts/vpn/) answer the device's DNS
 themselves: the sidecar hands every query to the session's agent, which
 logs it, answers the names you rewrote and sends the rest to `vpn.dns`
 through the selected location. Each session starts with an empty cache and
@@ -32,7 +32,7 @@ An ordinary answer has no marks; what stands out does:
 - **SERVFAIL** (red): the upstream didn't answer;
 - **no records**: the name exists but has none of these types;
 - **far** (amber): every address answered is on another continent than
-  the session's exit (see [Routes](/holtdroid/session-tools/routes/)).
+  the session's exit (see [Routes](/session-tools/routes/)).
 
 A dashed type means an empty answer: `AAAA` is always empty because the
 sidecar resolves IPv4 only, so apps connect over IPv4. A click on a row
@@ -105,7 +105,7 @@ WebView of any provider resolves through the device.
 ## Saved sets
 
 **Sets** saves the current rewrites and TTL limit under a name, for you
-alone, in the portal's [database](/holtdroid/configuration/database/). A set
+alone, in the portal's [database](/configuration/database/). A set
 is never loaded into a new session by itself: pick it from **Sets** and
 choose to use it instead of the current rewrites or to add it to them (a
 name in both takes the set's rewrite). The same menu overwrites, renames or
@@ -113,7 +113,7 @@ deletes a set, and imports and exports sets as JSON files to share them.
 
 ## Recordings
 
-A [recording](/holtdroid/concepts/recordings/) keeps the DNS log: its DNS
+A [recording](/concepts/recordings/) keeps the DNS log: its DNS
 tab lists the queries up to the playhead, with rows where the rewrites or
 the TTL limit changed and where the cache was cleared. Those moments are
 violet ticks on the timeline.

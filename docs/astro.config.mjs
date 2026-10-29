@@ -10,8 +10,7 @@ import { topics } from './src/topics.mjs';
 
 export default defineConfig({
 	site: 'https://holtdroid.github.io',
-	base: '/holtdroid',
-	redirects: { '/uk': '/holtdroid/', '/ru': '/holtdroid/' },
+	redirects: { '/uk': '/', '/ru': '/' },
 	vite: {
 		plugins: [tailwindcss()],
 		resolve: { alias: { '@': fileURLToPath(new URL('../web/src', import.meta.url)) } },

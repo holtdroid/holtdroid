@@ -11,7 +11,7 @@ import manifest from "../../../assets/slack-app-manifest.yaml?raw"
 Holtdroid doesn't talk to Slack itself.
 [holtdroid-slack-sync](https://github.com/holtdroid/holtdroid-sync/blob/main/docs/slack.md) is a
 separate, stateless job that polls channels and writes every `.apk` it finds,
-with a [`.meta.json` sidecar](/holtdroid/sources/overview/#the-metajson-sidecar),
+with a [`.meta.json` sidecar](/sources/overview/#the-metajson-sidecar),
 into a folder or S3 prefix that the api lists as a read-only source.
 
 It picks up APKs:
@@ -24,7 +24,7 @@ Optionally it announces new builds the same way as the other sync jobs:
 one message per pass through [shoutrrr](https://github.com/nicholas-fedor/shoutrrr)
 (Slack, Telegram, Discord, Matrix, ntfy, email, webhooks, …). The message
 lists each build's name, version, package and size, a link to the Slack
-message, and two [launch links](/holtdroid/sources/overview/#launch-links):
+message, and two [launch links](/sources/overview/#launch-links):
 
 - **Quick launch** starts a device right away with the user's last provider
   and location;

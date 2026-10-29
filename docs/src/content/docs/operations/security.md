@@ -26,7 +26,7 @@ sidebar:
   the VPN gateway.
 - **The VPN gateway** holds your VPN credentials and relays plain SOCKS
   inside the cluster. Only session Pods should reach it; see
-  [Shared VPN gateway](/holtdroid/operations/vpn-gateway/).
+  [Shared VPN gateway](/operations/vpn-gateway/).
 - **The SSH gateway** (optional) lets a user's connected computers reach
   their own devices' ADB, which on redroid is a root shell on the node's
   kernel without an authorization prompt, and publish ports on their loopback. It never runs
@@ -40,7 +40,7 @@ sidebar:
   default) or **Everything** publish mode exposes its local services to every device
   of its user without asking per port. Leave `sshGateway.insecureTLS` off unless the
   portal has a self-signed certificate. See
-  [Connecting your computer](/holtdroid/concepts/ssh/).
+  [Connecting your computer](/concepts/ssh/).
 - **ADB tools in the browser** (on by default) give a session's owner and
   admins ADB on its device. On emulators that ADB is root on the node's
   kernel, so by default it only runs the commands behind the Logcat and Files
@@ -48,11 +48,11 @@ sidebar:
   adds a root Terminal and should stay off unless the session nodes hold
   nothing else. `adb.ownerOnly: false` extends the tools to everyone who may
   open the session, `adb.browser: false` turns them off; see
-  [ADB tools](/holtdroid/concepts/adb/).
+  [ADB tools](/concepts/adb/).
 - **APK downloads** (on for everyone by default): anyone who can see a
   build can save it to their computer. Set `downloads.adminOnly: true` when
   builds must not leave the portal; see
-  [Downloads](/holtdroid/sources/overview/#downloads).
+  [Downloads](/sources/overview/#downloads).
 - **The GPS map** makes the api fetch tiles from `map.url` (OpenFreeMap by
   default) for signed-in users. Only the path is forwarded, with the api's
   own User-Agent and no cookies; set `map.url: ""` if the api must not reach
@@ -61,7 +61,7 @@ sidebar:
   `routing.url: ""` to keep them in.
 - **Who can get in.** The default `anonymous` mode lets anyone who reaches the
   URL launch devices. Put it on a private network, or use `password`, `oidc`
-  or `header` — see [Authentication](/holtdroid/configuration/authentication/).
+  or `header` — see [Authentication](/configuration/authentication/).
   With `header` the api trusts the forward-auth proxy completely, so never
   expose it without that proxy.
 - **The session key signs every identity.** Treat `auth.sessionKey` like a

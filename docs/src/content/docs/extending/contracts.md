@@ -22,9 +22,9 @@ A source is a folder or an S3 prefix the api lists itself. To feed builds
 from Slack, CI or anywhere else, write `*.apk` files there, each with an
 optional `<file>.apk.meta.json` sidecar (title, note, changelog, uploader,
 link, origin, tags, owner, visibility) — see
-[Artifact sources](/holtdroid/sources/overview/). The api parses the
+[Artifact sources](/sources/overview/). The api parses the
 APKs, notices replaced files by their ETag or modification time, and pushes
-changes to the UI. [Writing your own](/holtdroid/sources/custom/) lists the
+changes to the UI. [Writing your own](/sources/custom/) lists the
 principles a sync job should follow.
 
 ## Device provider
@@ -63,8 +63,8 @@ and WebSocket proxying, clipboard and network endpoints, and device controls
 (`/v1/device`: settings, hardware buttons, screenshots), app actions
 (`/v1/app/restart`, `/v1/app/reinstall`), `/v1/install` for the provider
 to swap the build, `/v1/app-data/export` for the api to save the app's
-data (see [App data](/holtdroid/concepts/app-data/)) and `/v1/recording`
+data (see [App data](/concepts/app-data/)) and `/v1/recording`
 to start and stop a recording that the agent uploads to the api itself
-(see [Recordings](/holtdroid/concepts/recordings/)). A provider for a new
+(see [Recordings](/concepts/recordings/)). A provider for a new
 kind of device ships its own agent that implements the same API; the UI
 adapts to what `capabilities` advertises (`display: scrcpy` today).

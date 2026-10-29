@@ -12,9 +12,9 @@ paths in what the app's WebViews load and says, per file, how many bytes
 each fix would take off. It is for developers trimming a bundle and for QA
 checking that an icon set was exported sensibly.
 
-Like the [Images](/holtdroid/session-tools/images/) tab, it needs no DevTools
+Like the [Images](/session-tools/images/) tab, it needs no DevTools
 window: the agent follows every page and iframe of the WebViews from their
-first request (see [DevTools](/holtdroid/concepts/devtools/)), so files that
+first request (see [DevTools](/concepts/devtools/)), so files that
 loaded before you opened the tab are there too.
 
 ## When the tab appears
@@ -28,7 +28,7 @@ DevTools. It searches:
   `"d": "…"`, `setAttribute("d", …)`, and SVG data URIs, URL-encoded or
   base64;
 - the **inline `<svg>` elements** the pages draw, but only while the
-  [image scan](/holtdroid/session-tools/images/#when-the-tab-appears) runs.
+  [image scan](/session-tools/images/#when-the-tab-appears) runs.
   Without it a note says
   _This session doesn't collect the pages' inline SVGs_, with a
   **Turn on** button; the files are still checked.
@@ -115,7 +115,7 @@ files that carry it, which is where a shared icon component or a sprite
 
 ## In recordings
 
-A [recording](/holtdroid/concepts/recordings/#cache-images-and-svg) has the same tab
+A [recording](/concepts/recordings/#cache-images-and-svg) has the same tab
 with the same checks over the recorded files; there
 **Open in Network** in a finding's details opens the file's request.
 

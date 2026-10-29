@@ -160,7 +160,7 @@ When the panel is wide (DevTools stretched across the window), the three are
 shown side by side as columns instead of tabs.
 
 The same panel is in a recording's player, over the recorded video (see
-[Recordings](/holtdroid/concepts/recordings/#pixel-perfect)).
+[Recordings](/concepts/recordings/#pixel-perfect)).
 
 Nothing of Pixel perfect is drawn over the screen while another tool tab
 (DevTools, Logcat, …) is open: the reference, a frozen frame, the

@@ -8,11 +8,11 @@ sidebar:
 A **source** is a folder or an S3 bucket (or a prefix in one) with `*.apk`
 files. The api lists it directly — there is no separate source service. How
 the files get there is up to you: copy them by hand, let CI publish them, run
-a sync job such as [holtdroid-slack-sync](/holtdroid/sources/slack/) that
-pulls builds out of Slack or [holtdroid-github-sync](/holtdroid/sources/github/)
+a sync job such as [holtdroid-slack-sync](/sources/slack/) that
+pulls builds out of Slack or [holtdroid-github-sync](/sources/github/)
 that copies GitHub release assets, keep
-[Chromium builds of many milestones](/holtdroid/sources/chromium/) with
-holtdroid-chromium-sync, [write your own](/holtdroid/sources/custom/), or
+[Chromium builds of many milestones](/sources/chromium/) with
+holtdroid-chromium-sync, [write your own](/sources/custom/), or
 upload them in the UI.
 
 ```yaml
@@ -33,13 +33,13 @@ sources:
       secretKey: env:S3_SECRET_KEY
 ```
 
-| Key            | Default      | Meaning                                                                                                    |
-| -------------- | ------------ | ---------------------------------------------------------------------------------------------------------- |
-| `name`         | –            | Unique, lowercase letters, digits, `-`, `_`; shown in the UI                                               |
-| `type`         | `filesystem` | `filesystem` or `s3`; the backend options are the same as for [storage](/holtdroid/configuration/storage/) |
-| `readOnly`     | `false`      | Nobody can delete or change files through the portal; a read-only mount works                              |
-| `pollInterval` | `30s`        | How often the source is listed to notice new, removed or replaced files and push it to the UI              |
-| `include`      | everything   | Only list APKs whose keys match these [rules](#include-rules); not allowed on the uploads source           |
+| Key            | Default      | Meaning                                                                                          |
+| -------------- | ------------ | ------------------------------------------------------------------------------------------------ |
+| `name`         | –            | Unique, lowercase letters, digits, `-`, `_`; shown in the UI                                     |
+| `type`         | `filesystem` | `filesystem` or `s3`; the backend options are the same as for [storage](/configuration/storage/) |
+| `readOnly`     | `false`      | Nobody can delete or change files through the portal; a read-only mount works                    |
+| `pollInterval` | `30s`        | How often the source is listed to notice new, removed or replaced files and push it to the UI    |
+| `include`      | everything   | Only list APKs whose keys match these [rules](#include-rules); not allowed on the uploads source |
 
 Every `*.apk` (any depth, case-insensitive) is an artifact; other files,
 hidden files and directories that can't be read (`lost+found`) are ignored.

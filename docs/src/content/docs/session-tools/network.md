@@ -14,10 +14,10 @@ retries and clear errors instead of a blank screen.
 
 ## When the tab is there
 
-The tab appears in emulator sessions with a [VPN](/holtdroid/concepts/vpn/):
+The tab appears in emulator sessions with a [VPN](/concepts/vpn/):
 the conditions are applied to the VPN tunnel, so without VPN locations
 configured there is no tab. Phones don't have it (see
-[Phones](/holtdroid/configuration/phones/)). The **Network** card beside the
+[Phones](/configuration/phones/)). The **Network** card beside the
 phone shows the current conditions, and its **Network conditions** row
 (**Slow links, scenarios and regions in the Network tab**) opens the tab.
 
@@ -60,7 +60,7 @@ trips are measured every minute; the bandwidth after a location change, or
 when the last test is over six hours old. A new session starts from the last
 route measured through its location. Until the first measurement the box
 says **Measuring…**. How the agent measures is described under
-[Network conditions](/holtdroid/configuration/emulator/#the-sessions-route).
+[Network conditions](/configuration/emulator/#the-sessions-route).
 
 ### Access link
 
@@ -198,7 +198,7 @@ up, and shapes them about a second later; the tab lists the addresses found
 so far. Other hosts on the same CDN addresses take the servers' path too.
 
 The list is kept per app: in your account when the portal's
-[database](/holtdroid/configuration/database/) is persistent, in this
+[database](/configuration/database/) is persistent, in this
 browser otherwise. It is filled in when you pick a region in the app's next
 session.
 
@@ -211,12 +211,12 @@ tapped twice while a request is slow.
 **Check that the app survives drops.** Pick **Subway**, **Elevator** or
 **Flapping**. Requests made during an outage hang until they time out; the
 app should retry or say what happened. The
-[WebSockets](/holtdroid/session-tools/websockets/) tab shows each reconnect
+[WebSockets](/session-tools/websockets/) tab shows each reconnect
 of a socket as a new row.
 
 **Test for users in a country.** Pick the country as the region, your
 servers' location in **Servers in**, and list your API under **Backends
-behind a CDN**. A [VPN location](/holtdroid/concepts/vpn/) in or near the
+behind a CDN**. A [VPN location](/concepts/vpn/) in or near the
 same country keeps the route short, so the tab can add the region's full
 round trips; the IP address then also matches the country.
 
@@ -234,10 +234,10 @@ places:
 
 - live, in the **DevTools** tab's Network panel: Chrome's own timing for
   each request of the WebView;
-- in a [recording](/holtdroid/concepts/recordings/#network-console-and-websockets),
+- in a [recording](/concepts/recordings/#network-console-and-websockets),
   a request's **Timing** on the Network tab: queued and stalled, DNS,
   connect (with TLS), send, **Waiting (TTFB)**, download and the total;
-- in a recording's [Routes](/holtdroid/session-tools/routes/) tab, the
+- in a recording's [Routes](/session-tools/routes/) tab, the
   median connect, TLS and waiting times of the WebView's requests to each
   name, and how many of them opened a new connection;
 - the Network card's **Device traffic**: download and upload of the whole
@@ -245,7 +245,7 @@ places:
 
 ## In recordings
 
-A [recording](/holtdroid/concepts/recordings/#the-player) keeps the
+A [recording](/concepts/recordings/#the-player) keeps the
 conditions as they changed: the player's **Network** card shows the VPN
 location, **Throttling** with the network's name and numbers (or **Full
 speed**), the **Region** with what it added to the CDN and the servers

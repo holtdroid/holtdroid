@@ -93,7 +93,7 @@ appData:
 | `appData.maxAge`       | `168h`   | A save unused this long is deleted; `0` = never                                                                  |
 | `appData.export`       | `true`   | Users may download their saves                                                                                   |
 | `appData.timeout`      | `5m`     | Longest a save may take                                                                                          |
-| `appData.storage.*`    | shared   | Same keys as [`storage`](/holtdroid/configuration/storage/); empty `type` = the shared storage                   |
+| `appData.storage.*`    | shared   | Same keys as [`storage`](/configuration/storage/); empty `type` = the shared storage                             |
 
 The shared storage is often an `emptyDir` cache (the chart's default), which
 loses saves on every restart of the api. Point `appData.storage` at S3 or a

@@ -17,7 +17,7 @@ For each repository, the job walks the releases newest first:
 - drafts are skipped;
 - pre-releases are skipped unless `prereleases: true`;
 - only the newest `releases` releases count (`0` = all);
-- [`include` rules](/holtdroid/sources/overview/#include-rules) pick assets
+- [`include` rules](/sources/overview/#include-rules) pick assets
   by `{tag}/{asset name}`, e.g. `!*-debug.apk`.
 
 Each asset lands at `{owner}/{repo}/{tag}/{asset}` with a sidecar:

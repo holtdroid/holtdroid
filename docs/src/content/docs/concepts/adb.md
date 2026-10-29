@@ -42,7 +42,7 @@ The **App** and **Device** cards next to the phone use the same connection:
   a bug; **Full report** runs Android's own `bugreportz`.
 
 Recording a session is done by the server, with logcat and the device's
-state next to the screen: see [Recordings](/holtdroid/concepts/recordings/).
+state next to the screen: see [Recordings](/concepts/recordings/).
 
 ## Configuration
 
@@ -55,18 +55,18 @@ adb:
 On emulators ADB is a root shell without an authorization prompt, so anyone
 with the tools can run anything on that device, and because redroid shares
 the node's kernel, root there reaches the node too (see
-[Security](/holtdroid/operations/security/)). With `ownerOnly` (the
+[Security](/operations/security/)). With `ownerOnly` (the
 default) other users get only the screen and DevTools of sessions that aren't
 theirs; set it to `false` to give everyone the tools, or `browser: false` to
 turn them off. Each connection is
 audited as `adb.connect` and `adb.disconnect`; see
-[Monitoring and audit](/holtdroid/operations/monitoring/).
+[Monitoring and audit](/operations/monitoring/).
 
 Requests that would restart adbd or the device or move ADB somewhere else
 (`reboot`, `unroot`, `remount`, `tcpip`, `usb`, `sideload`, `disable-verity`)
-are refused here and over [SSH](/holtdroid/concepts/ssh/), because they would
+are refused here and over [SSH](/concepts/ssh/), because they would
 cut the session off from its own device. On phones the
-[phone provider](/holtdroid/configuration/phones/#adb-on-phones) also refuses
+[phone provider](/configuration/phones/#adb-on-phones) also refuses
 `root`, reverse forwards and the frida-server ports, and limits shell
 commands with `adb.shell`.
 
@@ -75,6 +75,6 @@ On emulators the same `redroid.shell` policy applies to the browser and the
 the Logcat tab and the app and device cards, plus file transfer, so Files
 browses, downloads and uploads, without its Delete and New folder buttons;
 `full` runs anything and shows the Terminal tab and those buttons; `off` refuses every shell command. See
-[Emulator provider](/holtdroid/configuration/emulator/#users-adb-inside-android).
+[Emulator provider](/configuration/emulator/#users-adb-inside-android).
 
 The browser keeps an ADB key in its storage; emulators don't ask for it.

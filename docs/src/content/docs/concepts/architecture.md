@@ -43,7 +43,7 @@ flowchart LR
 
 - **Contracts between services.** Providers and agents are HTTP APIs with a
   shared conformance suite; sources are a file layout. The api knows nothing
-  about Slack, Kubernetes or ADB. See [Contracts](/holtdroid/extending/contracts/).
+  about Slack, Kubernetes or ADB. See [Contracts](/extending/contracts/).
 - **Stateless api.** Nothing the api needs to keep sessions running lives
   only in its memory or on its disk:
   - sessions belong to providers — the emulator provider keeps them as labels
@@ -56,7 +56,7 @@ flowchart LR
     sources; uploads and their owner/visibility live as files in a source.
 
   Kill the api, reschedule it to another node or run three replicas — nobody
-  notices. The api's [database](/holtdroid/configuration/database/) holds
+  notices. The api's [database](/configuration/database/) holds
   history, not live state: in memory by default, or a SQLite file replicated
   to S3, which limits the api to one replica.
 

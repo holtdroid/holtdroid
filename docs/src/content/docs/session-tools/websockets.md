@@ -16,8 +16,8 @@ order.
 ## When the tab is there
 
 The tab sits next to DevTools whenever the session has WebView DevTools:
-always on emulators, and on [phones](/holtdroid/configuration/phones/) only
-for debuggable builds (see [WebView DevTools](/holtdroid/concepts/devtools/)).
+always on emulators, and on [phones](/configuration/phones/) only
+for debuggable builds (see [WebView DevTools](/concepts/devtools/)).
 The agent watches every page, iframe, worker and service worker of every
 WebView process from its first request, so a socket opened while the app
 starts is there too.
@@ -109,7 +109,7 @@ Values that look like a point in time (Unix seconds, milliseconds,
 microseconds or nanoseconds, ISO 8601 and HTTP dates) get two chips: how far
 they were from the device clock when the frame came, and how far they are
 from it now. Hover one for the same moment in UTC, in the device's time
-zone and in yours. The [recordings page](/holtdroid/concepts/recordings/#network-console-and-websockets)
+zone and in yours. The [recordings page](/concepts/recordings/#network-console-and-websockets)
 explains the chips in full.
 
 ### Media streams
@@ -128,7 +128,7 @@ the value or a field name into **Filter**, and open the frame. The time
 chips show whether a timestamp in it was already old when it arrived.
 
 **Check that the app reconnects.** Turn on a scenario such as **Subway** or
-**Flapping** in the [Network](/holtdroid/session-tools/network/) tab and
+**Flapping** in the [Network](/session-tools/network/) tab and
 watch the list: every reconnect is a new row, the old one turns `closed`.
 
 **See only what the app sends.** Sent frames are the green rows with ↑;
@@ -139,7 +139,7 @@ frames is decoded as UTF-8; anything else is a hex dump you can copy as
 base64.
 
 **Mark the moment for a bug report.** While the session
-[records](/holtdroid/concepts/recordings/), click a frame's time to pin a
+[records](/concepts/recordings/), click a frame's time to pin a
 marker at that moment of the recording. Hover the time instead to pick the
 marker's icon (Pin, Bug, Flag, Star, Warning or Done) or **Open the
 recording from here**, which opens the recording half a second before the
@@ -148,14 +148,14 @@ nothing was recording says so.
 
 ## In recordings
 
-A [recording](/holtdroid/concepts/recordings/#network-console-and-websockets)
+A [recording](/concepts/recordings/#network-console-and-websockets)
 keeps every socket and frame within the same limits, and its WebSockets tab
 shows them up to the playhead. It adds what the live tab doesn't have:
 **All**, **Sent** and **Received** filters, whether a row is a **WebSocket**
 or an **Event stream**, the iframe or worker it came from, and for a media
 stream the moment it was marked and how many frames and bytes it moved.
 Each frame's time seeks the video there, and
-[markers](/holtdroid/concepts/recordings/#markers) show on the timeline.
+[markers](/concepts/recordings/#markers) show on the timeline.
 **Download → Network (.har)** saves the messages with the requests.
 
 ## Limits
@@ -174,5 +174,5 @@ Each frame's time seeks the video there, and
 - **Filter** matches a frame's one-line preview, and a text frame's whole
   payload. A binary frame that holds text is matched by its decoded text.
 - The live tab doesn't show a socket's handshake status or error message;
-  the [DevTools](/holtdroid/concepts/devtools/) Network panel does, while it
+  the [DevTools](/concepts/devtools/) Network panel does, while it
   is open.

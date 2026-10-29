@@ -30,7 +30,7 @@ another source.
 ## Media library
 
 Images and videos come from the same library as the
-[microphone](/holtdroid/concepts/microphone/)'s files: add them from either
+[microphone](/concepts/microphone/)'s files: add them from either
 card. Each user has `media.quota` (5 GiB by default).
 
 ## Load

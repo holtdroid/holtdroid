@@ -14,7 +14,7 @@ export type Repo = {
   tags: string[]
 }
 
-const docs = "/holtdroid"
+const docs = ""
 
 export const repos: Repo[] = [
   {

@@ -8,7 +8,7 @@ sidebar:
 A **session** is one device running one APK for one user. A **slot** is a
 place a session can run: for the emulator provider, one of a node's
 `slotsPerNode` places; for the
-[phone provider](/holtdroid/configuration/phones/), a phone.
+[phone provider](/configuration/phones/), a phone.
 
 ## States
 
@@ -129,5 +129,5 @@ don't lose them.
 The user who launched a session is its owner. Every signed-in user can see
 all sessions; only the owner and members of `auth.adminGroups` can stop or
 extend them or use their ADB tools (`adb.ownerOnly`). Your
-[connected computer](/holtdroid/concepts/ssh/) reaches only your own
+[connected computer](/concepts/ssh/) reaches only your own
 sessions.

@@ -179,7 +179,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="icon" asChild>
-                <a href="https://holtdroid.github.io/holtdroid/" target="_blank" rel="noreferrer">
+                <a href="https://holtdroid.github.io/" target="_blank" rel="noreferrer">
                   <BookOpenIcon />
                   <span className="sr-only">Documentation</span>
                 </a>

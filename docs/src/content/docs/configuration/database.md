@@ -6,11 +6,11 @@ sidebar:
 ---
 
 The api keeps a small SQL database: session events and, in the
-[`users` auth mode](/holtdroid/configuration/authentication/#users-and-passkeys),
+[`users` auth mode](/configuration/authentication/#users-and-passkeys),
 users, passkeys and invite links, everyone's saved
-[DNS rewrite sets](/holtdroid/session-tools/dns/#saved-sets) and backends for
-[network regions](/holtdroid/configuration/emulator/#regions), and the last
-[route measured](/holtdroid/configuration/emulator/#the-sessions-route)
+[DNS rewrite sets](/session-tools/dns/#saved-sets) and backends for
+[network regions](/configuration/emulator/#regions), and the last
+[route measured](/configuration/emulator/#the-sessions-route)
 through each VPN location (gone after a restart with `memory`; the
 backends are then kept in the browser instead). Sessions, APKs, uploads and recordings don't live there, so losing it never
 stops sessions; in the `users` mode it does lose every account.
@@ -65,7 +65,7 @@ is missing (a new node, a lost volume, an `emptyDir` data volume) the
 database is restored from the bucket first. If the bucket is empty too, the
 api starts with an empty database.
 
-`replica.s3` takes the same keys as [S3 artifact storage](/holtdroid/configuration/storage/#s3-and-compatible-stores),
+`replica.s3` takes the same keys as [S3 artifact storage](/configuration/storage/#s3-and-compatible-stores),
 except `credentialsURL`: use static keys, or leave both keys empty for the
 AWS default credentials (environment, IAM roles). `prefix` defaults to
 `database`; give the database a prefix of its own, not one shared with

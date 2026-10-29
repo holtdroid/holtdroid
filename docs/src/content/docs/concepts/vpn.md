@@ -26,7 +26,7 @@ in the Pod's network namespace, which Android shares:
 - the device's DNS queries are captured from the tunnel and handed to the
   session's agent, which logs them, answers your rewrites and resolves the
   rest through the selected location, so lookups don't leak (see
-  [DNS log and rewrites](/holtdroid/session-tools/dns/));
+  [DNS log and rewrites](/session-tools/dns/));
 - those lookups return IPv4 addresses only (`AAAA` answers are empty), so
   the device never tries IPv6 through a location that can't carry it.
 
@@ -38,13 +38,13 @@ during a session). If there is none, or it is no longer offered, it falls
 back to the configured default (`vpn.default`). With `vpn.direct: false`
 there is no VPN-less option at all.
 
-The same tunnel carries the session's [network conditions](/holtdroid/configuration/emulator/#network-conditions):
+The same tunnel carries the session's [network conditions](/configuration/emulator/#network-conditions):
 latency, bandwidth limits, packet loss and outages applied with `tc netem`,
 and regions with their own round trips to CDN edges and to servers.
 
 Android itself is barely configured (only Private DNS is turned off, so
 lookups stay visible to the agent); to apps it looks like a normal
-network. Port forwarding (`adb reverse`, [your connected computer](/holtdroid/concepts/ssh/))
+network. Port forwarding (`adb reverse`, [your connected computer](/concepts/ssh/))
 runs over loopback and is unaffected by the VPN.
 
 ## Locations are sing-box outbounds
@@ -86,6 +86,6 @@ flowchart LR
 - Sessions on the same location share its egress IP.
 - Adding a vendor or a country is a change to the gateway, not to Holtdroid.
 
-[Shared VPN gateway](/holtdroid/operations/vpn-gateway/) has a complete
-setup. Configuration keys are on the [emulator provider](/holtdroid/configuration/emulator/#vpn)
+[Shared VPN gateway](/operations/vpn-gateway/) has a complete
+setup. Configuration keys are on the [emulator provider](/configuration/emulator/#vpn)
 page.

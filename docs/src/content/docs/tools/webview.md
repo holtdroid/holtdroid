@@ -28,8 +28,8 @@ Releases are on
 
 Both builds use the package name `io.github.holtdroid.webview`, so
 installing one replaces the other. In Holtdroid, upload the APK or publish it
-into a source (for example with the [GitHub sync](/holtdroid/sources/github/))
-and launch it like any other app; through [ADB](/holtdroid/concepts/adb/)
+into a source (for example with the [GitHub sync](/sources/github/))
+and launch it like any other app; through [ADB](/concepts/adb/)
 `adb install -r holtdroid-webview-<version>.apk` works too.
 
 ## The start screen
@@ -60,7 +60,7 @@ The built-in presets:
 | Fresh start  | Wipes cookies, storage, cache and history on every launch, no HTTP cache                                                    |
 | Proxy        | All traffic through `127.0.0.1:8080` with TLS errors ignored                                                                |
 
-The Proxy preset fits Holtdroid's [connected computers](/holtdroid/concepts/ssh/):
+The Proxy preset fits Holtdroid's [connected computers](/concepts/ssh/):
 run mitmproxy or Charles on port 8080 of your computer, publish that port on
 the Computers page and watch the traffic. User-installed CA
 certificates are trusted too, so a strict preset also works once the proxy's
@@ -126,7 +126,7 @@ keyboard settings, which the dialog opens.
   `adb shell cmd webviewupdate set-webview-implementation <package>` (the
   Engines dialog copies it for each installed provider), or use Developer
   options → WebView implementation. Holtdroid's
-  [device card](/holtdroid/concepts/adb/) switches it too.
+  [device card](/concepts/adb/) switches it too.
 - **GeckoView** is Firefox's engine, built into the `-gecko` APK. Settings
   marked "WebView only" don't apply to it; the console can't evaluate
   scripts. Debug it from Firefox on a computer: `about:debugging` → USB
@@ -266,7 +266,7 @@ control** off in app settings to accept only plain `url` links.
 With `debugging` on, the WebView exposes the DevTools socket
 `webview_devtools_remote_<pid>`. In a Holtdroid session it appears in the
 DevTools target list like any other app's WebView (see
-[WebView DevTools](/holtdroid/concepts/devtools/)). On your own computer:
+[WebView DevTools](/concepts/devtools/)). On your own computer:
 
 ```sh
 adb forward tcp:9222 localabstract:webview_devtools_remote_$(adb shell pidof io.github.holtdroid.webview)
