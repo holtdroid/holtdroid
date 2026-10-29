@@ -34,7 +34,7 @@ redroid:
   gpu: /dev/dri/renderD128
   dataSize: 8Gi
   shell: allowlist # what users' ADB may run inside Android: allowlist | full | off
-  privileged: true # false: no privileged container, devices from the session-devices plugin
+  privileged: false # true: a privileged Android container, for runtimes without NRI
   args: [] # more redroid boot arguments
 resources: # the Android container
   requests: { cpu: 500m, memory: 1536Mi }
@@ -75,7 +75,7 @@ nodeInfo:
 | `redroid.shell`            | What users' ADB may run inside Android: `allowlist` (default), `full` or `off`, see [Users' ADB](#users-adb-inside-android)                                                                                                                                                                         |
 | `redroid.gpu`              | DRI render node Android renders on                                                                                                                                                                                                                                                                  |
 | `redroid.dataSize`         | Size limit of the `emptyDir` holding Android's `/data`                                                                                                                                                                                                                                              |
-| `redroid.privileged`       | `true` (default for now, see below): a privileged container, also for runtimes without NRI. `false`: the Android container gets a fixed set of capabilities, the runtime's default seccomp profile and only the devices Android needs, from the [session-devices plugin](#session-devices)          |
+| `redroid.privileged`       | `false` (default): the Android container gets a fixed set of capabilities, a default seccomp profile and only the devices Android needs, from the [session-devices plugin](#session-devices). `true`: a privileged container, for runtimes without NRI                                              |
 | `resources`                | Android container resources. Leave out a CPU limit: a busy session may borrow idle cores                                                                                                                                                                                                            |
 | `agentResources`           | Agent container resources                                                                                                                                                                                                                                                                           |
 | `nodes`                    | Per-node overrides by node name: `slots` and `resources`                                                                                                                                                                                                                                            |
@@ -168,13 +168,7 @@ in-cluster a sidecar needs, such as a shared VPN gateway, goes into
 
 ## Session devices
 
-:::caution
-Unprivileged sessions boot, but the Android container currently runs out of
-memory once frida-server starts, so the app never launches. The chart
-defaults to `redroid.privileged: true` until that is fixed.
-:::
-
-With `redroid.privileged: false` the Android container runs with:
+Unless `redroid.privileged` is set, the Android container runs with:
 
 - the capabilities Android's init and services ask for, and no others:
   `CHOWN`, `DAC_OVERRIDE`, `DAC_READ_SEARCH`, `FOWNER`, `FSETID`, `KILL`,
@@ -184,8 +178,11 @@ With `redroid.privileged: false` the Android container runs with:
   can't load kernel modules, set the clock, read the kernel log or use raw
   I/O, and holtdroid-redroid trims every init service's capabilities to
   this set (logd runs without its kernel-log and audit readers);
-- the runtime's default seccomp profile, AppArmor unconfined (Android
-  mounts filesystems all the time);
+- Docker's default seccomp profile for these capabilities plus
+  `userfaultfd`, which ART's garbage collector on Android 15 and 16 needs
+  (without it every Java process rebuilds the boot image in memory and the
+  container runs out of it); AppArmor unconfined (Android mounts filesystems
+  all the time);
 - `/sys` read-only except the virtual block devices' queues, which APEX
   activation tunes;
 - only these devices, which `holtdroid session-devices` adds when the
@@ -201,7 +198,8 @@ without capabilities, with the runtime's NRI socket (`/var/run/nri`) and
 the GPU's render node mounted. It only touches the `android` container of
 session Pods in the provider's namespace that carry the
 `holtdroid/devices` annotation, which the provider sets on unprivileged
-sessions. A session started while the plugin isn't running gets no devices
+sessions, and replaces that container's seccomp profile with the one above
+(the Pod asks for `RuntimeDefault`, which blocks `userfaultfd`). A session started while the plugin isn't running gets no devices
 and fails to boot.
 
 ## Screens and Android versions

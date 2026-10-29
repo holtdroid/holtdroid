@@ -42,11 +42,15 @@ func DefaultDevicesConfig() DevicesConfig {
 // unprivileged Android containers: binder (any minor, since each container
 // mounts its own binderfs), the loop devices APEX activation takes, FUSE, TUN,
 // the GPU render node, and /dev/kmsg pointed at /dev/null so Android's
-// kernel logging stays out of the node's log.
+// kernel logging stays out of the node's log. It also replaces the
+// container's seccomp policy with Docker's default for its capabilities plus
+// userfaultfd: without it ART falls back to a GC its boot image wasn't built
+// for, and every Java process rebuilds the image in memory.
 type devicePlugin struct {
 	namespace string
 	devices   []*api.LinuxDevice
 	rules     []*api.LinuxDeviceCgroup
+	seccomp   *api.LinuxSeccomp
 }
 
 func newDevicePlugin(cfg DevicesConfig, procDevices io.Reader, gpu func(string) (int64, int64, error)) (*devicePlugin, error) {
@@ -54,7 +58,11 @@ func newDevicePlugin(cfg DevicesConfig, procDevices io.Reader, gpu func(string) 
 	if err != nil {
 		return nil, err
 	}
-	p := &devicePlugin{namespace: cfg.Namespace}
+	sp, err := androidSeccomp()
+	if err != nil {
+		return nil, fmt.Errorf("seccomp: %w", err)
+	}
+	p := &devicePlugin{namespace: cfg.Namespace, seccomp: sp}
 	add := func(path, typ string, major, minor int64) {
 		p.devices = append(p.devices, &api.LinuxDevice{
 			Path: path, Type: typ, Major: major, Minor: minor,
@@ -118,6 +126,9 @@ func (p *devicePlugin) CreateContainer(_ context.Context, pod *api.PodSandbox, c
 		adj.AddDevice(d)
 	}
 	adj.Linux.Resources = &api.LinuxResources{Devices: p.rules}
+	if p.seccomp != nil {
+		adj.SetLinuxSeccompPolicy(p.seccomp)
+	}
 	slog.Info("devices added", "pod", pod.Name)
 	return adj, nil, nil
 }

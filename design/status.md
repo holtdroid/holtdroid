@@ -387,12 +387,17 @@ Collected from the design conversation; each is reflected in the docs listed.
   out, remote ones still worked). `ps -eo stat,pid,args | awk '$1 ~ /^T/'`
   finds them; `kill -CONT` lets kube-proxy continue. Check
   `curl localhost:10256/healthz` on a node after any such incident.
-- **Unprivileged sessions run out of memory once frida-server starts**
-  (2026-10-29, first live session after decision #173): the Android
-  container hits its 3 GiB limit, the kernel OOM-kills zygote, and the
-  agent fails with "Unable to connect to remote frida-server". Privileged
-  sessions on the same images peak below the limit. The chart defaults to
-  `redroid.privileged: true` until this is found and fixed.
+- **ART needs `userfaultfd`** on Android 15 and 16: without it (the
+  runtime's default seccomp profile) every Java process rebuilds the boot
+  image in memory and a 3 GiB session is OOM-killed once frida-server
+  starts. `session-devices` sets a seccomp profile that allows it
+  (decision #173). The kernel's OOM reports are in the node's journal
+  (`journalctl -k`), since sessions' `/dev/kmsg` goes to `/dev/null`.
+- **Android 14 sessions run out of memory when Frida spawns the app**
+  (2026-10-29), privileged or not and on the image before #173 too:
+  frida-server grows to about 2.2 GiB for a few seconds, over the 3 GiB
+  limit together with Android. Android 14's image has
+  `ro.dalvik.vm.enable_uffd_gc=false`. Not fixed yet.
 - **Android init rewrites node sysctls** when the container is privileged
   (`redroid.privileged: true`) and `/proc/sys` is writable: `kernel.modprobe` becomes empty (module
   autoloading stops), `sysrq` 0, `unprivileged_bpf_disabled` 0,

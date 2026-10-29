@@ -11,8 +11,8 @@ sidebar:
   container on the node's own kernel, and the VPN sidecar needs `NET_ADMIN`
   and a TUN device. The Android container isn't privileged: it gets only
   the devices Android needs and a fixed set of capabilities (no kernel
-  modules, clock, kernel log or raw I/O), under the runtime's default
-  seccomp profile ([Session devices](/configuration/emulator/#session-devices)).
+  modules, clock, kernel log or raw I/O), under Docker's default seccomp
+  profile plus `userfaultfd` ([Session devices](/configuration/emulator/#session-devices)).
   It still holds `CAP_SYS_ADMIN` on the node's kernel, which Android's init
   and zygote need, so root inside a session can still reach the node, by
   mounting a fresh `/proc` and changing node-wide settings for one: treat it

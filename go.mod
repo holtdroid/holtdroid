@@ -30,7 +30,9 @@ require (
 	github.com/knadh/koanf/v2 v2.3.8
 	github.com/maxmind/mmdbwriter v1.2.0
 	github.com/minio/minio-go/v7 v7.4.1
+	github.com/moby/profiles/seccomp v0.2.4
 	github.com/muesli/termenv v0.16.0
+	github.com/opencontainers/runtime-spec v1.3.0
 	github.com/oschwald/maxminddb-golang/v2 v2.8.0
 	github.com/pressly/goose/v3 v3.29.0
 	github.com/prometheus/client_golang v1.25.0
@@ -153,7 +155,6 @@ require (
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/ncruces/go-strftime v1.1.0 // indirect
-	github.com/opencontainers/runtime-spec v1.3.0 // indirect
 	github.com/philhofer/fwd v1.2.0 // indirect
 	github.com/pierrec/lz4/v4 v4.1.33 // indirect
 	github.com/power-devops/perfstat v0.0.0-20260805114148-88456608a4f6 // indirect

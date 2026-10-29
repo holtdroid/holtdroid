@@ -106,6 +106,8 @@ Directories that do not exist yet are planned — create them exactly there.
   - `net/http/httputil.ReverseProxy`;
   - `golang.org/x/sync` (`errgroup`, `singleflight`);
   - `golang.org/x/crypto/ssh` and `hashicorp/yamux` — SSH gateway and tunnels;
+  - `containerd/nri` and `moby/profiles/seccomp` — the session-devices NRI
+    plugin (devices and the seccomp profile of unprivileged Android);
   - `database/sql` with `modernc.org/sqlite` (in-memory or a file) +
     `benbjohnson/litestream` embedded for replication (decision #102),
     `jackc/pgx/v5` (later),

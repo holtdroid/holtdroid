@@ -5203,8 +5203,9 @@ services whose `capabilities` lines fit the bounding set.
 
 **Decision.** The `android` container runs with all capabilities dropped
 but the 22 that Android's init files ask for (no `SYS_MODULE`, `SYS_TIME`,
-`SYS_RAWIO`, `SYSLOG`, `AUDIT_CONTROL`, `MKNOD`, `PERFMON`, …), seccomp
-`RuntimeDefault`, AppArmor unconfined. `holtdroid session-devices`, an NRI
+`SYS_RAWIO`, `SYSLOG`, `AUDIT_CONTROL`, `MKNOD`, `PERFMON`, …), Docker's
+default seccomp profile for those capabilities plus `userfaultfd`, AppArmor
+unconfined. `holtdroid session-devices`, an NRI
 plugin run by the chart as a DaemonSet on session nodes (root without
 capabilities, the NRI socket mounted), adds to the `android` container of
 session Pods that carry `holtdroid/devices` in the provider's namespace:
@@ -5232,3 +5233,16 @@ session's root can open another session's loop devices and, with `mknod`
 need containerd 2.0+ or CRI-O 1.26+ with NRI; a session created while the
 plugin is down boots without devices and fails. The logcat of a session
 no longer has the kernel's lines.
+
+**Seccomp (found in the first live sessions).** With the runtime's default
+profile Android 15 and 16 sessions ran out of memory as soon as
+frida-server started. That profile blocks `userfaultfd`, which ART's
+concurrent mark-compact GC needs; ART then falls back to the copying GC,
+the boot image built for mark-compact no longer fits ("read barrier state
+mismatch"), and every Java process, frida-server's in-process VM included,
+rebuilds it in memory (frida-server alone grew to 2 GiB). containerd 2.2
+doesn't pass the container's seccomp policy to NRI plugins but applies one a
+plugin sets, so `session-devices` builds Docker's default profile
+(`moby/profiles/seccomp`) for the container's capabilities, adds
+`userfaultfd`, and sets it. The Pod keeps `RuntimeDefault`, so a session
+created without the plugin is still confined.
