@@ -8,6 +8,8 @@ import {
   MinusIcon,
   PlusIcon,
   PowerIcon,
+  RotateCcwIcon,
+  RotateCwIcon,
   SquareIcon,
   ToggleRightIcon,
   TriangleIcon,
@@ -128,6 +130,7 @@ export function PhoneButtons({
           { label: "Recent apps", icon: SquareIcon, onClick: () => run("recents") },
         ]}
       />
+      <RotateCorner run={run} />
     </>
   )
 }
@@ -252,6 +255,70 @@ function NavBar({
           >
             <k.icon className={icons ? "size-5" : "size-4"} />
             {!icons && k.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+const cornerArc = (degrees: number) => ({
+  pathLength: 360,
+  strokeDasharray: `${degrees} ${360 - degrees}`,
+  strokeDashoffset: -(315 - degrees / 2),
+})
+
+function RotateCorner({ run }: { run: Run }) {
+  const outer = "(var(--sr) + var(--bz))"
+  const circle = {
+    cx: `calc(100% - ${navArea}px - ${outer})`,
+    cy: `calc(${navArea}px + ${outer})`,
+    r: `calc(${outer} + 12px)`,
+  }
+  return (
+    <div className="group/rot pointer-events-none absolute inset-0">
+      <svg
+        className="absolute overflow-visible"
+        style={{ inset: -navArea, width: `calc(100% + ${2 * navArea}px)`, height: `calc(100% + ${2 * navArea}px)` }}
+      >
+        <circle
+          {...cornerArc(36)}
+          fill="none"
+          strokeWidth={6}
+          strokeLinecap="round"
+          className="stroke-neutral-500/60 transition-opacity duration-150 group-focus-within/rot:opacity-0 group-hover/rot:opacity-0"
+          style={circle}
+        />
+        <circle
+          {...cornerArc(80)}
+          fill="none"
+          strokeWidth={navArea}
+          className="stroke-transparent"
+          style={{ ...circle, pointerEvents: "stroke" }}
+        />
+      </svg>
+      <div
+        className="pointer-events-none absolute flex -translate-1/2 scale-95 gap-1 rounded-full bg-neutral-900 p-1 opacity-0 shadow-xl ring-1 ring-white/10 transition-all delay-200 duration-150 group-focus-within/rot:pointer-events-auto group-focus-within/rot:scale-100 group-focus-within/rot:opacity-100 group-focus-within/rot:delay-0 group-hover/rot:pointer-events-auto group-hover/rot:scale-100 group-hover/rot:opacity-100 group-hover/rot:delay-0"
+        style={{
+          left: `calc(100% - ${outer} + 0.7071 * (${outer} + 24px))`,
+          top: `calc(${outer} - 0.7071 * (${outer} + 24px))`,
+        }}
+      >
+        {(
+          [
+            { label: "Rotate left", icon: RotateCcwIcon, action: "rotate-left" },
+            { label: "Rotate right", icon: RotateCwIcon, action: "rotate-right" },
+          ] as const
+        ).map((k) => (
+          <button
+            key={k.action}
+            type="button"
+            aria-label={k.label}
+            title={k.label}
+            className="flex size-9 items-center justify-center rounded-full text-neutral-100 transition hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-sky-300 focus-visible:outline-none active:scale-90 active:bg-white/15"
+            onClick={() => run(k.action)}
+          >
+            <k.icon className="size-5" />
           </button>
         ))}
       </div>
