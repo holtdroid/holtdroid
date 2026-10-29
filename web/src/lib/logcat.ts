@@ -48,6 +48,21 @@ function isCrashStart(l: LogLine) {
   )
 }
 
+// crashOwner tells from a crash report's line whether the crash is the
+// app's: Java crashes name the process, tombstones name it and its uid.
+export function crashOwner(l: Pick<LogLine, "tag" | "message">, pkg: string, uid: number | undefined) {
+  const name =
+    l.tag === "AndroidRuntime"
+      ? /^Process: ([^,\s]+), PID:/.exec(l.message)?.[1]
+      : l.tag === "DEBUG"
+        ? />>> (\S+) <<</.exec(l.message)?.[1]
+        : undefined
+  if (name !== undefined) return name === pkg || name.startsWith(`${pkg}:`)
+  const crashUid = l.tag === "DEBUG" ? /^uid: (\d+)/.exec(l.message)?.[1] : undefined
+  if (crashUid !== undefined && uid !== undefined) return Number(crashUid) === uid
+  return undefined
+}
+
 // LogcatStore follows the device's main, system and crash buffers for as
 // long as the ADB connection lives and keeps the last lines in memory.
 export class LogcatStore {
@@ -57,7 +72,9 @@ export class LogcatStore {
   #appUid: number | undefined
   #process: AdbNoneProtocolProcess | undefined
   #pending: ReturnType<typeof setTimeout> | undefined
-  #crash: { time: number; lines: string[]; timer: ReturnType<typeof setTimeout> } | undefined
+  #crash:
+    | { time: number; tag: string; ours: boolean | undefined; lines: string[]; timer: ReturnType<typeof setTimeout> }
+    | undefined
   readonly #listeners = new Set<() => void>()
   readonly #crashListeners = new Set<(c: Crash) => void>()
 
@@ -148,12 +165,23 @@ export class LogcatStore {
   }
 
   #trackCrash(l: LogLine) {
-    if (l.buffer !== LogId.Crash || (this.#appUid !== undefined && l.uid !== this.#appUid && l.tag !== "DEBUG")) return
+    if (l.buffer !== LogId.Crash) return
+    const known = this.#appUid !== undefined
+    if (l.tag !== "DEBUG" && known && l.uid !== this.#appUid) return
     if (isCrashStart(l)) {
       if (this.#crash) this.#flushCrash()
-      this.#crash = { time: l.time, lines: [], timer: setTimeout(() => this.#flushCrash(), 300) }
+      this.#crash = {
+        time: l.time,
+        tag: l.tag,
+        ours: l.tag === "AndroidRuntime" && known ? true : undefined,
+        lines: [],
+        timer: setTimeout(() => this.#flushCrash(), 300),
+      }
     }
-    if (this.#crash && l.priority >= AndroidLogPriority.Error) this.#crash.lines.push(l.message)
+    const c = this.#crash
+    if (!c || l.tag !== c.tag) return
+    c.ours ??= crashOwner(l, this.#pkg, this.#appUid)
+    if (l.priority >= AndroidLogPriority.Error) c.lines.push(l.message)
   }
 
   #flushCrash() {
@@ -161,6 +189,7 @@ export class LogcatStore {
     if (!c) return
     clearTimeout(c.timer)
     this.#crash = undefined
+    if (!c.ours) return
     for (const l of this.#crashListeners) l({ time: c.time, lines: c.lines })
   }
 

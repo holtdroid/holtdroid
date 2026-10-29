@@ -77,7 +77,8 @@ export function ToolTabs({
   const network = !!useDevice(session.provider, session.id).data?.networkProfiles
   const dns = useDNS(session.provider, session.id).data?.available === true
   const routes = useConnectionsState(session.provider, session.id).data?.available === true
-  const tabs = adbTabs.filter((t) => t.value !== "terminal" || session.capabilities?.shell !== false)
+  const shell = session.capabilities?.shell !== false
+  const tabs = adbTabs.filter((t) => t.value !== "terminal" || shell)
   const current =
     (adb && tabs.some((t) => t.value === tab)) ||
     (pixelPerfect && tab === "pixel-perfect") ||
@@ -88,14 +89,19 @@ export function ToolTabs({
       ? tab
       : "devtools"
 
-  const panel = (value: string, adbSession: AdbSession) => {
-    if (value === "logcat") return <LogcatPanel store={adbSession.logcat} />
-    return (
-      <AdbGate session={adbSession}>
-        {(a) => (value === "files" ? <FilesPanel adb={a} pkg={session.package} /> : <TerminalPanel adb={a} />)}
-      </AdbGate>
-    )
-  }
+  const panel = (value: string, adbSession: AdbSession) => (
+    <AdbGate session={adbSession}>
+      {(a) =>
+        value === "logcat" ? (
+          <LogcatPanel store={adbSession.logcat} />
+        ) : value === "files" ? (
+          <FilesPanel adb={a} pkg={session.package} shell={shell} />
+        ) : (
+          <TerminalPanel adb={a} />
+        )
+      }
+    </AdbGate>
+  )
 
   return (
     <Tabs value={current} onValueChange={onTab} className="h-full gap-0">

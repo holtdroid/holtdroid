@@ -1,6 +1,6 @@
 ---
 title: Files
-description: Browse the device's file system from the session page, download and upload files, create folders and delete.
+description: Browse the device's file system from the session page, download and upload files, and, where ADB runs any command, create folders and delete.
 sidebar:
   order: 11
 ---
@@ -49,12 +49,13 @@ device's Downloads folder, `/sdcard/Download`.
   to go there.
 - **Refresh** lists the folder again. The list doesn't update by itself when
   the app writes a file.
-- **New folder** and **Upload files**, described below.
+- **New folder** and **Upload files**, described below. **New folder**
+  is only there where ADB runs any shell command (see [Limits](#limits)).
 
 Each row has the name, the size (files only) and the time it was last
 modified, in your browser's time zone. Folders come first, then files, both
-in alphabetical order. Click a folder's name to open it. **Download** and
-**Delete** show up when you hover a row.
+in alphabetical order. Click a folder's name to open it. **Download** and,
+where ADB runs any shell command, **Delete** show up when you hover a row.
 
 `App data` holds what the app keeps for itself: `shared_prefs`, `databases`,
 `files`, and the WebView's cookies and storage under `app_webview`. The
@@ -95,16 +96,15 @@ recorded screen like anything else.
 
 ## Limits
 
-- **Delete** and **New folder** run shell commands (`rm` and `mkdir`). By
-  default emulators and phones run only an allowlist of shell commands that
-  doesn't include them (`redroid.shell` and the phones' `adb.shell`, see
+- **Delete** and **New folder** run shell commands (`rm` and `mkdir`), so
+  they are only shown where the provider lets ADB run any command, which is
+  also when the [Terminal](/holtdroid/session-tools/terminal/) tab shows up
+  (`redroid.shell: full` on emulators, `adb.shell: full` on phones, see
   [Emulator provider](/holtdroid/configuration/emulator/#users-adb-inside-android)
-  and [ADB on phones](/holtdroid/configuration/phones/#adb-on-phones)), so
-  there they fail with **Could not delete** or **Could not create the
-  folder**. They work where the provider allows any command, which is also
-  when the [Terminal](/holtdroid/session-tools/terminal/) tab shows up.
-  Browsing, downloading and uploading are file transfer and work under every
-  setting, even `off`.
+  and [ADB on phones](/holtdroid/configuration/phones/#adb-on-phones)). By
+  default both run only an allowlist of read-only commands and package
+  operations, and the tab browses, downloads and uploads. Those are file
+  transfer and work under every setting, even `off`.
 - On emulators ADB runs as root, so every folder can be read and written.
   Uploaded files belong to root with mode `644`: an app can read a file you
   put into its private data, but may not be able to change it.

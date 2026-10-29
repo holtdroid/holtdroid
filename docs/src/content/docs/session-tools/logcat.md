@@ -66,14 +66,19 @@ tag) and the message, wrapped. The letter and the tag are coloured by level:
 | `E`    | Error   | red            |
 | `F`    | Fatal   | dark red, bold |
 
-Lines from the `crash` buffer have a red tint behind them. Before the first
-line arrives the tab says _Waiting for log lines…_; when the filters hide
+Lines from the `crash` buffer have a red tint behind them. While ADB
+connects the tab shows **Connecting to ADB…**; if that fails or the
+connection drops, **Could not reach the device over ADB** with the reason
+and a **Reconnect** button. Before the first line arrives the tab says
+_Waiting for log lines…_; when the filters hide
 everything, _No line matches the filters._
 
 ### The crash notice
 
 When your app crashes (a `FATAL EXCEPTION` from `AndroidRuntime`, or a native
-crash's `*** *** ***` from `DEBUG` in the crash buffer), a notice
+crash's `*** *** ***` from `DEBUG` in the crash buffer) and the report names
+the app's process (`Process: <package>` for Java, `>>> <package> <<<` or
+the app's uid for a native one), a notice
 _The app crashed_ pops up on any tab with the first five lines of the stack
 trace. It stays for 15 seconds; its **Logcat** button opens this tab.
 
@@ -118,5 +123,4 @@ when nobody had the session page open.
   the tab stays empty. See
   [Emulator provider](/holtdroid/configuration/emulator/#users-adb-inside-android).
 - When the ADB connection drops, the tab stops getting lines. **Reconnect**
-  in the Files or Terminal tab opens it again, and logcat carries on from
-  the last line it had.
+  opens it again, and logcat carries on from the last line it had.

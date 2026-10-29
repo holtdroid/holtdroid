@@ -5,15 +5,11 @@ import { ImageScanNotice, ImageScanSwitch } from "@/components/session/image-sca
 import { LiveToolbar } from "@/components/session/live-toolbar"
 import { useLiveBodies, useLiveDevTools } from "@/components/session/use-live-devtools"
 import type { ImageRequest } from "@/lib/recording/images"
-import { svgSources } from "@/lib/recording/svgpaths"
+import { sourceKind, svgSources } from "@/lib/recording/svgpaths"
 
-const textTypes = new Set(["Script", "Document", "Stylesheet"])
-const wantBody = (r: ImageRequest) =>
-  !!r.end &&
-  !r.error &&
-  (textTypes.has(r.resourceType ?? "") || r.mimeType === "image/svg+xml" || /\.svg(?:$|\?)/i.test(r.url))
+const wantBody = (r: ImageRequest) => !!r.end && !r.error && sourceKind(r) !== undefined
 
-/** The SVG tab of a session: the paths in the WebViews' scripts, pages, stylesheets, SVG files and inline SVGs. */
+/** The SVG tab of a session: the paths in the WebViews' scripts, pages, stylesheets, JSON and text responses, SVG files and inline SVGs. */
 export function SvgPanel({ provider, id }: { provider: string; id: string }) {
   const [paused, setPaused] = useState(false)
   const [picked, setPicked] = useState<string>()

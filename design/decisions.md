@@ -1706,7 +1706,8 @@ remote inspection work on phones by default; an interactive shell, the
 portal's Terminal and most App/Device tools need `full`. The allowlist is
 fixed in code, not configurable, until someone needs more. `adb reverse`
 is refused on phones. The session page doesn't know the shell policy yet,
-so it still shows tools that the policy will refuse.
+so it still shows tools that the policy will refuse (superseded for the
+Terminal tab and Files' Delete and New folder by #163).
 
 ## 69. Phone VPN goes over the USB cable through Holtdroid Tunnel
 
@@ -4942,3 +4943,18 @@ fails when its target is missing or a guide lacks one of the three pages, but
 it can't tell that a redrawn page drifted from the real one. Translating the
 rest of the docs is separate work.
 
+## 163. Files deletes and creates folders only with a full shell
+
+**Context.** The Files tab's Delete and New folder run `rm -rf` and
+`mkdir -p` on paths the user picks. The default `allowlist` shell policy
+(#68) refused both, so the buttons were there and always failed.
+
+**Decision.** The allowlist stays read-only plus package operations: on
+emulators adbd is root on the node's kernel, and a recursive delete of a
+user-chosen path is not a read-only operation. The session page hides
+Delete and New folder unless `SlotCapabilities.Shell` says the shell is
+`full`, as it does with the Terminal tab.
+
+**Consequences.** Under `allowlist` Files browses, downloads and uploads
+(file transfer passes every policy); deleting and creating folders need
+`full`.

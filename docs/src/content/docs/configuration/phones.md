@@ -207,10 +207,10 @@ A shell command can't be filtered reliably (`sh -c`, `eval`, base64), so
 File transfer (`adb push`/`pull`, the Files tab), debuggers (`jdwp`), port
 forwards (`adb forward`, Chrome's remote inspection) and screenshots work with
 every setting. With `allowlist` the session page's Logcat, crash toasts, deep
-links, force stop and the Files tab's listing, upload and download work; its
-Terminal, Files' delete and new folder, and most app and device card tools
-(permissions, clear data, doze, WebView provider, bug reports)
-fail. Android Studio's own deploy uses an installer of its own and needs
+links, force stop and the Files tab's listing, upload and download work; the
+Terminal tab and Files' delete and new folder are not shown, and most app
+and device card tools (permissions, clear data, doze, WebView provider, bug
+reports) fail. Android Studio's own deploy uses an installer of its own and needs
 `full`. Give `full` only to people you trust with the phone: they can still
 make it unusable until someone resets it by hand.
 

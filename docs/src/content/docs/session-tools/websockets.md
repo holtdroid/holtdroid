@@ -52,7 +52,8 @@ row shows:
   could see its address;
 - its state: `connecting`, `open`, `error`, `closed`, or **media stream, not
   shown** (see below), and how many frames the tab has of it;
-- a radio icon, green while the socket is up and grey once it closed.
+- a radio icon, green while the socket is up, red after an error and grey
+  once it closed.
 
 An event stream is listed like a socket: each event it receives is a frame.
 
@@ -170,8 +171,8 @@ Each frame's time seeks the video there, and
   traffic; once there is more, the oldest goes first.
 - The tab keeps the last 5000 frames of each socket and lists the last 500
   of them that pass the filters.
-- **Filter** reads text frames. A binary frame is matched against its
-  base64 form, so text inside binary frames isn't found.
+- **Filter** matches a frame's one-line preview, and a text frame's whole
+  payload. A binary frame that holds text is matched by its decoded text.
 - The live tab doesn't show a socket's handshake status or error message;
   the [DevTools](/holtdroid/concepts/devtools/) Network panel does, while it
   is open.

@@ -74,7 +74,7 @@ const maxPath = 100_000
 
 export const optimizeKey = (p: Pick<SvgPath, "precision" | "d">) => `${p.precision}:${p.d}`
 
-function sourceKind(r: DevToolsRequest): SvgSourceKind | undefined {
+export function sourceKind(r: Pick<DevToolsRequest, "mimeType" | "url" | "resourceType">): SvgSourceKind | undefined {
   const mime = (r.mimeType ?? "").toLowerCase()
   if (mime === "image/svg+xml" || /\.svg(?:$|\?)/i.test(r.url)) return "svg"
   if (r.resourceType === "Image" || r.resourceType === "Media" || r.resourceType === "Font") return undefined

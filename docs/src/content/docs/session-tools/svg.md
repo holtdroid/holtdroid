@@ -22,7 +22,8 @@ loaded before you opened the tab are there too.
 The tab sits next to DevTools in every session whose device supports
 DevTools. It searches:
 
-- the **scripts, pages, stylesheets and SVG files** the WebViews load, as
+- the **scripts, pages, stylesheets, SVG files and JSON or text responses
+  to XHR and fetch** the WebViews load, as
   they load: SVG markup (`d="…"`), compiled JSX (`d:"M…"`), JSON-style
   `"d": "…"`, `setAttribute("d", …)`, and SVG data URIs, URL-encoded or
   base64;
@@ -115,17 +116,16 @@ files that carry it, which is where a shared icon component or a sprite
 ## In recordings
 
 A [recording](/holtdroid/concepts/recordings/#cache-images-and-svg) has the same tab
-with the same checks over the recorded files, plus JSON responses; there
+with the same checks over the recorded files; there
 **Open in Network** in a finding's details opens the file's request.
 
 ## Limits
 
 - Savings are bytes before compression. gzip and Brotli already take off
   part of them, so the transfer shrinks by less.
-- The live tab asks the agent for the bodies of the last 200 scripts, pages,
-  stylesheets and SVG files, while the WebView still has them; bodies over
-  1 MB are cut, and only the part kept is searched. JSON responses aren't
-  searched live.
+- The live tab asks the agent for the bodies of the last 200 of those
+  files, while the WebView still has them; bodies over 1 MB are cut, and
+  only the part kept is searched.
 - The scan sends each inline `<svg>` once, skips nested ones and ones over
   64 KB of markup, and stops after 1 MB of SVG markup per page.
 - Paths are found by pattern, not by running the code: one assembled at run

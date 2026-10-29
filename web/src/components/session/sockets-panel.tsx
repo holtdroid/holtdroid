@@ -12,7 +12,7 @@ import { type ReactNode, useLayoutEffect, useMemo, useRef, useState } from "reac
 import { toast } from "sonner"
 import { type DevToolsEntry, type DevToolsSocket, type MarkerIcon, sessionBase } from "@/api/client"
 import { useAddSessionMarker } from "@/api/queries"
-import { FrameSummary } from "@/components/recording/devtools-view"
+import { FrameSummary, frameMatches } from "@/components/recording/devtools-view"
 import { AtMoment, BodyView, type Clocks, ClocksContext, PlayheadContext } from "@/components/recording/json-view"
 import { MarkerBadge, markerIcons } from "@/components/recording/markers"
 import { useDevice } from "@/components/session/use-device"
@@ -90,7 +90,7 @@ export function SocketsPanel({ provider, id }: { provider: string; id: string })
   const needle = query.trim().toLowerCase()
   const frames = (socket?.frames ?? [])
     .filter((f) => !hideShortFrames || f.size >= shortFrame)
-    .filter((f) => !needle || (f.data ?? "").toLowerCase().includes(needle))
+    .filter((f) => frameMatches(f, needle))
     .slice(-500)
   const frame = socket?.frames.find((f) => f.key === frameKey)
   const offset = device.data?.timeOffset ?? 0
@@ -166,7 +166,11 @@ export function SocketsPanel({ provider, id }: { provider: string; id: string })
                 <RadioIcon
                   className={cn(
                     "size-3.5 shrink-0",
-                    s.state.state === "closed" ? "text-muted-foreground" : "text-emerald-600",
+                    s.state.state === "closed"
+                      ? "text-muted-foreground"
+                      : s.state.state === "error"
+                        ? "text-destructive"
+                        : "text-emerald-600",
                   )}
                 />
                 <span className="min-w-0 flex-1">

@@ -845,6 +845,11 @@ function summarize(f: SocketFrame): FrameLine {
   return out
 }
 
+export const frameMatches = (f: SocketFrame, needle: string) =>
+  !needle ||
+  summarize(f).text.toLowerCase().includes(needle) ||
+  (f.opcode === 1 && (f.data ?? "").toLowerCase().includes(needle))
+
 export function FrameSummary({ f }: { f: SocketFrame }) {
   const s = summarize(f)
   return (
@@ -890,13 +895,7 @@ export function SocketsView({
   const needle = query.trim().toLowerCase()
   const frames = socket
     ? framesUntil(socket, time)
-        .filter(
-          (f) =>
-            (direction === "all" || (direction === "sent") === !!f.sent) &&
-            (!needle ||
-              summarize(f).text.toLowerCase().includes(needle) ||
-              (f.opcode === 1 && (f.data ?? "").toLowerCase().includes(needle))),
-        )
+        .filter((f) => (direction === "all" || (direction === "sent") === !!f.sent) && frameMatches(f, needle))
         .slice(-shown)
     : []
   const frame = socket?.frames.find((f) => f.key === frameKey)

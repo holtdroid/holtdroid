@@ -7,6 +7,7 @@ import {
   pathStats,
   precisionFor,
   roundPath,
+  sourceKind,
   type SvgSource,
   svgSources,
 } from "@/lib/recording/svgpaths"
@@ -22,6 +23,31 @@ const source = (key: string, text: string, kind: SvgSource["kind"] = "script"): 
   kind,
   text,
   requests: [`P1/${key}`],
+})
+
+describe("sourceKind", () => {
+  const cases: {
+    name: string
+    resourceType?: string
+    mimeType?: string
+    url?: string
+    want: SvgSource["kind"] | undefined
+  }[] = [
+    { name: "script", resourceType: "Script", mimeType: "text/javascript", want: "script" },
+    { name: "svg file", resourceType: "Image", mimeType: "image/svg+xml", want: "svg" },
+    { name: "svg by extension", resourceType: "Other", url: "https://shop.example.com/a.svg?v=1", want: "svg" },
+    { name: "xhr json", resourceType: "XHR", mimeType: "application/json", want: "data" },
+    { name: "fetch text", resourceType: "Fetch", mimeType: "text/plain", want: "data" },
+    { name: "fetch binary", resourceType: "Fetch", mimeType: "application/octet-stream", want: undefined },
+    { name: "png", resourceType: "Image", mimeType: "image/png", want: undefined },
+  ]
+  for (const c of cases) {
+    test(c.name, () => {
+      expect(
+        sourceKind({ resourceType: c.resourceType, mimeType: c.mimeType, url: c.url ?? "https://shop.example.com/x" }),
+      ).toBe(c.want)
+    })
+  }
 })
 
 describe("extractPaths", () => {

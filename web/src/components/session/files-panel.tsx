@@ -50,7 +50,7 @@ async function list(adb: Adb, dir: string): Promise<Entry[]> {
   }
 }
 
-export function FilesPanel({ adb, pkg }: { adb: Adb; pkg: string }) {
+export function FilesPanel({ adb, pkg, shell }: { adb: Adb; pkg: string; shell: boolean }) {
   const roots = [
     { path: "/sdcard/Download", label: "Downloads" },
     { path: "/sdcard", label: "Shared storage" },
@@ -158,9 +158,11 @@ export function FilesPanel({ adb, pkg }: { adb: Adb; pkg: string }) {
         <IconButton label="Refresh" onClick={refresh}>
           <RefreshCwIcon className={entries.isFetching ? "animate-spin" : ""} />
         </IconButton>
-        <IconButton label="New folder" onClick={() => setNewFolder("")}>
-          <FolderPlusIcon />
-        </IconButton>
+        {shell && (
+          <IconButton label="New folder" onClick={() => setNewFolder("")}>
+            <FolderPlusIcon />
+          </IconButton>
+        )}
         <IconButton label="Upload files" disabled={upload.isPending} onClick={() => input.current?.click()}>
           <UploadIcon />
         </IconButton>
@@ -177,7 +179,7 @@ export function FilesPanel({ adb, pkg }: { adb: Adb; pkg: string }) {
         />
       </div>
       {progress && <p className="text-muted-foreground border-b px-3 py-1 text-xs">{progress}</p>}
-      {newFolder !== null && (
+      {shell && newFolder !== null && (
         <form
           className="flex gap-2 border-b p-2"
           onSubmit={(e) => {
@@ -239,15 +241,17 @@ export function FilesPanel({ adb, pkg }: { adb: Adb; pkg: string }) {
                       <DownloadIcon />
                     </IconButton>
                   )}
-                  <IconButton
-                    label="Delete"
-                    onClick={() => {
-                      if (window.confirm(`Delete ${join(dir, e.name)}${e.dir ? " and everything in it" : ""}?`))
-                        remove.mutate(e)
-                    }}
-                  >
-                    <Trash2Icon />
-                  </IconButton>
+                  {shell && (
+                    <IconButton
+                      label="Delete"
+                      onClick={() => {
+                        if (window.confirm(`Delete ${join(dir, e.name)}${e.dir ? " and everything in it" : ""}?`))
+                          remove.mutate(e)
+                      }}
+                    >
+                      <Trash2Icon />
+                    </IconButton>
+                  )}
                 </div>
               </li>
             ))}
