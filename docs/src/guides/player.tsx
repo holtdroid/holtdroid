@@ -85,7 +85,17 @@ function center(stage: HTMLElement, target: string | undefined, scale: number) {
   }
 }
 
-export function Player({ sc, lang, onFinish }: { sc: Scenario; lang: Lang; onFinish?: () => void }) {
+export function Player({
+  sc,
+  lang,
+  onFinish,
+  compact,
+}: {
+  sc: Scenario
+  lang: Lang
+  onFinish?: () => void
+  compact?: boolean
+}) {
   const t = ui[lang]
   const height = sc.height ?? HEIGHT
   const last = sc.steps.length - 1
@@ -227,7 +237,7 @@ export function Player({ sc, lang, onFinish }: { sc: Scenario; lang: Lang; onFin
   const finished = play.index === last && play.phase === "done" && !play.auto
 
   return (
-    <div className="hd-demo not-content my-6 grid gap-3" data-guide-player>
+    <div className={cn("hd-demo not-content grid gap-3", !compact && "my-6")} data-guide-player>
       <style href="hd-guides" precedence="default">
         {css}
       </style>
@@ -281,57 +291,78 @@ export function Player({ sc, lang, onFinish }: { sc: Scenario; lang: Lang; onFin
             </svg>
           </div>
         </div>
-      </div>
-
-      <div className="grid gap-3 rounded-xl border bg-card px-4 py-3 text-card-foreground">
-        <div className="flex items-start gap-3">
-          <span className="bg-primary text-primary-foreground grid size-7 shrink-0 place-items-center rounded-full text-xs font-semibold tabular-nums">
-            {play.index + 1}
-          </span>
-          <p aria-live="polite" className="min-h-12 flex-1 text-[15px] leading-6">
-            {step.text[lang]}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <ControlButton label={t.back} disabled={play.index === 0} onClick={() => go(play.index - 1)}>
-            <ChevronLeftIcon />
-          </ControlButton>
-          <ControlButton
-            label={finished ? t.restart : play.auto ? t.pause : t.play}
-            primary
-            onClick={() =>
-              finished ? dispatch({ type: "goto", index: 0, auto: true }) : dispatch({ type: "auto", auto: !play.auto })
-            }
-          >
-            {finished ? <RotateCcwIcon /> : play.auto ? <PauseIcon /> : <PlayIcon />}
-          </ControlButton>
-          <ControlButton label={t.next} disabled={play.index === last} onClick={() => go(play.index + 1)}>
-            <ChevronRightIcon />
-          </ControlButton>
-          <div className="mx-2 flex flex-1 flex-wrap items-center gap-1">
+        {compact && (
+          <div className="absolute inset-x-0 top-0 flex h-1 gap-px">
             {sc.steps.map((st, i) => (
-              <button
-                key={i}
-                type="button"
-                title={`${t.step} ${i + 1}: ${st.text[lang]}`}
-                aria-label={`${t.step} ${i + 1}`}
-                aria-current={i === play.index ? "step" : undefined}
-                className={cn(
-                  "h-1.5 flex-1 rounded-full transition-colors",
-                  i < play.index ? "bg-primary/60" : i === play.index ? "bg-primary" : "bg-muted",
-                )}
-                onClick={() => go(i)}
+              <span
+                key={st.text.en}
+                className={cn("flex-1 transition-colors", i <= play.index ? "bg-primary" : "bg-transparent")}
               />
             ))}
           </div>
-          <span className="text-muted-foreground text-xs tabular-nums">
-            {t.step} {play.index + 1} {t.of} {sc.steps.length}
-          </span>
-          <ControlButton label={t.restart} onClick={() => dispatch({ type: "goto", index: 0, auto: true })}>
-            <RotateCcwIcon />
-          </ControlButton>
-        </div>
+        )}
       </div>
+
+      {compact && (
+        <p aria-live="polite" className="text-muted-foreground flex min-h-10 gap-2 px-1 text-sm leading-5">
+          <span className="text-foreground font-semibold tabular-nums">{play.index + 1}.</span>
+          {step.text[lang]}
+        </p>
+      )}
+
+      {!compact && (
+        <div className="grid gap-3 rounded-xl border bg-card px-4 py-3 text-card-foreground">
+          <div className="flex items-start gap-3">
+            <span className="bg-primary text-primary-foreground grid size-7 shrink-0 place-items-center rounded-full text-xs font-semibold tabular-nums">
+              {play.index + 1}
+            </span>
+            <p aria-live="polite" className="min-h-12 flex-1 text-[15px] leading-6">
+              {step.text[lang]}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <ControlButton label={t.back} disabled={play.index === 0} onClick={() => go(play.index - 1)}>
+              <ChevronLeftIcon />
+            </ControlButton>
+            <ControlButton
+              label={finished ? t.restart : play.auto ? t.pause : t.play}
+              primary
+              onClick={() =>
+                finished
+                  ? dispatch({ type: "goto", index: 0, auto: true })
+                  : dispatch({ type: "auto", auto: !play.auto })
+              }
+            >
+              {finished ? <RotateCcwIcon /> : play.auto ? <PauseIcon /> : <PlayIcon />}
+            </ControlButton>
+            <ControlButton label={t.next} disabled={play.index === last} onClick={() => go(play.index + 1)}>
+              <ChevronRightIcon />
+            </ControlButton>
+            <div className="mx-2 flex flex-1 flex-wrap items-center gap-1">
+              {sc.steps.map((st, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  title={`${t.step} ${i + 1}: ${st.text[lang]}`}
+                  aria-label={`${t.step} ${i + 1}`}
+                  aria-current={i === play.index ? "step" : undefined}
+                  className={cn(
+                    "h-1.5 flex-1 rounded-full transition-colors",
+                    i < play.index ? "bg-primary/60" : i === play.index ? "bg-primary" : "bg-muted",
+                  )}
+                  onClick={() => go(i)}
+                />
+              ))}
+            </div>
+            <span className="text-muted-foreground text-xs tabular-nums">
+              {t.step} {play.index + 1} {t.of} {sc.steps.length}
+            </span>
+            <ControlButton label={t.restart} onClick={() => dispatch({ type: "goto", index: 0, auto: true })}>
+              <RotateCcwIcon />
+            </ControlButton>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

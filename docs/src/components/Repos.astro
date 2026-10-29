@@ -6,8 +6,8 @@ import { repos } from "./repos"
 <div class="hd-repos not-content">
   {
     repos.map((r) => (
-      <article class="hd-repo" id={`repo-${r.name}`}>
-        <Image src={r.icon} alt="" width={56} height={56} class="hd-repo-icon" />
+      <article class="hd-repo hd-panel" id={`repo-${r.name}`}>
+        <Image src={r.icon} alt="" width={44} height={44} class="hd-repo-icon" />
         <div class="hd-repo-body">
           <p class="hd-repo-role">{r.role}</p>
           <h3>
@@ -33,24 +33,14 @@ import { repos } from "./repos"
 <style>
   .hd-repos {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 21rem), 1fr));
     gap: 1rem;
-    margin-block: 1.5rem;
+    margin-block: 1.5rem 0;
   }
   .hd-repo {
     display: flex;
     gap: 1rem;
-    padding: 1.25rem;
-    border: 1px solid var(--sl-color-gray-5);
-    border-radius: 1rem;
-    background: var(--sl-color-black);
-    transition:
-      border-color 0.2s,
-      transform 0.2s;
-  }
-  .hd-repo:hover {
-    border-color: var(--sl-color-accent);
-    transform: translateY(-2px);
+    padding: 1.1rem;
   }
   .hd-repo:target {
     border-color: var(--sl-color-accent);
@@ -58,8 +48,8 @@ import { repos } from "./repos"
   }
   .hd-repo-icon {
     flex-shrink: 0;
-    width: 3.5rem;
-    height: 3.5rem;
+    width: 2.75rem;
+    height: 2.75rem;
   }
   .hd-repo-body {
     display: flex;

@@ -36,9 +36,9 @@ const stages: { icon: IconName; title: string; items: string[]; repos: string[] 
 <ol class="hd-pipeline not-content">
   {
     stages.map((s, i) => (
-      <li class="hd-stage" style={`--i: ${i}`}>
+      <li class="hd-stage hd-panel" style={`--i: ${i}`}>
         <div class="hd-stage-head">
-          <span class="hd-stage-icon">
+          <span class="hd-tile">
             <Icon name={s.icon} size="1.25rem" />
           </span>
           <h3>{s.title}</h3>
@@ -68,10 +68,9 @@ const stages: { icon: IconName; title: string; items: string[]; repos: string[] 
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 2.25rem;
-    margin: 1.5rem 0;
+    margin: 1.5rem 0 0;
     padding: 0;
     list-style: none;
-    counter-reset: stage;
   }
   .hd-stage {
     position: relative;
@@ -80,9 +79,6 @@ const stages: { icon: IconName; title: string; items: string[]; repos: string[] 
     gap: 0.75rem;
     margin: 0;
     padding: 1.1rem;
-    border: 1px solid var(--sl-color-gray-5);
-    border-radius: 1rem;
-    background: var(--sl-color-black);
     animation: hd-rise 0.6s calc(var(--i) * 0.12s) both ease-out;
   }
   .hd-stage:not(:last-child)::after {
@@ -100,15 +96,6 @@ const stages: { icon: IconName; title: string; items: string[]; repos: string[] 
     display: flex;
     align-items: center;
     gap: 0.6rem;
-  }
-  .hd-stage-icon {
-    display: grid;
-    place-items: center;
-    width: 2.2rem;
-    height: 2.2rem;
-    border-radius: 0.6rem;
-    background: var(--sl-color-accent-low);
-    color: var(--sl-color-accent-high);
   }
   .hd-stage h3 {
     margin: 0;

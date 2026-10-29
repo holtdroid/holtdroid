@@ -20,3 +20,62 @@ html:has(.hd-guide) {
 .hd-hint[data-step] {
   cursor: pointer;
 }
+
+html:has(.hd-showcase) {
+  --sl-content-width: 76rem;
+}
+
+.hd-panel {
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 1rem;
+  background: var(--sl-color-black);
+  transition:
+    border-color 0.2s,
+    transform 0.2s;
+}
+
+a.hd-panel:hover,
+.hd-panel:has(a:hover) {
+  border-color: var(--sl-color-accent);
+}
+
+.hd-tile {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.6rem;
+  background: var(--sl-color-accent-low);
+  color: var(--sl-color-accent-high);
+}
+
+.hd-lead {
+  max-width: 44rem;
+  color: var(--sl-color-gray-2);
+}
+
+.sl-markdown-content .hd-split {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  gap: 2rem;
+  align-items: start;
+}
+
+.sl-markdown-content .hd-split > * {
+  margin-top: 0;
+}
+
+@media (max-width: 50rem) {
+  .sl-markdown-content .hd-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+html:has(.hd-showcase) .hero {
+  padding-block: 1rem 2rem;
+}
+
+html:has(.hd-showcase) .hero > img {
+  max-width: 20rem;
+}

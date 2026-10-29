@@ -21,82 +21,69 @@ hero:
       variant: minimal
 ---
 
-import { Aside, Card, CardGrid, Tabs, TabItem } from "@astrojs/starlight/components"
+import { Tabs, TabItem } from "@astrojs/starlight/components"
+import Features from "../../components/Features.astro"
 import Pipeline from "../../components/Pipeline.astro"
 import Repos from "../../components/Repos.astro"
 import Showcase from "../../components/Showcase.astro"
 
 ## See it in action
 
-Every picture below is the portal itself, played step by step. Pick a topic or let it run.
+<p class="hd-lead">The real portal, played step by step. Pick a topic, or click the picture to go faster.</p>
 
 <Showcase />
 
 ## Why Holtdroid
 
-<CardGrid stagger>
-  <Card title="No APK patching" icon="approve-check">
-    WebView remote debugging is switched on at runtime. The APK is installed exactly as your team shipped it.
-  </Card>
-  <Card title="Everything in one tab" icon="laptop">
-    Device screen and Chrome DevTools side by side, with a target switcher and two-way clipboard. No adb or local Chrome
-    needed.
-  </Card>
-  <Card title="ARM APKs on x86 nodes" icon="rocket">
-    Android in containers on the node's kernel (redroid), several per node, with ARM translation for ARM-only builds.
-  </Card>
-  <Card title="Per-session VPN" icon="random">
-    Each device gets its own egress. Switch the country from the network card next to the device without restarting
-    anything.
-  </Card>
-  <Card title="Sessions that clean up" icon="seti:clock">
-    Bounded slots, idle timeout and max TTL. See who is using what, extend with one click.
-  </Card>
-  <Card title="Pluggable by contract" icon="puzzle">
-    Artifact sources, device providers, VPN vendors, secret backends and auth are swappable. Real phones on USB work
-    too, without root.
-  </Card>
-</CardGrid>
+<Features />
 
 ## How it fits together
 
-A build travels from wherever your team posts it to a device that only you are using, and the device comes to your
-browser. Each step lives in its own repository.
+<p class="hd-lead">
+  A build travels from wherever your team posts it to a device that only you are using, and the device comes to your
+  browser. Each step lives in its own repository.
+</p>
 
 <Pipeline />
-
-## Repositories
 
 <Repos />
 
 ## Try it
 
+<div class="hd-split">
+<div>
+
+Start on your laptop with simulated devices: no cluster and no KVM, enough to click through the whole UI. When it
+fits, install the Helm chart on a cluster whose nodes run the Android containers.
+
+- [Local development](/holtdroid/start/local-development/)
+- [Installation](/holtdroid/start/installation/)
+- [Architecture](/holtdroid/concepts/architecture/)
+
+Holtdroid is **pre-alpha** and built in the open: anything may change until the first tagged release. Follow the
+[roadmap](https://github.com/holtdroid/holtdroid/blob/main/design/roadmap.md).
+
+</div>
+<div>
+
 <Tabs>
   <TabItem label="On your laptop" icon="laptop">
-    Simulated devices, no cluster and no KVM: enough to click through the whole UI.
 
     ```sh
     git clone https://github.com/holtdroid/holtdroid && cd holtdroid
     mise install
-    make dev    # http://localhost:8080, APKs from internal/apk/testdata
+    make dev    # http://localhost:8080 with simulated devices
     ```
-
-    More in [Local development](/holtdroid/start/local-development/).
 
   </TabItem>
   <TabItem label="On Kubernetes" icon="rocket">
-    One Helm chart; nodes with binder run the Android containers.
 
     ```sh
     helm install holtdroid oci://ghcr.io/holtdroid/charts/holtdroid -n holtdroid -f values.yaml
     ```
 
-    What goes into `values.yaml` is in [Installation](/holtdroid/start/installation/).
-
   </TabItem>
 </Tabs>
 
-<Aside type="caution" title="Pre-alpha">
-  Holtdroid is being built in the open, and everything may change until the first tagged release. Follow the
-  [roadmap](https://github.com/holtdroid/holtdroid/blob/main/design/roadmap.md).
-</Aside>
+</div>
+</div>
