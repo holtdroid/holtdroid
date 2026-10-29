@@ -332,6 +332,8 @@ Goal: several Android devices per node instead of one emulator per node.
 - [x] Wildcard backends matched by the device's DNS answers (decision #135); the list is remembered per app in the browser
 - [x] The route is measured from the agent's start and cached per provider and location in the api, seeding new sessions; backends are kept per user and app in a persistent database, else in the browser (decision #136)
 - [x] Device controls checked on Android 11–15 (decision #101): lock screen through a fabricated overlay (PIN on 11), Wi-Fi and mobile data as virtual radios shown to the app through Frida, battery present, brightness on the shade's gamma curve, GPS for uid 0 and through `Geo.java` on 11, no clock changes on redroid
+- [x] Android 16 on the nodes' mainline kernel (decision #171): holtdroid-redroid's `16` image with shims for netbpfload, netd's BPF map and ashmem on memfd; checked on the live deployment on 2026-10-29 (an ARM-only app under Frida, DevTools target, encoding, lock screen, battery, brightness, GPS, time zone, locale, Wi-Fi and mobile data toggles)
+- [ ] Android 16: check screen rotation and the simulated Wi-Fi once the nodes load `mac80211_hwsim` again (it was loaded on none of them on 2026-10-29)
 - [x] A real Wi-Fi on redroid (decision #105): `mac80211_hwsim` radios per session, the emulator's Wi-Fi HAL and wpa_supplicant in holtdroid-redroid, an access point in a router namespace, Ethernet hidden by an RRO, mobile data as a second uplink; status bar and quick settings show Wi-Fi
 - [x] Gesture navigation on redroid by default, switchable to the three buttons in the display card (decision #110)
 - [ ] redroid's status bar shows mobile data instead of Ethernet when only mobile data is on (no telephony stack)

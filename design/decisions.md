@@ -2301,6 +2301,8 @@ holtdroid-redroid was deleted; its findings are in the maintainer's notes.
 
 ## 84. Screens and Android versions are picked at launch
 
+_The "Android 16 is not offered" part is superseded by #171._
+
 **Context.** #82 fixed one screen (720×1600 at 320 dpi) and one Android
 version per provider. Testers want to see an app on the kinds of phones
 their users have — a cheap 720p phone with a notch, a 1080p phone with a
@@ -5115,3 +5117,38 @@ decision #81.
 without them the workflow fails and the published site stays as it was.
 Links inside the docs are root-relative (`/start/…`), and anything that
 links to the docs from outside uses `https://holtdroid.github.io/`.
+
+## 171. Android 16 runs on the nodes' mainline kernel through shims in its image
+
+**Context.** #84 left Android 16 out: on k3s-3's 6.18 its netd aborted and
+system_server never finished booting, and a 6.12 LTS kernel on the session
+nodes was the next thing to try. A probe on 2026-10-29 found three places
+where Android 16 relies on the Android Common Kernel, and two of them don't
+depend on the kernel version, so pinning 6.12 alone would not have helped:
+netbpfload refuses kernels outside its built-in list of LTS branches; netd
+now creates a BPF map at startup, which needs `CAP_BPF` under the node's
+`unprivileged_bpf_disabled=2`; and libcutils uses memfd for ashmem only
+when the kernel answers ashmem's ioctls on a memfd (an ACK patch),
+otherwise falling back to `/dev/ashmem`, which mainline dropped in 5.18.
+
+**Decision.** holtdroid-redroid's `16` image patches all three with
+`KERNEL_COMPAT=on` and the node stays as it is: netbpfload runs with a
+`uname()` shim that reports 6.12 on newer kernels, netd's `capabilities`
+gain `BPF`, and an `ioctl()` shim answers the ashmem ioctls on memfds the
+way ACK does. Init exports the ashmem shim as `LD_PRELOAD` by an absolute
+`/system/lib64` path, which APEX namespaces may load (Codec2's
+`media.swcodec` needs it, and its service is defined inside the APEX);
+vendor services, init's `exec` of vendor binaries and 32-bit services load
+their own copy by name or from `/system/lib`. The shim removes
+`LD_PRELOAD` from the environment when it loads. Every other patch of the
+image (Codec2 on gralloc BLOBs, ARM translation from the API 36 emulator
+image, Mesa Vulkan, the lazy camera HAL, Wi-Fi, overlays) carries over
+unchanged.
+
+**Consequences.** Sessions can be launched on Android 16 once `16` is in
+`redroid.versions`; being the newest, it becomes the default there. The
+shims follow Android, not the kernel: a newer Android 16 base or Android
+17 may need the list of preloading services, the ioctl set or the
+netbpfload service revisited, and a kernel with ACK's ashmem support or an
+LTS version netbpfload knows makes them no-ops. Apps can still find the
+shim in `/proc/self/maps`.

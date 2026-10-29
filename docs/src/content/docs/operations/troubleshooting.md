@@ -29,10 +29,10 @@ sidebar:
 
 ## Install fails with `INSTALL_FAILED_NO_MATCHING_ABIS`
 
-The redroid image is Android 15 x86_64 with ARM translation
+The redroid images are x86_64 with ARM translation
 (`libndk_translation`), which runs `arm64-v8a` libraries. APKs that ship only
 32-bit ARM libraries (`armeabi-v7a` without `arm64-v8a`) can't be installed:
-no Android 12–15 x86_64 image translates 32-bit ARM. Ask for a build that
+no Android 12–16 x86_64 image translates 32-bit ARM. Ask for a build that
 includes `arm64-v8a` (or `x86_64`).
 
 ## App installs but crashes immediately

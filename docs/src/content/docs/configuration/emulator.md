@@ -210,18 +210,19 @@ Classic 16:9, the 360×640 CSS px viewport most mobile layouts are drawn for. De
 
 Android versions are the keys of `redroid.images` (the chart: `versions`,
 each pulled from `<repository>:<version>`). holtdroid-redroid publishes one
-tag per Android major version it supports (11 to 15). Android 16 boots
-but its netd aborts on a mainline kernel (Android's BPF loader accepts only
-LTS kernels), so it is not offered. The Android 13 and 14 images have no
+tag per Android major version it supports (11 to 16). Android 16 expects
+an Android kernel, so its image carries shims for a mainline one (a BPF
+loader that accepts only LTS kernels it knows, ashmem through memfd); the
+nodes need nothing extra for it. The Android 13 and 14 images have no
 Bluetooth: redroid's simulated Bluetooth controller crashes there as soon
 as Android enables it, so the images drop the feature and apps see a device
-without Bluetooth. Android 11, 12 and 15 keep a simulated one.
+without Bluetooth. Android 11, 12, 15 and 16 keep a simulated one.
 
 Every image runs 32-bit x86 apps next to 64-bit ones (`zygote64_32`).
 Google Chrome's x86 builds run their browser in 32 bits and keep only
 WebView in the 64-bit library, so on a 64-bit-only Android they abort at
 startup with "WebView cannot be started with a browser process type". ARM
-translation is 64-bit only: the Android 12 to 15 images list `arm64-v8a`
+translation is 64-bit only: the Android 12 to 16 images list `arm64-v8a`
 but not `armeabi-v7a`, so an app whose native libraries are only 32-bit ARM
 doesn't install there (Android 11 lists it and the app crashes instead).
 Android warns that an app with only 32-bit libraries "isn't compatible with

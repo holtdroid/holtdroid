@@ -81,6 +81,14 @@ deployment"):
   battery level and charging in the status bar, brightness matching the
   shade, fake GPS on 11–14, the stream card no longer flagged when the
   device has no audio; the clock can't move on redroid (time zone only).
+- Android 16 is offered (decision #171, 2026-10-29): holtdroid-redroid's
+  `16` image boots on the nodes' 6.18 kernel through shims in the image
+  (netbpfload's LTS check, `CAP_BPF` for netd, ashmem ioctls on memfd), and
+  is the newest version, so the default. Checked on the live deployment on
+  k3s-3: an ARM-only app under Frida, a DevTools target, scrcpy running,
+  the device controls of decision #101. Rotation and the simulated Wi-Fi
+  are unchecked: on 2026-10-29 no node had `mac80211_hwsim` loaded, so
+  sessions on every version got mobile data only.
 - A real Wi-Fi in redroid sessions (decision #105): the session nodes load
   `mac80211_hwsim radios=0` (homelab.nixos `modules/k3s/default.nix`),
   holtdroid-redroid ships the emulator's Wi-Fi stack and an access point in
