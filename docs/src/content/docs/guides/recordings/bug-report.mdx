@@ -1,0 +1,42 @@
+---
+title: A bug report in a minute
+description: One click on the Device card bundles a screenshot, the logs and the device details into a zip, and Share lets someone see the bug live.
+sidebar:
+  order: 2
+tableOfContents: false
+---
+
+import Guide from "../../../../components/Guide.astro"
+import Hint from "../../../../components/Hint.astro"
+
+**Why:** a ticket that says “the button doesn't work” comes back with “which phone, which Android, which build,
+any logs?”. A bundle answers all of that before anyone asks.
+
+<Guide id="bug-report" />
+
+## What happens
+
+1. Hover the <Hint to="w-device" step={2}>Device card</Hint> at the bottom of the column next to the screen. It
+   shows the model, the Android version and the build.
+2. Press <Hint to="bugreport-bundle" step={3}>Bundle</Hint>. A few seconds later a zip is downloaded: a screenshot,
+   the logcat collected so far, and the device and app details.
+3. Attach the zip to the ticket.
+4. If someone should look at the bug right now, press <Hint to="share" step={6}>Share</Hint> in the session header:
+   a link to this session is copied.
+
+## Good to know
+
+- Logcat is the phone's system log: what the app and Android wrote while you were testing. Crashes and errors
+  land there, which is why developers always ask for it.
+- **Full report** next to Bundle runs Android's own `bugreport`. It is much bigger and slower; use it only when a
+  developer asks for it.
+- A session link works only while the session runs, and only for people signed in to the portal. To keep the
+  evidence after you stop, [record the session](/holtdroid/guides/recordings/record-share/).
+
+## If it doesn't work
+
+- **Bundle is greyed out or the card says ADB is unavailable**: the browser couldn't connect to the device's ADB
+  (the Android debugging channel). Wait a few seconds after the device starts; on some portals ADB is turned off.
+- **Share is greyed out**: only the owner of the session (or an admin) can share it.
+
+More details: [ADB tools](/holtdroid/concepts/adb/).

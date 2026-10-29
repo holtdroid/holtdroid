@@ -1,0 +1,50 @@
+---
+title: Follow live updates in the WebSockets tab
+description: Read the messages a web page and its server push to each other, and find the one that broke the screen.
+sidebar:
+  order: 2
+tableOfContents: false
+---
+
+import Guide from "../../../../components/Guide.astro"
+import Hint from "../../../../components/Hint.astro"
+
+**Why:** chats, live prices and order statuses arrive over WebSockets, not ordinary requests, so the Network list
+doesn't show them. This tab does, and shows the exact message that came before a bug.
+
+<Guide id="websockets" />
+
+## What happens
+
+1. Open the <Hint to="tab-websockets" step={1}>WebSockets</Hint> tab. A **WebSocket** is a connection that stays
+   open, so the server can send updates whenever it wants.
+2. Each line is <Hint to="frame-hello" step={2}>one message</Hint>: an arrow up was sent by the app, an arrow down
+   came from the server, with its length and time.
+3. Click a message, such as the <Hint to="frame-price" step={3}>price update</Hint>, to read it
+   <Hint to="frame-details" step={4}>
+     in full
+   </Hint>
+   .
+4. Look for the message right before things went wrong: here the
+   <Hint to="frame-order" step={5}>
+     order
+   </Hint>
+   failed with `out_of_stock`, and the app never told the user.
+
+## Good to know
+
+- The tab works without opening DevTools.
+- Holtdroid keeps the session's socket traffic from the moment the app started, so the tab shows it all even after
+  you reload the portal page or open the session on another computer.
+- **Clear** empties the list in your browser only. **Hide under 15 B** leaves out pings and other tiny messages.
+  Pause stops the list; resuming fills in what came meanwhile.
+- Event streams (another way servers push updates) show up here too.
+- While the session is recorded, click a message's time to put a marker on the recording at that moment.
+
+## If it doesn't work
+
+- **The list is empty**: the page hasn't opened a socket yet. Open the part of the app with live data.
+- **A socket is marked as video and has no messages**: video streams are left out on purpose, they would flood the
+  list.
+
+More details: [WebView DevTools](/holtdroid/concepts/devtools/).

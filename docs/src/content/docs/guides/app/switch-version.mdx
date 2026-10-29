@@ -1,0 +1,49 @@
+---
+title: Install another build in the same session
+description: Switch the running device to another build of the app, with or without its data, without launching a new device.
+sidebar:
+  order: 3
+tableOfContents: false
+---
+
+import Guide from "../../../../components/Guide.astro"
+import Hint from "../../../../components/Hint.astro"
+
+**Why:** a bug shows up in the release candidate, and you want to know whether production had it too. Or you need
+to check that an update from the store version doesn't lose the user's cart. Both are one switch away.
+
+<Guide id="switch-version" />
+
+## What happens
+
+1. Click the <Hint to="version-switcher" step={1}>app's name and icon</Hint> in the session header.
+   **Switch version** opens.
+2. It lists <Hint step={2}>every build with the same application ID</Hint>, from every source, with its branch,
+   uploader and age. Search by version, branch or uploader.
+3. Decide about <Hint to="keep-data" step={3}>Keep app data</Hint>:
+   - **on** (the default): the build is installed over the current one, upgrade or downgrade. The app keeps its
+     sign-in and data, so you see how its storage migrates;
+   - **off**: the current build and its data are removed first, as on a fresh device.
+4. Click <Hint step={4}>the build you need</Hint>. The same device installs it, and the
+   <Hint to="version-switcher" step={6}>
+     header
+   </Hint>
+   shows the new version.
+
+## Good to know
+
+- The device, its settings and your other changes stay: country, network, language, the clipboard. Only the app
+  changes.
+- Going **down** with data kept tests a downgrade, which many apps don't support: their database may refuse to
+  open. The list marks such builds.
+- To compare two builds side by side, launch a second session instead.
+
+## If it doesn't work
+
+- **“It is signed with a different key”**: Android won't install a build over one signed by someone else (for
+  example a debug build over a release one). Turn off **Keep app data** and install it cleanly.
+- **The install failed**: the previous build keeps running, nothing is lost. The message says why.
+- **The build isn't in the list**: it has another application ID (a `.debug` suffix, say), so it's a different
+  app for Android. Launch it from the Apps page.
+
+More details: [Sessions and slots](/holtdroid/concepts/sessions/#the-app-inside-a-session).

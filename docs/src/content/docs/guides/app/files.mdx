@@ -1,0 +1,55 @@
+---
+title: Files on the device
+description: Look into the app's private folder, download its settings and databases, and put test files on the device for file pickers.
+sidebar:
+  order: 5
+tableOfContents: false
+---
+
+import Guide from "../../../../components/Guide.astro"
+import Hint from "../../../../components/Hint.astro"
+
+**Why:** to test an “attach a document” form you need a PDF on the phone, and to check what the app really saved
+after onboarding you need its settings file. On a normal phone neither is easy. Here it's the Files tab.
+
+<Guide id="files" />
+
+## What happens
+
+1. Open the <Hint to="tab-files" step={1}>Files</Hint> tab next to DevTools.
+2. **App data** is the app's <Hint to="files-list" step={2}>private folder</Hint>, `/data/data/<package>`:
+   - `shared_prefs` holds the app's <Hint to="file-shared_prefs" step={3}>settings</Hint> as small XML files;
+   - `databases` holds its SQLite databases;
+   - `app_webview` holds the WebView's cookies, local storage and IndexedDB.
+
+   <Hint to="file-session.xml" step={4}>
+     Download a file
+   </Hint>
+   to open it on your computer.
+
+3. **Shared storage** is <Hint to="files-shared" step={5}>what other apps see</Hint>: Download, Pictures, DCIM.
+   That's where a file picker looks.
+4. Open <Hint to="file-Download" step={6}>Download</Hint> and press <Hint to="files-upload" step={7}>Upload</Hint>,
+   or drop files from your computer onto the list. The file
+   <Hint to="file-receipt-test.pdf" step={8}>
+     appears on the device
+   </Hint>
+   , ready to pick in the app.
+
+## Good to know
+
+- You can also create folders and delete files, for example to check how the app reacts when its database is
+  gone.
+- **/data/local/tmp** is a scratch folder anyone can write to; handy for test files that shouldn't show up in the
+  gallery.
+- Everything you change disappears with the device when the session stops. To keep the app's own data, use
+  [Save app data](/holtdroid/guides/app/app-data/).
+
+## If it doesn't work
+
+- **The app doesn't see the uploaded file**: on recent Android versions apps see shared storage only through the
+  system file picker or after the user allowed access. Pick the file from the app's own “choose file” button.
+- **The tab is missing or waiting for ADB**: Files works over the device's ADB, which isn't available to you in
+  someone else's session.
+
+More details: [ADB tools](/holtdroid/concepts/adb/).

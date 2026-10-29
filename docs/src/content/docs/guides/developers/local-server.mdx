@@ -1,0 +1,56 @@
+---
+title: Open your local dev server on the phone
+description: Publish a port from your computer, and the app or browser on the device reaches it as localhost, with hot reload.
+sidebar:
+  order: 2
+tableOfContents: false
+---
+
+import Guide from "../../../../components/Guide.astro"
+import Hint from "../../../../components/Hint.astro"
+
+**Why:** you're building the web part of the app on your laptop and want to see it inside the real app's WebView
+on a real Android, without deploying anything.
+
+<Guide id="local-server" />
+
+## What happens
+
+1. [Connect your computer](/holtdroid/guides/developers/connect-computer/) first and leave the `holtdroid` client
+   running.
+2. <Hint to="terminal" step={1}>
+     Start your dev server
+   </Hint>
+   as usual, for example Vite on port 5173.
+3. The port shows up on the Computers page. <Hint to="port-5173" step={3}>Click it</Hint> to publish it on your
+   devices; in the default **Dev servers** mode the client publishes servers like `node`, `bun` or `vite` by itself.
+4. On the session page, the <Hint to="w-ssh" step={6}>SSH card</Hint> lists the
+   <Hint to="ssh-port-5173" step={7}>
+     published ports
+   </Hint>
+   .
+5. On the phone, open <Hint to="phone" step={8}>`http://localhost:5173`</Hint>: the page comes from your laptop.
+
+## Good to know
+
+- A port is the “door number” a program listens on: your dev server listens on 5173, so it is
+  `localhost:5173`. Publishing makes the same door open on the device.
+- A published port goes to every device you run, including the ones you start later, and only to yours.
+- Plain `http://localhost` works even if the app forbids unencrypted traffic: Android makes an exception for
+  localhost. Other hosts still follow the app's rules.
+- Hot reload works: save a file and the page on the phone updates.
+- In **Everything** mode every listening program on your computer is published, desktop apps included. The client
+  asks before switching to it.
+
+## If it doesn't work
+
+- **The port isn't on the Computers page**: make sure the client is running and the server listens on
+  `localhost`, not only on another address.
+- **Red port in the SSH card**: nothing answers on that port on your computer. Start the server, or check the
+  number.
+- **The page loads but API calls fail**: the app still calls the API by its normal address. Point it at
+  `localhost` too, or publish the API's port as well.
+- **A port is skipped on emulators**: a few ports are taken by the session itself (5555, 5038, 27042, 18580,
+  18581, 7890, 9090). Use another one.
+
+More details: [Connecting your computer](/holtdroid/concepts/ssh/).

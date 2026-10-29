@@ -1,0 +1,51 @@
+---
+title: Launch in one click
+description: The lightning button starts a device right away with your last settings, fresh or from your saved app data.
+sidebar:
+  order: 3
+tableOfContents: false
+---
+
+import Guide from "../../../../components/Guide.astro"
+import Hint from "../../../../components/Hint.astro"
+
+**Why:** when you test the same app every day, the launch dialog asks the same questions every time. The lightning
+button skips it.
+
+<Guide id="quick-launch" />
+
+## What happens
+
+1. Next to **Launch** on every app card is the <Hint to="quick-launch" step={1}>lightning button</Hint>. It launches
+   with the provider, VPN location and other choices you used last time, or the defaults if you never launched.
+2. <Hint step={2}>Hover it</Hint> to see the device it will use and, when your server saves app data, how the app should
+   start: -
+   <Hint to="quick-fresh" step={3}>
+     Fresh install
+   </Hint>
+   : a clean app, nothing saved; -
+   <Hint to="quick-data" step={4}>
+     With app data
+   </Hint>
+   : your newest save of the app, so you're already signed in; -
+   <Hint to="quick-cache" step={5}>
+     With app data and cache
+   </Hint>
+   : the same, with the cache too.
+3. <Hint step={6}>Pick one</Hint> and the device starts straight away. A plain click on the button later repeats your
+   last pick.
+
+## Good to know
+
+- The choice is remembered in your browser, so another browser or computer starts with the defaults.
+- Without app data on your server the button has no menu: a click just launches.
+- When all devices are busy, a quick launch waits in line like a normal one.
+- Saves come from earlier sessions; see [keep your sign-in between sessions](/holtdroid/guides/app/app-data/).
+
+## If it doesn't work
+
+- **With app data starts a fresh app**: you have no save of this app yet. Run a session and save its data first.
+- **It launched on the wrong Android version or country**: it repeats your last launch. Use **Launch** once with the
+  settings you want; the lightning button follows from then on.
+
+More details: [App data](/holtdroid/concepts/app-data/).

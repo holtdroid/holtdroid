@@ -1,0 +1,64 @@
+---
+title: Time limits and how many devices you get
+description: When a device is taken back, how to keep it with Extend, and what the device pool and per-person limits mean.
+sidebar:
+  order: 5
+tableOfContents: false
+---
+
+import Guide from "../../../../components/Guide.astro"
+import Hint from "../../../../components/Hint.astro"
+
+**Why:** devices are shared. Knowing when one is taken back saves you from losing a half-reproduced bug when you
+come back from lunch.
+
+<Guide id="limits" />
+
+## What happens
+
+1. <Hint to="sessions" step={1}>
+     Active sessions
+   </Hint>
+   on the Apps page lists every running device, and the
+   <Hint to="slots" step={2}>
+     bar above it
+   </Hint>
+   shows the pool: green devices are free, amber ones are busy.
+2. Each card shows <Hint to="idle-timer" step={3}>how long until the device stops</Hint>. Two clocks run at once:
+   - **idle time**: a device nobody uses is stopped after 30 minutes by default;
+   - **maximum lifetime**: every device is stopped after 8 hours by default, used or not.
+3. <Hint to="session-extend" step={4}>
+     Extend
+   </Hint>
+   restarts the idle clock. It's also in the
+   <Hint to="session-timer" step={7}>
+     session header
+   </Hint>
+   .
+4. When you're done, press <Hint to="stop" step={8}>Stop</Hint>: the device goes back to the pool right away.
+
+## What counts as using the device
+
+- clicks, typing, scrolling or touches anywhere on the session page, while the tab is visible;
+- changing a setting, switching the location, restarting the app, pressing a phone key, using the clipboard;
+- pressing **Extend**.
+
+A tab that is just open in the background does **not** keep the device alive.
+
+## Good to know
+
+- Your server may use other values than 30 minutes and 8 hours; the countdowns always show the real ones.
+- Your server may limit how many devices one person runs at once. Your limit is in **Account and passkeys** in the
+  user menu.
+- When the pool is full, a launch waits in line and starts as soon as a device frees up, as long as you stay on its
+  page.
+
+## If it doesn't work
+
+- **“You already run as many devices as you may; stop one first”**: you hit your limit. Stop a device you no longer
+  need.
+- **The device disappeared while you were away**: it was idle too long. Next time press Extend before you leave,
+  and [save the app data](/holtdroid/guides/app/app-data/) if signing in again is tedious.
+- **Extend and Stop are greyed out**: it's someone else's session; only its owner and admins can manage it.
+
+More details: [Activity and reaping](/holtdroid/concepts/sessions/#activity-and-reaping).

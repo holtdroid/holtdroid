@@ -1,0 +1,63 @@
+---
+title: Language, time, theme and battery
+description: Switch the device to a dark theme, another language or time zone, and a nearly empty battery, without digging through Android settings.
+sidebar:
+  order: 4
+tableOfContents: false
+---
+
+import Guide from "../../../../components/Guide.astro"
+import Hint from "../../../../components/Hint.astro"
+
+**Why:** half of UI bugs show up only for some users: dark theme, long German words, another time zone, a phone
+at 5%. Each of them is one click away in the cards next to the phone.
+
+<Guide id="device-settings" />
+
+## What happens
+
+1. <Hint to="w-display" step={1}>
+     Display
+   </Hint>
+   : turn on <Hint step={2}>Dark theme</Hint> and look for text that disappears and hard-coded colours. Brightness and
+   font size are here too.
+2. <Hint to="w-language" step={4}>
+     Language
+   </Hint>
+   : pick a <Hint step={5}>system language</Hint>. Android switches without a reboot; check translations, long words and
+   date formats.
+3. <Hint to="w-time" step={7}>
+     Date and time
+   </Hint>
+   : change the
+   <Hint to="tz-almaty" step={8}>
+     time zone
+   </Hint>
+   , and on a real phone move the clock itself to test expiring offers and subscriptions.
+4. <Hint to="w-battery" step={9}>
+     Battery
+   </Hint>
+   : set a <Hint step={10}>low charge</Hint>, charging or
+   <Hint step={11}>battery saver</Hint>.
+5. Every changed card gets an <Hint to="widgets" step={12}>amber dot</Hint>, so you see what differs from a normal
+   phone.
+
+## Good to know
+
+- These settings apply to the whole device, not only to your app, and stay until the session ends or you
+  change them back.
+- A virtual device runs on the server's clock: its time zone can change, the time itself can't. Real phones
+  can move the clock or set an exact moment; turning **Real time** off stops Android from syncing it back.
+- The Language card also adds keyboard layouts, so the on-screen keyboard can type in that language. Some real
+  phones can't change the system language without root; there the card sets the app's own language instead.
+- Battery saver unplugs the charger, because Android turns the saver off while charging. On some real phones the
+  charge level can't be faked, only the saver.
+
+## If it doesn't work
+
+- **The app ignores the dark theme**: it doesn't follow the system theme. That is worth a bug report on its own.
+- **The language didn't change in the app**: the app may have its own language setting, or read the language
+  only at start. Restart the app.
+- **There is no way to shift the clock**: you are on a virtual device; only the time zone can change there.
+
+More details: [Device controls](/holtdroid/configuration/emulator/#device-controls).

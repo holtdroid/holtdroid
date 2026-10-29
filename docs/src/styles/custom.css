@@ -1,0 +1,22 @@
+html:has(.hd-guide) {
+  --sl-content-width: 64rem;
+}
+
+.hd-hint {
+  cursor: help;
+  border-radius: 0.25rem;
+  text-decoration: underline dotted var(--sl-color-accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.25em;
+  transition: background-color 0.15s;
+}
+
+.hd-hint:hover,
+.hd-hint:focus-visible {
+  background-color: var(--sl-color-accent-low);
+  outline: none;
+}
+
+.hd-hint[data-step] {
+  cursor: pointer;
+}

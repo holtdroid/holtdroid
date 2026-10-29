@@ -1,0 +1,42 @@
+---
+title: Switch the country (VPN)
+description: Make the device look like it is in another country, on the fly, to test regional prices, content and restrictions.
+sidebar:
+  order: 1
+tableOfContents: false
+---
+
+import Guide from "../../../../components/Guide.astro"
+import Hint from "../../../../components/Hint.astro"
+
+**Why:** a user from Kazakhstan says checkout shows the wrong price, and you are in the Netherlands. Switch the
+device to Kazakhstan and see exactly what they see.
+
+<Guide id="vpn" />
+
+## What happens
+
+1. The <Hint to="w-network" step={1}>Network card</Hint> shows the current country and the device's public IP.
+2. Hover it to open the panel and pick another country under <Hint step={4}>VPN location</Hint>. The switch takes
+   about a second; the app keeps running.
+3. Refresh the screen in the app and check what changed, for example the <Hint to="phone-price" step={6}>prices</Hint>.
+4. To see what the server answered, open <Hint step={8}>the request in DevTools</Hint>.
+
+## Good to know
+
+- **All** of the device's traffic goes through the chosen country: every app, and DNS lookups too, so nothing
+  gives the real location away.
+- The country is also picked in the launch dialog; the one you used last time is remembered.
+- The VPN changes the IP address only. GPS, language and the time zone are separate: set them in their own cards
+  if the app checks them (see [GPS location](/holtdroid/guides/conditions/gps/) and
+  [Language, time, theme and battery](/holtdroid/guides/conditions/device-settings/)).
+- Sessions on the same country share its IP address.
+
+## If it doesn't work
+
+- **There is no VPN location in the panel**: this Holtdroid has no VPN configured. Ask whoever runs it.
+- **The app still shows the old country**: many apps detect the region once and remember it. Restart the app, or
+  launch with a fresh install.
+- **The switch spins and fails**: that location is unreachable right now. Pick another one or try again later.
+
+More details: [Per-session VPN](/holtdroid/concepts/vpn/).

@@ -1,0 +1,66 @@
+---
+title: Find your way around a session
+description: What every part of the session page is for, from the header buttons to the cards next to the phone and the tools on the right.
+sidebar:
+  order: 2
+tableOfContents: false
+---
+
+import Guide from "../../../../components/Guide.astro"
+import Hint from "../../../../components/Hint.astro"
+
+**Why:** the session page packs a lot into one screen. Two minutes here and you'll know where to look for each
+thing instead of hunting for it mid-test.
+
+<Guide id="session-tour" />
+
+## What's where
+
+1. **The header** is about the session: the <Hint to="version-switcher" step={1}>app and its build</Hint> (click
+   it to install another build), the <Hint to="state-badge" step={2}>state badge</Hint>, the
+   <Hint to="session-timer" step={3}>
+     time left
+   </Hint>
+   , and
+   <Hint to="share" step={4}>
+     Share
+   </Hint>
+   ,
+   <Hint to="extend" step={5}>
+     Extend
+   </Hint>
+   and
+   <Hint to="stop" step={6}>
+     Stop
+   </Hint>
+   .
+2. **The cards on the left** are the device's <Hint to="widgets" step={7}>quick settings</Hint>. Hover one to open
+   its <Hint to="w-network" step={8}>panel</Hint>: change the country, the network, the GPS position, the battery,
+   the language or the clock.
+3. **The phone** in the middle is the <Hint to="phone" step={9}>real screen</Hint>. Its
+   <Hint to="phone-buttons" step={10}>
+     side keys
+   </Hint>
+   work like the hardware ones.
+4. **The tools on the right** are tabs: <Hint to="tab-devtools" step={11}>DevTools</Hint>, WebSockets,
+   <Hint to="tab-logcat" step={12}>
+     Logcat
+   </Hint>
+   , Files, Terminal and Pixel perfect.
+
+## Good to know
+
+- A small amber dot on a card means that setting differs from the default, so you can see at a glance what you
+  changed.
+- Right-click the screen to wake the device when its display is off.
+- If the app closes or crashes, it stays closed; the play button in the app card starts it again.
+- Some cards and tabs only appear when your server turns the feature on, so your page may have fewer of them.
+
+## If it doesn't work
+
+- **The screen stays on “Connecting to the screen…”**: reload the page. If it keeps happening, try a recent
+  Chrome, Edge, Firefox or Safari.
+- **Share, Extend and Stop are greyed out**: the session belongs to someone else. You can watch it, but only its
+  owner and admins can manage it.
+
+More details: [Sessions and slots](/holtdroid/concepts/sessions/).

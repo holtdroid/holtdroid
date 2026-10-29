@@ -1,0 +1,55 @@
+---
+title: "The app crashed: find out why"
+description: Go from the crash notification to the exact error in Logcat, filter it and download it for the bug report.
+sidebar:
+  order: 4
+tableOfContents: false
+---
+
+import Guide from "../../../../components/Guide.astro"
+import Hint from "../../../../components/Hint.astro"
+
+**Why:** “the app closes when I tap Buy” is a bug report developers can't do much with. The stack trace from the
+device tells them the file and the line. Here you get it in two clicks.
+
+<Guide id="crash" />
+
+## What happens
+
+**Logcat** is Android's own log: apps and the system write into it what they do, and a crash leaves its full
+error there.
+
+1. The app <Hint to="phone-buy" step={1}>crashes</Hint>: Android shows “keeps stopping” on the screen.
+2. Holtdroid notices it and shows a <Hint to="toast" step={2}>notification</Hint> with the first lines of the
+   error. Press <Hint to="toast-action" step={3}>Logcat</Hint> in it.
+3. The Logcat tab opens. <Hint to="log-exception" step={4}>Red lines</Hint> are errors: the exception name, its
+   message and the lines starting with `at` show where in the code it happened.
+4. Narrow it down: <Hint to="log-scope" step={5}>This app / Everything</Hint> switches between your app's lines
+   and the whole device, the <Hint to="log-level" step={6}>level</Hint> filter keeps only errors, and the text
+   field finds a tag or a word.
+5. <Hint to="log-download" step={7}>
+     Download
+   </Hint>
+   saves what is shown, ready to attach to the ticket.
+6. The app stays closed after a crash. <Hint to="app-restart" step={9}>Restart app</Hint> on the App card brings it
+   back.
+
+## Good to know
+
+- The log is collected from the moment the device is ready, and survives app restarts and installing another
+  build. You can find a crash that happened ten minutes ago.
+- **This app** follows your app by its user id, so it covers all of its processes and keeps working after
+  restarts.
+- For a bug report with everything at once (screenshot, log, device details), use the **Bundle** button on the
+  Device card.
+
+## If it doesn't work
+
+- **No notification appeared**: the app may have closed without a crash, for example it called `finish()` or was
+  killed for memory. Look at Logcat with **Everything** and the **Error** level.
+- **The Logcat tab is missing or says it's waiting**: the tab works over the device's ADB, which isn't available
+  to you in someone else's session.
+- **The error is in the web part of the app** (a white screen, a broken button): look in the
+  [DevTools console](/holtdroid/guides/web/devtools/) instead; JavaScript errors don't crash Android apps.
+
+More details: [ADB tools](/holtdroid/concepts/adb/).

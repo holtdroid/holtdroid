@@ -277,6 +277,7 @@ Lay design mockups over the screen and find where the app differs (decision #106
 - [x] Docs site content: install with Helm, Slack app setup, VPN providers, secrets backends, forward-auth examples (Authelia, oauth2-proxy), architecture, publishing builds into a source, writing a provider, troubleshooting (KVM, ARM translation, Frida)
 - [x] Docs deployed to GitHub Pages
 - [x] WebView test browser with presets, unlocked DevTools and adb control ([holtdroid/holtdroid-webview](https://github.com/holtdroid/holtdroid-webview), decision #62), documented under Tools
+- [x] Interactive guides for testers and developers in English, Russian and Ukrainian: a player over scenes drawn with the portal's components (decision #162)
 
 ## Phase 6 — First deployment
 

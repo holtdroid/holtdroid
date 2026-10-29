@@ -1,0 +1,65 @@
+---
+title: Inspect the web inside an app with DevTools
+description: See the requests, console errors and HTML of the web pages inside an app, with Chrome's own developer tools, right next to the phone.
+sidebar:
+  order: 1
+tableOfContents: false
+---
+
+import Guide from "../../../../components/Guide.astro"
+import Hint from "../../../../components/Hint.astro"
+
+**Why:** many apps show part of their screens as web pages. When something breaks there, DevTools shows which
+request failed and which error the page threw, so the bug report says what went wrong, not just “it doesn't work”.
+
+<Guide id="devtools" />
+
+## What happens
+
+1. The <Hint to="tab-devtools" step={1}>DevTools</Hint> tab sits next to the phone. These are Chrome's developer
+   tools, connected to the app's **WebView**: the built-in browser engine that shows web pages inside apps.
+2. <Hint to="dt-network" step={2}>
+     Network
+   </Hint>
+   lists every request the page makes. A
+   <Hint to="req-cart" step={3}>
+     red line
+   </Hint>
+   failed; click it to read the
+   <Hint to="req-details" step={4}>
+     headers and the response
+   </Hint>
+   .
+3. <Hint to="dt-console" step={5}>
+     Console
+   </Hint>
+   shows the page's messages and
+   <Hint to="console-error" step={6}>
+     errors
+   </Hint>
+   with the file and line they came from.
+4. <Hint to="dt-elements" step={7}>
+     Elements
+   </Hint>
+   shows the HTML and styles, for layout bugs.
+5. Keep using the <Hint to="phone" step={8}>phone</Hint>: everything new appears as it happens.
+
+## Good to know
+
+- Holtdroid turns WebView debugging on when the app starts. The APK is not changed or rebuilt.
+- The bar above DevTools shows the page's address. Type another address and press Enter to open it in the
+  WebView; the button on the left reloads the page.
+- When the app has several web pages or processes, pick one in the target list next to the address.
+- An iframe (a page inside a page) is not a separate target: open Console and choose it in the `top ▾` menu at the
+  console's top left.
+
+## If it doesn't work
+
+- **DevTools stays empty, “Waiting for a WebView…”**: the screen the app shows right now has no web content.
+  Open the part of the app that does.
+- **On a real phone DevTools is empty**: on a phone without root only debuggable (development) builds expose their
+  WebViews. Ask for a debug build or use a virtual device.
+- **The app closes right after the start**: some apps refuse to run on rooted or emulated devices. Try a real
+  phone.
+
+More details: [WebView DevTools](/holtdroid/concepts/devtools/).

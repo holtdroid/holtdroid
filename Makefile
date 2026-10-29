@@ -40,11 +40,13 @@ sqlc:
 test: node_modules
 	$(GO) test -race ./...
 	cd web && $(BUN) test
+	cd docs && $(BUN) test src/guides
 
 lint: node_modules
 	golangci-lint run ./...
 	$(BUN) run --cwd web typecheck
 	$(BUN) x tsc -p frida
+	$(BUN) x tsc -p docs/src/guides
 	$(BUN) run lint
 	$(BUN) run fmt:check
 

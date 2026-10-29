@@ -1,0 +1,49 @@
+---
+title: GPS location and routes
+description: Put the device anywhere on the map or send it along a route, to test maps, delivery and anything that asks for the location.
+sidebar:
+  order: 3
+tableOfContents: false
+---
+
+import Guide from "../../../../components/Guide.astro"
+import Hint from "../../../../components/Hint.astro"
+
+**Why:** the delivery screen should pick the nearest store and show the courier moving. You can't walk to Almaty
+to check it, but the device can.
+
+<Guide id="gps" />
+
+## What happens
+
+1. The <Hint to="w-gps" step={1}>GPS card</Hint> shows where the device is. By default it follows the VPN country.
+2. Hover it to open the <Hint to="gps-map" step={3}>map</Hint>. Click anywhere or drag the dot to move the device.
+3. Or <Hint step={4}>paste exact coordinates</Hint> and press Enter.
+4. The app gets the new location from Android, the same way it gets a real GPS fix:
+   <Hint to="phone" step={5}>
+     here the delivery address changes
+   </Hint>
+   .
+5. <Hint to="gps-route" step={7}>
+     Route
+   </Hint>
+   moves the device along a path at walking or driving speed.
+6. **Reset** in the panel brings the location back to the VPN country.
+
+## Good to know
+
+- Once you set the location by hand, <Hint to="gps-follow" step={6}>Follow the VPN</Hint> turns off. Turn it on again
+  to keep GPS and the IP address in the same country.
+- The app must have the location permission. If it asks, allow it on the device, or grant it in the App card
+  (see [Deep links, permissions and resetting the app](/holtdroid/guides/app/app-actions/)).
+- Changing the GPS doesn't change the IP address: for a full "user in another country" set the
+  [VPN location](/holtdroid/guides/conditions/vpn/) too.
+
+## If it doesn't work
+
+- **The app doesn't react**: it may cache the last location. Restart the app, or check that it has the location
+  permission.
+- **The map is empty**: the map tiles are turned off on this Holtdroid. Coordinates still work.
+- **The dot jumps back**: Follow the VPN is on and the VPN location changed. Set the place by hand again.
+
+More details: [Device controls](/holtdroid/configuration/emulator/#device-controls).

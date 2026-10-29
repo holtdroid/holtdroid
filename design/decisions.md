@@ -4909,3 +4909,36 @@ before the change keep working.
 **Consequences.** 8080 and 8081 are free on emulator sessions. The ports the
 session's own programs hold (adb, Frida, the agent, the VPN sidecar's 7890
 and 9090) still can't be published there; the docs list them.
+
+## 162. Interactive guides are scenes drawn with the portal's own components
+
+**Context.** The docs site explains configuration and concepts for the
+people who run Holtdroid. Testers and developers need how-to pages that show
+the portal itself, in plain words and in their language. Screenshots and
+videos go stale with every UI change, and embedding the real pages would
+drag in the api client, the router and Radix portals that open over the
+whole docs page.
+
+**Decision.** Guides are a section of the docs site
+(`docs/src/content/docs/guides`, `ru/guides`, `uk/guides`) in English,
+Russian and Ukrainian, through Starlight's locales; the other sections stay
+English and show Starlight's fallback notice there. Each guide plays a
+scenario (`docs/src/guides/scenarios/<id>.ts`) over a scene of the portal
+(`docs/src/guides/portal`) drawn from one flat state with the web app's
+shadcn primitives, its theme (`web/src/theme.css`) and its presentational
+components (choice cards, Android version and screen cards, the WebView
+choice, start progress, the shade cards and rows). Pages that fetch data or
+open portals are redrawn there with the same classes. A step names a
+`data-g` target, an action (click, hover, type, look) and the state after
+it, with its caption in each language; the player moves a cursor to the
+target, plays the click and applies the state. `<Hint>` in the text
+highlights an element or jumps to a step. The guides' CSS is inlined into
+the player's bundle, so Tailwind and the portal's variables load only on
+guide pages.
+
+**Consequences.** A UI change that a guide shows updates its scene, and the
+scenario and pages when the flow changes. `make test` renders every step and
+fails when its target is missing or a guide lacks one of the three pages, but
+it can't tell that a redrawn page drifted from the real one. Translating the
+rest of the docs is separate work.
+

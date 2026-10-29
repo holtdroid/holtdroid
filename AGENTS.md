@@ -75,7 +75,7 @@ internal/
   telemetry/              Prometheus metrics, OpenTelemetry tracing, huma request metrics
 web/                      React + Vite + TanStack Router/Query + shadcn/ui (embedded into the api binary)
 frida/                    Frida scripts (TypeScript, own bun.lock), bundled into agent.js/system.js by the session image build
-docs/                     public documentation site (Astro Starlight)
+docs/                     public documentation site (Astro Starlight); interactive guides: scenes and scenarios in docs/src/guides
 design/                   internal design docs for contributors and agents (this is not the public site)
 deploy/helm/holtdroid/    Helm chart
 images/                   Dockerfile (distroless holtdroid), session.Dockerfile (agent + adb, frida-server, scrcpy-server; Android runs from holtdroid-redroid), physical.Dockerfile (provider-physical + adb, sing-box, tunnel)
@@ -270,6 +270,11 @@ decisions, status, roadmap), `README.md` and this file. Before calling a task
 done, grep `docs/` and `design/` for the config keys, defaults, endpoints and
 UI elements you touched and fix every stale mention. Docs that disagree with
 the code are a bug.
+
+A UI change that a guide shows updates its scene in `docs/src/guides/portal`,
+and when the flow changes, the scenario and its pages in all three languages
+(`docs/src/content/docs/{,ru/,uk/}guides`). `make test` checks that every step
+still finds its element.
 
 When you finish a roadmap item, tick it in `design/roadmap.md`. When you make
 a decision a future contributor would ask "why?" about, add it to

@@ -1,0 +1,60 @@
+---
+title: Connect your computer
+description: Run one command from the Computers page and the devices you launch show up in adb and Android Studio on your own machine.
+sidebar:
+  order: 1
+tableOfContents: false
+---
+
+import Guide from "../../../../components/Guide.astro"
+import Hint from "../../../../components/Hint.astro"
+
+**Why:** you want to debug the app from Android Studio, run `adb` commands or open `chrome://inspect` on your
+laptop, while the device itself runs in the portal.
+
+<Guide id="connect-computer" />
+
+## What happens
+
+1. Open <Hint to="nav-computers" step={1}>Computers</Hint> (the laptop button in the header) and press
+   **Get the command**.
+2. <Hint to="connect-copy" step={3}>
+     Copy the command
+   </Hint>
+   and
+   <Hint to="terminal" step={4}>
+     paste it into a terminal
+   </Hint>
+   on your Mac or Linux machine.
+3. The script downloads the `holtdroid` client, checks it and connects. Your computer appears on the page as
+   <Hint to="computer-card" step={6}>
+     online
+   </Hint>
+   .
+4. If `adb` is installed, every device you run is already connected: <Hint step={7}>`adb devices`</Hint> lists it.
+
+```sh
+curl -fsSL https://holtdroid.example.com/tunnel.sh | sh -s -- eyJhbGciOi…
+```
+
+## Good to know
+
+- ADB (Android Debug Bridge) is the tool that talks to an Android device from your computer: install apps, read
+  logs, open a shell. Android Studio uses it too.
+- Each device gets its own port on your computer, from 15555 up, for example `127.0.0.1:15555`. The
+  <Hint to="computer-card">Computers page</Hint> and the device's SSH card show which one is which.
+- The client keeps running in the terminal and reconnects by itself when the network drops or the laptop wakes
+  up. Press `q` to quit.
+- The code in the command works once and only for 10 minutes. Next time run `~/.cache/holtdroid/holtdroid`, or
+  install the `holtdroid` command from the client's **Settings** and just run `holtdroid`.
+- You don't need SSH keys or an `ssh` command: the client makes its own key and never touches `~/.ssh`.
+
+## If it doesn't work
+
+- **The Computers button is missing**: the SSH gateway is turned off on this portal. Ask whoever runs it.
+- **The command says the code expired**: get a fresh command on the Computers page.
+- **The device isn't in `adb devices`**: check that `adb` is on your `PATH`; otherwise connect by hand with
+  `adb connect 127.0.0.1:<port>`, taking the port from the Computers page.
+- **Windows**: the client runs on macOS and Linux. Use WSL.
+
+More details: [Connecting your computer](/holtdroid/concepts/ssh/).

@@ -1,0 +1,21 @@
+---
+import Player from "../guides/player"
+
+interface Props {
+  id: string
+}
+
+const locale = Astro.locals.starlightRoute.locale
+const lang = locale === "ru" || locale === "uk" ? locale : "en"
+---
+
+<div class="hd-guide">
+  <Player client:only="react" guide={Astro.props.id} lang={lang} />
+</div>
+
+<script>
+  const root = document.documentElement
+  const sync = () => root.classList.toggle("dark", root.dataset.theme === "dark")
+  sync()
+  new MutationObserver(sync).observe(root, { attributes: true, attributeFilter: ["data-theme"] })
+</script>

@@ -1,0 +1,63 @@
+---
+title: Deep links, permissions and a clean slate
+description: Open a deep link, grant or revoke a permission, force-stop the app or wipe its data from the App card.
+sidebar:
+  order: 2
+tableOfContents: false
+---
+
+import Guide from "../../../../components/Guide.astro"
+import Hint from "../../../../components/Hint.astro"
+
+**Why:** a push notification should open the product page, the app should survive a user who refused the camera,
+and onboarding should run again after a reset. Each of these is one click here, no adb commands needed.
+
+<Guide id="app-actions" />
+
+## What happens
+
+Hover the <Hint to="w-app" step={1}>App card</Hint> next to the phone: it opens the app's actions.
+
+1. **Deep link.** A deep link is an address that opens a specific screen inside the app, like
+   `myapp://checkout?id=42` or an `https://` link the app claims. Type it into the
+   <Hint to="deeplink" step={2}>
+     Deep link
+   </Hint>
+   field and press
+   <Hint to="deeplink-open" step={3}>
+     Open
+   </Hint>
+   . **Only in this app** sends it to your app directly; without it Android picks the app, as a tap would.
+2. **Permissions.** Click <Hint to="perm-camera" step={4}>a permission</Hint> to grant it, click
+   <Hint to="perm-notifications" step={5}>
+     again
+   </Hint>
+   to revoke it.
+3. **Force stop** <Hint to="app-stop" step={6}>kills the app</Hint>; **Restart app**
+   <Hint to="app-restart" step={7}>
+     starts it cold
+   </Hint>
+   .
+4. **Clear data** <Hint to="app-clear" step={8}>wipes everything the app stored</Hint>: it's back to the
+   <Hint to="phone" step={9}>
+     welcome screen
+   </Hint>
+   , as after a fresh install.
+
+## Good to know
+
+- Links you opened are remembered in your browser, so a repeated check is one click.
+- Clear data can't be undone. If you want to come back to the current state, press **Save app data** first (see
+  [Keep sign-in between sessions](/holtdroid/guides/app/app-data/)).
+- **Restart app** and **Save app data** work without ADB; deep links, permissions, force stop and clear data
+  need the device's ADB, which the page opens in the background. That's why the card may say
+  “Connecting to ADB” for a moment.
+
+## If it doesn't work
+
+- **The deep link opens nothing**: the app doesn't handle that address. Check the scheme and the path with the
+  developers, or try without **Only in this app** to see whether any app takes it.
+- **The buttons are greyed out**: ADB isn't available to you, for example in someone else's session. Only the
+  session's owner and admins get these tools by default.
+
+More details: [ADB tools](/holtdroid/concepts/adb/).

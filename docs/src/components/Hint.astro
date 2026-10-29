@@ -1,0 +1,37 @@
+---
+interface Props {
+  to?: string
+  step?: number
+}
+
+const { to, step } = Astro.props
+---
+
+<span class="hd-hint" tabindex="0" role={step ? "button" : undefined} data-to={to} data-step={step}><slot /></span>
+
+<script>
+  const send = (detail: { target?: string | null; step?: number }) =>
+    window.dispatchEvent(new CustomEvent("hd-guide", { detail }))
+  const hintOf = (e: Event) => (e.target instanceof Element ? e.target.closest<HTMLElement>(".hd-hint") : null)
+  const show = (e: Event) => {
+    const hint = hintOf(e)
+    if (hint?.dataset.to) send({ target: hint.dataset.to })
+  }
+  const hide = (e: Event) => {
+    if (hintOf(e)) send({ target: null })
+  }
+  const jump = (e: Event) => {
+    const hint = hintOf(e)
+    if (!hint?.dataset.step) return
+    if (e instanceof KeyboardEvent && e.key !== "Enter" && e.key !== " ") return
+    e.preventDefault()
+    send({ step: Number(hint.dataset.step) })
+    document.querySelector("[data-guide-player]")?.scrollIntoView({ behavior: "smooth", block: "center" })
+  }
+  document.addEventListener("mouseover", show)
+  document.addEventListener("mouseout", hide)
+  document.addEventListener("focusin", show)
+  document.addEventListener("focusout", hide)
+  document.addEventListener("click", jump)
+  document.addEventListener("keydown", jump)
+</script>

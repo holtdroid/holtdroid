@@ -15,7 +15,9 @@ clipboard sync and a VPN location switcher. Idle devices shut themselves down.
 > come in through [holtdroid-sync](https://github.com/holtdroid/holtdroid-sync); pages are tested in
 > [Holtdroid WebView](https://github.com/holtdroid/holtdroid-webview), a WebView browser with
 > DevTools unlocked. The plan lives in [`design/`](design/README.md),
-> the docs at [holtdroid.github.io/holtdroid](https://holtdroid.github.io/holtdroid/).
+> the docs at [holtdroid.github.io/holtdroid](https://holtdroid.github.io/holtdroid/), with
+> [interactive guides](https://holtdroid.github.io/holtdroid/guides/first-steps/launch-app/) in English,
+> Russian and Ukrainian.
 
 ## Try it
 

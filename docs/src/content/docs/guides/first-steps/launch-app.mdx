@@ -1,0 +1,48 @@
+---
+title: Launch an app on a device
+description: Pick a build, choose the Android version, screen and country, and get a working phone in your browser in under a minute.
+sidebar:
+  order: 1
+tableOfContents: false
+---
+
+import Guide from "../../../../components/Guide.astro"
+import Hint from "../../../../components/Hint.astro"
+
+**Why:** to try a build without installing it on your own phone, on exactly the Android version and screen
+you need, and to throw the device away when you're done.
+
+<Guide id="launch-app" />
+
+## What happens
+
+1. On the <Hint to="app-card">Apps page</Hint> every app has a card with its newest build. Press
+   <Hint to="launch" step={2}>
+     Launch
+   </Hint>
+   .
+2. Choose <Hint step={3}>where it runs</Hint>: a **virtual device** (Android in a container, any version) or a
+   **real phone** connected over USB.
+3. Set up the device: <Hint step={5}>Android version</Hint>, <Hint step={6}>screen</Hint>,
+   <Hint step={7}>WebView</Hint>, <Hint step={8}>country</Hint> and <Hint step={9}>app data</Hint>. The defaults are
+   sensible: if you don't know what to pick, leave them.
+4. Press <Hint step={11}>Launch</Hint> and wait for <Hint to="state-badge" step={13}>Ready</Hint>. It usually
+   takes less than a minute.
+
+## Good to know
+
+- Every launch is a **clean device**: nothing from the previous session is left on it, unless you start from
+  saved [app data](/holtdroid/guides/app/app-data/).
+- The device is yours alone until you press **Stop** or leave it idle; then it goes back to the pool.
+- The VPN location, network, language and other settings can be changed **during** the session, so you don't
+  need to relaunch to try another country.
+
+## If it doesn't work
+
+- **Launch says “Join the queue”**: all devices are busy. Stay on the page: the device starts as soon as one
+  frees up.
+- **An Android version is greyed out**: the app doesn't support it (its `minSdk` is higher). Hover it to see why.
+- **The device failed to start**: the reason is shown on the progress card. Launch again; if it repeats, send the
+  message to whoever runs Holtdroid.
+
+More details: [Sessions and slots](/holtdroid/concepts/sessions/).

@@ -1,0 +1,86 @@
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/geist";
+@import "../../../web/src/theme.css";
+
+@source "../../../web/src/components";
+@source "./";
+
+@layer base {
+  .hd-demo,
+  .hd-demo *,
+  .hd-demo ::before,
+  .hd-demo ::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    border: 0 solid var(--border);
+    outline-color: color-mix(in oklab, var(--ring) 50%, transparent);
+  }
+  .hd-demo {
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.5;
+    color: var(--foreground);
+    -webkit-font-smoothing: antialiased;
+    tab-size: 4;
+  }
+  .hd-demo :is(h1, h2, h3, h4, h5, h6) {
+    font-size: inherit;
+    font-weight: inherit;
+    line-height: inherit;
+    color: inherit;
+  }
+  .hd-demo :is(ol, ul, menu) {
+    list-style: none;
+  }
+  .hd-demo :is(img, svg, video, canvas) {
+    display: block;
+    vertical-align: middle;
+  }
+  .hd-demo :is(img, video) {
+    max-width: 100%;
+    height: auto;
+  }
+  .hd-demo :is(button, input, select, textarea) {
+    font: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    background-color: transparent;
+    border-radius: 0;
+    opacity: 1;
+  }
+  .hd-demo :is(code, kbd, pre, samp) {
+    font-family: var(--font-mono);
+    font-size: 1em;
+    background: none;
+  }
+  .hd-demo a {
+    color: inherit;
+    text-decoration: inherit;
+  }
+  .hd-demo p {
+    line-height: inherit;
+  }
+}
+
+.hd-cursor {
+  transition: transform 750ms cubic-bezier(0.45, 0, 0.2, 1);
+}
+
+.hd-focus {
+  transition:
+    transform 400ms cubic-bezier(0.45, 0, 0.2, 1),
+    width 400ms cubic-bezier(0.45, 0, 0.2, 1),
+    height 400ms cubic-bezier(0.45, 0, 0.2, 1),
+    opacity 200ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hd-cursor,
+  .hd-focus {
+    transition: none;
+  }
+}

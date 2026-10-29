@@ -1,0 +1,57 @@
+---
+title: Upload your own APK
+description: Put a build from your computer into Holtdroid, decide who sees it and how long it stays, and launch it right away.
+sidebar:
+  order: 4
+tableOfContents: false
+---
+
+import Guide from "../../../../components/Guide.astro"
+import Hint from "../../../../components/Hint.astro"
+
+**Why:** not every build comes from CI or Slack. A debug build from your laptop or an APK someone sent you can be
+tested the same way, without installing it on your phone.
+
+<Guide id="upload-apk" />
+
+## What happens
+
+1. Press <Hint to="upload" step={1}>Upload</Hint> on the Apps page.
+2. <Hint to="upload-drop" step={2}>
+     Drop the .apk
+   </Hint>
+   or click to choose it. Dropping it straight onto the list of apps works too.
+3. Decide <Hint to="upload-visibility" step={3}>who can see it</Hint>: everyone, or only you (admins see private
+   builds as well).
+4. Leave <Hint to="upload-temporary" step={4}>Temporary</Hint> on for a throwaway build, or untick it to keep the
+   build.
+5. Write a <Hint to="upload-note" step={5}>note</Hint> and, if you like, a changelog, so others know what to test.
+6. Press <Hint to="upload-submit" step={6}>Upload</Hint>. The build shows up in its
+   <Hint to="app-card" step={7}>
+     app's card
+   </Hint>
+   , and the
+   <Hint to="launch" step={8}>
+     launch dialog
+   </Hint>
+   opens right away.
+
+## Good to know
+
+- Holtdroid reads the app's name, package, version and icon from the APK itself, so a new build of a known app
+  lands in that app's card.
+- Temporary builds are deleted once nobody has launched them for a while: 7 days by default, your server may use
+  another value. Each launch restarts that clock.
+- You can change the visibility, make a build permanent or delete it later from its menu in the app's list of
+  builds.
+- The APK is installed exactly as uploaded; Holtdroid never changes it.
+
+## If it doesn't work
+
+- **There is no Upload button**: uploads are turned off on your server. Ask whoever runs it.
+- **“The file is larger than the upload limit”**: the server caps the size (1 GiB by default). Ask for a higher
+  limit or use a smaller build.
+- **The card says “Reading package info…”**: the APK is being parsed. If it stays like that, the file may be broken
+  or not an APK.
+
+More details: [APK sources: uploads](/holtdroid/sources/overview/#uploads).

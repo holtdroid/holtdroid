@@ -1,0 +1,55 @@
+---
+title: Keep sign-in between sessions
+description: Save the app's data when you stop a session and start the next one already signed in, past onboarding.
+sidebar:
+  order: 1
+tableOfContents: false
+---
+
+import Guide from "../../../../components/Guide.astro"
+import Hint from "../../../../components/Hint.astro"
+
+**Why:** you test the checkout every day, and every day you sign in, confirm a code and skip five onboarding
+screens first. Save that once and start from it.
+
+<Guide id="app-data" />
+
+## What happens
+
+**App data** is what the app keeps on the device for itself: who is signed in, settings, databases, the WebView's
+cookies and local storage.
+
+1. Get the app into the state you want: signed in, onboarding done, a test cart filled.
+2. Press <Hint to="app-save" step={2}>Save app data</Hint> on the App card, or simply
+   <Hint to="stop" step={3}>
+     Stop
+   </Hint>
+   the session: stopping saves the data too.
+3. Next time, in the launch dialog, pick your <Hint to="data-saved" step={7}>save</Hint> instead of
+   **Fresh install**. Tick <Hint to="data-cache" step={8}>Also restore the cache</Hint> if you want cached
+   files back as well.
+4. The progress list shows <Hint step={10}>Restoring app data</Hint>, and the app
+   <Hint to="phone" step={11}>
+     opens where you left it
+   </Hint>
+   .
+
+## Good to know
+
+- Saves are **yours only**: nobody else sees them, admins included. The **App data** page in the header lists
+  them; you can download or delete them there.
+- Only a few recent saves per app are kept, and saves nobody used for a while are deleted (by default 6 saves
+  and 7 days).
+- The quick launch button (the lightning icon) can start straight from your newest save.
+- A save from a **newer build** may not work in an older one, for example when its database can't be
+  downgraded. The launch dialog warns you.
+
+## If it doesn't work
+
+- **There is no App data section in the launch dialog**: saving is turned off on this server. Ask whoever runs
+  Holtdroid.
+- **The app signs you out anyway**: some apps encrypt their data with keys that stay on the original device
+  (Android Keystore). Such data can't move to another device; this is a limit of Android, not of the save.
+- **Stop takes long**: it waits for the save to finish. A big app with a big cache saves longer.
+
+More details: [App data](/holtdroid/concepts/app-data/).

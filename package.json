@@ -12,7 +12,7 @@
     "typescript": "7.0.2"
   },
   "scripts": {
-    "lint": "oxlint --type-aware web/src",
+    "lint": "oxlint --type-aware web/src docs/src/guides",
     "fmt": "oxfmt web/src docs/src frida/*.ts",
     "fmt:check": "oxfmt --check web/src docs/src frida/*.ts"
   }

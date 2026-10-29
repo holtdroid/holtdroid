@@ -1,0 +1,48 @@
+---
+title: Slow or unstable internet
+description: Put the device on 3G, a weak signal or a subway ride and see how the app copes with delays, losses and drops.
+sidebar:
+  order: 2
+tableOfContents: false
+---
+
+import Guide from "../../../../components/Guide.astro"
+import Hint from "../../../../components/Hint.astro"
+
+**Why:** in the office everything is fast, but users open the app on the train. Check that it shows loaders,
+retries and clear errors instead of a blank screen or a double payment.
+
+<Guide id="network" />
+
+## What happens
+
+1. Open the <Hint to="w-network" step={1}>Network card</Hint>. Its **Network conditions** row leads to the
+   **Network** tab next to DevTools, with every network the session can emulate.
+2. Pick a named network such as <Hint step={3}>3G</Hint>. Each one shows its delay, bandwidth and loss and a short
+   description.
+3. Use the app and watch <Hint to="phone" step={4}>how it behaves</Hint>: slow images, late prices, timeouts.
+4. Scenarios like <Hint step={5}>Subway</Hint>, Driving or Elevator change the network over time, with short
+   periods of no signal.
+5. <Hint to="airplane" step={8}>
+     Airplane mode
+   </Hint>
+   , Wi-Fi and Mobile data turn the network off completely.
+6. Pick <Hint step={9}>No emulation</Hint> to get the normal connection back.
+
+## Good to know
+
+- Only the apps' traffic is slowed down. The screen, DevTools and ADB stay fast, so you can still work comfortably.
+- During an outage in a scenario Android still thinks it is online: requests hang until they time out, like on a
+  dead cell. Airplane mode is different: Android knows the network is gone and apps are told so.
+- Regions add the typical round trip of users in a country to the CDN and to your servers. Combine them with a
+  [VPN location](/holtdroid/guides/conditions/vpn/) of the same country.
+- The numbers are realistic averages from public reports, not measurements of a specific operator.
+
+## If it doesn't work
+
+- **There is no Network conditions row**: emulated networks need VPN locations; this Holtdroid has none configured.
+- **The app is faster than the chosen network promises**: the device's VPN route is already slower than that
+  network. The Network tab warns about it; pick a closer VPN location.
+- **Everything is slow, including the screen**: that is your own connection, not the emulation.
+
+More details: [Network conditions](/holtdroid/configuration/emulator/#network-conditions).

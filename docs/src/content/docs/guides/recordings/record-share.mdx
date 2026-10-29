@@ -1,0 +1,50 @@
+---
+title: Record a session and share it
+description: Pin markers while you test, watch the recording with its logs and network, and send a link that opens the exact moment.
+sidebar:
+  order: 1
+tableOfContents: false
+---
+
+import Guide from "../../../../components/Guide.astro"
+import Hint from "../../../../components/Hint.astro"
+
+**Why:** a bug showed up once and you're not sure you can repeat it. With a recording, the developer sees the
+screen, the logs and every request of that very run, instead of reading “it sometimes fails at checkout”.
+
+<Guide id="record-share" />
+
+## What happens
+
+1. While a session is recorded, the <Hint to="w-recording" step={1}>Recording card</Hint> next to the screen shows
+   the elapsed time.
+2. When something goes wrong, <Hint step={2}>click the card</Hint> or press
+   <Hint to="rec-mark" step={4}>
+     Mark this moment
+   </Hint>
+   : a marker is pinned on the recording's timeline.
+3. Open <Hint to="nav-recordings" step={5}>Recordings</Hint> in the header and pick the recording. It plays like a
+   video, with logcat, the WebView's network and console moving along with the picture.
+4. <Hint step={8}>Click a marker</Hint> to jump to it, and look at the <Hint step={9}>Network</Hint> tab for the failed
+   request.
+5. Press <Hint to="rec-share" step={10}>Share</Hint>: a link is copied. Paste it into the ticket.
+
+## Good to know
+
+- Depending on how your portal is set up, sessions are recorded **always**, **unless you turn it off** in the
+  launch dialog, or **only when you turn it on**. If the card says “Not recording”, click it to start.
+- A recording keeps more than the picture: logcat (the device's system log), the WebViews' requests, console and
+  WebSockets, the device, network and load, and your taps. Typed text is never recorded.
+- A share link opens the recording **without signing in** and carries the moment you're at, so the reader lands
+  right on the bug. Shared recordings and recordings with markers are not deleted automatically.
+- Very short recordings (under 20 seconds by default) are thrown away when they end.
+
+## If it doesn't work
+
+- **No Recording card or no Recordings button**: recordings are turned off on this portal. Ask whoever runs it.
+- **Share is missing**: share links are turned off on the portal; download the recording file instead
+  (**Download → Recording file**).
+- **The recording ends early**: it ends when the session stops. Stopping and starting it again makes a new
+  recording.
+
+More details: [Recordings](/holtdroid/concepts/recordings/).
