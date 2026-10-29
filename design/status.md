@@ -409,6 +409,18 @@ Collected from the design conversation; each is reflected in the docs listed.
   land on the old non-root adbd, so frida-server started then runs as shell
   with no capabilities and can't attach. The agent's `Root` waits for
   `id -u` to be 0.
+- **frida-server reads the zygotes' heaps when it starts.** Frida 17
+  finds zygote's `setArgV0` slot by reading every unnamed `rw-p` mapping of
+  both zygotes in full, in parallel, Java heap first (the node kernel has no
+  `CONFIG_ANON_VMA_NAME`, so ART's mappings carry no names). On Android 14
+  with redroid's concurrent-copying GC the heap reservation is 1 GiB per
+  zygote, frida-server hit 2.2 GiB for a second or two and the session
+  went over its 3 GiB limit ("Unable to connect to remote frida-server",
+  `oom_kill` in the container's `memory.events`). holtdroid-redroid's 14
+  image turns the mark-compact GC on (`ro.dalvik.vm.enable_uffd_gc=true`,
+  as 15 and 16 have), which halves the reservation; the peak is about
+  1 GiB on 14 to 16. A Frida upgrade that changes this scan, or a larger
+  `dalvik.vm.heapsize`, brings it back.
 - **The node kernel has no legacy iptables**: Android's `iptables` (legacy)
   finds no tables, so nothing inside redroid can filter the Pod's traffic;
   policy routing (`ip rule`) works.
