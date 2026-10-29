@@ -1,0 +1,113 @@
+---
+import logo from "../../assets/logo.svg"
+import { localized as url } from "../../topics.mjs"
+
+const columns = [
+  {
+    title: "Documentation",
+    links: [
+      ["Introduction", url("/start/introduction/")],
+      ["Installation", url("/start/installation/")],
+      ["Architecture", url("/concepts/architecture/")],
+      ["Configuration", url("/configuration/overview/")],
+    ],
+  },
+  {
+    title: "Guides",
+    links: [
+      ["Launch an app", url("/guides/first-steps/launch-app/")],
+      ["WebView DevTools", url("/guides/web/devtools/")],
+      ["Country and VPN", url("/guides/conditions/vpn/")],
+      ["Record a bug", url("/guides/recordings/record-share/")],
+    ],
+  },
+  {
+    title: "Project",
+    links: [
+      ["GitHub", "https://github.com/holtdroid"],
+      ["Roadmap", "https://github.com/holtdroid/holtdroid/blob/main/design/roadmap.md"],
+      ["Decisions", "https://github.com/holtdroid/holtdroid/blob/main/design/decisions.md"],
+      ["License", "https://github.com/holtdroid/holtdroid/blob/main/LICENSE"],
+    ],
+  },
+]
+---
+
+<footer class="footer">
+  <div class="l-wrap grid">
+    <div class="about">
+      <a class="brand" href={url("/")}>
+        <img src={logo.src} alt="" width="28" height="28" />
+        Holtdroid
+      </a>
+      <p>A cozy holt for your test Androids. Self-hosted, open source, Apache-2.0.</p>
+    </div>
+    {
+      columns.map((c) => (
+        <div>
+          <h3>{c.title}</h3>
+          <ul>
+            {c.links.map(([label, href]) => (
+              <li>
+                <a href={href}>{label}</a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))
+    }
+  </div>
+</footer>
+
+<style>
+  .footer {
+    border-top: 1px solid var(--l-line);
+    padding-block: 3.5rem 4rem;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: 2fr repeat(3, 1fr);
+    gap: 2rem;
+  }
+  .brand {
+    display: flex;
+    gap: 0.6rem;
+    align-items: center;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .about p {
+    max-width: 18rem;
+    margin-top: 1rem;
+    color: var(--l-dim);
+    font-size: 0.9rem;
+  }
+  h3 {
+    margin-bottom: 0.9rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+  ul {
+    display: grid;
+    gap: 0.55rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  ul a {
+    color: var(--l-muted);
+    font-size: 0.9rem;
+    text-decoration: none;
+  }
+  ul a:hover {
+    color: var(--l-text);
+  }
+  @media (max-width: 48rem) {
+    .grid {
+      grid-template-columns: 1fr 1fr;
+    }
+    .about {
+      grid-column: 1 / -1;
+    }
+  }
+</style>

@@ -1,0 +1,75 @@
+---
+import { Icon } from "@astrojs/starlight/components"
+import { localized as url } from "../../topics.mjs"
+
+type IconName = Parameters<typeof Icon>[0]["name"]
+
+const sources: { icon: IconName; label: string; href: string }[] = [
+  { icon: "slack", label: "Slack channels", href: "/sources/slack/" },
+  { icon: "database", label: "S3 buckets", href: "/sources/s3/" },
+  { icon: "github", label: "GitHub releases", href: "/sources/github/" },
+  { icon: "chrome", label: "Chromium builds", href: "/sources/chromium/" },
+  { icon: "add-document", label: "Drag-and-drop upload", href: "/sources/overview/" },
+]
+---
+
+<section class="sources">
+  <div class="l-wrap row">
+    <p>Builds arrive from</p>
+    <ul>
+      {
+        sources.map((s) => (
+          <li>
+            <a href={url(s.href)}>
+              <Icon name={s.icon} size="1.15rem" />
+              {s.label}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</section>
+
+<style>
+  .sources {
+    border-block: 1px solid var(--l-line);
+    background: var(--l-bg-2);
+  }
+  .row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem 2.5rem;
+    align-items: center;
+    justify-content: center;
+    padding-block: 1.75rem;
+  }
+  p {
+    color: var(--l-dim);
+    font-family: var(--l-mono);
+    font-size: 0.8rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem 2.25rem;
+    justify-content: center;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  a {
+    display: flex;
+    gap: 0.55rem;
+    align-items: center;
+    color: var(--l-muted);
+    font-weight: 500;
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+  a:hover {
+    color: var(--l-text);
+  }
+</style>

@@ -1,0 +1,101 @@
+---
+import { Icon } from "@astrojs/starlight/components"
+import logo from "../../assets/logo.svg"
+import { localized as url } from "../../topics.mjs"
+---
+
+<header class="nav">
+  <div class="l-wrap bar">
+    <a class="brand" href={url("/")}>
+      <img src={logo.src} alt="" width="28" height="28" />
+      Holtdroid
+    </a>
+    <nav class="links" aria-label="Main">
+      <a href={url("/start/introduction/")}>Docs</a>
+      <a href={url("/guides/first-steps/launch-app/")}>Guides</a>
+      <a href="#features">Features</a>
+      <a href="#repositories">Repositories</a>
+    </nav>
+    <div class="actions">
+      <a class="gh" href="https://github.com/holtdroid/holtdroid" aria-label="Holtdroid on GitHub">
+        <Icon name="github" size="1.15rem" />
+      </a>
+      <a class="l-btn l-btn-primary small" href={url("/start/installation/")}>Get started</a>
+    </div>
+  </div>
+</header>
+
+<style>
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    border-bottom: 1px solid transparent;
+    background: rgb(10 11 9 / 0.6);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    transition: border-color 0.2s;
+  }
+  :global(html[data-scrolled]) .nav {
+    border-bottom-color: var(--l-line);
+  }
+  .bar {
+    display: flex;
+    gap: 2rem;
+    align-items: center;
+    height: 4rem;
+  }
+  .brand {
+    display: flex;
+    gap: 0.6rem;
+    align-items: center;
+    font-size: 1.05rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    text-decoration: none;
+  }
+  .links {
+    display: flex;
+    gap: 1.75rem;
+  }
+  .links a {
+    color: var(--l-muted);
+    font-size: 0.9rem;
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+  .links a:hover {
+    color: var(--l-text);
+  }
+  .actions {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    margin-left: auto;
+  }
+  .gh {
+    display: grid;
+    place-items: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.6rem;
+    color: var(--l-muted);
+    transition:
+      color 0.15s,
+      background-color 0.15s;
+  }
+  .gh:hover {
+    background: rgb(255 255 255 / 0.06);
+    color: var(--l-text);
+  }
+  .small {
+    height: 2.25rem;
+    padding-inline: 0.9rem;
+    font-size: 0.875rem;
+  }
+  @media (max-width: 48rem) {
+    .links {
+      display: none;
+    }
+  }
+</style>

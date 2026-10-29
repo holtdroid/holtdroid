@@ -1,0 +1,197 @@
+---
+import { Icon } from "@astrojs/starlight/components"
+import mole from "../../assets/repos/holtdroid.svg"
+import Showcase from "../../guides/showcase"
+import { localized as url } from "../../topics.mjs"
+---
+
+<section class="hero">
+  <div class="l-grid-bg"></div>
+  <div class="glow"></div>
+  <div class="l-wrap inner">
+    <a class="badge" href="https://github.com/holtdroid/holtdroid/blob/main/design/roadmap.md">
+      <span class="dot"></span>
+      Open source · Apache-2.0 · pre-alpha
+      <Icon name="right-arrow" size="0.85rem" />
+    </a>
+    <h1>
+      Android test devices,<br />
+      <span class="l-grad">right in your browser</span>
+    </h1>
+    <p class="lead">
+      Holtdroid launches Android on your Kubernetes for any APK from Slack, S3 or GitHub, and hands you the screen,
+      Chrome DevTools for its WebViews, clipboard and a VPN of its own, in one tab.
+    </p>
+    <div class="cta">
+      <a class="l-btn l-btn-primary" href={url("/start/installation/")}>
+        Get started
+        <Icon name="right-arrow" />
+      </a>
+      <a class="l-btn l-btn-ghost" href={url("/guides/first-steps/launch-app/")}>
+        <Icon name="open-book" />
+        Read the guides
+      </a>
+    </div>
+    <button class="cmd" type="button" data-copy="make dev" aria-label="Copy make dev">
+      <span class="prompt">$</span>
+      git clone … && make dev
+      <span class="hint">simulated devices, no cluster</span>
+      <Icon name="document" size="0.9rem" />
+    </button>
+  </div>
+  <div class="l-wrap stage">
+    <img class="mascot" src={mole.src} alt="" width="88" height="88" />
+    <Showcase client:only="react" />
+  </div>
+</section>
+
+<script>
+  for (const button of document.querySelectorAll<HTMLButtonElement>(".cmd[data-copy]")) {
+    button.addEventListener("click", async () => {
+      await navigator.clipboard?.writeText(
+        "git clone https://github.com/holtdroid/holtdroid && cd holtdroid && mise install && make dev",
+      )
+      button.dataset.copied = ""
+      setTimeout(() => delete button.dataset.copied, 1500)
+    })
+  }
+</script>
+
+<style>
+  .hero {
+    position: relative;
+    overflow: hidden;
+    padding: 5rem 0 6rem;
+  }
+  .glow {
+    position: absolute;
+    top: -18rem;
+    left: 50%;
+    width: 64rem;
+    height: 40rem;
+    transform: translateX(-50%);
+    background: radial-gradient(closest-side, rgb(61 220 132 / 0.22), transparent);
+    filter: blur(20px);
+    pointer-events: none;
+  }
+  .inner {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    gap: 1.5rem;
+    text-align: center;
+  }
+  .badge {
+    display: inline-flex;
+    gap: 0.6rem;
+    align-items: center;
+    padding: 0.35rem 0.9rem;
+    border: 1px solid var(--l-line-2);
+    border-radius: 999px;
+    background: rgb(255 255 255 / 0.03);
+    color: var(--l-muted);
+    font-size: 0.85rem;
+    text-decoration: none;
+    transition: border-color 0.15s;
+  }
+  .badge:hover {
+    border-color: rgb(61 220 132 / 0.5);
+    color: var(--l-text);
+  }
+  .dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--l-green);
+    box-shadow: 0 0 0 0 rgb(61 220 132 / 0.6);
+    animation: ping 2s infinite;
+  }
+  h1 {
+    font-size: clamp(2.6rem, 1.2rem + 5.5vw, 5rem);
+    font-weight: 650;
+    letter-spacing: -0.045em;
+    line-height: 1.02;
+  }
+  .lead {
+    max-width: 40rem;
+    color: var(--l-muted);
+    font-size: clamp(1.05rem, 0.95rem + 0.4vw, 1.25rem);
+  }
+  .cta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: center;
+    margin-top: 0.5rem;
+  }
+  .cmd {
+    display: inline-flex;
+    gap: 0.75rem;
+    align-items: center;
+    padding: 0.55rem 0.9rem;
+    border: 1px dashed var(--l-line-2);
+    border-radius: 0.75rem;
+    background: transparent;
+    color: var(--l-text);
+    font-family: var(--l-mono);
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+  .cmd:hover {
+    border-color: rgb(61 220 132 / 0.5);
+  }
+  .cmd[data-copied] .hint {
+    color: var(--l-green);
+  }
+  .cmd[data-copied] .hint::after {
+    content: " · copied";
+  }
+  .prompt {
+    color: var(--l-green);
+  }
+  .hint {
+    color: var(--l-dim);
+    font-family: var(--l-font);
+  }
+  .stage {
+    position: relative;
+    margin-top: 4rem;
+  }
+  .mascot {
+    position: absolute;
+    top: -0.2rem;
+    right: 4rem;
+    z-index: 2;
+    width: 5.5rem;
+    height: 5.5rem;
+    transform-origin: bottom center;
+    animation: peek 6s ease-in-out infinite;
+    pointer-events: none;
+  }
+  @keyframes ping {
+    70% {
+      box-shadow: 0 0 0 8px rgb(61 220 132 / 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgb(61 220 132 / 0);
+    }
+  }
+  @keyframes peek {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    8% {
+      transform: translateY(-6px) rotate(-3deg);
+    }
+    16% {
+      transform: translateY(0) rotate(0);
+    }
+  }
+  @media (max-width: 48rem) {
+    .hint,
+    .mascot {
+      display: none;
+    }
+  }
+</style>

@@ -1,0 +1,51 @@
+---
+import "@fontsource-variable/geist"
+import "../styles/landing.css"
+import Bento from "../components/landing/Bento.astro"
+import Cta from "../components/landing/Cta.astro"
+import Ecosystem from "../components/landing/Ecosystem.astro"
+import Footer from "../components/landing/Footer.astro"
+import Hero from "../components/landing/Hero.astro"
+import Nav from "../components/landing/Nav.astro"
+import Sources from "../components/landing/Sources.astro"
+import { localized as url } from "../topics.mjs"
+
+const title = "Holtdroid — Android test devices in your browser"
+const description =
+  "Self-hosted, browser-based Android sandboxes for testing APKs: the device screen, WebView DevTools, clipboard and a VPN per device in one tab."
+const image = "https://github.com/holtdroid/.github/raw/main/profile/assets/social-holtdroid.png"
+---
+
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="icon" href={url("/favicon.svg")} type="image/svg+xml" />
+    <link rel="canonical" href={new URL(url("/"), Astro.site)} />
+    <meta name="theme-color" content="#0a0b09" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={image} />
+    <meta name="twitter:card" content="summary_large_image" />
+  </head>
+  <body class="l-page">
+    <Nav />
+    <main>
+      <Hero />
+      <Sources />
+      <Bento />
+      <Ecosystem />
+      <Cta />
+    </main>
+    <Footer />
+    <script>
+      const mark = () => document.documentElement.toggleAttribute("data-scrolled", window.scrollY > 8)
+      mark()
+      addEventListener("scroll", mark, { passive: true })
+    </script>
+  </body>
+</html>

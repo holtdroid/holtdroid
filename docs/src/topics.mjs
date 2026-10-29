@@ -46,6 +46,6 @@ export const topics = [
 
 export const externalLinks = [{ label: "GitHub", href: "https://github.com/holtdroid" }]
 
-/** @param {string} link @param {string | undefined} locale */
+/** @param {string} link @param {string} [locale] */
 export const localized = (link, locale) =>
   `${import.meta.env.BASE_URL.replace(/\/$/, "")}${locale ? `/${locale}` : ""}${link}`

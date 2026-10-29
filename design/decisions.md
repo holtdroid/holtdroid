@@ -5011,3 +5011,24 @@ card style.
 top-level directory goes into `topics.mjs`, or the build fails. Every page
 should have a `description`, since it is shown under the title. Starlight
 upgrades can break the overrides of `Header`, `Sidebar` and `PageTitle`.
+
+## 166. The docs home page is a landing page outside Starlight
+
+**Context.** Starlight's splash template kept the home page inside the
+docs' layout: the content column, the docs header and its type scale. Even
+restyled (decision #165) it read like another docs page rather than the
+front door of the project.
+
+**Decision.** `docs/src/pages/index.astro` replaces `index.mdx` with a
+standalone, dark landing page: its own navigation, a hero with the live
+portal showcase (the interactive guides' scenes, playing on their own), a
+bento grid of features drawn with CSS, the repositories and how they fit,
+a get-started block and a footer. It shares only the logo, Geist, the
+accent green and the topic links with the docs; its styles live in
+`docs/src/styles/landing.css` and `docs/src/components/landing/`. This
+supersedes the "home page components share its card style" part of #165.
+
+**Consequences.** The landing page has no Starlight search, language or
+theme switcher, and is English only. Its links into the docs are built
+with `localized()` from `docs/src/topics.mjs`, so moving a docs page means
+updating the landing page too; `make docs` doesn't check them.

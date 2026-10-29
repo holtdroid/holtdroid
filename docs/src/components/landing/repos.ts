@@ -1,9 +1,9 @@
-import chromium from "../assets/repos/chromium-builds.svg"
-import redroid from "../assets/repos/holtdroid-redroid.svg"
-import sync from "../assets/repos/holtdroid-sync.svg"
-import tunnel from "../assets/repos/holtdroid-tunnel.svg"
-import webview from "../assets/repos/holtdroid-webview.svg"
-import holtdroid from "../assets/repos/holtdroid.svg"
+import chromium from "../../assets/repos/chromium-builds.svg"
+import redroid from "../../assets/repos/holtdroid-redroid.svg"
+import sync from "../../assets/repos/holtdroid-sync.svg"
+import tunnel from "../../assets/repos/holtdroid-tunnel.svg"
+import webview from "../../assets/repos/holtdroid-webview.svg"
+import holtdroid from "../../assets/repos/holtdroid.svg"
 
 export type Repo = {
   name: string

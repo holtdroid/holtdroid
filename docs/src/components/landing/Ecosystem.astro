@@ -1,0 +1,254 @@
+---
+import { Icon } from "@astrojs/starlight/components"
+import { Image } from "astro:assets"
+import { byName, repos } from "./repos"
+
+type IconName = Parameters<typeof Icon>[0]["name"]
+
+const stages: { icon: IconName; title: string; text: string; repos: string[] }[] = [
+  {
+    icon: "cloud-download",
+    title: "Builds come in",
+    text: "Sync jobs copy APKs from Slack, S3 and GitHub releases.",
+    repos: ["holtdroid-sync", "chromium-builds"],
+  },
+  {
+    icon: "server",
+    title: "The portal",
+    text: "Lists apps, hands out slots, proxies screen and DevTools.",
+    repos: ["holtdroid"],
+  },
+  {
+    icon: "mobile-android",
+    title: "Devices",
+    text: "Android in containers, or real phones on USB.",
+    repos: ["holtdroid-redroid", "holtdroid-tunnel", "holtdroid-webview"],
+  },
+  {
+    icon: "laptop",
+    title: "Your browser",
+    text: "Screen, DevTools, files, logcat and recordings.",
+    repos: [],
+  },
+]
+---
+
+<section class="l-section eco" id="repositories">
+  <div class="l-wrap">
+    <div class="l-head">
+      <span class="l-eyebrow">Open source</span>
+      <h2>From a Slack message <span class="l-grad">to a device in your tab</span></h2>
+      <p>Six repositories, each doing one job. Use them together, or take only the piece you need.</p>
+    </div>
+
+    <ol class="flow">
+      {
+        stages.map((s) => (
+          <li>
+            <span class="node">
+              <Icon name={s.icon} size="1.35rem" />
+            </span>
+            <h3>{s.title}</h3>
+            <p>{s.text}</p>
+            <div class="mini">
+              {s.repos.map((name) => (
+                <a href={`#repo-${name}`} title={`holtdroid/${name}`}>
+                  <Image src={byName(name).icon} alt={name} width={28} height={28} />
+                </a>
+              ))}
+            </div>
+          </li>
+        ))
+      }
+    </ol>
+
+    <div class="repos">
+      {
+        repos.map((r) => (
+          <article class="l-card repo" id={`repo-${r.name}`}>
+            <div class="top">
+              <Image src={r.icon} alt="" width={48} height={48} />
+              <div>
+                <p class="role">{r.role}</p>
+                <h3>
+                  <a href={`https://github.com/holtdroid/${r.name}`}>{r.name}</a>
+                </h3>
+              </div>
+            </div>
+            <p class="desc">{r.description}</p>
+            <div class="foot">
+              <span class="tags">{r.tags.join(" · ")}</span>
+              <span class="go">
+                <a href={r.docs}>Docs</a>
+                <a href={`https://github.com/holtdroid/${r.name}`} aria-label={`${r.name} on GitHub`}>
+                  <Icon name="github" size="1rem" />
+                </a>
+              </span>
+            </div>
+          </article>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  .eco {
+    border-top: 1px solid var(--l-line);
+    background: radial-gradient(60rem 30rem at 50% 0%, rgb(61 220 132 / 0.06), transparent 70%);
+  }
+  .flow {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1.5rem;
+    margin: 0 0 3.5rem;
+    padding: 0;
+    list-style: none;
+  }
+  .flow::before {
+    content: "";
+    position: absolute;
+    top: 1.6rem;
+    right: 12.5%;
+    left: 12.5%;
+    height: 2px;
+    background: repeating-linear-gradient(90deg, rgb(61 220 132 / 0.6) 0 8px, transparent 8px 16px);
+    background-size: 32px 2px;
+    animation: flow 1.2s linear infinite;
+  }
+  .flow li {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    gap: 0.5rem;
+    text-align: center;
+  }
+  .node {
+    display: grid;
+    place-items: center;
+    width: 3.25rem;
+    height: 3.25rem;
+    margin-bottom: 0.5rem;
+    border: 1px solid rgb(61 220 132 / 0.45);
+    border-radius: 1rem;
+    background: var(--l-bg);
+    box-shadow: 0 0 30px -6px rgb(61 220 132 / 0.5);
+    color: var(--l-green);
+  }
+  .flow h3 {
+    font-size: 1rem;
+    font-weight: 600;
+  }
+  .flow p {
+    max-width: 15rem;
+    color: var(--l-muted);
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+  .mini {
+    display: flex;
+    gap: 0.35rem;
+    min-height: 1.75rem;
+    margin-top: 0.25rem;
+  }
+  .mini a {
+    transition: transform 0.15s;
+  }
+  .mini a:hover {
+    transform: translateY(-2px);
+  }
+
+  .repos {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+  }
+  .repo {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.5rem;
+    transition: border-color 0.2s;
+  }
+  .repo:hover,
+  .repo:target {
+    border-color: rgb(61 220 132 / 0.35);
+  }
+  .top {
+    display: flex;
+    gap: 0.9rem;
+    align-items: center;
+  }
+  .role {
+    color: var(--l-green);
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .repo h3 {
+    font-family: var(--l-mono);
+    font-size: 0.95rem;
+    font-weight: 500;
+  }
+  .repo h3 a {
+    text-decoration: none;
+  }
+  .repo h3 a:hover {
+    color: var(--l-green);
+  }
+  .desc {
+    color: var(--l-muted);
+    font-size: 0.9rem;
+    line-height: 1.55;
+  }
+  .foot {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: auto;
+    padding-top: 1rem;
+    border-top: 1px solid var(--l-line);
+  }
+  .tags {
+    color: var(--l-dim);
+    font-size: 0.8rem;
+  }
+  .go {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+  }
+  .go a {
+    display: flex;
+    color: var(--l-muted);
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-decoration: none;
+  }
+  .go a:hover {
+    color: var(--l-text);
+  }
+  @keyframes flow {
+    to {
+      background-position: 32px 0;
+    }
+  }
+  @media (max-width: 60rem) {
+    .flow,
+    .repos {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .flow::before {
+      display: none;
+    }
+  }
+  @media (max-width: 40rem) {
+    .flow,
+    .repos {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

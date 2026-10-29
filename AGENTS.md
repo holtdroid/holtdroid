@@ -140,7 +140,7 @@ Directories that do not exist yet are planned — create them exactly there.
   Compiler-era rules oxlint enforces: no setState in effects, no ref access or
   impure calls during render — derive state during render or use
   `useEffectEvent`.
-- **Docs site:** Astro Starlight in `docs/`, split into Documentation and Guides with `starlight-sidebar-topics` (sections in `docs/src/topics.mjs`, theme in `docs/src/styles/theme.css`).
+- **Docs site:** Astro Starlight in `docs/`, split into Documentation and Guides with `starlight-sidebar-topics` (sections in `docs/src/topics.mjs`, theme in `docs/src/styles/theme.css`); the home page is a standalone landing page in `docs/src/pages/index.astro`.
 - **Deployment:** Helm chart; images on `ghcr.io/holtdroid/holtdroid`,
   `ghcr.io/holtdroid/holtdroid-session` and `ghcr.io/holtdroid/holtdroid-physical`.
 

@@ -1,0 +1,624 @@
+---
+import { localized as url } from "../../topics.mjs"
+
+const requests = [
+  { method: "GET", path: "/api/catalog", status: 200, start: 0, width: 38 },
+  { method: "GET", path: "/img/hero.webp", status: 200, start: 12, width: 52 },
+  { method: "POST", path: "/api/cart", status: 201, start: 30, width: 26 },
+  { method: "GET", path: "/api/price?sku=42", status: 500, start: 44, width: 18 },
+  { method: "WS", path: "/live/prices", status: 101, start: 50, width: 48 },
+]
+const countries = [
+  { code: "NL", city: "Amsterdam", ip: "185.107.56.12" },
+  { code: "KZ", city: "Almaty", ip: "37.150.24.91" },
+  { code: "US", city: "New York", ip: "104.244.75.3" },
+  { code: "PL", city: "Warsaw", ip: "91.207.218.40" },
+]
+const slots = ["busy", "busy", "idle", "busy", "free", "free"]
+const contracts = ["Provider", "Agent", "Source", "VPN", "Secrets", "Sign-in"]
+const bars = Array.from({ length: 48 }, (_, i) => 20 + Math.round(Math.abs(Math.sin(i * 1.7) * 60 + Math.cos(i * 0.6) * 20)))
+---
+
+<section class="l-section" id="features">
+  <div class="l-wrap">
+    <div class="l-head">
+      <span class="l-eyebrow">Features</span>
+      <h2>Everything a tester needs, <span class="l-grad">nothing to install</span></h2>
+      <p>Each device is yours alone, starts clean and goes back to the pool when you are done.</p>
+    </div>
+
+    <div class="bento">
+      <a class="l-card tile wide" href={url("/guides/web/devtools/")}>
+        <div class="copy">
+          <h3>Chrome DevTools for every WebView</h3>
+          <p>Remote debugging is switched on at runtime. The APK stays exactly as your team shipped it.</p>
+        </div>
+        <div class="devtools" aria-hidden="true">
+          <div class="dt-tabs">
+            <span>Elements</span><span>Console</span><span class="on">Network</span><span>WebSockets</span>
+          </div>
+          {
+            requests.map((r, i) => (
+              <div class="dt-row" style={`--d: ${i * 0.45}s`}>
+                <span class:list={["m", r.method === "WS" && "ws"]}>{r.method}</span>
+                <span class="p">{r.path}</span>
+                <span class:list={["s", r.status >= 500 && "err"]}>{r.status}</span>
+                <span class="w">
+                  <i style={`--l: ${r.start}%; --wd: ${r.width}%`} />
+                </span>
+              </div>
+            ))
+          }
+        </div>
+      </a>
+
+      <a class="l-card tile" href={url("/guides/conditions/vpn/")}>
+        <div class="copy">
+          <h3>A country per device</h3>
+          <p>Switch the exit location mid-session, next to the screen.</p>
+        </div>
+        <ul class="vpn" aria-hidden="true">
+          <li class="cursor"></li>
+          {
+            countries.map((c) => (
+              <li>
+                <b>{c.code}</b>
+                <span>{c.city}</span>
+                <code>{c.ip}</code>
+              </li>
+            ))
+          }
+        </ul>
+      </a>
+
+      <a class="l-card tile" href={url("/concepts/sessions/")}>
+        <div class="copy">
+          <h3>Sessions that clean up</h3>
+          <p>Bounded slots, an idle timeout and a max TTL.</p>
+        </div>
+        <div class="slots" aria-hidden="true">
+          {
+            slots.map((s, i) => (
+              <span class:list={["slot", s]} style={`--d: ${i * 0.3}s`}>
+                {s === "idle" && <i />}
+              </span>
+            ))
+          }
+          <p class="slots-label"><span class="pulse"></span>3 of 6 busy · 1 idle, back in 4:59</p>
+        </div>
+      </a>
+
+      <a class="l-card tile" href={url("/configuration/emulator/")}>
+        <div class="copy">
+          <h3>ARM apps on x86 nodes</h3>
+          <p>Android runs in containers, several per node, with ARM translation.</p>
+        </div>
+        <div class="abi" aria-hidden="true">
+          <span class="chip">arm64-v8a</span>
+          <svg viewBox="0 0 120 24" class="beam"><path d="M2 12h116" /></svg>
+          <span class="chip on">x86_64</span>
+        </div>
+      </a>
+
+      <a class="l-card tile" href={url("/configuration/phones/")}>
+        <div class="copy">
+          <h3>Real phones over USB</h3>
+          <p>No root, no Wi-Fi: the phone's traffic goes over the cable.</p>
+        </div>
+        <svg class="usb" viewBox="0 0 220 120" aria-hidden="true">
+          <rect x="16" y="10" width="54" height="100" rx="10" class="phone" />
+          <rect x="34" y="16" width="18" height="4" rx="2" class="notch" />
+          <path d="M43 110v4c0 4 4 4 8 4h110c10 0 14-6 14-14V64" class="cable" />
+          <path d="M43 110v4c0 4 4 4 8 4h110c10 0 14-6 14-14V64" class="packet" />
+          <rect x="150" y="30" width="54" height="34" rx="6" class="host" />
+          <path d="M162 42h30M162 50h18" class="host-lines" />
+        </svg>
+      </a>
+
+      <a class="l-card tile wide" href={url("/guides/recordings/record-share/")}>
+        <div class="copy">
+          <h3>Record a bug, share one link</h3>
+          <p>Video, logcat, network and console on one timeline, with markers where things went wrong.</p>
+        </div>
+        <div class="rec" aria-hidden="true">
+          <div class="rec-head"><span class="rec-dot"></span>REC 00:42 <span class="rec-tabs">Logcat · Network · Console</span></div>
+          <div class="wave">
+            {bars.map((h) => <i style={`--h: ${h}%`} />)}
+            <span class="marker" style="--at: 22%">tap “Pay”</span>
+            <span class="marker err" style="--at: 61%">500 /api/price</span>
+            <span class="head"></span>
+          </div>
+        </div>
+      </a>
+
+      <a class="l-card tile" href={url("/extending/contracts/")}>
+        <div class="copy">
+          <h3>Pluggable by contract</h3>
+          <p>Swap sources, devices, VPN, secrets and sign-in. No vendor lock-in.</p>
+        </div>
+        <ul class="contracts" aria-hidden="true">
+          {contracts.map((c, i) => <li style={`--d: ${i * 0.25}s`}>{c}</li>)}
+        </ul>
+      </a>
+    </div>
+  </div>
+</section>
+
+<script>
+  for (const card of document.querySelectorAll<HTMLElement>(".l-card")) {
+    card.addEventListener("pointermove", (e) => {
+      const r = card.getBoundingClientRect()
+      card.style.setProperty("--x", `${e.clientX - r.left}px`)
+      card.style.setProperty("--y", `${e.clientY - r.top}px`)
+    })
+  }
+</script>
+
+<style>
+  .bento {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+  }
+  .tile {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    min-height: 19rem;
+    padding: 1.75rem;
+    text-decoration: none;
+    transition:
+      border-color 0.2s,
+      transform 0.2s;
+  }
+  .tile:hover {
+    border-color: rgb(61 220 132 / 0.35);
+  }
+  .wide {
+    grid-column: span 2;
+  }
+  .copy {
+    display: grid;
+    gap: 0.4rem;
+    max-width: 26rem;
+  }
+  h3 {
+    font-size: 1.15rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .copy p {
+    color: var(--l-muted);
+    font-size: 0.95rem;
+    line-height: 1.5;
+  }
+
+  .devtools {
+    display: grid;
+    gap: 0.15rem;
+    margin-top: auto;
+    padding: 0.75rem;
+    border: 1px solid var(--l-line);
+    border-radius: 0.9rem;
+    background: rgb(0 0 0 / 0.35);
+    font-family: var(--l-mono);
+    font-size: 0.75rem;
+  }
+  .dt-tabs {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 0.4rem;
+    padding: 0 0.25rem 0.5rem;
+    border-bottom: 1px solid var(--l-line);
+    color: var(--l-dim);
+  }
+  .dt-tabs .on {
+    color: var(--l-text);
+    box-shadow: 0 0.55rem 0 -0.4rem var(--l-green);
+  }
+  .dt-row {
+    display: grid;
+    grid-template-columns: 3rem minmax(0, 1.2fr) 2.5rem minmax(0, 1fr);
+    gap: 0.75rem;
+    align-items: center;
+    padding: 0.3rem 0.25rem;
+    border-radius: 0.4rem;
+    opacity: 0;
+    animation: row-in 6s var(--d) infinite;
+  }
+  .m {
+    color: #7cc4ff;
+  }
+  .m.ws {
+    color: #c9a3ff;
+  }
+  .p {
+    overflow: hidden;
+    color: var(--l-text);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .s {
+    color: var(--l-green);
+  }
+  .s.err {
+    color: #ff7a7a;
+  }
+  .w {
+    position: relative;
+    height: 0.4rem;
+  }
+  .w i {
+    position: absolute;
+    left: var(--l);
+    width: var(--wd);
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #2f7fd8, var(--l-green));
+    transform-origin: left;
+    animation: grow 6s var(--d) infinite;
+  }
+
+  .vpn {
+    position: relative;
+    display: grid;
+    gap: 0.35rem;
+    margin: auto 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .vpn li {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 2.25rem 1fr auto;
+    gap: 0.6rem;
+    align-items: center;
+    height: 2.4rem;
+    padding-inline: 0.6rem;
+    color: var(--l-muted);
+    font-size: 0.85rem;
+  }
+  .vpn b {
+    display: grid;
+    place-items: center;
+    height: 1.5rem;
+    border-radius: 0.4rem;
+    background: rgb(255 255 255 / 0.06);
+    color: var(--l-text);
+    font-size: 0.7rem;
+  }
+  .vpn code {
+    color: var(--l-dim);
+    font-family: var(--l-mono);
+    font-size: 0.72rem;
+  }
+  .vpn .cursor {
+    position: absolute;
+    z-index: 0;
+    inset-inline: 0;
+    top: 0;
+    border: 1px solid rgb(61 220 132 / 0.45);
+    border-radius: 0.7rem;
+    background: rgb(61 220 132 / 0.08);
+    animation: hop 8s infinite;
+  }
+
+  .slots {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    margin-top: auto;
+  }
+  .slot {
+    position: relative;
+    overflow: hidden;
+    height: 3rem;
+    border: 1px solid var(--l-line);
+    border-radius: 0.7rem;
+    background: rgb(255 255 255 / 0.02);
+  }
+  .slot.busy {
+    border-color: rgb(61 220 132 / 0.4);
+    background: rgb(61 220 132 / 0.12);
+    animation: breathe 3s var(--d) infinite;
+  }
+  .slot.idle {
+    border-color: rgb(245 180 70 / 0.45);
+    background: rgb(245 180 70 / 0.08);
+  }
+  .slot.idle i {
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 3px;
+    background: #f5b446;
+    transform-origin: left;
+    animation: drain 10s linear infinite;
+  }
+  .slots-label {
+    display: flex;
+    grid-column: 1 / -1;
+    gap: 0.5rem;
+    align-items: center;
+    margin-top: 0.4rem;
+    color: var(--l-dim);
+    font-family: var(--l-mono);
+    font-size: 0.72rem;
+  }
+  .pulse {
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 50%;
+    background: var(--l-green);
+    animation: breathe 1.6s infinite;
+  }
+
+  .abi {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    margin-top: auto;
+  }
+  .chip {
+    flex-shrink: 0;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--l-line-2);
+    border-radius: 0.6rem;
+    background: rgb(255 255 255 / 0.03);
+    font-family: var(--l-mono);
+    font-size: 0.8rem;
+  }
+  .chip.on {
+    border-color: rgb(61 220 132 / 0.5);
+    color: var(--l-green);
+  }
+  .beam {
+    flex: 1;
+    min-width: 2rem;
+    height: 1.5rem;
+    overflow: visible;
+  }
+  .beam path {
+    fill: none;
+    stroke: var(--l-green);
+    stroke-dasharray: 6 8;
+    stroke-linecap: round;
+    stroke-width: 2;
+    animation: dash 1s linear infinite;
+  }
+
+  .usb {
+    width: 100%;
+    max-width: 16rem;
+    margin: auto auto 0;
+  }
+  .phone {
+    fill: rgb(255 255 255 / 0.03);
+    stroke: var(--l-line-2);
+    stroke-width: 1.5;
+  }
+  .notch {
+    fill: var(--l-line-2);
+  }
+  .cable {
+    fill: none;
+    stroke: var(--l-line-2);
+    stroke-width: 2;
+  }
+  .packet {
+    fill: none;
+    stroke: var(--l-green);
+    stroke-dasharray: 14 400;
+    stroke-linecap: round;
+    stroke-width: 3;
+    animation: travel 2.4s linear infinite;
+  }
+  .host {
+    fill: rgb(61 220 132 / 0.08);
+    stroke: rgb(61 220 132 / 0.5);
+  }
+  .host-lines {
+    stroke: rgb(61 220 132 / 0.6);
+    stroke-linecap: round;
+    stroke-width: 2;
+  }
+
+  .rec {
+    display: grid;
+    gap: 0.75rem;
+    margin-top: auto;
+    padding: 0.9rem;
+    border: 1px solid var(--l-line);
+    border-radius: 0.9rem;
+    background: rgb(0 0 0 / 0.35);
+  }
+  .rec-head {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    font-family: var(--l-mono);
+    font-size: 0.75rem;
+  }
+  .rec-dot {
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 50%;
+    background: #ff5d5d;
+    animation: breathe 1.2s infinite;
+  }
+  .rec-tabs {
+    margin-left: auto;
+    color: var(--l-dim);
+  }
+  .wave {
+    position: relative;
+    display: flex;
+    gap: 3px;
+    align-items: flex-end;
+    height: 4.5rem;
+    padding-top: 1.4rem;
+  }
+  .wave i {
+    flex: 1;
+    height: var(--h);
+    border-radius: 2px;
+    background: rgb(255 255 255 / 0.14);
+  }
+  .marker {
+    position: absolute;
+    top: 0;
+    left: var(--at);
+    padding: 0.1rem 0.45rem;
+    border-radius: 0.35rem;
+    background: rgb(61 220 132 / 0.15);
+    color: var(--l-green);
+    font-family: var(--l-mono);
+    font-size: 0.68rem;
+    white-space: nowrap;
+  }
+  .marker.err {
+    background: rgb(255 93 93 / 0.15);
+    color: #ff8a8a;
+  }
+  .head {
+    position: absolute;
+    top: 1.2rem;
+    bottom: 0;
+    left: 0;
+    width: 2px;
+    background: var(--l-text);
+    box-shadow: 0 0 12px var(--l-green);
+    animation: play 9s linear infinite;
+  }
+
+  .contracts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: auto 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .contracts li {
+    padding: 0.4rem 0.75rem;
+    border: 1px dashed var(--l-line-2);
+    border-radius: 0.6rem;
+    color: var(--l-muted);
+    font-family: var(--l-mono);
+    font-size: 0.78rem;
+    animation: snap 6s var(--d) infinite;
+  }
+
+  @keyframes row-in {
+    0%,
+    4% {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    10%,
+    88% {
+      opacity: 1;
+      transform: none;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+  @keyframes grow {
+    0%,
+    8% {
+      transform: scaleX(0);
+    }
+    22%,
+    100% {
+      transform: scaleX(1);
+    }
+  }
+  @keyframes hop {
+    0%,
+    22% {
+      height: 2.4rem;
+      transform: translateY(0);
+    }
+    25%,
+    47% {
+      height: 2.4rem;
+      transform: translateY(2.75rem);
+    }
+    50%,
+    72% {
+      height: 2.4rem;
+      transform: translateY(5.5rem);
+    }
+    75%,
+    97% {
+      height: 2.4rem;
+      transform: translateY(8.25rem);
+    }
+    100% {
+      height: 2.4rem;
+      transform: translateY(0);
+    }
+  }
+  @keyframes breathe {
+    50% {
+      opacity: 0.55;
+    }
+  }
+  @keyframes drain {
+    from {
+      transform: scaleX(1);
+    }
+    to {
+      transform: scaleX(0);
+    }
+  }
+  @keyframes dash {
+    to {
+      stroke-dashoffset: -14;
+    }
+  }
+  @keyframes travel {
+    from {
+      stroke-dashoffset: 14;
+    }
+    to {
+      stroke-dashoffset: -220;
+    }
+  }
+  @keyframes play {
+    from {
+      left: 0;
+    }
+    to {
+      left: 100%;
+    }
+  }
+  @keyframes snap {
+    0%,
+    100% {
+      border-style: dashed;
+      color: var(--l-muted);
+    }
+    12%,
+    30% {
+      border-style: solid;
+      border-color: rgb(61 220 132 / 0.5);
+      color: var(--l-green);
+    }
+  }
+
+  @media (max-width: 60rem) {
+    .bento {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (max-width: 40rem) {
+    .bento {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .wide {
+      grid-column: auto;
+    }
+  }
+</style>

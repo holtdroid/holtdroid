@@ -1,0 +1,141 @@
+---
+import { Icon } from "@astrojs/starlight/components"
+import { localized as url } from "../../topics.mjs"
+---
+
+<section class="l-section">
+  <div class="l-wrap">
+    <div class="l-card cta">
+      <div class="l-grid-bg"></div>
+      <div class="copy">
+        <span class="l-eyebrow">Get started</span>
+        <h2>Give your testers <span class="l-grad">a cozy holt</span></h2>
+        <p>Try the whole UI on your laptop with simulated devices, then install one Helm chart on your cluster.</p>
+        <div class="buttons">
+          <a class="l-btn l-btn-primary" href={url("/start/installation/")}>
+            Install on Kubernetes
+            <Icon name="right-arrow" />
+          </a>
+          <a class="l-btn l-btn-ghost" href={url("/start/local-development/")}>Run it locally</a>
+        </div>
+      </div>
+      <div class="term">
+        <div class="tabs">
+          <input type="radio" name="term" id="term-local" checked />
+          <label for="term-local">Laptop</label>
+          <input type="radio" name="term" id="term-k8s" />
+          <label for="term-k8s">Kubernetes</label>
+          <pre class="local"><span class="c"># simulated devices on :8080</span>
+<span class="p">$</span> git clone https://github.com/holtdroid/holtdroid
+<span class="p">$</span> cd holtdroid && mise install
+<span class="p">$</span> make dev</pre>
+          <pre class="k8s"><span class="c"># values.yaml: see Installation</span>
+<span class="p">$</span> helm install holtdroid \
+    oci://ghcr.io/holtdroid/charts/holtdroid \
+    -n holtdroid -f values.yaml</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .cta {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 3rem;
+    align-items: center;
+    padding: 3.5rem;
+    background:
+      radial-gradient(40rem 20rem at 0% 0%, rgb(61 220 132 / 0.16), transparent 70%),
+      linear-gradient(180deg, var(--l-card-2), var(--l-card));
+  }
+  .copy {
+    position: relative;
+    display: grid;
+    gap: 1rem;
+  }
+  h2 {
+    font-size: clamp(2rem, 1.2rem + 2.5vw, 2.75rem);
+    font-weight: 600;
+    letter-spacing: -0.035em;
+    line-height: 1.1;
+  }
+  .copy p {
+    color: var(--l-muted);
+    font-size: 1.05rem;
+  }
+  .buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+  }
+  .term {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--l-line-2);
+    border-radius: 1rem;
+    background: #070806;
+    box-shadow: 0 30px 80px -30px rgb(0 0 0 / 0.8);
+  }
+  .tabs {
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+  }
+  input {
+    position: absolute;
+    opacity: 0;
+  }
+  label {
+    padding: 0.7rem 1rem;
+    border-bottom: 1px solid var(--l-line);
+    color: var(--l-dim);
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+  label:nth-of-type(2) {
+    border-right: 1px solid var(--l-line);
+  }
+  .tabs::after {
+    content: "";
+    grid-row: 1;
+    grid-column: 3;
+    border-bottom: 1px solid var(--l-line);
+  }
+  input:checked + label {
+    border-bottom-color: var(--l-green);
+    color: var(--l-text);
+  }
+  input:focus-visible + label {
+    outline: 2px solid var(--l-green);
+    outline-offset: -2px;
+  }
+  pre {
+    display: none;
+    grid-column: 1 / -1;
+    margin: 0;
+    padding: 1.25rem;
+    overflow-x: auto;
+    color: var(--l-text);
+    font-family: var(--l-mono);
+    font-size: 0.85rem;
+    line-height: 1.8;
+  }
+  #term-local:checked ~ .local,
+  #term-k8s:checked ~ .k8s {
+    display: block;
+  }
+  .c {
+    color: var(--l-dim);
+  }
+  .p {
+    color: var(--l-green);
+  }
+  @media (max-width: 52rem) {
+    .cta {
+      grid-template-columns: minmax(0, 1fr);
+      padding: 2rem;
+    }
+  }
+</style>
