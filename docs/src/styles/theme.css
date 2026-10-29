@@ -484,6 +484,95 @@ site-search button[data-open-modal]:hover {
   filter: drop-shadow(0 6px 18px rgb(0 0 0 / 0.45));
 }
 
+.sl-markdown-content pre.mermaid[data-processed] {
+  position: relative;
+  cursor: zoom-in;
+}
+
+.sl-markdown-content pre.mermaid[data-processed]::after {
+  content: "Click to zoom";
+  position: absolute;
+  top: 0.6rem;
+  right: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid var(--hd-line);
+  border-radius: 999px;
+  background: #0d0f0c;
+  color: var(--sl-color-gray-3);
+  font-size: 0.7rem;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.sl-markdown-content pre.mermaid[data-processed]:hover::after {
+  opacity: 1;
+}
+
+.hd-diagram-zoom {
+  width: 100vw;
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background:
+    linear-gradient(var(--hd-line) 1px, transparent 1px) 0 0 / 28px 28px,
+    linear-gradient(90deg, var(--hd-line) 1px, transparent 1px) 0 0 / 28px 28px,
+    #0d0f0c;
+  color: var(--sl-color-white);
+}
+
+.hd-diagram-zoom::backdrop {
+  background: rgb(0 0 0 / 0.7);
+}
+
+.hd-diagram-zoom-bar {
+  position: absolute;
+  z-index: 1;
+  top: 0.75rem;
+  right: 0.75rem;
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+  font-size: 0.75rem;
+  color: var(--sl-color-gray-3);
+}
+
+.hd-diagram-zoom-bar span {
+  margin-right: 0.5rem;
+}
+
+.hd-diagram-zoom-bar button {
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.5rem;
+  border: 1px solid var(--hd-line);
+  border-radius: 0.5rem;
+  background: #151813;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.hd-diagram-zoom-bar button:hover {
+  border-color: #2f5a40;
+  color: var(--sl-color-white);
+}
+
+.hd-diagram-zoom-stage {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.hd-diagram-zoom-stage svg {
+  width: 100%;
+  height: 100%;
+  padding: 3.5rem 1.5rem 1.5rem;
+}
+
 .mermaid svg .cluster rect {
   rx: 14px;
   ry: 14px;

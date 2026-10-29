@@ -5096,6 +5096,11 @@ client runtime for five diagrams.
 **Consequences.** Mermaid class names (`.flowchart-link`, `.transition`,
 `.messageLine0`) are what the animation hooks into; a Mermaid upgrade that
 renames them stops the animation but leaves the diagrams readable.
+Mermaid 12's default `neo` look adds a light drop shadow; the theme sets
+`dropShadow: 'none'` and `theme.css` keeps its own dark one. Clicking a
+diagram opens it full screen with zoom and pan (`MermaidZoom.astro`,
+`@panzoom/panzoom`), since the wide ones are unreadable in the content
+column.
 
 ## 170. The docs are served from holtdroid.github.io, built from this repository
 

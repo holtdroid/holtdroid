@@ -293,9 +293,9 @@ export function Player({
             }}
           >
             <span ref={rippleRef} className="absolute top-0 left-0 size-14 rounded-full bg-sky-500/50 opacity-0" />
-            <svg ref={pointerRef} width="26" height="30" viewBox="0 0 26 30" className="origin-top-left drop-shadow-md">
+            <svg ref={pointerRef} width="20" height="28" viewBox="0 0 20 28" className="origin-top-left drop-shadow-md">
               <path
-                d="M2 2l20 13.5-9 1.6 5.2 9.8-3.6 1.9-5.2-9.8L2 25z"
+                d="M2 2v19.5l4.8-4.5 3.2 7.6 3.4-1.4-3.1-7.4h6.5z"
                 fill="#111"
                 stroke="#fff"
                 strokeWidth="2"

@@ -27,11 +27,11 @@ const { compact = false } = Astro.props
     </g>
   </svg>
   <div class="copy">
-    <p class="label">Disclaimer · Pandora's box</p>
+    {!compact && <p class="label">Disclaimer · Pandora's box</p>}
     <p class="title">Fully AI-generated. Use at your own risk.</p>
     {
       compact ? (
-        <p class="text">No line of it was written or reviewed by a human. Open the box with care.</p>
+        <p class="text">Not written or reviewed by a human.</p>
       ) : (
         <p class="text">
           Not a single line of Holtdroid was written or reviewed by a human: all of it was written by Claude through
@@ -129,33 +129,32 @@ const { compact = false } = Astro.props
     }
   }
   .compact {
-    flex-direction: column;
     gap: 0.6rem;
     align-items: flex-start;
     margin-block: 0;
-    padding: 0.9rem;
-    border-radius: 0.9rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: 0.75rem;
     background:
-      radial-gradient(10rem 6rem at 1.6rem 1.6rem, rgb(245 180 70 / 0.18), transparent 70%),
+      radial-gradient(6rem 4rem at 1.2rem 1.2rem, rgb(245 180 70 / 0.16), transparent 70%),
       linear-gradient(135deg, #15110a, #0d0e0b);
   }
   .compact .box {
-    width: 2.75rem;
-    height: 2.75rem;
+    width: 1.9rem;
+    height: 1.9rem;
   }
-  .compact .label {
-    font-size: 0.65rem;
+  .compact .copy {
+    gap: 0.1rem;
   }
   .compact .title {
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     line-height: 1.3;
   }
   .compact .text {
-    font-size: 0.8rem;
-    line-height: 1.45;
+    font-size: 0.72rem;
+    line-height: 1.35;
   }
   @media (max-width: 36rem) {
-    .hd-ai {
+    .hd-ai:not(.compact) {
       flex-direction: column;
       align-items: flex-start;
     }

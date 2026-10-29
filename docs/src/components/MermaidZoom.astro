@@ -1,0 +1,53 @@
+<script>
+  import Panzoom, { type PanzoomObject } from "@panzoom/panzoom"
+
+  let dialog: HTMLDialogElement | undefined
+  let stage: HTMLDivElement | undefined
+  let panzoom: PanzoomObject | undefined
+
+  const ensureDialog = () => {
+    if (dialog && stage) return { dialog, stage }
+    dialog = document.createElement("dialog")
+    dialog.className = "hd-diagram-zoom"
+    dialog.innerHTML = `
+      <div class="hd-diagram-zoom-bar">
+        <span>Scroll or pinch to zoom, drag to move</span>
+        <button type="button" data-zoom="in" aria-label="Zoom in">+</button>
+        <button type="button" data-zoom="out" aria-label="Zoom out">−</button>
+        <button type="button" data-zoom="reset" aria-label="Reset zoom">1:1</button>
+        <button type="button" data-zoom="close" aria-label="Close">✕</button>
+      </div>
+      <div class="hd-diagram-zoom-stage"></div>`
+    stage = dialog.querySelector<HTMLDivElement>(".hd-diagram-zoom-stage")!
+    const d = dialog
+    d.addEventListener("click", (e) => {
+      const action = (e.target as HTMLElement).closest<HTMLElement>("[data-zoom]")?.dataset.zoom
+      if (action === "in") panzoom?.zoomIn()
+      else if (action === "out") panzoom?.zoomOut()
+      else if (action === "reset") panzoom?.reset()
+      else if (action === "close" || e.target === d) d.close()
+    })
+    d.addEventListener("close", () => {
+      panzoom?.destroy()
+      panzoom = undefined
+      stage!.replaceChildren()
+    })
+    stage.addEventListener("wheel", (e) => panzoom?.zoomWithWheel(e))
+    document.body.append(d)
+    return { dialog: d, stage }
+  }
+
+  document.addEventListener("click", (e) => {
+    const diagram = (e.target as HTMLElement).closest(".sl-markdown-content pre.mermaid[data-processed]")
+    const svg = diagram?.querySelector("svg")
+    if (!svg) return
+    const { dialog, stage } = ensureDialog()
+    const copy = svg.cloneNode(true) as SVGSVGElement
+    copy.removeAttribute("style")
+    copy.removeAttribute("width")
+    copy.removeAttribute("height")
+    stage.replaceChildren(copy)
+    dialog.showModal()
+    panzoom = Panzoom(copy, { maxScale: 10, minScale: 0.5, step: 0.3, cursor: "grab" })
+  })
+</script>
