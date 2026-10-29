@@ -232,6 +232,11 @@ site-search button[data-open-modal]:hover {
   color: var(--sl-color-accent);
 }
 
+.hd-sidebar-note {
+  margin-top: auto;
+  padding: 1.5rem 0 1.25rem;
+}
+
 .hd-nav-title {
   margin: 0 0 0.5rem;
   padding: 0 0.5rem;

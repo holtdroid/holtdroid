@@ -3,6 +3,7 @@ import { Icon } from "@astrojs/starlight/components"
 import SidebarPersister from "@astrojs/starlight/components/SidebarPersister.astro"
 import MobileMenuFooter from "@astrojs/starlight/components/MobileMenuFooter.astro"
 import { externalLinks, localized, topics } from "../../topics.mjs"
+import AiDisclaimer from "../AiDisclaimer.astro"
 import SidebarList from "./SidebarList.astro"
 
 const { locale, sidebar } = Astro.locals.starlightRoute
@@ -43,6 +44,10 @@ const topic = active >= 0 ? topics[active] : undefined
 <SidebarPersister>
   <SidebarList entries={sidebar} icons={topic?.groupIcons} />
 </SidebarPersister>
+
+<div class="hd-sidebar-note">
+  <AiDisclaimer compact />
+</div>
 
 <div class="md:sl-hidden">
   <MobileMenuFooter />
