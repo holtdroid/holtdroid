@@ -18,19 +18,10 @@ laptop, while the device itself runs in the portal.
 
 1. Open <Hint to="nav-computers" step={1}>Computers</Hint> (the laptop button in the header) and press
    **Get the command**.
-2. <Hint to="connect-copy" step={3}>
-     Copy the command
-   </Hint>
-   and
-   <Hint to="terminal" step={4}>
-     paste it into a terminal
-   </Hint>
+2. <Hint to="connect-copy" step={3}>Copy the command</Hint>
+   and <Hint to="terminal" step={4}>paste it into a terminal</Hint>
    on your Mac or Linux machine.
-3. The script downloads the `holtdroid` client, checks it and connects. Your computer appears on the page as
-   <Hint to="computer-card" step={6}>
-     online
-   </Hint>
-   .
+3. The script downloads the `holtdroid` client, checks it and connects. Your computer appears on the page as <Hint to="computer-card" step={6}>online</Hint>.
 4. If `adb` is installed, every device you run is already connected: <Hint step={7}>`adb devices`</Hint> lists it.
 
 ```sh
@@ -41,8 +32,7 @@ curl -fsSL https://holtdroid.example.com/tunnel.sh | sh -s -- eyJhbGciOi…
 
 - ADB (Android Debug Bridge) is the tool that talks to an Android device from your computer: install apps, read
   logs, open a shell. Android Studio uses it too.
-- Each device gets its own port on your computer, from 15555 up, for example `127.0.0.1:15555`. The
-  <Hint to="computer-card">Computers page</Hint> and the device's SSH card show which one is which.
+- Each device gets its own port on your computer, from 15555 up, for example `127.0.0.1:15555`. The <Hint to="computer-card">Computers page</Hint> and the device's SSH card show which one is which.
 - The client keeps running in the terminal and reconnects by itself when the network drops or the laptop wakes
   up. Press `q` to quit.
 - The code in the command works once and only for 10 minutes. Next time run `~/.cache/holtdroid/holtdroid`, or

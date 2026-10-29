@@ -4,5 +4,5 @@
   "semi": false,
   "singleQuote": false,
   "trailingComma": "all",
-  "ignorePatterns": ["web/src/api/*.d.ts", "web/src/components/ui/**"]
+  "ignorePatterns": ["web/src/api/*.d.ts", "web/src/components/ui/**", "docs/src/content/docs/**/guides/**"]
 }
