@@ -1,0 +1,24 @@
+---
+const { entry, sidebar } = Astro.locals.starlightRoute
+const { title, description } = entry.data
+
+type SidebarEntry = (typeof sidebar)[number]
+
+const groupOf = (entries: SidebarEntry[], parent?: string): string | undefined => {
+  for (const e of entries) {
+    if (e.type === "link" && e.isCurrent) return parent
+    if (e.type === "group") {
+      const found = groupOf(e.entries, e.label)
+      if (found) return found
+    }
+  }
+  return undefined
+}
+const group = groupOf(sidebar)
+---
+
+<div class="hd-title">
+  {group && <p class="hd-eyebrow">{group}</p>}
+  <h1 id="_top">{title}</h1>
+  {description && <p class="hd-description">{description}</p>}
+</div>

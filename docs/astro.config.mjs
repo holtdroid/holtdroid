@@ -5,13 +5,8 @@ import react from '@astrojs/react';
 import starlight from '@astrojs/starlight';
 import tailwindcss from '@tailwindcss/vite';
 import mermaid from 'astro-mermaid';
-
-/** @param {string} label @param {string} ru @param {string} uk @param {string} directory */
-const guides = (label, ru, uk, directory) => ({
-	label,
-	translations: { ru, uk },
-	items: [{ autogenerate: { directory: `guides/${directory}` } }],
-});
+import starlightSidebarTopics from 'starlight-sidebar-topics';
+import { topics } from './src/topics.mjs';
 
 export default defineConfig({
 	site: 'https://holtdroid.github.io',
@@ -37,33 +32,17 @@ export default defineConfig({
 				ru: { label: 'Русский', lang: 'ru' },
 				uk: { label: 'Українська', lang: 'uk' },
 			},
-			customCss: ['./src/styles/custom.css'],
-			sidebar: [
-				{
-					label: 'Guides',
-					translations: { ru: 'Гайды', uk: 'Посібники' },
-					items: [
-						guides('First steps', 'Первые шаги', 'Перші кроки', 'first-steps'),
-						guides('Debugging web content', 'Отладка веба', 'Налагодження вебу', 'web'),
-						guides('Real-world conditions', 'Условия реального мира', 'Реальні умови', 'conditions'),
-						guides('Working with the app', 'Работа с приложением', 'Робота із застосунком', 'app'),
-						guides('Design', 'Дизайн', 'Дизайн', 'design'),
-						guides('Recordings and bug reports', 'Записи и баг-репорты', 'Записи та баг-репорти', 'recordings'),
-						guides('For developers', 'Для разработчиков', 'Для розробників', 'developers'),
-					],
-				},
-				{ label: 'Start here', items: [{ autogenerate: { directory: 'start' } }] },
-				{ label: 'Concepts', items: [{ autogenerate: { directory: 'concepts' } }] },
-				{
-					label: 'Session tools',
-					translations: { ru: 'Инструменты сессии', uk: 'Інструменти сесії' },
-					items: [{ autogenerate: { directory: 'session-tools' } }],
-				},
-				{ label: 'Configuration', items: [{ autogenerate: { directory: 'configuration' } }] },
-				{ label: 'APK sources', items: [{ autogenerate: { directory: 'sources' } }] },
-				{ label: 'Tools', items: [{ autogenerate: { directory: 'tools' } }] },
-				{ label: 'Operations', items: [{ autogenerate: { directory: 'operations' } }] },
-				{ label: 'Extending', items: [{ autogenerate: { directory: 'extending' } }] },
+			customCss: ['@fontsource-variable/geist', './src/styles/theme.css', './src/styles/custom.css'],
+			components: {
+				Header: './src/components/overrides/Header.astro',
+				PageTitle: './src/components/overrides/PageTitle.astro',
+				Sidebar: './src/components/overrides/Sidebar.astro',
+			},
+			expressiveCode: {
+				styleOverrides: { borderRadius: '0.75rem', codeFontSize: '0.8125rem', frames: { shadowColor: 'transparent' } },
+			},
+			plugins: [
+				starlightSidebarTopics(topics),
 			],
 		}),
 	],

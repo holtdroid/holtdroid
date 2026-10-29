@@ -1,0 +1,32 @@
+---
+import { Icon } from "@astrojs/starlight/components"
+import Default from "@astrojs/starlight/components/Header.astro"
+import { externalLinks, localized, topics } from "../../topics.mjs"
+
+const { locale } = Astro.locals.starlightRoute
+const current = Astro.locals.starlightSidebarTopics?.topics ?? []
+---
+
+<div class="hd-header">
+  <div class="hd-header-top">
+    <Default />
+  </div>
+  <nav class="hd-tabs" aria-label="Sections">
+    {
+      topics.map((t, i) => (
+        <a href={localized(t.link, locale)} aria-current={current[i]?.isCurrent ? "page" : undefined}>
+          <Icon name={t.icon} />
+          {current[i]?.label ?? t.label.en}
+        </a>
+      ))
+    }
+    {
+      externalLinks.map((l) => (
+        <a href={l.href} rel="noopener">
+          {l.label}
+          <Icon name="external" size="0.75rem" />
+        </a>
+      ))
+    }
+  </nav>
+</div>

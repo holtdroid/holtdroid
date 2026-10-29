@@ -4991,3 +4991,23 @@ refuses ABIs a device can't run at all, so an API client can still start
 an ARM Chrome on redroid. Two uploads of one version with overlapping ABIs stay separate
 rows. A sync job that wants its x86 and ARM copies merged gives them the
 same title.
+
+## 165. The docs site has Documentation and Guides as separate sections, in its own theme
+
+**Context.** Seven groups of interactive guides and nine groups of reference
+pages shared one sidebar, so neither was easy to scan. Starlight's default
+look made the site read like a generic template rather than a product.
+
+**Decision.** `starlight-sidebar-topics` splits the sidebar into two topics,
+Documentation and Guides (`docs/src/topics.mjs`). The header overrides
+Starlight's to add a row of section tabs, the sidebar override shows the
+same sections on phones, and the page title override puts the sidebar group
+and the page's `description` around the title. `docs/src/styles/theme.css`
+sets the palette (warm neutrals, the logo's green as the accent), Geist,
+a tinted sidebar and quieter navigation; the home page components share its
+card style.
+
+**Consequences.** Every page with a sidebar must belong to a topic: a new
+top-level directory goes into `topics.mjs`, or the build fails. Every page
+should have a `description`, since it is shown under the title. Starlight
+upgrades can break the overrides of `Header`, `Sidebar` and `PageTitle`.
