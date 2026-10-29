@@ -149,7 +149,9 @@ hybrid apps, support engineers reproducing a customer bug.
 - A Kubernetes cluster (1.31+) with **x86_64 nodes with binder and a Mesa
   GPU** for sessions, dedicated to them. Each session takes about 1 GB of
   memory idle and a core while its screen streams.
-- Permission to run **privileged pods** in Holtdroid's namespace.
+- Permission to run Pods with extra capabilities (Pod Security level
+  `privileged`) in Holtdroid's namespace, and a runtime with NRI
+  (containerd 2.0+) on the session nodes.
 - A forward-auth proxy in front of the ingress (Authelia, oauth2-proxy, …),
   unless you run it locally with authentication disabled.
 - For builds from Slack: a Slack app with a bot token and a small sync job

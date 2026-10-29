@@ -5182,3 +5182,48 @@ build only among those virtual devices take, so "any provider" doesn't end
 up on a phone because of its WebView, and a phone keeps its built-in
 WebView unless one was picked for it. Sidecars without `abis` are offered
 to every provider, as before.
+
+## 173. The Android container isn't privileged; an NRI plugin hands it its devices
+
+**Context.** #83 kept `privileged: true` because the devices cgroup denied
+binder: each container mounts its own binderfs, whose nodes get minors
+nobody knows in advance, and a device plugin only hands out fixed host
+nodes. Binder has one major per boot (it is in `/proc/devices`), so a
+device cgroup rule `c <binder>:* rwm` is enough; Kubernetes can't say that,
+but the runtime's NRI can. Tried on k3s-2 with every holtdroid-redroid
+version (11–16): without `privileged`, Android also needs device nodes it
+used to get from the host's `/dev` (ueventd creates none in a container),
+a writable cgroup2, writable loop device queues under `/sys`, and init
+services whose `capabilities` lines fit the bounding set.
+
+**Decision.** The `android` container runs with all capabilities dropped
+but the 22 that Android's init files ask for (no `SYS_MODULE`, `SYS_TIME`,
+`SYS_RAWIO`, `SYSLOG`, `AUDIT_CONTROL`, `MKNOD`, `PERFMON`, …), seccomp
+`RuntimeDefault`, AppArmor unconfined. `holtdroid session-devices`, an NRI
+plugin run by the chart as a DaemonSet on session nodes (root without
+capabilities, the NRI socket mounted), adds to the `android` container of
+session Pods that carry `holtdroid/devices` in the provider's namespace:
+`/dev/fuse`, `/dev/net/tun`, `/dev/loop-control`, `/dev/loop0..511` (an
+Android 15 boot takes about 36, numbered across the node), the render node,
+`/dev/kmsg` as `/dev/null` (Android's logging no longer fills the node's
+kernel log), and rules for every binder and loop minor. holtdroid-redroid's
+init wrapper mounts a fresh cgroup2 when the container has its own cgroup
+namespace, makes `/sys/devices/virtual/block` writable under a read-only
+`/sys`, and the image trims every init service's capabilities to the
+container's set; logd runs with `ro.logd.kernel` and `ro.logd.auditd` off,
+since it otherwise insists on `SYSLOG` and `AUDIT_CONTROL`.
+`redroid.privileged: true` brings the old container back for runtimes
+without NRI.
+
+**Consequences.** A session can no longer open the node's disks, load
+modules, set the clock, read the kernel log or touch host devices other
+than its render node and loop devices, and the node's sysctls stayed
+untouched over dozens of boots. It is not a kernel boundary: Android keeps
+`CAP_SYS_ADMIN` in the node's user namespace (init and zygote mount all the
+time), so root in a session can still reach the node, e.g. through a fresh
+`/proc`. Session nodes stay dedicated and #83's other measures stay. Any
+session's root can open another session's loop devices and, with `mknod`
+(not granted, but reachable as above), another session's binder. Sessions
+need containerd 2.0+ or CRI-O 1.26+ with NRI; a session created while the
+plugin is down boots without devices and fails. The logcat of a session
+no longer has the kernel's lines.

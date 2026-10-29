@@ -149,6 +149,20 @@ func nodeInfoCmd(c *common) *cobra.Command {
 	}
 }
 
+func sessionDevicesCmd(c *common) *cobra.Command {
+	return &cobra.Command{
+		Use:   "session-devices",
+		Short: "Run the NRI plugin that gives unprivileged redroid containers on this node their devices",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			cfg := emulatorprovider.DefaultDevicesConfig()
+			if _, err := loadConfig(c.configPath, &cfg); err != nil {
+				return err
+			}
+			return emulatorprovider.RunDevicePlugin(cmd.Context(), cfg)
+		},
+	}
+}
+
 func agentCmd(c *common) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "agent",

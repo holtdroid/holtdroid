@@ -34,6 +34,7 @@ redroid:
   gpu: /dev/dri/renderD128
   dataSize: 8Gi
   shell: allowlist # what users' ADB may run inside Android: allowlist | full | off
+  privileged: false # true: a privileged Android container, for runtimes without NRI
   args: [] # more redroid boot arguments
 resources: # the Android container
   requests: { cpu: 500m, memory: 1536Mi }
@@ -74,6 +75,7 @@ nodeInfo:
 | `redroid.shell`            | What users' ADB may run inside Android: `allowlist` (default), `full` or `off`, see [Users' ADB](#users-adb-inside-android)                                                                                                                                                                         |
 | `redroid.gpu`              | DRI render node Android renders on                                                                                                                                                                                                                                                                  |
 | `redroid.dataSize`         | Size limit of the `emptyDir` holding Android's `/data`                                                                                                                                                                                                                                              |
+| `redroid.privileged`       | `false` (default): the Android container gets a fixed set of capabilities, the runtime's default seccomp profile and only the devices Android needs, from the [session-devices plugin](#session-devices). `true`: a privileged container, for runtimes without NRI                                  |
 | `resources`                | Android container resources. Leave out a CPU limit: a busy session may borrow idle cores                                                                                                                                                                                                            |
 | `agentResources`           | Agent container resources                                                                                                                                                                                                                                                                           |
 | `nodes`                    | Per-node overrides by node name: `slots` and `resources`                                                                                                                                                                                                                                            |
@@ -111,17 +113,25 @@ whatever else the node runs.
   `securityContext.supplementalGroupsPolicy` (1.31 or newer); the pre-pull
   DaemonSet also uses an image volume (1.35, or the `ImageVolume` feature
   gate).
-- **Nodes dedicated to sessions.** The Android container is privileged and
-  shares the node's kernel, so root inside a session — frida-server, the
-  agent's adb, and users' ADB with `redroid.shell: full` — is root on the
-  node. Keep session nodes free of anything else (taint them and set
-  `nodeSelector`/`tolerations`). The provider keeps the rest of the cluster
-  out of Android's reach: the chart's egress NetworkPolicy lets sessions
-  reach only cluster DNS, the api and the internet (the LAN, node IPs and
-  other Pods are carved out), the agent container runs without privileges
-  (only `NET_ADMIN` in the Pod's network namespace, for network conditions),
-  users' ADB runs only allowlisted commands by default, and the image's init
-  wrapper keeps Android from rewriting the node's sysctls. See
+- A runtime with [NRI](https://github.com/containerd/nri) enabled for the
+  [session-devices plugin](#session-devices): containerd 2.0 or newer (on
+  by default), or CRI-O 1.26 or newer. Without it set
+  `redroid.privileged: true`.
+- **Nodes dedicated to sessions.** The Android container shares the node's
+  kernel and keeps `CAP_SYS_ADMIN` in the node's user namespace, which
+  Android's init and zygote need for their mounts, so root inside a
+  session — frida-server, the agent's adb, and users' ADB with
+  `redroid.shell: full` — can still reach the node (by mounting a fresh
+  `/proc` and changing node-wide settings, for one). Keep session nodes free
+  of anything else (taint them and set `nodeSelector`/`tolerations`). The
+  provider narrows what Android gets and keeps the rest of the cluster out
+  of its reach: the Android container isn't privileged (see
+  [Session devices](#session-devices)), the chart's egress NetworkPolicy
+  lets sessions reach only cluster DNS, the api and the internet (the LAN,
+  node IPs and other Pods are carved out), the agent container runs without
+  privileges (only `NET_ADMIN` in the Pod's network namespace, for network
+  conditions), users' ADB runs only allowlisted commands by default, and the
+  image's init wrapper keeps Android from rewriting the node's sysctls. See
   [Security](/operations/security/).
 
 Sessions run `x86_64` and 32-bit `x86` apps natively. Apps with only
@@ -135,9 +145,9 @@ device takes the x86 one; an ARM-only version of an app that has x86 builds
 
 Each session Pod has three containers sharing one network namespace:
 
-- `android`: the redroid image of the launch's Android version, privileged,
-  as root, with an `emptyDir` on `/data`. Its boot arguments set the GPU and
-  the launch's screen.
+- `android`: the redroid image of the launch's Android version, as root,
+  with an `emptyDir` on `/data`. Its boot arguments set the GPU and the
+  launch's screen. It isn't privileged: see [Session devices](#session-devices).
 - `agent`: the session image, without privileges (all capabilities dropped,
   except `NET_ADMIN` when VPN locations are configured: it shapes the VPN
   tunnel for [network conditions](#network-conditions)).
@@ -155,6 +165,38 @@ the api and the ssh-gateway reach the Pod, and its `egress` rules on so
 Android reaches only cluster DNS, the api and the internet. Anything
 in-cluster a sidecar needs, such as a shared VPN gateway, goes into
 `networkPolicy.egress.extraEgress`.
+
+## Session devices
+
+Unless `redroid.privileged` is set, the Android container runs with:
+
+- the capabilities Android's init and services ask for, and no others:
+  `CHOWN`, `DAC_OVERRIDE`, `DAC_READ_SEARCH`, `FOWNER`, `FSETID`, `KILL`,
+  `SETGID`, `SETUID`, `SETPCAP`, `NET_BIND_SERVICE`, `NET_ADMIN`, `NET_RAW`,
+  `IPC_LOCK`, `SYS_CHROOT`, `SYS_PTRACE`, `SYS_ADMIN`, `SYS_BOOT`,
+  `SYS_NICE`, `SYS_RESOURCE`, `WAKE_ALARM`, `BLOCK_SUSPEND` and `BPF`. It
+  can't load kernel modules, set the clock, read the kernel log or use raw
+  I/O, and holtdroid-redroid trims every init service's capabilities to
+  this set (logd runs without its kernel-log and audit readers);
+- the runtime's default seccomp profile, AppArmor unconfined (Android
+  mounts filesystems all the time);
+- `/sys` read-only except the virtual block devices' queues, which APEX
+  activation tunes;
+- only these devices, which `holtdroid session-devices` adds when the
+  container is created: binder (any minor, since every container mounts its
+  own binderfs), `/dev/loop-control` and `/dev/loop0`…`/dev/loop511` (APEX
+  activation takes about 36 loop devices per session, numbered across the
+  node), `/dev/fuse`, `/dev/net/tun`, `redroid.gpu`, and `/dev/kmsg` pointed
+  at `/dev/null` so Android's logging stays out of the node's kernel log.
+
+`holtdroid session-devices` is an [NRI](https://github.com/containerd/nri)
+plugin: the chart runs it as a DaemonSet on the session nodes, as root
+without capabilities, with the runtime's NRI socket (`/var/run/nri`) and
+the GPU's render node mounted. It only touches the `android` container of
+session Pods in the provider's namespace that carry the
+`holtdroid/devices` annotation, which the provider sets on unprivileged
+sessions. A session started while the plugin isn't running gets no devices
+and fails to boot.
 
 ## Screens and Android versions
 
@@ -351,6 +393,7 @@ providers:
       gpu: /dev/dri/renderD128
       dataSize: 8Gi
       shell: allowlist
+      privileged: false # true: no session-devices DaemonSet, a privileged Android container
       resources: { requests: { cpu: 500m, memory: 1536Mi }, limits: { memory: 3Gi } }
     nodes: {} # per-node overrides, as above
     vpn: {} # the vpn section below
@@ -365,13 +408,16 @@ providers:
       refresh: { enabled: true, interval: 5m }
     nodeInfo:
       enabled: true # DaemonSet of holtdroid node-info for the Inventory page
+    sessionDevices: # DaemonSet of holtdroid session-devices, unless redroid.privileged
+      socket: /var/run/nri/nri.sock # the runtime's NRI socket on the nodes
 ```
 
 The chart names the maintenance ConfigMap
 `<release>-provider-emulator-maintenance` and lets the provider's Role create
 it and update only that one. The node-info DaemonSet runs on the same nodes
 as sessions (`nodeSelector`, `tolerations`) and, with `networkPolicy` on, only
-the provider may reach it.
+the provider may reach it. So does the session-devices DaemonSet, which has
+no ports.
 
 The redroid image is about 1.5 GB. The pre-pull DaemonSet runs on the same
 nodes as sessions and keeps the current tags of both images on disk (the

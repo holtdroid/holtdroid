@@ -49,8 +49,9 @@ deployment"):
   VPN sidecar, `slotsPerNode` per node. The launch dialog picks the screen
   (presets of popular budget phones with emulated cutouts) and the Android
   version (decision #84). Sessions are kept away from the rest of the
-  cluster (decision #83): egress NetworkPolicy, an unprivileged agent
-  container, users' ADB on an allowlist (no Terminal tab by default), the
+  cluster (decision #83): egress NetworkPolicy, an Android container
+  without `privileged` whose devices come from the `session-devices` NRI
+  plugin (decision #173), an unprivileged agent container, users' ADB on an allowlist (no Terminal tab by default), the
   node's sysctls protected from Android init. Network conditions (decision
   #93): named networks and scenarios such as a subway ride or a flapping
   link, `tc netem` on the VPN tun; the kernel side (netem, gemodel, ifb,
@@ -298,9 +299,9 @@ deployment"):
 2. Redroid (Phase 8): try clipboard, audio, app data and the ADB tabs by
    hand in the browser on the live deployment (sessions run on k3s-3 since
    2026-10-25), then the
-   wallpaper, and the next isolation steps of decision #83 (binder devices
-   from a node helper so the container can drop `privileged`, a token on
-   frida-server, a non-root adbd for users).
+   wallpaper, and the next isolation steps of decision #83 (a token on
+   frida-server, a non-root adbd for users; the container dropped
+   `privileged` in decision #173).
 3. Phones: try the ADB proxy over SSH on the real phone, a check after the
    cleanup, then the layer-3 root hardening.
 4. The conformance suite (`internal/contract/conformance`) for Provider and
@@ -387,7 +388,7 @@ Collected from the design conversation; each is reflected in the docs listed.
   finds them; `kill -CONT` lets kube-proxy continue. Check
   `curl localhost:10256/healthz` on a node after any such incident.
 - **Android init rewrites node sysctls** when the container is privileged
-  and `/proc/sys` is writable: `kernel.modprobe` becomes empty (module
+  (`redroid.privileged: true`) and `/proc/sys` is writable: `kernel.modprobe` becomes empty (module
   autoloading stops), `sysrq` 0, `unprivileged_bpf_disabled` 0,
   `kptr_restrict`, `perf_event_paranoid`, hung-task and VM watermark
   settings. holtdroid-redroid's init wrapper now makes `/proc/sys` read-only
@@ -450,7 +451,7 @@ in-repo work; ask the maintainer for anything cluster-side.
 | WebView sync | Argo CD Application `homelab.k8s/argocd/holtdroid-webview-sync.yaml` (chart `deploy/helm/holtdroid-sync`, `job: webview`): Chromium's x86_64 WebView snapshots for the milestones on a channel, the newest 6 and every 5th → `holtdroid/webview/` (about 420 MB each), every 6 hours; the api reads the prefix as `webview.storage`. `secret/holtdroid-webview-sync` → `s3_access_key`/`s3_secret_key` (IAM user `holtdroid-webview-sync`, inline policy on bucket `holtdroid`) |
 | Chromium sync | Argo CD Application `homelab.k8s/argocd/holtdroid-chromium-sync.yaml` (chart `deploy/helm/holtdroid-sync`, `job: chromium`, memory limit 1Gi: parsing ChromePublic.apk peaks at about 300 MB): Chromium browser builds for the milestones on a channel, the newest 10, every 2nd, every 5th past the newest 24, plus 148 → `holtdroid/chromium/`, every 6 hours; the api lists it as the read-only source `chromium`. `secret/holtdroid-chromium-sync` → `s3_access_key`/`s3_secret_key` (IAM user `holtdroid-chromium-sync`, inline policy on bucket `holtdroid`) |
 | VPN gateway | The homelab's existing `vpn-gateway` in namespace `downloads` (`homelab.k8s/infrastructure/downloads`, image built from there into zot) is the shared gateway of decision #28. Service `vpn-socks.downloads.svc.cluster.local:1080`; SOCKS users `holtdroid-<cc>` for every NordVPN endpoint of the gateway (`bd`, `kz`, `lv`, `no`, `pl`, `ua`) route to `nord-<cc>`; AirVPN is not offered (its failover moves between NL and LV); one password for all of them in OpenBao `secret/vpn` → `socks_holtdroid_password` (seeded by `openbao-bootstrap.sh`). The provider config needs `vpn.resolver: 10.43.0.10` and `udp_over_tcp: true`. NordVPN account: 6 of 10 connections used by the gateway (ua, pl, kz, no, lv, bd); Finland was tried and dropped: with seven tunnels open one of them (Finland or Bangladesh) kept failing, likely the account limit together with the maintainer's own devices. Bangladesh and Kazakhstan egress IPs are placed elsewhere by ipinfo.io (the agent's default `ipInfoURL`: SG and DE) while ip-api/ipwho.is say BD and KZ; Bangladesh is a Nord virtual location |
-| Nodes for sessions | All four: `core` (the NAS, taint `dedicated=nas:NoSchedule`, 4 slots) and `k3s-1..3` (3 slots each), filled in the order of `providers.emulator.fillOrder`: two on core, one on each k3s node, two more on core, then the rest (decision #85). A privileged redroid is root on its node, core included (decision #83). The VPN gateway Pods are allowed by an `extraEgress` rule |
+| Nodes for sessions | All four: `core` (the NAS, taint `dedicated=nas:NoSchedule`, 4 slots) and `k3s-1..3` (3 slots each), filled in the order of `providers.emulator.fillOrder`: two on core, one on each k3s node, two more on core, then the rest (decision #85). Root in a redroid session can reach its node, core included (decisions #83, #173); a session-devices DaemonSet runs on every session node. The VPN gateway Pods are allowed by an `extraEgress` rule |
 | Storage classes | `longhorn`, `local-path`, `nas-hdd` |
 | Ingress / DNS | Traefik; Ingress annotation `external-dns.alpha.kubernetes.io/target: "10.10.4.25"` creates the DNS record |
 | Registries | `ghcr.io/holtdroid/*` (public, from CI); the cluster also has `registry.homelab.example` (zot, needs the `zot-pull-secret` pattern from `homelab.k8s/infrastructure/downloads/secrets.yaml`) |

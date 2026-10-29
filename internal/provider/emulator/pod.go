@@ -80,6 +80,27 @@ func (p *Provider) tolerations() []corev1.Toleration {
 	return out
 }
 
+// androidCapabilities is what Android's init and services need when the
+// container isn't privileged; holtdroid-redroid trims its init files'
+// capabilities to the same set.
+var androidCapabilities = []corev1.Capability{
+	"CHOWN", "DAC_OVERRIDE", "DAC_READ_SEARCH", "FOWNER", "FSETID", "KILL", "SETGID", "SETUID", "SETPCAP",
+	"NET_BIND_SERVICE", "NET_ADMIN", "NET_RAW", "IPC_LOCK", "SYS_CHROOT", "SYS_PTRACE", "SYS_ADMIN", "SYS_BOOT",
+	"SYS_NICE", "SYS_RESOURCE", "WAKE_ALARM", "BLOCK_SUSPEND", "BPF",
+}
+
+func (p *Provider) androidSecurity() *corev1.SecurityContext {
+	sc := &corev1.SecurityContext{RunAsUser: new(int64(0)), RunAsGroup: new(int64(0))}
+	if p.cfg.Redroid.Privileged {
+		sc.Privileged = new(true)
+		return sc
+	}
+	sc.Capabilities = &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}, Add: androidCapabilities}
+	sc.SeccompProfile = &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault}
+	sc.AppArmorProfile = &corev1.AppArmorProfile{Type: corev1.AppArmorProfileTypeUnconfined}
+	return sc
+}
+
 func (p *Provider) renderPod(id, slot, node string, req contract.CreateSession, dev device, now time.Time) *corev1.Pod {
 	name := podName(id)
 	at := now.UTC().Format(time.RFC3339Nano)
@@ -193,7 +214,7 @@ func (p *Provider) renderPod(id, slot, node string, req contract.CreateSession, 
 			ImagePullPolicy: corev1.PullPolicy(p.cfg.ImagePullPolicy),
 			Args:            p.bootArgs(dev.screen),
 			Resources:       resources,
-			SecurityContext: &corev1.SecurityContext{Privileged: new(true), RunAsUser: new(int64(0)), RunAsGroup: new(int64(0))},
+			SecurityContext: p.androidSecurity(),
 			VolumeMounts:    []corev1.VolumeMount{{Name: "data", MountPath: "/data"}},
 		},
 		{
@@ -256,6 +277,9 @@ func (p *Provider) renderPod(id, slot, node string, req contract.CreateSession, 
 	}
 	if req.ImageScan {
 		annotations[annotationImageScan] = "true"
+	}
+	if !p.cfg.Redroid.Privileged {
+		annotations[annotationDevices] = "nri"
 	}
 
 	return &corev1.Pod{

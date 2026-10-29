@@ -84,6 +84,7 @@ func TestRender(t *testing.T) {
 			c.VPN.Locations[0].Geo = &vpn.GeoArea{Lat: 52.2297, Lng: 21.0122, Radius: 5000}
 			c.Tolerations = []Toleration{{Key: "dedicated", Operator: "Equal", Value: "nas", Effect: "NoSchedule"}}
 		}, "nl", nil, "fhd", "14", nil},
+		{"privileged", func(c *Config) { c.Redroid.Privileged = true }, "", nil, "", "", nil},
 		{"telemetry", func(c *Config) {
 			c.SessionTelemetry = SessionTelemetry{MetricsPort: 9090, Tracing: telemetry.TracingConfig{Enabled: true, Endpoint: "http://otel-collector:4318", Insecure: true, SampleRatio: 0.25}}
 		}, "", nil, "", "", nil},

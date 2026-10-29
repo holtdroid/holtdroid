@@ -7,12 +7,17 @@ sidebar:
 
 ## What you are running
 
-- **Privileged session Pods on the node's kernel.** Android runs in a
-  privileged redroid container on the node's own kernel, and the VPN
-  sidecar needs `NET_ADMIN` and a TUN device. Root inside a session is root
-  on the node: the agent's adbd runs as root, and so does the ADB shell users
-  get in the browser and over SSH. From there a user can signal the node's
-  processes, change its sysctls and reach its devices. Dedicate nodes to
+- **Session Pods on the node's kernel.** Android runs in a redroid
+  container on the node's own kernel, and the VPN sidecar needs `NET_ADMIN`
+  and a TUN device. The Android container isn't privileged: it gets only
+  the devices Android needs and a fixed set of capabilities (no kernel
+  modules, clock, kernel log or raw I/O), under the runtime's default
+  seccomp profile ([Session devices](/configuration/emulator/#session-devices)).
+  It still holds `CAP_SYS_ADMIN` on the node's kernel, which Android's init
+  and zygote need, so root inside a session can still reach the node, by
+  mounting a fresh `/proc` and changing node-wide settings for one: treat it
+  as root on the node. The agent's adbd runs as root, and so does the ADB
+  shell users get in the browser and over SSH. Dedicate nodes to
   sessions (`nodeSelector`/`tolerations`), run Holtdroid in its own
   namespace, and let only people you trust with those nodes open sessions
   (`allowedGroups`), or turn the ADB tools off (`adb.browser: false`, no

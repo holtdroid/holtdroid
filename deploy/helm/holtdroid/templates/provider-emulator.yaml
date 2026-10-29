@@ -35,7 +35,8 @@
     "fps" $e.redroid.fps
     "gpu" $e.redroid.gpu
     "dataSize" $e.redroid.dataSize
-    "shell" $e.redroid.shell)
+    "shell" $e.redroid.shell
+    "privileged" $e.redroid.privileged)
   "nodes" $e.nodes
 -}}
 {{- with $e.redroid.screens }}
@@ -320,6 +321,71 @@ spec:
           image:
             reference: {{ $image }}
             pullPolicy: {{ $e.session.image.pullPolicy }}
+        {{- end }}
+{{- end }}
+{{- if not $e.redroid.privileged }}
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ $name }}-session-devices
+  labels:
+    {{- include "holtdroid.labels" . | nindent 4 }}
+    app.kubernetes.io/component: session-devices
+spec:
+  selector:
+    matchLabels:
+      {{- include "holtdroid.selector" (dict "root" . "component" "session-devices") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "holtdroid.selector" (dict "root" . "component" "session-devices") | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 1
+      {{- with $e.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $e.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: session-devices
+          image: {{ include "holtdroid.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: [session-devices]
+          env:
+            - { name: HOLTDROID_NAMESPACE, value: {{ .Release.Namespace | quote }} }
+            - { name: HOLTDROID_GPU, value: {{ $e.redroid.gpu | quote }} }
+            - { name: HOLTDROID_SOCKET, value: {{ $e.sessionDevices.socket | quote }} }
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+            runAsNonRoot: false
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+            seccompProfile: { type: RuntimeDefault }
+          resources:
+            {{- toYaml $e.sessionDevices.resources | nindent 12 }}
+          volumeMounts:
+            - { name: nri, mountPath: {{ dir $e.sessionDevices.socket }} }
+            {{- with $e.redroid.gpu }}
+            - { name: gpu, mountPath: {{ . }}, readOnly: true }
+            {{- end }}
+      volumes:
+        - name: nri
+          hostPath: { path: {{ dir $e.sessionDevices.socket }}, type: Directory }
+        {{- with $e.redroid.gpu }}
+        - name: gpu
+          hostPath: { path: {{ . }}, type: CharDevice }
         {{- end }}
 {{- end }}
 {{- if $e.nodeInfo.enabled }}

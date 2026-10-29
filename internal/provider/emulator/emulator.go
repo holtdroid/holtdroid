@@ -90,16 +90,18 @@ type Node struct {
 }
 
 // Redroid is the Android container: one image per Android version, the
-// screens a session may pick (fixed at boot), the node's DRI render node and
-// the shell policy of users' ADB.
+// screens a session may pick (fixed at boot), the node's DRI render node,
+// the shell policy of users' ADB, and whether the container is privileged
+// instead of getting its devices from the session-devices NRI plugin.
 type Redroid struct {
-	Images   map[string]string
-	Screens  []contract.Display
-	FPS      int
-	GPU      string
-	DataSize string
-	Args     []string
-	Shell    agent.ShellPolicy
+	Images     map[string]string
+	Screens    []contract.Display
+	FPS        int
+	GPU        string
+	DataSize   string
+	Args       []string
+	Shell      agent.ShellPolicy
+	Privileged bool
 }
 
 type Resources struct {

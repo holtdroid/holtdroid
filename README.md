@@ -72,7 +72,8 @@ frontend is embedded in `api`, and a Helm chart ties it together. See
 
 - x86_64 Kubernetes nodes with binder and a Mesa GPU for sessions,
   dedicated to them (root in a session is root on the node).
-- Privileged pods allowed in the Holtdroid namespace.
+- Pods with extra capabilities (Pod Security level `privileged`) allowed in
+  the Holtdroid namespace, and NRI in the nodes' runtime (containerd 2.0+).
 - Optionally an OIDC provider, an S3 bucket for the APK cache, or a
   forward-auth proxy.
 

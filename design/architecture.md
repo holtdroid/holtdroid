@@ -212,9 +212,19 @@ Session Pod (rendered by `provider-emulator`, golden-tested; decision #82):
 
 | Container | Image | Notes |
 |-----------|-------|-------|
-| `android` | `holtdroid-redroid:<version>` | privileged, `runAsUser`/`runAsGroup` 0 (Pod `supplementalGroupsPolicy: Strict`), `emptyDir` on `/data`, 0.5 CPU requested / 1.5–3 GiB. Boot arguments: GPU render node, the launch's screen (size, density), fps, memfd. The image is the launch's Android version (decision #83) |
+| `android` | `holtdroid-redroid:<version>` | not privileged (decision #173): all capabilities dropped but the 22 Android's init files ask for, seccomp `RuntimeDefault`, AppArmor unconfined, devices from the `session-devices` NRI plugin (Pod annotation `holtdroid/devices`); `redroid.privileged` brings back `privileged: true`. `runAsUser`/`runAsGroup` 0 (Pod `supplementalGroupsPolicy: Strict`), `emptyDir` on `/data`, 0.5 CPU requested / 1.5–3 GiB. Boot arguments: GPU render node, the launch's screen (size, density), fps, memfd. The image is the launch's Android version (decision #83) |
 | `agent` | `holtdroid-session` | not privileged, all capabilities dropped but `NET_ADMIN` with a VPN (network conditions on the tun); the node's `/sys/fs/cgroup` mounted read-only at `/host/cgroup` and the Pod uid in the environment, so the device card shows the `android` container's cgroup, and `HOLTDROID_DATALIMIT` (bytes of `redroid.dataSize`) as the device's storage. Runs `holtdroid agent`, which enables the screen's cutout overlay and relays users' ADB under `redroid.shell` |
 | `vpn` | upstream `sing-box` | `NET_ADMIN`, `/dev/net/tun`. Config from the per-session Secret |
+
+`holtdroid session-devices` (a DaemonSet on the session nodes, root
+without capabilities, the runtime's NRI socket mounted) is an NRI plugin:
+when the runtime creates the `android` container of an annotated session
+Pod in the provider's namespace it adds `/dev/fuse`, `/dev/net/tun`,
+`/dev/loop-control`, `/dev/loop0..511`, the render node and `/dev/kmsg` as
+`/dev/null`, and device cgroup rules for those plus every binder minor
+(each container mounts its own binderfs) and every loop device. In the
+container holtdroid-redroid's init wrapper mounts a writable cgroup2 and
+makes `/sys/devices/virtual/block` writable under a read-only `/sys`.
 
 All three share the Pod's network namespace. Plus a Secret (sing-box config,
 may contain VPN credentials) with an ownerReference to the Pod, so it is
@@ -936,9 +946,10 @@ HAL: scales into each YUV buffer (AHardwareBuffer lock, CPU), JPEG with stb for 
   (devices at once, session TTL, recordings quota, app data save size,
   Pixel perfect references) are
   resolved user → role (`auth.users.limits`) → server setting.
-- Session pods are **privileged** and Android shares the node's kernel, so
-  root in a session (the agent's adbd, the browser's ADB shell) is root on
-  the node (decision #82). Run them in a dedicated namespace on nodes
+- Android shares the node's kernel and keeps `CAP_SYS_ADMIN` in its user
+  namespace, so root in a session (the agent's adbd, the browser's ADB
+  shell) can reach the node (decisions #82, #173) even though the container
+  isn't privileged and sees only its own devices. Run them in a dedicated namespace on nodes
   dedicated to sessions, for users you trust with those nodes.
 - Agents are reachable only from the api, their provider (status, installs)
   and the ssh-gateway (NetworkPolicy in the chart); every browser request goes through the api's proxy and auth.
