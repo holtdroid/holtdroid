@@ -34,7 +34,7 @@ redroid:
   gpu: /dev/dri/renderD128
   dataSize: 8Gi
   shell: allowlist # what users' ADB may run inside Android: allowlist | full | off
-  privileged: false # true: a privileged Android container, for runtimes without NRI
+  privileged: true # false: no privileged container, devices from the session-devices plugin
   args: [] # more redroid boot arguments
 resources: # the Android container
   requests: { cpu: 500m, memory: 1536Mi }
@@ -75,7 +75,7 @@ nodeInfo:
 | `redroid.shell`            | What users' ADB may run inside Android: `allowlist` (default), `full` or `off`, see [Users' ADB](#users-adb-inside-android)                                                                                                                                                                         |
 | `redroid.gpu`              | DRI render node Android renders on                                                                                                                                                                                                                                                                  |
 | `redroid.dataSize`         | Size limit of the `emptyDir` holding Android's `/data`                                                                                                                                                                                                                                              |
-| `redroid.privileged`       | `false` (default): the Android container gets a fixed set of capabilities, the runtime's default seccomp profile and only the devices Android needs, from the [session-devices plugin](#session-devices). `true`: a privileged container, for runtimes without NRI                                  |
+| `redroid.privileged`       | `true` (default for now, see below): a privileged container, also for runtimes without NRI. `false`: the Android container gets a fixed set of capabilities, the runtime's default seccomp profile and only the devices Android needs, from the [session-devices plugin](#session-devices)          |
 | `resources`                | Android container resources. Leave out a CPU limit: a busy session may borrow idle cores                                                                                                                                                                                                            |
 | `agentResources`           | Agent container resources                                                                                                                                                                                                                                                                           |
 | `nodes`                    | Per-node overrides by node name: `slots` and `resources`                                                                                                                                                                                                                                            |
@@ -168,7 +168,13 @@ in-cluster a sidecar needs, such as a shared VPN gateway, goes into
 
 ## Session devices
 
-Unless `redroid.privileged` is set, the Android container runs with:
+:::caution
+Unprivileged sessions boot, but the Android container currently runs out of
+memory once frida-server starts, so the app never launches. The chart
+defaults to `redroid.privileged: true` until that is fixed.
+:::
+
+With `redroid.privileged: false` the Android container runs with:
 
 - the capabilities Android's init and services ask for, and no others:
   `CHOWN`, `DAC_OVERRIDE`, `DAC_READ_SEARCH`, `FOWNER`, `FSETID`, `KILL`,

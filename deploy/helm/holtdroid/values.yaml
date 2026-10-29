@@ -194,8 +194,10 @@ providers:
       # false: the Android container runs with a fixed set of capabilities,
       # the runtime's default seccomp profile and only the devices Android
       # needs, added by the sessionDevices NRI plugin (containerd 2.0+ or
-      # CRI-O 1.26+ with NRI on). true: privileged, for runtimes without NRI.
-      privileged: false
+      # CRI-O 1.26+ with NRI on). true: privileged, for runtimes without NRI,
+      # and the default until unprivileged sessions stop running out of
+      # memory once frida-server starts.
+      privileged: true
       # What users' ADB (the browser tabs and the holtdroid client) may run
       # inside Android, which is root on the node's kernel: allowlist (the
       # commands behind the Logcat, Files, App and Device tabs; no Terminal

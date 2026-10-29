@@ -387,6 +387,12 @@ Collected from the design conversation; each is reflected in the docs listed.
   out, remote ones still worked). `ps -eo stat,pid,args | awk '$1 ~ /^T/'`
   finds them; `kill -CONT` lets kube-proxy continue. Check
   `curl localhost:10256/healthz` on a node after any such incident.
+- **Unprivileged sessions run out of memory once frida-server starts**
+  (2026-10-29, first live session after decision #173): the Android
+  container hits its 3 GiB limit, the kernel OOM-kills zygote, and the
+  agent fails with "Unable to connect to remote frida-server". Privileged
+  sessions on the same images peak below the limit. The chart defaults to
+  `redroid.privileged: true` until this is found and fixed.
 - **Android init rewrites node sysctls** when the container is privileged
   (`redroid.privileged: true`) and `/proc/sys` is writable: `kernel.modprobe` becomes empty (module
   autoloading stops), `sysrq` 0, `unprivileged_bpf_disabled` 0,
