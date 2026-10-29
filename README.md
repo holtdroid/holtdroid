@@ -27,22 +27,22 @@ clipboard sync and a VPN location switcher. Idle devices shut themselves down.
 
 ## Why it exists
 
-I'm a frontend engineer, and I build Holtdroid for my own use first. At work
-most of our users open the product inside an app's embedded WebView or in
-Chrome, often on old potato phones 🥔 with odd combinations of Android and
-WebView versions. Their bugs have to be reproduced on exactly those
-combinations.
+I'm a frontend engineer, and I build Holtdroid for my own use first. Most
+users of the products I've worked on open them inside an app's embedded
+WebView or in Chrome, and a fair share of them do it on old potato phones 🥔
+with cursed combinations of Android and WebView versions. Their bugs only reproduce on
+exactly those combinations.
 
-I'm also lazy, and debugging over ADB through Chrome DevTools is flaky and
-awkward. So instead of fighting it I wrote a tool that starts the WebView I
-need and then digs into what the page actually does: the network requests on
-the critical loading path, graphics problems, how well Cloudflare caches the
-assets, and more.
+I'm also very lazy, and debugging over ADB through Chrome DevTools is flaky
+and awkward enough to drain whatever motivation was left. So instead of
+fighting it I wrote a tool that starts the WebView I need and then digs into
+what the page actually does: the network requests on the critical loading path,
+graphics glitches in images and SVG, how well Cloudflare caches the assets, and more.
 
-I'm probably not the only person who rewrites SVG filters by hand and obsesses
-over caching so the product loads fast on a bad connection without
-overloading the phone, so I made it public ^.^ If something should be fixed
-or added, I'd be glad to hear it: open an
+Maybe I'm the only weirdo out there who rewrites SVG filters by hand and loses
+sleep over cache hit rates so that people on a bad connection get a page that
+loads fast and doesn't cook their phone. Just in case I'm not, I made it public
+^.^ If something should be fixed or added, I'd be glad to hear it: open an
 [issue](https://github.com/holtdroid/holtdroid/issues).
 
 ## Try it
