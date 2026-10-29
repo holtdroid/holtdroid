@@ -1,0 +1,129 @@
+<aside class="hd-ai not-content" aria-label="Disclaimer">
+  <svg class="box" viewBox="0 0 64 64" aria-hidden="true">
+    <circle class="halo" cx="32" cy="24" r="20" fill="#f5b446" opacity=".18"></circle>
+    <circle cx="32" cy="26" r="11" fill="#f5b446" opacity=".22"></circle>
+    <path d="M12 34h40v18a4 4 0 0 1-4 4H16a4 4 0 0 1-4-4z" fill="#8a5a3c"></path>
+    <path d="M12 40h40v4H12z" fill="#6d4630"></path>
+    <rect x="28.5" y="41" width="7" height="8" rx="1.5" fill="#d9b48f"></rect>
+    <g class="lid">
+      <path d="M10 31.5 45.5 17l2.4 5.6L12.4 37z" fill="#a06b48"></path>
+      <path d="M10 31.5 45.5 17" stroke="#c4875c" stroke-width="1.4" stroke-linecap="round"></path>
+    </g>
+    <g class="sparks">
+      <circle cx="24" cy="14" r="1.8" fill="#f5b446"></circle>
+      <circle cx="34" cy="7" r="1.4" fill="#ffe08a"></circle>
+      <circle cx="40" cy="27" r="1.6" fill="#3ddc84"></circle>
+      <circle cx="29" cy="21" r="1.2" fill="#ffe08a"></circle>
+      <circle cx="19" cy="24" r="1" fill="#3ddc84"></circle>
+      <path d="M44 9l1 2.4 2.4 1-2.4 1-1 2.4-1-2.4-2.4-1 2.4-1z" fill="#ffe08a"></path>
+    </g>
+  </svg>
+  <div class="copy">
+    <p class="label">Disclaimer · Pandora's box</p>
+    <p class="title">Fully AI-generated. Use at your own risk.</p>
+    <p class="text">
+      Not a single line of Holtdroid was written or reviewed by a human: all of it was written by Claude through Claude
+      Code. Read what you deploy, keep it away from anything you can't afford to lose, and open the box with care.
+    </p>
+  </div>
+</aside>
+
+<style>
+  .hd-ai {
+    position: relative;
+    display: flex;
+    gap: 1.25rem;
+    align-items: center;
+    overflow: hidden;
+    margin-block: 1.5rem;
+    padding: 1.25rem 1.5rem;
+    border: 1px solid rgb(245 180 70 / 0.4);
+    border-radius: 1.1rem;
+    background:
+      radial-gradient(18rem 10rem at 3.5rem 50%, rgb(245 180 70 / 0.18), transparent 70%),
+      linear-gradient(135deg, #15110a, #0d0e0b);
+    color: #f4f1ea;
+    font-family: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  }
+  .box {
+    flex-shrink: 0;
+    width: 4.5rem;
+    height: 4.5rem;
+  }
+  .lid {
+    transform-box: fill-box;
+    transform-origin: 0% 100%;
+    animation: lid 4s ease-in-out infinite;
+  }
+  .sparks {
+    animation: sparks 4s ease-in-out infinite;
+  }
+  .halo {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: halo 4s ease-in-out infinite;
+  }
+  .copy {
+    display: grid;
+    gap: 0.3rem;
+  }
+  .copy p {
+    margin: 0;
+  }
+  .label {
+    color: #f5b446;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .title {
+    font-size: 1.15rem;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+  }
+  .text {
+    color: #c9c2b4;
+    font-size: 0.92rem;
+    line-height: 1.55;
+  }
+  @keyframes lid {
+    0%,
+    100% {
+      transform: rotate(0deg);
+    }
+    45%,
+    60% {
+      transform: rotate(-9deg);
+    }
+  }
+  @keyframes sparks {
+    0%,
+    100% {
+      opacity: 0.4;
+      transform: translateY(2px);
+    }
+    50% {
+      opacity: 1;
+      transform: translateY(-3px);
+    }
+  }
+  @keyframes halo {
+    50% {
+      transform: scale(1.12);
+    }
+  }
+  @media (max-width: 36rem) {
+    .hd-ai {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .lid,
+    .sparks,
+    .halo {
+      animation: none;
+    }
+  }
+</style>
