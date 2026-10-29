@@ -139,7 +139,7 @@ type Capabilities struct {
 	Clipboard bool
 	Locations []Location // empty when VPN is not supported/configured
 	DefaultLocation string // where a session starts when CreateSession has no location
-	ABIs      []string   // what the device can run, incl. translated ABIs
+	ABIs      []string   // what the device can run, preferred first, incl. translated ABIs; the api starts a build with native code only where one of its ABIs is listed (decision #164)
 	Screens   []Display  // optional (virtual devices): screens a launch may pick; the first is the default (decision #83)
 	Versions  []string   // optional (virtual devices): Android versions a launch may pick, newest first
 	WebView   bool       // a launch may install a WebView build from the api's catalog over the built-in one (decision #88)

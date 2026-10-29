@@ -37,6 +37,8 @@ you need, and to throw the device away when you're done.
 - **Launch says “Join the queue”**: all devices are busy. Stay on the page: the device starts as soon as one
   frees up.
 - **An Android version is greyed out**: the app doesn't support it (its `minSdk` is higher). Hover it to see why.
+- **A provider or phone is greyed out with “Doesn't run this build”**: the build has native code only for another
+  processor (an x86 build on an ARM phone, say) and there's no build of this version for the device's.
 - **The device failed to start**: the reason is shown on the progress card. Launch again; if it repeats, send the
   message to whoever runs Holtdroid.
 

@@ -86,4 +86,12 @@ test("newestRunnable", () => {
   expect(newestRunnable(builds, "com.android.chrome", 35)?.id).toBe("new")
   expect(newestRunnable(builds, "com.android.chrome", 29)).toBeUndefined()
   expect(newestRunnable(builds, "com.android.chrome", undefined)).toBeUndefined()
+
+  const variants = [
+    { id: "x86", app: { package: "com.android.chrome", versionCode: 306, abis: ["x86"] } },
+    { id: "arm", app: { package: "com.android.chrome", versionCode: 304, abis: ["arm64-v8a"] } },
+  ]
+  expect(newestRunnable(variants, "com.android.chrome", 34)?.id).toBe("x86")
+  expect(newestRunnable(variants, "com.android.chrome", 34, ["arm64-v8a", "armeabi-v7a"])?.id).toBe("arm")
+  expect(newestRunnable(variants, "com.android.chrome", 34, ["mips"])).toBeUndefined()
 })

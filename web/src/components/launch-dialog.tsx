@@ -18,6 +18,7 @@ import { useAppDataFor, useArtifacts, useProviders, useRecordings } from "@/api/
 import { AppIcon } from "@/components/app-icon"
 import { artifactTitle } from "@/components/artifact-list"
 import { AndroidVersionCard } from "@/components/launch/android-version"
+import { bestVariant, variantsOf } from "@/lib/abi"
 import { apiLevels, needsAndroid, newestRunnable } from "@/lib/android"
 import { ChoiceCard, ChoiceGroup, Section } from "@/components/launch/choice-card"
 import { DevicePicker } from "@/components/launch/device-picker"
@@ -131,6 +132,9 @@ function LaunchFlow({
 }) {
   const providers = useProviders()
   const usable = useMemo(() => (providers.data ?? []).filter((p) => !p.error), [providers.data])
+  const builds = useArtifacts("").data?.items ?? []
+  const variants = variantsOf(builds, artifact)
+  const runsOn = (abis: string[] | undefined) => !!bestVariant(variants, abis)
   const [picked, setPicked] = useState<string | null>(null)
   const [step, setStep] = useState<"provider" | "options">("provider")
   const [chosenLocation, setChosenLocation] = useState<string | null>(null)
@@ -142,7 +146,8 @@ function LaunchFlow({
   const [withCache, setWithCache] = useState(false)
 
   const single = usable.length === 1
-  const recommended = usable.find(isVirtual)?.name ?? usable[0]?.name
+  const fitting = usable.filter((p) => runsOn(p.capabilities.abis))
+  const recommended = (fitting.find(isVirtual) ?? fitting[0] ?? usable[0])?.name
   const selected = picked ?? recommended ?? ""
   const stage = single || step === "options" ? "options" : "provider"
 
@@ -173,21 +178,21 @@ function LaunchFlow({
     artifact.app?.package,
   )
   const launch = useStartSession()
-  const builds = useArtifacts("").data?.items ?? []
+  const abis = slot?.capabilities?.abis ?? provider?.capabilities.abis
+  const build = bestVariant(variants, abis)
+  const shown = build ?? artifact
   const alternativeFor = (v: string) =>
-    runs(v) || !artifact.app ? undefined : newestRunnable(builds, artifact.app.package, apiLevels[v])
+    runs(v) || !artifact.app ? undefined : newestRunnable(builds, artifact.app.package, apiLevels[v], abis)
   const appData = useAppDataFor(artifact.app?.package)
   const recordings = useRecordings()
   const [record, setRecord] = useState(recordPreference)
   const [imageScan, setImageScan] = useState(imageScanPreference)
   const [saveData, setSaveData] = useState(saveAppDataPreference)
   const snapshot = appData.items.find((d) => d.id === chosenData)
-  const appVersion = artifact.app?.versionCode ?? 0
+  const appVersion = shown.app?.versionCode ?? 0
   const newerData = !!snapshot?.versionCode && appVersion > 0 && snapshot.versionCode > appVersion
 
-  const abis = slot?.capabilities?.abis ?? provider?.capabilities.abis
-  const missingABI =
-    artifact.app && artifact.app.abis.length > 0 && abis ? !artifact.app.abis.some((abi) => abis.includes(abi)) : false
+  const builtFor = [...new Set(variants.flatMap((v) => v.app?.abis ?? []))]
   const slots = provider?.capacity.slots ?? []
   const virtual = provider ? isVirtual(provider) : false
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -198,10 +203,10 @@ function LaunchFlow({
   const visibleScreens = chosen && !shortlist.includes(chosen) ? [...shortlist.slice(0, 4), chosen] : shortlist
 
   const submit = () => {
-    if (usable.length === 0) return
+    if (usable.length === 0 || !build) return
     const choice = snapshot && { id: snapshot.id, cache: withCache && snapshot.cache }
     launch(
-      artifact,
+      build,
       {
         provider: provider?.name ?? selected,
         slot: virtual ? undefined : slot?.id,
@@ -220,10 +225,11 @@ function LaunchFlow({
         <div className="flex items-center gap-3 pr-6">
           <AppIcon src={artifact.iconUrl} className="size-10" />
           <div className="min-w-0">
-            <DialogTitle className="truncate">Launch {artifactTitle(artifact)}</DialogTitle>
+            <DialogTitle className="truncate">Launch {artifactTitle(shown)}</DialogTitle>
             <DialogDescription className="truncate font-mono text-xs">
-              {artifact.app?.package ?? artifact.fileName}
-              {artifact.app?.versionName ? ` · ${artifact.app.versionName}` : ""}
+              {shown.app?.package ?? shown.fileName}
+              {shown.app?.versionName ? ` · ${shown.app.versionName}` : ""}
+              {variants.length > 1 && build ? ` · ${build.app?.abis.join(", ")}` : ""}
             </DialogDescription>
           </div>
         </div>
@@ -243,6 +249,7 @@ function LaunchFlow({
                 <ProviderCard
                   key={p.name}
                   provider={p}
+                  runs={runsOn(p.capabilities.abis)}
                   recommended={p.name === recommended && usable.length > 1}
                   selected={p.name === selected}
                   onSelect={() => setPicked(p.name)}
@@ -344,7 +351,13 @@ function LaunchFlow({
                     </div>
                   </ChoiceCard>
                   {slots.map((s) => (
-                    <DeviceCard key={s.id} slot={s} selected={s.id === slot?.id} onSelect={() => setChosenSlot(s.id)} />
+                    <DeviceCard
+                      key={s.id}
+                      slot={s}
+                      runs={runsOn(s.capabilities?.abis)}
+                      selected={s.id === slot?.id}
+                      onSelect={() => setChosenSlot(s.id)}
+                    />
                   ))}
                 </ChoiceGroup>
               </Section>
@@ -494,11 +507,11 @@ function LaunchFlow({
                 </AlertDescription>
               </Alert>
             )}
-            {missingABI && (
+            {!build && (
               <Alert>
                 <AlertDescription>
-                  This APK ships native code for {artifact.app?.abis.join(", ")}, which “{slot?.label ?? provider.name}”
-                  may not run.
+                  {variants.length > 1 ? "These builds ship" : "This build ships"} native code only for{" "}
+                  {builtFor.join(", ")}, which “{slot?.label ?? provider.name}” doesn't run.
                 </AlertDescription>
               </Alert>
             )}
@@ -523,7 +536,7 @@ function LaunchFlow({
             <ArrowRightIcon />
           </Button>
         ) : (
-          <Button onClick={submit} disabled={usable.length === 0}>
+          <Button onClick={submit} disabled={usable.length === 0 || !build}>
             <RocketIcon />
             {free === 0 ? "Join the queue" : "Launch"}
           </Button>
@@ -535,11 +548,13 @@ function LaunchFlow({
 
 function ProviderCard({
   provider: p,
+  runs,
   recommended,
   selected,
   onSelect,
 }: {
   provider: ProviderView
+  runs: boolean
   recommended: boolean
   selected: boolean
   onSelect: () => void
@@ -549,7 +564,7 @@ function ProviderCard({
   const free = freeSlots(p)
   const total = p.capacity.slots.length
   return (
-    <ChoiceCard selected={selected} onSelect={onSelect} className="gap-3 p-4">
+    <ChoiceCard selected={selected} onSelect={onSelect} disabled={!runs} className="gap-3 p-4">
       <div className="flex items-center gap-3">
         <span className="bg-primary/10 text-primary grid size-11 shrink-0 place-items-center rounded-xl">
           <Icon className="size-5" />
@@ -564,11 +579,17 @@ function ProviderCard({
       </div>
       <p className="text-muted-foreground text-xs leading-relaxed">{kind.blurb}</p>
       <div className="flex items-center gap-1.5 text-xs">
-        <span className={cn("size-2 rounded-full", free > 0 ? "bg-emerald-500" : "bg-amber-500")} />
-        <span className="font-medium tabular-nums">
-          {free} of {total}
-        </span>
-        <span className="text-muted-foreground">{free > 0 ? "available" : "busy, you would wait in line"}</span>
+        {runs ? (
+          <>
+            <span className={cn("size-2 rounded-full", free > 0 ? "bg-emerald-500" : "bg-amber-500")} />
+            <span className="font-medium tabular-nums">
+              {free} of {total}
+            </span>
+            <span className="text-muted-foreground">{free > 0 ? "available" : "busy, you would wait in line"}</span>
+          </>
+        ) : (
+          <span className="text-muted-foreground">Doesn't run this build's native code</span>
+        )}
       </div>
     </ChoiceCard>
   )
@@ -581,12 +602,22 @@ const slotStates: Record<Slot["state"], { label: string; dot: string }> = {
   maintenance: { label: "Maintenance", dot: "bg-sky-500" },
 }
 
-function DeviceCard({ slot, selected, onSelect }: { slot: Slot; selected: boolean; onSelect: () => void }) {
+function DeviceCard({
+  slot,
+  runs,
+  selected,
+  onSelect,
+}: {
+  slot: Slot
+  runs: boolean
+  selected: boolean
+  onSelect: () => void
+}) {
   const caps = slot.capabilities
   const state = slotStates[slot.state]
   const facts = [caps?.android && `Android ${caps.android}`, caps?.root && "rooted"].filter(Boolean).join(" · ")
   return (
-    <ChoiceCard selected={selected} onSelect={onSelect} disabled={slot.state === "offline"}>
+    <ChoiceCard selected={selected} onSelect={onSelect} disabled={slot.state === "offline" || !runs}>
       <div className="flex items-center gap-2.5">
         <span className="bg-muted text-muted-foreground grid size-9 shrink-0 place-items-center rounded-lg">
           <SmartphoneIcon className="size-4" />
@@ -598,7 +629,7 @@ function DeviceCard({ slot, selected, onSelect }: { slot: Slot; selected: boolea
       </div>
       <div className="flex items-center gap-1.5 text-xs">
         <span className={cn("size-2 rounded-full", state.dot)} />
-        <span>{state.label}</span>
+        <span>{runs ? state.label : "Doesn't run this build"}</span>
         {caps?.root && <ShieldCheckIcon className="text-muted-foreground ml-auto size-3.5" />}
       </div>
     </ChoiceCard>

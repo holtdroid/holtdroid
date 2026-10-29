@@ -367,7 +367,7 @@ func (p *Provider) podSession(pod corev1.Pod) contract.Session {
 	}
 	caps := &contract.SlotCapabilities{
 		Android:  a[annotationAndroid],
-		ABIs:     []string{"x86_64", "arm64-v8a"},
+		ABIs:     []string{"x86_64", "x86", "arm64-v8a"},
 		Root:     true,
 		DevTools: contract.DevToolsAll,
 		ADB:      true,

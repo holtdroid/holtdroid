@@ -17,7 +17,9 @@ hybrid apps, support engineers reproducing a customer bug.
    fills, plus your own uploads): its latest version, how many builds and
    versions there are and which sources they come from. **Launch** on a card
    starts the latest build; click the card to see every build of the app with
-   its version, who posted it, its note and changelog. Anyone signed in can
+   its version, who posted it, its note and changelog. Builds of one version
+   for different processors (x86 and ARM) share a row, and a launch takes
+   the one the chosen device runs natively. Anyone signed in can
    give an app a description (what it is for, how to test it): it shows
    above the builds and, shortened, on the app's card.
 2. Pick a build, choose a VPN location if you need one, press **Launch**. The

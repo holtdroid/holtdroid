@@ -481,6 +481,9 @@ func (s *Server) createSession(ctx context.Context, who auth.Identity, req launc
 	if need, level := requiredSDK(entry.Meta.MinSDK, artifact.Meta.Tags), apiLevels[req.android]; level > 0 && need > level {
 		return SessionView{}, fmt.Errorf("%w: %s needs Android API level %d, Android %s is %d", contract.ErrInvalid, artifact.FileName, need, req.android, level)
 	}
+	if candidates = s.running(ctx, candidates, entry.Meta.ABIs); len(candidates) == 0 {
+		return SessionView{}, fmt.Errorf("%w: %s has native code only for %s, which no device of the chosen providers runs", contract.ErrInvalid, artifact.FileName, strings.Join(entry.Meta.ABIs, ", "))
+	}
 	restore, snapshot, err := s.restoreFor(ctx, who.User, entry.Meta.Package, req.appData)
 	if err != nil {
 		return SessionView{}, err
@@ -501,7 +504,7 @@ func (s *Server) createSession(ctx context.Context, who auth.Identity, req launc
 	var sess contract.Session
 	err = s.queue.run(ctx, line, req.queue, func() error {
 		var err error
-		if target, err = s.pickSlot(ctx, candidates, req.slot, restore != nil); err != nil {
+		if target, err = s.pickSlot(ctx, candidates, req.slot, restore != nil, entry.Meta.ABIs); err != nil {
 			return err
 		}
 		sess, err = s.providers[target.provider].Create(context.WithoutCancel(ctx), contract.CreateSession{
@@ -566,12 +569,27 @@ func (s *Server) offering(ctx context.Context, names []string, location string) 
 	return out
 }
 
-// pickSlot finds a free slot among the providers in order. Given a slot, only
-// that one counts. Restoring app data prefers devices that can do it, and
-// skips the others unless only one provider was asked for.
-func (s *Server) pickSlot(ctx context.Context, names []string, slot string, appData bool) (launchTarget, error) {
+func (s *Server) running(ctx context.Context, names []string, abis []string) []string {
+	return slices.DeleteFunc(slices.Clone(names), func(name string) bool {
+		caps, err := s.providers[name].Capabilities(ctx)
+		return err == nil && !runsABIs(caps.ABIs, abis)
+	})
+}
+
+func runsABIs(device, apk []string) bool {
+	return len(apk) == 0 || len(device) == 0 || slices.ContainsFunc(apk, func(abi string) bool { return slices.Contains(device, abi) })
+}
+
+func slotRuns(sl contract.Slot, abis []string) bool {
+	return sl.Capabilities == nil || runsABIs(sl.Capabilities.ABIs, abis)
+}
+
+// pickSlot finds a free slot among the providers in order that runs the APK's
+// ABIs. Given a slot, only that one counts. Restoring app data prefers devices
+// that can do it, and skips the others unless only one provider was asked for.
+func (s *Server) pickSlot(ctx context.Context, names []string, slot string, appData bool, abis []string) (launchTarget, error) {
 	fits := func(sl contract.Slot) bool {
-		return sl.State == contract.SlotFree && (!appData || sl.Capabilities == nil || sl.Capabilities.AppData)
+		return sl.State == contract.SlotFree && slotRuns(sl, abis) && (!appData || sl.Capabilities == nil || sl.Capabilities.AppData)
 	}
 	var fallback *launchTarget
 	var lastErr error
@@ -586,12 +604,15 @@ func (s *Server) pickSlot(ctx context.Context, names []string, slot string, appD
 			if err != nil {
 				return launchTarget{}, err
 			}
+			if !slotRuns(c.Slots[i], abis) {
+				return launchTarget{}, fmt.Errorf("%w: %s doesn't run %s", contract.ErrInvalid, c.Slots[i].Label, strings.Join(abis, ", "))
+			}
 			return launchTarget{name, c.Slots[i].ID}, nil
 		}
 		if i := slices.IndexFunc(c.Slots, fits); i >= 0 {
 			return launchTarget{name, c.Slots[i].ID}, nil
 		}
-		if i, err := c.Pick(""); err == nil && len(names) == 1 {
+		if i, err := c.Pick(""); err == nil && len(names) == 1 && slotRuns(c.Slots[i], abis) {
 			fallback = &launchTarget{name, c.Slots[i].ID}
 		}
 	}
@@ -631,6 +652,9 @@ func (s *Server) installArtifact(ctx context.Context, providerName, id, srcName,
 	}
 	if entry.Meta.Package != sess.Package {
 		return SessionView{}, fmt.Errorf("%w: %s is %s, the session runs %s", contract.ErrInvalid, artifact.FileName, entry.Meta.Package, sess.Package)
+	}
+	if sess.Capabilities != nil && !runsABIs(sess.Capabilities.ABIs, entry.Meta.ABIs) {
+		return SessionView{}, fmt.Errorf("%w: %s has native code only for %s, which this device doesn't run", contract.ErrInvalid, artifact.FileName, strings.Join(entry.Meta.ABIs, ", "))
 	}
 	ref := artifactRef(srcName, artifact.ID, artifact.Revision)
 	s.activity.Mark(sessionKey{providerName, id})

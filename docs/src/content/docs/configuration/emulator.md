@@ -124,8 +124,11 @@ whatever else the node runs.
   wrapper keeps Android from rewriting the node's sysctls. See
   [Security](/holtdroid/operations/security/).
 
-Apps with only `arm64-v8a` native code run through `libndk_translation`;
-separate ARM executables don't (that would need `binfmt_misc` on the node).
+Sessions run `x86_64` and 32-bit `x86` apps natively. Apps with only
+`arm64-v8a` native code run through `libndk_translation`; separate ARM
+executables don't (that would need `binfmt_misc` on the node). When a
+version of an app has both an x86 and an ARM build, a launch on a virtual
+device takes the x86 one.
 
 ## Pod layout
 

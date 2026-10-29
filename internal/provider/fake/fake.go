@@ -76,7 +76,7 @@ func (p *Provider) Capabilities(context.Context) (contract.Capabilities, error) 
 		Clipboard:       true,
 		Locations:       p.locations,
 		DefaultLocation: p.location,
-		ABIs:            []string{"x86_64", "arm64-v8a"},
+		ABIs:            []string{"x86_64", "x86", "arm64-v8a"},
 		WebView:         true,
 	}, nil
 }

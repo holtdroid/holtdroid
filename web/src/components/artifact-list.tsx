@@ -52,6 +52,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useNow } from "@/hooks/use-now"
+import { groupVariants } from "@/lib/abi"
 import { formatBytes, formatRelative, safeLink } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
@@ -112,6 +113,7 @@ export function ArtifactList({ onLaunch, pkg }: { onLaunch: (artifact: ArtifactV
   )
   const q = query.trim().toLowerCase()
   const items = useMemo(() => (q ? all.filter((a) => matches(a, q)) : all), [all, q])
+  const rows = useMemo(() => groupVariants(items), [items])
   const groups = useMemo(
     () => (pkg ? [] : groupByPackage(all).filter((g) => !q || g.items.some((a) => matches(a, q)))),
     [all, pkg, q],
@@ -226,8 +228,13 @@ export function ArtifactList({ onLaunch, pkg }: { onLaunch: (artifact: ArtifactV
           </ul>
         ) : (
           <ul className="grid gap-2">
-            {items.map((a) => (
-              <ArtifactRow key={`${a.source}/${a.id}`} artifact={a} now={now} onLaunch={onLaunch} />
+            {rows.map((variants) => (
+              <ArtifactRow
+                key={`${variants[0]!.source}/${variants[0]!.id}`}
+                variants={variants}
+                now={now}
+                onLaunch={onLaunch}
+              />
             ))}
           </ul>
         )}
@@ -255,6 +262,7 @@ function AppCard({
   const latest = items[0]!
   const title = appTitle(latest)
   const versions = new Set(items.map((a) => a.app?.versionName).filter(Boolean)).size
+  const builds = groupVariants(items).length
   const sources = [...new Set(items.map((a) => a.source))]
   const apps = useApps()
   const description = pkg ? apps.data?.get(pkg)?.description : undefined
@@ -287,7 +295,7 @@ function AppCard({
       <div className="flex flex-wrap items-center gap-1">
         {latest.app?.versionName && <Badge variant="secondary">{latest.app.versionName}</Badge>}
         <Badge variant="outline">
-          {items.length} {items.length === 1 ? "build" : "builds"}
+          {builds} {builds === 1 ? "build" : "builds"}
           {versions > 1 ? ` · ${versions} versions` : ""}
         </Badge>
         {sources.map((s) => (
@@ -317,14 +325,17 @@ function AppCard({
 }
 
 function ArtifactRow({
-  artifact: a,
+  variants,
   now,
   onLaunch,
 }: {
-  artifact: ArtifactView
+  variants: ArtifactView[]
   now: number
   onLaunch: (a: ArtifactView) => void
 }) {
+  const a = variants[0]!
+  const abis = [...new Set(variants.flatMap((v) => v.app?.abis ?? []))]
+  const downloads = variants.filter((v) => v.canDownload)
   const title = artifactTitle(a)
   const isPrivate = a.meta.visibility === "private"
   const tags = Object.entries(a.meta.tags ?? {})
@@ -356,7 +367,7 @@ function ArtifactRow({
               </TooltipContent>
             </Tooltip>
           )}
-          {a.app?.abis.map((abi) => (
+          {abis.map((abi) => (
             <Badge key={abi} variant="outline" className="font-mono text-[10px]">
               {abi}
             </Badge>
@@ -414,17 +425,42 @@ function ArtifactRow({
             </TooltipContent>
           </Tooltip>
         )}
-        {a.canDownload && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" asChild>
-                <a href={artifactDownloadURL(a)} download={a.fileName} aria-label="Download the APK">
-                  <DownloadIcon />
-                </a>
+        {downloads.length > 1 ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" aria-label="Download an APK">
+                <DownloadIcon />
               </Button>
-            </TooltipTrigger>
-            <TooltipContent>Download {a.fileName}</TooltipContent>
-          </Tooltip>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {downloads.map((v) => (
+                <DropdownMenuItem key={v.id} asChild>
+                  <a href={artifactDownloadURL(v)} download={v.fileName}>
+                    <DownloadIcon />
+                    <span className="font-mono text-xs">{v.app?.abis.join(", ") || v.fileName}</span>
+                    <span className="text-muted-foreground ml-auto text-xs">{formatBytes(v.size)}</span>
+                  </a>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          downloads[0] && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" asChild>
+                  <a
+                    href={artifactDownloadURL(downloads[0])}
+                    download={downloads[0].fileName}
+                    aria-label="Download the APK"
+                  >
+                    <DownloadIcon />
+                  </a>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Download {downloads[0].fileName}</TooltipContent>
+            </Tooltip>
+          )
         )}
         {a.canManage && <ManageMenu artifact={a} title={title} />}
         <QuickLaunchButton artifact={a} />

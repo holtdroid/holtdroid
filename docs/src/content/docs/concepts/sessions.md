@@ -51,8 +51,9 @@ and there is no search bar. Text pasted from the browser lands in the
 device's clipboard without Android's clipboard preview popping up.
 
 **Switch version** (click the app's name and icon in the session header)
-lists every build with the same application ID and installs the chosen one into the
-running device:
+lists every build with the same application ID that the device runs (of
+the x86 and ARM builds of one version, the device's own) and installs the
+chosen one into the running device:
 
 - with **Keep app data** on (default) it is installed over the current
   build, upgrade or downgrade, so you can test how the app's storage

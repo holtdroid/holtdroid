@@ -1,6 +1,7 @@
 package api
 
 import (
+	"archive/zip"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -331,6 +332,80 @@ func TestLaunchTarget(t *testing.T) {
 	}
 }
 
+type armPhone struct{ contract.Provider }
+
+func (p armPhone) Capabilities(ctx context.Context) (contract.Capabilities, error) {
+	c, err := p.Provider.Capabilities(ctx)
+	c.ABIs = []string{"arm64-v8a", "armeabi-v7a"}
+	return c, err
+}
+
+func withNativeCode(t *testing.T, to, abi string) {
+	t.Helper()
+	in, err := zip.OpenReader("../apk/testdata/helloworld.apk")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer in.Close()
+	f, err := os.Create(to)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	out := zip.NewWriter(f)
+	for _, e := range in.File {
+		if err := out.Copy(e); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := out.Create("lib/" + abi + "/libnative.so"); err != nil {
+		t.Fatal(err)
+	}
+	if err := out.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestLaunchABIs(t *testing.T) {
+	h := newHarness(t, 3)
+	h.srv.providers["phone"] = armPhone{fake.New(fake.Config{Slots: 1, StepDelay: time.Hour, PublicURL: "http://agents"})}
+	h.srv.provOrder = []string{"phone", "fake"}
+	for _, abi := range []string{"x86", "arm64-v8a", "mips"} {
+		withNativeCode(t, filepath.Join(h.apks, abi+".apk"), abi)
+	}
+
+	steps := []struct {
+		name, apk, provider string
+		code                int
+		want                string
+	}{
+		{"x86 on the phone", "x86", "phone", http.StatusUnprocessableEntity, ""},
+		{"x86 on any provider skips the phone", "x86", "", http.StatusCreated, "fake"},
+		{"ARM on any provider takes the phone", "arm64-v8a", "", http.StatusCreated, "phone"},
+		{"no device runs it", "mips", "", http.StatusUnprocessableEntity, ""},
+		{"no native code", "", "phone", http.StatusConflict, ""},
+	}
+	for _, st := range steps {
+		file := "hello.apk"
+		if st.apk != "" {
+			file = st.apk + ".apk"
+		}
+		body := map[string]string{"source": "local", "artifactId": encodeID(file), "provider": st.provider}
+		rec := h.do(http.MethodPost, "/api/v1/sessions", "otter", "", body)
+		if rec.Code != st.code {
+			t.Fatalf("%s: code = %d %s", st.name, rec.Code, rec.Body.String())
+		}
+		if st.code == http.StatusUnprocessableEntity && !strings.Contains(rec.Body.String(), "has native code only for "+st.apk) {
+			t.Fatalf("%s: %s", st.name, rec.Body.String())
+		}
+		if st.code == http.StatusCreated {
+			if v := decode[SessionView](t, rec); v.Provider != st.want {
+				t.Fatalf("%s: started on %s, want %s", st.name, v.Provider, st.want)
+			}
+		}
+	}
+}
+
 func TestLaunchQueue(t *testing.T) {
 	h := newHarness(t, 1)
 	h.srv.queue.poll = time.Millisecond
@@ -635,6 +710,10 @@ func TestInstallArtifact(t *testing.T) {
 	}
 	if rec := h.do(http.MethodPost, path, "otter", "", map[string]any{"source": "local", "artifactId": encodeID("broken.apk")}); rec.Code < 400 {
 		t.Fatalf("broken build: %d", rec.Code)
+	}
+	withNativeCode(t, filepath.Join(h.apks, "mips.apk"), "mips")
+	if rec := h.do(http.MethodPost, path, "otter", "", map[string]any{"source": "local", "artifactId": encodeID("mips.apk")}); rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("a build the device doesn't run: %d %s", rec.Code, rec.Body.String())
 	}
 	if rec := h.do(http.MethodPost, "/s/fake/"+v.ID+"/v1/install/", "otter", "", contract.Install{ArtifactURL: "http://evil/x.apk", ArtifactRef: "x"}); rec.Code != http.StatusForbidden {
 		t.Fatalf("install through the agent proxy: %d", rec.Code)

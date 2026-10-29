@@ -42,7 +42,7 @@ func (p *Provider) deviceInfo(i int, busy bool) *contract.DeviceInfo {
 		SDK:           35,
 		Build:         "AP3A.241105.008",
 		SecurityPatch: "2024-11-05",
-		ABIs:          []string{"x86_64", "arm64-v8a"},
+		ABIs:          []string{"x86_64", "x86", "arm64-v8a"},
 		Cores:         4,
 		MemoryTotal:   4 << 30,
 		StorageUsed:   int64(3+i) << 30,

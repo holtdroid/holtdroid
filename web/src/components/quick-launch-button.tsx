@@ -1,11 +1,12 @@
 import { CheckIcon, DatabaseIcon, HardDriveIcon, type LucideIcon, PackageIcon, ZapIcon } from "lucide-react"
 import { type ReactNode, useRef, useState } from "react"
 import type { ArtifactView } from "@/api/client"
-import { useAppData } from "@/api/queries"
+import { useAppData, useArtifacts } from "@/api/queries"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { quickAppData, useLaunchTarget, useStartSession } from "@/hooks/use-launch-target"
+import { bestVariant, variantsOf } from "@/lib/abi"
 import { needsAndroid } from "@/lib/android"
 import { formatRelative } from "@/lib/format"
 import { type QuickLaunchMode, quickLaunchMode, rememberQuickLaunchMode } from "@/lib/launch-prefs"
@@ -26,6 +27,8 @@ export function QuickLaunchButton({ artifact }: { artifact: ArtifactView }) {
   )
   const launch = useStartSession()
   const appData = useAppData()
+  const builds = useArtifacts("").data?.items ?? []
+  const build = provider ? bestVariant(variantsOf(builds, artifact), provider.capabilities.abis) : artifact
   const [mode, setMode] = useState<QuickLaunchMode>(quickLaunchMode)
   const [open, setOpen] = useState(false)
   const closeTimer = useRef<number | undefined>(undefined)
@@ -33,25 +36,27 @@ export function QuickLaunchButton({ artifact }: { artifact: ArtifactView }) {
   const pkg = artifact.app?.package
   const rules = appData.data
   const latest = rules?.items.find((d) => d.package === pkg)
-  const disabled = usable.length === 0 || blocked
+  const disabled = usable.length === 0 || blocked || !build
   const place = locations.find((l) => l.id === location)
   const where = `${provider?.name ?? "any device"}${android ? ` · Android ${android}` : ""}${place ? ` · ${locationLabel(place)}` : ""}`
-  const hint = blocked
-    ? `${needsAndroid(artifact.minSdk ?? 0)}; ${provider ? `“${provider.name}” doesn't offer it` : "no device here offers it"}`
-    : usable.length === 0
-      ? "No providers available"
-      : free === 0
-        ? `${provider ? `All slots of “${provider.name}”` : "All devices"} are busy, launching waits in line`
-        : `Quick launch on ${where}`
+  const hint = !build
+    ? `“${provider?.name}” doesn't run this build's native code (${artifact.app?.abis.join(", ")})`
+    : blocked
+      ? `${needsAndroid(artifact.minSdk ?? 0)}; ${provider ? `“${provider.name}” doesn't offer it` : "no device here offers it"}`
+      : usable.length === 0
+        ? "No providers available"
+        : free === 0
+          ? `${provider ? `All slots of “${provider.name}”` : "All devices"} are busy, launching waits in line`
+          : `Quick launch on ${where}`
 
   const fire = (m: QuickLaunchMode) => {
-    if (disabled) return
+    if (disabled || !build) return
     setOpen(false)
     if (m !== mode) {
       setMode(m)
       rememberQuickLaunchMode(m)
     }
-    launch(artifact, { provider: target, location, screen, android, webview }, quickAppData(m, rules, pkg))
+    launch(build, { provider: target, location, screen, android, webview }, quickAppData(m, rules, pkg))
   }
 
   const button = (

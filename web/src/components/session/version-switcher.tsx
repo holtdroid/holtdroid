@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Switch } from "@/components/ui/switch"
 import { useNow } from "@/hooks/use-now"
+import { bestVariant, groupVariants } from "@/lib/abi"
 import { formatRelative } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
@@ -30,12 +31,18 @@ export function VersionSwitcher({
   const install = useInstallBuild()
   const now = useNow(30_000)
 
+  const abis = session.capabilities?.abis
   const builds = useMemo(
     () =>
-      (artifacts.data?.items ?? [])
-        .filter((a) => a.app?.package === session.package)
+      groupVariants((artifacts.data?.items ?? []).filter((a) => a.app?.package === session.package))
+        .map(
+          (variants) =>
+            variants.find((a) => a.source === session.source && a.id === session.artifactId) ??
+            bestVariant(variants, abis),
+        )
+        .filter((a) => !!a)
         .toSorted((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()),
-    [artifacts.data, session.package],
+    [artifacts.data, session.package, session.source, session.artifactId, abis],
   )
   const current = builds.find((a) => a.source === session.source && a.id === session.artifactId)
   const shown = useMemo(() => {

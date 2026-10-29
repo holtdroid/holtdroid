@@ -4958,3 +4958,32 @@ Delete and New folder unless `SlotCapabilities.Shell` says the shell is
 **Consequences.** Under `allowlist` Files browses, downloads and uploads
 (file transfer passes every policy); deleting and creating folders need
 `full`.
+
+## 164. Builds of one version for different ABIs launch as one
+
+**Context.** The APKMirror sync stored only x86 Chrome builds, which redroid
+needs (decision #119). On the Galaxy A05 they failed with
+`INSTALL_FAILED_NO_MATCHING_ABIS`: the launch dialog only warned that the
+device "may not run" the APK. Syncing ARM builds as well put two rows per
+Chrome version on the app page, and nothing stopped picking the ARM one on
+redroid, where Chrome segfaults under ARM translation, or the x86 one on a
+phone. The emulator also listed only `x86_64` and `arm64-v8a`, so the 32-bit
+x86 Chrome got the warning on redroid, where it runs.
+
+**Decision.** Builds of the same source, package and title (or version name
+when there is no title) whose ABIs don't overlap are variants of one build.
+The app page shows them as one row with every ABI and a download per
+variant. The launch dialog, quick launch and Switch version take the variant
+whose ABI comes first in the device's list, so providers list the ABI they
+run natively first: redroid now reports `x86_64, x86, arm64-v8a`. Providers
+and phones that run no variant are greyed out and Launch is disabled. The
+api checks the same on its side: a launch only goes to providers and slots
+that list one of the APK's ABIs (or report none), and installing another
+build into a session needs one of the session's ABIs, so launch links and
+API clients can't start an x86 build on an ARM phone either.
+
+**Consequences.** An ARM-only build still launches on redroid when no x86
+variant of that version exists, as other ARM-only apps do through
+translation. Two uploads of one version with overlapping ABIs stay separate
+rows. A sync job that wants its x86 and ARM copies merged gives them the
+same title.

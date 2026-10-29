@@ -76,7 +76,9 @@ and the OpenAPI document a Go provider serves at `/openapi.json`.
 
 `capabilities` tells the UI what to show: VPN locations and the default
 one, whether DevTools and the clipboard work, the display kind (`scrcpy`),
-and the ABIs the device runs. When devices differ from slot to slot, as
+and the ABIs the device runs, the one it runs natively first (the api
+starts an APK with native code only on a device that lists one of its
+ABIs, and the UI picks the build of a version whose ABI comes first). When devices differ from slot to slot, as
 phones do, put a `capabilities` object (model, Android version, ABIs, root,
 DevTools scope `all` or `debuggable`, ADB, app data) on each slot and copy
 it onto the sessions that run there; the session page reads it from the

@@ -37,12 +37,18 @@ export function needsAndroid(minSdk: number) {
   return version ? `Needs Android ${version} or newer (API level ${minSdk})` : `Needs Android API level ${minSdk}`
 }
 
-type Build = { minSdk?: number; app?: { package: string; versionCode?: number } }
+type Build = { minSdk?: number; app?: { package: string; versionCode?: number; abis?: string[] } }
 
-export function newestRunnable<T extends Build>(builds: T[], pkg: string, level: number | undefined): T | undefined {
+export function newestRunnable<T extends Build>(
+  builds: T[],
+  pkg: string,
+  level: number | undefined,
+  device?: string[],
+): T | undefined {
   if (!level) return undefined
+  const runs = (b: T) => !device?.length || !b.app?.abis?.length || b.app.abis.some((abi) => device.includes(abi))
   return builds
-    .filter((b) => b.app?.package === pkg && (b.minSdk ?? 0) <= level)
+    .filter((b) => b.app?.package === pkg && (b.minSdk ?? 0) <= level && runs(b))
     .toSorted((a, b) => (b.app?.versionCode ?? 0) - (a.app?.versionCode ?? 0))[0]
 }
 
