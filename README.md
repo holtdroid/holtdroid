@@ -9,14 +9,6 @@
   <a href="https://github.com/holtdroid">All repositories</a>
 </p>
 
-<p align="center">
-  <img src="https://github.com/holtdroid/.github/raw/main/profile/assets/ai-disclaimer.png" alt="Disclaimer: fully AI-generated. Not a single line of code was written or reviewed by a human. Use at your own risk.">
-</p>
-
-> [!CAUTION]
-> **Fully AI-generated.** Not a single line of this project was written or reviewed by a human: all of it was
-> written by Claude through Claude Code. It's a Pandora's box, so use it at your own risk.
-
 Holtdroid is a self-hosted, browser-based Android sandbox for testing APKs.
 Pick a build from a folder or S3 bucket that your CI or a Slack sync fills, or
 upload your own, launch an Android device on demand, and get — in one browser
@@ -93,3 +85,13 @@ Generated avatars use [DiceBear](https://www.dicebear.com) (MIT) with the
 ## License
 
 [Apache-2.0](LICENSE)
+
+---
+
+<p align="center">
+  <img src="https://github.com/holtdroid/.github/raw/main/profile/assets/ai-disclaimer.png" alt="Disclaimer: fully AI-generated. Not a single line of code was written or reviewed by a human. Use at your own risk.">
+</p>
+
+> [!CAUTION]
+> **Fully AI-generated.** Not a single line of this project was written or reviewed by a human: all of it was
+> written by Claude through Claude Code. It's a Pandora's box, so use it at your own risk.
