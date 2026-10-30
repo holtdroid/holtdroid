@@ -86,6 +86,8 @@ const fakeKind: Kind = {
 const isVirtual = (p: ProviderView) =>
   (p.capabilities.versions?.length ?? 0) > 0 || (p.capabilities.screens?.length ?? 0) > 0
 
+const versionColumns = (n: number) => (n <= 3 ? n : Math.min(4, Math.ceil(n / 2)))
+
 const freeSlots = (p: ProviderView) => p.capacity.slots.filter((s) => s.state === "free").length
 
 export function LaunchDialog({
@@ -281,7 +283,11 @@ function LaunchFlow({
                 title="Android version"
                 hint={versions.some((v) => !runs(v)) ? `${needsAndroid(artifact.minSdk ?? 0)}.` : undefined}
               >
-                <ChoiceGroup label="Android version" className="grid-cols-2 sm:grid-cols-5">
+                <ChoiceGroup
+                  label="Android version"
+                  className="grid-cols-2 sm:grid-cols-(--cols)"
+                  style={{ "--cols": `repeat(${versionColumns(versions.length)}, minmax(0, 1fr))` }}
+                >
                   {versions.map((v) => {
                     const alternative = alternativeFor(v)
                     return (

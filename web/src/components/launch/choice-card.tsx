@@ -1,5 +1,5 @@
 import { CheckIcon } from "lucide-react"
-import type { ReactNode } from "react"
+import type { CSSProperties, ReactNode } from "react"
 import { cn } from "@/lib/utils"
 
 export function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
@@ -17,14 +17,16 @@ export function Section({ title, hint, children }: { title: string; hint?: strin
 export function ChoiceGroup({
   label,
   className,
+  style,
   children,
 }: {
   label: string
   className?: string
+  style?: CSSProperties & Record<`--${string}`, string>
   children: ReactNode
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className={cn("grid gap-2", className)}>
+    <div role="radiogroup" aria-label={label} className={cn("grid gap-2", className)} style={style}>
       {children}
     </div>
   )

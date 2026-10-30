@@ -121,15 +121,15 @@ export function AndroidVersionCard({
       selected={selected}
       onSelect={onSelect}
       disabled={!!blockedBy && !alternative}
-      className={cn("items-center gap-2 p-2.5 text-center", blockedBy && alternative && "opacity-70")}
+      className={cn("flex-row items-center gap-3 p-2 pr-8", blockedBy && alternative && "opacity-70")}
     >
       <div
-        className="grid h-20 w-full place-items-center rounded-lg"
-        style={{ backgroundImage: `linear-gradient(135deg, ${r.from}26, ${r.to}26)` }}
+        className="grid size-14 shrink-0 place-items-center rounded-lg"
+        style={{ backgroundImage: `linear-gradient(135deg, ${r.from}33, ${r.to}33)` }}
       >
-        <AndroidBadge version={version} className="size-[4.5rem]" />
+        <AndroidBadge version={version} className="size-12" />
       </div>
-      <div className="w-full min-w-0 px-0.5">
+      <div className="min-w-0 flex-1">
         <div className="text-sm font-medium">Android {version}</div>
         {blockedBy && alternative ? (
           <div className="text-muted-foreground truncate text-xs">Use {alternative}</div>
