@@ -333,7 +333,10 @@ Closing the WebSocket ends the `adb shell`, which hangs the server up.
 
 Every scrcpy server runs as the shell user (`su 2000` when adbd is root, as
 on redroid): the clipboard service refuses root calling as
-`com.android.shell` and clears the clipboard instead. Before starting an
+`com.android.shell` and clears the clipboard instead. On Android 16 it preloads
+holtdroid-redroid's `libholtdroid_ashmem.so` when the device has it: init
+gives the shim only to its services, and without it the server's Opus
+encoder can't allocate buffers on a kernel without ashmem. Before starting an
 H.265 or AV1 stream the agent checks the device's encoders once
 (`list_encoders=true`) and closes the WebSocket with code 4001
 (`contract.DisplayUnsupportedCodec`) when there is none; the UI then falls

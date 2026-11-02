@@ -432,7 +432,11 @@ func dialScrcpy(ctx context.Context, addr string) (net.Conn, error) {
 // command starts the server as the shell user even when adbd runs as root:
 // the clipboard service rejects root calling as com.android.shell and clears
 // the clipboard instead.
+// ashmemShim is holtdroid-redroid's ashmem on memfd for Android 16; adb shell
+// children don't inherit it, and without it Codec2 encoders get no buffers.
+const ashmemShim = "/system/lib64/libholtdroid_ashmem.so"
+
 func (s *Scrcpy) command(jar, opts string) string {
-	return fmt.Sprintf(`u=; [ "$(id -u)" = 0 ] && u="su 2000"; $u sh -c 'CLASSPATH=%s app_process / com.genymobile.scrcpy.Server %s %s'`,
-		jar, s.cfg.Version, opts)
+	return fmt.Sprintf(`u=; [ "$(id -u)" = 0 ] && u="su 2000"; $u sh -c '[ -e %[1]s ] && export LD_PRELOAD=%[1]s; CLASSPATH=%[2]s app_process / com.genymobile.scrcpy.Server %[3]s %[4]s'`,
+		ashmemShim, jar, s.cfg.Version, opts)
 }

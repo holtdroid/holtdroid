@@ -298,7 +298,7 @@ func TestScrcpyBridge(t *testing.T) {
 	}
 	cmd := dev.cmds[0]
 	for _, want := range []string{
-		`u="su 2000"`, "CLASSPATH=" + jar + " ", "com.genymobile.scrcpy.Server 3.3.3", "scid=" + scid,
+		`u="su 2000"`, "export LD_PRELOAD=/system/lib64/libholtdroid_ashmem.so;", "CLASSPATH=" + jar + " ", "com.genymobile.scrcpy.Server 3.3.3", "scid=" + scid,
 		"tunnel_forward=true", "audio=false", "control=true", "video_codec=h264", "video_bit_rate=4000000", "max_fps=60", "max_size=0",
 	} {
 		if !strings.Contains(cmd, want) {
