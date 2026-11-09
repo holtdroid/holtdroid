@@ -838,6 +838,7 @@ func TestWebViewCatalog(t *testing.T) {
 	write("chromium-158.apk", "webview 158", `{"title":"Chromium 158","tags":{"milestone":"158","version":"158.0.8123.0","minSdk":"29","requiresSdk":"34","channel":"dev,canary","frontend":"7d74334854bbfcbaf1c955e86589d8b7cc9acc31"}}`)
 	writeIn(google, "chromium-157.apk", "google webview 156", `{"title":"Google WebView 156","tags":{"package":"com.google.android.webview","milestone":"156","version":"156.0.8078.47","requiresSdk":"34","channel":"stable","abis":"x86,x86_64"}}`)
 	writeIn(google, "google-arm-156.apk", "google webview 156 arm", `{"title":"Google WebView 156","tags":{"package":"com.google.android.webview","milestone":"156","version":"156.0.8078.47","channel":"stable","abis":"arm64-v8a,armeabi-v7a"}}`)
+	writeIn(google, "google-x86-135.apk", "google webview 135 x86", `{"title":"Google WebView 135","tags":{"package":"com.google.android.webview","milestone":"135","version":"135.0.7049.113","abis":"x86"}}`)
 	write("stray.apk", "not a webview", "")
 
 	h := newHarnessWith(t, 2, func(c *Config) {
@@ -850,7 +851,7 @@ func TestWebViewCatalog(t *testing.T) {
 
 	rec := h.do(http.MethodGet, "/api/v1/webviews", "otter", "", nil)
 	list := decode[[]WebViewView](t, rec)
-	if rec.Code != http.StatusOK || len(list) != 4 || len(list[0].ABIs) != 0 || list[0].Milestone != 158 || list[0].Version != "158.0.8123.0" ||
+	if rec.Code != http.StatusOK || len(list) != 5 || len(list[0].ABIs) != 0 || list[0].Milestone != 158 || list[0].Version != "158.0.8123.0" ||
 		!slices.Equal(list[0].Channels, []string{"dev", "canary"}) || list[0].MinSDK != 34 || list[1].MinSDK != 29 || list[1].Title != "Chromium 157" ||
 		list[0].Package != "com.android.webview" || list[2].Package != "com.google.android.webview" || list[2].Title != "Google WebView 156" {
 		t.Fatalf("webviews %d %+v", rec.Code, list)
@@ -868,6 +869,11 @@ func TestWebViewCatalog(t *testing.T) {
 	}
 	if rec := launch(map[string]string{"provider": "phones", "webview": id}); rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("a provider without the capability: %d %s", rec.Code, rec.Body.String())
+	}
+	if x86Only := list[4]; x86Only.MaxSDK != 34 || list[2].MaxSDK != 0 {
+		t.Fatalf("maxSdk %+v", list)
+	} else if rec := launch(map[string]string{"provider": "fake", "webview": x86Only.ID, "android": "15"}); rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "no 64-bit libraries") {
+		t.Fatalf("a 32-bit build on Android 15: %d %s", rec.Code, rec.Body.String())
 	}
 	if rec := launch(map[string]string{"webview": id, "android": "13"}); rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "needs Android API level 34") {
 		t.Fatalf("a build too new for the Android version: %d %s", rec.Code, rec.Body.String())

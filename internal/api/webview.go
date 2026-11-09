@@ -37,6 +37,7 @@ type WebViewView struct {
 	Package   string    `json:"package" doc:"the WebView provider: com.android.webview (Chromium builds) or com.google.android.webview (Google's, with proprietary codecs)"`
 	Channels  []string  `json:"channels" doc:"Android release channels this milestone is on now: stable, beta, dev, canary"`
 	MinSDK    int       `json:"minSdk" doc:"the oldest Android API level it works on: the APK's minSdk, or the catalog's requiresSdk when that is higher"`
+	MaxSDK    int       `json:"maxSdk,omitempty" doc:"the newest Android API level it installs on; empty when there is no limit"`
 	ABIs      []string  `json:"abis" doc:"the ABIs it has native code for, from the sidecar's abis tag; empty when the catalog doesn't say"`
 	Released  time.Time `json:"released"`
 	Size      int64     `json:"size"`
@@ -97,10 +98,19 @@ func webviewOf(id string, a source.Artifact) (webviewBuild, bool) {
 		view: WebViewView{
 			ID: id, Title: cmp.Or(a.Meta.Title, "WebView "+version), Version: version, Milestone: milestone,
 			Package:  cmp.Or(t["package"], chromiumWebView),
-			Channels: channels, MinSDK: max(minSDK, requires), ABIs: abis, Released: a.UploadedAt(), Size: a.Size,
+			Channels: channels, MinSDK: max(minSDK, requires), MaxSDK: maxSDKOf(abis), ABIs: abis, Released: a.UploadedAt(), Size: a.Size,
 		},
 		frontend: t["frontend"],
 	}, true
+}
+
+// maxSDKOf limits a build with only 32-bit libraries: Android 15 and later
+// refuse a multiArch APK without libraries for every bitness of the device.
+func maxSDKOf(abis []string) int {
+	if len(abis) == 0 || slices.ContainsFunc(abis, func(abi string) bool { return strings.Contains(abi, "64") }) {
+		return 0
+	}
+	return 34
 }
 
 func tagList(tag string) []string {
@@ -175,6 +185,8 @@ func (s *Server) webviewFor(ctx context.Context, id, android string, candidates 
 	}
 	if level, ok := apiLevels[android]; ok && b.view.MinSDK > level {
 		return nil, nil, fmt.Errorf("%w: %s needs Android API level %d, Android %s is %d", contract.ErrInvalid, b.view.Title, b.view.MinSDK, android, level)
+	} else if ok && b.view.MaxSDK > 0 && level > b.view.MaxSDK {
+		return nil, nil, fmt.Errorf("%w: %s %s has no 64-bit libraries, which Android %s requires", contract.ErrInvalid, b.view.Title, b.view.Version, android)
 	}
 	var able []string
 	for _, name := range candidates {

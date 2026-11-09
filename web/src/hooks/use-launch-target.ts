@@ -73,7 +73,9 @@ export function useLaunchTarget(
   const level = deviceAndroid ? apiLevels[deviceAndroid] : undefined
   const webviews = webviewCapable
     ? (catalog.data ?? []).filter(
-        (w) => (!level || w.minSdk <= level) && pool.some((p) => takes(p, w, slot?.capabilities?.abis)),
+        (w) =>
+          (!level || (w.minSdk <= level && (!w.maxSdk || level <= w.maxSdk))) &&
+          pool.some((p) => takes(p, w, slot?.capabilities?.abis)),
       )
     : []
   const defaults = webviews.filter((w) =>

@@ -115,7 +115,9 @@ com.google.android.webview`, `minSdk` or `requiresSdk` for the Android
 versions it runs on, and `abis` (comma-separated, e.g.
 `arm64-v8a,armeabi-v7a`). A device is offered only builds whose `abis` it
 runs natively; WebView crashes under ARM translation. Without `abis` a build
-is offered everywhere. ARM builds for phones go to a prefix of their own,
+is offered everywhere. Android 15 and later refuse to install a WebView with
+only 32-bit libraries, so a build whose `abis` has no 64-bit ABI is offered
+up to Android 14. ARM builds for phones go to a prefix of their own,
 listed as one more catalog.
 
 ## Filling the catalog

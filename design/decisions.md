@@ -5246,3 +5246,24 @@ plugin sets, so `session-devices` builds Docker's default profile
 (`moby/profiles/seccomp`) for the container's capabilities, adds
 `userfaultfd`, and sets it. The Pod keeps `RuntimeDefault`, so a session
 created without the plugin is still confined.
+
+## 174. A WebView with only 32-bit libraries stops at Android 14
+
+**Context.** Since the images have 32-bit ABIs (#119), Android 15 and 16
+refuse a `multiArch` APK that lacks libraries for one of the device's
+bitnesses: `INSTALL_FAILED_INTERNAL_ERROR`, "The multiArch app's native libs
+don't support all the natively supported ABIs of the device". Android 14
+installs the same APK. APKMirror sometimes has only the x86 variant of a
+Google WebView (157.0.8103.38), and as the newest Stable build it became the
+default of every launch (#121).
+
+**Decision.** A build whose `abis` tag has no 64-bit ABI gets `maxSdk` 34 in
+the catalog listing. The launch dialog doesn't offer it above that level and
+the api refuses it. The limit comes from the tag, so a build without `abis`
+stays unlimited.
+
+**Consequences.** The default falls back to the newest build that installs.
+An x86_64-only build would also be refused on Android 15 and later, but isn't
+limited: the sync job's `abis` tags on older sidecars hold the configured
+architecture, not the APK's, so they can't tell it from an x86_64 and x86
+build.

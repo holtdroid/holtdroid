@@ -4031,6 +4031,11 @@ export interface components {
             /** @description Android release channels this milestone is on now: stable, beta, dev, canary */
             channels: string[];
             id: string;
+            /**
+             * Format: int64
+             * @description the newest Android API level it installs on; empty when there is no limit
+             */
+            maxSdk?: number;
             /** Format: int64 */
             milestone: number;
             /**
