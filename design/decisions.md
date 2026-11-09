@@ -5264,6 +5264,5 @@ stays unlimited.
 
 **Consequences.** The default falls back to the newest build that installs.
 An x86_64-only build would also be refused on Android 15 and later, but isn't
-limited: the sync job's `abis` tags on older sidecars hold the configured
-architecture, not the APK's, so they can't tell it from an x86_64 and x86
-build.
+limited: the same tag on a phone may be all that phone needs, and
+holtdroid-apkmirror-sync no longer stores WebViews with one bitness.
