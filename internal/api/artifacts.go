@@ -369,7 +369,7 @@ func (s *Server) listArtifacts(ctx context.Context, only, cursor string, limit i
 		if s.cached(ctx, e.source, e.a) {
 			continue
 		}
-		s.enqueueWarm(e.source, e.a, n < s.cfg.Cache.Warm)
+		s.enqueueWarm(e.source, e.a, offset == 0 && n < s.cfg.Cache.Warm)
 		n++
 	}
 	return list, nil

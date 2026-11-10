@@ -92,8 +92,18 @@ export function useSources() {
 export function useArtifacts(source: string) {
   return useQuery({
     queryKey: keys.artifacts(source),
-    queryFn: () =>
-      unwrap(api.GET("/api/v1/artifacts", { params: { query: source ? { source, limit: 500 } : { limit: 500 } } })),
+    queryFn: async () => {
+      const page = (cursor?: string) =>
+        unwrap(api.GET("/api/v1/artifacts", { params: { query: { source: source || undefined, cursor, limit: 500 } } }))
+      const first = await page()
+      const items = [...first.items]
+      for (let next = first.nextCursor; next;) {
+        const more = await page(next)
+        items.push(...more.items)
+        next = more.nextCursor
+      }
+      return { ...first, items, nextCursor: undefined }
+    },
     refetchInterval: (query) => (query.state.data?.items.some((a) => !a.app) ? 3_000 : 60_000),
     placeholderData: keepPreviousData,
   })

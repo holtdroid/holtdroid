@@ -486,7 +486,7 @@ keeping the provider in the path is what lets the api stay stateless.
 | `GET` | `/api/v1/apps` | `{items: [{package, description, pinned, updatedBy?, updatedAt}]}`: apps that have a description or are pinned (decisions #129, #178) |
 | `PUT` | `/api/v1/apps/{package}` | `{description}` (at most 4000 characters, trimmed; empty removes it) → the app; anyone signed in. Emits `app.update` |
 | `PUT` | `/api/v1/apps/{package}/pin` | `{pinned}` → the app; anyone signed in, shared by everyone. Emits `app.update` |
-| `GET` | `/api/v1/artifacts?source=&cursor=&limit=` | artifacts the caller may see (private ones only for owner/admins) from every source or one, newest first, offset cursor. Items: `{source, id, revision, fileName, size, uploadedAt, meta, app?, iconUrl?, canManage, canDownload}` — `id` is base64url of the key, `meta` the sidecar, `app` the parsed APK once cached; per-source failures come back in `errors[]` |
+| `GET` | `/api/v1/artifacts?source=&cursor=&limit=` | artifacts the caller may see (private ones only for owner/admins) from every source or one, newest first, offset cursor (the web UI follows `nextCursor` to the end). Items: `{source, id, revision, fileName, size, uploadedAt, meta, app?, iconUrl?, canManage, canDownload}` — `id` is base64url of the key, `meta` the sidecar, `app` the parsed APK once cached; per-source failures come back in `errors[]` |
 | `PATCH` | `/api/v1/artifacts/{source}/{id}` | `{visibility}` → artifact; owner or admin, 403 on `readOnly` sources, 404 when the caller can't see it |
 | `DELETE` | `/api/v1/artifacts/{source}/{id}` | APK + sidecar; owner or admin (ownerless: admin), 403 on `readOnly` sources |
 | `GET` | `/api/v1/artifacts/{source}/{id}/download` | the APK as an attachment (`application/vnd.android.package-archive`); 404 when the caller can't see it, 403 for non-admins with `downloads.adminOnly`. Emits `artifact.download` |
@@ -556,10 +556,10 @@ keeping the provider in the path is what lets the api stay stateless.
 | `GET` | `/internal/users/{handle}/sessions` | gateway only, **internal port**: `{sessions: [SSHSession]}` (`{provider, id, owner, state, tunnelUrl?, package?, label?, versionName?}`), every session (any state) whose owner has this `user-…` handle; empty for an unknown handle; 500 if a provider can't list, so the gateway keeps what it has |
 | `POST` | `/internal/audit/events` | gateway only, **internal port**: a JSON array (≤ 1000) of audit events the gateway emitted, kept in the api's audit store → 204; dropped when `audit.store` is off |
 
-The APK cache is warmed in the background: listing artifacts and polling
-sources queue up to `cache.warm` uncached revisions for download and
-parsing, so icons and package names show up without anyone launching them
-first.
+The APK cache is warmed in the background: the first page of an artifact
+listing and each source poll keep up to `cache.warm` uncached revisions, and
+later pages only queue them for parsing, so icons and package names show
+up without anyone launching them first.
 
 ## Configuration and secrets
 

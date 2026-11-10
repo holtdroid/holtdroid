@@ -123,6 +123,35 @@ func copyFile(t *testing.T, from, to string) {
 	}
 }
 
+func TestOnlyTheFirstArtifactPageKeepsAPKs(t *testing.T) {
+	h := newHarness(t, 1)
+	drain := func() []warmItem {
+		var out []warmItem
+		for {
+			select {
+			case it := <-h.srv.warm:
+				out = append(out, it)
+			default:
+				return out
+			}
+		}
+	}
+	drain()
+	for _, tc := range []struct {
+		path string
+		keep bool
+	}{
+		{"/api/v1/artifacts?limit=1", true},
+		{"/api/v1/artifacts?limit=1&cursor=1", false},
+	} {
+		list := decode[ArtifactList](t, h.do(http.MethodGet, tc.path, "otter", "", nil))
+		warmed := drain()
+		if len(list.Items) != 1 || len(warmed) != 1 || warmed[0].keepAPK != tc.keep {
+			t.Fatalf("%s: %d items, warmed %+v", tc.path, len(list.Items), warmed)
+		}
+	}
+}
+
 func (h *harness) do(method, path, user, groups string, body any) *httptest.ResponseRecorder {
 	h.t.Helper()
 	var reader io.Reader
