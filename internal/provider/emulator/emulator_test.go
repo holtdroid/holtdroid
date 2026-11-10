@@ -327,7 +327,7 @@ func TestRoundTrip(t *testing.T) {
 	}
 
 	first, err := c.Create(ctx, req)
-	if err != nil || first.Slot != "k3s-1-1" || first.State != contract.StateProvisioning || first.Location != "direct" || first.AgentURL != "" || !first.CreatedAt.Equal(epoch) {
+	if err != nil || first.Slot != "k3s-1-1" || first.SlotLabel != "k3s-1-1" || first.State != contract.StateProvisioning || first.Location != "direct" || first.AgentURL != "" || !first.CreatedAt.Equal(epoch) {
 		t.Fatalf("create %+v, %v", first, err)
 	}
 	secret, err := kube.CoreV1().Secrets("holtdroid").Get(ctx, podName(first.ID), metav1.GetOptions{})
@@ -615,6 +615,9 @@ func TestFillOrder(t *testing.T) {
 		if c.Slots[i].Label != label {
 			t.Errorf("slot %s: label %q, want %q", c.Slots[i].ID, c.Slots[i].Label, label)
 		}
+	}
+	if got := p.slotLabelOf("core", "core-3"); got != "Owl" {
+		t.Errorf("session on core-3: label %q, want Owl", got)
 	}
 }
 

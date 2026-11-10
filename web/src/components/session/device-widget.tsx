@@ -62,11 +62,11 @@ export function DeviceWidget({
     <ShadeRoot>
       <HoverCardTrigger asChild>
         <ShadeCard aria-label="Device">
-          <WithAdb session={adb}>{(a) => <DeviceCard adb={a} slot={session.slot} />}</WithAdb>
+          <WithAdb session={adb}>{(a) => <DeviceCard adb={a} slot={session.slotLabel || session.slot} />}</WithAdb>
           {!adb && (
             <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
               <SmartphoneIcon className="size-4 shrink-0 text-neutral-400" />
-              <span className="truncate">{session.slot}</span>
+              <span className="truncate">{session.slotLabel || session.slot}</span>
             </span>
           )}
           {m && (
@@ -77,7 +77,7 @@ export function DeviceWidget({
         </ShadeCard>
       </HoverCardTrigger>
       <ShadePanel>
-        <ShadeHeader title="Device" summary={session.slot} />
+        <ShadeHeader title="Device" summary={session.slotLabel || session.slot} />
         {m && <DeviceLoad metrics={metrics} m={m} />}
         <AdbNotice session={adb} />
         <WithAdb session={adb}>

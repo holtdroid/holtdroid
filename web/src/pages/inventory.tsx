@@ -854,9 +854,9 @@ function SessionRow({ session: s, now }: { session: SessionView; now: number }) 
       </TableCell>
       <TableCell>
         <div className="min-w-0">
-          <div className="truncate">{s.slot}</div>
+          <div className="truncate">{s.slotLabel || s.slot}</div>
           <div className="text-muted-foreground font-mono text-[11px]">
-            {s.provider} · {s.id}
+            {s.provider} · {s.slot} · {s.id}
           </div>
         </div>
       </TableCell>
@@ -909,8 +909,8 @@ function StopButton({ session: s }: { session: SessionView }) {
           <DialogHeader>
             <DialogTitle>Stop {s.ownerName || s.owner}&apos;s device?</DialogTitle>
             <DialogDescription>
-              {s.label || s.package} on {s.slot} stops now and the slot frees up. Whatever they were doing in it is
-              gone.
+              {s.label || s.package} on {s.slotLabel || s.slot} stops now and the slot frees up. Whatever they were
+              doing in it is gone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

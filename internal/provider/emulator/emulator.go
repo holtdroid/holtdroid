@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -393,6 +394,13 @@ func (p *Provider) slotsOn(node string) int {
 }
 
 func slotID(node string, i int) string { return node + "-" + strconv.Itoa(i) }
+
+func (p *Provider) slotLabelOf(node, slot string) string {
+	if i, err := strconv.Atoi(strings.TrimPrefix(slot, node+"-")); err == nil && i > 0 {
+		return p.slotLabel(node, i)
+	}
+	return slot
+}
 
 func (p *Provider) slotLabel(node string, i int) string {
 	if names := p.cfg.Nodes[node].Names; i <= len(names) && names[i-1] != "" {

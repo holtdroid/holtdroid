@@ -224,6 +224,7 @@ type AppDataInfo struct {
 type Session struct {
 	ID           string            `json:"id"`
 	Slot         string            `json:"slot"`
+	SlotLabel    string            `json:"slotLabel,omitempty" doc:"what users see for the slot; empty means its id"`
 	Owner        string            `json:"owner"`
 	Package      string            `json:"package"`
 	ArtifactRef  string            `json:"artifactRef"`

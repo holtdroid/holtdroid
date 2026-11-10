@@ -114,7 +114,7 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
                 </span>
                 <span className="text-muted-foreground truncate font-mono text-xs">
                   {session.package}
-                  {session.versionName ? ` · ${session.versionName}` : ""} · {session.slot}
+                  {session.versionName ? ` · ${session.versionName}` : ""} · {session.slotLabel || session.slot}
                   {session.webview ? ` · WebView ${session.webview}` : ""}
                 </span>
               </span>

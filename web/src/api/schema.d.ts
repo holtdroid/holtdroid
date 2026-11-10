@@ -3876,6 +3876,8 @@ export interface components {
             /** @description the app's data is saved when the session is stopped or reaped */
             saveAppData?: boolean;
             slot: string;
+            /** @description what users see for the slot; empty means its id */
+            slotLabel?: string;
             source: string;
             /** @enum {string} */
             state: "provisioning" | "booting" | "installing" | "restoring" | "instrumenting" | "ready" | "stopping" | "failed";

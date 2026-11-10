@@ -408,6 +408,7 @@ func (p *Provider) podSession(pod corev1.Pod) contract.Session {
 	return contract.Session{
 		ID:           pod.Labels[labelSession],
 		Slot:         pod.Labels[labelSlot],
+		SlotLabel:    p.slotLabelOf(pod.Labels[labelNode], pod.Labels[labelSlot]),
 		Owner:        a[annotationOwner],
 		Package:      a[annotationPackage],
 		ArtifactRef:  a[annotationArtifactRef],

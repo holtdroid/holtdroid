@@ -543,6 +543,7 @@ func (p *Provider) Create(ctx context.Context, req contract.CreateSession) (cont
 	s := contract.Session{
 		ID:           id,
 		Slot:         slots[i].ID,
+		SlotLabel:    slots[i].Label,
 		Owner:        req.Owner,
 		Package:      req.Package,
 		ArtifactRef:  req.ArtifactRef,

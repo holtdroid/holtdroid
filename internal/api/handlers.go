@@ -36,6 +36,7 @@ type SessionView struct {
 	Provider     string                     `json:"provider"`
 	ID           string                     `json:"id"`
 	Slot         string                     `json:"slot"`
+	SlotLabel    string                     `json:"slotLabel,omitempty" doc:"what users see for the slot; empty means its id"`
 	Owner        string                     `json:"owner"`
 	OwnerName    string                     `json:"ownerName,omitempty" doc:"the owner's name in the users sign-in mode"`
 	Package      string                     `json:"package"`
@@ -395,6 +396,7 @@ func (s *Server) view(ctx context.Context, provider string, sess contract.Sessio
 		Provider:     provider,
 		ID:           sess.ID,
 		Slot:         sess.Slot,
+		SlotLabel:    sess.SlotLabel,
 		Owner:        sess.Owner,
 		Package:      sess.Package,
 		Source:       srcName,

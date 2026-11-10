@@ -150,6 +150,7 @@ func (p *Provider) Create(_ context.Context, req contract.CreateSession) (contra
 	d := newDevice(contract.Session{
 		ID:           id,
 		Slot:         slot,
+		SlotLabel:    c.Slots[i].Label,
 		Owner:        req.Owner,
 		Package:      req.Package,
 		ArtifactRef:  req.ArtifactRef,

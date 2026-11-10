@@ -306,6 +306,7 @@ type AppDataRestore struct {
 type Session struct {
 	ID           string
 	Slot         string
+	SlotLabel    string // what users see for the slot; empty means Slot
 	Owner        string
 	Package      string
 	ArtifactRef  string // as given in CreateSession

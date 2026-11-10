@@ -153,7 +153,7 @@ function SessionCard({ session: s, now }: { session: SessionView; now: number })
               />
               {s.ownerName || s.owner}
             </span>
-            <span>{s.slot}</span>
+            <span>{s.slotLabel || s.slot}</span>
             <span>up {formatDuration(uptime)}</span>
             {s.location && (
               <span className="inline-flex items-center gap-1">
