@@ -353,15 +353,19 @@ func TestAgentWebView(t *testing.T) {
 				return nil
 			}, func(c *Config) {
 				base = strings.TrimSuffix(c.ArtifactURL, "/internal/artifacts/local/app.apk")
-				c.WebView = contract.WebViewInstall{URL: base + tc.path, Version: "158.0.8123.0", Package: tc.pkg}
+				c.WebView = contract.WebViewInstall{URL: base + tc.path, Version: "158.0.8123.0", Package: tc.pkg, ABI: "x86_64"}
 				c.Resume = tc.resume
 			})
 			s := h.waitState(tc.state)
 			h.dev.mu.Lock()
 			apks := slices.Clone(h.dev.apks)
+			abis := slices.Clone(h.dev.abis)
 			h.dev.mu.Unlock()
 			if !slices.Equal(apks, tc.apks) {
 				t.Fatalf("installed %q, want %q", apks, tc.apks)
+			}
+			if !tc.resume && !slices.Contains(abis, "x86_64") {
+				t.Fatalf("installed for ABIs %q", abis)
 			}
 			if tc.state == contract.StateFailed && !strings.Contains(s.Reason, "install WebView 158.0.8123.0") {
 				t.Fatalf("reason %q", s.Reason)

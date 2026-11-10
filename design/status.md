@@ -96,6 +96,9 @@ deployment"):
   a router namespace, and the agent drives Android's own Wi-Fi. Status bar
   and quick settings show Wi-Fi; with Wi-Fi off and mobile data on they
   show Ethernet (the mobile uplink).
+- Prebuilt Chromium and WebView APKs from holtdroid/chromium-builds through
+  `holtdroid-chromium-builds-sync` (decision #175) replace Chrome and Google
+  WebView from APKMirror on the maintainer's deployment.
 - WebView versions at launch (decision #88): the launch dialog offers a
   Chromium WebView build per milestone (catalog `webview.storage`, filled
   by `holtdroid-webview-sync` from Chromium's x86_64 snapshots, Chromium

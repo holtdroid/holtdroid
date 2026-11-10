@@ -181,6 +181,7 @@ type WebViewInstall struct {
 	Version  string `json:"version" minLength:"1" doc:"e.g. 158.0.8123.0"`
 	Package  string `json:"package,omitempty" doc:"the build's package; empty means com.android.webview. Any other one (com.google.android.webview) must be a WebView provider the image allows"`
 	Frontend string `json:"frontend,omitempty" pattern:"^[0-9a-f]{40}$" doc:"the Chromium commit whose DevTools frontend fits this build; Chromium snapshot builds report none of their own"`
+	ABI      string `json:"abi,omitempty" doc:"the ABI to install it for, when the build has libraries for one 64-bit ABI only; Android 15 and later refuse such a multiArch APK otherwise"`
 }
 
 type AppDataKind string

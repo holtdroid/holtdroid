@@ -94,23 +94,46 @@ func webviewOf(id string, a source.Artifact) (webviewBuild, bool) {
 	minSDK, _ := strconv.Atoi(t["minSdk"])
 	requires, _ := strconv.Atoi(t["requiresSdk"])
 	channels, abis := tagList(t["channel"]), tagList(t["abis"])
+	target, _ := strconv.Atoi(t["targetSdk"])
+	if target > 0 && target < minWebViewTarget {
+		return webviewBuild{}, false
+	}
 	return webviewBuild{
 		view: WebViewView{
 			ID: id, Title: cmp.Or(a.Meta.Title, "WebView "+version), Version: version, Milestone: milestone,
 			Package:  cmp.Or(t["package"], chromiumWebView),
-			Channels: channels, MinSDK: max(minSDK, requires), MaxSDK: maxSDKOf(abis), ABIs: abis, Released: a.UploadedAt(), Size: a.Size,
+			Channels: channels, MinSDK: max(minSDK, requires), MaxSDK: maxSDKOf(abis, target), ABIs: abis, Released: a.UploadedAt(), Size: a.Size,
 		},
 		frontend: t["frontend"],
 	}, true
 }
 
-// maxSDKOf limits a build with only 32-bit libraries: Android 15 and later
-// refuse a multiArch APK without libraries for every bitness of the device.
-func maxSDKOf(abis []string) int {
-	if len(abis) == 0 || slices.ContainsFunc(abis, func(abi string) bool { return strings.Contains(abi, "64") }) {
+// minWebViewTarget is the lowest targetSdk any Android version here accepts
+// from a WebView. Below it, the update installs and the device is left
+// without a WebView.
+const minWebViewTarget = 31
+
+// maxSDKOf limits a build with only 32-bit libraries, which Android 15 and
+// later refuse as a multiArch APK, and one that targets Android 12, which
+// Android 13 and later reject as a WebView provider.
+func maxSDKOf(abis []string, target int) int {
+	switch {
+	case target > 0 && target < 33:
+		return 32
+	case len(abis) == 0 || slices.ContainsFunc(abis, is64Bit):
 		return 0
 	}
 	return 34
+}
+
+func is64Bit(abi string) bool { return strings.Contains(abi, "64") }
+
+// forcedABI names the ABI of a build with libraries for one 64-bit ABI only.
+func forcedABI(abis []string) string {
+	if len(abis) == 1 && is64Bit(abis[0]) {
+		return abis[0]
+	}
+	return ""
 }
 
 func tagList(tag string) []string {
@@ -186,7 +209,7 @@ func (s *Server) webviewFor(ctx context.Context, id, android string, candidates 
 	if level, ok := apiLevels[android]; ok && b.view.MinSDK > level {
 		return nil, nil, fmt.Errorf("%w: %s needs Android API level %d, Android %s is %d", contract.ErrInvalid, b.view.Title, b.view.MinSDK, android, level)
 	} else if ok && b.view.MaxSDK > 0 && level > b.view.MaxSDK {
-		return nil, nil, fmt.Errorf("%w: %s %s has no 64-bit libraries, which Android %s requires", contract.ErrInvalid, b.view.Title, b.view.Version, android)
+		return nil, nil, fmt.Errorf("%w: %s %s doesn't install on Android %s: the newest it takes is API level %d", contract.ErrInvalid, b.view.Title, b.view.Version, android, b.view.MaxSDK)
 	}
 	var able []string
 	for _, name := range candidates {
@@ -202,6 +225,7 @@ func (s *Server) webviewFor(ctx context.Context, id, android string, candidates 
 		Version:  b.view.Version,
 		Package:  b.view.Package,
 		Frontend: validFrontend(b.frontend),
+		ABI:      forcedABI(b.view.ABIs),
 	}, able, nil
 }
 

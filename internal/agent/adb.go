@@ -17,6 +17,7 @@ import (
 type Device interface {
 	Shell(ctx context.Context, cmd string) (string, error)
 	Install(ctx context.Context, apk string) error
+	InstallABI(ctx context.Context, apk, abi string) error
 	Forward(ctx context.Context, socket string) (int, error)
 	RemoveForward(ctx context.Context, port int) error
 	Reverse(ctx context.Context, port, local int) error
@@ -68,6 +69,16 @@ func (a ADB) ExecOut(ctx context.Context, cmd string, w io.Writer) error {
 
 func (a ADB) Install(ctx context.Context, apk string) error {
 	_, err := a.run(ctx, "install", "-r", "-d", "-g", apk)
+	return err
+}
+
+// InstallABI forces the APK's ABI: Android 15 and later refuse a multiArch
+// APK without libraries for every bitness of the device otherwise.
+func (a ADB) InstallABI(ctx context.Context, apk, abi string) error {
+	if abi == "" {
+		return a.Install(ctx, apk)
+	}
+	_, err := a.run(ctx, "install", "-r", "-d", "-g", "--abi", abi, apk)
 	return err
 }
 

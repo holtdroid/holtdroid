@@ -43,7 +43,21 @@ session. Uninstalling the update with `pm uninstall com.android.webview`
 (over ADB, or in the Terminal tab where it is offered) brings back the
 built-in WebView.
 
-## Where the builds come from
+## Prebuilt releases
+
+The [chromium-builds](https://github.com/holtdroid/chromium-builds) releases
+go back to Chromium 83, with proprietary codecs, for x86_64 and arm64.
+[holtdroid-chromium-builds-sync](/sources/chromium/#prebuilt-releases) fills
+the catalog from them. The launch dialog offers only the builds an Android
+version accepts as its WebView, which depends on the build's `targetSdk`:
+
+| `targetSdk`   | Works on          |
+| ------------- | ----------------- |
+| 33 and higher | every version     |
+| 31 and 32     | Android 11 and 12 |
+| 30 and lower  | none, not listed  |
+
+## Where the snapshot builds come from
 
 The builds are Chromium's own snapshot builds of Android System WebView for
 x86_64, published in the public `chromium-browser-snapshots` bucket. They
@@ -178,7 +192,7 @@ cache.
 - Phones take only Google WebView builds for ARM, newer than their own
   WebView. Chromium snapshots are virtual devices only.
 - Chromium builds have no proprietary codecs; Google WebView builds do.
-- x86_64 builds from Chromium 129 on; earlier versions only as a built-in
+- Snapshot builds: x86_64 from Chromium 129 on; earlier versions only as a built-in
   WebView.
 - Chromium 149 and later only on Android 14 and 15. The sync job's
   `requirements` rules record this as `requiresSdk` in the catalog, and the

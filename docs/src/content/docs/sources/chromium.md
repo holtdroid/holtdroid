@@ -5,6 +5,43 @@ sidebar:
   order: 5
 ---
 
+## Prebuilt releases
+
+[chromium-builds](https://github.com/holtdroid/chromium-builds) publishes
+Chromium browser and WebView APKs for every milestone from 83 on, built from
+the release tags with proprietary codecs, for x86_64 and arm64.
+[holtdroid-chromium-builds-sync](https://github.com/holtdroid/holtdroid-sync/blob/main/docs/chromium-builds.md)
+(`job: chromium-builds` in the chart `deploy/helm/holtdroid-sync`) copies
+them into a folder or S3 prefix. It takes a release only when all four APKs
+are uploaded, and shows the date Google released that version to Android,
+not the date the build was published.
+
+```yaml
+job: chromium-builds
+existingSecret: holtdroid-chromium-builds-sync # S3_ACCESS_KEY, S3_SECRET_KEY
+config:
+  target:
+    type: s3
+    s3:
+      endpoint: https://s3.example.com
+      bucket: holtdroid
+      prefix: chromium-builds
+      accessKey: env:S3_ACCESS_KEY
+      secretKey: env:S3_SECRET_KEY
+```
+
+Then list `chromium-builds/browser` as a read-only source and
+`chromium-builds/webview` as `webview.storage`. All releases take about
+55 GB.
+
+These builds are Chromium, not Google Chrome: no Google sign-in, sync, Safe
+Browsing or Widevine. The WebView is `com.android.webview`, so phones, whose
+Android only accepts Google's signature, can't use it. On redroid, the browsers
+of Chromium 96 and older crash at startup, and 104 crashes on Android 16.
+They stay in the list.
+
+## Snapshot builds
+
 [holtdroid-chromium-sync](https://github.com/holtdroid/holtdroid-sync/blob/main/docs/chromium.md)
 is a separate job (`job: chromium` in the chart
 `deploy/helm/holtdroid-sync`). It copies Chromium browser builds, one per

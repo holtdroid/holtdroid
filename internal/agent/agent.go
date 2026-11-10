@@ -599,7 +599,7 @@ func (a *Agent) installWebView(ctx context.Context, w contract.WebViewInstall) e
 	}
 	defer os.Remove(file)
 	a.setStatus(contract.StateInstalling, "Installing WebView "+w.Version)
-	if err := a.dev.Install(ctx, file); err != nil {
+	if err := a.dev.InstallABI(ctx, file, w.ABI); err != nil {
 		return err
 	}
 	if w.Package != "" && w.Package != builtinWebView {

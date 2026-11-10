@@ -292,6 +292,7 @@ type WebViewInstall struct {
 	Version  string // "158.0.8123.0"
 	Package  string // optional, "com.google.android.webview"
 	Frontend string // optional, 40 hex digits
+	ABI      string // optional, `adb install --abi`, for a build with libraries for one 64-bit ABI only
 }
 
 // The agent downloads url (a zstd tar from /v1/app-data/export) and puts it

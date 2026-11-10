@@ -5266,3 +5266,32 @@ stays unlimited.
 An x86_64-only build would also be refused on Android 15 and later, but isn't
 limited: the same tag on a phone may be all that phone needs, and
 holtdroid-apkmirror-sync no longer stores WebViews with one bitness.
+
+## 175. Chromium and WebView builds come from chromium-builds releases
+
+**Context.** The maintainer's deployment took Google Chrome and Google
+WebView from APKMirror through a solver for its bot protection, with gaps
+wherever APKMirror lacks a variant. holtdroid/chromium-builds publishes
+Chromium and WebView for x86_64 and arm64 for every milestone from 83, with
+proprietary codecs. Its CI uploads a release one architecture at a time, its
+publication dates are the build's, not the version's, and its WebView APKs
+are `multiArch` with libraries for one 64-bit ABI. On live sessions Android
+15 and 16 refuse those without `--abi` (#174), and any WebView below the
+built-in one needs a downgrade install. A WebView with `targetSdk` 29 was
+rejected by every Android version, one with 31 by Android 13 and later,
+leaving the device with no WebView at all; `targetSdk` 33 worked on 11 to 16.
+
+**Decision.** `holtdroid-chromium-builds-sync` copies a release only when all
+four APKs are uploaded, with the release date from the `Released to Android
+Stable|Beta:` line as `uploadedAt`. The newest Stable and the newest Beta get
+the `channel` tag. `WebViewInstall.abi` carries the ABI of a build with
+libraries for one 64-bit ABI, and the agent passes it as `--abi`. The api
+derives the Android limits of a build from its `targetSdk` tag: below 31 it
+isn't listed, 31 and 32 get `maxSdk` 32.
+
+**Consequences.** The WebView is `com.android.webview`, which phones refuse,
+so a deployment that replaces Google WebView with it has no WebView choice
+on phones. On redroid the browsers of Chromium 83, 90 and 96 crashed at
+startup on every Android version tried, 104 on Android 16 but not 11, while
+112 ran; they are still listed. `targetSdk` 30 is hidden without having been tested;
+it could only work on Android 11.

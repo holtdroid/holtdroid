@@ -58,6 +58,7 @@ func TestSocketPIDAndRev(t *testing.T) {
 }
 
 type fakeDevice struct {
+	abis     []string
 	mu       sync.Mutex
 	unix     string
 	ports    map[string]int
@@ -113,6 +114,13 @@ func (d *fakeDevice) Install(_ context.Context, apk string) error {
 	d.installs++
 	d.apks = append(d.apks, string(raw))
 	return nil
+}
+
+func (d *fakeDevice) InstallABI(ctx context.Context, apk, abi string) error {
+	d.mu.Lock()
+	d.abis = append(d.abis, abi)
+	d.mu.Unlock()
+	return d.Install(ctx, apk)
 }
 
 func (d *fakeDevice) Forward(_ context.Context, socket string) (int, error) {

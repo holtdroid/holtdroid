@@ -872,7 +872,7 @@ func TestWebViewCatalog(t *testing.T) {
 	}
 	if x86Only := list[4]; x86Only.MaxSDK != 34 || list[2].MaxSDK != 0 {
 		t.Fatalf("maxSdk %+v", list)
-	} else if rec := launch(map[string]string{"provider": "fake", "webview": x86Only.ID, "android": "15"}); rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "no 64-bit libraries") {
+	} else if rec := launch(map[string]string{"provider": "fake", "webview": x86Only.ID, "android": "15"}); rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "doesn't install on Android 15") {
 		t.Fatalf("a 32-bit build on Android 15: %d %s", rec.Code, rec.Body.String())
 	}
 	if rec := launch(map[string]string{"webview": id, "android": "13"}); rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "needs Android API level 34") {
