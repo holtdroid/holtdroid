@@ -64,7 +64,7 @@ sources:
 ```
 
 The job sends its own name as the User-Agent and doesn't try to pass bot
-checks. Brave, DuckDuckGo and Kiwi publish APKs on GitHub, so
+checks. Brave and DuckDuckGo publish APKs on GitHub, so
 [holtdroid-github-sync](/sources/github/) covers them; for Brave, set
 `releaseName: "^Release "`, since its Nightly and Beta builds are normal
 releases there.

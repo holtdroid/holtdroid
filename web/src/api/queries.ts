@@ -178,6 +178,15 @@ export function useUpdateApp() {
   })
 }
 
+export function usePinApp() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ pkg, pinned }: { pkg: string; pinned: boolean }) =>
+      unwrap(api.PUT("/api/v1/apps/{package}/pin", { params: { path: { package: pkg } }, body: { pinned } })),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.apps }),
+  })
+}
+
 export function useNetworkBackends(pkg: string) {
   return useQuery({
     queryKey: ["network-backends", pkg],

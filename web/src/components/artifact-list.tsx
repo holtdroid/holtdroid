@@ -7,6 +7,7 @@ import {
   HourglassIcon,
   InfinityIcon,
   LockIcon,
+  PinIcon,
   RocketIcon,
   SearchIcon,
   Trash2Icon,
@@ -19,6 +20,7 @@ import type { ArtifactView } from "@/api/client"
 import {
   artifactDownloadURL,
   useApps,
+  usePinApp,
   useArtifacts,
   useDeleteArtifact,
   useSources,
@@ -53,6 +55,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useNow } from "@/hooks/use-now"
 import { groupVariants } from "@/lib/abi"
+import { pinnedFirst } from "@/lib/pinned"
 import { formatBytes, formatRelative, safeLink } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
@@ -120,7 +123,15 @@ export function ArtifactList({ onLaunch, pkg }: { onLaunch: (artifact: ArtifactV
     () => (pkg ? [] : groupByPackage(all).filter((g) => !q || g.items.some((a) => matches(a, q)))),
     [all, pkg, q],
   )
-  const ready = useMemo(() => groups.filter((g) => g.pkg), [groups])
+  const apps = useApps()
+  const ready = useMemo(
+    () =>
+      pinnedFirst(
+        groups.filter((g) => g.pkg),
+        (p) => !!apps.data?.get(p)?.pinned,
+      ),
+    [groups, apps.data],
+  )
   const parsing = useMemo(() => groups.filter((g) => !g.pkg), [groups])
   const [showParsing, setShowParsing] = useState(false)
   const empty = pkg ? items.length === 0 : groups.length === 0
@@ -288,6 +299,7 @@ function AppCard({
             {pkg ?? "Reading package info…"}
           </span>
         </div>
+        {pkg && <PinButton pkg={pkg} title={title} pinned={!!apps.data?.get(pkg)?.pinned} />}
       </div>
       {description && (
         <p className="text-muted-foreground line-clamp-2 text-sm" title={description}>
@@ -323,6 +335,29 @@ function AppCard({
         </div>
       </div>
     </li>
+  )
+}
+
+function PinButton({ pkg, title, pinned }: { pkg: string; title: string; pinned: boolean }) {
+  const pin = usePinApp()
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      className={cn("relative z-10 shrink-0", !pinned && "text-muted-foreground")}
+      aria-label={`${pinned ? "Unpin" : "Pin"} ${title}`}
+      aria-pressed={pinned}
+      title={pinned ? "Unpin" : "Pin for everyone"}
+      disabled={pin.isPending}
+      onClick={() =>
+        pin.mutate(
+          { pkg, pinned: !pinned },
+          { onError: (err) => toast.error("Couldn't change the pin", { description: err.message }) },
+        )
+      }
+    >
+      <PinIcon className={cn(pinned && "fill-current")} />
+    </Button>
   )
 }
 

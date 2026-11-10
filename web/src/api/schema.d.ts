@@ -399,7 +399,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Descriptions of apps by package name. Apps without one are not listed. */
+        /** @description Descriptions and pins of apps by package name. Apps with neither are not listed. */
         get: operations["listApps"];
         put?: never;
         post?: never;
@@ -419,6 +419,23 @@ export interface paths {
         get?: never;
         /** @description Sets the description of an app. Anyone signed in may change it. */
         put: operations["putApp"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/apps/{package}/pin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Pins an app before the others, for everyone. Anyone signed in may change it. */
+        put: operations["pinApp"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1559,6 +1576,8 @@ export interface components {
             /** @description plain text shown above the app's builds; blank lines separate paragraphs */
             description: string;
             package: string;
+            /** @description shown before other apps, for everyone */
+            pinned: boolean;
             /** Format: date-time */
             updatedAt: string;
             updatedBy?: string;
@@ -3329,6 +3348,9 @@ export interface components {
             /** @enum {string} */
             visibility?: "public" | "private";
         };
+        PinAppInputBody: {
+            pinned: boolean;
+        };
         Placement: {
             /**
              * Format: double
@@ -5047,6 +5069,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["PutAppInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppInfo"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    pinApp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                package: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PinAppInputBody"];
             };
         };
         responses: {

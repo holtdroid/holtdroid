@@ -5328,3 +5328,16 @@ since its sources moved to S3, every restart of the api erased them.
 **Consequences.** Deployments with a cache volume have to set it. The
 descriptions erased before this are gone: the audit log records that a
 description changed, not its text.
+
+## 178. Pinned apps are shared and live with the app's description
+
+**Context.** With dozens of browsers in the list, the few apps a team tests
+every day get lost among them.
+
+**Decision.** `AppInfo.pinned`, next to the description in
+`apps/<package>.json`, and `PUT /api/v1/apps/{package}/pin`. Pinned apps come
+first in the app list. Like descriptions, a pin is shared and anyone signed in
+may change it (#129); every change is an `app.update` audit event.
+
+**Consequences.** Pins are per portal, not per person. A deployment with a
+cache volume needs `apps.storage` for them to survive a restart (#177).

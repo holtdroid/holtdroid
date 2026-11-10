@@ -68,3 +68,48 @@ func TestAppDescriptionsInTheirOwnStorage(t *testing.T) {
 		t.Fatalf("apps %+v", got)
 	}
 }
+
+func TestPinnedApps(t *testing.T) {
+	h := newHarness(t, 1)
+	pin := func(pkg string, pinned bool) {
+		t.Helper()
+		if rec := h.do(http.MethodPut, "/api/v1/apps/"+pkg+"/pin", "alice", "", map[string]bool{"pinned": pinned}); rec.Code != http.StatusOK {
+			t.Fatalf("pin: %d %s", rec.Code, rec.Body.String())
+		}
+	}
+	list := func() []AppInfo {
+		t.Helper()
+		return decode[AppList](t, h.do(http.MethodGet, "/api/v1/apps", "bob", "", nil)).Items
+	}
+	describe := func(text string) {
+		t.Helper()
+		if rec := h.do(http.MethodPut, "/api/v1/apps/org.example.app", "alice", "", map[string]string{"description": text}); rec.Code != http.StatusOK {
+			t.Fatalf("describe: %d %s", rec.Code, rec.Body.String())
+		}
+	}
+
+	pin("org.example.app", true)
+	if got := list(); len(got) != 1 || !got[0].Pinned || got[0].Description != "" {
+		t.Fatalf("pinned without a description: %+v", got)
+	}
+	describe("About")
+	if got := list(); len(got) != 1 || !got[0].Pinned || got[0].Description != "About" {
+		t.Fatalf("a description dropped the pin: %+v", got)
+	}
+	pin("org.example.app", false)
+	if got := list(); len(got) != 1 || got[0].Pinned || got[0].Description != "About" {
+		t.Fatalf("unpinning dropped the description: %+v", got)
+	}
+	describe("")
+	if got := list(); len(got) != 0 {
+		t.Fatalf("an app with nothing left stays: %+v", got)
+	}
+	pin("org.example.app", true)
+	describe("")
+	if got := list(); len(got) != 1 || !got[0].Pinned {
+		t.Fatalf("clearing the description dropped the pin: %+v", got)
+	}
+	if rec := h.do(http.MethodPut, "/api/v1/apps/..%2Fsecret/pin", "alice", "", map[string]bool{"pinned": true}); rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("invalid package: %d", rec.Code)
+	}
+}

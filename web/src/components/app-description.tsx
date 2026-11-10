@@ -29,7 +29,7 @@ export function AppDescription({ pkg, title }: { pkg: string; title: string }) {
 
   return (
     <>
-      {info ? (
+      {info?.description ? (
         <div className="bg-card group relative flex flex-col gap-2 rounded-xl border p-3 pr-11 text-sm">
           {paragraphs(info.description).map((p, i) => (
             <p key={i} className="whitespace-pre-line">
