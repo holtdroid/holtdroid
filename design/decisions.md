@@ -5358,3 +5358,34 @@ APKs stay in `storage`, so a launch still reads a nearby copy. Unset, it is
 entry after a restart, and for entries that are not parsed yet on each
 listing. Entries of deleted builds stay, a few KiB each (#124). Moving to the
 setting starts with an empty store: the APKs are parsed once more.
+
+## 180. The launch dialog no longer remembers Built-in
+
+**Context.** #121 defaults the launch dialog to a newest-Stable WebView, and
+#176 makes the default kind Chrome WebView, but both still remembered every
+choice, Built-in included. A browser that had launched before #121 kept the
+stored Built-in and never saw the new default.
+
+**Decision.** Built-in is not written to the remembered choice, and a stored
+Built-in is ignored on read. Picking Built-in still applies to that launch.
+Otherwise the default kind from #181 applies. This supersedes the Built-in part
+of #121.
+
+**Consequences.** Anyone who once picked Built-in gets the default kind again.
+Built-in can no longer be the default for a provider.
+
+## 181. Chromium WebView is the default kind
+
+**Context.** #176 starts a launch on Google's WebView, `webview.defaultPackage`
+defaulting to `com.google.android.webview`. The owner wants the Chromium builds
+(`com.android.webview`) as the default instead.
+
+**Decision.** `webview.defaultPackage` defaults to `com.android.webview`, the
+chart's example and the api's fallback change with it. Setting it to
+`com.google.android.webview` still starts launches on Google's WebView. This
+supersedes the default part of #176.
+
+**Consequences.** A launch without a choice starts on the newest Stable Chromium
+build that the Android version can run, and falls back to Google's WebView only
+when no Chromium build fits. Existing deployments that rely on the old default
+must set `webview.defaultPackage: com.google.android.webview`.

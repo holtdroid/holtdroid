@@ -852,7 +852,7 @@ func TestWebViewCatalog(t *testing.T) {
 	rec := h.do(http.MethodGet, "/api/v1/webviews", "otter", "", nil)
 	catalog := decode[WebViewCatalogView](t, rec)
 	list := catalog.Items
-	if catalog.DefaultPackage != "com.google.android.webview" {
+	if catalog.DefaultPackage != chromiumWebView {
 		t.Fatalf("defaultPackage %q", catalog.DefaultPackage)
 	}
 	if rec.Code != http.StatusOK || len(list) != 5 || len(list[0].ABIs) != 0 || list[0].Milestone != 158 || list[0].Version != "158.0.8123.0" ||

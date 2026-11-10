@@ -30,16 +30,16 @@ to the list of kinds; picking one shows its versions and selects its newest
 Stable build.
 
 The launch dialog preselects the newest Stable build of the default kind,
-`webview.defaultPackage` (Chrome WebView unless configured), and restores
+`webview.defaultPackage` (Chromium WebView unless configured), and restores
 nothing. When that kind has no build for the chosen Android version, it takes
 the other kinds. Quick launch uses the version you last launched with, or the
-same default. Choosing **Built-in** is remembered like any other choice.
+same default. Built-in is never remembered: picking it applies to that launch only.
 
 Only builds that work on the chosen Android version are shown. Chromium 149
 and later need Android 14 or 15. On Android 11, 12 and 13 they abort as
 soon as an app creates a WebView, so there the newest choice is Chromium
 145 (148 with `extra: [148]`). The choice
-is remembered per provider and reused by quick launch. While the session
+is remembered per provider and reused by quick launch, except Built-in. While the session
 starts, the progress shows "Installing WebView …", which adds a few seconds.
 The session header then shows the installed version. To compare versions,
 start one session per version.

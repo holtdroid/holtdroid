@@ -124,7 +124,7 @@ func (s *Server) register(api huma.API) {
 			if err != nil {
 				return nil, httpError(err)
 			}
-			return &out[WebViewCatalogView]{WebViewCatalogView{DefaultPackage: cmp.Or(s.cfg.WebView.DefaultPackage, googleWebView), Items: items}}, nil
+			return &out[WebViewCatalogView]{WebViewCatalogView{DefaultPackage: cmp.Or(s.cfg.WebView.DefaultPackage, chromiumWebView), Items: items}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "listProviders", Method: http.MethodGet, Path: "/api/v1/providers", Tags: tags},

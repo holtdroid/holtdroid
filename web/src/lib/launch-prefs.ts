@@ -32,7 +32,7 @@ export const lastScreen = (provider: string) => read(screenKey(provider))
 
 export const lastAndroid = (provider: string) => read(androidKey(provider))
 
-export const lastWebView = (provider: string) => read(webviewKey(provider))
+export const lastWebView = (provider: string) => read(webviewKey(provider)) || null
 
 export function rememberLaunch(
   provider: string,
@@ -45,7 +45,7 @@ export function rememberLaunch(
   if (location) rememberLocation(provider, location)
   if (screen) write(screenKey(provider), screen)
   if (android) write(androidKey(provider), android)
-  if (webview !== undefined) write(webviewKey(provider), webview)
+  if (webview) write(webviewKey(provider), webview)
 }
 
 const backendsKey = (pkg: string) => `holtdroid:backends:${pkg}`

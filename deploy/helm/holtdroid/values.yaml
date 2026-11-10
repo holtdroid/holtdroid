@@ -85,7 +85,7 @@ config:
   # webview:
   #   storage: { type: s3, s3: { endpoint: …, bucket: …, prefix: webview, … } }
   #   catalogs: [] # more catalogs, e.g. Google WebView builds in a prefix of their own
-  #   defaultPackage: com.google.android.webview # the kind a launch starts on; com.android.webview for Chromium
+  #   defaultPackage: com.android.webview # the kind a launch starts on; com.google.android.webview for Google WebView
   # Where parsed APK metadata and icons are kept, the api's storage when unset.
   # Set it when that storage is a cache volume, or every restart parses all APKs again.
   # cache:
