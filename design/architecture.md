@@ -862,7 +862,7 @@ secret is checked against the recording's meta.
 `internal/api/apps.go`, `web/src/components/app-description.tsx` (decision #129):
 
 ```
-browser ─PUT /api/v1/apps/{package}─▶ api ──▶ storage: apps/<package>.json {description, updatedBy, updatedAt}
+browser ─PUT /api/v1/apps/{package}─▶ api ──▶ apps.storage (or storage): apps/<package>.json {description, updatedBy, updatedAt}
         ◀─GET /api/v1/apps── api (lists apps/ and reads each file)
 ```
 

@@ -37,6 +37,7 @@ type Server struct {
 	auth           *auth.Authenticator
 	secrets        *secrets.Registry
 	store          storage.Store
+	apps           storage.Store
 	db             *db.DB
 	users          *users.Service
 	sources        map[string]*source.Source
@@ -148,6 +149,12 @@ func New(ctx context.Context, cfg Config, opts ...Option) (*Server, error) {
 	if s.store == nil {
 		if s.store, err = storage.New(ctx, cfg.Storage, s.secrets); err != nil {
 			return nil, err
+		}
+	}
+	s.apps = s.store
+	if cfg.Apps.Storage.Type != "" {
+		if s.apps, err = storage.New(ctx, cfg.Apps.Storage, s.secrets); err != nil {
+			return nil, fmt.Errorf("apps.storage: %w", err)
 		}
 	}
 	if s.db, err = db.Open(ctx, cfg.Database, s.secrets); err != nil {

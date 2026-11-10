@@ -68,6 +68,10 @@ type SSHConfig struct {
 // DevToolsConfig is where the portal fetches the DevTools frontend from and
 // where it archives crawled revisions; an empty Frontend leaves the
 // frontend to the session's agent, an empty Storage uses the api's storage.
+type AppsConfig struct {
+	Storage storage.Config
+}
+
 type DevToolsConfig struct {
 	Frontend string
 	Storage  storage.Config
@@ -161,6 +165,7 @@ type Config struct {
 	PixelPerfect   PixelPerfectConfig
 	Media          MediaConfig
 	DevTools       DevToolsConfig
+	Apps           AppsConfig
 	WebView        WebViewConfig
 	Map            MapConfig
 	Routing        RoutingConfig

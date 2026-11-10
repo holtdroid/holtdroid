@@ -41,7 +41,7 @@ type putAppInput struct {
 }
 
 func (s *Server) listApps(ctx context.Context) ([]AppInfo, error) {
-	objs, err := s.store.List(ctx, appsPrefix)
+	objs, err := s.apps.List(ctx, appsPrefix)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +51,7 @@ func (s *Server) listApps(ctx context.Context) ([]AppInfo, error) {
 		if !ok || !appDataPackage.MatchString(pkg) {
 			continue
 		}
-		r, _, err := s.store.Get(ctx, o.Key)
+		r, _, err := s.apps.Get(ctx, o.Key)
 		if errors.Is(err, storage.ErrNotExist) {
 			continue
 		}
@@ -76,7 +76,7 @@ func (s *Server) putApp(ctx context.Context, pkg, description string) (AppInfo, 
 	key := appsPrefix + pkg + ".json"
 	info := AppInfo{Package: pkg, Description: strings.TrimSpace(description), UpdatedAt: s.now().UTC()}
 	if info.Description == "" {
-		if err := s.store.Delete(ctx, key); err != nil && !errors.Is(err, storage.ErrNotExist) {
+		if err := s.apps.Delete(ctx, key); err != nil && !errors.Is(err, storage.ErrNotExist) {
 			return info, err
 		}
 		return info, nil
@@ -88,7 +88,7 @@ func (s *Server) putApp(ctx context.Context, pkg, description string) (AppInfo, 
 	if err != nil {
 		return info, err
 	}
-	return info, s.store.Put(ctx, key, bytes.NewReader(data), int64(len(data)))
+	return info, s.apps.Put(ctx, key, bytes.NewReader(data), int64(len(data)))
 }
 
 func (s *Server) registerApps(api huma.API) {

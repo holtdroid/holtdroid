@@ -2,7 +2,11 @@ package api
 
 import (
 	"net/http"
+	"os"
+	"path/filepath"
 	"testing"
+
+	"github.com/holtdroid/holtdroid/internal/storage"
 )
 
 func TestAppDescriptions(t *testing.T) {
@@ -45,5 +49,22 @@ func TestAppDescriptions(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestAppDescriptionsInTheirOwnStorage(t *testing.T) {
+	dir := t.TempDir()
+	h := newHarnessWith(t, 1, func(c *Config) {
+		c.Apps.Storage = storage.Config{Type: "filesystem", Filesystem: storage.FilesystemConfig{Dir: dir}}
+	})
+	rec := h.do(http.MethodPut, "/api/v1/apps/org.example.app", "alice", "", map[string]string{"description": "kept"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("put %d %s", rec.Code, rec.Body.String())
+	}
+	if _, err := os.Stat(filepath.Join(dir, "apps", "org.example.app.json")); err != nil {
+		t.Fatal(err)
+	}
+	if got := decode[AppList](t, h.do(http.MethodGet, "/api/v1/apps", "bob", "", nil)).Items; len(got) != 1 || got[0].Description != "kept" {
+		t.Fatalf("apps %+v", got)
 	}
 }

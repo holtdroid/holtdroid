@@ -5314,3 +5314,17 @@ per catalog. This replaces the part of #125 that ignored the provider.
 **Consequences.** A launch and quick launch start on Google's WebView when
 it has a build for the device; otherwise they fall back to the other kinds.
 With one kind, as on phones, the step looks as before.
+
+## 177. App descriptions can have their own storage
+
+**Context.** #129 keeps descriptions in the api's `storage` so they survive a
+restart with the in-memory database. On a deployment where `storage` is the
+default filesystem on a cache volume (`emptyDir`), as the maintainer's is
+since its sources moved to S3, every restart of the api erased them.
+
+**Decision.** `apps.storage` names a store for `apps/<package>.json`, like
+`devTools.storage`. Unset, it is the api's `storage`, as before.
+
+**Consequences.** Deployments with a cache volume have to set it. The
+descriptions erased before this are gone: the audit log records that a
+description changed, not its text.
