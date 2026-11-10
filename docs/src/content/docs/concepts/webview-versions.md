@@ -23,11 +23,17 @@ Android version. It lists:
 - with a Google WebView catalog, one card per Google WebView build, titled
   _Google WebView_.
 
-The launch dialog preselects the newest build on the Stable channel and
-restores nothing. Quick launch uses the version you last launched with, or the
-newest build on the Stable channel that works on the chosen Android version, or the newest build when
-none is on Stable. It doesn't matter whether a build is Chromium or Google
-WebView. Choosing **Built-in** is remembered like any other choice.
+When the catalog has more than one kind of WebView, the step shows one kind
+at a time: **Chrome WebView** (`com.google.android.webview`) or **Chromium
+WebView** (`com.android.webview`). The **Kinds of WebView** button goes back
+to the list of kinds; picking one shows its versions and selects its newest
+Stable build.
+
+The launch dialog preselects the newest Stable build of the default kind,
+`webview.defaultPackage` (Chrome WebView unless configured), and restores
+nothing. When that kind has no build for the chosen Android version, it takes
+the other kinds. Quick launch uses the version you last launched with, or the
+same default. Choosing **Built-in** is remembered like any other choice.
 
 Only builds that work on the chosen Android version are shown. Chromium 149
 and later need Android 14 or 15. On Android 11, 12 and 13 they abort as

@@ -27,6 +27,14 @@ type WebViewConfig struct {
 	// Catalogs are more catalogs listed next to Storage, one per job that
 	// fills one, since each job prunes its own prefix.
 	Catalogs []storage.Config
+	// DefaultPackage is the kind of WebView a launch starts on, when the
+	// catalog has builds of it.
+	DefaultPackage string
+}
+
+type WebViewCatalogView struct {
+	DefaultPackage string        `json:"defaultPackage" doc:"the kind of WebView a launch starts on, when the catalog has builds of it"`
+	Items          []WebViewView `json:"items"`
 }
 
 type WebViewView struct {
@@ -82,7 +90,10 @@ type webviewBuild struct {
 	frontend string
 }
 
-const chromiumWebView = "com.android.webview"
+const (
+	chromiumWebView = "com.android.webview"
+	googleWebView   = "com.google.android.webview"
+)
 
 func webviewOf(id string, a source.Artifact) (webviewBuild, bool) {
 	t := a.Meta.Tags

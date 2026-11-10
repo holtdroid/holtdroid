@@ -167,6 +167,7 @@ function LaunchFlow({
     android,
     webviews,
     webview,
+    webviewPackage,
     free,
     total,
   } = useLaunchTarget(
@@ -344,7 +345,13 @@ function LaunchFlow({
             )}
 
             {webviews.length > 0 && (
-              <WebViewChoice webviews={webviews} selected={webview} android={android} onSelect={setChosenWebView} />
+              <WebViewChoice
+                webviews={webviews}
+                selected={webview}
+                preferred={webviewPackage}
+                android={android}
+                onSelect={setChosenWebView}
+              />
             )}
 
             {!virtual && slots.length > 0 && (

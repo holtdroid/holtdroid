@@ -4,6 +4,7 @@ import type { AppDataChoice, AppDataList, ArtifactView, ProviderView, WebViewVie
 import { runsNatively } from "@/lib/abi"
 import { useProviders, useWebViews } from "@/api/queries"
 import { apiLevels } from "@/lib/android"
+import { defaultWebView } from "@/lib/webview-kinds"
 import {
   lastAndroid,
   lastLocation,
@@ -72,7 +73,7 @@ export function useLaunchTarget(
   const deviceAndroid = android ?? slot?.capabilities?.android
   const level = deviceAndroid ? apiLevels[deviceAndroid] : undefined
   const webviews = webviewCapable
-    ? (catalog.data ?? []).filter(
+    ? (catalog.data?.items ?? []).filter(
         (w) =>
           (!level || (w.minSdk <= level && (!w.maxSdk || level <= w.maxSdk))) &&
           pool.some((p) => takes(p, w, slot?.capabilities?.abis)),
@@ -81,10 +82,11 @@ export function useLaunchTarget(
   const defaults = webviews.filter((w) =>
     pool.some((p) => p.capabilities.kind !== "physical" && takes(p, w, slot?.capabilities?.abis)),
   )
-  const newestStable = defaults.find((w) => w.channels.includes("stable")) ?? defaults[0]
+  const webviewPackage = catalog.data?.defaultPackage
+  const initialWebView = defaultWebView(defaults, webviewPackage)
   const known = (id: string | null): id is string => id === "" || (id !== null && webviews.some((w) => w.id === id))
   const remembered = restore ? lastWebView(provider?.name ?? "") : null
-  const webview = known(chosenWebView) ? chosenWebView : known(remembered) ? remembered : (newestStable?.id ?? "")
+  const webview = known(chosenWebView) ? chosenWebView : known(remembered) ? remembered : (initialWebView?.id ?? "")
 
   return {
     loaded: providers.isSuccess,
@@ -103,6 +105,7 @@ export function useLaunchTarget(
     android,
     webviews,
     webview,
+    webviewPackage,
     free: slot ? Number(slot.state === "free") : candidates.reduce((n, p) => n + freeSlots(p), 0),
     total: slot ? 1 : candidates.reduce((n, p) => n + p.capacity.slots.length, 0),
   }

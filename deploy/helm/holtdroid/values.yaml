@@ -81,6 +81,7 @@ config:
   # webview:
   #   storage: { type: s3, s3: { endpoint: …, bucket: …, prefix: webview, … } }
   #   catalogs: [] # more catalogs, e.g. Google WebView builds in a prefix of their own
+  #   defaultPackage: com.google.android.webview # the kind a launch starts on; com.android.webview for Chromium
   # Tile server for the GPS map, proxied by the api (docs: Configuration →
   # Overview → GPS map). Empty url turns the map off.
   # map:

@@ -4025,6 +4025,11 @@ export interface components {
              */
             role: "admin" | "user" | "";
         };
+        WebViewCatalogView: {
+            /** @description the kind of WebView a launch starts on, when the catalog has builds of it */
+            defaultPackage: string;
+            items: components["schemas"]["WebViewView"][];
+        };
         WebViewView: {
             /** @description the ABIs it has native code for, from the sidecar's abis tag; empty when the catalog doesn't say */
             abis: string[];
@@ -7614,7 +7619,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["WebViewView"][];
+                    "application/json": components["schemas"]["WebViewCatalogView"];
                 };
             };
             /** @description Error */

@@ -850,7 +850,11 @@ func TestWebViewCatalog(t *testing.T) {
 	h.srv.provOrder = append([]string{"phones", "pixels"}, h.srv.provOrder...)
 
 	rec := h.do(http.MethodGet, "/api/v1/webviews", "otter", "", nil)
-	list := decode[[]WebViewView](t, rec)
+	catalog := decode[WebViewCatalogView](t, rec)
+	list := catalog.Items
+	if catalog.DefaultPackage != "com.google.android.webview" {
+		t.Fatalf("defaultPackage %q", catalog.DefaultPackage)
+	}
 	if rec.Code != http.StatusOK || len(list) != 5 || len(list[0].ABIs) != 0 || list[0].Milestone != 158 || list[0].Version != "158.0.8123.0" ||
 		!slices.Equal(list[0].Channels, []string{"dev", "canary"}) || list[0].MinSDK != 34 || list[1].MinSDK != 29 || list[1].Title != "Chromium 157" ||
 		list[0].Package != "com.android.webview" || list[2].Package != "com.google.android.webview" || list[2].Title != "Google WebView 156" {
@@ -922,7 +926,7 @@ func TestWebViewCatalog(t *testing.T) {
 	}
 
 	plain := newHarness(t, 1)
-	if rec := plain.do(http.MethodGet, "/api/v1/webviews", "otter", "", nil); rec.Code != http.StatusOK || strings.TrimSpace(rec.Body.String()) != "[]" {
+	if rec := plain.do(http.MethodGet, "/api/v1/webviews", "otter", "", nil); rec.Code != http.StatusOK || len(decode[WebViewCatalogView](t, rec).Items) != 0 {
 		t.Fatalf("no catalog: %d %s", rec.Code, rec.Body.String())
 	}
 	rec = plain.do(http.MethodPost, "/api/v1/sessions", "otter", "", map[string]string{"source": "local", "artifactId": encodeID("hello.apk"), "webview": id})

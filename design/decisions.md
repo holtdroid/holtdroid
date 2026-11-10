@@ -5271,7 +5271,8 @@ holtdroid-apkmirror-sync no longer stores WebViews with one bitness.
 
 **Context.** The maintainer's deployment took Google Chrome and Google
 WebView from APKMirror through a solver for its bot protection, with gaps
-wherever APKMirror lacks a variant. holtdroid/chromium-builds publishes
+wherever APKMirror lacks a variant, and wanted Chromium next to them.
+holtdroid/chromium-builds publishes
 Chromium and WebView for x86_64 and arm64 for every milestone from 83, with
 proprietary codecs. Its CI uploads a release one architecture at a time, its
 publication dates are the build's, not the version's, and its WebView APKs
@@ -5290,8 +5291,26 @@ derives the Android limits of a build from its `targetSdk` tag: below 31 it
 isn't listed, 31 and 32 get `maxSdk` 32.
 
 **Consequences.** The WebView is `com.android.webview`, which phones refuse,
-so a deployment that replaces Google WebView with it has no WebView choice
-on phones. On redroid the browsers of Chromium 83, 90 and 96 crashed at
+so phones still need Google WebView builds for a WebView choice. On redroid the browsers of Chromium 83, 90 and 96 crashed at
 startup on every Android version tried, 104 on Android 16 but not 11, while
 112 ran; they are still listed. `targetSdk` 30 is hidden without having been tested;
 it could only work on Android 11.
+
+## 176. The launch dialog picks a kind of WebView first, Chrome by default
+
+**Context.** With Chromium builds from Chromium 83 on next to Google's, one
+flat list of cards mixes two kinds of WebView, and #125 made the newest
+stable build of any catalog the default, so which kind a launch got depended
+on who published last.
+
+**Decision.** The catalog response carries `defaultPackage`, from
+`webview.defaultPackage` (default `com.google.android.webview`). The WebView
+step shows the versions of one kind; **Kinds of WebView** goes back to a list
+of the kinds that have builds for this device and Android version, and
+picking one selects its newest Stable build. The kind comes from the sidecar's
+package, labelled Chrome WebView or Chromium WebView, so no setting is needed
+per catalog. This replaces the part of #125 that ignored the provider.
+
+**Consequences.** A launch and quick launch start on Google's WebView when
+it has a build for the device; otherwise they fall back to the other kinds.
+With one kind, as on phones, the step looks as before.

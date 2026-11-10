@@ -119,12 +119,12 @@ func (s *Server) register(api huma.API) {
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "listWebViews", Method: http.MethodGet, Path: "/api/v1/webviews", Tags: tags},
-		func(ctx context.Context, _ *struct{}) (*out[[]WebViewView], error) {
+		func(ctx context.Context, _ *struct{}) (*out[WebViewCatalogView], error) {
 			items, err := s.webviews.list(ctx)
 			if err != nil {
 				return nil, httpError(err)
 			}
-			return &out[[]WebViewView]{items}, nil
+			return &out[WebViewCatalogView]{WebViewCatalogView{DefaultPackage: cmp.Or(s.cfg.WebView.DefaultPackage, googleWebView), Items: items}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "listProviders", Method: http.MethodGet, Path: "/api/v1/providers", Tags: tags},
