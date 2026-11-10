@@ -49,6 +49,7 @@ const (
 // names and icons, and a restart finds them without parsing anything.
 type Cache struct {
 	store    storage.Store
+	meta     storage.Store
 	tmpDir   string
 	maxSize  int64
 	open     func(ctx context.Context, source, id string) (io.ReadCloser, error)
@@ -63,6 +64,7 @@ type Cache struct {
 func NewCache(store storage.Store, maxSize int64, open, openIcon func(ctx context.Context, source, id string) (io.ReadCloser, error)) *Cache {
 	return &Cache{
 		store:    store,
+		meta:     store,
 		tmpDir:   os.TempDir(),
 		maxSize:  maxSize,
 		open:     open,
@@ -70,6 +72,13 @@ func NewCache(store storage.Store, maxSize int64, open, openIcon func(ctx contex
 		log:      slog.Default().With("component", "cache"),
 		mem:      map[string]CacheEntry{},
 	}
+}
+
+// WithMetadata keeps metadata and icons in their own store, so that they
+// outlive a cache volume.
+func (c *Cache) WithMetadata(store storage.Store) *Cache {
+	c.meta = store
+	return c
 }
 
 func cacheKey(source, id, rev string) string {
@@ -88,7 +97,7 @@ func (c *Cache) LookupKey(ctx context.Context, key string) (CacheEntry, bool) {
 	if ok {
 		return e, true
 	}
-	rc, _, err := c.store.Get(ctx, path.Join(key, metaObject))
+	rc, _, err := c.meta.Get(ctx, path.Join(key, metaObject))
 	if err != nil {
 		return CacheEntry{}, false
 	}
@@ -114,7 +123,7 @@ func (c *Cache) Icon(ctx context.Context, key string) ([]byte, error) {
 	if _, ok := c.LookupKey(ctx, key); !ok {
 		return nil, storage.ErrNotExist
 	}
-	rc, _, err := c.store.Get(ctx, path.Join(key, iconObject))
+	rc, _, err := c.meta.Get(ctx, path.Join(key, iconObject))
 	if err != nil {
 		return nil, err
 	}
@@ -222,7 +231,7 @@ func (c *Cache) put(ctx context.Context, source string, a src.Artifact, file str
 		}
 	}
 	if icon != nil {
-		if err := c.store.Put(ctx, path.Join(key, iconObject), bytes.NewReader(icon), int64(len(icon))); err != nil {
+		if err := c.meta.Put(ctx, path.Join(key, iconObject), bytes.NewReader(icon), int64(len(icon))); err != nil {
 			return CacheEntry{}, fmt.Errorf("store icon: %w", err)
 		}
 	}
@@ -230,7 +239,7 @@ func (c *Cache) put(ctx context.Context, source string, a src.Artifact, file str
 	if err != nil {
 		return CacheEntry{}, err
 	}
-	if err := c.store.Put(ctx, path.Join(key, metaObject), bytes.NewReader(raw), int64(len(raw))); err != nil {
+	if err := c.meta.Put(ctx, path.Join(key, metaObject), bytes.NewReader(raw), int64(len(raw))); err != nil {
 		return CacheEntry{}, fmt.Errorf("store metadata: %w", err)
 	}
 

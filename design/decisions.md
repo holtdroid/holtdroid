@@ -5341,3 +5341,20 @@ may change it (#129); every change is an `app.update` audit event.
 
 **Consequences.** Pins are per portal, not per person. A deployment with a
 cache volume needs `apps.storage` for them to survive a restart (#177).
+
+## 179. APK metadata can outlive the cache volume
+
+**Context.** #124 keeps parsed metadata when an APK is evicted, but the
+metadata lies in the api's `storage`. Where that is a cache volume, every
+restart loses it, and the api downloads and parses every APK again, one at a
+time. With browsers from release archives in the list that is about 200 files
+and 40 GB, and listings say "Reading package info" meanwhile.
+
+**Decision.** `cache.metadata` names a store for `meta.json` and `icon.png`.
+APKs stay in `storage`, so a launch still reads a nearby copy. Unset, it is
+`storage`, as before.
+
+**Consequences.** Reads stay in the in-memory map, so S3 is only asked once per
+entry after a restart, and for entries that are not parsed yet on each
+listing. Entries of deleted builds stay, a few KiB each (#124). Moving to the
+setting starts with an empty store: the APKs are parsed once more.

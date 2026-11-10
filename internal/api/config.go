@@ -33,8 +33,9 @@ type SessionsConfig struct {
 }
 
 type CacheConfig struct {
-	MaxSize config.ByteSize
-	Warm    int
+	MaxSize  config.ByteSize
+	Warm     int
+	Metadata storage.Config
 }
 
 type UploadsConfig struct {

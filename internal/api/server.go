@@ -228,6 +228,13 @@ func New(ctx context.Context, cfg Config, opts ...Option) (*Server, error) {
 	s.auth.OnSignIn = s.signedIn
 	s.activity = newActivity(s.now)
 	s.cache = NewCache(s.store, int64(cfg.Cache.MaxSize), s.openArtifact, s.openIcon)
+	if cfg.Cache.Metadata.Type != "" {
+		meta, err := storage.New(ctx, cfg.Cache.Metadata, s.secrets)
+		if err != nil {
+			return nil, fmt.Errorf("cache.metadata: %w", err)
+		}
+		s.cache.WithMetadata(meta)
+	}
 	if cfg.DevTools.Frontend != "" {
 		store := s.store
 		if cfg.DevTools.Storage.Type != "" {
