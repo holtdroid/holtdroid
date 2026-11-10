@@ -12,7 +12,8 @@ a sync job such as [holtdroid-slack-sync](/sources/slack/) that
 pulls builds out of Slack or [holtdroid-github-sync](/sources/github/)
 that copies GitHub release assets, keep
 [Chromium builds of many milestones](/sources/chromium/) with
-holtdroid-chromium-sync, [write your own](/sources/custom/), or
+holtdroid-chromium-sync, copy other browsers from their
+[public release archives](/sources/archives/), [write your own](/sources/custom/), or
 upload them in the UI.
 
 ```yaml

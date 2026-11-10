@@ -21,6 +21,10 @@ existingSecret: ""
 #       type: s3
 #       readOnly: true
 #       s3: { endpoint: https://s3.example.com, bucket: apks, prefix: slack, accessKey: env:S3_KEY, secretKey: env:S3_SECRET }
+#     - name: browsers # Opera and Firefox, filled by holtdroid-archive-sync (docs: Sources → Browsers from release archives)
+#       type: s3
+#       readOnly: true
+#       s3: { endpoint: https://s3.example.com, bucket: apks, prefix: archive, accessKey: env:S3_KEY, secretKey: env:S3_SECRET }
 config:
   # anonymous | password | oidc | header | users | none. users: invite links
   # and passkeys, accounts in the database (use database.type sqlite), e.g.
