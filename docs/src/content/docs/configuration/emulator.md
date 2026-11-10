@@ -45,6 +45,7 @@ agentResources:
 nodes:
   big-node: # a node name
     slots: 6
+    names: [Fox, Owl, Lynx] # what users see for slots 1–3; the rest show their ids, big-node-4, …
     resources: # replaces resources above on this node
       requests: { cpu: "1", memory: 2Gi }
       limits: { memory: 4Gi }
@@ -78,15 +79,16 @@ nodeInfo:
 | `redroid.privileged`       | `false` (default): the Android container gets a fixed set of capabilities, a default seccomp profile and only the devices Android needs, from the [session-devices plugin](#session-devices). `true`: a privileged container, for runtimes without NRI                                              |
 | `resources`                | Android container resources. Leave out a CPU limit: a busy session may borrow idle cores                                                                                                                                                                                                            |
 | `agentResources`           | Agent container resources                                                                                                                                                                                                                                                                           |
-| `nodes`                    | Per-node overrides by node name: `slots` and `resources`                                                                                                                                                                                                                                            |
+| `nodes`                    | Per-node overrides by node name: `slots`, `resources`, and `names`, the labels users see for its slots, in order (Inventory shows the id too)                                                                                                                                                       |
 | `vpn`                      | Per-session VPN, see below                                                                                                                                                                                                                                                                          |
 | `sessionTelemetry`         | Metrics port and tracing settings passed to session agents, see [Monitoring](/operations/monitoring/)                                                                                                                                                                                               |
 | `maintenance`              | Name of the ConfigMap in `namespace` that keeps maintenance holds. The provider creates it on the first hold. Empty turns holds off                                                                                                                                                                 |
 | `nodeInfo`                 | Label `selector` and `port` of the `holtdroid node-info` Pods that describe session nodes on the Inventory page. Empty selector: Node objects only                                                                                                                                                  |
 
 Every matching node has `slotsPerNode` slots, named `<node>-1`, `<node>-2`,
-…. A session takes the first free slot, or the one picked in the launch
-dialog, and its Pod is pinned to that slot's node; slots of nodes that are
+…, and labelled with those ids unless `nodes.<name>.names` gives them
+labels; the Inventory page shows both. A session takes the first free
+slot, or the one picked in the launch dialog, and its Pod is pinned to that slot's node; slots of nodes that are
 not Ready or are cordoned show as offline. Session state lives on the Pod,
 so restarting the provider loses nothing. Run one provider replica per
 namespace.

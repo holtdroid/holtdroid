@@ -220,8 +220,8 @@ providers:
       resources:
         requests: { cpu: 500m, memory: 1536Mi }
         limits: { memory: 3Gi }
-    # Per-node overrides by node name: session count and Android resources,
-    # e.g. core: { slots: 6, resources: { requests: { cpu: "1", memory: 1536Mi }, limits: { memory: 3Gi } } }
+    # Per-node overrides by node name: session count, slot labels and Android
+    # resources, e.g. core: { slots: 6, names: [Fox, Owl], resources: { requests: { cpu: "1", memory: 1536Mi }, limits: { memory: 3Gi } } }
     nodes: {}
     # Per-session VPN sidecar, see the emulator provider docs. Empty: no VPN.
     vpn: {}

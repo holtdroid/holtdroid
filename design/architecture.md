@@ -180,8 +180,10 @@ uploads/3f9a1c02b7d4/my.apk.meta.json
   closing the tab cancels the request and gives up the place.
 - **Slots**: each provider reports capacity. The emulator provider gives
   every node matching its `nodeSelector` (a label selector) whose taints its
-  `tolerations` cover `slotsPerNode` slots (or `nodes.<name>.slots`), named
-  `<node>-<n>`, sorted by node name and capped at `slots`; slots of not-Ready
+  `tolerations` cover `slotsPerNode` slots (or `nodes.<name>.slots`), with
+  ids `<node>-<n>` and labels from `nodes.<name>.names` (the id otherwise;
+  the Inventory page shows both), in `fillOrder` and then by node name, capped at
+  `slots`; slots of not-Ready
   or cordoned nodes are `offline`. A session takes the first free slot and
   its Pod is pinned to the slot's node with required node affinity and
   labelled with both (decisions.md #29, #82). When no slot is free,

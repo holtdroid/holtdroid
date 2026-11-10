@@ -263,6 +263,9 @@ func TestValidate(t *testing.T) {
 		{"selector", func(c *Config) { c.NodeSelector = "a in (" }},
 		{"resources", func(c *Config) { c.Resources.Limits = map[string]string{"cpu": "lots"} }},
 		{"node slots", func(c *Config) { c.Nodes = map[string]Node{"core": {Slots: -1}} }},
+		{"node names", func(c *Config) {
+			c.Nodes = map[string]Node{"core": {Names: []string{"Fox"}}, "k3s-1": {Names: []string{"Owl", "Fox"}}}
+		}},
 		{"screen", func(c *Config) { c.Redroid.Screens[0].Width = 0 }},
 		{"screen id", func(c *Config) { c.Redroid.Screens[1].ID = c.Redroid.Screens[0].ID }},
 		{"cutout", func(c *Config) { c.Redroid.Screens[0].Cutout = "bezel" }},
@@ -593,7 +596,7 @@ func TestFillOrder(t *testing.T) {
 	p := newProvider(t, cluster(), func(c *Config) {
 		c.SlotsPerNode = 2
 		c.Tolerations = []Toleration{{Key: "dedicated", Operator: "Exists"}}
-		c.Nodes = map[string]Node{"core": {Slots: 3}}
+		c.Nodes = map[string]Node{"core": {Slots: 3, Names: []string{"Fox", "", "Owl", "Lynx"}}}
 		c.FillOrder = []string{"core", "core", "k3s-1", "k3s-2", "core", "k3s-9", "k3s-2", "core"}
 	})
 	c, err := p.Capacity(t.Context())
@@ -607,6 +610,11 @@ func TestFillOrder(t *testing.T) {
 	want := []string{"core-1", "core-2", "k3s-1-1", "k3s-2-1", "core-3", "k3s-2-2", "k3s-1-2", "k3s-3-1", "k3s-3-2"}
 	if !slices.Equal(got, want) {
 		t.Fatalf("order %v, want %v", got, want)
+	}
+	for i, label := range map[int]string{0: "Fox", 1: "core-2", 2: "k3s-1-1", 4: "Owl"} {
+		if c.Slots[i].Label != label {
+			t.Errorf("slot %s: label %q, want %q", c.Slots[i].ID, c.Slots[i].Label, label)
+		}
 	}
 }
 

@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"net/http"
 	"slices"
 	"strconv"
@@ -86,6 +87,7 @@ type Toleration struct {
 // Node overrides the session settings on one node, by name.
 type Node struct {
 	Slots     int
+	Names     []string
 	Resources Resources
 }
 
@@ -198,6 +200,15 @@ func (c Config) Validate() error {
 	}
 	if _, err := c.AgentResources.requirements(); err != nil {
 		errs = append(errs, fmt.Errorf("agentResources: %w", err))
+	}
+	named := map[string]string{}
+	for _, name := range slices.Sorted(maps.Keys(c.Nodes)) {
+		for _, label := range c.Nodes[name].Names {
+			if other, ok := named[label]; ok && label != "" {
+				errs = append(errs, fmt.Errorf("nodes.%s: name %q is already used on %s", name, label, other))
+			}
+			named[label] = name
+		}
 	}
 	for name, n := range c.Nodes {
 		if n.Slots < 0 {
@@ -367,7 +378,7 @@ func (p *Provider) capacity(ctx context.Context) (snapshot, error) {
 		case n.Spec.Unschedulable || !nodeReady(n):
 			state = contract.SlotOffline
 		}
-		c.Slots = append(c.Slots, contract.Slot{ID: id, Label: id, State: state})
+		c.Slots = append(c.Slots, contract.Slot{ID: id, Label: p.slotLabel(n.Name, e.n), State: state})
 		slotNodes = append(slotNodes, n)
 	}
 	held.Apply(&c)
@@ -382,6 +393,13 @@ func (p *Provider) slotsOn(node string) int {
 }
 
 func slotID(node string, i int) string { return node + "-" + strconv.Itoa(i) }
+
+func (p *Provider) slotLabel(node string, i int) string {
+	if names := p.cfg.Nodes[node].Names; i <= len(names) && names[i-1] != "" {
+		return names[i-1]
+	}
+	return slotID(node, i)
+}
 
 type slotEntry struct {
 	node corev1.Node
