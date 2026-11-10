@@ -144,6 +144,9 @@ func (p *Provider) renderPod(id, slot, node string, req contract.CreateSession, 
 		if w.Frontend != "" {
 			env = append(env, corev1.EnvVar{Name: "HOLTDROID_WEBVIEW__FRONTEND", Value: w.Frontend})
 		}
+		if w.ABI != "" {
+			env = append(env, corev1.EnvVar{Name: "HOLTDROID_WEBVIEW__ABI", Value: w.ABI})
+		}
 	}
 	if req.Frontend != "" {
 		env = append(env, corev1.EnvVar{Name: "HOLTDROID_FRONTEND", Value: req.Frontend})

@@ -97,6 +97,7 @@ func TestRender(t *testing.T) {
 		{"appdata", func(c *Config) {}, "", &contract.AppDataRestore{URL: "http://holtdroid-api-internal:8081/internal/app-data/x.tar.zst", Cache: true}, "", "", nil},
 		{"webview", func(c *Config) {}, "", nil, "", "14", &contract.WebViewInstall{
 			URL: "http://holtdroid-api-internal:8081/internal/webview/Y2hyb21pdW0tMTU4LmFwaw", Version: "158.0.8123.0", Frontend: "7d74334854bbfcbaf1c955e86589d8b7cc9acc31",
+			ABI: "x86_64",
 		}},
 	}
 	for _, tt := range tests {
