@@ -1,254 +1,378 @@
 import {
-  ActivityIcon,
-  ArrowLeftIcon,
-  CameraIcon,
-  MicIcon,
-  MicOffIcon,
-  MonitorPlayIcon,
-  TvIcon,
-  VideoIcon,
   BatteryFullIcon,
   BatteryLowIcon,
+  BellIcon,
   CableIcon,
+  CameraIcon,
+  ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronUpIcon,
+  CircleIcon,
   ClipboardIcon,
   ClockIcon,
-  CpuIcon,
-  GaugeIcon,
-  GlobeIcon,
   KeyboardIcon,
   LanguagesIcon,
-  LaptopIcon,
-  Link2Icon,
+  type LucideIcon,
   MapPinIcon,
+  MicIcon,
+  MonitorPlayIcon,
   MonitorSmartphoneIcon,
-  MoonIcon,
-  NavigationIcon,
-  OctagonXIcon,
   PackageIcon,
-  PinIcon,
-  PlayIcon,
-  PlugIcon,
-  SmartphoneIcon,
+  PowerIcon,
+  RotateCcwIcon,
+  RotateCwIcon,
+  ScanIcon,
+  SearchIcon,
+  SignalIcon,
   SquareIcon,
-  SunIcon,
   SunMediumIcon,
   TimerResetIcon,
-  TypeIcon,
-  WifiIcon,
+  ToggleRightIcon,
+  Volume2Icon,
 } from "lucide-react"
+import type { ReactNode } from "react"
 import { AppIcon } from "@/components/app-icon"
 import { SessionStateBadge } from "@/components/session-state-badge"
 import { StartProgress } from "@/components/session/start-progress"
-import { CardLine, ShadeCard } from "@/components/session/shade"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import type { PortalState } from "../types"
+import type { DeviceTab, Panel, PortalState } from "../types"
 import { app, locationOf, networkProfiles, places, zones } from "./data"
-import { ShadePanelFor, VersionMenu } from "./panels"
+import { PanelBody, VersionMenu } from "./panels"
 import { Phone } from "./phone"
 import { ToolTabs } from "./tools"
 
 export function SessionHeader({ s }: { s: PortalState }) {
-  const webview = s.webview === "builtin" ? "" : s.webview === "beta" ? " · WebView 143" : " · WebView 142"
+  const loc = locationOf(s.location)
+  const webview = s.webview === "builtin" ? "" : s.webview === "beta" ? "WebView 143" : "WebView 142"
+  const left = Math.max(1, Math.min(5, Math.ceil(s.idleMinutes / 6)))
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-3">
-      <Button variant="ghost" size="icon-sm">
-        <ArrowLeftIcon />
+    <header className="flex shrink-0 items-center gap-3.5">
+      <Button variant="outline" size="icon">
+        <ChevronLeftIcon />
       </Button>
-      <div data-g="version-switcher" className="-ml-2 flex min-w-0 items-center gap-2 rounded-lg px-1.5 py-1">
-        <AppIcon src={app.icon} className="size-9" />
-        <span className="grid min-w-0">
-          <span className="flex items-center gap-2">
-            <span className="truncate font-medium">{app.label}</span>
-            <span data-g="state-badge">
-              <SessionStateBadge state={s.start} />
+      <AppIcon src={app.icon} className="size-10 rounded-[11px]" />
+      <div className="grid min-w-0 gap-1">
+        <div data-g="version-switcher" className="-mx-2 flex min-w-0 items-center gap-2 rounded-lg px-2 py-0.5">
+          <span className="truncate text-lg font-semibold">{app.label}</span>
+          <span className="text-muted-foreground shrink-0 font-mono text-[15px]">{s.version}</span>
+          <span data-g="state-badge">
+            <SessionStateBadge state={s.start} />
+          </span>
+          <ChevronDownIcon className="text-muted-foreground size-4 shrink-0" />
+        </div>
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          <Badge variant="secondary">Classic 16:9 · 1080×1920</Badge>
+          <Badge variant="secondary">Android {s.android}</Badge>
+          {webview && <Badge variant="secondary">{webview}</Badge>}
+          {loc && (
+            <Badge variant="secondary">
+              {loc.flag} {loc.label}
+            </Badge>
+          )}
+          <span className="text-muted-foreground ml-1 truncate font-mono text-xs">redroid-1</span>
+        </div>
+      </div>
+      <span className="flex-1" />
+      <div data-g="session-timer" className="flex w-44 flex-col gap-1.5">
+        <div className="flex justify-between text-xs">
+          <span className="text-muted-foreground">Stops when idle in</span>
+          <span className={cn("font-mono", s.idleMinutes <= 5 && "text-warning")}>{s.idleMinutes}m 00s</span>
+        </div>
+        <div className="flex gap-0.5" aria-hidden>
+          {Array.from({ length: 5 }, (_, i) => (
+            <span
+              key={i}
+              className={cn(
+                "h-1 flex-1 rounded-full",
+                i < left ? (s.idleMinutes <= 5 ? "bg-warning" : "bg-foreground") : "bg-border",
+              )}
+            />
+          ))}
+        </div>
+      </div>
+      {s.recording && (
+        <Button data-g="session-record" variant="outline">
+          <span className="bg-danger size-[7px] animate-pulse rounded-full" />
+          <span className="font-mono">
+            {Math.floor(s.recTime / 60)}:{String(s.recTime % 60).padStart(2, "0")}
+          </span>
+        </Button>
+      )}
+      <Button data-g="extend" variant="outline">
+        <TimerResetIcon />
+        Extend
+      </Button>
+      <Button data-g="stop" variant="destructive">
+        <SquareIcon />
+        {s.start === "stopping" ? "Saving app data…" : "Stop"}
+      </Button>
+    </header>
+  )
+}
+
+type Row = {
+  id: string
+  panel?: Panel
+  icon: LucideIcon
+  title: string
+  summary: ReactNode
+  changed?: boolean
+}
+
+const groups: { value: DeviceTab; label: string }[] = [
+  { value: "environment", label: "Environment" },
+  { value: "media", label: "Media" },
+  { value: "app", label: "App" },
+]
+
+function rows(s: PortalState): Record<DeviceTab, Row[]> {
+  const loc = locationOf(s.location)
+  const profile = networkProfiles.find((p) => p.id === s.network)
+  const rec = `${Math.floor(s.recTime / 60)}:${String(s.recTime % 60).padStart(2, "0")}`
+  return {
+    environment: [
+      {
+        id: "w-network",
+        panel: "network",
+        icon: SignalIcon,
+        title: "Network",
+        summary: [loc ? `${loc.flag} ${loc.label}` : "No VPN", s.network === "full" ? "Wi-Fi" : profile?.name].join(
+          " · ",
+        ),
+        changed: s.network !== "full",
+      },
+      {
+        id: "w-gps",
+        panel: "gps",
+        icon: MapPinIcon,
+        title: "Location",
+        summary: `${places[s.geo].name} · ${s.route ? "Driving" : "Follows the VPN"}`,
+        changed: s.geo !== "amsterdam" || s.route,
+      },
+      {
+        id: "w-battery",
+        panel: "battery",
+        icon: s.battery <= 15 ? BatteryLowIcon : BatteryFullIcon,
+        title: "Battery",
+        summary: `${s.battery}% · ${s.saver ? "Saver on" : "On battery"}`,
+        changed: s.battery !== 100 || s.saver,
+      },
+      {
+        id: "w-language",
+        panel: "language",
+        icon: LanguagesIcon,
+        title: "Language",
+        summary: s.locale === "en" ? "English · US" : s.locale === "uk" ? "Українська · UA" : "Deutsch · DE",
+        changed: s.locale !== "en",
+      },
+      {
+        id: "w-time",
+        panel: "time",
+        icon: ClockIcon,
+        title: "Time",
+        summary: `${zones[s.timeZone].time} · ${zones[s.timeZone].name.split("/")[1]?.replace("_", " ")}`,
+        changed: s.timeZone !== "amsterdam",
+      },
+      {
+        id: "w-clipboard",
+        panel: "clipboard",
+        icon: ClipboardIcon,
+        title: "Clipboard",
+        summary:
+          s.clipboardMode === "both" ? "Both ways" : s.clipboardMode === "to" ? "To the device" : "From the device",
+        changed: s.clipboardMode !== "both",
+      },
+      {
+        id: "w-display",
+        panel: "display",
+        icon: SunMediumIcon,
+        title: "Display",
+        summary: `${s.dark ? "Dark theme" : "Light theme"} · Font 100%`,
+        changed: s.dark,
+      },
+    ],
+    media: [
+      {
+        id: "w-stream",
+        icon: MonitorPlayIcon,
+        title: "Stream",
+        summary: "H.264 · 1080p · 60 fps · 58 fps · 4.1 Mbit/s",
+      },
+      { id: "w-microphone", icon: MicIcon, title: "Microphone", summary: "Off" },
+      { id: "w-camera", icon: CameraIcon, title: "Camera", summary: "Test card" },
+      {
+        id: "w-recording",
+        panel: "recording",
+        icon: CircleIcon,
+        title: "Recording",
+        summary: s.recording ? `${rec} · ${s.markers} markers` : "Not recording",
+      },
+    ],
+    app: [
+      {
+        id: "w-app",
+        panel: "app",
+        icon: PackageIcon,
+        title: "App",
+        summary: `${s.appRunning ? "Running" : "Closed"} · ${s.version} · 12% · 184 MB`,
+      },
+      {
+        id: "w-device",
+        panel: "device",
+        icon: MonitorSmartphoneIcon,
+        title: "Device",
+        summary: "Classic 16:9 · CPU 18% · 2.1 GB",
+      },
+      {
+        id: "w-ssh",
+        panel: "ssh",
+        icon: CableIcon,
+        title: "SSH",
+        summary: [s.computerOnline ? "ADB connected" : "Not connected", s.portPublished && "1 port published"]
+          .filter(Boolean)
+          .join(" · "),
+      },
+    ],
+  }
+}
+
+export function deviceTabOf(s: PortalState): DeviceTab {
+  const all = rows(s)
+  for (const g of groups) if (all[g.value].some((r) => r.panel && r.panel === s.panel)) return g.value
+  return s.deviceTab
+}
+
+function DevicePanel({ s }: { s: PortalState }) {
+  const tab = deviceTabOf(s)
+  return (
+    <aside
+      data-g="device-panel"
+      className="bg-card flex min-h-0 w-[280px] shrink-0 flex-col overflow-hidden rounded-2xl border"
+    >
+      <div className="flex flex-col gap-3 px-4 pt-4 pb-3">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-base font-semibold">Device</h2>
+          <Button variant="outline" size="icon-sm">
+            <SearchIcon />
+          </Button>
+        </div>
+        <div className="bg-muted flex rounded-[11px] p-[3px]">
+          {groups.map((g) => (
+            <span
+              key={g.value}
+              data-g={`device-tab-${g.value}`}
+              className={cn(
+                "flex h-[26px] flex-1 items-center justify-center rounded-md text-[13px] font-medium",
+                g.value === tab ? "bg-background text-foreground shadow-xs" : "text-muted-foreground",
+              )}
+            >
+              {g.label}
             </span>
-          </span>
-          <span className="text-muted-foreground truncate font-mono text-xs">
-            {app.pkg} · {s.version} · redroid-1{webview}
-          </span>
-        </span>
+          ))}
+        </div>
       </div>
-      <div className="ml-auto flex shrink-0 items-center gap-2">
+      <div data-scroll className="min-h-0 flex-1 overflow-y-auto px-4 pb-2 [scrollbar-width:none]">
+        {rows(s)[tab].map((r) => (
+          <DeviceRow key={r.id} row={r} open={!!r.panel && r.panel === s.panel} s={s} />
+        ))}
+      </div>
+    </aside>
+  )
+}
+
+function DeviceRow({ row: r, open, s }: { row: Row; open: boolean; s: PortalState }) {
+  const Icon = r.icon
+  return (
+    <div className="border-b border-dashed last:border-b-0">
+      <div data-g={r.id} className="flex min-h-12 items-center gap-2.5 py-2">
         <span
-          data-g="session-timer"
-          className="text-muted-foreground inline-flex items-center gap-1 text-xs tabular-nums"
+          className={cn(
+            "bg-muted grid size-[30px] shrink-0 place-items-center rounded-[9px] border [&_svg]:size-4",
+            open ? "text-foreground" : "text-muted-foreground",
+          )}
         >
-          <ClockIcon className="size-3.5" />
-          {s.idleMinutes}m
+          <Icon />
         </span>
-        <Button data-g="share" size="sm" variant="outline">
-          <Link2Icon />
-          Share
-        </Button>
-        <Button data-g="extend" size="sm" variant="outline">
-          <TimerResetIcon />
-          Extend
-        </Button>
-        <Button data-g="stop" size="sm" variant="destructive">
-          <SquareIcon />
-          {s.start === "stopping" ? "Saving app data…" : "Stop"}
-        </Button>
+        <span className="grid min-w-0 flex-1">
+          <span className="truncate text-sm font-medium">{r.title}</span>
+          <span className="text-muted-foreground truncate text-xs">{r.summary}</span>
+        </span>
+        {r.changed && <Badge variant="warning">Changed</Badge>}
+        <span className="bg-card text-muted-foreground grid size-7 shrink-0 place-items-center rounded-md border [&_svg]:size-3.5">
+          {open ? <ChevronUpIcon /> : <ChevronDownIcon />}
+        </span>
       </div>
+      {open && (
+        <div className="flex flex-col gap-4 pt-1 pb-4">
+          <PanelBody s={s} />
+        </div>
+      )}
     </div>
   )
 }
 
-function Widgets({ s }: { s: PortalState }) {
-  const loc = locationOf(s.location)
-  const profile = networkProfiles.find((p) => p.id === s.network)
-  const recMinutes = Math.floor(s.recTime / 60)
+const tools: (LucideIcon | null)[] = [
+  ChevronLeftIcon,
+  CircleIcon,
+  SquareIcon,
+  BellIcon,
+  ToggleRightIcon,
+  null,
+  RotateCcwIcon,
+  ScanIcon,
+  KeyboardIcon,
+  Volume2Icon,
+  PowerIcon,
+  null,
+  RotateCwIcon,
+]
+
+function StageToolbar() {
   return (
-    <div data-scroll className="relative min-h-0 overflow-y-auto [scrollbar-width:none]">
-      <div data-g="widgets" className="flex flex-col gap-2 p-3">
-        <ShadeCard data-g="w-app" aria-label="App">
-          <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
-            <AppIcon src={app.icon} className="size-4 shrink-0 rounded" />
-            <span className="truncate">{app.label}</span>
+    <div data-g="stage-toolbar" className="flex shrink-0 flex-col gap-1.5">
+      {tools.map((Icon, i) =>
+        Icon ? (
+          <span
+            key={i}
+            className="bg-card text-muted-foreground grid size-8 place-items-center rounded-[10px] border [&_svg]:size-4"
+          >
+            <Icon />
           </span>
-          <CardLine icon={s.appRunning ? PlayIcon : OctagonXIcon}>{s.appRunning ? "Running" : "Closed"}</CardLine>
-          <CardLine icon={PackageIcon}>{s.version}</CardLine>
-          <CardLine icon={CpuIcon}>12% · 184 MB</CardLine>
-        </ShadeCard>
-        <ShadeCard data-g="w-network" aria-label="Network" changed={s.network !== "full"}>
-          <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
-            <span className="text-base leading-none">{loc?.flag ?? <GlobeIcon className="size-4" />}</span>
-            <span className="truncate">{loc?.label ?? "No VPN"}</span>
-          </span>
-          {loc && <span className="truncate font-mono text-[11px] text-neutral-400">{loc.ip}</span>}
-          <CardLine icon={s.network === "full" ? WifiIcon : GaugeIcon}>
-            {s.network === "full" ? "Wi-Fi" : profile?.name}
-          </CardLine>
-        </ShadeCard>
-        <ShadeCard data-g="w-gps" aria-label="GPS location" changed={s.geo !== "amsterdam" || s.route}>
-          <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
-            <MapPinIcon className="size-4 shrink-0 text-neutral-400" />
-            <span className="truncate">{places[s.geo].name}</span>
-          </span>
-          <CardLine icon={s.route ? NavigationIcon : GlobeIcon}>{s.route ? "Driving" : "Follows the VPN"}</CardLine>
-        </ShadeCard>
-        <ShadeCard data-g="w-ssh" aria-label="SSH">
-          <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
-            <CableIcon className={cn("size-4 shrink-0", s.computerOnline ? "text-emerald-400" : "text-neutral-400")} />
-            SSH
-          </span>
-          <CardLine icon={s.computerOnline ? LaptopIcon : PlugIcon}>
-            {s.computerOnline ? "ADB connected" : "Not connected"}
-          </CardLine>
-          {s.portPublished && <CardLine icon={SmartphoneIcon}>1 port published</CardLine>}
-        </ShadeCard>
-        <ShadeCard data-g="w-stream" aria-label="Stream and keyboard">
-          <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
-            <MonitorPlayIcon className="size-4 shrink-0 text-neutral-400" />
-            <span className="truncate">H.264</span>
-          </span>
-          <CardLine icon={VideoIcon}>1080p · 60 fps</CardLine>
-          <CardLine icon={ActivityIcon}>58 fps · 4.1 Mbit/s</CardLine>
-        </ShadeCard>
-        <ShadeCard data-g="w-display" aria-label="Display" changed={s.dark}>
-          <span className="flex min-w-0 items-center gap-1.5 text-sm font-semibold tabular-nums">
-            <SunMediumIcon className="size-4 shrink-0 text-neutral-400" />
-            Auto
-          </span>
-          <CardLine icon={s.dark ? MoonIcon : SunIcon}>{s.dark ? "Dark theme" : "Light theme"}</CardLine>
-          <CardLine icon={TypeIcon}>Font 100%</CardLine>
-        </ShadeCard>
-        <ShadeCard data-g="w-clipboard" aria-label="Clipboard" changed={s.clipboardMode !== "both"}>
-          <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
-            <ClipboardIcon className="size-4 shrink-0 text-neutral-400" />
-            Clipboard
-          </span>
-          <CardLine icon={ClipboardIcon}>
-            {s.clipboardMode === "both" ? "Both ways" : s.clipboardMode === "to" ? "To the device" : "From the device"}
-          </CardLine>
-        </ShadeCard>
-        <ShadeCard data-g="w-microphone" aria-label="Microphone">
-          <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
-            <MicIcon className="size-4 shrink-0 text-neutral-400" />
-            <span className="truncate">Microphone</span>
-          </span>
-          <CardLine icon={MicOffIcon}>Off</CardLine>
-        </ShadeCard>
-        <ShadeCard data-g="w-camera" aria-label="Camera">
-          <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
-            <CameraIcon className="size-4 shrink-0 text-neutral-400" />
-            <span className="truncate">Camera</span>
-          </span>
-          <CardLine icon={TvIcon}>Test card</CardLine>
-        </ShadeCard>
-        <ShadeCard data-g="w-battery" aria-label="Battery" changed={s.battery !== 100 || s.saver}>
-          <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium tabular-nums">
-            {s.battery <= 15 ? (
-              <BatteryLowIcon className="size-4 shrink-0 text-red-400" />
-            ) : (
-              <BatteryFullIcon className="size-4 shrink-0 text-neutral-400" />
-            )}
-            {s.battery}%
-          </span>
-          <CardLine icon={PlugIcon}>{s.saver ? "Saver on" : "On battery"}</CardLine>
-        </ShadeCard>
-        <ShadeCard data-g="w-language" aria-label="Language and keyboard" changed={s.locale !== "en"}>
-          <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
-            <LanguagesIcon className="size-4 shrink-0 text-neutral-400" />
-            <span className="truncate">
-              {s.locale === "en" ? "English" : s.locale === "uk" ? "Українська" : "Deutsch"}
-            </span>
-          </span>
-          <CardLine icon={KeyboardIcon}>{s.locale === "en" ? "US" : s.locale === "uk" ? "UA" : "DE"}</CardLine>
-        </ShadeCard>
-        <ShadeCard data-g="w-time" aria-label="Date and time" changed={s.timeZone !== "amsterdam"}>
-          <span className="text-xl font-light tabular-nums">{zones[s.timeZone].time}</span>
-          <CardLine icon={GlobeIcon}>{zones[s.timeZone].name.split("/")[1]?.replace("_", " ")}</CardLine>
-        </ShadeCard>
-        <ShadeCard data-g="w-recording" aria-label="Recording">
-          <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
-            <span
-              className={cn(
-                "size-2.5 shrink-0 rounded-full",
-                s.recording ? "animate-pulse bg-red-500" : "bg-neutral-500",
-              )}
-            />
-            Recording
-          </span>
-          <CardLine icon={ClockIcon}>
-            {s.recording ? `${recMinutes}:${String(s.recTime % 60).padStart(2, "0")}` : "Not recording"}
-          </CardLine>
-          <CardLine icon={PinIcon}>{s.recording ? `Click to mark · ${s.markers}` : "Click to start"}</CardLine>
-        </ShadeCard>
-        <ShadeCard data-g="w-device" aria-label="Device">
-          <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
-            <MonitorSmartphoneIcon className="size-4 shrink-0 text-neutral-400" />
-            Classic 16:9
-          </span>
-          <CardLine icon={CpuIcon}>CPU 18% · 2.1 GB</CardLine>
-        </ShadeCard>
-      </div>
+        ) : (
+          <span key={i} aria-hidden className="bg-border mx-1.5 my-0.5 h-px" />
+        ),
+      )}
     </div>
   )
 }
 
 export function Session({ s }: { s: PortalState }) {
-  if (s.start !== "ready" && s.start !== "stopping") {
-    return (
-      <div data-g="start-progress" className="h-full">
-        <StartProgress
-          state={s.start}
-          appData={s.appData === "saved" ? (s.cache ? "cache" : "data") : undefined}
-          webview={s.webview === "builtin" ? undefined : s.webview === "beta" ? "143" : "142"}
-        />
-      </div>
-    )
-  }
+  const starting = s.start !== "ready" && s.start !== "stopping"
   return (
-    <div className="relative grid h-full grid-cols-[minmax(0,1fr)_minmax(0,560px)]">
-      <div className="bg-muted/40 grid min-h-0 grid-cols-[182px_minmax(0,1fr)]">
-        <Widgets s={s} />
-        <div className="grid min-h-0 place-items-center">
-          <Phone s={s} />
+    <div className="relative flex h-full flex-col gap-3 px-4 pt-4">
+      <SessionHeader s={s} />
+      {starting ? (
+        <div data-g="start-progress" className="min-h-0 flex-1 overflow-hidden">
+          <StartProgress
+            state={s.start}
+            appData={s.appData === "saved" ? (s.cache ? "cache" : "data") : undefined}
+            webview={s.webview === "builtin" ? undefined : s.webview === "beta" ? "143" : "142"}
+          />
         </div>
-      </div>
-      <ToolTabs s={s} />
-      <ShadePanelFor s={s} />
+      ) : (
+        <div className="flex min-h-0 flex-1 gap-3 pb-3">
+          <DevicePanel s={s} />
+          <div className="flex shrink-0 items-center gap-3 px-1">
+            <Phone s={s} />
+            <StageToolbar />
+          </div>
+          <div className="bg-card min-w-0 flex-1 overflow-hidden rounded-2xl border">
+            <ToolTabs s={s} />
+          </div>
+        </div>
+      )}
       {s.panel === "versions" && <VersionMenu s={s} />}
     </div>
   )

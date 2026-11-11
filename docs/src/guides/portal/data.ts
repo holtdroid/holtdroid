@@ -4,6 +4,7 @@ export const defaults: PortalState = {
   page: "home",
   dialog: "none",
   panel: "none",
+  deviceTab: "environment",
   toast: "none",
 
   provider: "emulator",

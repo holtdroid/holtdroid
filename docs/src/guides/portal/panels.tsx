@@ -35,7 +35,7 @@ import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
 import type { PortalState } from "../types"
 import { app, builds, locationOf, locations, networkProfiles, places, zones } from "./data"
-import { Pop, ShadeBox } from "./overlays"
+import { Pop } from "./overlays"
 
 const noop = () => undefined
 
@@ -458,7 +458,7 @@ function SshPanel({ s }: { s: PortalState }) {
   )
 }
 
-export function ShadePanelFor({ s }: { s: PortalState }) {
+export function PanelBody({ s }: { s: PortalState }) {
   const body = (() => {
     switch (s.panel) {
       case "network":
@@ -488,12 +488,16 @@ export function ShadePanelFor({ s }: { s: PortalState }) {
     }
   })()
   if (!body) return null
-  return <ShadeBox style={{ left: 186, top: 12, maxHeight: 610 }}>{body}</ShadeBox>
+  return (
+    <div data-g="shade-panel" className="flex flex-col gap-4">
+      {body}
+    </div>
+  )
 }
 
 export function VersionMenu({ s }: { s: PortalState }) {
   return (
-    <Pop style={{ left: 40, top: 4 }} className="w-96 gap-3 p-3">
+    <Pop style={{ left: 70, top: 66 }} className="w-96 gap-3 p-3">
       <div className="flex items-center justify-between">
         <span className="font-medium">Switch version</span>
         <span className="text-muted-foreground font-mono text-xs">App ID {app.pkg}</span>

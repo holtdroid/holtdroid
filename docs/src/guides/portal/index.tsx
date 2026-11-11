@@ -3,8 +3,8 @@ import type { PortalState } from "../types"
 import { LaunchDialog, UploadDialog } from "./dialogs"
 import { Dock, Home } from "./home"
 import { Toast } from "./overlays"
-import { Computers, Recording, RecordingHeader, RecordingsList } from "./pages"
-import { Session, SessionHeader } from "./session"
+import { Computers, Recording, RecordingsList } from "./pages"
+import { Session } from "./session"
 import { NetworkDialog } from "./tools"
 
 const urls: Record<PortalState["page"], string> = {
@@ -60,8 +60,6 @@ function Toasts({ s }: { s: PortalState }) {
           pinecone-bugreport-2026-10-29-1204.zip
         </Toast>
       )
-    case "link":
-      return <Toast title="Link copied">Anyone signed in can open this session with it</Toast>
     case "installing":
       return <Toast title={`Installing ${s.version}`}>{s.keepData ? "Keeping the app's data" : "Clean install"}</Toast>
     case "installed":
@@ -74,7 +72,6 @@ function Toasts({ s }: { s: PortalState }) {
 }
 
 export function Portal({ s }: { s: PortalState }) {
-  const slotted = s.page === "session" || s.page === "recording"
   return (
     <div className="bg-background text-foreground flex size-full flex-col overflow-hidden rounded-xl border shadow-sm">
       <div className="bg-muted/60 flex h-9 shrink-0 items-center gap-3 border-b px-3">
@@ -89,11 +86,6 @@ export function Portal({ s }: { s: PortalState }) {
         </span>
       </div>
       <div className="relative flex min-h-0 flex-1 flex-col">
-        {slotted && (
-          <header className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
-            {s.page === "session" ? <SessionHeader s={s} /> : <RecordingHeader />}
-          </header>
-        )}
         <main className="relative min-h-0 flex-1 overflow-hidden pb-[70px]">
           <Page s={s} />
         </main>

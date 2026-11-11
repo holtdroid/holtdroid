@@ -1,25 +1,25 @@
 import type { Scenario } from "../types"
 
 export default {
-  initial: { page: "session", sessions: 1 },
+  initial: { page: "session", sessions: 1, deviceTab: "app" },
   steps: [
     {
       target: "w-device",
       action: "look",
       text: {
-        en: "Found a bug? The Device card at the bottom of the column builds a bug report in one click.",
-        ru: "Нашли баг? Карточка Device внизу колонки собирает баг-репорт в один клик.",
-        uk: "Знайшли баг? Картка Device унизу колонки збирає баг-репорт в один клік.",
+        en: "Found a bug? The Device row on the App tab of the Device panel builds a bug report in one click.",
+        ru: "Нашли баг? Строка Device на вкладке App панели Device собирает баг-репорт в один клик.",
+        uk: "Знайшли баг? Рядок Device на вкладці App панелі Device збирає баг-репорт в один клік.",
       },
     },
     {
       target: "w-device",
-      action: "hover",
+      action: "click",
       set: { panel: "device" },
       text: {
-        en: "Hover it: you see the model, Android version and build, the things a developer asks first.",
-        ru: "Наведите на неё курсор: видны модель, версия Android и сборка — то, о чём разработчик спрашивает первым делом.",
-        uk: "Наведіть на неї курсор: видно модель, версію Android і збірку — те, про що розробник питає насамперед.",
+        en: "Open it: you see the model, Android version and build, the things a developer asks first.",
+        ru: "Раскройте её: видны модель, версия Android и сборка — то, о чём разработчик спрашивает первым делом.",
+        uk: "Розгорніть його: видно модель, версію Android і збірку — те, про що розробник питає насамперед.",
       },
     },
     {
@@ -48,24 +48,6 @@ export default {
         en: "Attach the zip to the ticket. Nobody has to ask which phone, which Android or which build it was.",
         ru: "Приложите архив к задаче. Никому не придётся спрашивать, какой был телефон, Android или сборка.",
         uk: "Додайте архів до задачі. Нікому не доведеться питати, який був телефон, Android чи збірка.",
-      },
-    },
-    {
-      target: "share",
-      set: { panel: "none", toast: "link" },
-      text: {
-        en: "Want someone to see the bug live? Share copies a link to this session.",
-        ru: "Хотите, чтобы кто-то посмотрел баг вживую? Share копирует ссылку на эту сессию.",
-        uk: "Хочете, щоб хтось подивився баг наживо? Share копіює посилання на цю сесію.",
-      },
-    },
-    {
-      target: "toast",
-      action: "look",
-      text: {
-        en: "Anyone signed in to the portal opens the same device with it, while the session runs.",
-        ru: "По ней любой, кто вошёл в портал, откроет то же самое устройство, пока сессия работает.",
-        uk: "За ним будь-хто, хто увійшов у портал, відкриє той самий пристрій, поки сесія працює.",
       },
     },
   ],

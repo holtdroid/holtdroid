@@ -1,16 +1,16 @@
 import type { Scenario } from "../types"
 
 export default {
-  initial: { page: "session", sessions: 1 },
+  initial: { page: "session", sessions: 1, deviceTab: "app" },
   steps: [
     {
       target: "w-app",
-      action: "hover",
+      action: "click",
       set: { panel: "app" },
       text: {
-        en: "Hover the App card. Everything you'd normally do with adb commands is here as buttons.",
-        ru: "Наведите курсор на карточку App. Всё, что обычно делают командами adb, здесь собрано в кнопки.",
-        uk: "Наведіть курсор на картку App. Усе, що зазвичай роблять командами adb, тут зібрано в кнопки.",
+        en: "Open the App row on the App tab of the Device panel. Everything you'd normally do with adb commands is here as buttons.",
+        ru: "Раскройте строку App на вкладке App панели Device. Всё, что обычно делают командами adb, здесь собрано в кнопки.",
+        uk: "Розгорніть рядок App на вкладці App панелі Device. Усе, що зазвичай роблять командами adb, тут зібрано в кнопки.",
       },
     },
     {

@@ -3,31 +3,35 @@ import {
   CheckIcon,
   CopyIcon,
   DownloadIcon,
+  FlagIcon,
+  GlobeIcon,
+  InfoIcon,
   LaptopIcon,
   Link2Icon,
+  LinkIcon,
   PauseIcon,
-  PinIcon,
   PlayIcon,
+  RotateCcwIcon,
+  RotateCwIcon,
+  Share2Icon,
   SmartphoneIcon,
   TerminalIcon,
 } from "lucide-react"
+import type { RecordingMarker } from "@/api/client"
+import { type Lanes, Timeline } from "@/components/recording/timeline"
 import { AppIcon } from "@/components/app-icon"
+import { PageHeader } from "@/components/page"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { PortalState } from "../types"
 import { app, logLines, requests } from "./data"
-import { PhoneScreen } from "./phone"
-
-const markerAt = [0.22, 0.48, 0.71, 0.86]
+import { Phone } from "./phone"
 
 export function RecordingsList({ s }: { s: PortalState }) {
   return (
     <div className="grid content-start gap-4 p-6">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">Recordings</h1>
-        <p className="text-muted-foreground text-sm">Sessions recorded on the server, to watch, download or share.</p>
-      </div>
+      <PageHeader title="Recordings" meta="2 recordings · 76 MB used" />
       <ul className="grid gap-2">
         {[0, 1].map((i) => (
           <li
@@ -56,86 +60,184 @@ export function RecordingsList({ s }: { s: PortalState }) {
   )
 }
 
-export function RecordingHeader() {
+const duration = 252_000
+
+const lanes: Lanes = {
+  screen: [
+    { start: 0, end: 118_000, kind: "portrait", label: "Portrait" },
+    { start: 118_000, end: 136_000, kind: "off", label: "Off" },
+    { start: 136_000, end: duration, kind: "portrait", label: "Portrait" },
+  ],
+  app: [
+    { start: 0, end: 4_000, kind: "starting", label: "Starting" },
+    { start: 4_000, end: 121_000, kind: "running", label: app.label },
+    { start: 121_000, end: 126_000, kind: "closed", label: "Closed" },
+    { start: 126_000, end: duration, kind: "running", label: app.label },
+  ],
+  crashes: [{ t: 121_000, kind: "crash", title: "Crash", detail: "IllegalStateException: Cart is empty" }],
+  network: [
+    { start: 0, end: 70_000, kind: "normal", label: "🇰🇿 Kazakhstan · Wi-Fi" },
+    { start: 70_000, end: 190_000, kind: "throttled", label: "3G" },
+    { start: 190_000, end: duration, kind: "normal", label: "🇰🇿 Kazakhstan · Wi-Fi" },
+  ],
+  dns: [{ t: 64_000, title: "DNS rewrites or TTL changed" }],
+  taps: Array.from({ length: 30 }, (_, i) => ({ t: 6_000 + i * 8_000 })),
+  issues: [
+    {
+      id: "r:cart",
+      t: 119_000,
+      level: "error",
+      kind: "request",
+      title: "POST /api/cart → 500",
+      detail: "shop.example.com · 1.2 s",
+    },
+    {
+      id: "c:price",
+      t: 182_000,
+      level: "warning",
+      kind: "console",
+      title: "Cart request took 1210 ms",
+      detail: "Console",
+    },
+  ],
+}
+
+const markerTimes = [56_000, 121_000, 179_000, 216_000]
+
+function recClock(sec: number) {
+  return `${String(Math.floor(sec / 60)).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}`
+}
+
+function RecordingHeader({ s }: { s: PortalState }) {
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-3">
-      <Button variant="ghost" size="icon-sm">
+    <header className="flex shrink-0 items-center gap-3.5">
+      <Button variant="outline" size="icon">
         <ArrowLeftIcon />
       </Button>
-      <AppIcon src={app.icon} className="size-9" />
-      <span className="grid min-w-0">
-        <span className="truncate font-medium">Checkout fails in Kazakhstan</span>
-        <span className="text-muted-foreground truncate font-mono text-xs">
-          {app.pkg} · 2.4.0 · Classic 16:9 · Android 16
-        </span>
-      </span>
-      <div className="ml-auto flex gap-2">
-        <Button data-g="rec-share" size="sm" variant="outline">
-          <Link2Icon />
-          Link at 02:01
-        </Button>
-        <Button data-g="rec-export" size="sm" variant="outline">
-          <DownloadIcon />
-          Export
-        </Button>
+      <AppIcon src={app.icon} className="size-10 rounded-[11px]" />
+      <div className="grid min-w-0 gap-1">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="truncate text-lg font-semibold">Checkout fails in Kazakhstan</span>
+          <Badge variant="success">Done</Badge>
+        </div>
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          <Badge variant="secondary" className="font-mono">
+            2.4.0
+          </Badge>
+          <Badge variant="secondary">
+            <SmartphoneIcon />
+            Classic 16:9
+          </Badge>
+          <Badge variant="secondary">
+            <GlobeIcon />
+            kz
+          </Badge>
+          <span className="text-muted-foreground ml-1 truncate text-xs">Alex · today 12:04 · 4:12 · 38 MB</span>
+        </div>
       </div>
-    </div>
+      <span className="flex-1" />
+      <Badge variant="secondary">
+        <InfoIcon />
+        Deleted in 7 days
+      </Badge>
+      <Button variant="outline">Keep</Button>
+      <Button variant="outline">
+        <LinkIcon />
+        Link at {recClock(s.recTime)}
+      </Button>
+      <Button data-g="rec-share" variant="outline">
+        <Share2Icon />
+        Share
+      </Button>
+      <Button data-g="rec-export" variant="outline">
+        <DownloadIcon />
+        Export
+      </Button>
+    </header>
   )
 }
 
-export function Recording({ s }: { s: PortalState }) {
-  const total = 252
-  const progress = s.recTime / total
-  const shown = logLines.filter((l) => l.app).slice(0, 3 + Math.round(progress * 5))
+function SideCard({ title, rows }: { title: string; rows: [string, string][] }) {
   return (
-    <div className="grid h-full grid-rows-[minmax(0,1fr)_auto]">
-      <div className="grid min-h-0 grid-cols-[182px_minmax(0,1fr)_minmax(0,520px)]">
-        <div data-g="rec-cards" className="bg-muted/40 grid content-start gap-2 p-3">
-          {[
-            ["Device", "Classic 16:9 · Android 16"],
-            ["Network", "🇰🇿 Kazakhstan · 4G"],
-            ["App", "2.4.0 · running"],
-            ["Load", "CPU 22% · 61 fps"],
-          ].map(([title, value]) => (
-            <div
-              key={title}
-              className="shade-surface grid gap-1 rounded-2xl bg-neutral-900 p-3 text-neutral-100 shadow-lg"
-            >
-              <span className="text-xs text-neutral-400">{title}</span>
-              <span className="truncate text-sm">{value}</span>
-            </div>
-          ))}
-        </div>
-        <div className="bg-muted/40 grid min-h-0 place-items-center">
-          <div className="rounded-[36px] bg-neutral-900 p-2 shadow-lg">
-            <div className="h-[470px] w-[220px] overflow-hidden rounded-[30px]">
-              <PhoneScreen s={{ ...s, recording: false }} />
-            </div>
+    <section className="bg-card grid gap-2.5 rounded-2xl border p-3.5">
+      <h3 className="text-muted-foreground text-xs font-semibold tracking-[.06em] uppercase">{title}</h3>
+      <dl className="grid grid-cols-[76px_minmax(0,1fr)] gap-y-1.5 text-[12.5px]">
+        {rows.map(([k, v]) => (
+          <div key={k} className="contents">
+            <dt className="text-muted-foreground">{k}</dt>
+            <dd className="min-w-0 truncate">{v}</dd>
           </div>
+        ))}
+      </dl>
+    </section>
+  )
+}
+
+const recTabs = [
+  ["findings", "Findings"],
+  ["logcat", "Logcat"],
+  ["network", "Network"],
+  ["console", "Console"],
+  ["websockets", "WebSockets"],
+  ["dns", "DNS"],
+] as const
+
+export function Recording({ s }: { s: PortalState }) {
+  const progress = s.recTime / (duration / 1000)
+  const shown = logLines.filter((l) => l.app).slice(0, 3 + Math.round(progress * 5))
+  const markers: RecordingMarker[] = markerTimes
+    .slice(0, s.markers)
+    .map((t, i) => ({ id: `m${i}`, t, icon: i === 1 ? "bug" : "pin", label: i === 1 ? "Checkout 500" : "" }))
+  return (
+    <div className="flex h-full flex-col gap-2.5 px-4 pt-3">
+      <RecordingHeader s={s} />
+      <div className="grid min-h-0 flex-1 grid-cols-[210px_minmax(0,1fr)_minmax(0,500px)] gap-3">
+        <div data-g="rec-cards" className="grid min-h-0 content-start gap-2.5 overflow-hidden">
+          <SideCard
+            title={`At ${recClock(s.recTime)}`}
+            rows={[
+              ["Real time", "12:06:01"],
+              ["Screen", "Portrait"],
+              ["App", "Running"],
+            ]}
+          />
+          <SideCard
+            title="Network"
+            rows={[
+              ["VPN", "🇰🇿 Kazakhstan"],
+              ["Link", "3G"],
+            ]}
+          />
         </div>
-        <div className="flex min-h-0 flex-col border-l">
-          <div className="flex h-9 items-end gap-1 border-b px-2">
-            {(["logcat", "network", "console"] as const).map((t) => (
+        <section className="bg-stage relative grid min-h-0 place-items-center overflow-hidden rounded-2xl">
+          <Phone s={{ ...s, recording: false }} scale={0.4} />
+          <Button variant="outline" size="sm" className="shadow-float absolute right-3 bottom-3">
+            <FlagIcon className="text-warning" />
+            Marker
+            <kbd className="text-muted-foreground rounded-[5px] border px-[5px] font-sans text-[11px]">M</kbd>
+          </Button>
+        </section>
+        <section className="bg-card flex min-h-0 flex-col overflow-hidden rounded-2xl border">
+          <div className="flex h-[42px] shrink-0 items-stretch gap-4 overflow-hidden border-b px-4">
+            {recTabs.map(([id, label]) => (
               <span
-                key={t}
-                data-g={`rec-tab-${t}`}
+                key={id}
+                data-g={`rec-tab-${id}`}
                 className={cn(
-                  "relative px-2 pb-2 text-sm font-medium capitalize",
-                  s.recTab === t ? "text-foreground" : "text-muted-foreground",
+                  "flex items-center text-sm font-medium",
+                  s.recTab === id
+                    ? "text-foreground shadow-[inset_0_-2px_0_var(--foreground)]"
+                    : "text-muted-foreground",
                 )}
               >
-                {t}
-                {s.recTab === t && <span className="bg-foreground absolute inset-x-0 -bottom-px h-0.5" />}
+                {label}
               </span>
             ))}
           </div>
           <div className="min-h-0 flex-1 p-1 font-mono text-[11px] leading-5">
             {s.recTab === "network"
               ? requests.map((r) => (
-                  <div
-                    key={r.id}
-                    className={cn("flex gap-2 border-b px-1", r.status >= 400 && "text-red-600 dark:text-red-400")}
-                  >
+                  <div key={r.id} className={cn("flex gap-2 border-b px-1", r.status >= 400 && "text-danger")}>
                     <span className="w-10">{r.method}</span>
                     <span className="flex-1 truncate">{r.url}</span>
                     <span>{r.status}</span>
@@ -147,50 +249,68 @@ export function Recording({ s }: { s: PortalState }) {
                       {m}
                     </div>
                   ))
-                : shown.map((l, i) => (
+                : shown.map((l) => (
                     <div
-                      key={i}
-                      className={cn(
-                        "flex gap-2 px-1 whitespace-pre",
-                        l.level === "E" && "text-red-600 dark:text-red-400",
-                      )}
+                      key={`${l.tag}-${l.msg}`}
+                      className={cn("flex gap-2 px-1 whitespace-pre", l.level === "E" && "text-danger")}
                     >
-                      <span className="text-muted-foreground">0:{String(12 + i * 21).padStart(2, "0")}</span>
                       <span className="w-24 truncate">{l.tag}</span>
                       <span className="truncate">{l.msg}</span>
                     </div>
                   ))}
           </div>
-        </div>
+        </section>
       </div>
-      <div data-g="rec-timeline" className="flex items-center gap-3 border-t px-4 py-3">
-        <Button data-g="rec-play" size="icon" variant="outline">
-          {s.recPlaying ? <PauseIcon /> : <PlayIcon />}
-        </Button>
-        <span className="text-muted-foreground w-24 font-mono text-xs tabular-nums">
-          {Math.floor(s.recTime / 60)}:{String(s.recTime % 60).padStart(2, "0")} / 4:12
-        </span>
-        <div className="relative h-8 flex-1">
-          <div className="bg-muted absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full" />
-          <div
-            className="bg-primary absolute top-1/2 left-0 h-1.5 -translate-y-1/2 rounded-full transition-[width] duration-700"
-            style={{ width: `${progress * 100}%` }}
-          />
-          {markerAt.slice(0, s.markers).map((at, i) => (
-            <span
-              key={i}
-              data-g={`rec-marker-${i}`}
-              className="absolute top-0 -translate-x-1/2 text-amber-500"
-              style={{ left: `${at * 100}%` }}
-            >
-              <PinIcon className="size-4 fill-current" />
-            </span>
+      <section data-g="rec-timeline" className="bg-card grid shrink-0 gap-2 rounded-2xl border px-[18px] pt-3 pb-3.5">
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon-sm">
+            <RotateCcwIcon />
+          </Button>
+          <Button data-g="rec-play" size="icon" className="rounded-xl [&_svg]:fill-current">
+            {s.recPlaying ? <PauseIcon /> : <PlayIcon className="translate-x-px" />}
+          </Button>
+          <Button variant="outline" size="icon-sm">
+            <RotateCwIcon />
+          </Button>
+          <span className="mx-2 font-mono text-sm">
+            {recClock(s.recTime)} <span className="text-muted-foreground">/ 04:12</span>
+          </span>
+          <span className="flex-1" />
+          <span className="text-muted-foreground text-xs">Jump to</span>
+          {["Marker", "Issue", "Tap"].map((j) => (
+            <Button key={j} variant="outline" size="sm">
+              {j}
+            </Button>
           ))}
         </div>
-      </div>
+        <div className="relative">
+          <Timeline
+            duration={duration}
+            time={s.recTime * 1000}
+            lanes={lanes}
+            markers={markers}
+            editable={false}
+            editing={null}
+            onEditing={noop}
+            onMarkers={noop}
+            onSeek={noop}
+          />
+          {markers.map((m, i) => (
+            <span
+              key={m.id}
+              data-g={`rec-marker-${i}`}
+              aria-hidden
+              className="pointer-events-none absolute top-[28px] h-[22px] w-5"
+              style={{ left: `calc(102px + (100% - 102px) * ${m.t / duration})` }}
+            />
+          ))}
+        </div>
+      </section>
     </div>
   )
 }
+
+const noop = () => undefined
 
 export function Computers({ s }: { s: PortalState }) {
   const lines = [

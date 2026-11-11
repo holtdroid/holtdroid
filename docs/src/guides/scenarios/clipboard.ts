@@ -7,19 +7,19 @@ export default {
       target: "w-clipboard",
       action: "look",
       text: {
-        en: "The Clipboard card connects your computer's clipboard with the device's. A click on the card turns sync on or off.",
-        ru: "Карточка Clipboard связывает буфер обмена вашего компьютера с буфером устройства. Клик по карточке включает или выключает синхронизацию.",
-        uk: "Картка Clipboard поєднує буфер обміну вашого комп'ютера з буфером пристрою. Клік по картці вмикає або вимикає синхронізацію.",
+        en: "The Clipboard row in the Device panel connects your computer's clipboard with the device's. A click on the row turns sync on or off.",
+        ru: "Строка Clipboard на панели Device связывает буфер обмена вашего компьютера с буфером устройства. Клик по строке включает или выключает синхронизацию.",
+        uk: "Рядок Clipboard на панелі Device поєднує буфер обміну вашого комп'ютера з буфером пристрою. Клік по рядку вмикає або вимикає синхронізацію.",
       },
     },
     {
       target: "w-clipboard",
-      action: "hover",
+      action: "click",
       set: { panel: "clipboard" },
       text: {
-        en: "Hover the card to choose the direction.",
-        ru: "Наведите курсор на карточку, чтобы выбрать направление.",
-        uk: "Наведіть курсор на картку, щоб обрати напрямок.",
+        en: "Open the row with the chevron on its right to choose the direction.",
+        ru: "Раскройте строку стрелкой справа, чтобы выбрать направление.",
+        uk: "Розгорніть рядок стрілкою праворуч, щоб обрати напрямок.",
       },
     },
     {

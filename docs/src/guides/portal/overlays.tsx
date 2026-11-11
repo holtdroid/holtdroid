@@ -50,29 +50,6 @@ export function Pop({
   )
 }
 
-export function ShadeBox({
-  style,
-  className,
-  children,
-}: {
-  style?: CSSProperties
-  className?: string
-  children: ReactNode
-}) {
-  return (
-    <div
-      data-g="shade-panel"
-      style={style}
-      className={cn(
-        "shade-surface animate-in fade-in-0 zoom-in-95 absolute z-30 flex w-96 flex-col gap-4 overflow-hidden rounded-[28px] bg-neutral-900 p-4 text-neutral-100 shadow-2xl ring-1 ring-black/10 duration-150 dark:ring-white/10",
-        className,
-      )}
-    >
-      {children}
-    </div>
-  )
-}
-
 export function Toast({
   kind = "info",
   title,

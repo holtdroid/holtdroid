@@ -7,19 +7,19 @@ export default {
       target: "w-network",
       action: "look",
       text: {
-        en: "The Network card next to the phone shows where the device goes online: the country and its public IP address.",
-        ru: "Карточка Network рядом с телефоном показывает, откуда устройство выходит в интернет: страну и внешний IP-адрес.",
-        uk: "Картка Network поруч із телефоном показує, звідки пристрій виходить в інтернет: країну та зовнішню IP-адресу.",
+        en: "The Network row of the Device panel shows where the device goes online: the country and its public IP address.",
+        ru: "Строка Network на панели Device показывает, откуда устройство выходит в интернет: страну и внешний IP-адрес.",
+        uk: "Рядок Network на панелі Device показує, звідки пристрій виходить в інтернет: країну та зовнішню IP-адресу.",
       },
     },
     {
       target: "w-network",
-      action: "hover",
+      action: "click",
       set: { panel: "network" },
       text: {
-        en: "Hover the card to open its panel. VPN location lists every country this Holtdroid offers.",
-        ru: "Наведите курсор на карточку, чтобы открыть панель. В разделе VPN location перечислены все страны, которые есть в этом Holtdroid.",
-        uk: "Наведіть курсор на картку, щоб відкрити панель. У розділі VPN location перелічено всі країни, які є в цьому Holtdroid.",
+        en: "Open the row. VPN location lists every country this Holtdroid offers.",
+        ru: "Раскройте строку. В разделе VPN location перечислены все страны, которые есть в этом Holtdroid.",
+        uk: "Розгорніть рядок. У розділі VPN location перелічено всі країни, які є в цьому Holtdroid.",
       },
     },
     {

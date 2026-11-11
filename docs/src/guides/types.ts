@@ -22,6 +22,8 @@ export type Panel =
   | "versions"
   | "quick"
 
+export type DeviceTab = "environment" | "media" | "app"
+
 export type Tab =
   | "devtools"
   | "pixel-perfect"
@@ -46,17 +48,8 @@ export type PortalState = {
   page: Page
   dialog: Dialog
   panel: Panel
-  toast:
-    | "none"
-    | "crash"
-    | "uploaded"
-    | "saved"
-    | "bundle"
-    | "copied"
-    | "link"
-    | "rec-link"
-    | "installing"
-    | "installed"
+  deviceTab: DeviceTab
+  toast: "none" | "crash" | "uploaded" | "saved" | "bundle" | "copied" | "rec-link" | "installing" | "installed"
 
   provider: "emulator" | "physical"
   android: "13" | "14" | "15" | "16"
@@ -127,7 +120,7 @@ export type PortalState = {
   markers: number
   recTime: number
   recPlaying: boolean
-  recTab: "logcat" | "network" | "console"
+  recTab: "findings" | "logcat" | "network" | "console" | "websockets" | "dns"
 
   bundling: number
 

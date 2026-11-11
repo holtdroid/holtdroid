@@ -60,7 +60,7 @@ export default {
     {
       target: "start-progress",
       action: "look",
-      set: { start: "ready" },
+      set: { start: "ready", deviceTab: "app" },
       text: {
         en: "The progress shows each stage. With a Chromium build there is an extra one: Installing WebView and the APK.",
         ru: "Прогресс показывает каждый этап. Со сборкой Chromium появляется ещё один: Installing WebView and the APK.",
@@ -69,11 +69,12 @@ export default {
     },
     {
       target: "w-device",
+      action: "click",
       set: { panel: "device" },
       text: {
-        en: "The WebView can also be switched during the session. Hover the Device card.",
-        ru: "WebView можно сменить и во время сессии. Наведите курсор на карточку Device.",
-        uk: "WebView можна змінити й під час сесії. Наведіть курсор на картку Device.",
+        en: "The WebView can also be switched during the session. Open the Device row on the App tab of the Device panel.",
+        ru: "WebView можно сменить и во время сессии. Раскройте строку Device на вкладке App панели Device.",
+        uk: "WebView можна змінити й під час сесії. Розгорніть рядок Device на вкладці App панелі Device.",
       },
     },
     {

@@ -7,9 +7,9 @@ export default {
       target: "version-switcher",
       action: "look",
       text: {
-        en: "The header shows what runs here: the app, its package, the build and the device. Click the name to install another build of the same app.",
-        ru: "В шапке видно, что здесь запущено: приложение, его пакет, сборка и устройство. Клик по названию ставит другую сборку того же приложения.",
-        uk: "У шапці видно, що тут запущено: застосунок, його пакет, збірка і пристрій. Клік по назві встановлює іншу збірку того самого застосунку.",
+        en: "The header shows what runs here: the app and its build, and under them the device, Android, WebView and VPN country. Click the name to install another build of the same app.",
+        ru: "В шапке видно, что здесь запущено: приложение и его сборка, а под ними устройство, Android, WebView и страна VPN. Клик по названию ставит другую сборку того же приложения.",
+        uk: "У шапці видно, що тут запущено: застосунок і його збірка, а під ними пристрій, Android, WebView і країна VPN. Клік по назві встановлює іншу збірку того самого застосунку.",
       },
     },
     {
@@ -25,18 +25,9 @@ export default {
       target: "session-timer",
       action: "look",
       text: {
-        en: "The clock counts down to the moment the device is taken back if nobody uses it.",
-        ru: "Часы отсчитывают время до момента, когда устройство заберут, если им никто не пользуется.",
-        uk: "Годинник відлічує час до моменту, коли пристрій заберуть, якщо ним ніхто не користується.",
-      },
-    },
-    {
-      target: "share",
-      action: "look",
-      text: {
-        en: "Share copies a link to this session. A colleague who opens it sees the same device live, handy when you want a second pair of eyes on a bug.",
-        ru: "Share копирует ссылку на эту сессию. Коллега, открыв её, увидит то же устройство вживую — удобно, когда нужен второй взгляд на баг.",
-        uk: "Share копіює посилання на цю сесію. Колега, відкривши його, побачить той самий пристрій наживо — зручно, коли потрібен другий погляд на баг.",
+        en: "The bar and the time count down to the moment the device is taken back if nobody uses it.",
+        ru: "Полоска и время отсчитывают до момента, когда устройство заберут, если им никто не пользуется.",
+        uk: "Смужка й час відлічують до моменту, коли пристрій заберуть, якщо ним ніхто не користується.",
       },
     },
     {
@@ -58,22 +49,22 @@ export default {
       },
     },
     {
-      target: "widgets",
+      target: "device-panel",
       action: "look",
       text: {
-        en: "The dark cards on the left are the device's quick settings: the app, network and country, GPS, display, clipboard, battery, language, clock and more.",
-        ru: "Тёмные карточки слева — быстрые настройки устройства: приложение, сеть и страна, GPS, экран, буфер обмена, батарея, язык, часы и другое.",
-        uk: "Темні картки ліворуч — швидкі налаштування пристрою: застосунок, мережа й країна, GPS, екран, буфер обміну, батарея, мова, годинник та інше.",
+        en: "The Device panel on the left holds the device's controls in three tabs: Environment (network, location, battery, language, time, clipboard, display), Media (stream, microphone, camera, recording) and App (the app, the device, SSH).",
+        ru: "Панель Device слева собирает настройки устройства в три вкладки: Environment (сеть, местоположение, батарея, язык, время, буфер обмена, экран), Media (трансляция, микрофон, камера, запись) и App (приложение, устройство, SSH).",
+        uk: "Панель Device ліворуч збирає налаштування пристрою у три вкладки: Environment (мережа, розташування, батарея, мова, час, буфер обміну, екран), Media (трансляція, мікрофон, камера, запис) і App (застосунок, пристрій, SSH).",
       },
     },
     {
       target: "w-network",
-      action: "hover",
+      action: "click",
       set: { panel: "network" },
       text: {
-        en: "Hover a card to open its panel. Here the network card lets you switch the country or make the connection slow.",
-        ru: "Наведите курсор на карточку, чтобы открыть её панель. Карточка сети, например, меняет страну или делает связь медленной.",
-        uk: "Наведіть курсор на картку, щоб відкрити її панель. Картка мережі, наприклад, змінює країну або робить зв'язок повільним.",
+        en: "Each row shows a summary, and its chevron opens it in place. Here the Network row lets you switch the country or make the connection slow; a changed row is marked Changed.",
+        ru: "Каждая строка показывает сводку, а стрелка раскрывает её на месте. Строка Network, например, меняет страну или делает связь медленной; изменённая строка помечена Changed.",
+        uk: "Кожен рядок показує зведення, а стрілка розгортає його на місці. Рядок Network, наприклад, змінює країну або робить зв'язок повільним; змінений рядок позначено Changed.",
       },
     },
     {
@@ -81,18 +72,18 @@ export default {
       action: "look",
       set: { panel: "none" },
       text: {
-        en: "In the middle is the phone itself. Click to tap, drag to swipe, and type with your own keyboard.",
-        ru: "В центре — сам телефон. Клик — это тап, перетаскивание — свайп, печатать можно со своей клавиатуры.",
-        uk: "У центрі — сам телефон. Клік — це тап, перетягування — свайп, друкувати можна зі своєї клавіатури.",
+        en: "In the middle is the device's screen. Click to tap, drag to swipe, and type with your own keyboard.",
+        ru: "В центре — экран устройства. Клик — это тап, перетаскивание — свайп, печатать можно со своей клавиатуры.",
+        uk: "У центрі — екран пристрою. Клік — це тап, перетягування — свайп, друкувати можна зі своєї клавіатури.",
       },
     },
     {
-      target: "phone-buttons",
+      target: "stage-toolbar",
       action: "look",
       text: {
-        en: "The keys on the side of the frame work like real ones: power, volume and more. Back, Home and Recent apps are on the phone's bottom edge.",
-        ru: "Кнопки на боку корпуса работают как настоящие: питание, громкость и другие. Назад, домой и недавние приложения — внизу телефона.",
-        uk: "Кнопки на боці корпусу працюють як справжні: живлення, гучність та інші. Назад, додому і нещодавні застосунки — внизу телефона.",
+        en: "The toolbar beside the screen has Back, Home and Recent apps, the notifications and quick settings, rotation, a screenshot, the keyboard mode, volume, power and Restart app.",
+        ru: "На панели инструментов рядом с экраном — Назад, Домой и недавние приложения, уведомления и быстрые настройки, поворот, скриншот, режим клавиатуры, громкость, питание и Restart app.",
+        uk: "На панелі інструментів поруч з екраном — Назад, Додому й нещодавні застосунки, сповіщення та швидкі налаштування, поворот, знімок екрана, режим клавіатури, гучність, живлення і Restart app.",
       },
     },
     {

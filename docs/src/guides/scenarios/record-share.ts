@@ -1,43 +1,43 @@
 import type { Scenario } from "../types"
 
 export default {
-  initial: { page: "session", sessions: 1, recording: true, recTime: 74 },
+  initial: { page: "session", sessions: 1, recording: true, recTime: 74, deviceTab: "media" },
   steps: [
     {
       target: "w-recording",
       action: "look",
       text: {
-        en: "The Recording card next to the screen shows that the server is recording this session and for how long.",
-        ru: "Карточка Recording рядом с экраном показывает, что сервер записывает сессию, и сколько уже идёт запись.",
-        uk: "Картка Recording поруч з екраном показує, що сервер записує сесію, і скільки вже триває запис.",
+        en: "The Recording row on the Media tab of the Device panel shows that the server is recording this session and for how long; so does the clock in the header.",
+        ru: "Строка Recording на вкладке Media панели Device показывает, что сервер записывает сессию и сколько уже идёт запись; то же видно на часах в шапке.",
+        uk: "Рядок Recording на вкладці Media панелі Device показує, що сервер записує сесію і скільки вже триває запис; те саме видно на годиннику в шапці.",
       },
     },
     {
       target: "w-recording",
       set: { markers: 1 },
       text: {
-        en: "Something went wrong? Click the card: a marker is pinned at this moment, so you find it later without watching everything.",
-        ru: "Что-то пошло не так? Кликните по карточке: в этот момент записи появится метка, и потом не придётся пересматривать всё подряд.",
-        uk: "Щось пішло не так? Клацніть по картці: у цей момент запису з'явиться мітка, і потім не доведеться переглядати все підряд.",
+        en: "Something went wrong? Click the row, or the clock in the header: a marker is pinned at this moment, so you find it later without watching everything.",
+        ru: "Что-то пошло не так? Кликните по строке или по часам в шапке: в этот момент записи появится метка, и потом не придётся пересматривать всё подряд.",
+        uk: "Щось пішло не так? Клацніть по рядку або по годиннику в шапці: у цей момент запису з'явиться мітка, і потім не доведеться переглядати все підряд.",
       },
     },
     {
       target: "w-recording",
-      action: "hover",
+      action: "click",
       set: { panel: "recording" },
       text: {
-        en: "Hover the card for the rest: how long it has run, how big it is, and buttons to share, keep or open the recording.",
-        ru: "Наведите курсор на карточку, чтобы увидеть остальное: длительность, размер и кнопки, чтобы поделиться записью, сохранить её или открыть.",
-        uk: "Наведіть курсор на картку, щоб побачити решту: тривалість, розмір і кнопки, щоб поділитися записом, зберегти його чи відкрити.",
+        en: "Open the row with its chevron for the rest: how long it has run, how big it is, and buttons to share, keep or open the recording.",
+        ru: "Раскройте строку стрелкой, чтобы увидеть остальное: длительность, размер и кнопки, чтобы поделиться записью, сохранить её или открыть.",
+        uk: "Розгорніть рядок стрілкою, щоб побачити решту: тривалість, розмір і кнопки, щоб поділитися записом, зберегти його чи відкрити.",
       },
     },
     {
       target: "rec-mark",
       set: { markers: 2 },
       text: {
-        en: "Mark this moment does the same as a click on the card. Put a marker on every step that matters for the bug.",
-        ru: "Mark this moment делает то же, что и клик по карточке. Ставьте метку на каждом шаге, важном для бага.",
-        uk: "Mark this moment робить те саме, що й клік по картці. Ставте мітку на кожному кроці, важливому для бага.",
+        en: "Mark this moment does the same as a click on the row. Put a marker on every step that matters for the bug.",
+        ru: "Mark this moment делает то же, что и клик по строке. Ставьте метку на каждом шаге, важном для бага.",
+        uk: "Mark this moment робить те саме, що й клік по рядку. Ставте мітку на кожному кроці, важливому для бага.",
       },
     },
     {
@@ -53,9 +53,9 @@ export default {
       target: "recording-row",
       set: { page: "recording", recTime: 0 },
       text: {
-        en: "Open the recording. It looks like the session page: device cards on the left, the phone in the middle, logs on the right.",
-        ru: "Откройте запись. Она похожа на страницу сессии: карточки устройства слева, телефон посередине, логи справа.",
-        uk: "Відкрийте запис. Він схожий на сторінку сесії: картки пристрою ліворуч, телефон посередині, логи праворуч.",
+        en: "Open the recording. It looks like the session page: the state at the playhead on the left, the screen in the middle, the tools on the right and a timeline underneath.",
+        ru: "Откройте запись. Она похожа на страницу сессии: состояние в текущий момент слева, экран посередине, инструменты справа и таймлайн внизу.",
+        uk: "Відкрийте запис. Він схожий на сторінку сесії: стан у поточний момент ліворуч, екран посередині, інструменти праворуч і таймлайн унизу.",
       },
     },
     {
@@ -89,9 +89,9 @@ export default {
       target: "rec-share",
       set: { toast: "rec-link" },
       text: {
-        en: "Link at … makes a share link to this moment and copies it. Paste it into the ticket: the developer opens this exact moment, even without an account.",
-        ru: "Link at … создаёт ссылку на этот момент и копирует её. Вставьте её в задачу: разработчик откроет именно этот момент, даже без аккаунта.",
-        uk: "Link at … створює посилання на цей момент і копіює його. Вставте його в задачу: розробник відкриє саме цей момент, навіть без облікового запису.",
+        en: "Share makes a public link to this moment and copies it. Paste it into the ticket: the developer opens this exact moment, even without an account.",
+        ru: "Share создаёт публичную ссылку на этот момент и копирует её. Вставьте её в задачу: разработчик откроет именно этот момент, даже без аккаунта.",
+        uk: "Share створює публічне посилання на цей момент і копіює його. Вставте його в задачу: розробник відкриє саме цей момент, навіть без облікового запису.",
       },
     },
   ],

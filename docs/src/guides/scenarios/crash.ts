@@ -59,6 +59,7 @@ export default {
     },
     {
       target: "log-download",
+      set: { deviceTab: "app" },
       text: {
         en: "Download saves exactly what is shown, ready to attach to the ticket.",
         ru: "Download сохраняет ровно то, что сейчас на экране, — готовый файл для тикета.",
@@ -67,12 +68,12 @@ export default {
     },
     {
       target: "w-app",
-      action: "hover",
+      action: "click",
       set: { panel: "app" },
       text: {
-        en: "After a crash the app stays closed and the device stays on. Open the App card to bring it back.",
-        ru: "После крэша приложение остаётся закрытым, а устройство продолжает работать. Откройте карточку App, чтобы вернуть его.",
-        uk: "Після краху застосунок лишається закритим, а пристрій працює далі. Відкрийте картку App, щоб повернути його.",
+        en: "After a crash the app stays closed and the device stays on: a card over the screen says so, with Reopen. The App row on the App tab has the same and more.",
+        ru: "После крэша приложение остаётся закрытым, а устройство продолжает работать: об этом говорит карточка поверх экрана с кнопкой Reopen. В строке App на вкладке App — то же и больше.",
+        uk: "Після краху застосунок лишається закритим, а пристрій працює далі: про це каже картка поверх екрана з кнопкою Reopen. У рядку App на вкладці App — те саме й більше.",
       },
     },
     {

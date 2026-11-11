@@ -5,12 +5,12 @@ export default {
   steps: [
     {
       target: "w-display",
-      action: "hover",
+      action: "click",
       set: { panel: "display" },
       text: {
-        en: "Display settings are in the Display card: brightness, font size and the theme.",
-        ru: "Настройки экрана — в карточке Display: яркость, размер шрифта и тема.",
-        uk: "Налаштування екрана — у картці Display: яскравість, розмір шрифту й тема.",
+        en: "Display settings are in the Display row of the Device panel: open it for brightness, font size and the theme.",
+        ru: "Настройки экрана — в строке Display панели Device: раскройте её, там яркость, размер шрифта и тема.",
+        uk: "Налаштування екрана — у рядку Display панелі Device: розгорніть його, там яскравість, розмір шрифту й тема.",
       },
     },
     {
@@ -34,12 +34,12 @@ export default {
     },
     {
       target: "w-language",
-      action: "hover",
+      action: "click",
       set: { panel: "language" },
       text: {
-        en: "The Language card sets the system language and the keyboard layouts.",
-        ru: "Карточка Language задаёт язык системы и раскладки клавиатуры.",
-        uk: "Картка Language задає мову системи та розкладки клавіатури.",
+        en: "The Language row sets the system language and the keyboard layouts.",
+        ru: "Строка Language задаёт язык системы и раскладки клавиатуры.",
+        uk: "Рядок Language задає мову системи та розкладки клавіатури.",
       },
     },
     {
@@ -63,12 +63,12 @@ export default {
     },
     {
       target: "w-time",
-      action: "hover",
+      action: "click",
       set: { panel: "time" },
       text: {
-        en: "The Date and time card changes the time zone, and on real phones the clock itself.",
-        ru: "Карточка Date and time меняет часовой пояс, а на настоящих телефонах и сами часы.",
-        uk: "Картка Date and time змінює часовий пояс, а на справжніх телефонах і сам годинник.",
+        en: "The Time row changes the time zone, and on real phones the clock itself.",
+        ru: "Строка Time меняет часовой пояс, а на настоящих телефонах и сами часы.",
+        uk: "Рядок Time змінює часовий пояс, а на справжніх телефонах і сам годинник.",
       },
     },
     {
@@ -82,12 +82,12 @@ export default {
     },
     {
       target: "w-battery",
-      action: "hover",
+      action: "click",
       set: { panel: "battery" },
       text: {
-        en: "The Battery card pretends the battery is low, charging or in saver mode.",
-        ru: "Карточка Battery изображает разряженную батарею, зарядку или режим экономии.",
-        uk: "Картка Battery імітує розряджену батарею, заряджання або режим економії.",
+        en: "The Battery row pretends the battery is low, charging or in saver mode.",
+        ru: "Строка Battery изображает разряженную батарею, зарядку или режим экономии.",
+        uk: "Рядок Battery імітує розряджену батарею, заряджання або режим економії.",
       },
     },
     {
@@ -109,13 +109,13 @@ export default {
       },
     },
     {
-      target: "widgets",
+      target: "device-panel",
       action: "look",
       set: { panel: "none" },
       text: {
-        en: "Every changed card gets an amber dot, so you can see at a glance what differs from a normal phone.",
-        ru: "У каждой изменённой карточки появляется жёлтая точка: сразу видно, чем устройство отличается от обычного телефона.",
-        uk: "У кожної зміненої картки з'являється жовта крапка: одразу видно, чим пристрій відрізняється від звичайного телефона.",
+        en: "Every changed row is marked Changed, and a tab with changes gets a dot, so you can see at a glance what differs from a normal phone.",
+        ru: "Каждая изменённая строка помечена Changed, а у вкладки с изменениями появляется точка: сразу видно, чем устройство отличается от обычного телефона.",
+        uk: "Кожен змінений рядок позначено Changed, а у вкладки зі змінами з'являється крапка: одразу видно, чим пристрій відрізняється від звичайного телефона.",
       },
     },
   ],

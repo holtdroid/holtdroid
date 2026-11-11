@@ -47,7 +47,7 @@ const tabs: [Tab, string, LucideIcon][] = [
 
 export function ToolTabs({ s }: { s: PortalState }) {
   return (
-    <div className="flex h-full min-h-0 flex-col border-l">
+    <div className="flex h-full min-h-0 flex-col">
       <div
         data-scroll
         className="flex h-9 shrink-0 items-end gap-1 overflow-x-auto border-b px-2 [scrollbar-width:none]"

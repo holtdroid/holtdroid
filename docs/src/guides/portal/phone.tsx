@@ -266,22 +266,17 @@ export function PhoneScreen({ s }: { s: PortalState }) {
   )
 }
 
-export function Phone({ s }: { s: PortalState }) {
+export function Phone({ s, scale = 0.78 }: { s: PortalState; scale?: number }) {
   return (
-    <div className="relative rounded-[42px] bg-neutral-900 p-2.5 shadow-lg ring-1 ring-black/50 dark:ring-white/15">
-      <div className="h-[600px] w-[280px] overflow-hidden rounded-[34px]">
-        <PhoneScreen s={s} />
+    <div className="relative shrink-0" style={{ width: 302 * scale, height: 622 * scale }}>
+      <div
+        className="bg-frame shadow-float absolute top-0 left-0 origin-top-left rounded-[40px] border p-2.5"
+        style={{ transform: `scale(${scale})` }}
+      >
+        <div className="h-[600px] w-[280px] overflow-hidden rounded-[30px]">
+          <PhoneScreen s={s} />
+        </div>
       </div>
-      <PhoneButtons />
-    </div>
-  )
-}
-
-function PhoneButtons() {
-  return (
-    <div data-g="phone-buttons" className="absolute top-28 -right-1.5 grid w-1.5 gap-3">
-      <span className="h-12 rounded-r bg-neutral-700" />
-      <span className="h-20 rounded-r bg-neutral-700" />
     </div>
   )
 }

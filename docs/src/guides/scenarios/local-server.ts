@@ -42,7 +42,7 @@ export default {
     },
     {
       target: "session-open",
-      set: { page: "session" },
+      set: { page: "session", deviceTab: "app" },
       text: {
         en: "Open its session.",
         ru: "Откройте его сессию.",
@@ -51,12 +51,12 @@ export default {
     },
     {
       target: "w-ssh",
-      action: "hover",
+      action: "click",
       set: { panel: "ssh" },
       text: {
-        en: "The SSH card shows what your computer gives this device: ADB and the published ports.",
-        ru: "Карточка SSH показывает, что ваш компьютер отдаёт этому устройству: ADB и опубликованные порты.",
-        uk: "Картка SSH показує, що ваш комп'ютер віддає цьому пристрою: ADB і опубліковані порти.",
+        en: "The SSH row on the App tab of the Device panel shows what your computer gives this device: ADB and the published ports.",
+        ru: "Строка SSH на вкладке App панели Device показывает, что ваш компьютер отдаёт этому устройству: ADB и опубликованные порты.",
+        uk: "Рядок SSH на вкладці App панелі Device показує, що ваш комп'ютер віддає цьому пристрою: ADB і опубліковані порти.",
       },
     },
     {

@@ -5,7 +5,7 @@ export default {
   steps: [
     {
       target: "w-network",
-      action: "hover",
+      action: "click",
       set: { panel: "network" },
       text: {
         en: "Network settings live in the Network row of the Device panel. Open it.",
@@ -61,7 +61,7 @@ export default {
     },
     {
       target: "w-network",
-      action: "hover",
+      action: "click",
       set: { panel: "network" },
       text: {
         en: "Back in the Network row, the tiles switch the connections themselves.",

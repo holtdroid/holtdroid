@@ -1,16 +1,16 @@
 import type { Scenario } from "../types"
 
 export default {
-  initial: { page: "session", sessions: 1 },
+  initial: { page: "session", sessions: 1, deviceTab: "app" },
   steps: [
     {
       target: "w-app",
-      action: "hover",
+      action: "click",
       set: { panel: "app" },
       text: {
-        en: "You've signed in and clicked through onboarding. Hover the App card next to the phone to open the app's actions.",
-        ru: "Вы залогинились и прошли онбординг. Наведите курсор на карточку App рядом с телефоном, чтобы открыть действия с приложением.",
-        uk: "Ви увійшли й пройшли онбординг. Наведіть курсор на картку App поруч із телефоном, щоб відкрити дії із застосунком.",
+        en: "You've signed in and clicked through onboarding. Open the App row on the App tab of the Device panel for the app's actions.",
+        ru: "Вы залогинились и прошли онбординг. Раскройте строку App на вкладке App панели Device, чтобы открыть действия с приложением.",
+        uk: "Ви увійшли й пройшли онбординг. Розгорніть рядок App на вкладці App панелі Device, щоб відкрити дії із застосунком.",
       },
     },
     {
