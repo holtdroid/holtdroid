@@ -2,7 +2,7 @@
 title: Monitoring and audit
 description: Prometheus metrics, OpenTelemetry tracing and the audit log — who did what, when.
 sidebar:
-  order: 4
+  order: 5
 ---
 
 Metrics, traces and audit events leave the process for whatever you already

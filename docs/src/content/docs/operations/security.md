@@ -21,14 +21,15 @@ sidebar:
   sessions (`nodeSelector`/`tolerations`), run Holtdroid in its own
   namespace, and let only people you trust with those nodes open sessions
   (`allowedGroups`), or turn the ADB tools off (`adb.browser: false`, no
-  SSH gateway).
+  SSH gateway). [Emulator isolation](/operations/emulator-security/)
+  covers what the session Pod can do, what is enforced and what to add.
 - **Untrusted code.** APKs are third-party binaries running in a rooted
   Android. Apps don't get root themselves, but their network traffic is
   real: without a VPN (or on the `direct` location) it leaves from your
   nodes' network. Keep `vpn.bypassCIDRs` minimal, set `vpn.direct: false` if
-  devices must never egress directly, and consider a NetworkPolicy that
-  stops session Pods from reaching anything in-cluster except the api and
-  the VPN gateway.
+  devices must never egress directly, and keep the chart's egress
+  NetworkPolicy on (`providers.emulator.networkPolicy.egress`): it stops
+  session Pods from reaching the LAN, the nodes and other Pods.
 - **The VPN gateway** holds your VPN credentials and relays plain SOCKS
   inside the cluster. Only session Pods should reach it; see
   [Shared VPN gateway](/operations/vpn-gateway/).
