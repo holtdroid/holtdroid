@@ -1,10 +1,8 @@
 import { Link, useNavigate } from "@tanstack/react-router"
 import {
-  ActivityIcon,
+  ArrowUpRightIcon,
   BatteryChargingIcon,
   BatteryIcon,
-  BugIcon,
-  ChevronRightIcon,
   ConstructionIcon,
   CpuIcon,
   GlobeIcon,
@@ -46,6 +44,7 @@ import {
 } from "@/api/inventory"
 import { useMe, useSessions, useStopSession } from "@/api/queries"
 import { AppIcon } from "@/components/app-icon"
+import { dataTable, EmptyPanel, Meter, PageHeader, Panel, SectionLabel } from "@/components/page"
 import { SessionStateBadge } from "@/components/session-state-badge"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -68,24 +67,27 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { UserAvatar } from "@/components/user-avatar"
 import { useNow } from "@/hooks/use-now"
 import { countryFlag, formatBytes, formatDuration, formatRelative } from "@/lib/format"
-import {
-  celsius,
-  hottest,
-  type Level,
-  level,
-  levelFill,
-  levelText,
-  sensorLabel,
-  temperatureLevel,
-  worst,
-} from "@/lib/thermal"
+import { sessionTone, stopsIn } from "@/lib/session-tone"
+import { celsius, hottest, type Level, level, sensorLabel, temperatureLevel, worst } from "@/lib/thermal"
 import { cn } from "@/lib/utils"
 
-const stateBadge: Record<Slot["state"], string> = {
-  free: "bg-emerald-600 text-white dark:bg-emerald-500",
-  busy: "bg-amber-500 text-white",
-  offline: "bg-muted text-muted-foreground",
-  maintenance: "bg-sky-600 text-white dark:bg-sky-500",
+const levelText: Record<Level, string> = {
+  ok: "text-muted-foreground",
+  warn: "text-warning",
+  crit: "text-danger",
+}
+
+const levelFill: Record<Level, string> = {
+  ok: "bg-foreground",
+  warn: "bg-warning",
+  crit: "bg-danger",
+}
+
+const stateBadge: Record<Slot["state"], "success" | "warning" | "secondary" | "violet"> = {
+  free: "success",
+  busy: "warning",
+  offline: "secondary",
+  maintenance: "violet",
 }
 
 const sessionKey = (provider: string, id: string) => `${provider}/${id}`
@@ -98,14 +100,63 @@ const tabPaths: Record<InventoryTab, "/inventory" | "/inventory/sessions" | "/in
   devtools: "/inventory/devtools",
 }
 
-const stateDot: Record<Slot["state"], string> = {
-  free: "bg-emerald-500",
-  busy: "bg-amber-500",
-  offline: "bg-muted-foreground/40",
-  maintenance: "bg-sky-500",
+type Tone = "ready" | "starting" | "idle" | "failed" | "stopping" | "held" | "offline" | "free"
+
+const tones: { tone: Tone; label: string; tick: string; tile: string }[] = [
+  { tone: "ready", label: "Running", tick: "bg-success", tile: "border-transparent bg-success-soft" },
+  { tone: "starting", label: "Starting", tick: "bg-info", tile: "border-transparent bg-info-soft" },
+  { tone: "idle", label: "Stops soon", tick: "bg-warning", tile: "border-transparent bg-warning-soft" },
+  { tone: "failed", label: "Failed", tick: "bg-danger", tile: "border-transparent bg-danger-soft" },
+  { tone: "stopping", label: "Stopping", tick: "bg-muted-foreground", tile: "border-transparent bg-muted" },
+  { tone: "held", label: "On hold", tick: "bg-violet", tile: "border-transparent bg-violet-soft" },
+  { tone: "offline", label: "Offline", tick: "bg-muted-foreground/30", tile: "border-dashed text-muted-foreground" },
+  { tone: "free", label: "Free", tick: "bg-border", tile: "text-muted-foreground" },
+]
+
+const toneStyle = new Map(tones.map((t) => [t.tone, t]))
+
+function slotTone(d: InventoryDevice, session: SessionView | undefined, now: number): Tone {
+  switch (d.slot.state) {
+    case "busy":
+      return session ? sessionTone(session, now) : "ready"
+    case "maintenance":
+      return "held"
+    case "offline":
+      return "offline"
+    default:
+      return "free"
+  }
 }
 
 type Selected = { provider: string; slot: string }
+
+type Node = { key: string; name: string; host?: HostInfo; devices: InventoryDevice[] }
+
+function nodesOf(p: ProviderInventory): Node[] {
+  const grouped = !p.host && p.devices.some((d) => d.slot.group || d.host?.hostname)
+  if (!grouped) return [{ key: p.name, name: p.host?.hostname || p.name, host: p.host, devices: p.devices }]
+  const nodes = new Map<string, Node>()
+  for (const d of p.devices) {
+    const name = d.slot.group || d.host?.hostname || p.name
+    const n = nodes.get(name) ?? { key: `${p.name}/${name}`, name, devices: [] }
+    n.host ??= d.host
+    n.devices.push(d)
+    nodes.set(name, n)
+  }
+  return [...nodes.values()]
+}
+
+function thermalOf(d: InventoryDevice) {
+  return [...(d.device?.thermal ?? []), ...(d.host?.thermal ?? [])]
+}
+
+function hostLoad(h: HostInfo) {
+  return h.cores ? h.load1 / h.cores : undefined
+}
+
+function hostMemory(h: HostInfo) {
+  return h.memoryTotal && h.memoryAvailable ? (h.memoryTotal - h.memoryAvailable) / h.memoryTotal : undefined
+}
 
 export function InventoryPage({ tab }: { tab: InventoryTab }) {
   const navigate = useNavigate()
@@ -114,92 +165,79 @@ export function InventoryPage({ tab }: { tab: InventoryTab }) {
   const inventory = useInventory(admin && tab === "devices")
   const sessions = useSessions()
   const now = useNow(10_000)
-  const byID = new Map((sessions.data?.items ?? []).map((s) => [sessionKey(s.provider, s.id), s]))
+  const items = sessions.data?.items ?? []
+  const byID = new Map(items.map((s) => [sessionKey(s.provider, s.id), s]))
   const [selected, setSelected] = useState<Selected | null>(null)
-  const current = selected ? inventory.data?.providers.find((p) => p.name === selected.provider) : undefined
+  const providers = inventory.data?.providers ?? []
+  const current = selected ? providers.find((p) => p.name === selected.provider) : undefined
   const device = current?.devices.find((d) => d.slot.id === selected?.slot)
+  const slots = providers.reduce((n, p) => n + p.devices.length, 0)
 
   return (
-    <div className="flex h-full flex-col">
-      <Tabs
-        value={tab}
-        onValueChange={(v) => void navigate({ to: tabPaths[v as InventoryTab] })}
-        className="bg-background shrink-0 border-b px-4 lg:px-6"
-      >
-        <TabsList variant="line" className="h-11 gap-4">
-          <TabsTrigger value="devices" className="gap-1.5">
-            <SmartphoneIcon />
-            Devices
-          </TabsTrigger>
-          <TabsTrigger value="sessions" className="gap-1.5">
-            <ActivityIcon />
-            Sessions
-          </TabsTrigger>
-          <TabsTrigger value="devtools" className="gap-1.5">
-            <BugIcon />
-            DevTools frontends
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto grid max-w-6xl content-start gap-6 p-4 lg:p-6">
-          {tab === "devices" ? (
-            <div>
-              <h1 className="text-xl font-semibold tracking-tight">Devices</h1>
-              <p className="text-muted-foreground max-w-2xl text-sm">
-                Every slot of every provider, refreshed every 10 seconds. Open a row for the device, its machine and
-                sensors. A slot held for maintenance takes no new sessions; a session already running on it keeps going
-                until it ends.
-              </p>
-            </div>
-          ) : tab === "sessions" ? (
-            <div>
-              <h1 className="text-xl font-semibold tracking-tight">Sessions</h1>
-              <p className="text-muted-foreground max-w-2xl text-sm">
-                Everyone&apos;s running devices: who holds which slot, for how long, and when it ends on its own. Stop
-                one to free the slot now.
-              </p>
-            </div>
-          ) : (
-            <div>
-              <h1 className="text-xl font-semibold tracking-tight">DevTools frontends</h1>
-              <p className="text-muted-foreground max-w-2xl text-sm">
-                The Chrome DevTools builds the portal fetched for the WebViews it has seen, one per Chromium revision,
-                archived in its storage and restored after a restart. Delete one to fetch it afresh.
-              </p>
-            </div>
-          )}
+    <div className="h-full overflow-y-auto">
+      <div className="mx-auto grid max-w-7xl content-start gap-5 p-4 lg:px-8 lg:py-7">
+        <PageHeader
+          title="Inventory"
+          meta="Admins only"
+          description={
+            tab === "devices"
+              ? "Every slot of every provider by the machine it runs on, refreshed every 10 seconds. Open a slot for the device, its machine and sensors. A slot held for maintenance takes no new sessions; a session already running on it keeps going until it ends."
+              : tab === "sessions"
+                ? "Everyone's running devices: who holds which slot, for how long, and when it ends on its own. Stop one to free the slot now."
+                : "The Chrome DevTools builds the portal fetched for the WebViews it has seen, one per Chromium revision, archived in its storage and restored after a restart. Delete one to fetch it afresh."
+          }
+        >
+          <Tabs value={tab} onValueChange={(v) => void navigate({ to: tabPaths[v as InventoryTab] })}>
+            <TabsList>
+              <TabsTrigger value="devices">
+                Devices
+                {inventory.data && <Count n={slots} />}
+              </TabsTrigger>
+              <TabsTrigger value="sessions">
+                Sessions
+                {sessions.data && <Count n={items.length} />}
+              </TabsTrigger>
+              <TabsTrigger value="devtools">DevTools frontends</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </PageHeader>
 
-          {me.data && !admin && (
-            <Alert>
-              <ShieldAlertIcon />
-              <AlertTitle>Only admins can see the inventory</AlertTitle>
-            </Alert>
-          )}
-          {tab === "devices" && (
-            <>
-              {inventory.isError && (
-                <Alert variant="destructive">
-                  <AlertDescription>Could not load the inventory: {inventory.error.message}</AlertDescription>
-                </Alert>
-              )}
-              {admin && inventory.isPending && <Skeleton className="h-64 rounded-xl" />}
-              {inventory.data?.providers.map((p) => (
-                <ProviderSection
-                  key={p.name}
-                  provider={p}
-                  sessions={byID}
-                  now={now}
-                  onOpen={(slot) => setSelected({ provider: p.name, slot })}
-                />
-              ))}
-            </>
-          )}
-          {tab === "sessions" && admin && (
-            <SessionsSection items={sessions.data?.items ?? []} loading={sessions.isPending} now={now} />
-          )}
-          {tab === "devtools" && admin && <DevToolsFrontendsSection now={now} />}
-        </div>
+        {me.data && !admin && (
+          <Alert>
+            <ShieldAlertIcon />
+            <AlertTitle>Only admins can see the inventory</AlertTitle>
+          </Alert>
+        )}
+        {tab === "devices" && (
+          <>
+            {inventory.isError && (
+              <Alert variant="destructive">
+                <AlertDescription>Could not load the inventory: {inventory.error.message}</AlertDescription>
+              </Alert>
+            )}
+            {admin && inventory.isPending && <Skeleton className="h-64 rounded-2xl" />}
+            {inventory.data && <CapacitySummary providers={providers} sessions={byID} items={items} now={now} />}
+            {providers.map((p) => (
+              <ProviderSection
+                key={p.name}
+                provider={p}
+                sessions={byID}
+                now={now}
+                onOpen={(slot) => setSelected({ provider: p.name, slot })}
+              />
+            ))}
+            {inventory.data && items.length > 0 && (
+              <LongestRunning
+                items={items}
+                providers={providers}
+                now={now}
+                onAll={() => void navigate({ to: tabPaths.sessions })}
+              />
+            )}
+          </>
+        )}
+        {tab === "sessions" && admin && <SessionsSection items={items} loading={sessions.isPending} now={now} />}
+        {tab === "devtools" && admin && <DevToolsFrontendsSection now={now} />}
       </div>
       <Sheet open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
         <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
@@ -217,19 +255,428 @@ export function InventoryPage({ tab }: { tab: InventoryTab }) {
   )
 }
 
-const frontendState: Record<DevToolsFrontendView["state"], string> = {
-  warming: "bg-amber-500 text-white",
-  ready: "bg-emerald-600 text-white dark:bg-emerald-500",
-  incomplete: "bg-destructive text-white",
+function Count({ n }: { n: number }) {
+  return (
+    <span className="border-border text-muted-foreground inline-grid h-[18px] min-w-[18px] place-items-center rounded-full border px-1.5 text-[11px] tabular-nums">
+      {n}
+    </span>
+  )
 }
+
+function CapacitySummary({
+  providers,
+  sessions,
+  items,
+  now,
+}: {
+  providers: ProviderInventory[]
+  sessions: Map<string, SessionView>
+  items: SessionView[]
+  now: number
+}) {
+  const ticks = providers.flatMap((p) =>
+    p.devices.map((d) => ({
+      key: sessionKey(p.name, d.slot.id),
+      tone: slotTone(d, d.session ? sessions.get(sessionKey(p.name, d.session)) : undefined, now),
+    })),
+  )
+  const counts = new Map<Tone, number>()
+  for (const t of ticks) counts.set(t.tone, (counts.get(t.tone) ?? 0) + 1)
+  const busy = providers.reduce((n, p) => n + p.devices.filter((d) => d.slot.state === "busy").length, 0)
+  const people = new Set(items.map((s) => s.owner)).size
+  const uptime = items.length
+    ? items.reduce((n, s) => n + (now - new Date(s.createdAt).getTime()), 0) / items.length
+    : 0
+  const held = ticks.filter((t) => t.tone === "held").length
+
+  return (
+    <Panel className="flex flex-wrap items-center gap-x-8 gap-y-4 px-5 py-5">
+      <div className="flex min-w-0 flex-[1_1_520px] flex-col gap-3">
+        <div className="flex gap-[3px]">
+          {ticks.map((t) => (
+            <span key={t.key} className={cn("h-7 min-w-0.5 flex-1 rounded-xs", toneStyle.get(t.tone)?.tick)} />
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-[13px]">
+          {tones
+            .filter((t) => t.tone === "free" || counts.get(t.tone))
+            .map((t) => (
+              <span key={t.tone} className="inline-flex items-center gap-1.5 tabular-nums">
+                <span className={cn("h-3 w-1 rounded-xs", t.tick)} />
+                {counts.get(t.tone) ?? 0} {t.label}
+              </span>
+            ))}
+        </div>
+      </div>
+      <div className="bg-muted grid flex-[1_1_440px] grid-cols-2 rounded-xl border py-3.5 sm:grid-cols-4">
+        <Stat value={`${busy}/${ticks.length}`} label="Slots used" />
+        <Stat value={String(people)} label={people === 1 ? "Person online" : "People online"} />
+        <Stat value={items.length ? formatDuration(uptime) : "—"} label="Avg. session" />
+        <Stat value={String(held)} label="On hold" last />
+      </div>
+    </Panel>
+  )
+}
+
+function Stat({ value, label, last }: { value: string; label: string; last?: boolean }) {
+  return (
+    <div className={cn("px-2 text-center", !last && "sm:border-r")}>
+      <div className="text-lg font-semibold tabular-nums">{value}</div>
+      <div className="text-muted-foreground text-xs">{label}</div>
+    </div>
+  )
+}
+
+function ProviderSection({
+  provider: p,
+  sessions,
+  now,
+  onOpen,
+}: {
+  provider: ProviderInventory
+  sessions: Map<string, SessionView>
+  now: number
+  onOpen: (slot: string) => void
+}) {
+  const nodes = nodesOf(p)
+
+  return (
+    <section className="grid gap-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <h2 className="text-base font-semibold">{p.name}</h2>
+        {p.kind && <Badge variant="secondary">{p.kind}</Badge>}
+        <span className="text-muted-foreground text-xs tabular-nums">
+          {p.devices.length} {p.devices.length === 1 ? "slot" : "slots"}
+          {nodes.length > 1 && ` on ${nodes.length} machines`}
+        </span>
+        {!p.error && (
+          <div className="ml-auto">
+            <MaintenanceButton
+              target={{ provider: p.name }}
+              hold={p.maintenance}
+              title={`Hold ${p.name} for maintenance?`}
+              description="No new sessions start on any of its slots until you release it. Running sessions keep going."
+              label="Hold provider"
+              releaseLabel="Release provider"
+              size="sm"
+            />
+          </div>
+        )}
+      </div>
+
+      {p.maintenance && <HoldNote hold={p.maintenance} now={now} what="Every slot of this provider" />}
+      {p.error && (
+        <Alert variant="destructive">
+          <TriangleAlertIcon />
+          <AlertTitle>The provider didn&apos;t answer</AlertTitle>
+          <AlertDescription>{p.error}</AlertDescription>
+        </Alert>
+      )}
+      {!p.error && p.devices.length === 0 && (
+        <EmptyPanel>No slots: nothing matches the provider&apos;s configuration right now.</EmptyPanel>
+      )}
+      {p.devices.length > 0 && (
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,400px),1fr))] gap-4">
+          {nodes.map((n) => (
+            <NodeCard key={n.key} provider={p} node={n} sessions={sessions} now={now} onOpen={onOpen} />
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
+function NodeCard({
+  provider: p,
+  node: n,
+  sessions,
+  now,
+  onOpen,
+}: {
+  provider: ProviderInventory
+  node: Node
+  sessions: Map<string, SessionView>
+  now: number
+  onOpen: (slot: string) => void
+}) {
+  const h = n.host
+  const phones = n.devices.some((d) => d.device)
+  const Icon = h ? (phones ? UsbIcon : ServerIcon) : SmartphoneIcon
+  const busy = n.devices.filter((d) => d.slot.state === "busy").length
+  const held = n.devices.every((d) => d.slot.maintenance)
+  const conditions = h?.conditions ?? []
+  const spec = h
+    ? [h.cores && `${h.cores} cores`, h.memoryTotal && formatBytes(h.memoryTotal), h.os].filter(Boolean).join(" · ")
+    : [p.kind, `${n.devices.length} ${n.devices.length === 1 ? "device" : "devices"}`].filter(Boolean).join(" · ")
+  const load = h && hostLoad(h)
+  const memory = h && hostMemory(h)
+  const hot = h && hottest(h.thermal)
+
+  return (
+    <article className="bg-card flex flex-col gap-3.5 rounded-2xl border p-[18px]">
+      <div className="flex items-center gap-2.5">
+        <span className="bg-muted grid size-7 shrink-0 place-items-center rounded-lg border">
+          <Icon className="size-4" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="truncate font-mono text-[15px] font-medium">{n.name}</span>
+            {conditions.length > 0 ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="destructive">
+                    {conditions[0]}
+                    {conditions.length > 1 && ` +${conditions.length - 1}`}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>{conditions.join(", ")}</TooltipContent>
+              </Tooltip>
+            ) : held ? (
+              <Badge variant="violet">On hold</Badge>
+            ) : (
+              <Badge variant="success">Ready</Badge>
+            )}
+          </div>
+          {spec && <div className="text-muted-foreground truncate text-xs">{spec}</div>}
+        </div>
+        <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
+          {busy} of {n.devices.length}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+        {n.devices.map((d) => (
+          <SlotTile
+            key={d.slot.id}
+            device={d}
+            session={d.session ? sessions.get(sessionKey(p.name, d.session)) : undefined}
+            now={now}
+            onOpen={() => onOpen(d.slot.id)}
+          />
+        ))}
+      </div>
+
+      {h && (load !== undefined || memory !== undefined || hot) && (
+        <div className="grid gap-2 text-xs">
+          {load !== undefined && (
+            <MeterRow icon={CpuIcon} label="CPU" value={Math.min(1, load)} level={level(load, 0.8, 1.2)}>
+              {Math.round(load * 100)}%
+            </MeterRow>
+          )}
+          {memory !== undefined && (
+            <MeterRow icon={MemoryStickIcon} label="Memory" value={memory} level={level(memory, 0.85, 0.95)}>
+              {Math.round(memory * 100)}%
+            </MeterRow>
+          )}
+          {hot && (
+            <MeterRow icon={ThermometerIcon} label="Temp" value={hot.celsius / 100} level={temperatureLevel(hot)}>
+              {Math.round(hot.celsius)}°C
+            </MeterRow>
+          )}
+        </div>
+      )}
+    </article>
+  )
+}
+
+function MeterRow({
+  icon: Icon,
+  label,
+  value,
+  level: l,
+  children,
+}: {
+  icon: LucideIcon
+  label: string
+  value: number
+  level: Level
+  children: ReactNode
+}) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <Icon className="text-muted-foreground size-3.5 shrink-0" />
+      <span className="text-muted-foreground w-13 shrink-0">{label}</span>
+      <Meter value={value} fill={levelFill[l]} />
+      <span className={cn("w-11 shrink-0 text-right font-mono", l !== "ok" && levelText[l])}>{children}</span>
+    </div>
+  )
+}
+
+function SlotTile({
+  device: d,
+  session,
+  now,
+  onOpen,
+}: {
+  device: InventoryDevice
+  session: SessionView | undefined
+  now: number
+  onOpen: () => void
+}) {
+  const tone = slotTone(d, session, now)
+  const style = toneStyle.get(tone)
+  const title = session ? session.label || session.package : d.session ? d.session : d.slot.label
+  const sub = session
+    ? `${d.slot.label} · ${session.ownerName || session.owner}`
+    : d.session
+      ? d.slot.label
+      : tone === "free"
+        ? "Free"
+        : style?.label
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      title={[d.slot.label, d.slot.label !== d.slot.id && d.slot.id, style?.label].filter(Boolean).join(" · ")}
+      className={cn(
+        "hover:ring-ring/40 flex min-h-11 min-w-0 items-center gap-1.5 rounded-[9px] border px-2 py-1 text-left text-xs transition-shadow hover:ring-2",
+        style?.tile,
+      )}
+    >
+      {session ? (
+        <AppIcon src={session.iconUrl} className="size-5 rounded-md" />
+      ) : d.device ? (
+        <SmartphoneIcon className="size-3.5 shrink-0 opacity-70" />
+      ) : null}
+      <span className="grid min-w-0">
+        <span
+          className={cn("truncate", (session || d.session) && "text-foreground", d.session && !session && "font-mono")}
+        >
+          {title}
+        </span>
+        {sub && <span className="text-muted-foreground truncate text-[11px]">{sub}</span>}
+      </span>
+    </button>
+  )
+}
+
+function LongestRunning({
+  items,
+  providers,
+  now,
+  onAll,
+}: {
+  items: SessionView[]
+  providers: ProviderInventory[]
+  now: number
+  onAll: () => void
+}) {
+  const nodes = new Map<string, string>()
+  for (const p of providers)
+    for (const d of p.devices) {
+      const node = d.slot.group || d.host?.hostname
+      if (node) nodes.set(sessionKey(p.name, d.slot.id), node)
+    }
+  const longest = items.toSorted((a, b) => a.createdAt.localeCompare(b.createdAt)).slice(0, 5)
+
+  return (
+    <Panel className="overflow-hidden">
+      <div className="flex items-center gap-2.5 px-[18px] pt-4 pb-2.5">
+        <h2 className="text-base font-semibold">Longest running</h2>
+        <Button size="sm" variant="outline" className="ml-auto" onClick={onAll}>
+          All sessions
+        </Button>
+      </div>
+      <Table className={dataTable}>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Session</TableHead>
+            <TableHead>Owner</TableHead>
+            <TableHead>Device</TableHead>
+            <TableHead>Node</TableHead>
+            <TableHead>Location</TableHead>
+            <TableHead>State</TableHead>
+            <TableHead className="text-right">Up</TableHead>
+            <TableHead className="text-right">Ends in</TableHead>
+            <TableHead />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {longest.map((s) => {
+            const node = nodes.get(sessionKey(s.provider, s.slot))
+            const left = Math.max(0, stopsIn(s, now))
+            const device = [s.capabilities?.model, s.capabilities?.android && `Android ${s.capabilities.android}`]
+              .filter(Boolean)
+              .join(" · ")
+            return (
+              <TableRow key={sessionKey(s.provider, s.id)}>
+                <TableCell>
+                  <span className="inline-flex max-w-64 items-center gap-2">
+                    <AppIcon src={s.iconUrl} className="size-[22px] rounded-md" />
+                    <span className="truncate">{s.label || s.package}</span>
+                    {s.versionName && <span className="text-muted-foreground font-mono text-xs">{s.versionName}</span>}
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <span className="inline-flex items-center gap-1.5">
+                    <UserAvatar user={s.owner} className="size-[22px]" />
+                    <span className="max-w-40 truncate">{s.ownerName || s.owner}</span>
+                  </span>
+                </TableCell>
+                <TableCell className="text-muted-foreground">{device || "—"}</TableCell>
+                <TableCell className="font-mono text-xs">
+                  {node ?? s.provider} · {s.slotLabel || s.slot}
+                </TableCell>
+                <TableCell>
+                  <LocationCell location={s.location} />
+                </TableCell>
+                <TableCell>
+                  <SessionStateBadge state={s.state} />
+                </TableCell>
+                <TableCell className="text-right font-mono text-xs">
+                  {formatDuration(now - new Date(s.createdAt).getTime())}
+                </TableCell>
+                <TableCell className={cn("text-right font-mono text-xs", left < 5 * 60_000 && "text-warning")}>
+                  {formatDuration(left)}
+                </TableCell>
+                <TableCell className="text-right">
+                  <Button size="icon-sm" variant="outline" asChild>
+                    <Link
+                      to="/session/$provider/$id"
+                      params={{ provider: s.provider, id: s.id }}
+                      aria-label="Open session"
+                    >
+                      <ArrowUpRightIcon />
+                    </Link>
+                  </Button>
+                </TableCell>
+              </TableRow>
+            )
+          })}
+        </TableBody>
+      </Table>
+    </Panel>
+  )
+}
+
+function LocationCell({ location }: { location?: string }) {
+  if (!location) return <span className="text-muted-foreground">—</span>
+  return (
+    <span className="inline-flex items-center gap-1">
+      {countryFlag(location) || <GlobeIcon className="size-3" />}
+      {location}
+    </span>
+  )
+}
+
+function sameHold(a: Maintenance | undefined, b: Maintenance | undefined) {
+  return !!a && !!b && a.since === b.since && a.reason === b.reason && a.by === b.by
+}
+
+const frontendState: Record<DevToolsFrontendView["state"], "warning" | "success" | "destructive"> = {
+  warming: "warning",
+  ready: "success",
+  incomplete: "destructive",
+}
+
+const act = (run: Promise<unknown>, done: string) =>
+  run.then(() => toast.success(done)).catch((e: Error) => toast.error(e.message))
 
 function DevToolsFrontendsSection({ now }: { now: number }) {
   const frontends = useDevToolsFrontends(true)
   const remove = useDeleteDevToolsFrontend()
   const fetchAgain = useFetchDevToolsFrontend()
   const items = frontends.data?.items ?? []
-  const act = (run: Promise<unknown>, done: string) =>
-    run.then(() => toast.success(done)).catch((e: Error) => toast.error(e.message))
 
   return (
     <section className="grid gap-3">
@@ -241,13 +688,13 @@ function DevToolsFrontendsSection({ now }: { now: number }) {
       {frontends.data && (
         <p className="text-muted-foreground text-xs">Archives live in {frontends.data.storage} storage.</p>
       )}
-      {frontends.isPending && <Skeleton className="h-24 rounded-xl" />}
+      {frontends.isPending && <Skeleton className="h-24 rounded-2xl" />}
       {frontends.data && items.length === 0 && (
-        <p className="text-muted-foreground text-sm">Nothing fetched yet. Revisions appear as WebViews are seen.</p>
+        <EmptyPanel>Nothing fetched yet. Revisions appear as WebViews are seen.</EmptyPanel>
       )}
       {items.length > 0 && (
-        <div className="overflow-x-auto rounded-xl border">
-          <Table>
+        <Panel className="overflow-hidden">
+          <Table className={dataTable}>
             <TableHeader>
               <TableRow>
                 <TableHead>Revision</TableHead>
@@ -265,7 +712,7 @@ function DevToolsFrontendsSection({ now }: { now: number }) {
                     {f.rev.slice(0, 12)}
                   </TableCell>
                   <TableCell>
-                    <Badge className={cn("gap-1", frontendState[f.state])}>
+                    <Badge variant={frontendState[f.state]}>
                       {f.state === "warming" && <Loader2Icon className="size-3 animate-spin" />}
                       {f.state}
                     </Badge>
@@ -307,296 +754,10 @@ function DevToolsFrontendsSection({ now }: { now: number }) {
               ))}
             </TableBody>
           </Table>
-        </div>
+        </Panel>
       )}
     </section>
   )
-}
-
-function ProviderSection({
-  provider: p,
-  sessions,
-  now,
-  onOpen,
-}: {
-  provider: ProviderInventory
-  sessions: Map<string, SessionView>
-  now: number
-  onOpen: (slot: string) => void
-}) {
-  const counts = new Map<Slot["state"], number>()
-  for (const d of p.devices) counts.set(d.slot.state, (counts.get(d.slot.state) ?? 0) + 1)
-  const machines = p.devices.some((d) => d.host && !d.device)
-
-  return (
-    <section className="grid gap-2">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <h2 className="text-base font-semibold">{p.name}</h2>
-        {p.kind && <Badge variant="outline">{p.kind}</Badge>}
-        <div className="text-muted-foreground flex items-center gap-2.5 text-xs">
-          {(["free", "busy", "maintenance", "offline"] as const)
-            .filter((s) => counts.get(s))
-            .map((s) => (
-              <span key={s} className="inline-flex items-center gap-1 tabular-nums">
-                <span className={cn("size-1.5 rounded-full", stateDot[s])} />
-                {counts.get(s)} {s}
-              </span>
-            ))}
-        </div>
-        <div className="ml-auto flex items-center gap-3">
-          {p.host && <Conditions conditions={p.host.conditions} />}
-          {p.host && <HostSummary host={p.host} />}
-          {!p.error && (
-            <MaintenanceButton
-              target={{ provider: p.name }}
-              hold={p.maintenance}
-              title={`Hold ${p.name} for maintenance?`}
-              description="No new sessions start on any of its slots until you release it. Running sessions keep going."
-              label="Hold provider"
-              releaseLabel="Release provider"
-              size="sm"
-            />
-          )}
-        </div>
-      </div>
-
-      {p.maintenance && <HoldNote hold={p.maintenance} now={now} what="Every slot of this provider" />}
-      {p.error && (
-        <Alert variant="destructive">
-          <TriangleAlertIcon />
-          <AlertTitle>The provider didn&apos;t answer</AlertTitle>
-          <AlertDescription>{p.error}</AlertDescription>
-        </Alert>
-      )}
-      {!p.error && p.devices.length === 0 && (
-        <p className="text-muted-foreground rounded-xl border border-dashed py-8 text-center text-sm">
-          No slots: nothing matches the provider&apos;s configuration right now.
-        </p>
-      )}
-      {p.devices.length > 0 && (
-        <div className="overflow-x-auto rounded-xl border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Slot</TableHead>
-                <TableHead>State</TableHead>
-                <TableHead>Session</TableHead>
-                <TableHead>{machines ? "Machine" : "Device"}</TableHead>
-                <TableHead className="text-right">{machines ? "Load · RAM" : "Battery · Storage"}</TableHead>
-                <TableHead className="text-right">Temp</TableHead>
-                <TableHead className="w-8" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {p.devices.map((d) => (
-                <DeviceRow
-                  key={d.slot.id}
-                  provider={p}
-                  device={d}
-                  session={d.session ? sessions.get(sessionKey(p.name, d.session)) : undefined}
-                  now={now}
-                  onOpen={() => onOpen(d.slot.id)}
-                />
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
-    </section>
-  )
-}
-
-function HostSummary({ host: h }: { host: HostInfo }) {
-  const load = h.cores ? h.load1 / h.cores : 0
-  const mem = h.memoryTotal && h.memoryAvailable ? (h.memoryTotal - h.memoryAvailable) / h.memoryTotal : 0
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span className="text-muted-foreground hidden items-center gap-2 text-xs tabular-nums sm:inline-flex">
-          <UsbIcon className="size-3.5" />
-          {h.hostname && <span className="font-mono">{h.hostname}</span>}
-          {h.cores ? <Stat level={level(load, 0.8, 1.2)}>load {Math.round(load * 100)}%</Stat> : null}
-          {mem ? <Stat level={level(mem, 0.85, 0.95)}>RAM {Math.round(mem * 100)}%</Stat> : null}
-        </span>
-      </TooltipTrigger>
-      <TooltipContent className="w-72">
-        <HostDetails host={h} />
-      </TooltipContent>
-    </Tooltip>
-  )
-}
-
-function Stat({ level: l, children }: { level: Level; children: ReactNode }) {
-  return <span className={cn(l !== "ok" && levelText[l])}>{children}</span>
-}
-
-function sameHold(a: Maintenance | undefined, b: Maintenance | undefined) {
-  return !!a && !!b && a.since === b.since && a.reason === b.reason && a.by === b.by
-}
-
-function thermalOf(d: InventoryDevice) {
-  return [...(d.device?.thermal ?? []), ...(d.host?.thermal ?? [])]
-}
-
-function DeviceRow({
-  provider: p,
-  device: d,
-  session,
-  now,
-  onOpen,
-}: {
-  provider: ProviderInventory
-  device: InventoryDevice
-  session: SessionView | undefined
-  now: number
-  onOpen: () => void
-}) {
-  const Icon = d.host && !d.device ? ServerIcon : SmartphoneIcon
-  const hot = hottest(thermalOf(d))
-  const hold = d.slot.maintenance
-
-  return (
-    <TableRow className="cursor-pointer" onClick={onOpen}>
-      <TableCell>
-        <div className="flex items-center gap-2">
-          <Icon className="text-muted-foreground size-4 shrink-0" />
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5 font-medium">
-              <span className="truncate">{d.slot.label}</span>
-              {d.host && <Conditions conditions={d.host.conditions} />}
-            </div>
-            {d.slot.label !== d.slot.id && (
-              <div className="text-muted-foreground truncate font-mono text-[11px]">{d.slot.id}</div>
-            )}
-          </div>
-        </div>
-      </TableCell>
-      <TableCell>
-        <Badge className={cn("capitalize", stateBadge[d.slot.state])}>{d.slot.state}</Badge>
-        {hold?.reason && (
-          <div className="text-muted-foreground mt-0.5 max-w-40 truncate text-[11px]">{hold.reason}</div>
-        )}
-      </TableCell>
-      <TableCell>
-        {d.session ? (
-          <div className="min-w-0">
-            <Link
-              to="/session/$provider/$id"
-              params={{ provider: p.name, id: d.session }}
-              className="font-mono text-xs underline-offset-2 hover:underline"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {d.session}
-            </Link>
-            {session && (
-              <>
-                <div className="text-muted-foreground max-w-56 truncate text-[11px]">
-                  {session.label || session.package} · {session.ownerName || session.owner}
-                </div>
-                <SessionMeta session={session} now={now} />
-              </>
-            )}
-          </div>
-        ) : (
-          <span className="text-muted-foreground">—</span>
-        )}
-      </TableCell>
-      <TableCell>
-        {d.device ? (
-          <div className="min-w-0">
-            <div className="truncate">{[d.device.manufacturer, d.device.model].filter(Boolean).join(" ") || "—"}</div>
-            {d.device.android && (
-              <div className="text-muted-foreground text-[11px]">
-                Android {d.device.android}
-                {d.device.sdk ? ` · API ${d.device.sdk}` : ""}
-              </div>
-            )}
-          </div>
-        ) : d.host ? (
-          <div className="min-w-0">
-            <div className="truncate">{d.host.os || d.host.hostname || "—"}</div>
-            <div className="text-muted-foreground text-[11px]">
-              {[d.host.cores && `${d.host.cores} cores`, d.host.memoryTotal && formatBytes(d.host.memoryTotal)]
-                .filter(Boolean)
-                .join(" · ")}
-            </div>
-          </div>
-        ) : (
-          <span className="text-muted-foreground text-xs">{d.error || "—"}</span>
-        )}
-      </TableCell>
-      <TableCell className="text-right text-xs tabular-nums">
-        <Resources device={d} />
-      </TableCell>
-      <TableCell className="text-right text-xs tabular-nums">
-        {hot ? (
-          <Stat level={temperatureLevel(hot)}>{celsius(hot.celsius)}</Stat>
-        ) : (
-          <span className="text-muted-foreground">—</span>
-        )}
-      </TableCell>
-      <TableCell className="pr-2">
-        <ChevronRightIcon className="text-muted-foreground size-4" />
-      </TableCell>
-    </TableRow>
-  )
-}
-
-function Resources({ device: d }: { device: InventoryDevice }) {
-  if (d.device) {
-    const b = d.device.battery
-    const storage = d.device.storageTotal ? (d.device.storageUsed ?? 0) / d.device.storageTotal : 0
-    return (
-      <span className="inline-flex items-center gap-2">
-        {b && (
-          <Stat level={level(b.celsius, 40, 45)}>
-            <span className="inline-flex items-center gap-0.5">
-              {b.status === "charging" ? (
-                <BatteryChargingIcon className="size-3.5" />
-              ) : (
-                <BatteryIcon className="size-3.5" />
-              )}
-              {b.level}%
-            </span>
-          </Stat>
-        )}
-        {d.device.storageTotal ? (
-          <Stat level={level(storage, 0.85, 0.95)}>
-            <span className="inline-flex items-center gap-0.5">
-              <HardDriveIcon className="size-3.5" />
-              {Math.round(storage * 100)}%
-            </span>
-          </Stat>
-        ) : null}
-      </span>
-    )
-  }
-  if (d.host) {
-    const h = d.host
-    const load = h.cores ? h.load1 / h.cores : 0
-    const mem = h.memoryTotal && h.memoryAvailable ? (h.memoryTotal - h.memoryAvailable) / h.memoryTotal : 0
-    return (
-      <span className="inline-flex items-center gap-2">
-        {h.cores ? (
-          <Stat level={level(load, 0.8, 1.2)}>
-            <span className="inline-flex items-center gap-0.5">
-              <CpuIcon className="size-3.5" />
-              {Math.round(load * 100)}%
-            </span>
-          </Stat>
-        ) : null}
-        {mem ? (
-          <Stat level={level(mem, 0.85, 0.95)}>
-            <span className="inline-flex items-center gap-0.5">
-              <MemoryStickIcon className="size-3.5" />
-              {Math.round(mem * 100)}%
-            </span>
-          </Stat>
-        ) : null}
-      </span>
-    )
-  }
-  return <span className="text-muted-foreground">—</span>
 }
 
 function DeviceSheet({
@@ -621,7 +782,9 @@ function DeviceSheet({
         <SheetTitle className="flex items-center gap-2">
           <Icon className="text-muted-foreground size-5" />
           <span className="min-w-0 truncate">{d.slot.label}</span>
-          <Badge className={cn("capitalize", stateBadge[d.slot.state])}>{d.slot.state}</Badge>
+          <Badge variant={stateBadge[d.slot.state]} className="capitalize">
+            {d.slot.state}
+          </Badge>
         </SheetTitle>
         <SheetDescription className="font-mono text-xs">
           {p.name} · {d.slot.id}
@@ -631,7 +794,7 @@ function DeviceSheet({
       {hold && <HoldNote hold={hold} now={now} what={inherited ? "Held with the whole provider" : "Held"} compact />}
 
       {d.session && (
-        <div className="bg-muted/50 grid gap-0.5 rounded-lg px-3 py-2 text-xs">
+        <div className="bg-muted grid gap-0.5 rounded-xl border px-3 py-2 text-xs">
           <span className="text-muted-foreground">Session</span>
           <Link
             to="/session/$provider/$id"
@@ -695,9 +858,9 @@ function DeviceSheet({
 function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
   return (
     <div className="grid gap-2">
-      <div className="flex items-baseline gap-2 text-sm font-medium">
-        {title}
-        {hint && <span className="text-muted-foreground font-mono text-xs font-normal">{hint}</span>}
+      <div className="flex items-baseline gap-2">
+        <SectionLabel>{title}</SectionLabel>
+        {hint && <span className="text-muted-foreground font-mono text-xs">{hint}</span>}
       </div>
       {children}
     </div>
@@ -721,7 +884,7 @@ function SessionMeta({ session: s, now }: { session: SessionView; now: number })
     <div className="text-muted-foreground flex flex-wrap items-center gap-x-2 text-[11px] tabular-nums">
       <span>up {formatDuration(t.up)}</span>
       <span>idle {formatDuration(t.idle)}</span>
-      <span className={cn(t.left < 5 * 60_000 && "text-amber-600 dark:text-amber-400")}>
+      <span className={cn(t.left < 5 * 60_000 && "text-warning")}>
         {t.byIdle ? "idle stop" : "TTL"} in {formatDuration(t.left)}
       </span>
       {s.location && (
@@ -732,21 +895,6 @@ function SessionMeta({ session: s, now }: { session: SessionView; now: number })
       )}
       {s.webview && <span>WebView {s.webview}</span>}
     </div>
-  )
-}
-
-function Conditions({ conditions }: { conditions: string[] }) {
-  if (conditions.length === 0) return null
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span className="text-destructive inline-flex shrink-0 items-center gap-0.5 text-xs">
-          <TriangleAlertIcon className="size-3.5" />
-          {conditions.length}
-        </span>
-      </TooltipTrigger>
-      <TooltipContent>{conditions.join(", ")}</TooltipContent>
-    </Tooltip>
   )
 }
 
@@ -786,21 +934,17 @@ function Capabilities({ caps: c }: { caps: NonNullable<Slot["capabilities"]> }) 
 
 function SessionsSection({ items, loading, now }: { items: SessionView[]; loading: boolean; now: number }) {
   const owners = new Set(items.map((s) => s.owner)).size
-  if (loading) return <Skeleton className="h-40 rounded-xl" />
+  if (loading) return <Skeleton className="h-40 rounded-2xl" />
   if (items.length === 0) {
-    return (
-      <p className="text-muted-foreground rounded-xl border border-dashed py-8 text-center text-sm">
-        No device is running right now.
-      </p>
-    )
+    return <EmptyPanel>No device is running right now.</EmptyPanel>
   }
   return (
     <section className="grid gap-2">
       <p className="text-muted-foreground text-xs tabular-nums">
         {items.length} {items.length === 1 ? "session" : "sessions"} · {owners} {owners === 1 ? "user" : "users"}
       </p>
-      <div className="overflow-x-auto rounded-xl border">
-        <Table>
+      <Panel className="overflow-hidden">
+        <Table className={dataTable}>
           <TableHeader>
             <TableRow>
               <TableHead>App</TableHead>
@@ -820,7 +964,7 @@ function SessionsSection({ items, loading, now }: { items: SessionView[]; loadin
             ))}
           </TableBody>
         </Table>
-      </div>
+      </Panel>
     </section>
   )
 }
@@ -867,9 +1011,7 @@ function SessionRow({ session: s, now }: { session: SessionView; now: number }) 
       <TableCell className="text-right text-xs tabular-nums">{formatDuration(t.up)}</TableCell>
       <TableCell className="text-right text-xs tabular-nums">{formatDuration(t.idle)}</TableCell>
       <TableCell className="text-right text-xs tabular-nums">
-        <span className={cn(t.left < 5 * 60_000 && "text-amber-600 dark:text-amber-400")}>
-          {formatDuration(t.left)}
-        </span>
+        <span className={cn(t.left < 5 * 60_000 && "text-warning")}>{formatDuration(t.left)}</span>
         <div className="text-muted-foreground text-[11px]">{t.byIdle ? "idle timeout" : "max lifetime"}</div>
       </TableCell>
       <TableCell className="text-xs">
@@ -943,7 +1085,7 @@ function HoldNote({ hold, now, what, compact }: { hold: Maintenance; now: number
   return (
     <div
       className={cn(
-        "flex items-start gap-2 rounded-lg border border-sky-500/40 bg-sky-500/10 text-sky-900 dark:text-sky-100",
+        "bg-violet-soft text-violet flex items-start gap-2 rounded-xl",
         compact ? "px-2 py-1.5 text-xs" : "px-3 py-2 text-sm",
       )}
     >
@@ -1063,7 +1205,7 @@ function DeviceDetails({ device: d }: { device: DeviceInfo }) {
         </Row>
       )}
       {d.storageTotal ? (
-        <Meter icon={HardDriveIcon} label="Storage" used={d.storageUsed ?? 0} total={d.storageTotal} />
+        <BytesMeter icon={HardDriveIcon} label="Storage" used={d.storageUsed ?? 0} total={d.storageTotal} />
       ) : null}
       {d.battery && <BatteryRow battery={d.battery} />}
       {d.uptime ? (
@@ -1112,7 +1254,12 @@ function HostDetails({ host: h }: { host: HostInfo }) {
       )}
       {h.memoryTotal ? (
         h.memoryAvailable ? (
-          <Meter icon={MemoryStickIcon} label="Memory" used={h.memoryTotal - h.memoryAvailable} total={h.memoryTotal} />
+          <BytesMeter
+            icon={MemoryStickIcon}
+            label="Memory"
+            used={h.memoryTotal - h.memoryAvailable}
+            total={h.memoryTotal}
+          />
         ) : (
           <Row icon={MemoryStickIcon} label="Memory">
             {formatBytes(h.memoryTotal)}
@@ -1170,7 +1317,9 @@ function Sensors({ thermal, emulated }: { thermal: Temperature[]; emulated: bool
                     tl !== "ok" && levelText[tl],
                   )}
                 >
-                  <span className={cn("size-1.5 rounded-full", levelFill[tl])} />
+                  <span
+                    className={cn("size-1.5 rounded-full", tl === "ok" ? "bg-muted-foreground/60" : levelFill[tl])}
+                  />
                   <span className="text-muted-foreground max-w-28 truncate">{t.name}</span>
                   {celsius(t.celsius)}
                 </span>
@@ -1207,7 +1356,17 @@ function Row({ icon: Icon, label, children }: { icon?: LucideIcon; label: string
   )
 }
 
-function Meter({ icon: Icon, label, used, total }: { icon: LucideIcon; label: string; used: number; total: number }) {
+function BytesMeter({
+  icon: Icon,
+  label,
+  used,
+  total,
+}: {
+  icon: LucideIcon
+  label: string
+  used: number
+  total: number
+}) {
   const ratio = total > 0 ? used / total : 0
   const l = level(ratio, 0.85, 0.95)
   return (

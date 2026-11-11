@@ -3,6 +3,7 @@ import { type FormEvent, type ReactNode, useState } from "react"
 import { useAuth, useLogin, useLogout } from "@/api/queries"
 import { passkeyError, usePasskeySignIn } from "@/api/users"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -47,13 +48,15 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
 export function AuthCard({ children }: { children: ReactNode }) {
   return (
-    <div className="bg-muted/40 grid min-h-dvh place-items-center p-4">
-      <div className="bg-card grid w-full max-w-sm gap-6 rounded-2xl border p-6 shadow-sm">
+    <div className="bg-background grid min-h-dvh place-items-center p-4">
+      <div className="bg-card shadow-float grid w-full max-w-sm gap-6 rounded-3xl border p-7">
         <div className="flex items-center gap-3">
-          <img src={logo} alt="" className="size-10" />
-          <div>
-            <h1 className="font-semibold tracking-tight">Holtdroid</h1>
-            <p className="text-muted-foreground text-sm">Android sandboxes for your test builds</p>
+          <span className="bg-muted grid size-11 shrink-0 place-items-center rounded-xl border">
+            <img src={logo} alt="" className="size-7" />
+          </span>
+          <div className="grid gap-0.5">
+            <h1 className="text-[17px] font-semibold tracking-[-0.01em]">Holtdroid</h1>
+            <p className="text-muted-foreground text-[13px]">Android sandboxes for your test builds</p>
           </div>
         </div>
         {children}
@@ -81,7 +84,7 @@ function PasskeySignIn({ loginUrl }: { loginUrl?: string }) {
         {signIn.isPending ? <Spinner /> : <FingerprintIcon />}
         Sign in with a passkey
       </Button>
-      {signIn.isError && <p className="text-destructive text-sm">{passkeyError(signIn.error)}</p>}
+      {signIn.isError && <p className="text-danger text-sm">{passkeyError(signIn.error)}</p>}
       {loginUrl && <SSOButton loginUrl={loginUrl} label="Sign in with SSO" variant="outline" />}
       <p className="text-muted-foreground text-xs">
         No account yet? Ask an admin for an invite link. Lost your passkey? An admin can send you a recovery link.
@@ -95,10 +98,10 @@ function Pending({ name }: { name: string }) {
   return (
     <AuthCard>
       <div className="grid gap-2">
-        <div className="flex items-center gap-2 font-medium">
-          <HourglassIcon className="size-4" />
+        <Badge variant="warning" className="justify-self-start">
+          <HourglassIcon />
           Waiting for approval
-        </div>
+        </Badge>
         <p className="text-muted-foreground text-sm">
           Thanks, {name}. Your account is created; an admin has to give it a role before you can launch devices. Reload
           this page once they have.
@@ -134,7 +137,7 @@ function PasswordForm() {
           onChange={(e) => setPassword(e.target.value)}
           aria-invalid={login.isError}
         />
-        {login.isError && <p className="text-destructive text-sm">{login.error.message}</p>}
+        {login.isError && <p className="text-danger text-sm">{login.error.message}</p>}
       </div>
       <Button type="submit" disabled={!password || login.isPending}>
         {login.isPending ? <Spinner /> : <KeyRoundIcon />}

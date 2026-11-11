@@ -32,7 +32,10 @@ and the OpenAPI document a Go provider serves at `/openapi.json`.
    database), not in memory only.
 2. **`GET /v1/capacity` lists slots.** One slot per device that can run a
    session, `free`, `busy`, `offline` or `maintenance`. The api refuses a launch when no
-   slot is free, so keep it honest and cheap: the reaper calls it.
+   slot is free, so keep it honest and cheap: the reaper calls it. Set
+   `group` to the machine a slot runs on when several slots share one (the
+   emulator provider uses the node name); the Inventory page groups slots
+   by it.
 3. **`POST /v1/sessions` returns quickly.** Answer with the session in
    `provisioning` and do the work in the background. The UI shows `state`
    and `detail` while it waits for `ready`. Return 409 when there is no free

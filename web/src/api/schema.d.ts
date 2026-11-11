@@ -3857,6 +3857,8 @@ export interface components {
         Slot: {
             /** @description what this slot's device can do, when it differs from device to device; empty means the provider's capabilities */
             capabilities?: components["schemas"]["SlotCapabilities"];
+            /** @description the machine the slot runs on, such as an emulator's Kubernetes node; slots with the same group share it */
+            group?: string;
             id: string;
             label: string;
             /** @description set while the slot, or its whole provider, is held for maintenance: no new sessions start on it, a running one keeps going */

@@ -14,6 +14,7 @@ import {
 import { useMe } from "@/api/queries"
 import { AuditTable } from "@/components/audit/audit-table"
 import { Combobox } from "@/components/combobox"
+import { PageHeader, Panel } from "@/components/page"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group"
@@ -106,16 +107,16 @@ export function AuditPage() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto grid max-w-7xl gap-4 p-4 lg:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight">Audit log</h1>
-            <p className="text-muted-foreground max-w-2xl text-sm">
-              Who did what, from the portal and the SSH gateway. {info.data?.enabled ? retention(info.data) : null}
-            </p>
-          </div>
+      <div className="mx-auto grid max-w-7xl content-start gap-5 p-4 lg:px-8 lg:py-7">
+        <PageHeader
+          title="Audit log"
+          meta="Admins only"
+          description={
+            <>Who did what, from the portal and the SSH gateway. {info.data?.enabled ? retention(info.data) : null}</>
+          }
+        >
           {enabled && (
-            <div className="flex items-center gap-3">
+            <div className="ml-auto flex items-center gap-3">
               <Label className="font-normal">
                 <Switch checked={live} onCheckedChange={setLive} />
                 Live
@@ -128,7 +129,7 @@ export function AuditPage() {
               </Button>
             </div>
           )}
-        </div>
+        </PageHeader>
 
         {info.data && !info.data.enabled && (
           <Alert>
@@ -150,7 +151,7 @@ export function AuditPage() {
         {enabled && (
           <>
             <div className="flex flex-wrap items-center gap-2">
-              <InputGroup className="h-7 w-full sm:w-72">
+              <InputGroup className="h-8 w-full sm:w-72">
                 <InputGroupAddon>
                   <SearchIcon />
                 </InputGroupAddon>
@@ -250,7 +251,7 @@ export function AuditPage() {
               )}
             </div>
 
-            <div className="rounded-lg border">
+            <Panel className="overflow-hidden">
               {events.isPending ? (
                 <div className="grid gap-2 p-3">
                   {Array.from({ length: 8 }, (_, i) => (
@@ -264,7 +265,7 @@ export function AuditPage() {
               ) : (
                 <AuditTable events={items} now={now} onFilter={update} />
               )}
-            </div>
+            </Panel>
 
             {events.hasNextPage && (
               <Button
@@ -280,7 +281,7 @@ export function AuditPage() {
           </>
         )}
 
-        {admin && info.isPending && <Skeleton className="h-64" />}
+        {admin && info.isPending && <Skeleton className="h-64 rounded-2xl" />}
       </div>
     </div>
   )

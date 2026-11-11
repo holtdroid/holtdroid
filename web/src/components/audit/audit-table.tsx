@@ -3,6 +3,7 @@ import { ChevronRightIcon, ExternalLinkIcon, FilterIcon, ShieldIcon } from "luci
 import { Fragment, useState } from "react"
 import type { AuditEvent, AuditFilter } from "@/api/audit"
 import { CopyButton } from "@/components/copy-button"
+import { dataTable } from "@/components/page"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -12,11 +13,11 @@ import { formatRelative } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 const categoryColor: Record<string, string> = {
-  auth: "bg-sky-500",
-  session: "bg-emerald-500",
-  artifact: "bg-violet-500",
-  ssh: "bg-amber-500",
-  audit: "bg-rose-500",
+  auth: "bg-info",
+  session: "bg-success",
+  artifact: "bg-violet",
+  ssh: "bg-warning",
+  audit: "bg-danger",
 }
 
 const timeOnly = new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" })
@@ -35,8 +36,8 @@ function formatTime(iso: string, now: number) {
 }
 
 function ResultBadge({ result }: { result: AuditEvent["result"] }) {
-  if (result === "ok") return <Badge variant="secondary">ok</Badge>
-  if (result === "denied") return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400">denied</Badge>
+  if (result === "ok") return <Badge variant="success">ok</Badge>
+  if (result === "denied") return <Badge variant="warning">denied</Badge>
   return <Badge variant="destructive">failed</Badge>
 }
 
@@ -94,7 +95,7 @@ export function AuditTable({
     })
 
   return (
-    <Table className="text-xs">
+    <Table className={cn(dataTable, "text-xs [&_td:first-child]:pr-0")}>
       <TableHeader>
         <TableRow>
           <TableHead className="w-6" />
@@ -124,7 +125,7 @@ export function AuditTable({
                     className={cn("text-muted-foreground size-3.5 transition-transform", expanded && "rotate-90")}
                   />
                 </TableCell>
-                <TableCell className="tabular-nums">
+                <TableCell className="font-mono tabular-nums">
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span>{formatTime(e.time, now)}</span>
@@ -172,7 +173,7 @@ export function AuditTable({
                       (what ?? <span className="text-muted-foreground font-sans">—</span>)
                     )}
                   </div>
-                  {e.reason && e.result !== "ok" && <div className="text-destructive truncate">{e.reason}</div>}
+                  {e.reason && e.result !== "ok" && <div className="text-danger truncate">{e.reason}</div>}
                 </TableCell>
                 <TableCell className="text-muted-foreground hidden max-w-0 truncate xl:table-cell">
                   {detailsText(e.details)}

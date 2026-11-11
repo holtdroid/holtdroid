@@ -379,7 +379,7 @@ func (p *Provider) capacity(ctx context.Context) (snapshot, error) {
 		case n.Spec.Unschedulable || !nodeReady(n):
 			state = contract.SlotOffline
 		}
-		c.Slots = append(c.Slots, contract.Slot{ID: id, Label: p.slotLabel(n.Name, e.n), State: state})
+		c.Slots = append(c.Slots, contract.Slot{ID: id, Label: p.slotLabel(n.Name, e.n), Group: n.Name, State: state})
 		slotNodes = append(slotNodes, n)
 	}
 	held.Apply(&c)

@@ -177,6 +177,7 @@ type Location struct {
 type Slot struct {
 	ID           string // node name for emulators, device serial for phones
 	Label        string
+	Group        string // optional: the machine the slot runs on (emulator: its node); slots that share it have the same group
 	State        string // "free" | "busy" | "offline" | "maintenance"
 	Capabilities *SlotCapabilities // optional: set by providers whose devices differ (phones)
 	Maintenance  *Maintenance      // set while the slot or its whole provider is held

@@ -29,6 +29,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
 import { useReferences } from "@/api/queries"
 import { FigmaTokenSection } from "@/components/figma-token"
+import { ListPanel, PageHeader, Panel, SectionLabel } from "@/components/page"
+import { UserAvatar } from "@/components/user-avatar"
 import { useNow } from "@/hooks/use-now"
 import { formatBytes, formatRelative, formatSpan } from "@/lib/format"
 
@@ -41,41 +43,49 @@ export function AccountPage() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto grid max-w-3xl content-start gap-6 p-4 lg:p-6">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Account</h1>
-          <p className="text-muted-foreground text-sm">
-            Your profile, the passkeys you sign in with and your Figma token.
-          </p>
-        </div>
+      <div className="mx-auto grid max-w-3xl content-start gap-6 p-4 lg:px-8 lg:py-7">
+        <PageHeader title="Account" description="Your profile, the passkeys you sign in with and your Figma token." />
         {account.isError && (
           <Alert variant="destructive">
             <AlertDescription>Could not load your account: {account.error.message}</AlertDescription>
           </Alert>
         )}
         {!data || !user ? (
-          <Skeleton className="h-60 rounded-xl" />
+          <Skeleton className="h-60 rounded-2xl" />
         ) : (
           <>
-            <section className="grid gap-3 rounded-xl border p-4">
-              <NameForm key={user.name} name={user.name} />
-              <div className="text-muted-foreground flex flex-wrap gap-x-4 gap-y-1 text-sm">
-                <span>{user.email}</span>
-                <span>{roleLabel[user.role]}</span>
-                <span>Member since {new Date(user.createdAt).toLocaleDateString()}</span>
+            <Panel className="grid gap-4 p-5">
+              <div className="flex items-center gap-3">
+                <UserAvatar user={user.id} className="size-10" />
+                <div className="grid min-w-0 gap-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate font-semibold">{user.name}</span>
+                    <Badge variant={user.role === "admin" ? "violet" : user.role === "" ? "warning" : "secondary"}>
+                      {roleLabel[user.role]}
+                    </Badge>
+                  </div>
+                  <div className="text-muted-foreground flex flex-wrap gap-x-3 text-xs">
+                    <span className="truncate">{user.email}</span>
+                    <span>Member since {new Date(user.createdAt).toLocaleDateString()}</span>
+                  </div>
+                </div>
               </div>
-              <LimitsSummary limits={user.effective} />
-            </section>
+              <NameForm key={user.name} name={user.name} />
+              <div className="grid gap-2 border-t border-dashed pt-4">
+                <SectionLabel>Limits</SectionLabel>
+                <LimitsSummary limits={user.effective} />
+              </div>
+            </Panel>
             <section className="grid gap-2">
               <div className="flex items-center justify-between gap-2">
-                <h2 className="font-semibold">Passkeys</h2>
+                <SectionLabel>Passkeys</SectionLabel>
                 <AddPasskey />
               </div>
-              <ul className="divide-y rounded-xl border">
+              <ListPanel>
                 {data.passkeys.map((p) => (
                   <PasskeyRow key={p.id} passkey={p} now={now} last={data.passkeys.length === 1} />
                 ))}
-              </ul>
+              </ListPanel>
               <p className="text-muted-foreground text-xs">
                 Keep at least two, e.g. one synced by your password manager and a security key, so losing a device
                 doesn&apos;t lock you out. If it does, an admin can send you a recovery link.
@@ -83,16 +93,16 @@ export function AccountPage() {
             </section>
             {references.data?.enabled && (
               <section className="grid gap-3">
-                <div>
-                  <h2 className="font-semibold">Figma</h2>
+                <div className="grid gap-1">
+                  <SectionLabel>Figma</SectionLabel>
                   <p className="text-muted-foreground text-sm">
                     A personal access token lets you import frames from Figma into the Pixel perfect tab, with their
                     layers.
                   </p>
                 </div>
-                <div className="rounded-xl border p-4">
+                <Panel className="p-5">
                   <FigmaTokenSection />
-                </div>
+                </Panel>
               </section>
             )}
           </>
@@ -142,7 +152,7 @@ function Limit({ label, value }: { label: string; value: string }) {
   return (
     <div className="grid">
       <dt className="text-muted-foreground text-xs">{label}</dt>
-      <dd className="font-medium">{value}</dd>
+      <dd className="font-medium tabular-nums">{value}</dd>
     </div>
   )
 }
@@ -211,7 +221,7 @@ function PasskeyRow({ passkey: p, now, last }: { passkey: Passkey; now: number; 
   }
 
   return (
-    <li className="flex flex-wrap items-center gap-3 px-3 py-2.5">
+    <li className="flex flex-wrap items-center gap-3 px-4 py-3">
       <FingerprintIcon className="text-muted-foreground size-4 shrink-0" />
       {editing ? (
         <form onSubmit={save} className="flex flex-1 gap-2">

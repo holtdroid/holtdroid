@@ -5,6 +5,7 @@ import { useAuth } from "@/api/queries"
 import { type InviteInfo, passkeyError, roleLabel, useInvite, useRegister } from "@/api/users"
 import { AuthCard } from "@/components/auth-gate"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -52,9 +53,16 @@ function RegisterForm({ token, info }: { token: string; info: InviteInfo }) {
   return (
     <form onSubmit={submit} className="grid gap-4">
       <div className="grid gap-1">
-        <h2 className="font-medium">
-          {info.setup ? "Set up your account" : recovery ? "Register a new passkey" : "Create your account"}
-        </h2>
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="text-base font-semibold">
+            {info.setup ? "Set up your account" : recovery ? "Register a new passkey" : "Create your account"}
+          </h2>
+          {!recovery && !info.setup && info.kind !== "bootstrap" && (
+            <Badge variant={info.role === "" ? "warning" : info.role === "admin" ? "violet" : "secondary"}>
+              {roleLabel[info.role]}
+            </Badge>
+          )}
+        </div>
         <p className="text-muted-foreground text-sm">
           {info.setup
             ? `An admin created an account for ${info.name} (${info.email}). Register a passkey to sign in.`
@@ -92,7 +100,7 @@ function RegisterForm({ token, info }: { token: string; info: InviteInfo }) {
               aria-invalid={wrongDomain}
             />
             {info.domains.length > 0 && (
-              <p className={wrongDomain ? "text-destructive text-xs" : "text-muted-foreground text-xs"}>
+              <p className={wrongDomain ? "text-danger text-xs" : "text-muted-foreground text-xs"}>
                 Only addresses at {info.domains.join(", ")}.
               </p>
             )}
@@ -108,7 +116,7 @@ function RegisterForm({ token, info }: { token: string; info: InviteInfo }) {
           onChange={(e) => setKeyName(e.target.value)}
         />
       </div>
-      {register.isError && <p className="text-destructive text-sm">{passkeyError(register.error)}</p>}
+      {register.isError && <p className="text-danger text-sm">{passkeyError(register.error)}</p>}
       <Button type="submit" size="lg" disabled={!ready || register.isPending}>
         {register.isPending ? <Spinner /> : <FingerprintIcon />}
         {recovery ? "Register passkey" : "Create account with a passkey"}
