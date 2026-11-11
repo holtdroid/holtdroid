@@ -365,7 +365,6 @@ Goal: several Android devices per node instead of one emulator per node.
 - [x] `Slot.group` filled by the emulator provider (decision #189)
 - [x] Fake provider reports screen and Android capabilities for `make dev` (decision #190)
 - [x] Docs site on the same tokens and dock (decision #191)
-- [ ] Session page passes `session` to `StartProgress` so its start card shows session details
 - [ ] Guide scenes still drawing the old session layout (session-tour, app-actions, crash, bug-report, device-settings, vpn, gps) and the session part of `start/introduction.mdx`
 
 ## Later

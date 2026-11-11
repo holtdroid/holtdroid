@@ -116,6 +116,7 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
                 reason={session.reason || status?.reason}
                 appData={session.appData}
                 webview={session.webview}
+                session={session}
               />
             </div>
           ) : (

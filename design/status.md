@@ -21,8 +21,7 @@ deployment"):
   tests only:
   - Apps page: app rows with build timelines, a Devices card with slot
     ticks, Recent recordings; the one-screen launch configurator with a live
-    preview and the All devices picker; the start pipeline card. The session
-    page still needs to pass `session` to `StartProgress`.
+    preview and the All devices picker; the start pipeline card.
   - Session page: Device panel rows, stage toolbar, screen-state cards,
     tools card with More. Network conditions moved from a tab into a picker
     that shows scenario steps and the live step from the agent. Guide
