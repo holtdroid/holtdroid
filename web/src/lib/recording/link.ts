@@ -1,6 +1,16 @@
-export type ToolTab = "logcat" | "network" | "console" | "sockets" | "dns" | "routes" | "pixel-perfect" | "cache"
+export type ToolTab =
+  | "findings"
+  | "logcat"
+  | "network"
+  | "console"
+  | "sockets"
+  | "dns"
+  | "routes"
+  | "pixel-perfect"
+  | "cache"
 
 export const toolTabs: ToolTab[] = [
+  "findings",
   "logcat",
   "network",
   "console",
@@ -49,6 +59,7 @@ export function viewHash(view: PlayerView) {
   if (view.t !== undefined) q.set("t", (Math.max(0, view.t) / 1000).toFixed(1).replace(/\.0$/, ""))
   if (view.tab) q.set("tab", view.tab)
   const keep: Record<ToolTab, readonly (typeof fields)[number][]> = {
+    findings: [],
     logcat: [],
     network: ["request"],
     console: ["message"],

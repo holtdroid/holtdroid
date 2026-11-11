@@ -147,6 +147,12 @@ func (d *device) recordState(ctx context.Context, rec *recording.Recorder) {
 	go d.recordDNS(ctx, rec)
 	go d.recordConnections(ctx, rec)
 	go func() {
+		_ = d.WatchScreen(ctx, func(s contract.Screen) error {
+			rec.Event(contract.RecordingEvent{Type: contract.EventScreen, Screen: &s})
+			return nil
+		})
+	}()
+	go func() {
 		_ = d.WatchMetrics(ctx, func(m contract.Metrics) error {
 			rec.Event(contract.RecordingEvent{Type: contract.EventMetrics, Metrics: &m})
 			return nil

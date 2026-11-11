@@ -1,43 +1,83 @@
 import { Link } from "@tanstack/react-router"
-import { ArrowLeftIcon } from "lucide-react"
+import { ArrowLeftIcon, GlobeIcon, SmartphoneIcon } from "lucide-react"
 import { type ServerRecording, useRecordingDetail } from "@/api/queries"
 import type { RecordingView } from "@/api/client"
 import { AppIcon } from "@/components/app-icon"
 import { useInShell } from "@/components/shell-context"
-import { RecordingPlayer } from "@/components/recording/recording-player"
+import { RecordingHeader, RecordingPlayer } from "@/components/recording/recording-player"
 import { recordingName, RenameButton } from "@/components/recording/rename-button"
 import { RecordingState } from "@/components/recording/recording-state"
+import { UserAvatar } from "@/components/user-avatar"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { formatBytes } from "@/lib/format"
+import { formatBytes, formatDuration } from "@/lib/format"
 import logo from "@/logo.svg"
 
+const created = new Intl.DateTimeFormat(undefined, {
+  month: "short",
+  day: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+})
+
 export function Title({ r, back, rename }: { r: RecordingView; back: boolean; rename?: boolean }) {
+  const owner = r.ownerName || r.owner
   return (
-    <div className="flex min-w-0 items-center gap-2">
+    <div className="flex min-w-0 items-center gap-3.5">
       {back && (
-        <Button variant="ghost" size="icon-sm" asChild>
+        <Button variant="outline" size="icon" asChild>
           <Link to="/recordings" aria-label="Back to recordings">
             <ArrowLeftIcon />
           </Link>
         </Button>
       )}
-      <AppIcon src={r.iconUrl} className="size-9" />
-      <div className="grid min-w-0">
-        <span className="flex items-center gap-2">
-          <span className="truncate font-medium">{recordingName(r)}</span>
+      <AppIcon src={r.iconUrl} className="size-10 rounded-[11px]" />
+      <div className="grid min-w-0 gap-1">
+        <div className="flex min-w-0 items-center gap-2">
+          <h1 className="truncate text-lg font-semibold">{recordingName(r)}</h1>
+          {rename && <RenameButton recording={r} />}
           <RecordingState state={r.state} />
-        </span>
-        <span className="text-muted-foreground truncate font-mono text-xs">
-          {r.package}
-          {r.versionName ? ` · ${r.versionName}` : ""} · {new Date(r.createdAt).toLocaleString()}
-          {r.owner ? ` · ${r.owner}` : ""} · {formatBytes(r.size)}
-          {r.reason && <span className="text-destructive"> · {r.reason}</span>}
-        </span>
+        </div>
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          {r.versionName && (
+            <Badge variant="secondary" className="font-mono">
+              {r.versionName}
+            </Badge>
+          )}
+          {r.screen && (
+            <Badge variant="secondary">
+              <SmartphoneIcon />
+              {r.screen.label}
+            </Badge>
+          )}
+          {r.location && (
+            <Badge variant="secondary">
+              <GlobeIcon />
+              {r.location}
+            </Badge>
+          )}
+          <span className="ml-1 inline-flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+            {owner && <UserAvatar user={owner} className="size-[18px]" />}
+            <span className="truncate">
+              {owner ? `${owner} · ` : ""}
+              {created.format(new Date(r.createdAt))} · {formatDuration(r.duration)} · {formatBytes(r.size)}
+            </span>
+          </span>
+          {r.reason && <span className="text-xs text-danger">{r.reason}</span>}
+        </div>
       </div>
-      {rename && <RenameButton recording={r} />}
     </div>
+  )
+}
+
+function Brand() {
+  return (
+    <Link to="/" className="flex shrink-0 items-center gap-2 font-semibold tracking-tight">
+      <img src={logo} alt="" className="size-6" />
+      Holtdroid
+    </Link>
   )
 }
 
@@ -47,41 +87,51 @@ export function RecordingPage({ source }: { source: ServerRecording }) {
   const r = d?.recording
   const own = source.kind === "own"
   const inShell = useInShell()
+  const title = r ? <Title r={r} back={own && inShell} rename={own && inShell} /> : null
+  const brand = inShell ? undefined : <Brand />
+  const header = (
+    <RecordingHeader>
+      {title}
+      <span className="flex-1" />
+      {brand}
+    </RecordingHeader>
+  )
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto lg:overflow-hidden">
-      {inShell ? (
-        r && (
-          <header className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
-            <Title r={r} back={own} rename={own} />
-          </header>
-        )
-      ) : (
-        <header className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
-          {r && <Title r={r} back={false} />}
-          <span className="ml-auto flex shrink-0 items-center gap-2 font-semibold tracking-tight">
-            <img src={logo} alt="" className="size-6" />
-            Holtdroid
-          </span>
-        </header>
-      )}
-      <div className="min-h-0 flex-1 p-2 lg:p-3">
+    <div className="h-full overflow-y-auto">
+      <div className="mx-auto flex max-w-[1680px] flex-col gap-4 px-4 py-5 lg:px-6">
         {detail.isPending ? (
-          <Skeleton className="aspect-video rounded-xl" />
+          <>
+            {header}
+            <Skeleton className="aspect-video rounded-2xl" />
+          </>
         ) : detail.isError ? (
-          <Alert variant="destructive">
-            <AlertDescription>
-              {source.kind === "shared"
-                ? "This link doesn't open a recording any more."
-                : `Could not load the recording: ${detail.error.message}`}
-            </AlertDescription>
-          </Alert>
+          <>
+            {header}
+            <Alert variant="destructive">
+              <AlertDescription>
+                {source.kind === "shared"
+                  ? "This link doesn't open a recording any more."
+                  : `Could not load the recording: ${detail.error.message}`}
+              </AlertDescription>
+            </Alert>
+          </>
         ) : d?.manifest ? (
-          <RecordingPlayer key={d.recording.id} source={source} detail={d} manifest={d.manifest} />
+          <RecordingPlayer
+            key={d.recording.id}
+            source={source}
+            detail={d}
+            manifest={d.manifest}
+            title={title}
+            extra={brand}
+          />
         ) : (
-          <div className="text-muted-foreground grid aspect-video place-items-center rounded-xl border border-dashed text-sm">
-            Nothing recorded yet: the session is still starting.
-          </div>
+          <>
+            {header}
+            <div className="grid aspect-video place-items-center rounded-2xl border border-dashed text-sm text-muted-foreground">
+              Nothing recorded yet: the session is still starting.
+            </div>
+          </>
         )}
       </div>
     </div>

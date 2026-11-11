@@ -89,9 +89,9 @@ export default {
       target: "rec-share",
       set: { toast: "rec-link" },
       text: {
-        en: "Share makes a link and copies it. Paste it into the ticket: the developer opens this exact moment, even without an account.",
-        ru: "Share создаёт ссылку и копирует её. Вставьте её в задачу: разработчик откроет именно этот момент, даже без аккаунта.",
-        uk: "Share створює посилання і копіює його. Вставте його в задачу: розробник відкриє саме цей момент, навіть без облікового запису.",
+        en: "Link at … makes a share link to this moment and copies it. Paste it into the ticket: the developer opens this exact moment, even without an account.",
+        ru: "Link at … создаёт ссылку на этот момент и копирует её. Вставьте её в задачу: разработчик откроет именно этот момент, даже без аккаунта.",
+        uk: "Link at … створює посилання на цей момент і копіює його. Вставте його в задачу: розробник відкриє саме цей момент, навіть без облікового запису.",
       },
     },
   ],

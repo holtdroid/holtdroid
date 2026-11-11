@@ -1,10 +1,13 @@
+import { useQuery } from "@tanstack/react-query"
 import {
   ArchiveIcon,
   ChevronDownIcon,
   ClapperboardIcon,
   DownloadIcon,
   FileTextIcon,
+  FlagIcon,
   GlobeIcon,
+  InfoIcon,
   type LucideIcon,
   Link2OffIcon,
   LinkIcon,
@@ -13,16 +16,16 @@ import {
   PinIcon,
   PlayIcon,
   PointerIcon,
-  SkipBackIcon,
-  SkipForwardIcon,
+  RotateCcwIcon,
+  RotateCwIcon,
+  VideoOffIcon,
   Volume2Icon,
   VolumeXIcon,
 } from "lucide-react"
 import {
   type ComponentProps,
-  type CSSProperties,
   type KeyboardEvent,
-  type PointerEvent,
+  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -31,46 +34,67 @@ import {
   useSyncExternalStore,
 } from "react"
 import { toast } from "sonner"
-import type { RecordingDetail, RecordingManifest } from "@/api/client"
-import type { RecordingMarker } from "@/api/client"
+import type { RecordingDetail, RecordingManifest, RecordingMarker } from "@/api/client"
 import {
   type RecordingSource,
+  useAuth,
   useKeepRecording,
   useRecordingDevTools,
   useRecordingEvents,
+  useReferences,
   useSetMarkers,
   useShareRecording,
 } from "@/api/queries"
 import { BakeDialog } from "@/components/recording/bake-dialog"
+import { newMarkerId, QuickMarker } from "@/components/recording/markers"
 import { SideCards } from "@/components/recording/side-cards"
-import { MarkerPin, newMarkerId } from "@/components/recording/markers"
+import { type Lanes, screenIcons, Timeline } from "@/components/recording/timeline"
 import { RecordingTools, savedTab } from "@/components/recording/tools-view"
 import { PixelOverlay } from "@/components/session/pixel-perfect/overlay"
 import { recordingSource } from "@/components/session/pixel-perfect/source"
 import { usePixelPerfectOf } from "@/components/session/pixel-perfect/state"
-import { useAuth, useReferences } from "@/api/queries"
-import { formatDuration } from "@/lib/format"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { useNow } from "@/hooks/use-now"
+import { download } from "@/lib/adb"
+import { formatDuration, formatRelative } from "@/lib/format"
 import { bakingSupported } from "@/lib/recording/bake"
 import { DevToolsLog, toHar } from "@/lib/recording/devtools"
-import { parseView, type PlayerView, viewHash } from "@/lib/recording/link"
 import { remoteFiles } from "@/lib/recording/files"
+import { appLane, CrashScan, issuesOf, networkLane, nextAfter, screenLane, spanAt } from "@/lib/recording/lanes"
+import { parseView, type PlayerView, viewHash } from "@/lib/recording/link"
 import { buildLogcat } from "@/lib/recording/logfile"
 import { Player } from "@/lib/recording/player"
 import { loadIcon, type SceneApp } from "@/lib/recording/scene"
 import { summarize } from "@/lib/recording/summary"
 import { clock, segmentsOf, Telemetry } from "@/lib/recording/timeline"
-import { download } from "@/lib/adb"
 import { cn } from "@/lib/utils"
 
 const rates = [0.5, 1, 2, 4]
+const framePad = 10
+const stageMargin = 24
 
-function Tonal({ className, ...props }: ComponentProps<"button">) {
+/** The row above a recording: its title on the left, actions on the right. */
+export function RecordingHeader({ children }: { children: ReactNode }) {
+  return <header className="flex flex-wrap items-center gap-3.5">{children}</header>
+}
+
+function Tool({ pressed, className, ...props }: ComponentProps<"button"> & { pressed?: boolean }) {
   return (
     <button
       type="button"
+      aria-pressed={pressed}
       className={cn(
-        "inline-flex h-9 items-center gap-2 rounded-full bg-accent px-4 text-sm font-medium text-accent-foreground transition-colors hover:bg-border disabled:opacity-40 [&_svg]:size-4",
+        "grid size-9 place-items-center rounded-[10px] border bg-card text-muted-foreground transition-colors hover:text-foreground [&_svg]:size-4",
+        pressed && "border-foreground text-foreground",
         className,
       )}
       {...props}
@@ -78,27 +102,24 @@ function Tonal({ className, ...props }: ComponentProps<"button">) {
   )
 }
 
-function IconButton({ className, ...props }: ComponentProps<"button">) {
-  return (
-    <button
-      type="button"
-      className={cn(
-        "grid size-10 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted [&_svg]:size-5",
-        className,
-      )}
-      {...props}
-    />
-  )
+function sourceKey(source: RecordingSource) {
+  return source.kind === "shared" ? `s:${source.token}` : `${source.kind}:${source.id}`
 }
 
 export function RecordingPlayer({
   source,
   detail,
   manifest,
+  title,
+  extra,
 }: {
   source: RecordingSource
   detail: RecordingDetail
   manifest: RecordingManifest
+  /** the left of the header: back, icon, name and badges */
+  title: ReactNode
+  /** anything after the actions, such as a file picker */
+  extra?: ReactNode
 }) {
   const r = detail.recording
   const events = useRecordingEvents(source, manifest.events.length)
@@ -114,6 +135,7 @@ export function RecordingPlayer({
   }))
   const files = useMemo(() => (source.kind === "local" ? source.files : remoteFiles(r.filesUrl)), [source, r.filesUrl])
   const [player] = useState(() => new Player(files, manifest))
+  const [scan] = useState(() => new CrashScan(files, r.package))
   const state = useSyncExternalStore(player.subscribe, player.getState)
   const pp = usePixelPerfectOf(() => recordingSource(player), r.screen)
   const identity = useAuth().data?.identity
@@ -134,6 +156,12 @@ export function RecordingPlayer({
         : undefined,
     [pixelEnabled, pp, player, r.package, r.title, r.label, r.versionName, r.screen],
   )
+  const growing = r.state === "recording"
+  const crashes = useQuery({
+    queryKey: ["recording-crashes", sourceKey(source), manifest.logcat.length, growing],
+    queryFn: () => scan.scan(manifest.logcat, growing),
+    staleTime: Infinity,
+  }).data
   const canvas = useRef<HTMLCanvasElement | null>(null)
   const clocks = useMemo(
     () => ({
@@ -145,20 +173,37 @@ export function RecordingPlayer({
     }),
     [startedAt, telemetry, state.duration, player],
   )
+  const segments = useMemo(() => segmentsOf(manifest), [manifest])
+  const lanes = useMemo<Lanes>(() => {
+    const found = crashes ?? []
+    return {
+      screen: screenLane(segments, telemetry.screens, telemetry.touches.keys, state.duration),
+      app: appLane(telemetry.status, state.duration, app.title),
+      crashes: found,
+      network: networkLane(telemetry.device, telemetry.network, state.duration),
+      dns: telemetry.dnsChanges.map((c) => ({
+        t: c.t,
+        title: c.v.flushed ? "DNS cache cleared" : "DNS rewrites or TTL changed",
+      })),
+      taps: telemetry.touches.gestures.map((g) => ({ t: g.start })),
+      issues: issuesOf(devlog, telemetry.status, found, state.duration),
+    }
+  }, [segments, telemetry, devlog, crashes, state.duration, app.title])
   const [baking, setBaking] = useState(false)
   const [linked] = useState(() => parseView(window.location.hash))
   const [view, setView] = useState<PlayerView>(() => ({ ...linked, tab: linked.tab ?? savedTab() }))
   const changeView = (patch: PlayerView) => setView((v) => ({ ...v, ...patch }))
   const [showTouches, setShowTouches] = useState(true)
   const box = useRef<HTMLDivElement>(null)
-  const grid = useRef<HTMLDivElement>(null)
-  const [gridHeight, setGridHeight] = useState(0)
+  const [area, setArea] = useState({ w: 0, h: 0 })
   const keep = useKeepRecording()
   const share = useShareRecording()
   const own = source.kind === "own"
   const markers = detail.markers
   const saveMarkers = useSetMarkers(r.id)
   const [editing, setEditing] = useState<string | null>(null)
+  const [quick, setQuick] = useState<string | null>(null)
+  const now = useNow(60_000)
   const attach = useCallback(
     (c: HTMLCanvasElement | null) => {
       canvas.current = c
@@ -167,6 +212,14 @@ export function RecordingPlayer({
     },
     [player],
   )
+  const measure = useCallback((el: HTMLDivElement | null) => {
+    const observer = new ResizeObserver(([entry]) => {
+      const rect = entry?.contentRect
+      if (rect) setArea({ w: Math.round(rect.width), h: Math.round(rect.height) })
+    })
+    if (el) observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
   useEffect(() => {
     if (linked.t !== undefined) void player.seek(linked.t)
@@ -175,12 +228,6 @@ export function RecordingPlayer({
   useEffect(() => player.setTouches(telemetry.touches), [player, telemetry])
   useEffect(() => player.setShowTouches(showTouches), [player, showTouches])
   useEffect(() => () => player.dispose(), [player])
-  useEffect(() => {
-    const el = grid.current
-    const observer = new ResizeObserver(([entry]) => setGridHeight(Math.round(entry?.contentRect.height ?? 0)))
-    if (el) observer.observe(el)
-    return () => observer.disconnect()
-  }, [])
 
   const copyLink = async () => {
     try {
@@ -222,8 +269,16 @@ export function RecordingPlayer({
   const addMarker = () => {
     const marker: RecordingMarker = { id: newMarkerId(), t: Math.round(state.time), label: "", icon: "pin" }
     setMarkers([...markers, marker])
-    setEditing(marker.id)
+    setEditing(null)
+    setQuick(marker.id)
   }
+  const nameQuick = (label: string | null) => {
+    const id = quick
+    setQuick(null)
+    if (label && id) setMarkers(markers.map((m) => (m.id === id ? { ...m, label } : m)))
+    box.current?.focus()
+  }
+  const quickMarker = quick ? markers.find((m) => m.id === quick) : undefined
 
   const onKey = (e: KeyboardEvent) => {
     const tag = (e.target as HTMLElement).tagName
@@ -236,31 +291,240 @@ export function RecordingPlayer({
     e.preventDefault()
   }
 
-  const summary = summarize({
-    t: state.time,
-    duration: state.duration,
-    startedAt,
-    snap: telemetry.at(state.time),
-    app,
-  })
+  const snap = telemetry.at(state.time)
+  const summary = summarize({ t: state.time, duration: state.duration, startedAt, snap, app })
+  const screen = spanAt(lanes.screen, state.time)
+  const ScreenIcon = screen ? (screenIcons[screen.kind] ?? VideoOffIcon) : undefined
+  const screenLabel = screen ? screen.label || "No video" : undefined
+
+  const ratio = state.size.w / state.size.h
+  const maxW = Math.max(0, area.w - 2 * (stageMargin + framePad))
+  const maxH = Math.max(0, area.h - 2 * (stageMargin + framePad))
+  const fit = maxH * ratio > maxW ? { w: maxW, h: maxW / ratio } : { w: maxH * ratio, h: maxH }
+
+  const errors = lanes.issues.filter((i) => i.level === "error").map((i) => i.t)
+  const jumps: { label: string; times: number[]; className?: string }[] = [
+    { label: "Error", times: errors, className: "text-danger" },
+    { label: "Marker", times: markers.map((m) => m.t).toSorted((a, b) => a - b) },
+    { label: "Tap", times: lanes.taps.map((t) => t.t) },
+  ]
 
   return (
-    <div
-      ref={box}
-      tabIndex={-1}
-      onKeyDown={onKey}
-      className="android-stage flex flex-col gap-3 rounded-[32px] p-3 outline-none lg:h-full lg:p-4"
-    >
-      <div
-        ref={grid}
-        style={{ "--stage-h-lg": `${gridHeight}px` } as CSSProperties}
-        className="grid gap-3 [--phone-max-w:calc(100vw-4rem)] [--stage-h:68dvh] lg:min-h-0 lg:flex-1 lg:grid-cols-[208px_auto_minmax(380px,1fr)] lg:grid-rows-[minmax(0,1fr)] lg:[--phone-max-w:min(40vw,900px)] lg:[--stage-h:var(--stage-h-lg,60dvh)]"
-      >
-        <div className="order-2 -m-1 min-h-0 overflow-x-auto p-1 lg:order-1 lg:overflow-x-visible lg:overflow-y-auto">
-          <SideCards summary={summary} iconUrl={r.iconUrl} />
+    <div ref={box} tabIndex={-1} onKeyDown={onKey} className="flex flex-col gap-4 bg-background outline-none">
+      <RecordingHeader>
+        {title}
+        <span className="flex-1" />
+        <div className="flex flex-wrap items-center gap-2">
+          {own &&
+            (r.share ? (
+              <Badge variant="secondary">
+                <LinkIcon />
+                Shared, kept
+              </Badge>
+            ) : r.keep ? (
+              <Badge variant="success">
+                <PinIcon />
+                Kept
+              </Badge>
+            ) : (
+              r.expiresAt && (
+                <Badge variant="secondary">
+                  <InfoIcon />
+                  Deleted {formatRelative(r.expiresAt, now)}
+                </Badge>
+              )
+            ))}
+          {own && (
+            <Button
+              variant={r.keep ? "default" : "outline"}
+              aria-pressed={r.keep}
+              disabled={!!r.share || keep.isPending}
+              title={
+                r.share
+                  ? "Kept while it is shared"
+                  : r.keep
+                    ? "Let retention delete it when its time is up"
+                    : "Keep it past the retention period"
+              }
+              onClick={() => keep.mutate({ id: r.id, keep: !r.keep })}
+            >
+              {r.keep ? "Kept" : "Keep"}
+            </Button>
+          )}
+          {source.kind === "shared" && (
+            <Button
+              variant="outline"
+              title="Copy a link that opens here, with this tab and what is open in it"
+              onClick={copyMoment}
+            >
+              <LinkIcon />
+              Link at {clock(state.time)}
+            </Button>
+          )}
+          {own && (
+            <Button
+              variant="outline"
+              disabled={share.isPending}
+              title={
+                r.share
+                  ? `Copy the share link at ${clock(state.time)}, with this tab and what is open in it`
+                  : `Make a link anyone can open at ${clock(state.time)}, and keep the recording`
+              }
+              onClick={() => void copyLink()}
+            >
+              <LinkIcon />
+              Link at {clock(state.time)}
+            </Button>
+          )}
+          {own && r.share && (
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="Stop sharing"
+              title="Stop sharing: the link stops working"
+              disabled={share.isPending}
+              onClick={() => share.mutate({ id: r.id, share: false })}
+            >
+              <Link2OffIcon />
+            </Button>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">
+                <DownloadIcon />
+                Export
+                <ChevronDownIcon className="size-3.5 opacity-70" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-80">
+              {!detail.shared && bakingSupported() && (
+                <MenuItem
+                  icon={ClapperboardIcon}
+                  title="Video (.mp4)"
+                  hint="Rendered in your browser with the device panels, in 1296p"
+                  disabled={r.state === "recording"}
+                  onSelect={() => setBaking(true)}
+                />
+              )}
+              {source.kind !== "local" && (
+                <MenuItem
+                  icon={ArchiveIcon}
+                  title="Recording file (.holtdroid)"
+                  hint="Everything in one file; open it on the Open page, no server needed"
+                  href={r.exportUrl}
+                />
+              )}
+              {!devlog.empty && (
+                <MenuItem
+                  icon={GlobeIcon}
+                  title="Network (.har)"
+                  hint="The WebViews' requests with bodies and the WebSockets; opens in Chrome DevTools"
+                  onSelect={saveHar}
+                />
+              )}
+              <MenuItem
+                icon={FileTextIcon}
+                title="Logcat, colored (.log)"
+                hint="Levels and colours as ANSI codes: less -R, bat, an IDE"
+                href={source.kind === "local" ? undefined : r.logcatLogUrl}
+                onSelect={source.kind === "local" ? () => void saveLogcat(true) : undefined}
+              />
+              <MenuItem
+                icon={FileTextIcon}
+                title="Logcat, plain text (.txt)"
+                hint="The same lines without colour codes"
+                href={source.kind === "local" ? undefined : r.logcatUrl}
+                onSelect={source.kind === "local" ? () => void saveLogcat(false) : undefined}
+              />
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {extra}
         </div>
+      </RecordingHeader>
 
-        <div className="order-3 flex h-[70dvh] min-h-0 flex-col lg:h-auto">
+      <div className="flex flex-col gap-4 lg:grid lg:h-[max(460px,calc(100dvh-30rem))] lg:grid-cols-[240px_minmax(0,1fr)_minmax(340px,400px)] xl:grid-cols-[260px_minmax(0,1fr)_minmax(360px,420px)]">
+        <aside className="order-2 min-h-0 lg:order-none lg:overflow-y-auto">
+          <SideCards
+            summary={summary}
+            screen={screenLabel}
+            traffic={snap.history.map((m) => ({ t: m.t, v: m.v.device.rxRate + m.v.device.txRate }))}
+          />
+        </aside>
+
+        <section className="order-1 flex min-h-[60dvh] flex-col overflow-hidden rounded-2xl border bg-stage lg:order-none lg:min-h-0">
+          <div className="flex items-center gap-2 px-3.5 py-3">
+            {screen && ScreenIcon && (
+              <Badge variant="outline" className="h-6 bg-card px-2">
+                <ScreenIcon />
+                {screenLabel} since {clock(screen.start)}
+              </Badge>
+            )}
+            <span className="flex-1" />
+            {!telemetry.touches.empty && (
+              <Tool
+                pressed={showTouches}
+                aria-label={showTouches ? "Hide taps and swipes" : "Show taps and swipes"}
+                title={showTouches ? "Hide taps and swipes" : "Show taps and swipes"}
+                onClick={() => setShowTouches((v) => !v)}
+              >
+                <PointerIcon />
+              </Tool>
+            )}
+            <Tool
+              aria-label="Full screen"
+              title="Full screen"
+              onClick={() => void box.current?.requestFullscreen().catch(() => undefined)}
+            >
+              <MaximizeIcon />
+            </Tool>
+          </div>
+          <div ref={measure} className="relative min-h-0 flex-1">
+            <div className="absolute inset-0 grid place-items-center">
+              <div
+                className="relative rounded-[40px] border bg-frame shadow-float"
+                style={{ padding: framePad, width: fit.w + 2 * framePad, height: fit.h + 2 * framePad }}
+              >
+                <div className="relative size-full overflow-hidden rounded-[30px]">
+                  <canvas
+                    ref={attach}
+                    onClick={() => player.toggle()}
+                    className="block size-full cursor-pointer bg-black"
+                  />
+                  {pixel && <PixelOverlay pp={pp} canvasRef={canvas} />}
+                </div>
+                {!state.playing && (
+                  <button
+                    type="button"
+                    aria-label="Play"
+                    onClick={() => player.play()}
+                    className="absolute inset-0 m-auto grid size-16 place-items-center rounded-full bg-primary text-primary-foreground shadow-float transition-transform hover:scale-105"
+                  >
+                    <PlayIcon className="size-7 translate-x-0.5 fill-current" />
+                  </button>
+                )}
+              </div>
+            </div>
+            {quickMarker && (
+              <div className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2">
+                <QuickMarker key={quickMarker.id} marker={quickMarker} onDone={nameQuick} />
+              </div>
+            )}
+            {own && !quickMarker && (
+              <Button
+                variant="outline"
+                className="absolute right-4 bottom-4 h-9 shadow-float"
+                title="Pin this moment on the timeline (M)"
+                onClick={addMarker}
+              >
+                <FlagIcon className="text-warning" />
+                Marker
+                <kbd className="rounded-[5px] border px-[5px] font-sans text-[11px] text-muted-foreground">M</kbd>
+              </Button>
+            )}
+          </div>
+        </section>
+
+        <div className="order-3 flex h-[70dvh] min-h-0 flex-col lg:order-none lg:h-auto">
           <RecordingTools
             player={player}
             time={state.time}
@@ -273,90 +537,60 @@ export function RecordingPlayer({
             view={view}
             onView={changeView}
             pixel={pixel}
+            issues={lanes.issues}
           />
-        </div>
-
-        <div className="order-1 grid min-h-0 place-items-center lg:order-2">
-          <div
-            className="relative box-content rounded-[44px] bg-frame p-2.5 shadow-[0_0_0_1.5px_var(--border),var(--float-shadow)]"
-            style={{
-              aspectRatio: `${state.size.w} / ${state.size.h}`,
-              height: `min(calc(var(--stage-h) - 1.25rem), calc((var(--phone-max-w) - 1.25rem) * ${state.size.h / state.size.w}))`,
-            }}
-          >
-            <div className="relative size-full overflow-hidden rounded-[34px]">
-              <canvas
-                ref={attach}
-                onClick={() => player.toggle()}
-                className="block size-full cursor-pointer bg-black"
-              />
-              {pixel && <PixelOverlay pp={pp} canvasRef={canvas} />}
-            </div>
-            {!state.playing && (
-              <button
-                type="button"
-                aria-label="Play"
-                onClick={() => player.play()}
-                className="absolute inset-0 m-auto grid size-16 place-items-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105"
-              >
-                <PlayIcon className="size-7 translate-x-0.5 fill-current" />
-              </button>
-            )}
-          </div>
         </div>
       </div>
 
-      <div className="grid gap-2 rounded-[28px] bg-background px-5 py-3">
-        <Timeline
-          duration={state.duration}
-          time={state.time}
-          manifest={manifest}
-          telemetry={telemetry}
-          markers={markers}
-          editable={own}
-          editing={editing}
-          onEditing={setEditing}
-          onMarkers={setMarkers}
-          onSeek={(t) => void player.seek(t)}
-        />
-        <div className="flex flex-wrap items-center gap-1.5">
-          <IconButton aria-label="Back 5 seconds" onClick={() => void player.seek(state.time - 5000)}>
-            <SkipBackIcon />
-          </IconButton>
-          <button
-            type="button"
+      <section className="grid gap-2.5 rounded-2xl border bg-card px-[18px] pt-3.5 pb-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label="Back 5 seconds"
+            onClick={() => void player.seek(state.time - 5000)}
+          >
+            <RotateCcwIcon />
+          </Button>
+          <Button
+            size="icon-lg"
+            className="rounded-xl [&_svg]:fill-current"
             aria-label={state.playing ? "Pause" : "Play"}
             onClick={() => player.toggle()}
-            className="grid size-12 place-items-center rounded-full bg-primary text-primary-foreground transition-transform hover:scale-105 [&_svg]:size-6 [&_svg]:fill-current"
           >
             {state.playing ? <PauseIcon /> : <PlayIcon className="translate-x-px" />}
-          </button>
-          <IconButton aria-label="Forward 5 seconds" onClick={() => void player.seek(state.time + 5000)}>
-            <SkipForwardIcon />
-          </IconButton>
-          <span className="mx-2 font-mono text-sm text-muted-foreground tabular-nums">
-            <span className="text-foreground">{clock(state.time)}</span> / {clock(state.duration)}
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label="Forward 5 seconds"
+            onClick={() => void player.seek(state.time + 5000)}
+          >
+            <RotateCwIcon />
+          </Button>
+          <span className="mx-2 font-mono text-sm">
+            {clock(state.time, true)} <span className="text-muted-foreground">/ {clock(state.duration)}</span>
           </span>
-          <div className="flex rounded-full bg-muted p-0.5" role="group" aria-label="Speed">
-            {rates.map((x) => (
-              <button
-                key={x}
-                type="button"
-                aria-pressed={state.rate === x}
-                onClick={() => player.setRate(x)}
-                className={cn(
-                  "h-8 rounded-full px-3 font-mono text-xs transition-colors",
-                  state.rate === x
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {x}×
-              </button>
-            ))}
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" aria-label="Speed" className="font-mono">
+                {state.rate}×
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuRadioGroup value={String(state.rate)} onValueChange={(v) => player.setRate(Number(v))}>
+                {rates.map((x) => (
+                  <DropdownMenuRadioItem key={x} value={String(x)} className="font-mono">
+                    {x}×
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
           {state.sound && (
-            <IconButton
+            <Button
+              variant="outline"
+              size="icon-sm"
               aria-label={state.muted ? "Turn the sound on" : "Turn the sound off"}
               aria-pressed={state.muted}
               title={
@@ -370,135 +604,38 @@ export function RecordingPlayer({
               onClick={() => player.setMuted(!state.muted)}
             >
               {state.muted || state.rate !== 1 ? <VolumeXIcon /> : <Volume2Icon />}
-            </IconButton>
+            </Button>
           )}
-          {own && (
-            <Tonal className="ml-2" title="Pin this moment on the timeline (M)" onClick={addMarker}>
-              <PinIcon />
-              Marker
-            </Tonal>
-          )}
-          <div className="ml-auto flex flex-wrap items-center gap-2">
-            {source.kind === "shared" && (
-              <Tonal title="Copy a link that opens here, with this tab and what is open in it" onClick={copyMoment}>
-                <LinkIcon />
-                Link to {clock(state.time)}
-              </Tonal>
-            )}
-            {own && (
-              <>
-                <Tonal
-                  aria-pressed={r.keep}
-                  disabled={!!r.share || keep.isPending}
-                  title={
-                    r.share
-                      ? "Kept while it is shared"
-                      : r.keep
-                        ? "Let retention delete it when its time is up"
-                        : "Keep it past the retention period"
-                  }
-                  className={cn(r.keep && "bg-success-soft text-success hover:bg-success-soft disabled:opacity-100")}
-                  onClick={() => keep.mutate({ id: r.id, keep: !r.keep })}
-                >
-                  <PinIcon className={cn(r.keep && "fill-current")} />
-                  {r.keep ? "Kept" : "Keep"}
-                </Tonal>
-                <Tonal
-                  disabled={share.isPending}
-                  title={
-                    r.share
-                      ? `Copy the share link at ${clock(state.time)}, with this tab and what is open in it`
-                      : `Make a link anyone can open at ${clock(state.time)}, and keep the recording`
-                  }
-                  onClick={() => void copyLink()}
-                >
-                  <LinkIcon />
-                  {r.share ? "Copy link" : "Share"}
-                </Tonal>
-                {r.share && (
-                  <IconButton
-                    aria-label="Stop sharing"
-                    title="Stop sharing: the link stops working"
-                    disabled={share.isPending}
-                    onClick={() => share.mutate({ id: r.id, share: false })}
-                  >
-                    <Link2OffIcon />
-                  </IconButton>
-                )}
-              </>
-            )}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Tonal>
-                  <DownloadIcon />
-                  Download
-                  <ChevronDownIcon className="-mr-1 opacity-70" />
-                </Tonal>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                side="top"
-                className="w-80 rounded-2xl border-0 bg-muted p-1.5 text-foreground shadow-2xl ring-1 ring-black/10 dark:ring-white/10"
-              >
-                {!detail.shared && bakingSupported() && (
-                  <MenuItem
-                    icon={ClapperboardIcon}
-                    title="Video (.mp4)"
-                    hint="Rendered in your browser with the device panels, in 1296p"
-                    disabled={r.state === "recording"}
-                    onSelect={() => setBaking(true)}
-                  />
-                )}
-                {source.kind !== "local" && (
-                  <MenuItem
-                    icon={ArchiveIcon}
-                    title="Recording file (.holtdroid)"
-                    hint="Everything in one file; open it on the Open page, no server needed"
-                    href={r.exportUrl}
-                  />
-                )}
-                {!devlog.empty && (
-                  <MenuItem
-                    icon={GlobeIcon}
-                    title="Network (.har)"
-                    hint="The WebViews' requests with bodies and the WebSockets; opens in Chrome DevTools"
-                    onSelect={saveHar}
-                  />
-                )}
-                <MenuItem
-                  icon={FileTextIcon}
-                  title="Logcat, colored (.log)"
-                  hint="Levels and colours as ANSI codes: less -R, bat, an IDE"
-                  href={source.kind === "local" ? undefined : r.logcatLogUrl}
-                  onSelect={source.kind === "local" ? () => void saveLogcat(true) : undefined}
-                />
-                <MenuItem
-                  icon={FileTextIcon}
-                  title="Logcat, plain text (.txt)"
-                  hint="The same lines without colour codes"
-                  href={source.kind === "local" ? undefined : r.logcatUrl}
-                  onSelect={source.kind === "local" ? () => void saveLogcat(false) : undefined}
-                />
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <IconButton
-              aria-label="Show taps and swipes"
-              aria-pressed={showTouches}
-              title={showTouches ? "Hide taps and swipes" : "Show taps and swipes"}
-              className={cn(showTouches && "bg-accent text-accent-foreground", telemetry.touches.empty && "hidden")}
-              onClick={() => setShowTouches((v) => !v)}
+          <span className="flex-1" />
+          <span className="text-xs text-muted-foreground">Jump to</span>
+          {jumps.map((j) => (
+            <Button
+              key={j.label}
+              variant="outline"
+              size="sm"
+              className={j.className}
+              disabled={j.times.length === 0}
+              onClick={() => {
+                const t = nextAfter(j.times, state.time)
+                if (t !== undefined) void player.seek(t)
+              }}
             >
-              <PointerIcon />
-            </IconButton>
-            <IconButton
-              aria-label="Full screen"
-              onClick={() => void box.current?.requestFullscreen().catch(() => undefined)}
-            >
-              <MaximizeIcon />
-            </IconButton>
-          </div>
+              {j.label}
+            </Button>
+          ))}
         </div>
-      </div>
+        <Timeline
+          duration={state.duration}
+          time={state.time}
+          lanes={lanes}
+          markers={markers}
+          editable={own}
+          editing={editing}
+          onEditing={setEditing}
+          onMarkers={setMarkers}
+          onSeek={(t) => void player.seek(t)}
+        />
+      </section>
 
       {baking && (
         <BakeDialog
@@ -532,14 +669,14 @@ function MenuItem({
 }) {
   const body = (
     <>
-      <Icon className="mt-0.5 size-4 shrink-0 text-info" />
+      <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
       <span className="grid gap-0.5">
         <span className="text-sm font-medium">{title}</span>
         <span className="text-xs text-muted-foreground">{hint}</span>
       </span>
     </>
   )
-  const cls = "items-start gap-3 rounded-xl px-3 py-2 focus:bg-accent focus:text-foreground"
+  const cls = "items-start gap-3 px-3 py-2"
   return href ? (
     <DropdownMenuItem asChild className={cls}>
       <a href={href} download>
@@ -550,117 +687,5 @@ function MenuItem({
     <DropdownMenuItem className={cls} disabled={disabled} onSelect={onSelect}>
       {body}
     </DropdownMenuItem>
-  )
-}
-
-function Timeline({
-  duration,
-  time,
-  manifest,
-  telemetry,
-  markers,
-  editable,
-  editing,
-  onEditing,
-  onMarkers,
-  onSeek,
-}: {
-  duration: number
-  time: number
-  manifest: RecordingManifest
-  telemetry: Telemetry
-  markers: RecordingMarker[]
-  editable: boolean
-  editing: string | null
-  onEditing: (id: string | null) => void
-  onMarkers: (items: RecordingMarker[]) => void
-  onSeek: (t: number) => void
-}) {
-  const [hover, setHover] = useState<number | null>(null)
-  const segments = useMemo(() => segmentsOf(manifest), [manifest])
-  const closes = telemetry.status.filter((s, i, all) => !s.v.appRunning && all[i - 1]?.v.appRunning)
-  const dnsChanges = telemetry.dnsChanges
-  const pct = (t: number) => `${duration > 0 ? (t / duration) * 100 : 0}%`
-  const at = (e: PointerEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect()
-    return Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width)) * duration
-  }
-
-  return (
-    <div
-      role="slider"
-      tabIndex={-1}
-      aria-label="Position"
-      aria-valuemin={0}
-      aria-valuemax={duration}
-      aria-valuenow={time}
-      className="relative h-10 cursor-pointer touch-none select-none"
-      onPointerDown={(e) => {
-        e.currentTarget.setPointerCapture(e.pointerId)
-        onSeek(at(e))
-      }}
-      onPointerMove={(e) => {
-        setHover(at(e))
-        if (e.buttons === 1) onSeek(at(e))
-      }}
-      onPointerLeave={() => setHover(null)}
-    >
-      <div className="absolute inset-x-0 top-[28px] h-1.5 overflow-hidden rounded-full bg-accent">
-        {segments.map((s) => (
-          <span
-            key={s.file}
-            className="absolute inset-y-0 bg-border"
-            style={{ left: pct(s.start), width: pct(s.duration) }}
-          />
-        ))}
-        <span className="absolute inset-y-0 left-0 rounded-full bg-primary" style={{ width: pct(time) }} />
-      </div>
-      {closes.map((c) => (
-        <span
-          key={c.t}
-          title={`App closed at ${clock(c.t)}`}
-          className="absolute top-[24px] h-3.5 w-1 -translate-x-1/2 rounded-full bg-danger"
-          style={{ left: pct(c.t) }}
-        />
-      ))}
-      {dnsChanges.map((c) => (
-        <span
-          key={`dns-${c.t}`}
-          title={`${c.v.flushed ? "DNS cache cleared" : "DNS rewrites or TTL changed"} at ${clock(c.t)}`}
-          className="absolute top-[24px] h-3.5 w-1 -translate-x-1/2 rounded-full bg-violet-500"
-          style={{ left: pct(c.t) }}
-        />
-      ))}
-      <span
-        className="absolute top-[22px] h-[18px] w-1 -translate-x-1/2 rounded-full bg-primary shadow-[0_0_0_3px_var(--background)]"
-        style={{ left: pct(time) }}
-      />
-      {markers.map((m) => (
-        <MarkerPin
-          key={m.id}
-          marker={m}
-          left={pct(m.t)}
-          open={editing === m.id}
-          editable={editable}
-          onOpen={(open) => {
-            if (open) onSeek(m.t)
-            onEditing(open ? m.id : null)
-          }}
-          onChange={(next) => onMarkers(markers.map((x) => (x.id === m.id ? next : x)))}
-          onRemove={() => {
-            onEditing(null)
-            onMarkers(markers.filter((x) => x.id !== m.id))
-          }}
-        />
-      ))}
-      {hover !== null && (
-        <span
-          className="pointer-events-none absolute -top-8 -translate-x-1/2 rounded-lg bg-accent px-2 py-0.5 font-mono text-xs text-foreground tabular-nums"
-          style={{ left: pct(hover) }}
-        >
-          {clock(hover)}
-        </span>
-      )}
-    </div>
   )
 }

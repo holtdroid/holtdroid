@@ -186,6 +186,7 @@ export async function openBundle(file: Blob): Promise<Bundle> {
     logcatLogUrl: "",
     exportUrl: "",
     ...r,
+    markers: meta.markers?.length ?? 0,
     iconUrl,
   }
   return {

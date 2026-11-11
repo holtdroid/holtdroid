@@ -30,6 +30,8 @@ recording keeps more than the picture:
 - the **load** every two seconds: device and app CPU, memory, frames and
   jank, traffic, the container's CPU and throttling, temperatures;
 - whether the app was running, and when another build was installed;
+- whether the **display** was awake, off or locked, however it happened: the
+  power button in the portal, the screen timing out or the app turning it off;
 - what the person at the screen did: taps, long presses and swipes, and the
   buttons of the phone beside the screen (Back, Home, Recents, volume, rotate,
   the notification shade and so on). Only what was done in the portal is seen;
@@ -38,11 +40,11 @@ recording keeps more than the picture:
 
 Nothing is rendered on the server: the agent copies the video the device
 already encodes and writes the rest as small text files next to it. The
-portal draws the page from that data like a session's page: small dark
-cards on the left for the device clock, the app, the device, the network and
-the load (hover one for its details), the phone in the middle, and on the
-right a panel like the session's DevTools panel with logcat and the WebViews'
-network, console and WebSockets in tabs.
+portal draws the page from that data: cards on the left for the moment, the
+network, the device and the load, the phone in the middle, tools on the
+right (findings, logcat and the WebViews' network, console and WebSockets),
+and under them a timeline with lanes for the markers, the screen, the app,
+the network and what happened.
 
 ## Recording a session
 
@@ -88,59 +90,82 @@ When the device is silent, the recording is too.
 ## The recordings list
 
 **Recordings** in the dock (the clapperboard) lists your recordings,
-newest first. Each card has a preview, the app, the length, the size, when it
-was made and when retention deletes it (or **kept** and **shared**). The
-preview is the screen just before the touch nearest to the fifth second of the
+newest first, one row each: a preview, the app's icon and the recording's
+name, its version, how many markers it has, **Shared** or **Kept**, when it
+was made, its length and size, and when retention deletes it. The preview is
+the screen just before the touch nearest to the fifth second of the
 recording, so it shows what someone was about to tap, or the screen at the
 fifth second when nobody touched it. A recording still in progress is marked
 and can be watched while it grows.
 
-The buttons on a card **keep** the recording past the retention period (or let
-it expire again), make and copy a **share link**, stop sharing, and
-**delete** it. The **Storage** box beside the list shows how much of your
-space is used and the server's rules: how long recordings are kept, the
-shortest one that is kept and whether share links are allowed. **Open a file**
-plays a `.holtdroid` file from your disk (see [Recording file](#recording-file-holtdroid)).
+The buttons on a row **keep** the recording past the retention period (or let
+it expire again), make and copy a **share link**, stop sharing, rename it,
+**delete** it and open it. The **Storage** card beside the list shows how much
+of your space is used and the server's rules: how long recordings are kept,
+the shortest one that is kept and whether share links are allowed. **Open a
+file** plays a `.holtdroid` file from your disk (see [Recording file](#recording-file-holtdroid)).
 
 ## The player
 
-A recording opens on a page laid out like the session it came from:
+A recording opens on a page of its own:
 
-- **cards on the left**, as on the session page: **Time** (the place in the
-  recording; hover for the device clock, its time zone and offset next to
-  real time), **App** (its name, package, version and whether it runs),
-  **Device** (the battery on the card; the model, Android, screen and the
-  quick settings that were on in its panel), **Network** (the VPN location,
-  the network conditions and the traffic) and **Load** (CPU and memory on the
-  card, the rest in its panel). They change as the video plays, a card that
-  differs from normal is highlighted, and hovering one shows its details at
-  that moment;
+- **the header**: back to the list, the app's icon, the recording's name
+  (with the pencil to rename it), its version, the screen it was recorded on,
+  the VPN location, who recorded it, when, how long it is and its size. On the
+  right: when retention deletes it (or **Kept**, **Shared, kept**), **Keep**,
+  **Link at 04:09** (see [Sharing](#sharing)), stop sharing, and **Export**
+  (see [Downloads](#downloads));
+- **cards on the left** with the state at the playhead: **At 04:09** (real
+  time, the device clock with how far it was set off, its time zone, the
+  screen, whether the app runs, the battery), **Network** (the VPN exit and
+  IP, the emulated network, the region and the traffic, with bars for the
+  last minute), **Device** (the package, version, model, Android, WebView,
+  screen and the quick settings that were on) and **Load** (CPU, memory, the
+  app, frames, the container and temperatures). They change as the video
+  plays;
 - **the phone** in the middle, playing the screen, with taps and swipes drawn
-  over it;
-- **the tools on the right**: Logcat, and, when the app had WebViews,
-  Network, Console, WebSockets and Cache, plus DNS and Routes
-  when the session had them and Pixel perfect for signed-in viewers. Every tab
+  over it. Above it a badge says what the screen showed and since when
+  (**Landscape since 03:52**, **Off since 01:14**), next to the button that
+  hides taps and swipes and full screen. **Marker** (or <kbd>M</kbd>) sits in
+  the corner on your own recordings;
+- **the tools on the right**: **Findings**, Logcat, and, when the app had
+  WebViews, Network, Console, WebSockets and Cache, plus DNS and Routes when
+  the session had them and Pixel perfect for signed-in viewers. Every tab
   shows what had happened up to the moment you are at.
 
 Everything beside the phone is ordinary page text, so you can select and
 copy it.
 
+### Findings
+
+**Findings** collects what went wrong up to the playhead, newest first:
+requests that failed or answered 4xx or 5xx, console errors and uncaught
+exceptions in the WebViews, the app's crashes and ANRs found in logcat
+(`FATAL EXCEPTION`, tombstones, `ANR in`), and the app closing without a
+crash. The last one before the playhead is highlighted. Click one to jump
+there; a request offers **Open in Network** and **Copy as cURL**, a console
+error **Open in Console**. The tab's counter turns red when there are errors.
+
 ### Timeline and controls
 
-The timeline under the phone shows the whole recording:
+The card under the phone starts with five seconds back, play and pause, five
+seconds forward, the time, the speed (**0.5×**, **1×**, **2×**, **4×**), the
+sound, and **Jump to** **Error**, **Marker** or **Tap**, each going to the
+next one after the playhead.
 
-- **grey** where there is video;
-- **red marks** where the app closed or crashed;
-- **violet marks** where DNS rewrites or the TTL limit changed or the DNS
-  cache was cleared;
-- **pins** for markers (see [Markers](#markers)).
+Under them, lanes show the whole recording:
 
-Hover the timeline to see the time under the pointer; click or drag to go
-there. Hover a mark for what happened.
+| Lane        | Shows                                                                                                                                                                                              |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Markers** | the markers as labelled pins (see [Markers](#markers))                                                                                                                                             |
+| **Screen**  | **Portrait** and **Landscape** from the video, **Off** and **Locked** from the recorded screen state (older recordings: from the portal's power and lock buttons), hatched where there is no video |
+| **App**     | the app's name while it runs (**reopened** after a close), **Closed**, the start-up steps, and a red mark at each crash (amber for an ANR)                                                         |
+| **Network** | the emulated network and region (amber), **Airplane mode** or **No network** (red), and the VPN exit; violet marks where DNS rewrites or the TTL limit changed or the DNS cache was cleared        |
+| **Events**  | taps and swipes (grey), errors (red) and closes and 4xx answers (amber)                                                                                                                            |
 
-Next to it are play and pause, five seconds back and forward, the speeds
-**0.5×**, **1×**, **2×** and **4×**, **Marker**, and on the right **Keep**,
-**Share**, **Download**, the pointer button and full screen.
+A line across the lanes marks the playhead. Hover them to see the time under
+the pointer with what the screen, the app and the network were doing and
+what happened there; click or drag to go there.
 
 | Key                              | Does                                    |
 | -------------------------------- | --------------------------------------- |
@@ -153,7 +178,7 @@ the navigation keys as a label at the bottom. The pointer button hides them
 (it only appears when something was touched); the downloaded video always has
 them.
 
-When a recording has sound, a speaker button next to the speeds turns it on
+When a recording has sound, a speaker button next to the speed turns it on
 or off. It plays at 1× only, since at other speeds it would change its pitch;
 at 0.5×, 2× and 4× the player is silent. The downloaded video carries the
 sound (AAC, or Opus where the browser has no AAC encoder) and so does the
@@ -163,9 +188,11 @@ sound (AAC, or Opus where the browser has no AAC encoder) and so does the
 
 A marker is a pin on the timeline with an icon (pin, bug, flag, star, warning
 or done) and a short note. Click the elapsed time in the session header (or
-the **Recording** row) while it records, or press **Marker** (or <kbd>M</kbd>) in the player to pin
-the moment you are at. Click a pin to jump there, rename it, change its icon
-or delete it. Anyone with a share link sees the markers but can't change them.
+the **Recording** row) while it records, or press **Marker** (or <kbd>M</kbd>)
+in the player: the marker lands at that moment and a small field opens over
+the phone to say what happened. <kbd>Enter</kbd> saves it, <kbd>Esc</kbd>
+leaves it unnamed. Click a pin to jump there, rename it, change its icon or
+delete it. Anyone with a share link sees the markers but can't change them.
 The downloaded video shows each marker as a label over the phone for a few
 seconds, and a recording with a marker is never deleted for being too short.
 
@@ -292,7 +319,7 @@ answers, and **Routes** where the connections went, as in a session (see
 
 ## Downloads
 
-**Download** under the player offers:
+**Export** in the player's header offers:
 
 | Item                            | What you get                                                           | Who has it                                |
 | ------------------------------- | ---------------------------------------------------------------------- | ----------------------------------------- |
@@ -312,7 +339,7 @@ reads well with `less -R`, `bat`, `lnav` or an editor with ANSI support.
 
 ### Video (.mp4)
 
-**Download → Video (.mp4)** renders the recording into an MP4 file in your browser,
+**Export → Video (.mp4)** renders the recording into an MP4 file in your browser,
 frame by frame, with the Holtdroid logo on top (the text is part of the
 picture, so it can't be selected). It opens with a three-second card about
 the app (name, version, package) and the device (model, Android, WebView,
@@ -372,8 +399,9 @@ header.
 
 ## Sharing
 
-**Share** (or the link button on a card) makes a link that opens the
-recording without signing in, and copies it. Asking again gives the same
+**Link at 04:09** in the player's header (or the link button on a row in
+the list) makes a link that opens the recording without signing in, and
+copies it. Asking again gives the same
 link; **Stop sharing** turns it off. A shared recording is kept, so the link
 doesn't die after `recordings.maxAge`; it stays kept when you stop sharing,
 until you let it expire yourself. People with the link can watch and
@@ -381,9 +409,9 @@ download the logcat, but the page has no video download.
 
 The link you copy carries the moment you are at, like a video link with a
 time: `#t=46.2&tab=network&request=…` opens the recording there, on the same
-tab (Logcat, Network, Console, WebSockets, DNS, Routes or Cache), with the request,
+tab (Findings, Logcat, Network, Console, WebSockets, DNS, Routes or Cache), with the request,
 console message, socket frame, name or finding you had open opened and scrolled to. `t` also takes
-`1m20s`. On a shared recording, **Link to 00:46** copies such a link for the
+`1m20s`. On a shared recording, **Link at 00:46** copies such a link for the
 page you are on. Someone signed in to the portal who opens a share link sees it inside the
 portal, with its dock and menus.
 

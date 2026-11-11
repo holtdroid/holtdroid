@@ -97,13 +97,14 @@ const (
 	EventKey     RecordingEventType = "key"
 	EventDNS     RecordingEventType = "dns"
 	EventConn    RecordingEventType = "connection"
+	EventScreen  RecordingEventType = "screen"
 )
 
 // RecordingEvent is one line of a recording's events: T is milliseconds
 // since the recording started, and exactly one of the payloads is set.
 type RecordingEvent struct {
 	T       int64              `json:"t"`
-	Type    RecordingEventType `json:"type" enum:"info,status,metrics,device,network,touch,key,dns,connection"`
+	Type    RecordingEventType `json:"type" enum:"info,status,metrics,device,network,touch,key,dns,connection,screen"`
 	Info    *RecordingInfoData `json:"info,omitempty"`
 	Status  *StatusEvent       `json:"status,omitempty"`
 	Metrics *Metrics           `json:"metrics,omitempty"`
@@ -112,6 +113,7 @@ type RecordingEvent struct {
 	Touch   *RecordingTouch    `json:"touch,omitempty"`
 	DNS     *DNSEvent          `json:"dns,omitempty"`
 	Conn    *Connection        `json:"connection,omitempty" doc:"the latest line of a connection wins"`
+	Screen  *Screen            `json:"screen,omitempty" doc:"the display woke, went off, locked or unlocked, however it happened"`
 	Key     string             `json:"key,omitempty" enum:"back,home,recents,notifications,quick-settings,volume-up,volume-down,mute,screen-off,lock,unlock,rotate-left,rotate-right" doc:"a device button pressed in the portal (DeviceAction); typed text is never recorded"`
 }
 

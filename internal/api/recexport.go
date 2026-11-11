@@ -42,7 +42,7 @@ func (s *Server) serveRecordingExport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	view := s.recordingView(ctx, e, "")
-	view.Owner, view.Provider, view.Session = "", "", ""
+	view.Owner, view.OwnerName, view.Provider, view.Session = "", "", "", ""
 	view.FilesURL, view.IconURL, view.ThumbnailURL, view.LogcatURL, view.LogcatLogURL, view.ExportURL = "", "", "", "", "", ""
 	view.Keep, view.ExpiresAt, view.Share = false, nil, nil
 	meta, err := json.Marshal(bundleMeta{

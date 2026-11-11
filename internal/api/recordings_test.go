@@ -190,6 +190,9 @@ func TestRecordingOnDemand(t *testing.T) {
 	if rec := h.do(http.MethodPost, "/s/fake/"+v.ID+"/v1/device/actions/home", "alice", "", nil); rec.Code != http.StatusNoContent {
 		t.Fatalf("home: %d %s", rec.Code, rec.Body.String())
 	}
+	if rec := h.do(http.MethodPost, "/s/fake/"+v.ID+"/v1/device/actions/screen-off", "alice", "", nil); rec.Code != http.StatusNoContent {
+		t.Fatalf("screen off: %d %s", rec.Code, rec.Body.String())
+	}
 	time.Sleep(time.Second)
 	if rec := h.do(http.MethodDelete, "/api/v1/sessions/fake/"+v.ID+"/recording", "alice", "", nil); rec.Code != http.StatusNoContent {
 		t.Fatalf("stop: %d %s", rec.Code, rec.Body.String())
@@ -199,13 +202,20 @@ func TestRecordingOnDemand(t *testing.T) {
 		t.Fatalf("recordings: %+v", items)
 	}
 	var pressed []string
+	var screens []contract.Screen
 	for _, e := range decode[RecordingEvents](t, h.do(http.MethodGet, "/api/v1/recordings/"+items[0].ID+"/events", "alice", "", nil)).Items {
-		if e.Type == contract.EventKey {
+		switch e.Type {
+		case contract.EventKey:
 			pressed = append(pressed, e.Key)
+		case contract.EventScreen:
+			screens = append(screens, *e.Screen)
 		}
 	}
-	if len(pressed) != 1 || pressed[0] != "home" {
+	if len(pressed) != 2 || pressed[0] != "home" || pressed[1] != "screen-off" {
 		t.Fatalf("buttons in the recording: %v", pressed)
+	}
+	if len(screens) < 2 || !screens[0].On || screens[len(screens)-1].On {
+		t.Fatalf("the screen should go off in the recording: %+v", screens)
 	}
 	h.stop("alice", v.ID)
 }
@@ -305,6 +315,10 @@ func TestRecordingMarkers(t *testing.T) {
 	got := decode[RecordingMarkers](t, put)
 	if put.Code != http.StatusOK || len(got.Items) != 2 || got.Items[0].Label != "renamed" || got.Items[1].T != 3000 || got.Items[1].ID == "" {
 		t.Fatalf("put: %d %s", put.Code, put.Body.String())
+	}
+	list := decode[RecordingList](t, h.do(http.MethodGet, "/api/v1/recordings", "alice", "", nil))
+	if len(list.Items) != 1 || list.Items[0].Markers != 2 || list.Items[0].Owner != "alice" {
+		t.Fatalf("the list should count the markers and name the owner: %+v", list.Items)
 	}
 	if rec := h.do(http.MethodPut, "/api/v1/recordings/"+added.Recording+"/markers", "bob", "", map[string]any{"items": []any{}}); rec.Code != http.StatusNotFound {
 		t.Fatalf("bob edits alice's markers: %d", rec.Code)
