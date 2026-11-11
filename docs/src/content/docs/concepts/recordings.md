@@ -57,10 +57,13 @@ What gets recorded is set by `recordings.mode`:
 - **`manual`**: sessions are recorded only when you tick **Record from start** at launch or
   start it from the session page.
 
-On the session page the **Recording** card is among the cards beside the
-screen. While a recording runs it shows the elapsed time, and **a click on the
-card pins a marker** on the recording's timeline at that moment. Hover it for
-the rest: how long it has run, its size and how much of your space is used;
+On the session page the header has **Record** (unless the mode is `always`).
+While a recording runs the button shows the elapsed time instead, and **a
+click on it pins a marker** on the recording's timeline at that moment;
+**Share** next to it makes a link and copies it, and the **…** menu adds a
+marker, opens the recording, stops sharing or stops recording. The
+**Recording** row of the Device panel (tab **Media**) has the same marker
+click and, opened, the rest: how long it has run, its size and how much of your space is used;
 **Keep forever**, which exempts the recording from the retention period; **Share**,
 which makes a link and copies it (sharing keeps the recording too); a button
 to open the recording; and, unless the mode is `always`, to stop or start
@@ -159,8 +162,8 @@ sound (AAC, or Opus where the browser has no AAC encoder) and so does the
 ### Markers
 
 A marker is a pin on the timeline with an icon (pin, bug, flag, star, warning
-or done) and a short note. Click the **Recording** card on the session page
-while it records, or press **Marker** (or <kbd>M</kbd>) in the player to pin
+or done) and a short note. Click the elapsed time in the session header (or
+the **Recording** row) while it records, or press **Marker** (or <kbd>M</kbd>) in the player to pin
 the moment you are at. Click a pin to jump there, rename it, change its icon
 or delete it. Anyone with a share link sees the markers but can't change them.
 The downloaded video shows each marker as a label over the phone for a few

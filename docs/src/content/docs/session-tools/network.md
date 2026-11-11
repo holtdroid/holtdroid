@@ -5,21 +5,38 @@ sidebar:
   order: 7
 ---
 
-Apps are built on fast office Wi-Fi and used on a train. The **Network** tab
-puts the device on a slower network: a named link such as 3G or weak 4G, a
+Apps are built on fast office Wi-Fi and used on a train. **Network
+conditions** put the device on a slower network: a named link such as 3G or weak 4G, a
 scenario that changes the link over time (a subway ride, an elevator), and
 optionally a **region**, the round trips that users in a country have to a
 CDN and to your servers. Use it to see whether the app shows loaders,
 retries and clear errors instead of a blank screen.
 
-## When the tab is there
+## Where to find it
 
-The tab appears in emulator sessions with a [VPN](/concepts/vpn/):
-the conditions are applied to the VPN tunnel, so without VPN locations
-configured there is no tab. Phones don't have it (see
-[Phones](/configuration/phones/)). The **Network** card beside the
-phone shows the current conditions, and its **Network conditions** row
-(**Slow links, scenarios and regions in the Network tab**) opens the tab.
+Network conditions are there in emulator sessions with a
+[VPN](/concepts/vpn/): the conditions are applied to the VPN tunnel, so
+without VPN locations configured there are none. Phones don't have them (see
+[Phones](/configuration/phones/)).
+
+The **Network** row of the **Device** panel (tab **Environment**) shows the
+current conditions and, opened, everything for a quick change:
+
+- **Conditions**: chips for **No limits**, **Typical 4G**, **3G**, **2G
+  (EDGE)** and **Subway** (plus the current network when it is another
+  one), and **All…**, which opens the picker;
+- **Ping**, **Mbit/s** and **Loss** of what is applied right now: the
+  network's own numbers, or the current step's while a scenario runs
+  (`Subway · step 2 of 3: 3G`);
+- **VPN exit**, the [VPN location](/concepts/vpn/) with the external
+  address;
+- **Wi-Fi**, **Mobile data** and **Airplane mode**, and the device's
+  traffic;
+- **Network conditions**, a row with the current summary that opens the
+  picker too.
+
+The row is marked **Changed** while anything is emulated or a radio is off;
+**Reset** in it turns everything back.
 
 ## What it affects
 
@@ -32,21 +49,29 @@ in `vpn.bypassCIDRs`.
 An outage in a scenario drops every packet while Android still sees a
 connected network, so requests hang until they time out, as on a dead cell.
 For a network that Android knows is gone, turn on **Airplane mode**, or turn
-**Wi-Fi** and **Mobile data** off, in the Network card.
+**Wi-Fi** and **Mobile data** off, in the Network row.
 
-The conditions stay when you switch the VPN location; the tab then measures
-the new route (see [The session's route](#the-sessions-route)).
+The conditions stay when you switch the VPN location; the agent then
+measures the new route (see [The session's route](#the-sessions-route)).
 
-## What you see
+## The picker
 
-The heading says what is on: `No emulation`, the network's name (`3G`),
-or the region with its link (`Germany · typical mobile`). **No emulation**
-next to it turns everything off.
+The picker opens over the session. Its header says what is on: a running
+scenario and its step (`Subway · step 2 of 3`), or the network's name, or
+the region with its link (`🇩🇪 Germany · typical mobile`). **No emulation**
+next to it turns everything off; the cross or Esc closes the picker, and
+every pick applies at once.
+
+Below the header are three tabs, **Networks**, **Scenarios** and
+**Region**, each with how many it offers, and on the right the **Session
+route**: the CDN edge round trip, the nearest server location and the
+route's bandwidth (`CDN 18 ms · Frankfurt 34 ms · ↓ 94 Mbit/s`).
 
 ### The session's route
 
-The box at the top, **The session's own route, through its VPN location**,
-shows what the session's network already takes before any emulation:
+**The session's own route** (in the **Region** tab while no region is
+picked, and in short next to the tabs) shows what the session's network
+already takes before any emulation:
 
 - `CDN edge 23 ms`: the round trip to Cloudflare's nearest edge;
 - `↓ 48 Mbit/s`: the route's download bandwidth;
@@ -58,18 +83,21 @@ Every emulated network comes on top of it: a network adds its delay to
 these round trips, and can't be faster than the route's bandwidth. Round
 trips are measured every minute; the bandwidth after a location change, or
 when the last test is over six hours old. A new session starts from the last
-route measured through its location. Until the first measurement the box
-says **Measuring…**. How the agent measures is described under
+route measured through its location. Until the first measurement it says
+**Measuring…**. How the agent measures is described under
 [Network conditions](/configuration/emulator/#the-sessions-route).
 
-### Access link
+### Networks
 
-One card per network. Each shows its name, a short description and its
-numbers: the delay it adds with its jitter, the download and upload
-bandwidth, the packet loss (`+70 ±20 ms · ↓ 10 Mbit/s ↑ 3 Mbit/s · 0.5% loss`).
-The picked card is outlined. Without a region, a card also shows the round
-trip it means to a CDN edge (`≈ 93 ms to a CDN edge`), the route's plus its
-own delay.
+The **Networks** tab is the access link: one row per network with its
+name, a short description, the delay it adds with its jitter (**RTT**), the
+download and upload in kbit/s, the packet loss and a **Speed** meter (green,
+amber or red, from GPRS to 5G on a log scale, less for delay and loss). The
+picked row has its radio filled. **Filter** narrows the list by name or
+description. Without a region, hovering a row's RTT shows the round trip it
+means to a CDN edge (`≈ 93 ms to a CDN edge`), the route's plus its own
+delay, and hovering the loss of a bursty network says how long its runs
+are.
 
 | Network               | Delay                                       | Download   | Upload     | Loss          |
 | --------------------- | ------------------------------------------- | ---------- | ---------- | ------------- |
@@ -94,7 +122,7 @@ medians from public mobile network reports, rounded to be easy to remember,
 not measurements of a specific operator. There are no custom values: pick
 the closest network.
 
-Amber notes on a card say where the route spoils it:
+Amber notes under a network say where the route spoils it:
 
 - **The VPN route's N ms is more than this network's own N ms**: the route
   is already slower than the network would be (5G behind a far VPN
@@ -102,12 +130,23 @@ Amber notes on a card say where the route spoils it:
 - **Capped at about N Mbit/s by the VPN**: the network is faster than the
   route's bandwidth.
 
-The card can still be picked: loss, jitter and slower links are unaffected.
+The network can still be picked: loss, jitter and slower links are
+unaffected.
 
 ### Scenarios
 
 Scenarios loop through networks, holding each for a random time within the
-range given:
+range given. The **Scenarios** tab shows one card per scenario with its
+loop length (`20–60 s ↻`) and a strip of its steps, each as wide as its
+average hold: networks in grey, outages hatched in red, and the step
+running now outlined in blue. The running scenario has a **Running** badge.
+
+Picking a card shows its steps on the right: the link of each, its RTT,
+download and upload, and how long it is held. While that scenario runs, its
+current step is highlighted, with a bar and how long it has been held
+(`7 s of 10–20 s, then Outage`). **Start scenario** applies it;
+**Restart scenario** on the running one starts it again from the first
+step.
 
 | Scenario                 | Steps                                                                                                              |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------ |
@@ -123,25 +162,27 @@ range given:
 **Region** stands in for the app's users in a country. Pick one of Germany,
 the United States, Ukraine, Kazakhstan, Bangladesh, India, Pakistan,
 Indonesia, the Philippines, Nigeria, Kenya, Egypt or Brazil (or **No
-region**), then where your servers run in **Servers in**: Frankfurt (the
-default), N. Virginia, N. California, São Paulo, Mumbai, Singapore or Tokyo.
-Each server location in the menu shows the region's round trip to it, and
-the route's in amber when the route is slower (`160 ms · VPN 210 ms`). A
-region the route is slower to is marked **VPN slower:** with `CDN`,
-`servers` or `bandwidth`.
+region**) in the list on the **Region** tab; each row shows the region's
+typical mobile link, its CDN edge and the edge round trip. A region the
+route is slower to is marked **VPN slower:** with `CDN`, `servers` or
+`bandwidth`. Then pick where your servers run under **Servers in** on the
+right: Frankfurt (the default), N. Virginia, N. California, São Paulo,
+Mumbai, Singapore or Tokyo. Each server location shows the region's round
+trip to it, and the route's in amber when the route is slower (`160 ms ·
+VPN 210 ms`).
 
-A region splits the device's traffic into two paths. The table below the
-menus shows them:
+A region splits the device's traffic into two paths. The **Paths** table
+shows them:
 
-| Column            | What it is                                                                                                                                                                                                      |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Path**          | **CDN edge and DNS** (the address ranges of Cloudflare, Fastly and Google, served from the edge the region's users reach, and every DNS query), or **Servers in …** (your backends and everything not on a CDN) |
-| **In the region** | the round trip the region's users have on that path, beyond their access link                                                                                                                                   |
-| **Session route** | what the session's route already takes on it; amber when that is more than the region's                                                                                                                         |
-| **Added**         | what the tab adds: the region's round trip less the route's, never below 0                                                                                                                                      |
+| Column     | What it is                                                                                                                                                                                                      |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Path**   | **CDN edge and DNS** (the address ranges of Cloudflare, Fastly and Google, served from the edge the region's users reach, and every DNS query), or **Servers in …** (your backends and everything not on a CDN) |
+| **Region** | the round trip the region's users have on that path, beyond their access link                                                                                                                                   |
+| **Route**  | what the session's route already takes on it; amber when that is more than the region's                                                                                                                         |
+| **Added**  | what is added: the region's round trip less the route's, never below 0                                                                                                                                          |
 
 The access link comes on top of both paths. With **No limits** picked as
-the access link, the first card becomes **Typical mobile in** the region,
+the access link, the first network becomes **Typical mobile in** the region,
 the region's median mobile connection, and that link is used.
 
 When the route is already slower than the region on a path, a warning says
@@ -194,8 +235,8 @@ it, or an IPv4 address. **Save backends** appears when the list changed.
 
 Their traffic then takes the servers' path. The agent answers the device's
 DNS, so it picks up the addresses the device gets when it looks a backend
-up, and shapes them about a second later; the tab lists the addresses found
-so far. Other hosts on the same CDN addresses take the servers' path too.
+up, and shapes them about a second later; the addresses found so far are
+listed under the field. Other hosts on the same CDN addresses take the servers' path too.
 
 The list is kept per app: in your account when the portal's
 [database](/configuration/database/) is persistent, in this
@@ -217,14 +258,14 @@ of a socket as a new row.
 **Test for users in a country.** Pick the country as the region, your
 servers' location in **Servers in**, and list your API under **Backends
 behind a CDN**. A [VPN location](/concepts/vpn/) in or near the
-same country keeps the route short, so the tab can add the region's full
-round trips; the IP address then also matches the country.
+same country keeps the route short, so the region's full round trips can
+be added; the IP address then also matches the country.
 
 **Find out why the emulated network is faster than promised.** Read the
 amber notes: the route is already slower than the network, or the network
 faster than the route's bandwidth. Pick a closer VPN location.
 
-**See how long requests took.** The tab only sets the conditions; the
+**See how long requests took.** The picker only sets the conditions; the
 timings are elsewhere (see [Measuring the effect](#measuring-the-effect)).
 
 ## Measuring the effect
@@ -240,7 +281,7 @@ places:
 - in a recording's [Routes](/session-tools/routes/) tab, the
   median connect, TLS and waiting times of the WebView's requests to each
   name, and how many of them opened a new connection;
-- the Network card's **Device traffic**: download and upload of the whole
+- the Network row's **Device traffic**: download and upload of the whole
   device every two seconds over the last minute.
 
 ## In recordings
@@ -254,9 +295,13 @@ at the moment you are at.
 
 ## Limits
 
-- Only emulator sessions with VPN locations have the tab; phones don't.
+- Only emulator sessions with VPN locations have network conditions;
+  phones don't.
 - Emulation can only add delay and take bandwidth away, never make the
   session's route faster.
 - Addresses are IPv4 only; the CDN ranges are Cloudflare's, Fastly's and
   Google's published lists.
-- There are no custom networks: the cards and scenarios are fixed.
+- There are no custom networks: the networks and scenarios are fixed.
+- The step shown for a running scenario is the agent's; the portal reads it
+  again when the step's shortest hold is over, so it can lag a step's
+  change by a couple of seconds.

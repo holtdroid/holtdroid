@@ -40,6 +40,7 @@ type device struct {
 	now       func() time.Time
 	route     *contract.Motion
 	routeFrom time.Time
+	netFrom   time.Time
 	subs      map[chan struct{}]struct{}
 	done      chan struct{}
 	offers    func(location string) bool

@@ -170,7 +170,7 @@ export function SocketsPanel({ provider, id }: { provider: string; id: string })
                       ? "text-muted-foreground"
                       : s.state.state === "error"
                         ? "text-destructive"
-                        : "text-emerald-600",
+                        : "text-success",
                   )}
                 />
                 <span className="min-w-0 flex-1">
@@ -212,14 +212,14 @@ export function SocketsPanel({ provider, id }: { provider: string; id: string })
                       onKeyDown={(e) => e.key === "Enter" && setFrameKey(f.key)}
                       className={cn(
                         "grid cursor-pointer grid-cols-[1.5rem_minmax(0,1fr)_4.5rem_6.5rem] items-center border-b border-border/50 px-2 py-[2px] hover:bg-accent/60",
-                        f.sent ? "bg-emerald-500/5" : "",
+                        f.sent ? "bg-success/5" : "",
                         f.key === frameKey && "bg-accent",
                       )}
                     >
                       {f.sent ? (
-                        <ArrowUpIcon className="size-3.5 text-emerald-600" aria-label="Sent" />
+                        <ArrowUpIcon className="size-3.5 text-success" aria-label="Sent" />
                       ) : (
-                        <ArrowDownIcon className="size-3.5 text-red-500" aria-label="Received" />
+                        <ArrowDownIcon className="size-3.5 text-danger" aria-label="Received" />
                       )}
                       <FrameSummary f={f} />
                       <span className="text-right text-muted-foreground tabular-nums">{formatBytes(f.size)}</span>
@@ -231,9 +231,9 @@ export function SocketsPanel({ provider, id }: { provider: string; id: string })
                   <div className="flex min-h-0 flex-[1_1_55%] flex-col border-t">
                     <div className="flex h-7 shrink-0 items-center gap-2 border-b bg-muted/50 px-2">
                       {frame.sent ? (
-                        <ArrowUpIcon className="size-3.5 text-emerald-600" />
+                        <ArrowUpIcon className="size-3.5 text-success" />
                       ) : (
-                        <ArrowDownIcon className="size-3.5 text-red-500" />
+                        <ArrowDownIcon className="size-3.5 text-danger" />
                       )}
                       <span className="font-medium">{frame.sent ? "Sent" : "Received"}</span>
                       <span className="text-muted-foreground">{wallClock(frame.wall)}</span>
@@ -342,7 +342,7 @@ function FrameTime({
         align="end"
         side="left"
         sideOffset={8}
-        className="w-72 rounded-[24px] border-0 bg-muted p-4 text-foreground shadow-2xl ring-1 ring-black/10 dark:ring-white/10"
+        className="w-72 rounded-[24px] border-0 bg-muted p-4 text-foreground shadow-2xl ring-1 ring-border"
         onClick={(e) => e.stopPropagation()}
       >
         {recorded ? (

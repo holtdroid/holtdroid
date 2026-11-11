@@ -155,7 +155,42 @@ func Catalog() []contract.NetworkProfileInfo {
 			Down:        l.Down,
 			Up:          l.Up,
 			Loss:        l.Loss,
+			Burst:       l.Burst,
+			Steps:       steps(p.Steps),
 		})
 	}
 	return out
+}
+
+func steps(in []Step) []contract.NetworkStep {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]contract.NetworkStep, len(in))
+	for i, st := range in {
+		out[i] = contract.NetworkStep{Profile: st.Link, Min: int(st.Min.Milliseconds()), Max: int(st.Max.Milliseconds())}
+	}
+	return out
+}
+
+// Position is where a scenario is after elapsed when every step is held
+// for the middle of its range: the step and how long ago it began. ok is
+// false for a plain link.
+func Position(p Profile, elapsed time.Duration) (step int, into time.Duration, ok bool) {
+	var loop time.Duration
+	for _, st := range p.Steps {
+		loop += (st.Min + st.Max) / 2
+	}
+	if loop <= 0 {
+		return 0, 0, false
+	}
+	into = max(elapsed, 0) % loop
+	for i, st := range p.Steps {
+		d := (st.Min + st.Max) / 2
+		if into < d {
+			return i, into, true
+		}
+		into -= d
+	}
+	return 0, into, true
 }

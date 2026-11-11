@@ -53,6 +53,7 @@ type Controls struct {
 
 type networkShaper interface {
 	Current() contract.NetworkProfile
+	Step() (step int, since time.Time, ok bool)
 	Set(ctx context.Context, id contract.NetworkProfile) error
 	Region() *contract.NetworkRegionState
 	Route() *contract.NetworkRoute
@@ -196,6 +197,9 @@ func (c *Controls) State(ctx context.Context) (contract.DeviceState, error) {
 		s.NetworkProfile, s.NetworkProfiles = c.shaper.Current(), netem.Catalog()
 		s.NetworkRegion, s.NetworkRegions, s.NetworkServers = c.shaper.Region(), netem.RegionCatalog(), netem.ServerCatalog()
 		s.NetworkRoute = c.shaper.Route()
+		if step, since, ok := c.shaper.Step(); ok {
+			s.NetworkStep, s.NetworkStepSince = &step, &since
+		}
 	}
 	s.LanguageScope = contract.LanguageSystem
 	if c.appLocales != "" {

@@ -19,9 +19,9 @@ export type LookupRow =
 const cols = "grid-cols-[72px_minmax(0,2fr)_104px_minmax(0,1.4fr)_76px_44px_28px]"
 
 const tones: Record<Tone, string> = {
-  rewrite: "bg-violet-500/15 text-violet-700 dark:text-violet-300",
-  error: "bg-danger/15 text-danger",
-  warn: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+  rewrite: "bg-violet-soft text-violet",
+  error: "bg-danger-soft text-danger",
+  warn: "bg-warning-soft text-warning",
   muted: "bg-muted text-muted-foreground",
 }
 
@@ -81,7 +81,7 @@ export function LookupTable({
               key={r.key}
               type="button"
               onClick={() => onNote?.(r.key)}
-              className="flex w-full items-baseline gap-2 border-b border-border/50 bg-violet-500/10 px-2 py-1 text-left text-violet-800 dark:text-violet-200"
+              className="flex w-full items-baseline gap-2 border-b border-border/50 bg-violet-soft px-2 py-1 text-left text-violet"
             >
               <span className="w-16 shrink-0 font-mono tabular-nums">{r.time}</span>
               <span className="truncate">{r.text}</span>
@@ -229,8 +229,8 @@ function TypeChip({ q }: { q: DNSQuery }) {
       className={cn(
         "shrink-0 rounded-sm border px-1 font-mono text-[10.5px] leading-4",
         q.result === "failed" && "border-danger/40 text-danger",
-        q.result === "rewritten" && "border-violet-500/40 text-violet-700 dark:text-violet-300",
-        q.result === "blocked" && "border-amber-500/40 text-amber-700 dark:text-amber-400",
+        q.result === "rewritten" && "border-violet/40 text-violet",
+        q.result === "blocked" && "border-warning/40 text-warning",
         (q.result === "ipv4-only" || (q.answers.length === 0 && q.result === "answered")) &&
           "border-dashed text-muted-foreground opacity-70",
       )}
@@ -282,7 +282,7 @@ export function LookupDetails({
         </p>
       ) : null}
       {ruleName && (
-        <p className="mt-1 text-violet-700 dark:text-violet-300">
+        <p className="mt-1 text-violet">
           Answered by the rewrite <span className="font-mono">{ruleName}</span>
           {rule ? ` → ${describeRewrite(rule)}` : rewrites ? " (changed since)" : ""}
         </p>
@@ -292,12 +292,7 @@ export function LookupDetails({
           <section key={q.type}>
             <h4 className="flex flex-wrap items-center gap-2 text-muted-foreground">
               <TypeChip q={q} />
-              <span
-                className={cn(
-                  q.result === "failed" && "text-danger",
-                  q.rcode === "NXDOMAIN" && "text-amber-700 dark:text-amber-400",
-                )}
-              >
+              <span className={cn(q.result === "failed" && "text-danger", q.rcode === "NXDOMAIN" && "text-warning")}>
                 {q.rcode}
               </span>
               <span>

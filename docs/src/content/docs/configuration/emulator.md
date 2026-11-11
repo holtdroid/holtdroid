@@ -490,9 +490,9 @@ key used by several session Pods at once breaks, so prefer the gateway.
 
 ## Network conditions
 
-With VPN locations configured, a session's **Network** tab (next to
-DevTools) offers emulated network conditions; the network card next to the
-phone shows which are on and links there. The access link is one of the named networks (5G, typical and weak 4G, 3G,
+With VPN locations configured, a session's network picker offers emulated
+network conditions; the **Network** row of the session's Device panel shows
+which are on, switches the common ones and opens the picker. The access link is one of the named networks (5G, typical and weak 4G, 3G,
 2G, GPRS, busy public Wi-Fi, a crowded venue, satellite links, a slow
 upload, a lossy link, a far away server) and scenarios that change them over
 time (subway, driving, elevator, a fading signal, a flapping link, Starlink's
@@ -521,7 +521,7 @@ used. The numbers are rounded estimates from public speed reports and
 latency maps, plausible rather than measured per operator.
 
 Emulation can only add delay, and the session's own route through its VPN
-location already takes some. Only the rest of each path is added; the tab
+location already takes some. Only the rest of each path is added; the picker
 shows the region's round trip, the session's route and what is added. When
 the route is already slower than the region (a VPN location far from the
 servers), it says so: a closer location, or none, gets nearer.
@@ -548,10 +548,10 @@ still boots) and every minute; then the bandwidth, a 10 MB download from
 `speed.cloudflare.com` cut off after 10 seconds, after each location change
 and whenever the last test is over six hours old. Every 5 minutes the api
 keeps the route of each ready session per VPN location, and a new session
-starts from the last one measured through its location: the tab shows it
+starts from the last one measured through its location: the picker shows it
 right away (with its age), a region subtracts it from the first second, and
-a bandwidth test younger than six hours isn't repeated. The Network tab
-shows the route at the top, and marks what it spoils:
+a bandwidth test younger than six hours isn't repeated. The network picker
+shows the route next to its tabs, and marks what it spoils:
 
 - a network whose own round trip is shorter than the route's (5G or good
   4G behind a far VPN location): the route already takes longer than the

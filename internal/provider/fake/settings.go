@@ -57,6 +57,12 @@ func (d *device) Device(context.Context) (contract.DeviceState, error) {
 		st.Points = slices.Clone(st.Points)
 		s.Geo, s.Route = &pt, &st
 	}
+	if p, ok := netem.Find(s.NetworkProfile); ok {
+		if step, into, ok := netem.Position(p, d.clock().Sub(d.netFrom)); ok {
+			since := d.clock().Add(-into)
+			s.NetworkStep, s.NetworkStepSince = &step, &since
+		}
+	}
 	return s, nil
 }
 
@@ -112,6 +118,9 @@ func (d *device) UpdateDevice(_ context.Context, in contract.DeviceSettings) (co
 		set(&s.NetworkProfile, in.NetworkProfile)
 		if in.NetworkRegion != nil {
 			s.NetworkRegion = region
+		}
+		if in.NetworkProfile != nil || in.NetworkRegion != nil {
+			d.netFrom = d.clock()
 		}
 		set(&s.TimeZone, in.TimeZone)
 		switch {

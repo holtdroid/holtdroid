@@ -16,15 +16,15 @@ retries and clear errors instead of a blank screen or a double payment.
 
 ## What happens
 
-1. Open the <Hint to="w-network" step={1}>Network card</Hint>. Its **Network conditions** row leads to the
-   **Network** tab next to DevTools, with every network the session can emulate.
-2. Pick a named network such as <Hint step={3}>3G</Hint>. Each one shows its delay, bandwidth and loss and a short
-   description.
+1. Open the <Hint to="w-network" step={1}>Network row</Hint> of the Device panel. Its chips switch the common
+   networks; its **Network conditions** row opens the network picker with every network the session can emulate.
+2. On the **Networks** tab, pick a named network such as <Hint step={3}>3G</Hint>. Each one shows its delay,
+   bandwidth and loss and a short description.
 3. Use the app and watch <Hint to="phone" step={4}>how it behaves</Hint>: slow images, late prices, timeouts.
 4. Scenarios like <Hint step={5}>Subway</Hint>, Driving or Elevator change the network over time, with short
-   periods of no signal.
+   periods of no signal. The **Scenarios** tab draws their steps and marks the one running now.
 5. <Hint to="airplane" step={8}>Airplane mode</Hint>, Wi-Fi and Mobile data turn the network off completely.
-6. Pick <Hint step={9}>No emulation</Hint> to get the normal connection back.
+6. Pick <Hint step={9}>No emulation</Hint> in the picker's header to get the normal connection back.
 
 ## Good to know
 
@@ -39,7 +39,7 @@ retries and clear errors instead of a blank screen or a double payment.
 
 - **There is no Network conditions row**: emulated networks need VPN locations; this Holtdroid has none configured.
 - **The app is faster than the chosen network promises**: the device's VPN route is already slower than that
-  network. The Network tab warns about it; pick a closer VPN location.
+  network. The picker warns about it; pick a closer VPN location.
 - **Everything is slow, including the screen**: that is your own connection, not the emulation.
 
 More details: [Network](/session-tools/network/), [Network conditions](/configuration/emulator/#network-conditions).

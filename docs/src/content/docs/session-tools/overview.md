@@ -1,17 +1,21 @@
 ---
 title: Overview
-description: The tabs to the right of a session's screen, what each one is for and when it appears.
+description: The tool tabs to the right of a session's screen, what each one is for and when it appears.
 sidebar:
   order: 1
 ---
 
-To the right of a session's screen is a row of tabs. Each one looks at the
-device or the app from another side. Tabs stay open in the background while
-you look at another one, so DevTools keeps its state and the terminal its
-shell.
+To the right of a session's screen is the tools card with a row of
+underlined tabs. Each one looks at the device or the app from another side.
+DevTools, Logcat, DNS, Routes, Files and Terminal are in the row; WebSockets,
+Cache and Pixel perfect are under **More** at its end, and the one picked
+from there joins the row while it is open. Tabs stay open in the background
+while you look at another one, so DevTools keeps its state and the terminal
+its shell.
 
 Not every tab is there in every session: a tab appears only when the session
-can use it.
+can use it. [Network conditions](/session-tools/network/) are not a tab:
+the **Network** row of the Device panel on the left opens them in a picker.
 
 | Tab                                                | What it is for                                                                      | When it appears                                          |
 | -------------------------------------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------- |
@@ -19,7 +23,6 @@ can use it.
 | [**Pixel perfect**](/session-tools/pixel-perfect/) | lay a design mockup over the screen and find where the app differs                  | unless the server turned it off (`pixelPerfect.enabled`) |
 | [**WebSockets**](/session-tools/websockets/)       | the WebViews' sockets and event streams, frame by frame                             | when the app has a WebView DevTools can reach            |
 | [**Cache**](/session-tools/cache/)                 | how the WebViews' requests use the HTTP cache and a CDN                             | same as WebSockets                                       |
-| [**Network**](/session-tools/network/)             | slow, lossy or offline network conditions for the whole device                      | in emulator sessions with VPN locations                  |
 | [**DNS**](/session-tools/dns/)                     | every name the device looks up, and rewrites of names to other addresses            | in sessions with a [VPN](/concepts/vpn/)                 |
 | [**Routes**](/session-tools/routes/)               | where the connections go: servers, countries, networks, the VPN exit and slow paths | in sessions with a VPN                                   |
 | [**Logcat**](/session-tools/logcat/)               | the device's log, with the app's lines and crashes                                  | when the session has ADB                                 |

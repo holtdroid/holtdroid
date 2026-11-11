@@ -38,13 +38,13 @@ export function RouteStatus({
 }) {
   const m = travelModes[travelMode(route.speed)]
   return (
-    <div className="flex items-center gap-3 rounded-full bg-neutral-800 py-2 pr-2 pl-4">
-      <RouteIcon className="size-5 shrink-0 text-sky-200" />
+    <div className="flex items-center gap-3 rounded-full bg-muted py-2 pr-2 pl-4">
+      <RouteIcon className="size-5 shrink-0 text-info" />
       <span className="grid min-w-0 flex-1 text-sm">
         <span className="truncate font-medium">
           {route.moving ? `${m.label} · ${Math.round(route.currentSpeed * 3.6)} km/h` : "Arrived"}
         </span>
-        <span className="truncate text-xs text-neutral-400">
+        <span className="truncate text-xs text-muted-foreground">
           {formatDistance(route.travelled)} of {formatDistance(route.length)}
           {route.loop && ", in a loop"}
         </span>
@@ -119,7 +119,7 @@ export function RoutePlanner({
           onClick={() => setPlan({ ...plan, loop: !plan.loop })}
         />
       </div>
-      <p className={cn("px-1 text-xs", failed ? "text-red-300" : "text-neutral-400")}>{note}</p>
+      <p className={cn("px-1 text-xs", failed ? "text-danger" : "text-muted-foreground")}>{note}</p>
       <div className="flex gap-2">
         <ShadeButton
           primary

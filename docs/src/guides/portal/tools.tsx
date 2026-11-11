@@ -4,7 +4,6 @@ import {
   CableIcon,
   DatabaseZapIcon,
   FrameIcon,
-  GlobeIcon,
   RouteIcon,
   SignalIcon,
   SignpostIcon,
@@ -39,7 +38,6 @@ const tabs: [Tab, string, LucideIcon][] = [
   ["pixel-perfect", "Pixel perfect", FrameIcon],
   ["websockets", "WebSockets", CableIcon],
   ["cache", "Cache", DatabaseZapIcon],
-  ["network", "Network", GlobeIcon],
   ["dns", "DNS", SignpostIcon],
   ["routes", "Routes", RouteIcon],
   ["logcat", "Logcat", SquareTerminalIcon],
@@ -76,7 +74,6 @@ export function ToolTabs({ s }: { s: PortalState }) {
         {s.tab === "files" && <Files s={s} />}
         {s.tab === "terminal" && <Terminal />}
         {s.tab === "pixel-perfect" && <PixelPerfect s={s} />}
-        {s.tab === "network" && <Network s={s} />}
         {s.tab === "dns" && <Dns s={s} />}
         {s.tab === "routes" && <Routes s={s} />}
       </div>
@@ -491,51 +488,77 @@ function PixelPerfect({ s }: { s: PortalState }) {
   )
 }
 
-function Network({ s }: { s: PortalState }) {
+export function NetworkDialog({ s }: { s: PortalState }) {
   const current = networkProfiles.find((p) => p.id === s.network)
-  const groups = [
-    {
-      title: "Access link",
-      note: "The device's own connection: latency, bandwidth and loss on every request.",
-      items: networkProfiles.filter((p) => !p.scenario),
-    },
-    {
-      title: "Scenarios",
-      note: "The access link changes over time.",
-      items: networkProfiles.filter((p) => p.scenario),
-    },
-  ]
+  const scenarios = current?.scenario === true
   return (
-    <div className="grid content-start gap-5 p-4">
-      <div className="flex items-center gap-2">
-        <h3 className="text-sm font-medium">
-          {current?.name ?? "No emulation"} · {locationOf(s.location)?.label ?? "No VPN"}
-        </h3>
-      </div>
-      {groups.map((g) => (
-        <section key={g.title} className="grid gap-3">
-          <div className="grid gap-0.5">
-            <h4 className="text-sm font-medium">{g.title}</h4>
-            <p className="text-muted-foreground text-xs">{g.note}</p>
+    <div className="animate-in fade-in-0 absolute inset-y-4 right-4 z-40 flex w-[min(560px,55%)] duration-200">
+      <div
+        data-g="net-picker"
+        className="bg-popover text-popover-foreground shadow-float flex min-h-0 w-full flex-col overflow-hidden rounded-2xl border text-sm"
+      >
+        <div className="flex items-center gap-3 border-b px-5 py-4">
+          <span className="bg-muted grid size-[30px] place-items-center rounded-[9px] border">
+            <SignalIcon className="size-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="text-[17px] font-semibold">Network conditions</div>
+            <div className="text-muted-foreground text-xs">
+              For the whole device. On top of the VPN route through {locationOf(s.location)?.label ?? "no VPN"}.
+            </div>
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            {g.items.map((p) => (
-              <div
-                key={p.id}
-                data-g={`net-${p.id}`}
-                className={cn("grid gap-1 rounded-lg border p-3", p.id === s.network && "border-primary bg-primary/5")}
-              >
-                <span className="flex items-center gap-1.5 text-sm font-medium">
-                  {p.scenario ? <ActivityIcon className="size-3.5" /> : <SignalIcon className="size-3.5" />}
-                  {p.name}
+          {scenarios && current && (
+            <Badge variant="warning">
+              <ActivityIcon />
+              {current.name} · step 2 of 3
+            </Badge>
+          )}
+          <Button data-g="net-full" variant="outline" size="sm">
+            No emulation
+          </Button>
+        </div>
+        <div className="flex items-center gap-1 border-b px-5 py-3">
+          {(["Networks", "Scenarios", "Region"] as const).map((t, i) => (
+            <span
+              key={t}
+              className={cn(
+                "rounded-md border px-3 py-1 text-[13px] font-medium",
+                (i === 1) === scenarios && i < 2
+                  ? "bg-card text-foreground"
+                  : "text-muted-foreground border-transparent",
+              )}
+            >
+              {t}
+            </span>
+          ))}
+        </div>
+        <div data-scroll className="grid min-h-0 content-start gap-2 overflow-y-auto p-4 [scrollbar-width:none]">
+          {networkProfiles.map((p) => (
+            <div
+              key={p.id}
+              data-g={p.id === "full" ? undefined : `net-${p.id}`}
+              className={cn(
+                "grid gap-1 rounded-xl border p-3",
+                p.id === s.network && "border-foreground shadow-[inset_0_0_0_1px_var(--foreground)]",
+              )}
+            >
+              <span className="flex items-center gap-1.5 text-sm font-medium">
+                {p.scenario ? <ActivityIcon className="size-3.5" /> : <SignalIcon className="size-3.5" />}
+                {p.name}
+              </span>
+              <span className="text-muted-foreground text-xs">{p.detail}</span>
+              {p.numbers && <span className="text-muted-foreground font-mono text-[11px]">{p.numbers}</span>}
+              {p.scenario && (
+                <span className="flex h-5 gap-0.5" aria-hidden>
+                  <span className="bg-accent flex-[30] rounded-[5px]" />
+                  <span className="bg-accent outline-info flex-[15] rounded-[5px] outline-2" />
+                  <span className="border-danger flex-[12] rounded-[5px] border" />
                 </span>
-                <span className="text-muted-foreground text-xs">{p.detail}</span>
-                {p.numbers && <span className="text-muted-foreground font-mono text-[11px]">{p.numbers}</span>}
-              </div>
-            ))}
-          </div>
-        </section>
-      ))}
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }

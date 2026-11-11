@@ -42,7 +42,7 @@ export function MediaLibrary({
 
   return (
     <section className="grid gap-1.5">
-      <div className="flex items-baseline justify-between px-1 text-xs text-neutral-400">
+      <div className="flex items-baseline justify-between px-1 text-xs text-muted-foreground">
         <h4 className="font-medium">Media library</h4>
         <span className="tabular-nums">
           {formatBytes(l.used)}
@@ -106,7 +106,7 @@ function MediaRow({
     <div
       className={cn(
         "flex items-center gap-1 rounded-md pr-2 transition-colors first:rounded-t-3xl last:rounded-b-3xl",
-        selected ? "bg-sky-200 text-sky-950" : "bg-neutral-800 text-neutral-100 hover:bg-neutral-700",
+        selected ? "bg-primary text-primary-foreground" : "bg-muted text-foreground hover:bg-accent",
       )}
     >
       <button
@@ -118,7 +118,7 @@ function MediaRow({
         {busy ? <Loader2Icon className="size-4 shrink-0 animate-spin" /> : <Icon className="size-4 shrink-0" />}
         <span className="grid min-w-0">
           <span className="truncate text-sm font-medium">{item.name}</span>
-          <span className={cn("text-xs", selected ? "text-sky-900" : "text-neutral-400")}>
+          <span className={cn("text-xs", selected ? "text-primary-foreground/75" : "text-muted-foreground")}>
             {formatBytes(item.size)}
           </span>
         </span>
@@ -129,7 +129,7 @@ function MediaRow({
         disabled={deleting}
         className={cn(
           "grid size-8 shrink-0 place-items-center rounded-full transition-colors disabled:opacity-50",
-          selected ? "hover:bg-sky-300" : "text-neutral-400 hover:bg-neutral-600 hover:text-neutral-100",
+          selected ? "hover:bg-primary" : "text-muted-foreground hover:bg-muted-foreground hover:text-foreground",
         )}
         onClick={onDelete}
       >

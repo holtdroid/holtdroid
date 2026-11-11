@@ -49,6 +49,10 @@ type Shaper struct {
 	mmu     sync.Mutex
 	last    measured
 	learned []netip.Addr
+
+	smu       sync.Mutex
+	step      int
+	stepSince time.Time
 }
 
 // NewShaper shapes dev with tc, which needs CAP_NET_ADMIN in dev's network
@@ -78,6 +82,26 @@ func (s *Shaper) Current() contract.NetworkProfile {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.current
+}
+
+// Step is the scenario step running now and when it began; ok is false
+// unless the current profile is a scenario.
+func (s *Shaper) Step() (step int, since time.Time, ok bool) {
+	s.mu.Lock()
+	p, _ := Find(s.current)
+	s.mu.Unlock()
+	if len(p.Steps) == 0 {
+		return 0, time.Time{}, false
+	}
+	s.smu.Lock()
+	defer s.smu.Unlock()
+	return s.step, s.stepSince, true
+}
+
+func (s *Shaper) setStep(step int) {
+	s.smu.Lock()
+	s.step, s.stepSince = step, s.now()
+	s.smu.Unlock()
 }
 
 func (s *Shaper) Region() *contract.NetworkRegionState {
@@ -277,6 +301,7 @@ func (s *Shaper) apply(ctx context.Context, p Profile, c *choice) error {
 		return fmt.Errorf("apply network profile %s: %w", p.ID, err)
 	}
 	s.current, s.region = p.ID, c
+	s.setStep(0)
 	if p.ID == contract.NetworkFull && c == nil {
 		return nil
 	}
@@ -327,6 +352,7 @@ func (s *Shaper) loop(ctx context.Context, st state, done chan struct{}) {
 		if len(steps) > 0 {
 			step = (step + 1) % len(steps)
 			script = s.script(s.plan(st, step))
+			s.setStep(step)
 		}
 		if err := s.run(ctx, script); err != nil && ctx.Err() == nil {
 			s.log.Warn("network profile", "profile", st.profile.ID, "step", step, "err", err)

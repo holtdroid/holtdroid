@@ -11,7 +11,6 @@ import {
 import { useMemo, useState } from "react"
 import type { DeviceSettings, DeviceState } from "@/api/client"
 import {
-  CardLine,
   Chips,
   Note,
   Row,
@@ -23,7 +22,6 @@ import {
   ShadeRoot,
 } from "@/components/session/shade"
 import { useDevice, useUpdateDevice } from "@/components/session/use-device"
-import { HoverCardTrigger } from "@/components/ui/hover-card"
 import { useNow } from "@/hooks/use-now"
 import { browserTimeZone, formatClockOffset } from "@/lib/format"
 import { cn } from "@/lib/utils"
@@ -75,11 +73,13 @@ export function TimeWidget({ provider, id }: { provider: string; id: string }) {
   return (
     <>
       <ShadeRoot>
-        <HoverCardTrigger asChild>
-          <ShadeCard aria-label="Date and time" changed={changed}>
-            {s ? <CardClock s={s} shifted={shifted} /> : <CardLine icon={ClockIcon}>Date and time</CardLine>}
-          </ShadeCard>
-        </HoverCardTrigger>
+        <ShadeCard
+          title="Time"
+          aria-label="Date and time"
+          icon={ClockIcon}
+          changed={changed}
+          summary={s && <CardClock s={s} shifted={shifted} />}
+        />
         <ShadePanel>
           {s ? (
             <TimeShade s={s} busy={update.isPending} changed={changed} set={(patch) => update.mutate(patch)} />
@@ -96,17 +96,7 @@ function CardClock({ s, shifted }: { s: DeviceState; shifted: boolean }) {
   const now = useNow() + s.timeOffset
   const time = useMemo(() => deviceFormat(s, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }), [s])
   const date = useMemo(() => deviceFormat(s, { day: "numeric", month: "short" }), [s])
-  return (
-    <>
-      <span className="flex min-w-0 items-baseline gap-1.5 text-sm font-semibold tabular-nums">
-        {time.format(now)}
-        <span className="truncate">{date.format(now)}</span>
-      </span>
-      <CardLine icon={shifted ? CalendarClockIcon : EarthIcon}>
-        {shifted ? formatClockOffset(s.timeOffset) : zoneCity(s.timeZone)}
-      </CardLine>
-    </>
-  )
+  return `${time.format(now)} ${date.format(now)} · ${shifted ? formatClockOffset(s.timeOffset) : zoneCity(s.timeZone)}`
 }
 
 function TimeShade({
@@ -140,12 +130,12 @@ function TimeShade({
       />
       <div className="grid gap-1 px-1">
         <span className="text-4xl leading-none font-light tabular-nums">{time.format(now)}</span>
-        <span className="text-sm text-neutral-300">{date.format(now)}</span>
-        <span className="flex items-center gap-1.5 text-xs text-neutral-400">
+        <span className="text-sm text-muted-foreground">{date.format(now)}</span>
+        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <EarthIcon className="size-3.5" />
           {zoneName(s.timeZone)} · {zoneOffset(s.timeZone)}
           {shifted && (
-            <span className="ml-1 rounded-full bg-amber-500/20 px-2 py-0.5 text-amber-300">
+            <span className="ml-1 rounded-full bg-warning-soft px-2 py-0.5 text-warning">
               {formatClockOffset(s.timeOffset)}
             </span>
           )}
@@ -220,7 +210,7 @@ function TimeShift({
           value={amount}
           onChange={(e) => setAmount(Math.min(999, Math.max(1, Math.round(Number(e.target.value)) || 1)))}
           aria-label={`How many ${unit.many}`}
-          className="h-10 w-16 rounded-full bg-neutral-800 text-center text-sm text-neutral-100 tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
+          className="h-10 w-16 rounded-full bg-muted text-center text-sm text-foreground tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
         />
         <StepButton label={`Forward ${what}`} disabled={disabled} onClick={() => shift(1)}>
           Forward
@@ -248,7 +238,7 @@ function StepButton({
       type="button"
       aria-label={label}
       disabled={disabled}
-      className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full bg-neutral-800 text-sm text-neutral-100 transition-colors hover:bg-neutral-700 disabled:opacity-50"
+      className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full bg-muted text-sm text-foreground transition-colors hover:bg-accent disabled:opacity-50"
       onClick={onClick}
     >
       {children}
@@ -296,14 +286,14 @@ function TimeZones({ s, busy, set }: { s: DeviceState; busy: boolean; set: (patc
           {zoneOffset(mine)}
         </Row>
       )}
-      <label className="flex items-center gap-2 rounded-md bg-neutral-800 px-4 py-2.5 last:rounded-b-3xl">
-        <SearchIcon className="size-4 shrink-0 text-neutral-400" />
+      <label className="flex items-center gap-2 rounded-md bg-muted px-4 py-2.5 last:rounded-b-3xl">
+        <SearchIcon className="size-4 shrink-0 text-muted-foreground" />
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search time zones…"
           aria-label="Search time zones"
-          className="min-w-0 flex-1 bg-transparent text-sm text-neutral-100 outline-none placeholder:text-neutral-500"
+          className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
         />
       </label>
       {matches.map((z) => (
@@ -322,7 +312,7 @@ function TimeZones({ s, busy, set }: { s: DeviceState; busy: boolean; set: (patc
         </Row>
       ))}
       {q && matches.length === 0 && (
-        <p className={cn("rounded-md bg-neutral-800 px-4 py-2.5 text-xs text-neutral-400 last:rounded-b-3xl")}>
+        <p className={cn("rounded-md bg-muted px-4 py-2.5 text-xs text-muted-foreground last:rounded-b-3xl")}>
           No time zone matches “{query}”
         </p>
       )}
@@ -367,12 +357,12 @@ function ExactMoment({ s, busy, set }: { s: DeviceState; busy: boolean; set: (pa
   }
 
   return (
-    <div className="grid overflow-hidden rounded-3xl bg-neutral-800">
+    <div className="grid overflow-hidden rounded-3xl bg-muted">
       <button
         type="button"
         aria-expanded={open}
         disabled={busy}
-        className="flex items-center gap-3 px-4 py-3 text-left text-sm text-neutral-100 transition-colors hover:bg-neutral-700 disabled:opacity-50"
+        className="flex items-center gap-3 px-4 py-3 text-left text-sm text-foreground transition-colors hover:bg-accent disabled:opacity-50"
         onClick={toggle}
       >
         <CalendarClockIcon className="size-4 shrink-0" />
@@ -407,22 +397,24 @@ function ExactMoment({ s, busy, set }: { s: DeviceState; busy: boolean; set: (pa
               onChange={(time) => setValue((v) => ({ ...v, time }))}
             />
           </div>
-          <p className="text-xs text-neutral-400">In your time zone, {zoneName(mine)}. Real-time sync turns off.</p>
+          <p className="text-xs text-muted-foreground">
+            In your time zone, {zoneName(mine)}. Real-time sync turns off.
+          </p>
           {mine && mine !== s.timeZone && (
-            <label className="flex items-center justify-between gap-3 text-sm text-neutral-200">
+            <label className="flex items-center justify-between gap-3 text-sm text-foreground">
               Also switch the device to {zoneName(mine)}
               <input
                 type="checkbox"
                 checked={useMyZone}
                 onChange={(e) => setUseMyZone(e.target.checked)}
-                className="size-4 accent-sky-300"
+                className="size-4 accent-primary"
               />
             </label>
           )}
           <button
             type="submit"
             disabled={busy || Number.isNaN(at)}
-            className="mb-4 rounded-full bg-sky-200 px-4 py-2.5 text-sm font-medium text-sky-950 transition-colors hover:bg-sky-100 disabled:opacity-50"
+            className="mb-4 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/85 disabled:opacity-50"
           >
             Set the time
           </button>
@@ -445,14 +437,14 @@ function MomentInput({
 }) {
   return (
     <label className="grid gap-1">
-      <span className="px-3 text-[11px] text-neutral-400">{label}</span>
+      <span className="px-3 text-[11px] text-muted-foreground">{label}</span>
       <input
         type={type}
         step={type === "time" ? 1 : undefined}
         required
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-10 rounded-full bg-neutral-900 px-3 text-sm text-neutral-100 tabular-nums dark:[color-scheme:dark] outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
+        className="h-10 rounded-full bg-card px-3 text-sm text-foreground tabular-nums dark:[color-scheme:dark] outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
       />
     </label>
   )

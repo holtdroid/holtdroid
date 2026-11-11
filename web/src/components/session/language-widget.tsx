@@ -1,10 +1,9 @@
 import { useQuery } from "@tanstack/react-query"
-import { KeyboardIcon, LanguagesIcon } from "lucide-react"
+import { LanguagesIcon } from "lucide-react"
 import { useEffect, useEffectEvent, useRef } from "react"
 import type { DeviceSettings, DeviceState } from "@/api/client"
-import { CardLine, Note, ShadeCard, ShadeHeader, ShadePanel, ShadeRoot } from "@/components/session/shade"
+import { Note, ShadeCard, ShadeHeader, ShadePanel, ShadeRoot } from "@/components/session/shade"
 import { useDevice, useUpdateDevice } from "@/components/session/use-device"
-import { HoverCardTrigger } from "@/components/ui/hover-card"
 import { LOCALES } from "@/lib/device-presets"
 import { countryFlag } from "@/lib/format"
 import { baseLayout, desiredLocales, detectLayouts, sameLocales } from "@/lib/keyboard-layouts"
@@ -57,17 +56,16 @@ export function LanguageWidget({ provider, id }: { provider: string; id: string 
 
   return (
     <ShadeRoot>
-      <HoverCardTrigger asChild>
-        <ShadeCard aria-label="Language and keyboard" changed={!!s && s.locale !== baseLayout}>
-          <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
-            <LanguagesIcon className="size-4 shrink-0 text-neutral-400" />
-            <span className="truncate">{s ? languageName(s.locale, s.locale) : "Language"}</span>
-          </span>
-          {s && (
-            <CardLine icon={KeyboardIcon}>{appOnly ? "App language only" : current.map(tagFlag).join(" ")}</CardLine>
-          )}
-        </ShadeCard>
-      </HoverCardTrigger>
+      <ShadeCard
+        title="Language"
+        aria-label="Language and keyboard"
+        icon={LanguagesIcon}
+        changed={!!s && s.locale !== baseLayout}
+        summary={
+          s &&
+          [languageName(s.locale, s.locale), appOnly ? "app language only" : current.map(tagFlag).join(" ")].join(" · ")
+        }
+      />
       <ShadePanel>
         {s ? (
           <LanguageShade
@@ -119,7 +117,9 @@ function LanguageShade({
         onReset={s.locale !== baseLayout ? () => pick(baseLayout) : undefined}
       />
       <section className="grid gap-1.5">
-        <h4 className="px-1 text-xs font-medium text-neutral-400">{appOnly ? "App language" : "System language"}</h4>
+        <h4 className="px-1 text-xs font-medium text-muted-foreground">
+          {appOnly ? "App language" : "System language"}
+        </h4>
         <LanguageGrid tags={tags} selected={(t) => t === s.locale} disabled={() => busy} onClick={pick} />
       </section>
       {appOnly ? (
@@ -129,7 +129,7 @@ function LanguageShade({
         </Note>
       ) : (
         <section className="grid gap-1.5">
-          <h4 className="flex justify-between px-1 text-xs font-medium text-neutral-400">
+          <h4 className="flex justify-between px-1 text-xs font-medium text-muted-foreground">
             Keyboard layouts
             <span className="tabular-nums">
               {layouts.length} of {maxLayouts}
@@ -176,14 +176,18 @@ function LanguageGrid({
             className={cn(
               "flex min-w-0 flex-col items-center gap-0.5 rounded-2xl px-1 py-2 transition-colors disabled:cursor-default",
               on
-                ? "bg-sky-200 text-sky-950 hover:bg-sky-100"
-                : "bg-neutral-800 text-neutral-100 hover:bg-neutral-700 disabled:opacity-40 disabled:hover:bg-neutral-800",
+                ? "bg-primary text-primary-foreground hover:bg-primary/85"
+                : "bg-muted text-foreground hover:bg-accent disabled:opacity-40 disabled:hover:bg-muted",
             )}
             onClick={() => onClick(tag)}
           >
             <span className="text-xl leading-none">{tagFlag(tag)}</span>
             <span className="w-full truncate text-center text-[11px] leading-tight">{languageName(tag, tag)}</span>
-            <span className={cn("text-[10px] leading-none", on ? "text-sky-900" : "text-neutral-500")}>{tag}</span>
+            <span
+              className={cn("text-[10px] leading-none", on ? "text-primary-foreground/75" : "text-muted-foreground")}
+            >
+              {tag}
+            </span>
           </button>
         )
       })}

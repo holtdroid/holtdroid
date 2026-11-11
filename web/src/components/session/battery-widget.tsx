@@ -9,7 +9,6 @@ import {
 } from "lucide-react"
 import type { DeviceSettings, DeviceState } from "@/api/client"
 import {
-  CardLine,
   Chips,
   Note,
   ShadeCard,
@@ -20,7 +19,6 @@ import {
   Tile,
 } from "@/components/session/shade"
 import { useDevice, useUpdateDevice } from "@/components/session/use-device"
-import { HoverCardTrigger } from "@/components/ui/hover-card"
 import { cn } from "@/lib/utils"
 
 const defaultLevel = 65
@@ -50,11 +48,12 @@ export function BatteryWidget({ provider, id }: { provider: string; id: string }
 
   return (
     <ShadeRoot>
-      <HoverCardTrigger asChild>
-        <ShadeCard aria-label="Battery" changed={!!s && isChanged(s)}>
-          {s ? <BatteryCard s={s} /> : <CardLine icon={BatteryFullIcon}>Battery</CardLine>}
-        </ShadeCard>
-      </HoverCardTrigger>
+      <ShadeCard
+        aria-label="Battery"
+        icon={s ? batteryIcon(s) : BatteryFullIcon}
+        changed={!!s && isChanged(s)}
+        summary={s && summary(s)}
+      />
       <ShadePanel>
         {s ? (
           <BatteryShade s={s} busy={update.isPending} set={(patch) => update.mutate(patch)} />
@@ -63,30 +62,6 @@ export function BatteryWidget({ provider, id }: { provider: string; id: string }
         )}
       </ShadePanel>
     </ShadeRoot>
-  )
-}
-
-function BatteryGlyph({ s, className }: { s: DeviceState; className: string }) {
-  if (s.charging) return <BatteryChargingIcon className={className} />
-  if (s.batteryLevel <= 20) return <BatteryLowIcon className={className} />
-  if (s.batteryLevel <= 60) return <BatteryMediumIcon className={className} />
-  return <BatteryFullIcon className={className} />
-}
-
-function BatteryCard({ s }: { s: DeviceState }) {
-  return (
-    <>
-      <span className="flex min-w-0 items-center gap-1.5 text-sm font-semibold tabular-nums">
-        <BatteryGlyph
-          s={s}
-          className={cn("size-4 shrink-0", s.batteryLevel <= 15 && !s.charging ? "text-amber-400" : "text-neutral-400")}
-        />
-        {s.batteryLevel}%
-      </span>
-      <CardLine icon={s.batterySaver ? LeafIcon : PlugZapIcon}>
-        {s.batterySaver ? "Saver on" : s.charging ? "Charging" : "On battery"}
-      </CardLine>
-    </>
   )
 }
 
@@ -128,7 +103,7 @@ function BatteryShade({ s, busy, set }: { s: DeviceState; busy: boolean; set: (p
       </div>
       {s.canSimulateBattery ? (
         <section className="grid gap-2">
-          <h4 className="px-1 text-xs font-medium text-neutral-400">Charge level</h4>
+          <h4 className="px-1 text-xs font-medium text-muted-foreground">Charge level</h4>
           <ShadeSlider
             key={s.batteryLevel}
             icon={batteryIcon(s)}

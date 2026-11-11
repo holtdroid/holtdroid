@@ -18,11 +18,10 @@ import {
 import { useState } from "react"
 import { toast } from "sonner"
 import { agentClient, type Metrics, type SessionView, sessionBase, unwrap } from "@/api/client"
-import type { AdbSession } from "@/components/session/adb-session"
+import { type AdbSession, useAdbStatus } from "@/components/session/adb-session"
 import { AdbNotice, WithAdb } from "@/components/session/app-widget"
 import { bytesPair, cpuLevel, MetricTile, percent } from "@/components/session/load"
 import {
-  CardLine,
   InfoList,
   Note,
   Row,
@@ -33,7 +32,6 @@ import {
   ShadePanel,
   ShadeRoot,
 } from "@/components/session/shade"
-import { HoverCardTrigger } from "@/components/ui/hover-card"
 import { download, run, shq, stamp } from "@/lib/adb"
 import { parseProps, parseWebView } from "@/lib/android"
 import { formatBytes } from "@/lib/format"
@@ -60,22 +58,21 @@ export function DeviceWidget({
   const m = metrics.at(-1)
   return (
     <ShadeRoot>
-      <HoverCardTrigger asChild>
-        <ShadeCard aria-label="Device">
-          <WithAdb session={adb}>{(a) => <DeviceCard adb={a} slot={session.slotLabel || session.slot} />}</WithAdb>
-          {!adb && (
-            <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
-              <SmartphoneIcon className="size-4 shrink-0 text-neutral-400" />
-              <span className="truncate">{session.slotLabel || session.slot}</span>
-            </span>
-          )}
-          {m && (
-            <CardLine icon={CpuIcon}>
-              {percent(m.device.cpu)} · {bytesPair(m.device.memoryUsed, m.device.memoryTotal).replace(" of ", "/")}
-            </CardLine>
-          )}
-        </ShadeCard>
-      </HoverCardTrigger>
+      <ShadeCard
+        aria-label="Device"
+        icon={SmartphoneIcon}
+        summary={
+          <>
+            {adb ? (
+              <AdbModel session={adb} fallback={session.capabilities?.model || session.slotLabel || session.slot} />
+            ) : (
+              session.capabilities?.model || session.slotLabel || session.slot
+            )}
+            {m &&
+              ` · ${percent(m.device.cpu)} · ${bytesPair(m.device.memoryUsed, m.device.memoryTotal).replace(" of ", "/")}`}
+          </>
+        }
+      />
       <ShadePanel>
         <ShadeHeader title="Device" summary={session.slotLabel || session.slot} />
         {m && <DeviceLoad metrics={metrics} m={m} />}
@@ -96,17 +93,15 @@ function useProps(adb: Adb) {
   })
 }
 
-function DeviceCard({ adb, slot }: { adb: Adb; slot: string }) {
+function AdbModel({ session, fallback }: { session: AdbSession; fallback: string }) {
+  const status = useAdbStatus(session)
+  return status.state === "ready" ? <PropsModel adb={status.adb} fallback={fallback} /> : fallback
+}
+
+function PropsModel({ adb, fallback }: { adb: Adb; fallback: string }) {
   const p = useProps(adb).data ?? {}
-  return (
-    <>
-      <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
-        <SmartphoneIcon className="size-4 shrink-0 text-neutral-400" />
-        <span className="truncate">{p["ro.product.model"] ?? slot}</span>
-      </span>
-      {p["ro.build.version.release"] && <CardLine icon={PackageIcon}>Android {p["ro.build.version.release"]}</CardLine>}
-    </>
-  )
+  const android = p["ro.build.version.release"]
+  return `${p["ro.product.model"] ?? fallback}${android ? ` · Android ${android}` : ""}`
 }
 
 function DeviceDetails({ adb, session, logcat }: { adb: Adb; session: SessionView; logcat: LogcatStore | null }) {
@@ -219,7 +214,7 @@ function BugReports({ adb, session, logcat }: { adb: Adb; session: SessionView; 
 
   return (
     <section className="grid gap-2">
-      <h4 className="px-1 text-xs font-medium text-neutral-400">Bug report</h4>
+      <h4 className="px-1 text-xs font-medium text-muted-foreground">Bug report</h4>
       <div className="grid grid-cols-2 gap-2">
         <ShadeButton disabled={bundle.isPending} onClick={() => bundle.mutate()}>
           <PackageIcon />
@@ -231,8 +226,8 @@ function BugReports({ adb, session, logcat }: { adb: Adb; session: SessionView; 
         </ShadeButton>
       </div>
       {progress !== null && (
-        <div className="h-1.5 overflow-hidden rounded-full bg-neutral-800">
-          <div className="h-full rounded-full bg-sky-300 transition-[width]" style={{ width: `${progress}%` }} />
+        <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+          <div className="h-full rounded-full bg-primary transition-[width]" style={{ width: `${progress}%` }} />
         </div>
       )}
       <Note>
@@ -254,7 +249,7 @@ function DeviceLoad({ metrics, m }: { metrics: Metrics[]; m: Metrics }) {
   return (
     <>
       <section className="grid gap-2">
-        <h4 className="px-1 text-xs font-medium text-neutral-400">Load</h4>
+        <h4 className="px-1 text-xs font-medium text-muted-foreground">Load</h4>
         <div className="grid grid-cols-2 gap-2">
           <MetricTile
             icon={CpuIcon}
@@ -288,7 +283,7 @@ function DeviceLoad({ metrics, m }: { metrics: Metrics[]; m: Metrics }) {
       </section>
       {headline && (
         <section className="grid gap-2">
-          <h4 className="px-1 text-xs font-medium text-neutral-400">Temperature</h4>
+          <h4 className="px-1 text-xs font-medium text-muted-foreground">Temperature</h4>
           <MetricTile
             icon={ThermometerIcon}
             label={headline.source === "host" ? "Node" : sensorLabel(headline)}
@@ -308,7 +303,7 @@ function DeviceLoad({ metrics, m }: { metrics: Metrics[]; m: Metrics }) {
       )}
       {host && (
         <section className="grid gap-2">
-          <h4 className="px-1 text-xs font-medium text-neutral-400">Emulator container</h4>
+          <h4 className="px-1 text-xs font-medium text-muted-foreground">Emulator container</h4>
           <div className="grid grid-cols-2 gap-2">
             <MetricTile
               icon={ServerIcon}

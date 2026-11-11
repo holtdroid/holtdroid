@@ -19,16 +19,15 @@ import {
   routeLine,
   usePlannedPath,
 } from "@/components/session/geo-route"
-import { CardLine, Note, ShadeCard, ShadeHeader, ShadePanel, ShadeRoot, Tile } from "@/components/session/shade"
+import { Note, ShadeCard, ShadeHeader, ShadePanel, ShadeRoot, Tile } from "@/components/session/shade"
 import { useDevice, useNetwork, useUpdateDevice } from "@/components/session/use-device"
-import { HoverCardTrigger } from "@/components/ui/hover-card"
 import { CITIES, defaultGeo } from "@/lib/device-presets"
 import { type Point, travelMode, travelModes } from "@/lib/geo"
 import { cn } from "@/lib/utils"
 
 const GeoMap = lazy(() => import("@/components/session/geo-map"))
 
-const mapPlaceholder = <div className="h-56 w-full bg-neutral-800" />
+const mapPlaceholder = <div className="h-56 w-full bg-muted" />
 
 type Set = (patch: DeviceSettings) => void
 
@@ -55,15 +54,13 @@ export function GpsWidget({ provider, id, vpn }: { provider: string; id: string;
 
   return (
     <ShadeRoot>
-      <HoverCardTrigger asChild>
-        <ShadeCard aria-label="GPS location" changed={s.geoOverride || !!route}>
-          <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
-            <MapPinIcon className="size-4 shrink-0 text-neutral-400" />
-            <span className="truncate">{geoName(s.geo)}</span>
-          </span>
-          <CardLine icon={route?.moving ? NavigationIcon : s.geoOverride ? MapPinIcon : GlobeIcon}>{status}</CardLine>
-        </ShadeCard>
-      </HoverCardTrigger>
+      <ShadeCard
+        title="Location"
+        aria-label="GPS location"
+        icon={route?.moving ? NavigationIcon : MapPinIcon}
+        changed={s.geoOverride || !!route}
+        summary={`${geoName(s.geo)} · ${status}`}
+      />
       <ShadePanel>
         <GpsShade
           s={s}
@@ -86,7 +83,7 @@ function Segmented<T extends string>({
   onChange: (v: T) => void
 }) {
   return (
-    <div role="radiogroup" className="grid auto-cols-fr grid-flow-col gap-1 rounded-full bg-neutral-800 p-1">
+    <div role="radiogroup" className="grid auto-cols-fr grid-flow-col gap-1 rounded-full bg-muted p-1">
       {options.map((o) => (
         <button
           key={o.value}
@@ -95,7 +92,7 @@ function Segmented<T extends string>({
           aria-checked={o.value === value}
           className={cn(
             "flex items-center justify-center gap-2 rounded-full py-2 text-sm font-medium transition-colors [&_svg]:size-4",
-            o.value === value ? "bg-sky-200 text-sky-950" : "text-neutral-300 hover:bg-neutral-700",
+            o.value === value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent",
           )}
           onClick={() => onChange(o.value)}
         >
@@ -184,7 +181,7 @@ function GpsShade({ s, busy, set, vpnCountry }: { s: DeviceState; busy: boolean;
             aria-label="Where I am"
             title="Where I am"
             disabled={busy || locating}
-            className="absolute top-2 right-2 grid size-9 place-items-center rounded-full bg-neutral-900/90 text-neutral-100 shadow-md transition-colors hover:bg-neutral-800 disabled:opacity-60 [&_svg]:size-4"
+            className="absolute top-2 right-2 grid size-9 place-items-center rounded-full bg-card/90 text-foreground shadow-md transition-colors hover:bg-muted disabled:opacity-60 [&_svg]:size-4"
             onClick={locate}
           >
             {locating ? <Loader2Icon className="animate-spin" /> : <LocateFixedIcon />}
@@ -243,7 +240,7 @@ function GpsShade({ s, busy, set, vpnCountry }: { s: DeviceState; busy: boolean;
                   placeholder="Paste coordinates and press Enter"
                   aria-label="Latitude, longitude"
                   aria-invalid={text !== "" && !typed}
-                  className="h-10 w-full rounded-full bg-neutral-800 px-4 font-mono text-sm text-neutral-100 outline-none placeholder:font-sans placeholder:text-neutral-500 focus-visible:ring-2 focus-visible:ring-sky-300 aria-invalid:ring-2 aria-invalid:ring-red-300/60"
+                  className="h-10 w-full rounded-full bg-muted px-4 font-mono text-sm text-foreground outline-none placeholder:font-sans placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/50 aria-invalid:ring-2 aria-invalid:ring-danger/60"
                 />
               </form>
               {map?.enabled && <Note>Tap the map or drag the dot to move the device.</Note>}

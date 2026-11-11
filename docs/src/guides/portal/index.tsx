@@ -5,6 +5,7 @@ import { Dock, Home } from "./home"
 import { Toast } from "./overlays"
 import { Computers, Recording, RecordingHeader, RecordingsList } from "./pages"
 import { Session, SessionHeader } from "./session"
+import { NetworkDialog } from "./tools"
 
 const urls: Record<PortalState["page"], string> = {
   home: "/",
@@ -99,6 +100,7 @@ export function Portal({ s }: { s: PortalState }) {
         <Dock s={s} />
         {s.dialog === "launch" && <LaunchDialog s={s} />}
         {s.dialog === "upload" && <UploadDialog s={s} />}
+        {s.dialog === "network" && <NetworkDialog s={s} />}
         <Toasts s={s} />
       </div>
     </div>

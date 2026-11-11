@@ -4,10 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import { agentClient, api, type Microphone, type MicrophoneSource, unwrap } from "@/api/client"
 import { MediaLibrary } from "@/components/session/media-library"
-import { CardLine, Note, Row, Section, ShadeCard, ShadeHeader, ShadePanel, ShadeRoot } from "@/components/session/shade"
-import { HoverCardTrigger } from "@/components/ui/hover-card"
+import { Note, Row, Section, ShadeCard, ShadeHeader, ShadePanel, ShadeRoot } from "@/components/session/shade"
 import { type BrowserMicrophone, microphoneURL, openBrowserMicrophone } from "@/lib/microphone"
-import { cn } from "@/lib/utils"
 
 type Signal = Extract<MicrophoneSource, "off" | "tone" | "beeps" | "noise">
 
@@ -82,22 +80,24 @@ export function MicrophoneWidget({ provider, id }: { provider: string; id: strin
 
   return (
     <ShadeRoot>
-      <HoverCardTrigger asChild>
-        <ShadeCard
-          aria-label={source === "off" ? "Microphone" : "Turn the microphone off"}
-          changed={source !== "off"}
-          className={cn(source !== "off" && "cursor-pointer")}
-          onClick={() => source !== "off" && choose({ source: "off" })}
-        >
-          <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
-            <MicIcon className="size-4 shrink-0 text-neutral-400" />
-            <span className="truncate">Microphone</span>
-          </span>
-          <CardLine icon={source === "off" ? MicOffIcon : source === "browser" ? MicIcon : AudioWaveformIcon}>
-            {streaming ? "Your microphone" : summary(m)}
-          </CardLine>
-        </ShadeCard>
-      </HoverCardTrigger>
+      <ShadeCard
+        title="Microphone"
+        aria-label="Microphone"
+        icon={source === "off" ? MicOffIcon : source === "browser" ? MicIcon : AudioWaveformIcon}
+        changed={source !== "off"}
+        summary={streaming ? "Your microphone" : summary(m)}
+        aside={
+          source !== "off" && (
+            <button
+              type="button"
+              className="h-5 cursor-pointer rounded-sm border bg-muted px-[7px] text-xs font-medium text-muted-foreground hover:text-foreground"
+              onClick={() => choose({ source: "off" })}
+            >
+              Turn off
+            </button>
+          )
+        }
+      />
       <ShadePanel>
         <ShadeHeader title="Microphone" summary={`What apps hear: ${streaming ? "your microphone" : summary(m)}`} />
         <Section title="Test signal">

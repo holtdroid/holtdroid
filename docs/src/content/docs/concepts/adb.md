@@ -27,7 +27,7 @@ DevTools:
   commands (`redroid.shell: full`); by default it is off, because that shell
   is root on the node running the session.
 
-The **App** and **Device** cards next to the phone use the same connection:
+The **App** and **Device** rows of the Device panel use the same connection:
 
 - **App** restarts or reinstalls the app and saves its data (these work
   without ADB), and over ADB shows the installed version, opens deep links

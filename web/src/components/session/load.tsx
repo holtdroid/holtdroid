@@ -7,9 +7,9 @@ import { type Level, level } from "@/lib/thermal"
 import { cn } from "@/lib/utils"
 
 const tone: Record<Level, { text: string; fill: string; line: string }> = {
-  ok: { text: "text-neutral-100", fill: "bg-sky-300", line: "stroke-sky-300 fill-sky-300/15" },
-  warn: { text: "text-amber-300", fill: "bg-amber-400", line: "stroke-amber-400 fill-amber-400/15" },
-  crit: { text: "text-red-300", fill: "bg-red-400", line: "stroke-red-400 fill-red-400/15" },
+  ok: { text: "text-foreground", fill: "bg-primary", line: "stroke-info fill-info/15" },
+  warn: { text: "text-warning", fill: "bg-warning", line: "stroke-warning fill-warning/15" },
+  crit: { text: "text-danger", fill: "bg-danger", line: "stroke-danger fill-danger/15" },
 }
 
 export function percent(v: number) {
@@ -59,15 +59,15 @@ export function MetricTile({
 }) {
   const t = tone[l]
   return (
-    <div className={cn("grid gap-1.5 rounded-3xl bg-neutral-800 px-4 py-3", wide && "col-span-2")}>
-      <span className="flex items-center gap-1.5 text-xs text-neutral-400">
+    <div className={cn("grid gap-1.5 rounded-3xl bg-muted px-4 py-3", wide && "col-span-2")}>
+      <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <Icon className="size-3.5" />
         {label}
       </span>
       <span className={cn("text-lg leading-none font-medium tabular-nums", t.text)}>{value}</span>
-      {detail && <span className="truncate text-xs text-neutral-400 tabular-nums">{detail}</span>}
+      {detail && <span className="truncate text-xs text-muted-foreground tabular-nums">{detail}</span>}
       {ratio !== undefined && (
-        <span className="h-1.5 overflow-hidden rounded-full bg-neutral-700">
+        <span className="h-1.5 overflow-hidden rounded-full bg-accent">
           <span
             className={cn("block h-full rounded-full transition-[width]", t.fill)}
             style={{ width: `${Math.min(100, Math.max(0, ratio * 100))}%` }}

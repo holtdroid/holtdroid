@@ -4,7 +4,7 @@ export type Text = Record<Lang, string>
 
 export type Page = "home" | "session" | "recordings" | "recording" | "computers"
 
-export type Dialog = "none" | "launch" | "upload"
+export type Dialog = "none" | "launch" | "upload" | "network"
 
 export type Panel =
   | "none"
@@ -27,7 +27,6 @@ export type Tab =
   | "pixel-perfect"
   | "websockets"
   | "cache"
-  | "network"
   | "dns"
   | "routes"
   | "logcat"

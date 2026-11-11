@@ -360,9 +360,7 @@ function RewriteList({
             >
               <span className="truncate font-mono text-[13px]">{r.pattern}</span>
               <span className="text-muted-foreground">→</span>
-              <span
-                className={cn("truncate font-mono", answerOf(r) !== "address" && "text-amber-700 dark:text-amber-400")}
-              >
+              <span className={cn("truncate font-mono", answerOf(r) !== "address" && "text-warning")}>
                 {describeRewrite(r)}
               </span>
             </button>

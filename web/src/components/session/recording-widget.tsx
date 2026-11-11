@@ -1,7 +1,7 @@
 import { useNavigate } from "@tanstack/react-router"
 import {
   ClapperboardIcon,
-  ClockIcon,
+  CircleDotIcon,
   ExternalLinkIcon,
   Link2OffIcon,
   LinkIcon,
@@ -17,26 +17,16 @@ import {
   useSessionRecording,
   useShareRecording,
 } from "@/api/queries"
-import {
-  CardLine,
-  Note,
-  ShadeButton,
-  ShadeCard,
-  ShadeHeader,
-  ShadePanel,
-  ShadeRoot,
-  Tile,
-} from "@/components/session/shade"
-import { HoverCardTrigger } from "@/components/ui/hover-card"
+import { Note, ShadeButton, ShadeCard, ShadeHeader, ShadePanel, ShadeRoot, Tile } from "@/components/session/shade"
 import { useNow } from "@/hooks/use-now"
 import { formatBytes, formatRelative, formatSpan } from "@/lib/format"
 import { clock } from "@/lib/recording/timeline"
-import { cn } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="grid gap-0.5 rounded-2xl bg-neutral-800 px-3 py-2">
-      <span className="text-[11px] text-neutral-400">{label}</span>
+    <div className="grid gap-0.5 rounded-2xl bg-muted px-3 py-2">
+      <span className="text-[11px] text-muted-foreground">{label}</span>
       <span className="truncate text-sm font-medium tabular-nums">{value}</span>
     </div>
   )
@@ -129,23 +119,28 @@ export function RecordingWidget({
 
   return (
     <ShadeRoot>
-      <HoverCardTrigger asChild>
-        <ShadeCard aria-label="Recording" onClick={click} disabled={!manage && !recording}>
-          <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
-            <span
-              className={cn(
-                "size-2.5 shrink-0 rounded-full",
-                recording ? "animate-pulse bg-red-500" : "bg-neutral-500",
-              )}
-            />
-            Recording
-          </span>
-          <CardLine icon={ClockIcon}>{recording ? clock(elapsed) : "Not recording"}</CardLine>
-          <CardLine icon={PinIcon}>
-            {recording ? "Click to mark" : always ? "Starts with the device" : manage ? "Click to start" : "Off"}
-          </CardLine>
-        </ShadeCard>
-      </HoverCardTrigger>
+      <ShadeCard
+        aria-label="Recording"
+        icon={CircleDotIcon}
+        summary={
+          recording
+            ? `${clock(elapsed)} · click to mark`
+            : always
+              ? "Starts with the device"
+              : manage
+                ? "Not recording · click to start"
+                : "Off"
+        }
+        aside={
+          recording && (
+            <Badge variant="destructive" dot>
+              REC
+            </Badge>
+          )
+        }
+        onClick={click}
+        disabled={!manage && !recording}
+      />
       <ShadePanel>
         <ShadeHeader
           title="Recording"

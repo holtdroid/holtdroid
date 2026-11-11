@@ -4,6 +4,7 @@ import { useMemo } from "react"
 import { toast } from "sonner"
 import { agentClient, type DeviceAction, type DeviceSettings, unwrap } from "@/api/client"
 import type { LiveScreen } from "@/components/session/live-screen"
+import { devicePoll } from "@/lib/network-conditions"
 import type { ScreenControl } from "@/lib/scrcpy"
 
 const viaScreen: Partial<Record<DeviceAction, (c: ScreenControl) => void>> = {
@@ -26,7 +27,7 @@ export function useDevice(provider: string, id: string) {
   return useQuery({
     queryKey: deviceKey(provider, id),
     queryFn: () => unwrap(client.GET("/v1/device")),
-    refetchInterval: (q) => (q.state.data?.route?.moving ? 1_000 : 30_000),
+    refetchInterval: (q) => devicePoll(q.state.data, Date.now()),
   })
 }
 
@@ -55,6 +56,15 @@ export function useDeviceAction(provider: string, id: string) {
       }
     },
     onError: (e) => toast.error("Device action failed", { description: e.message }),
+  })
+}
+
+export function useRestartApp(provider: string, id: string) {
+  const client = useMemo(() => agentClient(provider, id), [provider, id])
+  return useMutation({
+    mutationFn: () => unwrap(client.POST("/v1/app/{action}", { params: { path: { action: "restart" } } })),
+    onSuccess: () => toast("Starting the app"),
+    onError: (e) => toast.error("Could not start the app", { description: e.message }),
   })
 }
 
