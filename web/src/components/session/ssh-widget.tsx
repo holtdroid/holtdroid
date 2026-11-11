@@ -4,14 +4,13 @@ import { type ReactNode, useState } from "react"
 import { sessionBase, type Tunnels } from "@/api/client"
 import { useComputers, useSSHInfo } from "@/api/ssh"
 import { CopyBlock } from "@/components/copy-button"
-import { CardLine, Note, ShadeCard, ShadeHeader, ShadePanel, ShadeRoot } from "@/components/session/shade"
+import { Note, ShadeCard, ShadeHeader, ShadePanel, ShadeRoot } from "@/components/session/shade"
 import { ConnectCard } from "@/components/ssh/connect-card"
 import { PortChip } from "@/components/ssh/port-chip"
-import { HoverCardTrigger } from "@/components/ui/hover-card"
 import { useEventSource } from "@/hooks/use-event-source"
 import { useNow } from "@/hooks/use-now"
 import { formatRelative } from "@/lib/format"
-import { cn } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"
 
 const noTunnels: Tunnels = { adb: [], reverse: [] }
 
@@ -31,22 +30,17 @@ export function SSHWidget({ provider, id }: { provider: string; id: string }) {
 
   return (
     <ShadeRoot onOpenChange={setOpen}>
-      <HoverCardTrigger asChild>
-        <ShadeCard aria-label="SSH">
-          <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
-            <CableIcon className={cn("size-4 shrink-0", connected ? "text-emerald-400" : "text-neutral-400")} />
-            SSH
-          </span>
-          <CardLine icon={connected ? LaptopIcon : PlugIcon}>
-            {connected ? `${tunnels.adb.length > 0 ? "ADB" : "Ports"} connected` : "Not connected"}
-          </CardLine>
-          {ports > 0 && (
-            <CardLine icon={SmartphoneIcon}>
-              {ports} {ports === 1 ? "port" : "ports"} published
-            </CardLine>
-          )}
-        </ShadeCard>
-      </HoverCardTrigger>
+      <ShadeCard
+        aria-label="SSH"
+        icon={connected ? LaptopIcon : CableIcon}
+        summary={[
+          connected ? `${tunnels.adb.length > 0 ? "ADB" : "Ports"} connected` : "Not connected",
+          ports > 0 && `${ports} ${ports === 1 ? "port" : "ports"} published`,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+        aside={connected && <Badge variant="success">Connected</Badge>}
+      />
       <ShadePanel>
         <ShadeHeader title="SSH" summary={connected ? describe(tunnels) : summaryOf(allowADB, allowReverse)} />
         <SSHShade slug={`${provider}-${id}`} tunnels={tunnels} allowADB={allowADB} allowReverse={allowReverse} />
@@ -102,12 +96,12 @@ function SSHShade({
       {adb.length > 0 && (
         <Group title="ADB on your computer">
           {adb.map((a) => (
-            <div key={a.hostname} className="grid gap-1.5 rounded-3xl bg-neutral-800 px-4 py-3">
+            <div key={a.hostname} className="grid gap-1.5 rounded-3xl bg-muted px-4 py-3">
               <span className="flex items-center gap-2 text-sm font-medium">
-                <LaptopIcon className="size-4 text-sky-200" />
+                <LaptopIcon className="size-4 text-info" />
                 {a.hostname}
               </span>
-              <CopyBlock text={`adb -s 127.0.0.1:${a.port} shell`} className="bg-neutral-900" />
+              <CopyBlock text={`adb -s 127.0.0.1:${a.port} shell`} className="bg-card" />
             </div>
           ))}
         </Group>
@@ -115,7 +109,7 @@ function SSHShade({
 
       {computers.isSuccess && list.length === 0 ? (
         <Group title="Connect a computer">
-          <div className="grid gap-2 rounded-3xl bg-neutral-800 px-4 py-3 text-neutral-100 [&_.bg-muted]:bg-neutral-900">
+          <div className="grid gap-2 rounded-3xl bg-muted px-4 py-3 text-foreground [&_.bg-muted]:bg-card">
             <ConnectCard />
           </div>
           <Note>
@@ -128,7 +122,7 @@ function SSHShade({
       ) : allowReverse ? (
         <Note>
           Dev servers are published automatically; pin other ports on the{" "}
-          <Link to="/computers" className="font-medium text-sky-200 underline underline-offset-2">
+          <Link to="/computers" className="font-medium text-info underline underline-offset-2">
             Computers
           </Link>{" "}
           page. Apps on the device reach them as http://localhost:&lt;port&gt;.
@@ -141,7 +135,7 @@ function SSHShade({
 function Group({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="grid gap-1.5">
-      <h4 className="px-1 text-xs font-medium text-neutral-400">{title}</h4>
+      <h4 className="px-1 text-xs font-medium text-muted-foreground">{title}</h4>
       {children}
     </section>
   )
@@ -151,8 +145,8 @@ function Connections({ tunnels }: { tunnels: Tunnels }) {
   const now = useNow(30_000)
   if (tunnels.adb.length === 0 && tunnels.reverse.length === 0) {
     return (
-      <div className="flex items-center gap-3 rounded-full bg-neutral-800 px-4 py-3 text-sm text-neutral-300">
-        <PlugIcon className="size-5 shrink-0 text-neutral-400" />
+      <div className="flex items-center gap-3 rounded-full bg-muted px-4 py-3 text-sm text-muted-foreground">
+        <PlugIcon className="size-5 shrink-0 text-muted-foreground" />
         Nothing is connected over SSH right now.
       </div>
     )
@@ -161,20 +155,20 @@ function Connections({ tunnels }: { tunnels: Tunnels }) {
     <Group title="Connected now">
       <div className="grid gap-1 overflow-hidden rounded-3xl">
         {tunnels.adb.map((a) => (
-          <div key={`adb-${a.user}-${a.since}`} className="flex items-center gap-3 bg-neutral-800 px-4 py-2.5">
-            <MonitorSmartphoneIcon className="size-4 shrink-0 text-emerald-400" />
+          <div key={`adb-${a.user}-${a.since}`} className="flex items-center gap-3 bg-muted px-4 py-2.5">
+            <MonitorSmartphoneIcon className="size-4 shrink-0 text-success" />
             <span className="grid min-w-0">
               <span className="text-sm font-medium">ADB</span>
-              <span className="truncate text-xs text-neutral-400">
+              <span className="truncate text-xs text-muted-foreground">
                 {a.user} · {formatRelative(a.since, now)}
               </span>
             </span>
           </div>
         ))}
         {tunnels.reverse.length > 0 && (
-          <div className="grid gap-2 bg-neutral-800 px-4 py-2.5">
+          <div className="grid gap-2 bg-muted px-4 py-2.5">
             <span className="flex items-center gap-3 text-sm font-medium">
-              <SmartphoneIcon className="size-4 shrink-0 text-emerald-400" />
+              <SmartphoneIcon className="size-4 shrink-0 text-success" />
               Your ports on the device
             </span>
             <div className="flex flex-wrap gap-1.5">

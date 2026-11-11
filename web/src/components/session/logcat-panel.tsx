@@ -19,11 +19,11 @@ const levels = [
 
 const levelColor: Record<string, string> = {
   V: "text-muted-foreground",
-  D: "text-sky-600 dark:text-sky-400",
-  I: "text-emerald-600 dark:text-emerald-400",
-  W: "text-amber-600 dark:text-amber-400",
-  E: "text-red-600 dark:text-red-400",
-  F: "text-red-700 dark:text-red-300 font-bold",
+  D: "text-info",
+  I: "text-success",
+  W: "text-warning",
+  E: "text-danger",
+  F: "text-danger font-bold",
 }
 
 function matches(l: LogLine, query: string) {

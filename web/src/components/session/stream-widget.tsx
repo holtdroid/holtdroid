@@ -1,9 +1,7 @@
 import {
-  ActivityIcon,
   HeadphoneOffIcon,
   HeadphonesIcon,
   KeyboardIcon,
-  MousePointerClickIcon,
   MonitorPlayIcon,
   SettingsIcon,
   TypeIcon,
@@ -18,7 +16,6 @@ import {
   useStreamRate,
 } from "@/components/session/live-screen"
 import {
-  CardLine,
   Chips,
   Note,
   Row,
@@ -32,7 +29,6 @@ import {
 import { useDeviceAudio } from "@/components/session/device-audio"
 import { useDevice } from "@/components/session/use-device"
 import { cn } from "@/lib/utils"
-import { HoverCardTrigger } from "@/components/ui/hover-card"
 import { defaultScreenPrefs, setScreenPrefs, useScreenPrefs, type VideoCodec } from "@/lib/screen-prefs"
 import { codecCost, pickCodec, streamSettings } from "@/lib/stream-settings"
 
@@ -74,31 +70,26 @@ export function StreamWidget({ provider, id, live }: { provider: string; id: str
 
   return (
     <ShadeRoot>
-      <HoverCardTrigger asChild>
-        <ShadeCard aria-label="Stream and keyboard" changed={changed}>
-          <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
-            <MonitorPlayIcon className="size-4 shrink-0 text-neutral-400" />
-            <span className="truncate">{codecs[codec].label}</span>
-          </span>
-          <CardLine icon={VideoIcon}>
-            {size} · {st.maxFps} fps
-          </CardLine>
-          {rate && (
-            <CardLine icon={ActivityIcon}>
-              {rate.fps.toFixed(0)} fps · {bitRate(rate.bitrate)}
-            </CardLine>
-          )}
-          <CardLine icon={prefs.keyboard === "uhid" ? KeyboardIcon : TypeIcon}>
-            {prefs.keyboard === "uhid" ? "USB keyboard" : "Text input"}
-          </CardLine>
-          {audio.waitingForClick && (
-            <span className="flex min-w-0 items-center gap-1.5 text-xs text-amber-400">
-              <MousePointerClickIcon className="size-3.5 shrink-0" />
-              <span className="truncate">Click anywhere for sound</span>
-            </span>
-          )}
-        </ShadeCard>
-      </HoverCardTrigger>
+      <ShadeCard
+        title="Stream"
+        aria-label="Stream and keyboard"
+        icon={MonitorPlayIcon}
+        changed={changed}
+        summary={
+          audio.waitingForClick ? (
+            <span className="text-warning">Click anywhere for sound</span>
+          ) : (
+            [
+              codecs[codec].label,
+              `${size} · ${st.maxFps} fps`,
+              rate && `${rate.fps.toFixed(0)} fps · ${bitRate(rate.bitrate)}`,
+              prefs.keyboard === "uhid" ? "USB keyboard" : "text input",
+            ]
+              .filter(Boolean)
+              .join(" · ")
+          )
+        }
+      />
       <ShadePanel>
         <ShadeHeader
           title="Stream"
@@ -158,7 +149,7 @@ export function StreamWidget({ provider, id, live }: { provider: string; id: str
         </Note>
 
         <section className="grid gap-1.5">
-          <h4 className="px-1 text-xs font-medium text-neutral-400">Keyboard</h4>
+          <h4 className="px-1 text-xs font-medium text-muted-foreground">Keyboard</h4>
           <div className="grid grid-cols-2 gap-2">
             <Tile
               icon={TypeIcon}
@@ -185,7 +176,7 @@ export function StreamWidget({ provider, id, live }: { provider: string; id: str
           <button
             type="button"
             disabled={!connected}
-            className="flex items-center justify-center gap-2 rounded-full bg-neutral-800 px-4 py-2.5 text-sm text-neutral-100 transition-colors hover:bg-neutral-700 disabled:opacity-50"
+            className="flex items-center justify-center gap-2 rounded-full bg-muted px-4 py-2.5 text-sm text-foreground transition-colors hover:bg-accent disabled:opacity-50"
             onClick={() => live.connection?.control.keyboardSettings()}
           >
             <SettingsIcon className="size-4" />
@@ -200,7 +191,7 @@ export function StreamWidget({ provider, id, live }: { provider: string; id: str
 function LiveStats({ rate }: { rate: StreamRate }) {
   return (
     <section className="grid gap-1.5">
-      <h4 className="px-1 text-xs font-medium text-neutral-400">Right now, in this browser</h4>
+      <h4 className="px-1 text-xs font-medium text-muted-foreground">Right now, in this browser</h4>
       <div className="grid grid-cols-3 gap-1.5">
         <Stat label="Frames shown" value={`${rate.fps.toFixed(0)} fps`} />
         <Stat label="Bitrate" value={bitRate(rate.bitrate)} />
@@ -213,9 +204,9 @@ function LiveStats({ rate }: { rate: StreamRate }) {
 
 function Stat({ label, value, warn = false }: { label: string; value: string; warn?: boolean }) {
   return (
-    <div className="grid gap-0.5 rounded-2xl bg-neutral-800 px-3 py-2">
-      <span className={cn("text-sm font-medium tabular-nums", warn && "text-amber-400")}>{value}</span>
-      <span className="text-[11px] text-neutral-400">{label}</span>
+    <div className="grid gap-0.5 rounded-2xl bg-muted px-3 py-2">
+      <span className={cn("text-sm font-medium tabular-nums", warn && "text-warning")}>{value}</span>
+      <span className="text-[11px] text-muted-foreground">{label}</span>
     </div>
   )
 }

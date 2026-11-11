@@ -93,7 +93,7 @@ export function ScreenSplit({ children: [screen, tools] }: { children: [ReactNod
         </ResizablePanel>
         <ResizableHandle withHandle />
         <ResizablePanel defaultSize="58" minSize="20">
-          {tools}
+          <div className={cn("size-full", vertical ? "pt-3" : "pl-3")}>{tools}</div>
         </ResizablePanel>
       </ResizablePanelGroup>
       {edge !== null && (
@@ -108,8 +108,8 @@ export function ScreenSplit({ children: [screen, tools] }: { children: [ReactNod
               className={cn(
                 "absolute z-20 grid size-7 cursor-pointer",
                 vertical ? "left-1/2 mt-2 -translate-x-1/2" : "top-1/2 ml-2 -translate-y-1/2",
-                "place-items-center rounded-md bg-white/10 text-white/70 opacity-0 backdrop-blur transition-opacity delay-300 hover:bg-white/20 hover:text-white hover:opacity-100 hover:delay-0 focus-visible:opacity-100 focus-visible:delay-0 group-has-[[data-slot=resizable-handle]:hover]/split:opacity-100 group-has-[[data-slot=resizable-handle]:hover]/split:delay-0 [&_svg]:size-4",
-                autoFit && "text-white",
+                "place-items-center rounded-md border bg-card text-muted-foreground opacity-0 shadow-float transition-opacity delay-300 hover:text-foreground hover:opacity-100 hover:delay-0 focus-visible:opacity-100 focus-visible:delay-0 group-has-[[data-slot=resizable-handle]:hover]/split:opacity-100 group-has-[[data-slot=resizable-handle]:hover]/split:delay-0 [&_svg]:size-4",
+                autoFit && "border-foreground text-foreground",
               )}
             >
               {vertical ? <MoveVerticalIcon /> : <MoveHorizontalIcon />}

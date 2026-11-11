@@ -13,22 +13,12 @@ import {
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import { agentClient, type Clipboard, sessionBase, unwrap } from "@/api/client"
-import {
-  CardLine,
-  Note,
-  Row,
-  Section,
-  ShadeCard,
-  ShadeHeader,
-  ShadePanel,
-  Tile,
-  ShadeRoot,
-} from "@/components/session/shade"
-import { HoverCardTrigger } from "@/components/ui/hover-card"
+import { Note, Row, Section, ShadeCard, ShadeHeader, ShadePanel, Tile, ShadeRoot } from "@/components/session/shade"
 import { useEventSource } from "@/hooks/use-event-source"
 import { download, stamp } from "@/lib/adb"
 import { onCopied } from "@/lib/clipboard"
 import { type ClipboardSync, setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
+import { cn } from "@/lib/utils"
 
 const modes: Record<ClipboardSync, { label: string; hint: string; icon: LucideIcon }> = {
   both: { label: "Both ways", hint: "Copy on either side, paste on the other", icon: ArrowLeftRightIcon },
@@ -48,20 +38,27 @@ export function ClipboardWidget({ provider, id }: { provider: string; id: string
 
   return (
     <ShadeRoot>
-      <HoverCardTrigger asChild>
-        <ShadeCard
-          aria-label={on ? "Turn clipboard sync off" : "Turn clipboard sync on"}
-          changed={!on || mode !== "both"}
-          className="cursor-pointer"
-          onClick={() => setScreenPrefs({ clipboard: !on })}
-        >
-          <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
-            <ClipboardIcon className="size-4 shrink-0 text-neutral-400" />
-            <span className="truncate">Clipboard</span>
-          </span>
-          <CardLine icon={on ? modes[mode].icon : ClipboardXIcon}>{summary}</CardLine>
-        </ShadeCard>
-      </HoverCardTrigger>
+      <ShadeCard
+        title="Clipboard"
+        aria-label="Clipboard"
+        icon={on ? ClipboardIcon : ClipboardXIcon}
+        changed={!on || mode !== "both"}
+        summary={summary}
+        aside={
+          <button
+            type="button"
+            aria-pressed={on}
+            aria-label={on ? "Turn clipboard sync off" : "Turn clipboard sync on"}
+            className={cn(
+              "h-5 cursor-pointer rounded-sm px-[7px] text-xs font-medium",
+              on ? "bg-success-soft text-success" : "border bg-muted text-muted-foreground",
+            )}
+            onClick={() => setScreenPrefs({ clipboard: !on })}
+          >
+            {on ? "Sync" : "Off"}
+          </button>
+        }
+      />
       <ShadePanel>
         <ShadeHeader
           title="Clipboard sync"
@@ -229,7 +226,7 @@ function copyEntry(text: string) {
 function History({ entries }: { entries: ClipEntry[] }) {
   return (
     <section className="grid gap-1.5">
-      <h4 className="px-1 text-xs font-medium text-neutral-400">Last {historySize} synced</h4>
+      <h4 className="px-1 text-xs font-medium text-muted-foreground">Last {historySize} synced</h4>
       {entries.length === 0 ? (
         <Note>Nothing synced yet. What goes between this browser and the device shows up here.</Note>
       ) : (
@@ -237,9 +234,9 @@ function History({ entries }: { entries: ClipEntry[] }) {
           {entries.map((e) => (
             <li
               key={`${e.at}-${e.text.length}`}
-              className="grid gap-1 rounded-md bg-neutral-800 px-4 py-2.5 first:rounded-t-3xl last:rounded-b-3xl"
+              className="grid gap-1 rounded-md bg-muted px-4 py-2.5 first:rounded-t-3xl last:rounded-b-3xl"
             >
-              <div className="flex items-center gap-1.5 text-[11px] text-neutral-400">
+              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                 {e.to ? (
                   <ClipboardPasteIcon className="size-3.5 shrink-0" />
                 ) : (
@@ -259,7 +256,7 @@ function History({ entries }: { entries: ClipEntry[] }) {
                   />
                 </span>
               </div>
-              <p className="line-clamp-3 font-mono text-xs break-all text-neutral-100">{visible(e.text)}</p>
+              <p className="line-clamp-3 font-mono text-xs break-all text-foreground">{visible(e.text)}</p>
             </li>
           ))}
         </ul>
@@ -275,7 +272,7 @@ function EntryButton({ label, icon: Icon, onClick }: { label: string; icon: Luci
       type="button"
       aria-label={label}
       title={label}
-      className="grid size-7 place-items-center rounded-full text-neutral-300 transition-colors hover:bg-neutral-700 hover:text-neutral-100"
+      className="grid size-7 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
       onClick={onClick}
     >
       <Icon className="size-3.5" />

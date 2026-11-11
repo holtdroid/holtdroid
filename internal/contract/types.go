@@ -344,6 +344,16 @@ type NetworkProfileInfo struct {
 	Down        int            `json:"down,omitempty" doc:"download kbit/s; empty is unlimited"`
 	Up          int            `json:"up,omitempty" doc:"upload kbit/s; empty is unlimited"`
 	Loss        float64        `json:"loss,omitempty" doc:"percent of packets lost in each direction"`
+	Burst       int            `json:"burst,omitempty" doc:"mean length of a run of lost packets; empty for independent losses"`
+	Steps       []NetworkStep  `json:"steps,omitempty" doc:"a scenario's steps, looped in order"`
+}
+
+// NetworkStep is one step of a scenario: a link held for a random time
+// between min and max.
+type NetworkStep struct {
+	Profile NetworkProfile `json:"profile" doc:"the link held; empty is an outage, every packet dropped"`
+	Min     int            `json:"min" doc:"shortest hold, ms"`
+	Max     int            `json:"max" doc:"longest hold, ms"`
 }
 
 type NetworkLink struct {
@@ -464,6 +474,8 @@ type DeviceState struct {
 	Navigation         Navigation           `json:"navigation,omitempty" enum:"gestures,buttons" doc:"Android's system navigation: gestures or the back, home and recents buttons; empty where it can't be changed"`
 	NetworkProfile     NetworkProfile       `json:"networkProfile,omitempty" doc:"empty when the device can't emulate network conditions"`
 	NetworkProfiles    []NetworkProfileInfo `json:"networkProfiles,omitempty" doc:"the profiles networkProfile may be set to"`
+	NetworkStep        *int                 `json:"networkStep,omitempty" doc:"the step of the networkProfile scenario running now, from 0; empty unless it is a scenario"`
+	NetworkStepSince   *time.Time           `json:"networkStepSince,omitempty" doc:"when networkStep began"`
 	NetworkRegion      *NetworkRegionState  `json:"networkRegion,omitempty" doc:"the region whose paths are emulated; empty while none is"`
 	NetworkRegions     []NetworkRegionInfo  `json:"networkRegions,omitempty" doc:"the regions networkRegion may be set to"`
 	NetworkServers     []NetworkServerInfo  `json:"networkServers,omitempty"`

@@ -71,7 +71,7 @@ function NetworkPanel({ s }: { s: PortalState }) {
       <Section title="Network conditions">
         <G id="net-conditions">
           <Row selected={false} icon={ActivityIcon} title={profile?.name ?? "No emulation"} onClick={noop}>
-            Slow links, scenarios and regions in the Network tab
+            Networks, scenarios and regions in the picker
           </Row>
         </G>
       </Section>

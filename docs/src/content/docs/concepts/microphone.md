@@ -6,7 +6,8 @@ sidebar:
 ---
 
 A redroid device has no microphone of its own: apps that record hear
-silence. The **Microphone** card on the session page replaces what they hear,
+silence. The **Microphone** row of the session's Device panel (tab **Media**)
+replaces what they hear,
 for every app and every kind of recording (voice notes, speech recognition,
 calls in a WebView), until you turn it off.
 
@@ -19,12 +20,12 @@ calls in a WebView), until you turn it off.
 | A media file    | An audio file, or the sound of a video, from your media library, on repeat |
 | Your microphone | This browser's microphone, live, for as long as you keep it on             |
 
-Click the card to turn whatever plays off. Choosing another source stops the
+**Turn off** in the row stops whatever plays. Choosing another source stops the
 one before, including your microphone in another tab. Your microphone asks
 for the browser's permission the first time and stops when you close the
 session page.
 
-The card is there only on devices whose microphone can be replaced: redroid
+The row is there only on devices whose microphone can be replaced: redroid
 sessions on Android 11 and later. Phones keep their own microphone (and
 Holtdroid denies it to the app under test, see
 [Phones](/configuration/phones/#sound-microphone-and-camera)).

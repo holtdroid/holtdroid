@@ -10,6 +10,7 @@ import {
   TypeIcon,
   ZoomInIcon,
   type LucideIcon,
+  SmartphoneIcon,
 } from "lucide-react"
 import { useTheme } from "next-themes"
 import { useEffect, useEffectEvent, useRef } from "react"
@@ -27,7 +28,6 @@ import {
   Tile,
 } from "@/components/session/shade"
 import { useDevice, useDeviceAction, useUpdateDevice } from "@/components/session/use-device"
-import { HoverCardTrigger } from "@/components/ui/hover-card"
 import { setScreenPrefs, useScreenPrefs } from "@/lib/screen-prefs"
 
 const fontScales = [0.85, 1, 1.15, 1.3, 1.5, 2].map((f) => ({ value: f, label: `${Math.round(f * 100)}%` }))
@@ -65,7 +65,7 @@ export function DisplayWidget({ provider, id }: { provider: string; id: string }
   const s = device.data
   if (!s) {
     return (
-      <ShadeCard aria-label="Display" disabled>
+      <ShadeCard aria-label="Display" icon={SmartphoneIcon} summary="Loading…" disabled>
         <CardLine icon={SunMediumIcon}>Display</CardLine>
       </ShadeCard>
     )
@@ -133,18 +133,19 @@ function Display({
 
   return (
     <ShadeRoot>
-      <HoverCardTrigger asChild>
-        <ShadeCard aria-label="Display" changed={changed}>
-          <span className="flex min-w-0 items-center gap-1.5 text-sm font-semibold tabular-nums">
-            <SunMediumIcon className="size-4 shrink-0 text-neutral-400" />
-            {s.autoBrightness ? "Auto" : `${s.brightness}%`}
-          </span>
-          <CardLine icon={s.darkMode ? MoonIcon : SunIcon}>{s.darkMode ? "Dark theme" : "Light theme"}</CardLine>
-          <CardLine icon={TypeIcon}>
-            Font {Math.round(s.fontScale * 100)}%{resized && ` · ${size?.label.toLowerCase() ?? `${s.density} dpi`}`}
-          </CardLine>
-        </ShadeCard>
-      </HoverCardTrigger>
+      <ShadeCard
+        aria-label="Display"
+        icon={SmartphoneIcon}
+        changed={changed}
+        summary={[
+          s.autoBrightness ? "Auto brightness" : `${s.brightness}%`,
+          s.darkMode ? "dark" : "light",
+          `font ${Math.round(s.fontScale * 100)}%`,
+          resized && (size?.label.toLowerCase() ?? `${s.density} dpi`),
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+      />
       <ShadePanel>
         <ShadeHeader
           title="Display"
@@ -194,7 +195,7 @@ function Display({
           </Note>
         </section>
         <section className="grid gap-2">
-          <h4 className="flex justify-between px-1 text-xs font-medium text-neutral-400">
+          <h4 className="flex justify-between px-1 text-xs font-medium text-muted-foreground">
             Rotation
             <span>{s.rotation % 2 ? "Landscape" : s.rotation === 2 ? "Upside down" : "Portrait"}</span>
           </h4>
@@ -246,7 +247,7 @@ function Display({
           </Section>
         )}
         <section className="grid gap-2">
-          <h4 className="px-1 text-xs font-medium text-neutral-400">Font size</h4>
+          <h4 className="px-1 text-xs font-medium text-muted-foreground">Font size</h4>
           <ShadeSlider
             key={`font-${fontStep}`}
             icon={TypeIcon}
@@ -259,7 +260,7 @@ function Display({
             onCommit={(i) => set({ fontScale: fontScales[i]?.value ?? 1 })}
           />
           <p
-            className="rounded-3xl bg-neutral-800 px-4 py-3 leading-snug text-neutral-100"
+            className="rounded-3xl bg-muted px-4 py-3 leading-snug text-foreground"
             style={{ fontSize: `${14 * s.fontScale}px` }}
           >
             This is how text looks in apps.
@@ -267,7 +268,7 @@ function Display({
         </section>
         {s.defaultDensity > 0 && (
           <section className="grid gap-2">
-            <h4 className="flex justify-between px-1 text-xs font-medium text-neutral-400">
+            <h4 className="flex justify-between px-1 text-xs font-medium text-muted-foreground">
               Display size
               <span className="tabular-nums">{s.density} dpi</span>
             </h4>

@@ -341,6 +341,13 @@ func (s *stubShaper) Refresh() { s.refreshes++ }
 
 func (s *stubShaper) Current() contract.NetworkProfile { return s.current }
 
+func (s *stubShaper) Step() (int, time.Time, bool) {
+	if p, _ := netem.Find(s.current); len(p.Steps) > 0 {
+		return 1, time.Unix(1760000000, 0), true
+	}
+	return 0, time.Time{}, false
+}
+
 func (s *stubShaper) Set(_ context.Context, id contract.NetworkProfile) error {
 	s.current = id
 	return nil
@@ -357,6 +364,9 @@ func TestControlsNetworkProfile(t *testing.T) {
 	s, err := c.Update(context.Background(), contract.DeviceSettings{NetworkProfile: new(contract.NetworkProfile("subway"))})
 	if err != nil || s.NetworkProfile != "subway" || len(s.NetworkProfiles) == 0 {
 		t.Fatalf("state %+v, %v", s, err)
+	}
+	if s.NetworkStep == nil || *s.NetworkStep != 1 || s.NetworkStepSince == nil {
+		t.Fatalf("step %v since %v", s.NetworkStep, s.NetworkStepSince)
 	}
 	s, err = c.Update(context.Background(), contract.DeviceSettings{NetworkRegion: &contract.NetworkRegionSettings{Region: "bd", Server: "singapore"}})
 	if err != nil || s.NetworkRegion == nil || s.NetworkRegion.Server != "singapore" || len(s.NetworkRegions) == 0 || len(s.NetworkServers) == 0 {

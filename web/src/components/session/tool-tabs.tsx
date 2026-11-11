@@ -1,43 +1,46 @@
-import {
-  CableIcon,
-  DatabaseZapIcon,
-  FolderIcon,
-  FrameIcon,
-  GlobeIcon,
-  type LucideIcon,
-  RouteIcon,
-  SignpostIcon,
-  SquareCodeIcon,
-  SquareTerminalIcon,
-  TerminalIcon,
-} from "lucide-react"
+import { ChevronDownIcon } from "lucide-react"
 import { type ReactNode, useMemo, useState } from "react"
 import type { SessionView } from "@/api/client"
 import { useReferences } from "@/api/queries"
 import { AdbGate } from "@/components/session/adb-gate"
+import type { AdbSession } from "@/components/session/adb-session"
 import { CachePanel } from "@/components/session/cache-panel"
 import { DNSPanel } from "@/components/session/dns-panel"
-import type { AdbSession } from "@/components/session/adb-session"
 import { FilesPanel } from "@/components/session/files-panel"
 import { LogcatPanel } from "@/components/session/logcat-panel"
-import { NetworkPanel } from "@/components/session/network-panel"
-import { SocketsPanel } from "@/components/session/sockets-panel"
-import { RoutesPanel } from "@/components/session/routes-panel"
 import { PixelPerfectPanel } from "@/components/session/pixel-perfect/panel"
 import type { PixelPerfect } from "@/components/session/pixel-perfect/state"
+import { RoutesPanel } from "@/components/session/routes-panel"
+import { SocketsPanel } from "@/components/session/sockets-panel"
 import { TerminalPanel } from "@/components/session/terminal-panel"
-import { useDevice } from "@/components/session/use-device"
 import { useDNS } from "@/components/session/use-dns"
 import { useConnectionsState } from "@/components/session/use-routes"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { cn } from "@/lib/utils"
 
-const adbTabs: { value: string; label: string; icon: LucideIcon }[] = [
-  { value: "logcat", label: "Logcat", icon: SquareTerminalIcon },
-  { value: "files", label: "Files", icon: FolderIcon },
-  { value: "terminal", label: "Terminal", icon: TerminalIcon },
+type Tool = { value: string; label: string }
+
+const primary: Tool[] = [
+  { value: "devtools", label: "DevTools" },
+  { value: "logcat", label: "Logcat" },
+  { value: "dns", label: "DNS" },
+  { value: "routes", label: "Routes" },
+  { value: "files", label: "Files" },
+  { value: "terminal", label: "Terminal" },
 ]
 
-const trigger = "flex-none gap-1.5 [&_svg]:size-3.5"
+const secondary: Tool[] = [
+  { value: "websockets", label: "WebSockets" },
+  { value: "cache", label: "Cache" },
+  { value: "pixel-perfect", label: "Pixel perfect" },
+]
 
 // ToolTabs keeps every opened tab mounted, so DevTools keeps its state and
 // the terminal its shell while another tab is shown.
@@ -70,22 +73,27 @@ export function ToolTabs({
     }),
     [session.package, session.label, session.versionName, session.capabilities?.screen],
   )
-  const network = !!useDevice(session.provider, session.id).data?.networkProfiles
   const dns = useDNS(session.provider, session.id).data?.available === true
   const routes = useConnectionsState(session.provider, session.id).data?.available === true
   const shell = session.capabilities?.shell !== false
-  const tabs = adbTabs.filter((t) => t.value !== "terminal" || shell)
-  const current =
-    (adb && tabs.some((t) => t.value === tab)) ||
-    (pixelPerfect && tab === "pixel-perfect") ||
-    (devtools && ["websockets", "cache"].includes(tab)) ||
-    (network && tab === "network") ||
-    (dns && tab === "dns") ||
-    (routes && tab === "routes")
-      ? tab
-      : "devtools"
+  const available: Record<string, boolean> = {
+    devtools: true,
+    logcat: !!adb,
+    files: !!adb,
+    terminal: !!adb && shell,
+    dns,
+    routes,
+    websockets: devtools,
+    cache: devtools,
+    "pixel-perfect": pixelPerfect,
+  }
+  const current = available[tab] ? tab : "devtools"
+  const shown = primary.filter((t) => available[t.value])
+  const more = secondary.filter((t) => available[t.value])
+  const active = more.find((t) => t.value === current)
+  const mounted = (value: string) => available[value] && opened.has(value)
 
-  const panel = (value: string, adbSession: AdbSession) => (
+  const adbPanel = (value: string, adbSession: AdbSession) => (
     <AdbGate session={adbSession}>
       {(a) =>
         value === "logcat" ? (
@@ -99,103 +107,82 @@ export function ToolTabs({
     </AdbGate>
   )
 
+  const content = "min-h-0 data-[state=inactive]:hidden"
+
   return (
-    <Tabs value={current} onValueChange={onTab} className="h-full gap-0">
-      {(adb || pixelPerfect || devtools || network || dns || routes) && (
-        <TabsList
-          variant="line"
-          className="h-9 w-full justify-start overflow-x-auto overflow-y-hidden rounded-none border-b px-2 [scrollbar-width:none]"
-        >
-          <TabsTrigger value="devtools" className={trigger}>
-            <SquareCodeIcon />
-            DevTools
-          </TabsTrigger>
-          {pixelPerfect && (
-            <TabsTrigger value="pixel-perfect" className={trigger}>
-              <FrameIcon />
-              Pixel perfect
-            </TabsTrigger>
-          )}
-          {devtools && (
-            <TabsTrigger value="websockets" className={trigger}>
-              <CableIcon />
-              WebSockets
-            </TabsTrigger>
-          )}
-          {devtools && (
-            <TabsTrigger value="cache" className={trigger}>
-              <DatabaseZapIcon />
-              Cache
-            </TabsTrigger>
-          )}
-          {network && (
-            <TabsTrigger value="network" className={trigger}>
-              <GlobeIcon />
-              Network
-            </TabsTrigger>
-          )}
-          {dns && (
-            <TabsTrigger value="dns" className={trigger}>
-              <SignpostIcon />
-              DNS
-            </TabsTrigger>
-          )}
-          {routes && (
-            <TabsTrigger value="routes" className={trigger}>
-              <RouteIcon />
-              Routes
-            </TabsTrigger>
-          )}
-          {adb &&
-            tabs.map((t) => (
-              <TabsTrigger key={t.value} value={t.value} className={trigger}>
-                <t.icon />
+    <section className="flex size-full min-h-0 flex-col overflow-hidden rounded-2xl border bg-card" aria-label="Tools">
+      <Tabs value={current} onValueChange={onTab} className="min-h-0 flex-1 gap-0">
+        <div className="flex items-center gap-5 border-b px-[18px]">
+          <TabsList
+            variant="line"
+            className="min-w-0 flex-1 justify-start overflow-x-auto overflow-y-hidden border-b-0 [scrollbar-width:none]"
+          >
+            {shown.map((t) => (
+              <TabsTrigger key={t.value} value={t.value}>
                 {t.label}
               </TabsTrigger>
             ))}
-        </TabsList>
-      )}
-      <TabsContent value="devtools" forceMount className="min-h-0 data-[state=inactive]:hidden">
-        {children}
-      </TabsContent>
-      {adb &&
-        tabs.map((t) =>
-          opened.has(t.value) ? (
-            <TabsContent key={t.value} value={t.value} forceMount className="min-h-0 data-[state=inactive]:hidden">
-              {panel(t.value, adb)}
-            </TabsContent>
-          ) : null,
+            {active && <TabsTrigger value={active.value}>{active.label}</TabsTrigger>}
+          </TabsList>
+          {more.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className={cn(
+                  "flex h-[42px] shrink-0 cursor-pointer items-center gap-1.5 text-sm font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:text-foreground",
+                )}
+              >
+                More
+                <ChevronDownIcon className="size-3.5" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-44">
+                <DropdownMenuRadioGroup value={current} onValueChange={onTab}>
+                  {more.map((t) => (
+                    <DropdownMenuRadioItem key={t.value} value={t.value}>
+                      {t.label}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
+        <TabsContent value="devtools" forceMount className={content}>
+          {children}
+        </TabsContent>
+        {adb &&
+          ["logcat", "files", "terminal"].map((value) =>
+            mounted(value) ? (
+              <TabsContent key={value} value={value} forceMount className={content}>
+                {adbPanel(value, adb)}
+              </TabsContent>
+            ) : null,
+          )}
+        {mounted("websockets") && (
+          <TabsContent value="websockets" forceMount className={content}>
+            <SocketsPanel provider={session.provider} id={session.id} />
+          </TabsContent>
         )}
-      {devtools && opened.has("websockets") && (
-        <TabsContent value="websockets" forceMount className="min-h-0 data-[state=inactive]:hidden">
-          <SocketsPanel provider={session.provider} id={session.id} />
-        </TabsContent>
-      )}
-      {devtools && opened.has("cache") && (
-        <TabsContent value="cache" forceMount className="min-h-0 data-[state=inactive]:hidden">
-          <CachePanel provider={session.provider} id={session.id} />
-        </TabsContent>
-      )}
-      {network && opened.has("network") && (
-        <TabsContent value="network" forceMount className="min-h-0 data-[state=inactive]:hidden">
-          <NetworkPanel provider={session.provider} id={session.id} pkg={session.package} />
-        </TabsContent>
-      )}
-      {dns && opened.has("dns") && (
-        <TabsContent value="dns" forceMount className="min-h-0 data-[state=inactive]:hidden">
-          <DNSPanel provider={session.provider} id={session.id} />
-        </TabsContent>
-      )}
-      {routes && opened.has("routes") && (
-        <TabsContent value="routes" forceMount className="min-h-0 data-[state=inactive]:hidden">
-          <RoutesPanel provider={session.provider} id={session.id} />
-        </TabsContent>
-      )}
-      {pixelPerfect && opened.has("pixel-perfect") && (
-        <TabsContent value="pixel-perfect" forceMount className="min-h-0 data-[state=inactive]:hidden">
-          <PixelPerfectPanel pp={pp} target={target} active={current === "pixel-perfect"} />
-        </TabsContent>
-      )}
-    </Tabs>
+        {mounted("cache") && (
+          <TabsContent value="cache" forceMount className={content}>
+            <CachePanel provider={session.provider} id={session.id} />
+          </TabsContent>
+        )}
+        {mounted("dns") && (
+          <TabsContent value="dns" forceMount className={content}>
+            <DNSPanel provider={session.provider} id={session.id} />
+          </TabsContent>
+        )}
+        {mounted("routes") && (
+          <TabsContent value="routes" forceMount className={content}>
+            <RoutesPanel provider={session.provider} id={session.id} />
+          </TabsContent>
+        )}
+        {mounted("pixel-perfect") && (
+          <TabsContent value="pixel-perfect" forceMount className={content}>
+            <PixelPerfectPanel pp={pp} target={target} active={current === "pixel-perfect"} />
+          </TabsContent>
+        )}
+      </Tabs>
+    </section>
   )
 }

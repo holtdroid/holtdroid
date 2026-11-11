@@ -62,6 +62,38 @@ func TestProfiles(t *testing.T) {
 	if len(Catalog()) != len(Profiles) || !seen[contract.NetworkFull] {
 		t.Error("catalog misses profiles")
 	}
+	for _, p := range Catalog() {
+		if p.ID == "subway" && (len(p.Steps) != 3 || p.Steps[2] != (contract.NetworkStep{Min: 5000, Max: 20000})) {
+			t.Errorf("subway steps %+v", p.Steps)
+		}
+		if p.ID == "lte-weak" && p.Burst != 3 {
+			t.Errorf("weak 4G burst %d", p.Burst)
+		}
+	}
+}
+
+func TestPosition(t *testing.T) {
+	subway, _ := Find("subway")
+	link, _ := Find("lte")
+	for _, tc := range []struct {
+		p       Profile
+		elapsed time.Duration
+		step    int
+		into    time.Duration
+		ok      bool
+	}{
+		{subway, 0, 0, 0, true},
+		{subway, 29 * s, 0, 29 * s, true},
+		{subway, 31 * s, 1, s, true},
+		{subway, 50 * s, 2, 5 * s, true},
+		{subway, 58 * s, 0, 500 * ms, true},
+		{link, time.Hour, 0, 0, false},
+	} {
+		step, into, ok := Position(tc.p, tc.elapsed)
+		if step != tc.step || into != tc.into || ok != tc.ok {
+			t.Errorf("%s after %v: step %d into %v %v, want %d %v %v", tc.p.ID, tc.elapsed, step, into, ok, tc.step, tc.into, tc.ok)
+		}
+	}
 }
 
 func TestRegions(t *testing.T) {
@@ -219,8 +251,14 @@ func TestSetLink(t *testing.T) {
 
 func TestSetScenario(t *testing.T) {
 	s, r := newTestShaper()
+	if _, _, ok := s.Step(); ok {
+		t.Error("a step without a scenario")
+	}
 	if err := s.Set(t.Context(), "elevator"); err != nil {
 		t.Fatal(err)
+	}
+	if step, since, ok := s.Step(); !ok || step != 0 || since.IsZero() {
+		t.Errorf("step %d since %v, %v", step, since, ok)
 	}
 	r.tick <- time.Time{}
 	r.tick <- time.Time{}

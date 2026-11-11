@@ -4,8 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import { agentClient, api, type Camera, type CameraSource, unwrap } from "@/api/client"
 import { MediaLibrary } from "@/components/session/media-library"
-import { CardLine, Note, Row, Section, ShadeCard, ShadeHeader, ShadePanel, ShadeRoot } from "@/components/session/shade"
-import { HoverCardTrigger } from "@/components/ui/hover-card"
+import { Note, Row, Section, ShadeCard, ShadeHeader, ShadePanel, ShadeRoot } from "@/components/session/shade"
 import { type BrowserCamera, cameraURL, openBrowserCamera } from "@/lib/camera"
 
 type Card = Extract<CameraSource, "bars" | "black">
@@ -76,17 +75,12 @@ export function CameraWidget({ provider, id }: { provider: string; id: string })
 
   return (
     <ShadeRoot>
-      <HoverCardTrigger asChild>
-        <ShadeCard aria-label="Camera" changed={source !== "bars"}>
-          <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
-            <CameraIcon className="size-4 shrink-0 text-neutral-400" />
-            <span className="truncate">Camera</span>
-          </span>
-          <CardLine icon={source === "browser" ? WebcamIcon : source === "black" ? CameraOffIcon : TvIcon}>
-            {c.inUse ? `${label} · in use` : label}
-          </CardLine>
-        </ShadeCard>
-      </HoverCardTrigger>
+      <ShadeCard
+        aria-label="Camera"
+        icon={source === "browser" ? WebcamIcon : source === "black" ? CameraOffIcon : CameraIcon}
+        changed={source !== "bars"}
+        summary={c.inUse ? `${label} · in use` : label}
+      />
       <ShadePanel>
         <ShadeHeader
           title="Camera"

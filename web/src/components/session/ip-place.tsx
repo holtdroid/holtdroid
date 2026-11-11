@@ -27,9 +27,7 @@ export function Place({ info, edge, short }: { info?: IPInfo; edge?: string; sho
           .filter(Boolean)
           .join("\n")}
       >
-        <span className="shrink-0 rounded-sm bg-sky-500/15 px-1 text-[10.5px] leading-4 text-sky-700 dark:text-sky-300">
-          anycast
-        </span>
+        <span className="shrink-0 rounded-sm bg-info-soft px-1 text-[10.5px] leading-4 text-info">anycast</span>
         <span className={edge ? "shrink-0" : "truncate"}>{cdnName(info.cdn)}</span>
         {edge && (
           <span className="truncate">

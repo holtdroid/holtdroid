@@ -20,11 +20,9 @@ import { type ReactNode, useMemo, useState } from "react"
 import { toast } from "sonner"
 import { agentClient, type Metrics, type SessionView, unwrap } from "@/api/client"
 import { useAppData, useSaveAppData } from "@/api/queries"
-import { AppIcon } from "@/components/app-icon"
 import { type AdbSession, useAdbStatus } from "@/components/session/adb-session"
 import { cpuLevel, MetricTile, percent, ProcessList, sum } from "@/components/session/load"
 import {
-  CardLine,
   Chips,
   InfoList,
   Note,
@@ -37,7 +35,6 @@ import {
   ShadeRoot,
   Tile,
 } from "@/components/session/shade"
-import { HoverCardTrigger } from "@/components/ui/hover-card"
 import { run, shq } from "@/lib/adb"
 import { bucketNames, parsePackage, permissionLabel, standbyBuckets } from "@/lib/android"
 import { formatBytes } from "@/lib/format"
@@ -67,8 +64,8 @@ function AdbState({ session }: { session: AdbSession }) {
   const status = useAdbStatus(session)
   if (status.state === "ready") return null
   return (
-    <div className="flex items-center gap-3 rounded-3xl bg-neutral-800 py-2 pr-2 pl-4 text-sm">
-      <span className="min-w-0 flex-1 text-neutral-300">
+    <div className="flex items-center gap-3 rounded-3xl bg-muted py-2 pr-2 pl-4 text-sm">
+      <span className="min-w-0 flex-1 text-muted-foreground">
         {status.state === "error" ? `ADB is unreachable: ${status.error}` : "Connecting to ADB for the rest…"}
       </span>
       {status.state === "error" && (
@@ -110,21 +107,18 @@ export function AppWidget({
   const app = metrics.at(-1)?.app
   return (
     <ShadeRoot>
-      <HoverCardTrigger asChild>
-        <ShadeCard aria-label="App">
-          <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
-            <AppIcon src={session.iconUrl} className="size-4 shrink-0 rounded" />
-            <span className="truncate">{label}</span>
-          </span>
-          <CardLine icon={appRunning ? PlayIcon : OctagonXIcon}>{appRunning ? "Running" : "Closed"}</CardLine>
-          {session.versionName && <CardLine icon={PackageIcon}>{session.versionName}</CardLine>}
-          {app && (
-            <CardLine icon={CpuIcon}>
-              {percent(sum(app.processes.map((p) => p.cpu)))} · {formatBytes(sum(app.processes.map((p) => p.memory)))}
-            </CardLine>
-          )}
-        </ShadeCard>
-      </HoverCardTrigger>
+      <ShadeCard
+        aria-label="App"
+        icon={AppWindowIcon}
+        summary={[
+          appRunning ? "Running" : "Closed",
+          session.versionName,
+          app &&
+            `${percent(sum(app.processes.map((p) => p.cpu)))} · ${formatBytes(sum(app.processes.map((p) => p.memory)))}`,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+      />
       <ShadePanel>
         <ShadeHeader title={label} summary={[session.package, session.versionName].filter(Boolean).join(" · ")} />
         <AppActions provider={provider} id={id} session={session} appRunning={appRunning} adbSession={adb} />
@@ -278,7 +272,7 @@ function AppDetails({ adb, pkg }: { adb: Adb; pkg: string }) {
   return (
     <>
       <section className="grid gap-1.5">
-        <h4 className="px-1 text-xs font-medium text-neutral-400">Details</h4>
+        <h4 className="px-1 text-xs font-medium text-muted-foreground">Details</h4>
         <InfoList
           items={[
             ["Version", i ? `${i.versionName ?? "?"}${i.versionCode ? ` (${i.versionCode})` : ""}` : "…"],
@@ -292,7 +286,7 @@ function AppDetails({ adb, pkg }: { adb: Adb; pkg: string }) {
 
       <Section title="Permissions">
         {i?.permissions.length === 0 && (
-          <p className="rounded-md bg-neutral-800 px-4 py-2.5 text-xs text-neutral-400">
+          <p className="rounded-md bg-muted px-4 py-2.5 text-xs text-muted-foreground">
             The app asks for no runtime permissions.
           </p>
         )}
@@ -311,7 +305,7 @@ function AppDetails({ adb, pkg }: { adb: Adb; pkg: string }) {
       </Section>
 
       <section className="grid gap-2">
-        <h4 className="px-1 text-xs font-medium text-neutral-400">In the background</h4>
+        <h4 className="px-1 text-xs font-medium text-muted-foreground">In the background</h4>
         <Tile
           icon={MoonStarIcon}
           label="Deep doze"
@@ -368,7 +362,7 @@ function DeepLinks({ adb, pkg }: { adb: Adb; pkg: string }) {
 
   return (
     <section className="grid gap-2">
-      <h4 className="px-1 text-xs font-medium text-neutral-400">Deep link</h4>
+      <h4 className="px-1 text-xs font-medium text-muted-foreground">Deep link</h4>
       <form
         className="flex gap-2"
         onSubmit={(e) => {
@@ -381,7 +375,7 @@ function DeepLinks({ adb, pkg }: { adb: Adb; pkg: string }) {
           onChange={(e) => setUrl(e.target.value)}
           placeholder="myapp://checkout?id=42 or https://…"
           aria-label="Link to open"
-          className="h-10 min-w-0 flex-1 rounded-full bg-neutral-800 px-4 font-mono text-xs text-neutral-100 outline-none placeholder:text-neutral-500 focus-visible:ring-2 focus-visible:ring-sky-300"
+          className="h-10 min-w-0 flex-1 rounded-full bg-muted px-4 font-mono text-xs text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
         />
         <ShadeButton primary type="submit" disabled={open.isPending || !url.trim()}>
           <ExternalLinkIcon />
@@ -399,10 +393,10 @@ function DeepLinks({ adb, pkg }: { adb: Adb; pkg: string }) {
       {history.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {history.map((h) => (
-            <span key={h} className="inline-flex max-w-full items-center rounded-full bg-neutral-800 text-xs">
+            <span key={h} className="inline-flex max-w-full items-center rounded-full bg-muted text-xs">
               <button
                 type="button"
-                className="truncate py-1.5 pl-3 font-mono text-neutral-200 hover:text-white"
+                className="truncate py-1.5 pl-3 font-mono text-foreground hover:text-foreground"
                 onClick={() => setUrl(h)}
                 title={h}
               >
@@ -411,7 +405,7 @@ function DeepLinks({ adb, pkg }: { adb: Adb; pkg: string }) {
               <button
                 type="button"
                 aria-label={`Forget ${h}`}
-                className="px-2 text-neutral-500 hover:text-neutral-200"
+                className="px-2 text-muted-foreground hover:text-foreground"
                 onClick={() => remember(history.filter((x) => x !== h))}
               >
                 <XIcon className="size-3" />
@@ -421,7 +415,7 @@ function DeepLinks({ adb, pkg }: { adb: Adb; pkg: string }) {
         </div>
       )}
       {result && (
-        <pre className="overflow-x-auto rounded-2xl bg-neutral-800 p-3 text-xs whitespace-pre-wrap text-neutral-300">
+        <pre className="overflow-x-auto rounded-2xl bg-muted p-3 text-xs whitespace-pre-wrap text-muted-foreground">
           {result}
         </pre>
       )}
@@ -438,7 +432,7 @@ function AppLoad({ metrics }: { metrics: Metrics[] }) {
   const jank = level(app.jank, 10, 25)
   return (
     <section className="grid gap-2">
-      <h4 className="px-1 text-xs font-medium text-neutral-400">Load</h4>
+      <h4 className="px-1 text-xs font-medium text-muted-foreground">Load</h4>
       <div className="grid grid-cols-2 gap-2">
         <MetricTile
           icon={CpuIcon}

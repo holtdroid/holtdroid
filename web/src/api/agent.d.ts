@@ -1032,6 +1032,16 @@ export interface components {
             networkServers?: components["schemas"]["NetworkServerInfo"][];
             /**
              * Format: int64
+             * @description the step of the networkProfile scenario running now, from 0; empty unless it is a scenario
+             */
+            networkStep?: number;
+            /**
+             * Format: date-time
+             * @description when networkStep began
+             */
+            networkStepSince?: string;
+            /**
+             * Format: int64
              * @description the display's highest refresh rate in Hz; 0 when the device doesn't report it
              */
             refreshRate: number;
@@ -1283,6 +1293,11 @@ export interface components {
             target: number;
         };
         NetworkProfileInfo: {
+            /**
+             * Format: int64
+             * @description mean length of a run of lost packets; empty for independent losses
+             */
+            burst?: number;
             description: string;
             /**
              * Format: int64
@@ -1308,6 +1323,8 @@ export interface components {
             rtt?: number;
             /** @description conditions change over time */
             scenario: boolean;
+            /** @description a scenario's steps, looped in order */
+            steps?: components["schemas"]["NetworkStep"][];
             /**
              * Format: int64
              * @description upload kbit/s; empty is unlimited
@@ -1382,6 +1399,20 @@ export interface components {
              */
             rtt: number;
             server: string;
+        };
+        NetworkStep: {
+            /**
+             * Format: int64
+             * @description longest hold, ms
+             */
+            max: number;
+            /**
+             * Format: int64
+             * @description shortest hold, ms
+             */
+            min: number;
+            /** @description the link held; empty is an outage, every packet dropped */
+            profile: string;
         };
         ProcessLoad: {
             /**

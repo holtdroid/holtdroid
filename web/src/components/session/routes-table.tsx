@@ -20,10 +20,10 @@ import { cn } from "@/lib/utils"
 const cols = "grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1.6fr)_72px_52px_80px_minmax(0,1fr)]"
 
 const flagTones: Record<RouteFlag["id"], string> = {
-  far: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
-  churn: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
-  bypass: "bg-violet-500/15 text-violet-700 dark:text-violet-300",
-  plain: "bg-danger/15 text-danger",
+  far: "bg-warning-soft text-warning",
+  churn: "bg-warning-soft text-warning",
+  bypass: "bg-violet-soft text-violet",
+  plain: "bg-danger-soft text-danger",
 }
 
 function FlagBadge({ flag }: { flag: RouteFlag }) {
@@ -88,7 +88,7 @@ export function RoutesTable({
         <span className="text-muted-foreground">
           {sum.servers} {sum.servers === 1 ? "name" : "names"} · {sum.countries.length}{" "}
           {sum.countries.length === 1 ? "country" : "countries"} · {sum.cdn} on a CDN edge
-          {sum.far > 0 && <span className="text-amber-700 dark:text-amber-400"> · {sum.far} on another continent</span>}
+          {sum.far > 0 && <span className="text-warning"> · {sum.far} on another continent</span>}
         </span>
         <Button
           size="xs"
@@ -233,7 +233,7 @@ function RouteDetails({
                 <span className="flex min-w-0 items-baseline gap-2">
                   <Place info={info} edge={route.edge} />
                   {isFar(info, exitInfo) && (
-                    <span className="shrink-0 text-amber-700 dark:text-amber-400">
+                    <span className="shrink-0 text-warning">
                       {continentName(info?.continent)}, the exit is in {continentName(exitInfo?.continent)}
                     </span>
                   )}

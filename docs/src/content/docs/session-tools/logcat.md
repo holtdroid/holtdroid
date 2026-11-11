@@ -80,7 +80,10 @@ crash's `*** *** ***` from `DEBUG` in the crash buffer) and the report names
 the app's process (`Process: <package>` for Java, `>>> <package> <<<` or
 the app's uid for a native one), a notice
 _The app crashed_ pops up on any tab with the first five lines of the stack
-trace. It stays for 15 seconds; its **Logcat** button opens this tab.
+trace. It stays for 15 seconds; its **Logcat** button opens this tab. A card
+over the device's screen says _… crashed_ with the exception's line and the
+time until you dismiss it, with **Logcat** and **Reopen**, which starts the
+app again.
 
 ## Common tasks
 
@@ -99,7 +102,7 @@ holds only what happened since.
 
 For a bug report with a screenshot, device and app details and this log
 (the whole device, whatever the filters), use **Bundle** in the **Device**
-card: see [ADB tools](/concepts/adb/).
+row: see [ADB tools](/concepts/adb/).
 
 ## In recordings
 

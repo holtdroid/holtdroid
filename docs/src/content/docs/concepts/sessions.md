@@ -33,16 +33,53 @@ stateDiagram-v2
 `failed` sessions keep their slot until they are stopped or reaped, so the
 reason stays visible on the home page.
 
-## The app inside a session
+## The session page
 
 The browser tab of a session page is titled with the app's name, so several
-open sessions are easy to tell apart.
+open sessions are easy to tell apart. The page has a header and three
+columns.
+
+The **header** has the app's icon, name, version and state, and badges for
+the device (model or screen and its size in pixels), the Android version,
+the WebView and the VPN location, then the slot's label. On the right:
+
+- **Stops when idle in** (or **Stops in**, when the session's lifetime ends
+  first) with the time left and a bar of five segments that empty as the
+  deadline nears; it turns amber in the last five minutes;
+- with [recordings](/concepts/recordings/) on: **Record**, or while
+  recording the elapsed time, which adds a marker when clicked; **Share**
+  copies the recording's link, and the **…** menu adds a marker, opens the
+  recording, stops sharing or stops recording;
+- **Extend** and **Stop**.
+
+The **Device** panel on the left holds the device's controls as rows in
+three tabs: **Environment** (Network, Location, Battery, Language, Time,
+Clipboard, Display), **Media** (Stream, Microphone, Camera, Recording) and
+**App** (App, Device, SSH). Each row shows a summary; the chevron opens it
+in place with all of its controls, and a row with something changed from
+the default is marked **Changed**. The search button filters the rows of
+all three tabs by name. Rows a session can't use (a camera on a device
+without one) aren't shown.
+
+In the middle is the **stage**: the device's screen in its frame, with a
+toolbar beside it (under it while the screen is in landscape): Back, Home,
+Recent apps, Notifications, Quick settings; Rotate (hover it for left and
+right), Screenshot, the keyboard mode (text input or a USB keyboard),
+Volume (hover for the slider and mute), Power (click for the key, hover for
+wake, lock and screen off and what the key does); and **Restart app**. The
+stage and the tools card on the right share the space; drag the handle
+between them, or let the stage fit the screen.
+
+On the right are the [session tools](/session-tools/overview/).
+
+## The app inside a session
 
 When the app is closed or crashes it stays closed: the device stays `ready`
-and the play button next to the app's name in the session header starts it
-again; restart, reinstall and **Save app data now** sit next to it. Starting
-it from the device's app drawer works as well; DevTools and clipboard sync
-attach either way.
+and a card over the screen says so, with **Reopen**. After a crash the card
+names the exception and has **Logcat**, which opens the stack trace, and
+can be dismissed. Restart, reinstall and **Save app data now** are in the
+App row too. Starting it from the device's app drawer works as well;
+DevTools and clipboard sync attach either way.
 
 On emulator sessions the home screen holds only the app under test, on a
 wallpaper with the Holtdroid logo; the system apps are in the app drawer
@@ -63,27 +100,31 @@ If the install fails, the previous build keeps running.
 
 ## The screen
 
-While the device's display is off or its lock screen is showing, a
-translucent badge in the middle of the screen says so. Right-click the
-screen to wake it, or use **Wake and unlock** under the power key on the
-side of the phone. The badge
-fades away under the mouse and lets clicks through to the device.
+States of the device show as a small card over the last frame instead of
+hiding it:
+
+- **Screen is off**, since when and for how long, with **Wake**;
+  right-clicking the screen wakes it too;
+- **Locked**, with **Unlock**; swiping up on the screen works as well;
+- **Reconnecting to the device**, with how old the last frame is: the frame
+  turns grey and input pauses until the stream is back;
+- **… crashed** or **… is closed** at the top (see above).
 
 ## Metrics
 
-The cards next to the phone show the load every two seconds. The app card
+The App and Device rows show the load every two seconds. The App row
 has the app's own CPU and memory, per process too (WebView renderers
 included), and the frames it renders with how many of them are janky. The
-device card has the device's CPU and memory, free space on `/data`,
+Device row has the device's CPU and memory, free space on `/data`,
 temperatures and, for emulators, the CPU, memory and throttling of the
 session Pod (Android, the agent and the VPN sidecar together). Android in redroid runs on the node's kernel, whose `/proc` shows
 the whole node, so an emulator's device CPU and memory are the Pod's: its
 cores are the Pod's CPU limit, its memory the Pod's memory limit, and the
 app's CPU is a percent of that limit. Its sensor readings and the total of
 `/data` are the node's. The screen stream's own numbers (frames shown,
-bitrate and dropped frames, as decoded in this browser) are in the stream
-card next to the phone, and the device's network traffic with the external
-IP in the network card.
+bitrate and dropped frames, as decoded in this browser) are in the Stream
+row, and the device's network traffic with the external IP in the Network
+row.
 
 The device is only measured while a session page is open and visible.
 

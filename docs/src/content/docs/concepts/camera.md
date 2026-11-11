@@ -7,8 +7,8 @@ sidebar:
 
 redroid devices have no camera of their own. Sessions on Android 13, 14 and
 15 get one from Holtdroid: a back camera that any app can open (Camera2,
-CameraX, a WebView's `getUserMedia`). The **Camera** card on the session page
-chooses what it shows.
+CameraX, a WebView's `getUserMedia`). The **Camera** row of the session's Device
+panel (tab **Media**) chooses what it shows.
 
 | Source       | What apps see                                                                          |
 | ------------ | -------------------------------------------------------------------------------------- |
@@ -22,7 +22,7 @@ is live, frozen or late. Images and videos are scaled to fill the frame the
 app asked for and cut at the center, so any aspect ratio works; the picture
 is upright on a phone held in portrait, as with a real back camera.
 
-The card says **in use** while an app has the camera open. Your camera asks
+The row says **in use** while an app has the camera open. Your camera asks
 for the browser's permission the first time, sends 15 frames a second
 (about 3–7 Mbit/s up) and stops when you close the session page or pick
 another source.
@@ -31,7 +31,7 @@ another source.
 
 Images and videos come from the same library as the
 [microphone](/concepts/microphone/)'s files: add them from either
-card. Each user has `media.quota` (5 GiB by default).
+row. Each user has `media.quota` (5 GiB by default).
 
 ## Load
 
@@ -51,4 +51,4 @@ connects to the agent over the abstract socket `@holtdroid-camera`, asks for
 the largest stream's size and reads raw frames that ffmpeg renders from the
 chosen source; it scales them into each of the app's buffers and encodes
 JPEGs for still captures on the CPU, without the GPU. Android 11 and 12, and
-phones, have no Holtdroid camera, and the card is not shown.
+phones, have no Holtdroid camera, and the row is not shown.
