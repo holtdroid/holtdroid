@@ -4,9 +4,9 @@ import DockIcon from "../dock/DockIcon.astro"
 
 const cards = [
   {
-    title: "On your laptop",
-    badge: "No cluster",
-    text: "The whole UI with simulated devices that stream a recorded screen.",
+    title: "On Docker",
+    badge: "Soon",
+    text: "Docker Compose on Windows, macOS and Linux is on the way. Until then, try the UI with simulated devices.",
     code: "git clone https://github.com/holtdroid/holtdroid\ncd holtdroid && mise install && make dev",
     comment: "# :8080",
     link: { label: "Local development", href: "/start/local-development/" },
@@ -14,7 +14,7 @@ const cards = [
   {
     title: "On Kubernetes",
     badge: "Helm",
-    text: "Nodes with binder run Android in containers, several per node.",
+    text: "Nodes with binder run Android in containers, several per node. x86_64 nodes for now, arm64 soon.",
     code: "helm install holtdroid \\\n  oci://ghcr.io/holtdroid/charts/holtdroid \\\n  -n holtdroid -f values.yaml",
     comment: "",
     link: { label: "Installation", href: "/start/installation/" },
