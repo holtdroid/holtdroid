@@ -4,12 +4,14 @@ import { cn } from "@/lib/utils"
 import css from "./guides.css?inline"
 import { Portal } from "./portal"
 import { loadScenario } from "./scenarios"
+import { clip, reveal, type Rect } from "./scroll"
 import { stateAt, type Phase } from "./state"
 import type { Lang, Scenario, Step } from "./types"
 
 const WIDTH = 1180
 const HEIGHT = 720
 const SPEEDS = [1, 1.5, 2]
+const VEIL = "0 0 0 9999px rgb(0 0 0 / 0.3)"
 
 const ui = {
   en: {
@@ -78,17 +80,30 @@ function readTime(step: Step, lang: Lang) {
   return step.hold ?? Math.min(7000, Math.max(2600, step.text[lang].length * 45))
 }
 
-function center(stage: HTMLElement, target: string | undefined, scale: number) {
-  if (!target) return null
-  const el = stage.querySelector<HTMLElement>(`[data-g="${CSS.escape(target)}"]`)
+function find(stage: HTMLElement, target: string | undefined) {
+  return target ? stage.querySelector<HTMLElement>(`[data-g="${CSS.escape(target)}"]`) : null
+}
+
+function locate(stage: HTMLElement, target: string | undefined, scale: number) {
+  const el = find(stage, target)
   if (!el) return null
-  const r = el.getBoundingClientRect()
   const base = stage.getBoundingClientRect()
+  const scene = (r: DOMRect): Rect => ({
+    top: (r.top - base.top) / scale,
+    left: (r.left - base.left) / scale,
+    bottom: (r.bottom - base.top) / scale,
+    right: (r.right - base.left) / scale,
+  })
+  const view = el.closest<HTMLElement>("[data-scroll]")
+  const r = scene(el.getBoundingClientRect())
+  const shown = view ? clip(r, scene(view.getBoundingClientRect())) : r
+  if (!shown) return null
   return {
-    x: (r.left - base.left) / scale,
-    y: (r.top - base.top) / scale,
-    w: r.width / scale,
-    h: r.height / scale,
+    x: shown.left,
+    y: shown.top,
+    w: shown.right - shown.left,
+    h: shown.bottom - shown.top,
+    modal: !!el.closest("[data-modal]"),
   }
 }
 
@@ -186,17 +201,23 @@ export function Player({ sc, lang }: { sc: Scenario; lang: Lang }) {
   useEffect(() => {
     if (!visible || !step.target) return undefined
     const raf = requestAnimationFrame(() => {
-      const el = stageRef.current?.querySelector<HTMLElement>(`[data-g="${CSS.escape(step.target ?? "")}"]`)
+      const el = stageRef.current && find(stageRef.current, step.target)
       const box = el?.closest<HTMLElement>("[data-scroll]")
       if (!el || !box) return
-      const r = el.getBoundingClientRect()
-      const b = box.getBoundingClientRect()
-      const fit = (start: number, end: number, size: number, scroll: number) =>
-        start >= 8 && end <= size - 8 ? scroll : scroll + start - Math.max(8, (size - (end - start)) / 3)
+      const to = reveal(
+        el.getBoundingClientRect(),
+        box.getBoundingClientRect(),
+        { top: box.scrollTop * scale, left: box.scrollLeft * scale },
+        {
+          top: (box.scrollHeight - box.clientHeight) * scale,
+          left: (box.scrollWidth - box.clientWidth) * scale,
+        },
+        8 * scale,
+      )
       box.scrollTo({
-        top: fit((r.top - b.top) / scale, (r.bottom - b.top) / scale, b.height / scale, box.scrollTop),
-        left: fit((r.left - b.left) / scale, (r.right - b.left) / scale, b.width / scale, box.scrollLeft),
-        behavior: "smooth",
+        top: to.top / scale,
+        left: to.left / scale,
+        behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
       })
     })
     return () => cancelAnimationFrame(raf)
@@ -208,17 +229,18 @@ export function Player({ sc, lang }: { sc: Scenario; lang: Lang }) {
     const tick = () => {
       const stage = stageRef.current
       if (stage) {
-        const at = center(stage, step.target, scale)
+        const at = locate(stage, step.target, scale)
         const cursor = cursorRef.current
         if (at && cursor) {
           const next = `translate(${at.x + at.w / 2}px, ${at.y + at.h * 0.55}px)`
           if (cursor.style.transform !== next) cursor.style.transform = next
         }
         const focus = focusRef.current
-        const box = center(stage, hint ?? step.target, scale)
+        const box = locate(stage, hint ?? step.target, scale)
         if (focus) {
           if (box) {
             focus.style.opacity = "1"
+            focus.style.boxShadow = box.modal ? "none" : VEIL
             focus.style.transform = `translate(${box.x - 4}px, ${box.y - 4}px)`
             focus.style.width = `${box.w + 8}px`
             focus.style.height = `${box.h + 8}px`
@@ -281,7 +303,7 @@ export function Player({ sc, lang }: { sc: Scenario; lang: Lang }) {
             <div
               ref={focusRef}
               className="hd-focus ring-info pointer-events-none absolute top-0 left-0 z-[60] rounded-xl ring-3"
-              style={{ opacity: 0, boxShadow: "0 0 0 9999px rgb(0 0 0 / 0.3)" }}
+              style={{ opacity: 0 }}
             />
             <div
               ref={cursorRef}
