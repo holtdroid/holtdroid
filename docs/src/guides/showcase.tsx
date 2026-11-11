@@ -1,83 +1,61 @@
-import {
-  BugIcon,
-  CodeXmlIcon,
-  GlobeIcon,
-  type LucideIcon,
-  RocketIcon,
-  RulerIcon,
-  SignpostIcon,
-  SmartphoneIcon,
-} from "lucide-react"
-import { Suspense, use, useState, useTransition } from "react"
-import { cn } from "@/lib/utils"
+import { useEffect, useRef, useState } from "react"
 import css from "./guides.css?inline"
-import { Player } from "./player"
-import { loadScenario } from "./scenarios"
+import { Portal } from "./portal"
+import { defaults } from "./portal/data"
+import type { PortalState } from "./types"
 
-type Scene = { guide: string; label: string; icon: LucideIcon; href: string }
+const WIDTH = 1180
+const HEIGHT = 720
 
-const base = "/guides"
+export type View = [x: number, y: number, width: number, height: number]
 
-export const scenes: Scene[] = [
-  { guide: "launch-app", label: "Launch", icon: RocketIcon, href: `${base}/first-steps/launch-app/` },
-  { guide: "session-tour", label: "Session", icon: SmartphoneIcon, href: `${base}/first-steps/session-tour/` },
-  { guide: "devtools", label: "DevTools", icon: CodeXmlIcon, href: `${base}/web/devtools/` },
-  { guide: "vpn", label: "VPN", icon: GlobeIcon, href: `${base}/conditions/vpn/` },
-  { guide: "dns-routes", label: "DNS", icon: SignpostIcon, href: `${base}/conditions/dns-routes/` },
-  { guide: "pixel-perfect", label: "Pixel perfect", icon: RulerIcon, href: `${base}/design/pixel-perfect/` },
-  { guide: "record-share", label: "Recordings", icon: BugIcon, href: `${base}/recordings/record-share/` },
-]
+const FULL: View = [0, 0, WIDTH, HEIGHT]
 
-function Scene({ guide, onFinish }: { guide: string; onFinish: () => void }) {
-  const sc = use(loadScenario(guide))
-  return <Player sc={{ ...sc, steps: sc.steps.slice(0, 4) }} lang="en" onFinish={onFinish} compact pace={0.3} />
+export function sceneState(state: Partial<PortalState>): PortalState {
+  return { ...defaults, ...state }
 }
 
-for (const s of scenes) void loadScenario(s.guide)
+export default function Showcase({
+  state,
+  view = FULL,
+  label,
+}: {
+  state: Partial<PortalState>
+  view?: View
+  label: string
+}) {
+  const [x, y, w, h] = view
+  const frameRef = useRef<HTMLDivElement>(null)
+  const [width, setWidth] = useState<number | null>(null)
+  const scale = (width ?? w) / w
 
-export default function Showcase() {
-  const [index, setIndex] = useState(0)
-  const [, startTransition] = useTransition()
-  const show = (i: number) => startTransition(() => setIndex(i))
-  const scene = scenes[index]!
+  useEffect(() => {
+    const frame = frameRef.current
+    if (!frame) return undefined
+    const resize = new ResizeObserver(([entry]) => entry && setWidth(entry.contentRect.width))
+    resize.observe(frame)
+    return () => resize.disconnect()
+  }, [])
+
   return (
-    <div className="hd-demo not-content grid gap-6">
+    <div className="hd-demo not-content" role="img" aria-label={label}>
       <style href="hd-guides" precedence="default">
         {css}
       </style>
-      <div
-        role="tablist"
-        aria-label="What you can do"
-        className="flex w-fit max-w-full justify-self-center gap-1 overflow-x-auto rounded-full border border-white/10 bg-white/[0.03] p-1"
-      >
-        {scenes.map((s, i) => (
-          <button
-            key={s.guide}
-            type="button"
-            role="tab"
-            aria-selected={i === index}
-            onClick={() => show(i)}
-            className={cn(
-              "flex h-9 shrink-0 items-center gap-2 rounded-full px-4 text-sm font-medium transition-colors [&_svg]:size-4",
-              i === index ? "bg-[#3ddc84] text-[#06210f]" : "text-neutral-400 hover:bg-white/5 hover:text-white",
-            )}
-          >
-            <s.icon />
-            {s.label}
-          </button>
-        ))}
+      <div ref={frameRef} className="relative overflow-hidden" style={{ aspectRatio: `${w} / ${h}` }}>
+        <div
+          inert
+          className="pointer-events-none absolute top-0 left-0 origin-top-left select-none"
+          style={{
+            width: WIDTH,
+            height: HEIGHT,
+            transform: `scale(${scale}) translate(${-x}px, ${-y}px)`,
+            visibility: width === null ? "hidden" : undefined,
+          }}
+        >
+          <Portal s={sceneState(state)} />
+        </div>
       </div>
-      <div className="rounded-[1.25rem] border border-white/10 bg-white/[0.03] p-2 shadow-[0_40px_120px_-40px_rgb(61_220_132/0.35)]">
-        <Suspense fallback={<div className="aspect-[1180/760] rounded-xl bg-white/[0.03]" />}>
-          <Scene key={scene.guide} guide={scene.guide} onFinish={() => show((index + 1) % scenes.length)} />
-        </Suspense>
-      </div>
-      <a
-        href={scene.href}
-        className="justify-self-center text-sm text-neutral-400 no-underline transition-colors hover:text-white"
-      >
-        Open this as a step-by-step guide →
-      </a>
     </div>
   )
 }

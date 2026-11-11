@@ -1,45 +1,71 @@
 ---
-import { Icon } from "@astrojs/starlight/components"
+import LanguageSelect from "@astrojs/starlight/components/LanguageSelect.astro"
 import SidebarPersister from "@astrojs/starlight/components/SidebarPersister.astro"
-import MobileMenuFooter from "@astrojs/starlight/components/MobileMenuFooter.astro"
-import { externalLinks, localized, topics } from "../../topics.mjs"
+import { localized, topics } from "../../topics.mjs"
 import AiDisclaimer from "../AiDisclaimer.astro"
+import DockIcon from "../dock/DockIcon.astro"
 import SidebarList from "./SidebarList.astro"
 
-const { locale, sidebar } = Astro.locals.starlightRoute
+const { id, locale, sidebar } = Astro.locals.starlightRoute
 const current = Astro.locals.starlightSidebarTopics?.topics ?? []
 const active = current.findIndex((t) => t.isCurrent)
 const topic = active >= 0 ? topics[active] : undefined
+const lang = locale === "ru" || locale === "uk" ? locale : "en"
+const translated = /^(?:(?:uk|ru)\/)?guides\//.test(id)
+
+const strings = {
+  en: { tabs: ["Docs", "Guides"], filter: "Filter pages", close: "Close", theme: "Switch theme", topics: "Sections" },
+  ru: {
+    tabs: ["Документация", "Гайды"],
+    filter: "Фильтр страниц",
+    close: "Закрыть",
+    theme: "Сменить тему",
+    topics: "Разделы",
+  },
+  uk: {
+    tabs: ["Документація", "Посібники"],
+    filter: "Фільтр сторінок",
+    close: "Закрити",
+    theme: "Змінити тему",
+    topics: "Розділи",
+  },
+}[lang]
+const tabIcons = ["book", "guide"] as const
 ---
 
-<ul class="hd-topics">
-  {
-    topics.map((t, i) => (
-      <li>
-        <a href={localized(t.link, t.link.startsWith("/guides/") ? locale : undefined)} aria-current={current[i]?.isCurrent ? "page" : undefined}>
-          <span class="hd-topic-icon">
-            <Icon name={t.icon} />
-          </span>
-          {current[i]?.label ?? t.label.en}
-        </a>
-      </li>
-    ))
-  }
-  {
-    externalLinks.map((l) => (
-      <li>
-        <a href={l.href} rel="noopener">
-          <span class="hd-topic-icon">
-            <Icon name={l.icon} />
-          </span>
-          {l.label}
-        </a>
-      </li>
-    ))
-  }
-</ul>
+<div class="hd-sheet-head md:sl-hidden">
+  <span class="hd-sheet-grip"></span>
+</div>
 
-{topic && <p class="hd-nav-title">{current[active]?.label}</p>}
+<div class="hd-switch-row">
+  <nav class="hd-switch" aria-label={strings.topics}>
+    {
+      topics.map((t, i) => (
+        <a
+          href={localized(t.link, t.link.startsWith("/guides/") ? locale : undefined)}
+          aria-current={current[i]?.isCurrent ? "page" : undefined}
+        >
+          <DockIcon name={tabIcons[i] ?? "book"} />
+          {strings.tabs[i] ?? current[i]?.label ?? t.label.en}
+        </a>
+      ))
+    }
+  </nav>
+  <button
+    class="hd-btn hd-sheet-close md:sl-hidden"
+    type="button"
+    popovertarget="starlight__sidebar"
+    popovertargetaction="hide"
+    aria-label={strings.close}
+  >
+    <DockIcon name="close" />
+  </button>
+</div>
+
+<label class="hd-filter">
+  <DockIcon name="search" />
+  <input type="search" placeholder={strings.filter} aria-label={strings.filter} data-hd-filter />
+</label>
 
 <SidebarPersister>
   <SidebarList entries={sidebar} icons={topic?.groupIcons} />
@@ -49,6 +75,42 @@ const topic = active >= 0 ? topics[active] : undefined
   <AiDisclaimer compact />
 </div>
 
-<div class="md:sl-hidden">
-  <MobileMenuFooter />
+<div class="hd-sheet-foot md:sl-hidden">
+  {translated && <LanguageSelect />}
+  <button class="hd-btn" type="button" data-hd-theme>
+    <DockIcon name="sun" class="hd-theme-dark" />
+    <DockIcon name="moon" class="hd-theme-light" />
+    {strings.theme}
+  </button>
 </div>
+
+<script>
+  const input = document.querySelector<HTMLInputElement>("[data-hd-filter]")
+  const nav = document.querySelector<HTMLElement>(".sidebar-content .hd-nav")
+
+  function filter(query: string) {
+    if (!nav) return
+    const q = query.trim().toLowerCase()
+    for (const li of nav.querySelectorAll<HTMLLIElement>("li")) {
+      const link = li.querySelector(":scope > a")
+      if (link) li.hidden = q !== "" && !link.textContent?.toLowerCase().includes(q)
+    }
+    for (const details of [...nav.querySelectorAll<HTMLDetailsElement>("details")].reverse()) {
+      const li = details.parentElement
+      const label = details.querySelector(":scope > summary")?.textContent?.toLowerCase() ?? ""
+      const own = q !== "" && label.includes(q)
+      if (own) for (const child of details.querySelectorAll<HTMLLIElement>("li")) child.hidden = false
+      const shown = own || [...details.querySelectorAll<HTMLLIElement>(":scope > ul > li")].some((c) => !c.hidden)
+      if (li) li.hidden = q !== "" && !shown
+      if (q !== "") {
+        details.dataset.hdOpen ??= details.open ? "1" : "0"
+        details.open = shown
+      } else if (details.dataset.hdOpen) {
+        details.open = details.dataset.hdOpen === "1"
+        delete details.dataset.hdOpen
+      }
+    }
+  }
+
+  input?.addEventListener("input", () => filter(input.value))
+</script>

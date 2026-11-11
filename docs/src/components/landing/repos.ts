@@ -10,11 +10,8 @@ export type Repo = {
   role: string
   icon: ImageMetadata
   description: string
-  docs: string
   tags: string[]
 }
-
-const docs = ""
 
 export const repos: Repo[] = [
   {
@@ -23,7 +20,6 @@ export const repos: Repo[] = [
     icon: holtdroid,
     description:
       "The api and web UI, the device providers, the agent that runs next to every device, the SSH gateway, the holtdroid client for your computer and the Helm chart.",
-    docs: `${docs}/start/introduction/`,
     tags: ["Go", "React", "Helm"],
   },
   {
@@ -32,7 +28,6 @@ export const repos: Repo[] = [
     icon: redroid,
     description:
       "redroid, Android in a container, prepared for sessions: one image per Android version, with ARM64 translation for ARM-only builds.",
-    docs: `${docs}/configuration/emulator/`,
     tags: ["Container image", "Android"],
   },
   {
@@ -41,7 +36,6 @@ export const repos: Repo[] = [
     icon: sync,
     description:
       "Jobs that copy APKs from Slack channels, S3 buckets and GitHub releases into Holtdroid's sources, with icons and changelogs.",
-    docs: `${docs}/sources/overview/`,
     tags: ["Go", "Slack", "S3", "GitHub"],
   },
   {
@@ -50,7 +44,6 @@ export const repos: Repo[] = [
     icon: tunnel,
     description:
       "A VpnService that sends all of a phone's traffic over USB to the host, so a USB phone gets the session's country without root or Wi-Fi.",
-    docs: `${docs}/configuration/phones/`,
     tags: ["Kotlin", "Android app"],
   },
   {
@@ -59,7 +52,6 @@ export const repos: Repo[] = [
     icon: webview,
     description:
       "An Android WebView playground with DevTools unlocked, presets of WebView settings and adb control. Works without Holtdroid too.",
-    docs: `${docs}/tools/webview/`,
     tags: ["Kotlin", "Android app"],
   },
   {
@@ -68,9 +60,6 @@ export const repos: Repo[] = [
     icon: chromium,
     description:
       "Chromium and WebView for Android built from release tags with proprietary codecs, to reproduce a bug on the exact version it was reported on.",
-    docs: `${docs}/sources/chromium/`,
     tags: ["APK", "x86_64", "arm64"],
   },
 ]
-
-export const byName = (name: string) => repos.find((r) => r.name === name)!

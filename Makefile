@@ -40,7 +40,7 @@ sqlc:
 test: node_modules
 	$(GO) test -race ./...
 	cd web && $(BUN) test
-	cd docs && $(BUN) test src/guides
+	cd docs && $(BUN) test src
 
 lint: node_modules
 	golangci-lint run ./...
