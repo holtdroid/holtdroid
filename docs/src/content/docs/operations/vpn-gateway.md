@@ -2,7 +2,7 @@
 title: Shared VPN gateway
 description: One sing-box that holds the VPN tunnels for all sessions, so one WireGuard key serves any number of devices.
 sidebar:
-  order: 3
+  order: 4
 ---
 
 Holtdroid gives every session its own sing-box sidecar, and each location is

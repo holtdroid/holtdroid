@@ -2,7 +2,7 @@
 title: Troubleshooting
 description: Common problems with redroid nodes, ARM translation, Frida, DevTools and VPN.
 sidebar:
-  order: 2
+  order: 3
 ---
 
 ## Session stuck in `provisioning`

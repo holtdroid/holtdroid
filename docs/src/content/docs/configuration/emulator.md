@@ -134,7 +134,9 @@ whatever else the node runs.
   privileges (only `NET_ADMIN` in the Pod's network namespace, for network
   conditions), users' ADB runs only allowlisted commands by default, and the
   image's init wrapper keeps Android from rewriting the node's sysctls. See
-  [Security](/operations/security/).
+  [Emulator isolation](/operations/emulator-security/) for the risks, what is
+  enforced and what to add (AppArmor, kernel updates, separate nodes for
+  untrusted APKs).
 
 Sessions run `x86_64` and 32-bit `x86` apps natively. Apps with only
 `arm64-v8a` native code run through `libndk_translation`; separate ARM
@@ -202,7 +204,8 @@ session Pods in the provider's namespace that carry the
 `holtdroid/devices` annotation, which the provider sets on unprivileged
 sessions, and replaces that container's seccomp profile with the one above
 (the Pod asks for `RuntimeDefault`, which blocks `userfaultfd`). A session started while the plugin isn't running gets no devices
-and fails to boot.
+and fails to boot. What these limits do and don't protect is in
+[Emulator isolation](/operations/emulator-security/).
 
 ## Screens and Android versions
 

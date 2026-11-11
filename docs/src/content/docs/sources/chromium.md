@@ -31,8 +31,23 @@ config:
 ```
 
 Then list `chromium-builds/browser` as a read-only source and
-`chromium-builds/webview` as `webview.storage`. All releases take about
-55 GB.
+`chromium-builds/webview` as `webview.storage`, as in
+[Installation](/start/installation/). All releases take about 55 GB.
+
+Without a job in the cluster, run one pass from any computer with Docker,
+with the `config:` part above in `config.yaml` and the S3 keys in the
+environment:
+
+```sh
+docker run --rm -e S3_ACCESS_KEY -e S3_SECRET_KEY -v "$PWD/config.yaml:/config.yaml" \
+  ghcr.io/holtdroid/holtdroid-sync:<commit sha> holtdroid-chromium-builds-sync --config /config.yaml --once
+```
+
+A browser APK downloaded from a release page can also be uploaded with
+**Upload** like any build. A WebView APK uploaded that way is only a build
+in the list, not a choice in the launch dialog: the catalog lists builds by
+their sidecars' tags (`version`, `milestone`, `minSdk`, …), which the job
+writes.
 
 These builds are Chromium, not Google Chrome: no Google sign-in, sync, Safe
 Browsing or Widevine. The WebView is `com.android.webview`, so phones, whose
