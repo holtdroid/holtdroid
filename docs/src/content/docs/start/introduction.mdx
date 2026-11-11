@@ -51,24 +51,37 @@ were on in its address (`#returnUrl=`).
 
 ## A session, end to end
 
-1. Open the portal. The home page shows one card per app (package name) found
+1. Open the portal. The Apps page shows one row per app (package name) found
    in your configured sources (a folder or bucket that CI or a Slack sync job
-   fills, plus your own uploads): its latest version, how many builds and
-   versions there are and which sources they come from. **Launch** on a card
-   starts the latest build; click the card to see every build of the app with
-   its version, who posted it, its note and changelog. Builds of one version
-   for different processors (x86 and ARM) share a row, and a launch takes
-   the one the chosen device runs natively. Anyone signed in can
-   give an app a description (what it is for, how to test it): it shows
-   above the builds and, shortened, on the app's card. Pin the apps you test most: they come first in the list for everyone.
-2. Pick a build, choose a VPN location if you need one, press **Launch**. The
-   provider is **Any** by default: the first provider with a free device, in
-   the order of `providers` in the config. Pick a provider to choose one of
-   its devices, busy ones included. A fresh Android device boots (about a
-   minute). The ⚡ button next to it skips the dialog and launches with the
-   provider and location you used last time (or the defaults). When every
-   device is busy, or the one you picked, the launch waits in line and starts
-   as soon as one frees up.
+   fills, plus your own uploads): its latest version, how many builds there
+   are, which sources they come from and how many devices run it now; tabs
+   filter by source and `/` jumps to the search. **Launch** on a row starts
+   the latest build; the arrow at the end opens its builds (version, build
+   number, branch, who posted it, size, age) with a launch button and a menu
+   (download, origin, visibility, delete) each, and the app's name opens a page
+   with every build's note and changelog. Builds of one version for different
+   processors (x86 and ARM) share a row, and a launch takes the one the chosen
+   device runs natively. Anyone signed in can give an app a description (what
+   it is for, how to test it): it shows above the builds and, shortened, in
+   the app's row. Pin the apps you test most: they come first in the list for
+   everyone. Next to the list, the **Devices** card shows each provider's
+   slots as a bar of ticks (running, starting, about to stop, free) and the
+   running sessions, yours first; **Recent recordings** lists the newest
+   recordings when recording is on.
+2. Press **Launch**. The launch dialog puts the device together on the left:
+   where it runs (a virtual device or a physical phone, each with how many are
+   free, the virtual one preselected when the build runs on it), the Android
+   version (versions below the app's `minSdk` are greyed out), the screen
+   (favourites first, **All devices** opens a searchable picker), the WebView,
+   the VPN location and app data. The right column previews the chosen phone
+   with its size and cutout, sums up the choices and holds **Record from
+   start** and **Launch**. A physical provider lists its phones instead,
+   **Any available** by default. A fresh Android device boots (about a
+   minute) while a progress card shows each real start stage and the time
+   since launch. The ⚡ button next to Launch skips the dialog and launches
+   with the provider and location you used last time (or the defaults). When
+   every device is busy, or the one you picked, the launch waits in line and
+   starts as soon as one frees up.
 3. The APK is installed as-is and started with WebView debugging enabled at
    runtime.
 4. The session page shows the device screen on the left and Chrome DevTools on

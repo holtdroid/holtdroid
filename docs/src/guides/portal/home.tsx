@@ -1,20 +1,20 @@
 import {
+  ArrowUpRightIcon,
   BookOpenIcon,
   CheckIcon,
+  ChevronDownIcon,
   ClapperboardIcon,
   ClockIcon,
   DatabaseIcon,
-  GlobeIcon,
+  EllipsisIcon,
   HardDriveIcon,
   LaptopIcon,
   LayoutGridIcon,
-  MonitorSmartphoneIcon,
   MoonIcon,
   PackageIcon,
+  PlayIcon,
   PlusIcon,
-  RocketIcon,
   SearchIcon,
-  SquareIcon,
   TimerResetIcon,
   UploadIcon,
   ZapIcon,
@@ -24,8 +24,6 @@ import { AppIcon } from "@/components/app-icon"
 import { SessionStateBadge } from "@/components/session-state-badge"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Progress } from "@/components/ui/progress"
 import { cn } from "@/lib/utils"
 import logo from "@/logo.svg?url"
 import type { PortalState } from "../types"
@@ -107,14 +105,15 @@ export function Dock({ s }: { s: PortalState }) {
   )
 }
 
-function AppCard({
+function AppRow({
   title,
   pkg,
   icon,
   version,
   builds,
-  sources,
+  source,
   latest,
+  running,
   target,
   s,
 }: {
@@ -123,46 +122,48 @@ function AppCard({
   icon: string
   version: string
   builds: number
-  sources: string[]
+  source: string
   latest: string
+  running: number
   target?: boolean
   s: PortalState
 }) {
   return (
-    <li
-      data-g={target ? "app-card" : undefined}
-      className="bg-card relative flex flex-col gap-2 rounded-xl border p-3 transition-colors"
-    >
-      <div className="flex items-start gap-3">
-        <AppIcon src={icon} className="size-12" />
+    <li data-g={target ? "app-card" : undefined} className="border-b border-dashed py-3 last:border-0">
+      <div className="flex items-center gap-3">
+        <AppIcon src={icon} className="size-9 rounded-[10px]" />
         <div className="min-w-0 flex-1">
-          <span className="block truncate font-medium">{title}</span>
-          <span className="text-muted-foreground block truncate font-mono text-xs">{pkg}</span>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="truncate text-[15px] font-semibold">{title}</span>
+            <Badge variant="secondary" className="font-mono">
+              {version}
+            </Badge>
+            <Badge variant="secondary">{source}</Badge>
+            {running > 0 && (
+              <Badge variant="success" dot>
+                {running} running
+              </Badge>
+            )}
+          </div>
+          <div className="text-muted-foreground mt-0.5 truncate font-mono text-xs">{pkg}</div>
         </div>
-      </div>
-      <div className="flex flex-wrap items-center gap-1">
-        <Badge variant="secondary">{version}</Badge>
-        <Badge variant="outline">{builds} builds</Badge>
-        {sources.map((src) => (
-          <Badge key={src} variant="outline" className="font-normal">
-            {src}
-          </Badge>
-        ))}
-      </div>
-      <div className="mt-auto flex items-center gap-2">
-        <span className="text-muted-foreground min-w-0 flex-1 truncate text-xs">{latest}</span>
-        <div className="relative flex shrink-0 items-center gap-1">
-          <span className="relative">
-            <Button data-g={target ? "quick-launch" : undefined} variant="outline" size="icon">
-              <ZapIcon />
-            </Button>
-            {target && s.panel === "quick" && <QuickMenu />}
-          </span>
-          <Button data-g={target ? "launch" : undefined}>
-            <RocketIcon />
-            Launch
+        <div className="flex min-w-[84px] flex-col items-end gap-0.5">
+          <span className="text-[13px]">{builds} builds</span>
+          <span className="text-muted-foreground text-xs">{latest}</span>
+        </div>
+        <span className="relative">
+          <Button data-g={target ? "quick-launch" : undefined} variant="outline" size="icon">
+            <ZapIcon />
           </Button>
-        </div>
+          {target && s.panel === "quick" && <QuickMenu />}
+        </span>
+        <Button data-g={target ? "launch" : undefined}>
+          <PlayIcon />
+          Launch
+        </Button>
+        <Button variant="outline" size="icon">
+          <ChevronDownIcon />
+        </Button>
       </div>
     </li>
   )
@@ -189,88 +190,108 @@ function QuickMenu() {
   )
 }
 
-function SlotPills({ busy }: { busy: number }) {
-  const slots = 6
+function Capacity({ s }: { s: PortalState }) {
+  const tones = [
+    ...Array.from({ length: s.sessions }, (_, i) =>
+      i === 0 && s.start !== "ready" && s.start !== "stopping"
+        ? "bg-info"
+        : i === 0 && s.idleMinutes <= 5
+          ? "bg-warning"
+          : "bg-success",
+    ),
+    "bg-success",
+    ...Array.from({ length: 5 - s.sessions }, () => "bg-border"),
+  ]
+  const count = (c: string) => tones.filter((t) => t === c).length
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-1">
-      {Array.from({ length: slots }, (_, i) => (
-        <span
-          key={i}
-          className={cn("h-2.5 max-w-6 min-w-1 flex-1 rounded-full", i < busy ? "bg-amber-500" : "bg-emerald-500/70")}
-        />
-      ))}
-      <span className="text-muted-foreground ml-auto pl-1 whitespace-nowrap tabular-nums">
-        {slots - busy}/{slots}
-      </span>
+    <div data-g="slots" className="grid gap-2.5">
+      <div className="flex gap-[3px]">
+        {tones.map((t, i) => (
+          <span key={`redroid-${i + 1}`} className={cn("h-5 flex-1 rounded-[2px]", t)} />
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
+        {(
+          [
+            ["bg-success", "Running"],
+            ["bg-info", "Starting"],
+            ["bg-warning", "Idle"],
+            ["bg-border", "Free"],
+          ] as const
+        )
+          .filter(([c]) => count(c) > 0)
+          .map(([c, label]) => (
+            <span key={label} className="inline-flex items-center gap-1.5">
+              <span className={cn("h-3 w-1 rounded-[2px]", c)} />
+              {count(c)} {label}
+            </span>
+          ))}
+      </div>
     </div>
   )
 }
 
-function SessionCard({ s, index }: { s: PortalState; index: number }) {
+function SessionRow({ s, index }: { s: PortalState; index: number }) {
   const first = index === 0
-  const label = first ? app.label : otter.label
   const loc = locationOf(s.location)
-  const minutes = first ? s.idleMinutes : 9
+  const idle = first && s.idleMinutes <= 5
+  const starting = first && s.start !== "ready" && s.start !== "stopping"
   return (
-    <li data-g={first ? "session-card" : undefined} className="bg-card grid gap-3 rounded-xl border p-3">
-      <div className="flex items-start gap-3">
-        <AppIcon src={first ? app.icon : otter.icon} className="size-10" />
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-center gap-2">
-            <span className="min-w-0 truncate font-medium">{label}</span>
-            <SessionStateBadge state={first && s.start !== "stopping" ? s.start : "ready"} />
-          </div>
-          <div className="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-3 text-xs">
-            <span>Alex</span>
-            <span>{first ? "redroid-1" : "redroid-3"}</span>
-            <span>up {first ? "4m" : "38m"}</span>
-            {loc && (
-              <span className="inline-flex items-center gap-1">
-                <GlobeIcon className="size-3" />
-                {first ? loc.label : "Poland"}
-              </span>
-            )}
-          </div>
+    <li
+      data-g={first ? "session-card" : undefined}
+      className="flex items-center gap-2.5 border-b border-dashed py-3 last:border-0"
+    >
+      <AppIcon src={first ? app.icon : otter.icon} className="size-7 rounded-lg" />
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 items-center gap-1.5 font-medium">
+          <span className="truncate">{first ? app.label : otter.label}</span>
+          {idle ? (
+            <Badge data-g="idle-timer" variant="warning">
+              <ClockIcon />
+              Stops in {s.idleMinutes}m
+            </Badge>
+          ) : starting ? (
+            <SessionStateBadge state={s.start === "stopping" ? "ready" : s.start} />
+          ) : (
+            <Badge data-g={first ? "idle-timer" : undefined} variant="success">
+              Running
+            </Badge>
+          )}
+        </div>
+        <div className="text-muted-foreground truncate text-xs">
+          {first
+            ? `Pixel 6a · Android ${s.android}${loc ? ` · ${loc.label}` : ""} · up 4m`
+            : "maria · Galaxy A05 · Android 15 · Poland · up 38m"}
         </div>
       </div>
-      <div data-g={first ? "idle-timer" : undefined} className="grid gap-1">
-        <div className="text-muted-foreground flex items-center justify-between text-xs">
-          <span className="inline-flex items-center gap-1">
-            <ClockIcon className="size-3" />
-            Stops when idle in {minutes}m
-          </span>
-          <span>TTL 7h 52m</span>
-        </div>
-        <Progress value={(minutes / 30) * 100} className="h-1" />
-      </div>
-      <div className="flex gap-2">
-        <Button data-g={first ? "session-open" : undefined} size="sm" className="flex-1">
-          Open
-        </Button>
-        <Button data-g={first ? "session-extend" : undefined} size="sm" variant="outline">
+      {idle && (
+        <Button data-g="session-extend" variant="outline" size="sm">
           <TimerResetIcon />
           Extend
         </Button>
-        <Button data-g={first ? "session-stop" : undefined} size="sm" variant="outline">
-          <SquareIcon />
-          Stop
-        </Button>
-      </div>
+      )}
+      <Button variant="ghost" size="icon">
+        <EllipsisIcon />
+      </Button>
+      <Button data-g={first ? "session-open" : undefined} variant="outline" size="icon">
+        <ArrowUpRightIcon />
+      </Button>
     </li>
   )
 }
 
 export function Home({ s }: { s: PortalState }) {
   const q = s.search.toLowerCase()
-  const cards = [
+  const rows = [
     {
       title: app.label,
       pkg: app.pkg,
       icon: app.icon,
       version: s.uploaded ? "2.5.0-rc1" : "2.4.0",
       builds: s.uploaded ? 4 : 3,
-      sources: s.uploaded ? ["slack", "uploads"] : ["slack"],
-      latest: s.uploaded ? "Latest just now by Alex" : "Latest 2 days ago by slack-sync",
+      source: s.uploaded ? "uploads" : "slack",
+      latest: s.uploaded ? "just now" : "2 days ago",
+      running: s.sessions > 0 ? 1 : 0,
       target: true,
     },
     ...otherApps.map((a) => ({
@@ -279,64 +300,71 @@ export function Home({ s }: { s: PortalState }) {
       icon: a.icon,
       version: a.version,
       builds: a.builds,
-      sources: [a.source],
-      latest: `Latest 3 days ago${a.by ? ` by ${a.by}` : ""}`,
+      source: a.source,
+      latest: "3 days ago",
+      running: a === otter && s.sessions > 1 ? 1 : 0,
       target: false,
     })),
   ].filter((c) => !q || c.title.toLowerCase().includes(q) || c.pkg.includes(q))
 
   return (
-    <div className="grid h-full grid-cols-[minmax(0,1fr)_340px] items-start gap-6 overflow-hidden p-6">
-      <div className="flex flex-col gap-3">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Apps</h1>
-          <p className="text-muted-foreground text-sm">
-            Launch the latest build of an app on a fresh Android device, or open it to pick another build.
-          </p>
+    <div className="flex h-full flex-col gap-4 overflow-hidden px-6 pt-5">
+      <header className="flex items-center gap-3">
+        <div className="mr-1 flex items-baseline gap-2.5">
+          <h1 className="text-[22px] font-semibold tracking-[-.01em]">Apps</h1>
+          <span className="text-muted-foreground text-xs">4 apps · {s.uploaded ? 15 : 14} builds</span>
         </div>
-        <div className="flex items-center gap-2">
-          <div data-g="search" className="relative flex-1">
-            <SearchIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
-            <Input
-              readOnly
-              value={s.search}
-              placeholder="Search by name, package, version, uploader, changelog…"
-              className="pl-8"
-            />
-          </div>
-          <Button data-g="upload" variant="outline">
-            <UploadIcon />
-            Upload
-          </Button>
+        <div className="bg-muted inline-flex h-9 items-center gap-0.5 rounded-[11px] border p-[3px] text-[13px] font-medium">
+          <span className="bg-card text-foreground rounded-md border px-3 py-1">All</span>
+          <span className="text-muted-foreground px-3">slack</span>
+          <span className="text-muted-foreground px-3">uploads</span>
         </div>
-        <ul className="grid grid-cols-2 gap-2">
-          {cards.map((c) => (
-            <AppCard key={c.pkg} s={s} {...c} />
+        <span className="flex-1" />
+        <label
+          data-g="search"
+          className="bg-card text-muted-foreground flex h-9 w-60 items-center gap-2 rounded-[10px] border px-3"
+        >
+          <SearchIcon className="size-4 shrink-0" />
+          <input
+            readOnly
+            value={s.search}
+            placeholder="App, package or branch"
+            className="text-foreground placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-sm outline-none"
+          />
+          <kbd className="rounded-[5px] border px-[5px] py-px font-sans text-[11px]">/</kbd>
+        </label>
+        <Button data-g="upload" className="h-9">
+          <UploadIcon />
+          Upload APK
+        </Button>
+      </header>
+      <div className="grid min-h-0 grid-cols-[minmax(0,1fr)_320px] items-start gap-5">
+        <ul className="bg-card rounded-2xl border px-5 py-1">
+          {rows.map((r) => (
+            <AppRow key={r.pkg} s={s} {...r} />
           ))}
         </ul>
+        <section data-g="sessions" className="bg-card flex min-w-0 flex-col gap-4 rounded-2xl border p-5">
+          <div className="flex items-center gap-2">
+            <h2 className="text-base font-semibold">Devices</h2>
+            {s.sessions > 0 && (
+              <Badge variant="secondary">{s.sessions === 1 ? "1 running" : `1 of ${s.sessions} yours`}</Badge>
+            )}
+          </div>
+          <Capacity s={s} />
+          {s.sessions === 0 ? (
+            <p className="text-muted-foreground rounded-xl border border-dashed py-8 text-center text-sm">
+              No devices running. Launch an app to start one.
+            </p>
+          ) : (
+            <ul className="flex flex-col">
+              {Array.from({ length: s.sessions }, (_, i) => (
+                <SessionRow key={i} s={s} index={i} />
+              ))}
+            </ul>
+          )}
+        </section>
       </div>
-      <section data-g="sessions" className="flex min-w-0 flex-col gap-3">
-        <div className="flex items-baseline justify-between">
-          <h2 className="font-semibold">Active sessions</h2>
-          <span className="text-muted-foreground text-xs">{s.sessions} running</span>
-        </div>
-        <div data-g="slots" className="flex min-w-0 items-center gap-2 text-xs">
-          <MonitorSmartphoneIcon className="text-muted-foreground size-4 shrink-0" />
-          <span className="w-24 shrink-0 truncate font-medium">emulator</span>
-          <SlotPills busy={s.sessions + 1} />
-        </div>
-        {s.sessions === 0 ? (
-          <p className="text-muted-foreground rounded-xl border border-dashed py-10 text-center text-sm">
-            No devices running. Pick an APK to launch one.
-          </p>
-        ) : (
-          <ul className="grid gap-2">
-            {Array.from({ length: s.sessions }, (_, i) => (
-              <SessionCard key={i} s={s} index={i} />
-            ))}
-          </ul>
-        )}
-      </section>
     </div>
   )
 }

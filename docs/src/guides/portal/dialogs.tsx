@@ -1,19 +1,20 @@
 import {
-  ArrowLeftIcon,
-  ArrowRightIcon,
   ChevronDownIcon,
+  ClockIcon,
+  CloudIcon,
   DatabaseIcon,
   FileUpIcon,
-  MonitorSmartphoneIcon,
-  RocketIcon,
-  SmartphoneIcon,
+  GitBranchIcon,
+  PlayIcon,
   SparklesIcon,
+  UsbIcon,
   type LucideIcon,
 } from "lucide-react"
 import type { Display, WebViewView } from "@/api/client"
 import { AppIcon } from "@/components/app-icon"
 import { AndroidVersionCard } from "@/components/launch/android-version"
-import { ChoiceCard, ChoiceGroup, Section } from "@/components/launch/choice-card"
+import { ChoiceCard, ChoiceGroup, Chip, Section } from "@/components/launch/choice-card"
+import { LivePreview } from "@/components/launch/live-preview"
 import { ScreenCard } from "@/components/launch/screen-card"
 import { WebViewChoice } from "@/components/launch/webview-choice"
 import { Badge } from "@/components/ui/badge"
@@ -22,7 +23,6 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
-import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import type { PortalState } from "../types"
@@ -72,7 +72,7 @@ const webviews: WebViewView[] = [
     title: "Chromium 142",
     version: "142.0.7444.59",
     channels: ["stable"],
-    package: "org.chromium.webview",
+    package: "com.android.webview",
     abis: ["x86_64"],
     milestone: 142,
     minSdk: 29,
@@ -84,7 +84,7 @@ const webviews: WebViewView[] = [
     title: "Chromium 143",
     version: "143.0.7499.12",
     channels: ["beta"],
-    package: "org.chromium.webview",
+    package: "com.android.webview",
     abis: ["x86_64"],
     milestone: 143,
     minSdk: 29,
@@ -96,7 +96,7 @@ const webviews: WebViewView[] = [
     title: "Chromium 139",
     version: "139.0.7258.158",
     channels: [],
-    package: "org.chromium.webview",
+    package: "com.android.webview",
     abis: ["x86_64"],
     milestone: 139,
     minSdk: 29,
@@ -105,134 +105,119 @@ const webviews: WebViewView[] = [
   },
 ]
 
-function Provider({
+function Segment({
   icon: Icon,
-  title,
-  name,
-  blurb,
+  label,
   free,
-  total,
-  recommended,
   selected,
 }: {
   icon: LucideIcon
-  title: string
-  name: string
-  blurb: string
+  label: string
   free: number
-  total: number
-  recommended?: boolean
   selected: boolean
 }) {
   return (
-    <ChoiceCard selected={selected} onSelect={noop} className="gap-3 p-4">
-      <div className="flex items-center gap-3">
-        <span className="bg-primary/10 text-primary grid size-11 shrink-0 place-items-center rounded-xl">
-          <Icon className="size-5" />
-        </span>
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="font-medium">{title}</span>
-            {recommended && <Badge variant="secondary">Recommended</Badge>}
-          </div>
-          <div className="text-muted-foreground truncate text-xs">{name}</div>
-        </div>
-      </div>
-      <p className="text-muted-foreground text-xs leading-relaxed">{blurb}</p>
-      <div className="flex items-center gap-1.5 text-xs">
-        <span className={cn("size-2 rounded-full", free > 0 ? "bg-emerald-500" : "bg-amber-500")} />
-        <span className="font-medium tabular-nums">
-          {free} of {total}
-        </span>
-        <span className="text-muted-foreground">available</span>
-      </div>
-    </ChoiceCard>
+    <span
+      className={cn(
+        "flex h-[34px] flex-1 items-center justify-center gap-2 rounded-lg border px-2.5 text-[13px] font-medium [&_svg]:size-4",
+        selected ? "bg-card text-foreground shadow-xs" : "text-muted-foreground border-transparent",
+      )}
+    >
+      <Icon />
+      {label}
+      <Badge variant={free > 0 ? "success" : "secondary"}>{free} free</Badge>
+    </span>
   )
 }
 
 export function LaunchDialog({ s }: { s: PortalState }) {
+  const screen = screens.find((d) => d.key === s.screen) ?? screens[0]!
+  const loc = locations.find((l) => l.id === s.location)
+  const webview = webviews.find((w) => w.id === s.webview)
   return (
-    <Modal className="max-h-[640px] max-w-[772px] grid-rows-[auto_minmax(0,1fr)_auto]">
-      <div className="flex items-center gap-3 pr-6">
-        <AppIcon src={app.icon} className="size-10" />
-        <div className="min-w-0">
-          <div className="truncate text-base leading-none font-medium">Launch {app.label}</div>
-          <div className="text-muted-foreground mt-1.5 truncate font-mono text-xs">
-            {app.pkg} · {s.uploaded ? "2.5.0-rc1" : "2.4.0"}
+    <Modal className="max-h-[640px] max-w-[1000px] grid-cols-[minmax(0,1fr)_280px] gap-0 overflow-hidden p-0">
+      <div className="flex min-h-0 flex-col">
+        <div className="flex items-center gap-3 border-b px-5 py-4">
+          <AppIcon src={app.icon} className="size-10 rounded-[11px]" />
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-lg font-semibold">{app.label}</span>
+              <span className="text-muted-foreground font-mono">{s.uploaded ? "2.5.0-rc1" : "2.4.0"}</span>
+              <Badge variant="info">Latest</Badge>
+            </div>
+            <div className="text-muted-foreground mt-0.5 flex items-center gap-1.5 text-xs">
+              <GitBranchIcon className="size-3.5" />
+              main · build {s.uploaded ? 250 : 240} · minSdk 29
+            </div>
           </div>
         </div>
-      </div>
-      <div
-        data-scroll
-        className="relative -mx-1 grid min-h-0 content-start gap-5 overflow-y-auto px-1 py-1 [scrollbar-width:none]"
-      >
-        {s.launchStage === "provider" ? (
-          <Section title="Where should it run?" hint="A virtual device is the most flexible choice.">
-            <ChoiceGroup label="Provider" className="grid-cols-2">
-              <div data-g="provider-emulator" className="grid">
-                <Provider
-                  icon={MonitorSmartphoneIcon}
-                  title="Virtual device"
-                  name="emulator"
-                  blurb="Android in a container. Pick the Android version and screen, switch locations on the fly. Ready in about half a minute."
-                  free={5 - s.sessions}
-                  total={6}
-                  recommended
-                  selected={s.provider === "emulator"}
-                />
-              </div>
-              <div data-g="provider-physical" className="grid">
-                <Provider
-                  icon={SmartphoneIcon}
-                  title="Real phone"
-                  name="phones"
-                  blurb="A physical phone over USB: real hardware, real sensors, the vendor's own Android."
-                  free={1}
-                  total={2}
-                  selected={s.provider === "physical"}
-                />
-              </div>
-            </ChoiceGroup>
-          </Section>
-        ) : (
+        <div
+          data-scroll
+          className="relative grid min-h-0 content-start gap-5 overflow-y-auto px-5 py-4 [scrollbar-width:none]"
+        >
+          <div className="bg-muted flex gap-0.5 rounded-[11px] border p-[3px]">
+            <span data-g="provider-emulator" className="flex flex-1">
+              <Segment
+                icon={CloudIcon}
+                label="Virtual device"
+                free={5 - s.sessions}
+                selected={s.provider === "emulator"}
+              />
+            </span>
+            <span data-g="provider-physical" className="flex flex-1">
+              <Segment icon={UsbIcon} label="Physical phone" free={1} selected={s.provider === "physical"} />
+            </span>
+          </div>
           <LaunchOptions s={s} />
-        )}
-      </div>
-      <ModalFooter className="items-center justify-between">
-        {s.launchStage === "options" ? (
-          <Button variant="ghost">
-            <ArrowLeftIcon />
-            Back
-          </Button>
-        ) : (
-          <span />
-        )}
-        <div className="flex gap-2">
-          <Button variant="outline">Cancel</Button>
-          {s.launchStage === "provider" ? (
-            <Button data-g="launch-continue">
-              Continue
-              <ArrowRightIcon />
-            </Button>
-          ) : (
-            <Button data-g="launch-submit">
-              <RocketIcon />
-              Launch
-            </Button>
-          )}
         </div>
-      </ModalFooter>
+      </div>
+      <aside className="bg-muted flex min-h-0 flex-col border-l">
+        <div className="text-muted-foreground border-b px-4 py-3.5 font-mono text-xs">Preview</div>
+        <div data-g="launch-preview" className="scale-90 px-4 pt-2">
+          <LivePreview display={screen} />
+        </div>
+        <div className="px-4 text-center">
+          <div className="font-semibold">{screen.label}</div>
+          <div className="text-muted-foreground text-xs">{screen.like}</div>
+        </div>
+        <dl className="m-4 grid grid-cols-[80px_minmax(0,1fr)] gap-y-2 text-[13px]">
+          <dt className="text-muted-foreground">Android</dt>
+          <dd>{s.android}</dd>
+          <dt className="text-muted-foreground">WebView</dt>
+          <dd className="truncate font-mono text-xs leading-5">
+            {webview ? `Chromium ${webview.version}` : "Built-in"}
+          </dd>
+          <dt className="text-muted-foreground">Location</dt>
+          <dd className="truncate">{loc ? `${loc.flag} ${loc.label}` : "Direct"}</dd>
+          <dt className="text-muted-foreground">App data</dt>
+          <dd>{s.appData === "saved" ? "Saved 2 hours ago" : "Fresh install"}</dd>
+        </dl>
+        <div className="mt-auto grid gap-3 border-t px-4 pt-3.5 pb-4">
+          <p className="text-muted-foreground flex items-center gap-2 text-xs">
+            <ClockIcon className="size-3.5" />
+            {5 - s.sessions} of 6 devices free
+          </p>
+          <div data-g="record" className="flex items-center gap-2">
+            <Checkbox checked={s.record} />
+            <Label className="font-normal">Record from start</Label>
+          </div>
+          <Button data-g="launch-submit" size="lg" className="w-full">
+            <PlayIcon />
+            Launch
+          </Button>
+        </div>
+      </aside>
     </Modal>
   )
 }
 
 function LaunchOptions({ s }: { s: PortalState }) {
-  const versions: PortalState["android"][] = ["16", "15", "14", "13"]
+  const versions: PortalState["android"][] = ["13", "14", "15", "16"]
   const webview = s.webview === "builtin" ? "" : s.webview
   return (
-    <div className="grid content-start gap-5">
-      <Section title="Android version" hint="The newest one the app supports is picked for you.">
-        <ChoiceGroup label="Android version" className="grid-cols-5">
+    <>
+      <Section title="Android" hint="Pinecone Shop runs on Android 10 and newer">
+        <ChoiceGroup label="Android version" className="grid-cols-4">
           {versions.map((v) => (
             <div key={v} data-g={`android-${v}`} className="grid">
               <AndroidVersionCard version={v} selected={s.android === v} onSelect={noop} />
@@ -240,83 +225,73 @@ function LaunchOptions({ s }: { s: PortalState }) {
           ))}
         </ChoiceGroup>
       </Section>
-      <Section title="Screen" hint="The size is fixed for the session; the density can still be changed later.">
-        <ChoiceGroup label="Screen" className="grid-cols-3">
+      <Section title="Screen" hint="Size is fixed for the session; density can change later">
+        <ChoiceGroup label="Screen" className="grid-cols-4">
           {screens.map((d) => (
             <div key={d.id} data-g={`screen-${d.key}`} className="grid">
-              <ScreenCard display={d} selected={s.screen === d.key} onSelect={noop} />
+              <ScreenCard display={d} selected={s.screen === d.key} favorite={d.key === "small"} onSelect={noop} />
             </div>
           ))}
+          <span className="flex flex-col items-center justify-center gap-1 rounded-xl border border-dashed p-3 text-center">
+            <span className="text-xl font-semibold">64</span>
+            <span className="text-[13px] font-medium">All devices</span>
+            <span className="text-muted-foreground text-xs">Samsung, Xiaomi…</span>
+          </span>
         </ChoiceGroup>
       </Section>
       <div data-g="webview">
         <WebViewChoice webviews={webviews} selected={webview} android={s.android} onSelect={noop} />
       </div>
-      <Section title="VPN location" hint="You can switch the location any time during the session.">
-        <div data-g="launch-locations" className="flex flex-wrap gap-1.5">
-          {locations.map((l) => (
-            <Button
-              key={l.id}
-              data-g={`launch-location-${l.id}`}
-              className="h-9 gap-2 px-3"
-              variant={l.id === s.location ? "default" : "outline"}
-            >
-              <span className="text-lg leading-none">{l.flag}</span>
-              {l.label}
-              {l.id === "nl" && <span className="opacity-60">· default</span>}
-            </Button>
-          ))}
-        </div>
-      </Section>
-      <Section
-        title="App data"
-        hint="What the app keeps on the device: logins, settings and databases. It is saved when a session stops."
-      >
-        <ChoiceGroup label="App data" className="grid-cols-2">
-          <div data-g="data-fresh" className="grid">
-            <ChoiceCard selected={s.appData === "fresh"} onSelect={noop}>
-              <div className="flex items-center gap-2.5">
-                <span className="bg-muted text-muted-foreground grid size-9 shrink-0 place-items-center rounded-lg">
-                  <SparklesIcon className="size-4" />
+      <div className="grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] gap-5">
+        <Section title="VPN location" hint="Switchable during the session">
+          <div data-g="launch-locations" className="flex flex-wrap gap-1.5">
+            {locations.map((l) => (
+              <span key={l.id} data-g={`launch-location-${l.id}`}>
+                <Chip selected={l.id === s.location} onSelect={noop}>
+                  <span
+                    className={cn(
+                      "font-mono text-[11px]",
+                      l.id === s.location ? "opacity-70" : "text-muted-foreground",
+                    )}
+                  >
+                    {l.id.toUpperCase()}
+                  </span>
+                  {l.label}
+                </Chip>
+              </span>
+            ))}
+          </div>
+        </Section>
+        <Section title="App data">
+          <ChoiceGroup label="App data" className="grid-cols-2">
+            <div data-g="data-fresh" className="grid">
+              <ChoiceCard selected={s.appData === "fresh"} onSelect={noop} className="px-3 py-2.5">
+                <span className="flex items-center gap-1.5 pr-5 text-[13px] font-medium">
+                  <SparklesIcon className="size-3.5" />
+                  Fresh install
                 </span>
-                <div className="min-w-0">
-                  <div className="text-sm font-medium">Fresh install</div>
-                  <div className="text-muted-foreground text-xs">A clean device, nothing saved</div>
-                </div>
-              </div>
-            </ChoiceCard>
-          </div>
-          <div data-g="data-saved" className="grid">
-            <ChoiceCard selected={s.appData === "saved"} onSelect={noop}>
-              <div className="flex items-center gap-2.5">
-                <span className="bg-primary/10 text-primary grid size-9 shrink-0 place-items-center rounded-lg">
-                  <DatabaseIcon className="size-4" />
+                <span className="text-muted-foreground text-xs">Nothing saved</span>
+              </ChoiceCard>
+            </div>
+            <div data-g="data-saved" className="grid">
+              <ChoiceCard selected={s.appData === "saved"} onSelect={noop} className="px-3 py-2.5">
+                <span className="flex items-center gap-1.5 pr-5 text-[13px] font-medium">
+                  <DatabaseIcon className="size-3.5" />
+                  Saved 2 hours ago
                 </span>
-                <div className="min-w-0 pr-5">
-                  <div className="text-sm font-medium">Saved 2 hours ago</div>
-                  <div className="text-muted-foreground truncate text-xs">2.4.0 · 18.2 MB</div>
-                </div>
-              </div>
-            </ChoiceCard>
-          </div>
-        </ChoiceGroup>
-        {s.appData === "saved" && (
-          <div data-g="data-cache" className="flex items-center gap-2">
-            <Checkbox checked={s.cache} />
-            <Label className="font-normal">Also restore the cache</Label>
-          </div>
-        )}
-      </Section>
-      <div data-g="record" className="flex items-start gap-2.5">
-        <Switch checked={s.record} />
-        <Label className="grid gap-0.5 font-normal">
-          <span>Record the session</span>
-          <span className="text-muted-foreground text-xs">
-            The screen, logcat, device and network on the server, to watch or share later in Recordings
-          </span>
-        </Label>
+                <span className="text-muted-foreground truncate text-xs">2.4.0 · 18.2 MB</span>
+              </ChoiceCard>
+            </div>
+          </ChoiceGroup>
+          {s.appData === "saved" && (
+            <div data-g="data-cache" className="flex items-center gap-2">
+              <Checkbox checked={s.cache} />
+              <Label className="font-normal">Also restore the cache</Label>
+            </div>
+          )}
+        </Section>
       </div>
-    </div>
+    </>
   )
 }
 

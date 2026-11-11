@@ -8,6 +8,7 @@ import { AppIcon } from "@/components/app-icon"
 import { appTitle, ArtifactList } from "@/components/artifact-list"
 import { LaunchDialog } from "@/components/launch-dialog"
 import { QuickLauncher } from "@/components/quick-launcher"
+import { RecentRecordings } from "@/components/recent-recordings"
 import { SessionsPanel } from "@/components/sessions-panel"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -28,36 +29,30 @@ export function HomePage({ pkg }: { pkg?: string }) {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto grid max-w-7xl gap-6 p-4 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:p-6">
-        <div className="flex flex-col gap-3">
-          {pkg ? (
-            <AppHeader pkg={pkg} />
-          ) : (
-            <div>
-              <h1 className="text-xl font-semibold tracking-tight">Apps</h1>
-              <p className="text-muted-foreground text-sm">
-                Launch the latest build of an app on a fresh Android device, or open it to pick another build.
-              </p>
-            </div>
-          )}
-          {linked.isError && (
-            <Alert variant="destructive">
-              <AlertDescription className="flex items-center justify-between gap-2">
-                The linked build is gone or not visible to you.
-                <Button variant="ghost" size="sm" onClick={clearLink}>
-                  Dismiss
-                </Button>
-              </AlertDescription>
-            </Alert>
-          )}
-          <ArtifactList
-            pkg={pkg}
-            onLaunch={setLaunching}
-            upload={!pkg && search.upload}
-            onUploadClose={search.upload ? clearLink : undefined}
-          />
-        </div>
-        <SessionsPanel className="lg:sticky lg:top-6 lg:max-h-[calc(100dvh-8rem)]" />
+      <div className="mx-auto flex max-w-[1440px] flex-col gap-5 px-4 pt-6 pb-8 lg:px-8 lg:pt-7">
+        {pkg && <AppHeader pkg={pkg} />}
+        {linked.isError && (
+          <Alert variant="destructive">
+            <AlertDescription className="flex items-center justify-between gap-2">
+              The linked build is gone or not visible to you.
+              <Button variant="ghost" size="sm" onClick={clearLink}>
+                Dismiss
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+        <ArtifactList
+          pkg={pkg}
+          onLaunch={setLaunching}
+          upload={!pkg && search.upload}
+          onUploadClose={search.upload ? clearLink : undefined}
+          aside={
+            <>
+              <SessionsPanel />
+              <RecentRecordings />
+            </>
+          }
+        />
         {search.quick && linked.data && <QuickLauncher artifact={linked.data} onFallback={dropQuick} />}
         <LaunchDialog
           artifact={launching ?? (search.launch && !search.quick ? (linked.data ?? null) : null)}
@@ -74,20 +69,20 @@ function AppHeader({ pkg }: { pkg: string }) {
   const latest = artifacts.data?.items.find((a) => a.app?.package === pkg)
   const title = latest ? appTitle(latest) : pkg
   return (
-    <>
+    <div className="grid gap-3">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" asChild>
+        <Button variant="outline" size="icon" asChild>
           <Link to="/" aria-label="All apps">
             <ArrowLeftIcon />
           </Link>
         </Button>
-        <AppIcon src={latest?.iconUrl} className="size-10" />
+        <AppIcon src={latest?.iconUrl} className="size-10 rounded-[11px]" />
         <div className="min-w-0">
-          <h1 className="truncate text-xl font-semibold tracking-tight">{title}</h1>
-          <p className="text-muted-foreground truncate font-mono text-sm">{pkg}</p>
+          <h1 className="truncate text-[22px] font-semibold tracking-[-.01em]">{title}</h1>
+          <p className="text-muted-foreground truncate font-mono text-xs">{pkg}</p>
         </div>
       </div>
       <AppDescription pkg={pkg} title={title} />
-    </>
+    </div>
   )
 }

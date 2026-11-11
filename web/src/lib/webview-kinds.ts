@@ -7,6 +7,20 @@ const labels: Record<string, string> = {
 
 export const kindLabel = (pkg: string) => labels[pkg] ?? pkg
 
+const blurbs: Record<string, string> = {
+  "com.google.android.webview": "With H.264 and AAC",
+  "com.android.webview": "Open source",
+}
+
+export const kindBlurb = (pkg: string) => blurbs[pkg] ?? ""
+
+export function visibleBuilds<T extends { id: string }>(builds: T[], selected: string, size: number) {
+  if (builds.length <= size + 1) return builds
+  const index = builds.findIndex((b) => b.id === selected)
+  if (index < size) return builds.slice(0, size)
+  return [...builds.slice(0, size - 1), builds[index]!]
+}
+
 export function webviewKinds<T extends Build>(builds: T[], preferred?: string) {
   const packages = [...new Set(builds.map((b) => b.package))]
   return packages

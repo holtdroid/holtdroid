@@ -59,7 +59,6 @@ export type PortalState = {
     | "installing"
     | "installed"
 
-  launchStage: "provider" | "options"
   provider: "emulator" | "physical"
   android: "13" | "14" | "15" | "16"
   screen: "pixel" | "small" | "tablet"

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { defaultWebView, kindLabel, newestStable, webviewKinds } from "@/lib/webview-kinds"
+import { defaultWebView, kindBlurb, kindLabel, newestStable, visibleBuilds, webviewKinds } from "@/lib/webview-kinds"
 
 const chrome = "com.google.android.webview"
 const chromium = "com.android.webview"
@@ -42,5 +42,22 @@ describe("defaultWebView", () => {
 describe("newestStable", () => {
   test("falls back to the newest build when none is on Stable", () => {
     expect(newestStable([build("a", chrome), build("b", chrome)])?.id).toBe("a")
+  })
+})
+
+describe("visibleBuilds", () => {
+  const many = Array.from({ length: 8 }, (_, i) => ({ id: `v${i}` }))
+  test("shows everything when only one would be hidden", () => {
+    expect(visibleBuilds(many.slice(0, 5), "v0", 4).length).toBe(5)
+  })
+  test("shows the newest ones", () => {
+    expect(visibleBuilds(many, "v1", 4).map((b) => b.id)).toEqual(["v0", "v1", "v2", "v3"])
+  })
+  test("keeps an older selected build visible", () => {
+    expect(visibleBuilds(many, "v6", 4).map((b) => b.id)).toEqual(["v0", "v1", "v2", "v6"])
+  })
+  test("describes the kinds", () => {
+    expect(kindBlurb(chrome)).toBe("With H.264 and AAC")
+    expect(kindBlurb("x")).toBe("")
   })
 })

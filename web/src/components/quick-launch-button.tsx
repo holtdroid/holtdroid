@@ -13,7 +13,7 @@ import { type QuickLaunchMode, quickLaunchMode, rememberQuickLaunchMode } from "
 import { locationLabel } from "@/lib/location"
 import { cn } from "@/lib/utils"
 
-export function QuickLaunchButton({ artifact }: { artifact: ArtifactView }) {
+export function QuickLaunchButton({ artifact, size = "icon" }: { artifact: ArtifactView; size?: "icon" | "icon-sm" }) {
   const { usable, provider, target, locations, location, free, screen, android, webview, blocked } = useLaunchTarget(
     null,
     null,
@@ -61,7 +61,7 @@ export function QuickLaunchButton({ artifact }: { artifact: ArtifactView }) {
   }
 
   const button = (
-    <Button variant="outline" size="icon" disabled={disabled} onClick={() => fire(mode)}>
+    <Button variant="outline" size={size} disabled={disabled} onClick={() => fire(mode)}>
       <ZapIcon />
       <span className="sr-only">Quick launch</span>
     </Button>
@@ -141,7 +141,7 @@ function ModeItem({
       type="button"
       onClick={onSelect}
       className={cn(
-        "hover:bg-accent focus-visible:bg-accent flex w-full items-center gap-2.5 rounded-sm px-2 py-1.5 text-left text-sm outline-none [&_svg]:size-4 [&_svg]:shrink-0",
+        "hover:bg-muted focus-visible:bg-muted flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm outline-none [&_svg]:size-4 [&_svg]:shrink-0",
         active && "font-medium",
       )}
     >

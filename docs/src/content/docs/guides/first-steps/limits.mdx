@@ -16,13 +16,14 @@ come back from lunch.
 
 ## What happens
 
-1. <Hint to="sessions" step={1}>Active sessions</Hint>
-   on the Apps page lists every running device, and the <Hint to="slots" step={2}>bar above it</Hint>
-   shows the pool: green devices are free, amber ones are busy.
-2. Each card shows <Hint to="idle-timer" step={3}>how long until the device stops</Hint>. Two clocks run at once:
+1. The <Hint to="sessions" step={1}>Devices</Hint> card on the Apps page lists every running device, yours first,
+   and its <Hint to="slots" step={2}>bar</Hint> shows the pool, one tick per device: green ones run, blue ones are
+   starting, amber ones are about to stop, grey ones are free.
+2. When a device gets close to being stopped, its badge turns amber and shows
+   <Hint to="idle-timer" step={3}>how long is left</Hint>. Two clocks run at once:
    - **idle time**: a device nobody uses is stopped after 30 minutes by default;
    - **maximum lifetime**: every device is stopped after 8 hours by default, used or not.
-3. <Hint to="session-extend" step={4}>Extend</Hint>
+3. <Hint to="session-extend" step={4}>Extend</Hint> (next to the badge, and in the **⋯** menu of every row)
    restarts the idle clock. It's also in the <Hint to="session-timer" step={7}>session header</Hint>.
 4. When you're done, press <Hint to="stop" step={8}>Stop</Hint>: the device goes back to the pool right away.
 
@@ -48,6 +49,6 @@ A tab that is just open in the background does **not** keep the device alive.
   need.
 - **The device disappeared while you were away**: it was idle too long. Next time press Extend before you leave,
   and [save the app data](/guides/app/app-data/) if signing in again is tedious.
-- **Extend and Stop are greyed out**: it's someone else's session; only its owner and admins can manage it.
+- **Extend and Stop are greyed out** (the **⋯** menu of a row): it's someone else's session; only its owner and admins can manage it.
 
 More details: [Activity and reaping](/concepts/sessions/#activity-and-reaping).

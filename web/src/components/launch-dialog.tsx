@@ -1,44 +1,47 @@
 import {
-  ArrowLeftIcon,
-  ArrowRightIcon,
+  ChevronDownIcon,
+  ClockIcon,
+  CloudIcon,
   DatabaseIcon,
   FlaskConicalIcon,
+  GitBranchIcon,
   GlobeIcon,
-  LayoutGridIcon,
-  MonitorSmartphoneIcon,
-  RocketIcon,
+  PlayIcon,
   ShieldCheckIcon,
   SmartphoneIcon,
   SparklesIcon,
+  UsbIcon,
+  XIcon,
   type LucideIcon,
 } from "lucide-react"
-import { useMemo, useState } from "react"
-import type { ArtifactView, Display, ProviderView } from "@/api/client"
+import { type ReactNode, useMemo, useState } from "react"
+import type { ArtifactView, Display, Location, ProviderView } from "@/api/client"
 import { useAppDataFor, useArtifacts, useProviders, useRecordings } from "@/api/queries"
 import { AppIcon } from "@/components/app-icon"
 import { artifactTitle } from "@/components/artifact-list"
-import { AndroidVersionCard } from "@/components/launch/android-version"
-import { bestVariant, variantsOf } from "@/lib/abi"
-import { apiLevels, needsAndroid, newestRunnable } from "@/lib/android"
-import { ChoiceCard, ChoiceGroup, Section } from "@/components/launch/choice-card"
+import { androidName, AndroidVersionCard } from "@/components/launch/android-version"
+import { ChoiceCard, ChoiceGroup, Chip, Section } from "@/components/launch/choice-card"
 import { DevicePicker } from "@/components/launch/device-picker"
+import { LivePreview } from "@/components/launch/live-preview"
 import { ScreenCard } from "@/components/launch/screen-card"
 import { WebViewChoice } from "@/components/launch/webview-choice"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useLaunchTarget, useStartSession } from "@/hooks/use-launch-target"
+import { bestVariant, groupVariants, variantsOf } from "@/lib/abi"
+import { apiLevels, needsAndroid, newestRunnable } from "@/lib/android"
 import { formatBytes, formatRelative } from "@/lib/format"
 import {
   recordPreference,
@@ -47,8 +50,10 @@ import {
   saveAppDataPreference,
   useFavoriteScreens,
 } from "@/lib/launch-prefs"
-import { locationFlag } from "@/lib/location"
+import { locationFlag, locationLabel } from "@/lib/location"
+import { cutoutName, screenName, shortlist } from "@/lib/screens"
 import { cn } from "@/lib/utils"
+import { kindLabel } from "@/lib/webview-kinds"
 
 type Slot = ProviderView["capacity"]["slots"][number]
 
@@ -59,19 +64,13 @@ type Kind = { title: string; icon: LucideIcon; blurb: string }
 const kinds: Record<string, Kind> = {
   emulator: {
     title: "Virtual device",
-    icon: MonitorSmartphoneIcon,
-    blurb:
-      "Android in a container. Pick the Android version and screen, switch locations on the fly. Ready in about half a minute.",
+    icon: CloudIcon,
+    blurb: "Android in a container: any version and screen, locations switch on the fly.",
   },
   physical: {
-    title: "Real phone",
-    icon: SmartphoneIcon,
-    blurb: "A physical phone on USB with real hardware and sensors. Limited to the phones plugged in.",
-  },
-  fake: {
-    title: "Simulated device",
-    icon: FlaskConicalIcon,
-    blurb: "A pretend device for trying the portal out.",
+    title: "Physical phone",
+    icon: UsbIcon,
+    blurb: "A real phone on USB with its own hardware and sensors.",
   },
 }
 
@@ -81,12 +80,26 @@ const fakeKind: Kind = {
   blurb: "A pretend device for trying the portal out.",
 }
 
+const kindOf = (p: ProviderView) => kinds[p.capabilities.kind] ?? fakeKind
+
 const isVirtual = (p: ProviderView) =>
   (p.capabilities.versions?.length ?? 0) > 0 || (p.capabilities.screens?.length ?? 0) > 0
 
-const versionColumns = (n: number) => (n <= 3 ? n : Math.min(4, Math.ceil(n / 2)))
-
 const freeSlots = (p: ProviderView) => p.capacity.slots.filter((s) => s.state === "free").length
+
+const newestFirst = (a: ArtifactView, b: ArtifactView) =>
+  (b.app?.versionCode ?? 0) - (a.app?.versionCode ?? 0) || b.uploadedAt.localeCompare(a.uploadedAt)
+
+function LocationCode({ location: l, selected }: { location: Location; selected: boolean }) {
+  if (/^[a-z]{2}$/i.test(l.id))
+    return (
+      <span className={cn("font-mono text-[11px]", selected ? "opacity-70" : "text-muted-foreground")}>
+        {l.id.toUpperCase()}
+      </span>
+    )
+  const flag = locationFlag(l)
+  return flag ? <span className="leading-none">{flag}</span> : <GlobeIcon className="size-3.5" />
+}
 
 export function LaunchDialog({
   artifact,
@@ -107,13 +120,15 @@ export function LaunchDialog({
   if (artifact && artifact !== shown) setShown(artifact)
   return (
     <Dialog open={!!artifact} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[92vh] grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)_auto] sm:max-w-[772px]">
+      <DialogContent
+        showCloseButton={false}
+        className="flex max-h-[92vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-[1200px]"
+      >
         {shown && (
           <LaunchFlow
             key={`${round}/${shown.app?.package ?? `${shown.source}/${shown.id}`}`}
             artifact={shown}
             onSwitch={onSwitch}
-            onClose={onClose}
           />
         )}
       </DialogContent>
@@ -121,15 +136,7 @@ export function LaunchDialog({
   )
 }
 
-function LaunchFlow({
-  artifact,
-  onSwitch,
-  onClose,
-}: {
-  artifact: ArtifactView
-  onSwitch: (artifact: ArtifactView) => void
-  onClose: () => void
-}) {
+function LaunchFlow({ artifact, onSwitch }: { artifact: ArtifactView; onSwitch: (artifact: ArtifactView) => void }) {
   const providers = useProviders()
   const usable = useMemo(() => (providers.data ?? []).filter((p) => !p.error), [providers.data])
   const builds = useArtifacts("").data?.items ?? []
@@ -137,7 +144,7 @@ function LaunchFlow({
   const variants = variantsOf(builds, artifact)
   const runsOn = (abis: string[] | undefined) => !!bestVariant(variants, abis, siblings)
   const [picked, setPicked] = useState<string | null>(null)
-  const [step, setStep] = useState<"provider" | "options">("provider")
+  const [picking, setPicking] = useState(false)
   const [chosenLocation, setChosenLocation] = useState<string | null>(null)
   const [chosenSlot, setChosenSlot] = useState<string | null>(null)
   const [chosenScreen, setChosenScreen] = useState<string | null>(null)
@@ -146,11 +153,9 @@ function LaunchFlow({
   const [chosenData, setChosenData] = useState(FRESH)
   const [withCache, setWithCache] = useState(false)
 
-  const single = usable.length === 1
   const fitting = usable.filter((p) => runsOn(p.capabilities.abis))
   const recommended = (fitting.find(isVirtual) ?? fitting[0] ?? usable[0])?.name
   const selected = picked ?? recommended ?? ""
-  const stage = single || step === "options" ? "options" : "provider"
 
   const {
     provider,
@@ -169,7 +174,7 @@ function LaunchFlow({
     free,
     total,
   } = useLaunchTarget(
-    stage === "options" ? selected : "",
+    selected,
     chosenLocation,
     chosenSlot,
     chosenScreen,
@@ -202,12 +207,18 @@ function LaunchFlow({
   const builtFor = [...new Set(variants.flatMap((v) => v.app?.abis ?? []))]
   const slots = provider?.capacity.slots ?? []
   const virtual = provider ? isVirtual(provider) : false
-  const [pickerOpen, setPickerOpen] = useState(false)
   const favorites = useFavoriteScreens()
-  const starred = favorites.map((id) => screens.find((s) => s.id === id)).filter((s): s is Display => !!s)
-  const shortlist = [...starred, ...screens.filter((s) => !starred.includes(s))].slice(0, 5)
+  const cards = shortlist(screens, favorites, screen, 4)
   const chosen = screens.find((s) => s.id === screen)
-  const visibleScreens = chosen && !shortlist.includes(chosen) ? [...shortlist.slice(0, 4), chosen] : shortlist
+  const display: Display | undefined = virtual ? chosen : (slot?.capabilities?.screen ?? undefined)
+  const chosenWebViewView = webviews.find((w) => w.id === webview)
+  const place = locations.find((l) => l.id === location)
+  const minSdk = artifact.minSdk ?? 0
+  const title = artifactTitle(shown)
+  const versionGroups = groupVariants(siblings).toSorted((a, b) => newestFirst(a[0]!, b[0]!))
+  const latest = versionGroups[0]?.some((b) => variants.includes(b)) ?? false
+  const recordable = !!recordings.data?.enabled && recordings.data.mode !== "always"
+  const recording = record ?? recordings.data?.mode === "auto"
 
   const submit = () => {
     if (usable.length === 0 || !build) return
@@ -226,379 +237,499 @@ function LaunchFlow({
     )
   }
 
+  if (picking)
+    return (
+      <DevicePicker
+        screens={screens}
+        selected={screen}
+        onSelect={(id) => {
+          setChosenScreen(id)
+          setPicking(false)
+        }}
+        onBack={() => setPicking(false)}
+      />
+    )
+
+  const facts = [
+    shown.meta.tags?.branch,
+    shown.app?.versionCode ? `build ${shown.app.versionCode}` : undefined,
+    minSdk ? `minSdk ${minSdk}` : undefined,
+    variants.length > 1 && build ? build.app?.abis.join(", ") : undefined,
+  ].filter(Boolean)
+
+  const kind = provider ? kindOf(provider) : undefined
+  const deviceName = virtual
+    ? chosen
+      ? screenName(chosen)
+      : (kind?.title ?? "")
+    : slot
+      ? slot.capabilities?.model || slot.label
+      : "Any available phone"
+  const deviceFacts = display
+    ? [cutoutName(display), `${display.dpi} dpi`, display.radius ? "rounded corners" : undefined]
+    : [
+        slot?.capabilities?.android && `Android ${slot.capabilities.android}`,
+        slot?.capabilities?.root && "rooted",
+        !slot && provider && `${freeSlots(provider)} of ${slots.length} free`,
+      ]
+  const androidShown = android ?? slot?.capabilities?.android
+
+  const rows: [string, ReactNode][] = []
+  if (provider && usable.length > 1) rows.push(["Runs on", kind?.title ?? provider.name])
+  if (androidShown)
+    rows.push(["Android", androidName(androidShown) ? `${androidShown} · ${androidName(androidShown)}` : androidShown])
+  if (webviews.length > 0)
+    rows.push([
+      "WebView",
+      chosenWebViewView ? (
+        <span key="webview" className="font-mono text-[12.5px]">
+          {kindLabel(chosenWebViewView.package).replace(" WebView", "")} {chosenWebViewView.version}
+        </span>
+      ) : (
+        "Built-in"
+      ),
+    ])
+  if (place) rows.push(["Location", locationLabel(place)])
+  if (appData.data?.enabled)
+    rows.push([
+      "App data",
+      snapshot
+        ? `Saved ${formatRelative(snapshot.createdAt)}${withCache && snapshot.cache ? ", with cache" : ""}`
+        : "Fresh install",
+    ])
+  if (recordings.data?.enabled && recordings.data.mode === "always")
+    rows.push(["Recording", "Every session is recorded"])
+
   return (
-    <>
-      <DialogHeader>
-        <div className="flex items-center gap-3 pr-6">
-          <AppIcon src={artifact.iconUrl} className="size-10" />
-          <div className="min-w-0">
-            <DialogTitle className="truncate">Launch {artifactTitle(shown)}</DialogTitle>
-            <DialogDescription className="truncate font-mono text-xs">
-              {shown.app?.package ?? shown.fileName}
-              {shown.app?.versionName ? ` · ${shown.app.versionName}` : ""}
-              {variants.length > 1 && build ? ` · ${build.app?.abis.join(", ")}` : ""}
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col lg:overflow-y-auto">
+        <div className="flex items-center gap-3 border-b px-6 py-[18px]">
+          <AppIcon src={shown.iconUrl ?? artifact.iconUrl} className="size-10 rounded-[11px]" />
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 items-center gap-2">
+              <DialogTitle className="truncate text-lg font-semibold">{title}</DialogTitle>
+              {shown.app?.versionName && (
+                <span className="text-muted-foreground shrink-0 font-mono text-[15px]">{shown.app.versionName}</span>
+              )}
+              {latest && siblings.length > 1 && <Badge variant="info">Latest</Badge>}
+            </div>
+            <DialogDescription className="text-muted-foreground mt-0.5 flex min-w-0 items-center gap-1.5 text-xs">
+              {shown.meta.tags?.branch && <GitBranchIcon className="size-3.5 shrink-0" />}
+              <span className="truncate">
+                {facts.length > 0 ? facts.join(" · ") : (shown.app?.package ?? shown.fileName)}
+              </span>
             </DialogDescription>
           </div>
+          {versionGroups.length > 1 && <OtherBuild groups={versionGroups} current={variants} onSwitch={onSwitch} />}
+          <DialogClose asChild>
+            <Button variant="outline" size="icon" aria-label="Close" className="lg:hidden">
+              <XIcon />
+            </Button>
+          </DialogClose>
         </div>
-      </DialogHeader>
 
-      <div className="-mx-1 grid min-h-0 content-start gap-5 overflow-y-auto px-1 py-1">
-        {usable.length === 0 && (
-          <Alert>
-            <AlertDescription>No providers are available right now.</AlertDescription>
-          </Alert>
-        )}
+        <div className="grid content-start gap-6 px-6 pt-5 pb-6">
+          {usable.length === 0 && (
+            <Alert>
+              <AlertDescription>No providers are available right now.</AlertDescription>
+            </Alert>
+          )}
 
-        {stage === "provider" && (
-          <Section title="Where should it run?" hint="A virtual device is the most flexible choice.">
-            <ChoiceGroup label="Provider" className="sm:grid-cols-2">
+          {usable.length > 1 && (
+            <div
+              role="radiogroup"
+              aria-label="Where it runs"
+              className="bg-muted flex gap-0.5 rounded-[11px] border p-[3px]"
+            >
               {usable.map((p) => (
-                <ProviderCard
+                <ProviderSegment
                   key={p.name}
                   provider={p}
+                  label={
+                    usable.filter((o) => kindOf(o) === kindOf(p)).length > 1
+                      ? `${kindOf(p).title} · ${p.name}`
+                      : kindOf(p).title
+                  }
                   runs={runsOn(p.capabilities.abis)}
-                  recommended={p.name === recommended && usable.length > 1}
                   selected={p.name === selected}
                   onSelect={() => setPicked(p.name)}
                 />
               ))}
-            </ChoiceGroup>
-          </Section>
-        )}
+            </div>
+          )}
 
-        {stage === "options" && provider && (
-          <>
-            {virtual && versions.length > 0 && !android && (
-              <Alert>
-                <AlertDescription>
-                  {needsAndroid(artifact.minSdk ?? 0)}; none of this provider's Android versions is new enough.
-                </AlertDescription>
-              </Alert>
-            )}
+          {provider && (
+            <>
+              {virtual && versions.length > 0 && !android && (
+                <Alert>
+                  <AlertDescription>
+                    {needsAndroid(minSdk)}; none of this provider's Android versions is new enough.
+                  </AlertDescription>
+                </Alert>
+              )}
 
-            {virtual && versions.length > 1 && (
-              <Section
-                title="Android version"
-                hint={versions.some((v) => !runs(v)) ? `${needsAndroid(artifact.minSdk ?? 0)}.` : undefined}
-              >
-                <ChoiceGroup
-                  label="Android version"
-                  className="grid-cols-2 sm:grid-cols-(--cols)"
-                  style={{ "--cols": `repeat(${versionColumns(versions.length)}, minmax(0, 1fr))` }}
-                >
-                  {versions.map((v) => {
-                    const alternative = alternativeFor(v)
-                    return (
-                      <AndroidVersionCard
-                        key={v}
-                        version={v}
-                        selected={v === android}
-                        blockedBy={runs(v) ? undefined : needsAndroid(artifact.minSdk ?? 0)}
-                        alternative={alternative && (alternative.app?.versionName || artifactTitle(alternative))}
-                        onSelect={() => {
-                          setChosenAndroid(v)
-                          if (alternative) onSwitch(alternative)
-                        }}
-                      />
-                    )
-                  })}
-                </ChoiceGroup>
-              </Section>
-            )}
-
-            {virtual && screens.length > 1 && (
-              <Section title="Screen" hint="The size is fixed for the session; the density can still be changed later.">
-                <ChoiceGroup label="Screen" className="grid-cols-2 sm:grid-cols-3">
-                  {visibleScreens.map((s) => (
-                    <ScreenCard
-                      key={s.id}
-                      display={s}
-                      selected={s.id === screen}
-                      onSelect={() => setChosenScreen(s.id)}
-                    />
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => setPickerOpen(true)}
-                    className="text-muted-foreground hover:bg-muted/50 hover:text-foreground focus-visible:ring-ring/50 flex min-w-0 items-center gap-3 rounded-xl border border-dashed p-3 text-left transition outline-none focus-visible:ring-3"
+              {virtual && versions.length > 1 && (
+                <Section title="Android" hint={versions.some((v) => !runs(v)) ? needsAndroid(minSdk) : undefined}>
+                  <ChoiceGroup
+                    label="Android version"
+                    className="grid-cols-3 sm:grid-cols-(--cols)"
+                    style={{ "--cols": `repeat(${Math.min(versions.length, 6)}, minmax(0, 1fr))` }}
                   >
-                    <span className="bg-muted grid size-10 shrink-0 place-items-center rounded-lg">
-                      <LayoutGridIcon className="size-5" />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="text-foreground block text-sm font-medium">More devices</span>
-                      <span className="block text-xs">{screens.length - visibleScreens.length} more, with search</span>
-                    </span>
-                  </button>
-                </ChoiceGroup>
-                <DevicePicker
-                  open={pickerOpen}
-                  onOpenChange={setPickerOpen}
-                  screens={screens}
-                  selected={screen}
-                  onSelect={setChosenScreen}
-                />
-              </Section>
-            )}
+                    {versions.toReversed().map((v) => {
+                      const alternative = alternativeFor(v)
+                      return (
+                        <AndroidVersionCard
+                          key={v}
+                          version={v}
+                          selected={v === android}
+                          blockedBy={runs(v) ? undefined : needsAndroid(minSdk)}
+                          alternative={alternative && (alternative.app?.versionName || artifactTitle(alternative))}
+                          onSelect={() => {
+                            setChosenAndroid(v)
+                            if (alternative) onSwitch(alternative)
+                          }}
+                        />
+                      )
+                    })}
+                  </ChoiceGroup>
+                </Section>
+              )}
 
-            {webviews.length > 0 && (
-              <WebViewChoice
-                webviews={webviews}
-                selected={webview}
-                preferred={webviewPackage}
-                android={android}
-                onSelect={setChosenWebView}
-              />
-            )}
-
-            {!virtual && slots.length > 0 && (
-              <Section title="Device" hint="Any available device starts on the first one that is free.">
-                <ChoiceGroup label="Device" className="sm:grid-cols-2">
-                  <ChoiceCard selected={!slot} onSelect={() => setChosenSlot(null)}>
-                    <div className="flex items-center gap-2.5">
-                      <span className="bg-muted text-muted-foreground grid size-9 shrink-0 place-items-center rounded-lg">
-                        <SparklesIcon className="size-4" />
-                      </span>
-                      <div className="min-w-0">
-                        <div className="text-sm font-medium">Any available device</div>
-                        <div className="text-muted-foreground text-xs">
-                          {freeSlots(provider)} of {slots.length} free
-                        </div>
-                      </div>
-                    </div>
-                  </ChoiceCard>
-                  {slots.map((s) => (
-                    <DeviceCard
-                      key={s.id}
-                      slot={s}
-                      runs={runsOn(s.capabilities?.abis)}
-                      selected={s.id === slot?.id}
-                      onSelect={() => setChosenSlot(s.id)}
-                    />
-                  ))}
-                </ChoiceGroup>
-              </Section>
-            )}
-
-            {locations.length > 0 && (
-              <Section title="VPN location" hint="You can switch the location any time during the session.">
-                <div role="radiogroup" aria-label="VPN location" className="flex flex-wrap gap-1.5">
-                  {locations.map((l) => (
-                    <Button
-                      key={l.id}
-                      type="button"
-                      role="radio"
-                      aria-checked={l.id === location}
-                      className="h-9 gap-2 px-3"
-                      variant={l.id === location ? "default" : "outline"}
-                      onClick={() => setChosenLocation(l.id)}
-                    >
-                      <span className="text-lg leading-none">
-                        {locationFlag(l) ?? <GlobeIcon className="size-4" />}
-                      </span>
-                      {l.label}
-                      {l.id === defaultLocation && <span className="opacity-60">· default</span>}
-                    </Button>
-                  ))}
-                </div>
-              </Section>
-            )}
-
-            {appData.data?.enabled && (
-              <Section title="App data" hint="What the app keeps on the device: logins, settings and databases.">
-                <ChoiceGroup label="App data" className="sm:grid-cols-2">
-                  <ChoiceCard selected={!snapshot} onSelect={() => setChosenData(FRESH)}>
-                    <div className="flex items-center gap-2.5">
-                      <span className="bg-muted text-muted-foreground grid size-9 shrink-0 place-items-center rounded-lg">
-                        <SparklesIcon className="size-4" />
-                      </span>
-                      <div className="min-w-0">
-                        <div className="text-sm font-medium">Fresh install</div>
-                        <div className="text-muted-foreground text-xs">A clean device, nothing saved</div>
-                      </div>
-                    </div>
-                  </ChoiceCard>
-                  {appData.items.map((d) => (
-                    <ChoiceCard key={d.id} selected={d.id === snapshot?.id} onSelect={() => setChosenData(d.id)}>
-                      <div className="flex items-center gap-2.5">
-                        <span className="bg-primary/10 text-primary grid size-9 shrink-0 place-items-center rounded-lg">
-                          <DatabaseIcon className="size-4" />
+              {virtual && screens.length > 1 && (
+                <Section title="Screen" hint="Size is fixed for the session; density can change later">
+                  <ChoiceGroup label="Screen" className="grid-cols-2 sm:grid-cols-5">
+                    {cards.map((s) => (
+                      <ScreenCard
+                        key={s.id}
+                        display={s}
+                        selected={s.id === screen}
+                        favorite={favorites.includes(s.id)}
+                        onSelect={() => setChosenScreen(s.id)}
+                      />
+                    ))}
+                    {screens.length > cards.length && (
+                      <button
+                        type="button"
+                        onClick={() => setPicking(true)}
+                        className="hover:bg-muted focus-visible:ring-ring/50 flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-dashed p-3 text-center transition outline-none focus-visible:ring-3"
+                      >
+                        <span className="text-xl font-semibold">{screens.length}</span>
+                        <span className="text-[13px] font-medium">All devices</span>
+                        <span className="text-muted-foreground w-full truncate text-xs">
+                          {[...new Set(screens.map((s) => s.brand).filter(Boolean))].slice(0, 3).join(", ")}…
                         </span>
-                        <div className="min-w-0 pr-5">
-                          <div className="text-sm font-medium">Saved {formatRelative(d.createdAt)}</div>
-                          <div className="text-muted-foreground truncate text-xs">
-                            {d.versionName || "unknown build"} · {formatBytes(d.size)}
-                          </div>
-                        </div>
-                      </div>
+                      </button>
+                    )}
+                  </ChoiceGroup>
+                </Section>
+              )}
+
+              {!virtual && slots.length > 0 && (
+                <Section title="Phone" hint="Any available phone starts on the first one that is free">
+                  <ChoiceGroup label="Phone" className="grid-cols-2 sm:grid-cols-3">
+                    <ChoiceCard selected={!slot} onSelect={() => setChosenSlot(null)}>
+                      <span className="flex items-center gap-2 pr-5 font-medium">
+                        <SparklesIcon className="text-muted-foreground size-3.5" />
+                        Any available
+                      </span>
+                      <span className="text-muted-foreground text-xs">
+                        {freeSlots(provider)} of {slots.length} free
+                      </span>
                     </ChoiceCard>
-                  ))}
-                </ChoiceGroup>
-                {appData.items.length === 0 && (
-                  <p className="text-muted-foreground text-xs">
-                    Nothing saved for this app yet. Save it from a session, or when one ends.
-                  </p>
-                )}
-                {snapshot && appData.data.cache && (
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="launch-cache"
-                      checked={withCache && snapshot.cache}
-                      disabled={!snapshot.cache}
-                      onCheckedChange={(v) => setWithCache(v === true)}
-                    />
-                    <Label htmlFor="launch-cache" className="font-normal">
-                      {snapshot.cache ? "Also restore the cache" : "This save has no cache"}
-                    </Label>
-                  </div>
-                )}
-                <div className="flex items-center gap-2.5">
-                  <Switch
-                    id="launch-save-data"
-                    checked={saveData}
-                    onCheckedChange={(v) => {
-                      setSaveData(v)
-                      rememberSaveAppData(v)
-                    }}
-                  />
-                  <Label htmlFor="launch-save-data" className="font-normal">
-                    Save app data when the session ends, for this and later launches
-                  </Label>
-                </div>
-              </Section>
-            )}
+                    {slots.map((s) => (
+                      <DeviceCard
+                        key={s.id}
+                        slot={s}
+                        runs={runsOn(s.capabilities?.abis)}
+                        selected={s.id === slot?.id}
+                        onSelect={() => setChosenSlot(s.id)}
+                      />
+                    ))}
+                  </ChoiceGroup>
+                </Section>
+              )}
 
-            {recordings.data?.enabled && recordings.data.mode !== "always" && (
-              <div className="flex items-start gap-2.5">
-                <Switch
-                  id="launch-record"
-                  checked={record ?? recordings.data.mode === "auto"}
-                  onCheckedChange={(v) => {
-                    setRecord(v)
-                    rememberRecord(v)
-                  }}
+              {webviews.length > 0 && (
+                <WebViewChoice
+                  webviews={webviews}
+                  selected={webview}
+                  preferred={webviewPackage}
+                  android={androidShown}
+                  onSelect={setChosenWebView}
                 />
-                <Label htmlFor="launch-record" className="grid gap-0.5 font-normal">
-                  <span>Record the session</span>
-                  <span className="text-muted-foreground text-xs">
-                    The screen, logcat, device and network on the server, to watch or share later in Recordings
-                  </span>
-                </Label>
-              </div>
-            )}
+              )}
 
-            {newerData && (
-              <Alert>
-                <AlertDescription>
-                  This data comes from a newer build ({snapshot?.versionName || snapshot?.versionCode}). The app may
-                  fail to read it.
-                </AlertDescription>
-              </Alert>
-            )}
-            {free === 0 && (
-              <Alert>
-                <AlertDescription>
-                  {slot
-                    ? `“${slot.label}” is ${slot.state}.`
-                    : `All ${total} ${total === 1 ? "device" : "devices"} of “${provider.name}” are busy.`}{" "}
-                  You'll wait in line and the device starts as soon as {slot ? "it frees" : "one frees"} up, as long as
-                  you stay on its page.
-                </AlertDescription>
-              </Alert>
-            )}
-            {!build && (
-              <Alert>
-                <AlertDescription>
-                  {variants.length > 1 ? "These builds ship" : "This build ships"} native code only for{" "}
-                  {builtFor.join(", ")}, which “{slot?.label ?? provider.name}” doesn't run.
-                </AlertDescription>
-              </Alert>
-            )}
-          </>
-        )}
+              {(locations.length > 0 || appData.data?.enabled) && (
+                <div
+                  className={cn(
+                    "grid gap-6",
+                    locations.length > 0 && appData.data?.enabled && "lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]",
+                  )}
+                >
+                  {locations.length > 0 && (
+                    <Section title="VPN location" hint="Switchable during the session">
+                      <div role="radiogroup" aria-label="VPN location" className="flex flex-wrap gap-1.5">
+                        {locations.map((l) => (
+                          <Chip
+                            key={l.id}
+                            role="radio"
+                            aria-checked={l.id === location}
+                            selected={l.id === location}
+                            onSelect={() => setChosenLocation(l.id)}
+                          >
+                            <LocationCode location={l} selected={l.id === location} />
+                            {l.label}
+                            {l.id === defaultLocation && <span className="text-xs opacity-60">default</span>}
+                          </Chip>
+                        ))}
+                      </div>
+                    </Section>
+                  )}
+
+                  {appData.data?.enabled && (
+                    <Section title="App data">
+                      <ChoiceGroup label="App data" className="grid-cols-2">
+                        <ChoiceCard selected={!snapshot} onSelect={() => setChosenData(FRESH)} className="px-3 py-2.5">
+                          <span className="flex items-center gap-1.5 pr-5 text-[13px] font-medium">
+                            <SparklesIcon className="size-3.5 shrink-0" />
+                            Fresh install
+                          </span>
+                          <span className="text-muted-foreground text-xs">Nothing saved</span>
+                        </ChoiceCard>
+                        {appData.items.map((d) => (
+                          <ChoiceCard
+                            key={d.id}
+                            selected={d.id === snapshot?.id}
+                            onSelect={() => setChosenData(d.id)}
+                            className="px-3 py-2.5"
+                          >
+                            <span className="flex items-center gap-1.5 pr-5 text-[13px] font-medium">
+                              <DatabaseIcon className="size-3.5 shrink-0" />
+                              <span className="truncate">Saved {formatRelative(d.createdAt)}</span>
+                            </span>
+                            <span className="text-muted-foreground truncate text-xs">
+                              {d.versionName || "unknown build"} · {formatBytes(d.size)}
+                            </span>
+                          </ChoiceCard>
+                        ))}
+                      </ChoiceGroup>
+                      {appData.items.length === 0 && (
+                        <p className="text-muted-foreground text-xs">
+                          Nothing saved for this app yet. Save it from a session, or when one ends.
+                        </p>
+                      )}
+                      {snapshot && appData.data.cache && (
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id="launch-cache"
+                            checked={withCache && snapshot.cache}
+                            disabled={!snapshot.cache}
+                            onCheckedChange={(v) => setWithCache(v === true)}
+                          />
+                          <Label htmlFor="launch-cache" className="font-normal">
+                            {snapshot.cache ? "Also restore the cache" : "This save has no cache"}
+                          </Label>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="launch-save-data"
+                          checked={saveData}
+                          onCheckedChange={(v) => {
+                            setSaveData(v === true)
+                            rememberSaveAppData(v === true)
+                          }}
+                        />
+                        <Label htmlFor="launch-save-data" className="font-normal">
+                          Save app data when the session ends
+                        </Label>
+                      </div>
+                    </Section>
+                  )}
+                </div>
+              )}
+
+              {newerData && (
+                <Alert>
+                  <AlertDescription>
+                    This data comes from a newer build ({snapshot?.versionName || snapshot?.versionCode}). The app may
+                    fail to read it.
+                  </AlertDescription>
+                </Alert>
+              )}
+              {!build && (
+                <Alert>
+                  <AlertDescription>
+                    {variants.length > 1 ? "These builds ship" : "This build ships"} native code only for{" "}
+                    {builtFor.join(", ")}, which “{slot?.label ?? provider.name}” doesn't run.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
-      <DialogFooter className="items-center sm:justify-between">
-        {stage === "options" && !single ? (
-          <Button variant="ghost" onClick={() => setStep("provider")}>
-            <ArrowLeftIcon />
-            Back
-          </Button>
-        ) : (
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
+      <aside className="bg-muted flex flex-col border-t lg:w-[340px] lg:shrink-0 lg:overflow-y-auto lg:border-t-0 lg:border-l">
+        <div className="hidden items-center justify-between border-b px-5 py-[18px] lg:flex">
+          <span className="text-muted-foreground font-mono text-xs">Preview</span>
+          <DialogClose asChild>
+            <Button variant="outline" size="icon" aria-label="Close">
+              <XIcon />
+            </Button>
+          </DialogClose>
+        </div>
+        <div className="px-5 pt-7 pb-2">
+          <LivePreview display={display} />
+        </div>
+        <div className="px-5 pt-2 text-center">
+          <div className="font-semibold">{deviceName}</div>
+          <div className="text-muted-foreground text-xs">{deviceFacts.filter(Boolean).join(" · ")}</div>
+        </div>
+        {rows.length > 0 && (
+          <dl className="m-5 grid grid-cols-[96px_minmax(0,1fr)] gap-y-2.5 text-[13px]">
+            {rows.map(([k, v]) => (
+              <div key={k} className="contents">
+                <dt className="text-muted-foreground">{k}</dt>
+                <dd className="min-w-0 truncate">{v}</dd>
+              </div>
+            ))}
+          </dl>
         )}
-        {stage === "provider" ? (
-          <Button onClick={() => setStep("options")} disabled={!selected}>
-            Continue
-            <ArrowRightIcon />
-          </Button>
-        ) : (
-          <Button onClick={submit} disabled={usable.length === 0 || !build}>
-            <RocketIcon />
+        <div className="mt-auto grid gap-3 border-t px-5 pt-4 pb-5">
+          {provider && (
+            <p className={cn("flex items-start gap-2 text-xs", free === 0 ? "text-warning" : "text-muted-foreground")}>
+              <ClockIcon className="mt-px size-3.5 shrink-0" />
+              {free === 0
+                ? `${slot ? `“${slot.label}” is ${slot.state}` : `All ${total} ${total === 1 ? "device" : "devices"} of “${provider.name}” are busy`}. You'll wait in line and it starts as soon as ${slot ? "it frees" : "one frees"} up, as long as you stay on its page.`
+                : `${free} of ${total} ${total === 1 ? "device" : "devices"} free`}
+            </p>
+          )}
+          {recordable && (
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="launch-record"
+                checked={recording}
+                onCheckedChange={(v) => {
+                  setRecord(v === true)
+                  rememberRecord(v === true)
+                }}
+              />
+              <Label
+                htmlFor="launch-record"
+                className="font-normal"
+                title="The screen, logcat, device and network on the server, to watch or share later in Recordings"
+              >
+                Record from start
+              </Label>
+            </div>
+          )}
+          <Button size="lg" className="w-full" onClick={submit} disabled={usable.length === 0 || !build}>
+            <PlayIcon />
             {free === 0 ? "Join the queue" : "Launch"}
           </Button>
-        )}
-      </DialogFooter>
-    </>
+        </div>
+      </aside>
+    </div>
   )
 }
 
-function ProviderCard({
+function OtherBuild({
+  groups,
+  current,
+  onSwitch,
+}: {
+  groups: ArtifactView[][]
+  current: ArtifactView[]
+  onSwitch: (artifact: ArtifactView) => void
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" className="max-sm:hidden">
+          Other build
+          <ChevronDownIcon className="size-3.5" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="max-h-80 w-72 overflow-y-auto">
+        <DropdownMenuLabel>{groups.length} builds</DropdownMenuLabel>
+        {groups.map((g) => {
+          const b = g[0]!
+          return (
+            <DropdownMenuItem
+              key={`${b.source}/${b.id}`}
+              disabled={g.some((v) => current.includes(v))}
+              onSelect={() => onSwitch(b)}
+              className="gap-2"
+            >
+              <span className="w-16 shrink-0 truncate font-mono text-xs">{b.app?.versionName || "—"}</span>
+              <span className="text-muted-foreground min-w-0 flex-1 truncate text-xs">
+                {b.meta.tags?.branch || b.source}
+              </span>
+              <span className="text-muted-foreground shrink-0 text-xs">{formatRelative(b.uploadedAt)}</span>
+            </DropdownMenuItem>
+          )
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+function ProviderSegment({
   provider: p,
+  label,
   runs,
-  recommended,
   selected,
   onSelect,
 }: {
   provider: ProviderView
+  label: string
   runs: boolean
-  recommended: boolean
   selected: boolean
   onSelect: () => void
 }) {
-  const kind = kinds[p.capabilities.kind] ?? fakeKind
+  const kind = kindOf(p)
   const Icon = kind.icon
   const free = freeSlots(p)
-  const total = p.capacity.slots.length
+  const button = (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      disabled={!runs}
+      onClick={onSelect}
+      className={cn(
+        "focus-visible:ring-ring/50 flex h-[34px] w-full min-w-0 items-center justify-center gap-2 rounded-lg border px-2.5 text-[13px] font-medium transition outline-none focus-visible:ring-3 disabled:cursor-not-allowed disabled:opacity-45 [&_svg]:size-4 [&_svg]:shrink-0",
+        selected
+          ? "bg-card text-foreground shadow-xs"
+          : "text-muted-foreground hover:text-foreground border-transparent",
+      )}
+    >
+      <Icon />
+      <span className="truncate">{label}</span>
+      <Badge variant={free > 0 ? "success" : "secondary"}>{free} free</Badge>
+    </button>
+  )
   return (
-    <ChoiceCard selected={selected} onSelect={onSelect} disabled={!runs} className="gap-3 p-4">
-      <div className="flex items-center gap-3">
-        <span className="bg-primary/10 text-primary grid size-11 shrink-0 place-items-center rounded-xl">
-          <Icon className="size-5" />
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span tabIndex={runs ? undefined : 0} className="flex min-w-0 flex-1">
+          {button}
         </span>
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="font-medium">{kind.title}</span>
-            {recommended && <Badge variant="secondary">Recommended</Badge>}
-          </div>
-          <div className="text-muted-foreground truncate text-xs">{p.name}</div>
-        </div>
-      </div>
-      <p className="text-muted-foreground text-xs leading-relaxed">{kind.blurb}</p>
-      <div className="flex items-center gap-1.5 text-xs">
-        {runs ? (
-          <>
-            <span className={cn("size-2 rounded-full", free > 0 ? "bg-emerald-500" : "bg-amber-500")} />
-            <span className="font-medium tabular-nums">
-              {free} of {total}
-            </span>
-            <span className="text-muted-foreground">{free > 0 ? "available" : "busy, you would wait in line"}</span>
-          </>
-        ) : (
-          <span className="text-muted-foreground">Doesn't run this build's native code</span>
-        )}
-      </div>
-    </ChoiceCard>
+      </TooltipTrigger>
+      <TooltipContent>
+        {runs ? kind.blurb : "Doesn't run this build's native code"} ({p.name}, {free} of {p.capacity.slots.length}{" "}
+        free)
+      </TooltipContent>
+    </Tooltip>
   )
 }
 
 const slotStates: Record<Slot["state"], { label: string; dot: string }> = {
-  free: { label: "Available", dot: "bg-emerald-500" },
-  busy: { label: "In use", dot: "bg-amber-500" },
+  free: { label: "Available", dot: "bg-success" },
+  busy: { label: "In use", dot: "bg-warning" },
   offline: { label: "Offline", dot: "bg-muted-foreground/40" },
-  maintenance: { label: "Maintenance", dot: "bg-sky-500" },
+  maintenance: { label: "Maintenance", dot: "bg-violet" },
 }
 
 function DeviceCard({
@@ -617,20 +748,16 @@ function DeviceCard({
   const facts = [caps?.android && `Android ${caps.android}`, caps?.root && "rooted"].filter(Boolean).join(" · ")
   return (
     <ChoiceCard selected={selected} onSelect={onSelect} disabled={slot.state === "offline" || !runs}>
-      <div className="flex items-center gap-2.5">
-        <span className="bg-muted text-muted-foreground grid size-9 shrink-0 place-items-center rounded-lg">
-          <SmartphoneIcon className="size-4" />
-        </span>
-        <div className="min-w-0 pr-5">
-          <div className="truncate text-sm font-medium">{caps?.model || slot.label}</div>
-          <div className="text-muted-foreground truncate text-xs">{facts || slot.label}</div>
-        </div>
-      </div>
-      <div className="flex items-center gap-1.5 text-xs">
-        <span className={cn("size-2 rounded-full", state.dot)} />
+      <span className="flex min-w-0 items-center gap-2 pr-5 font-medium">
+        <SmartphoneIcon className="text-muted-foreground size-3.5 shrink-0" />
+        <span className="truncate">{caps?.model || slot.label}</span>
+      </span>
+      <span className="text-muted-foreground truncate text-xs">{facts || slot.label}</span>
+      <span className="flex items-center gap-1.5 text-xs">
+        <span className={cn("size-1.5 rounded-full", state.dot)} />
         <span>{runs ? state.label : "Doesn't run this build"}</span>
         {caps?.root && <ShieldCheckIcon className="text-muted-foreground ml-auto size-3.5" />}
-      </div>
+      </span>
     </ChoiceCard>
   )
 }

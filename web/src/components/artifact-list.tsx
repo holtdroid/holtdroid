@@ -1,36 +1,42 @@
+import { Link } from "@tanstack/react-router"
 import {
-  DownloadIcon,
-  EllipsisVerticalIcon,
+  ChevronDownIcon,
   ChevronRightIcon,
+  ChevronUpIcon,
+  DownloadIcon,
+  EllipsisIcon,
   ExternalLinkIcon,
   EyeIcon,
+  GitBranchIcon,
   HourglassIcon,
   InfinityIcon,
   LockIcon,
   PinIcon,
-  RocketIcon,
+  PlayIcon,
   SearchIcon,
   Trash2Icon,
   UploadIcon,
 } from "lucide-react"
-import { Link } from "@tanstack/react-router"
-import { useMemo, useState } from "react"
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import type { ArtifactView } from "@/api/client"
 import {
   artifactDownloadURL,
   useApps,
-  usePinApp,
   useArtifacts,
   useDeleteArtifact,
+  usePinApp,
+  useSessions,
   useSources,
   useUpdateArtifact,
   useUploads,
 } from "@/api/queries"
 import { paragraphs } from "@/components/app-description"
 import { AppIcon } from "@/components/app-icon"
+import { Count } from "@/components/launch/choice-card"
 import { QuickLaunchButton } from "@/components/quick-launch-button"
 import { UploadDialog } from "@/components/upload-dialog"
+import { UserAvatar } from "@/components/user-avatar"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -46,20 +52,21 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useNow } from "@/hooks/use-now"
 import { groupVariants } from "@/lib/abi"
-import { pinnedFirst } from "@/lib/pinned"
 import { formatBytes, formatRelative, safeLink } from "@/lib/format"
+import { pinnedFirst } from "@/lib/pinned"
 import { cn } from "@/lib/utils"
 
 const ALL = "__all__"
+const TIMELINE = 5
 
 export function artifactTitle(a: ArtifactView) {
   return a.meta.title || a.app?.label || a.fileName
@@ -70,6 +77,9 @@ export function appTitle(a: ArtifactView) {
 }
 
 const newestCode = (builds: ArtifactView[]) => Math.max(...builds.map((b) => b.app?.versionCode ?? 0))
+
+const byNewest = (a: ArtifactView[], b: ArtifactView[]) =>
+  newestCode(b) - newestCode(a) || b[0]!.uploadedAt.localeCompare(a[0]!.uploadedAt)
 
 type AppGroup = { key: string; pkg?: string; items: ArtifactView[] }
 
@@ -101,39 +111,69 @@ function matches(a: ArtifactView, q: string) {
     .some((v) => v!.toLowerCase().includes(q))
 }
 
+function editable(target: EventTarget | null) {
+  return (
+    target instanceof HTMLElement &&
+    (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
+  )
+}
+
 export function ArtifactList({
   onLaunch,
   pkg,
   upload,
   onUploadClose,
+  aside,
 }: {
   onLaunch: (artifact: ArtifactView) => void
   pkg?: string
   upload?: boolean
   onUploadClose?: () => void
+  aside?: ReactNode
 }) {
   const [source, setSource] = useState(ALL)
   const [query, setQuery] = useState("")
   const [uploading, setUploading] = useState<{ file: File | null } | null>(null)
   const [dragging, setDragging] = useState(false)
+  const [showParsing, setShowParsing] = useState(false)
+  const search = useRef<HTMLInputElement>(null)
   const sources = useSources()
   const uploads = useUploads()
-  const artifacts = useArtifacts(source === ALL ? "" : source)
+  const artifacts = useArtifacts("")
+  const sessions = useSessions()
+  const apps = useApps()
   const now = useNow(30_000)
   const canUpload = !!uploads.data?.enabled
 
-  const all = useMemo(
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey || editable(e.target)) return
+      e.preventDefault()
+      search.current?.focus()
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [])
+
+  const visible = useMemo(
     () => (artifacts.data?.items ?? []).filter((a) => !pkg || a.app?.package === pkg),
     [artifacts.data, pkg],
   )
+  const perSource = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const g of groupByPackage(visible)) {
+      for (const s of new Set(g.items.map((a) => a.source))) counts.set(s, (counts.get(s) ?? 0) + 1)
+    }
+    return counts
+  }, [visible])
+  const all = useMemo(() => visible.filter((a) => source === ALL || a.source === source), [visible, source])
   const q = query.trim().toLowerCase()
   const items = useMemo(() => (q ? all.filter((a) => matches(a, q)) : all), [all, q])
-  const rows = useMemo(() => groupVariants(items).toSorted((a, b) => newestCode(b) - newestCode(a)), [items])
+  const rows = useMemo(() => groupVariants(items).toSorted(byNewest), [items])
   const groups = useMemo(
     () => (pkg ? [] : groupByPackage(all).filter((g) => !q || g.items.some((a) => matches(a, q)))),
     [all, pkg, q],
   )
-  const apps = useApps()
   const ready = useMemo(
     () =>
       pinnedFirst(
@@ -143,12 +183,18 @@ export function ArtifactList({
     [groups, apps.data],
   )
   const parsing = useMemo(() => groups.filter((g) => !g.pkg), [groups])
-  const [showParsing, setShowParsing] = useState(false)
+  const running = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const s of sessions.data?.items ?? []) counts.set(s.package, (counts.get(s.package) ?? 0) + 1)
+    return counts
+  }, [sessions.data])
   const empty = pkg ? items.length === 0 : groups.length === 0
+  const buildCount = groupVariants(all).length
+  const sourceNames = sources.data?.map((s) => s.name) ?? []
 
   return (
-    <section
-      className={cn("flex flex-col gap-3 rounded-xl", dragging && "outline-primary outline-2 outline-dashed")}
+    <div
+      className="flex flex-col gap-5"
       onDragOver={(e) => {
         if (!canUpload || !e.dataTransfer.types.includes("Files")) return
         e.preventDefault()
@@ -164,40 +210,52 @@ export function ArtifactList({
         setUploading({ file: e.dataTransfer.files[0] ?? null })
       }}
     >
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1">
-          <SearchIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
-          <Input
+      <header className="flex flex-wrap items-center gap-x-4 gap-y-3">
+        {!pkg && (
+          <div className="mr-2 flex items-baseline gap-2.5">
+            <h1 className="text-[22px] font-semibold tracking-[-.01em]">Apps</h1>
+            {artifacts.data && (
+              <span className="text-muted-foreground text-xs">
+                {ready.length} {ready.length === 1 ? "app" : "apps"} · {buildCount}{" "}
+                {buildCount === 1 ? "build" : "builds"}
+              </span>
+            )}
+          </div>
+        )}
+        {sourceNames.length > 1 && (
+          <Tabs value={source} onValueChange={setSource}>
+            <TabsList aria-label="Source" className="max-w-full overflow-x-auto">
+              <TabsTrigger value={ALL}>All</TabsTrigger>
+              {sourceNames.map((s) => (
+                <TabsTrigger key={s} value={s}>
+                  {s}
+                  {(perSource.get(s) ?? 0) > 0 && <Count>{perSource.get(s)}</Count>}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        )}
+        <span className="hidden flex-1 sm:block" />
+        <label className="bg-card text-muted-foreground focus-within:ring-ring/50 flex h-9 w-[300px] max-w-full items-center gap-2 rounded-[10px] border px-3 focus-within:ring-3">
+          <SearchIcon className="size-4 shrink-0" />
+          <input
+            ref={search}
+            type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={
-              pkg ? "Search by version, uploader, changelog…" : "Search by name, package, version, uploader, changelog…"
-            }
-            className="pl-8"
+            placeholder={pkg ? "Version, branch, uploader or changelog" : "App, package or branch"}
+            aria-label={pkg ? "Search builds" : "Search apps"}
+            className="text-foreground placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-sm outline-none"
           />
-        </div>
-        {(sources.data?.length ?? 0) > 1 && (
-          <Select value={source} onValueChange={setSource}>
-            <SelectTrigger className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>All sources</SelectItem>
-              {sources.data?.map((s) => (
-                <SelectItem key={s.name} value={s.name}>
-                  {s.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
+          <kbd className="rounded-[5px] border px-[5px] py-px font-sans text-[11px]">/</kbd>
+        </label>
         {canUpload && (
-          <Button variant="outline" onClick={() => setUploading({ file: null })}>
+          <Button className="h-9" onClick={() => setUploading({ file: null })}>
             <UploadIcon />
-            Upload
+            Upload APK
           </Button>
         )}
-      </div>
+      </header>
 
       {artifacts.data?.errors.map((e) => (
         <Alert key={e.source} variant="destructive">
@@ -206,61 +264,78 @@ export function ArtifactList({
         </Alert>
       ))}
 
-      <div className="@container relative">
-        {artifacts.isPending ? (
-          <div className="grid gap-2">
-            {Array.from({ length: 5 }, (_, i) => (
-              <Skeleton key={i} className="h-20 rounded-xl" />
-            ))}
-          </div>
-        ) : empty ? (
-          <p className="text-muted-foreground py-12 text-center text-sm">
-            {query
-              ? "Nothing matches your search."
-              : pkg
-                ? "No builds of this app in the selected sources."
-                : canUpload
-                  ? "No APKs yet. Drop one here or press Upload."
-                  : "No APKs found in the configured sources yet."}
-          </p>
-        ) : !pkg ? (
-          <ul className="grid gap-2 @2xl:grid-cols-2">
-            {ready.map((g) => (
-              <AppCard key={g.key} group={g} now={now} onLaunch={onLaunch} />
-            ))}
-            {parsing.length > 0 && (
-              <li className="@2xl:col-span-2">
-                <button
-                  type="button"
-                  aria-expanded={showParsing}
-                  onClick={() => setShowParsing((v) => !v)}
-                  className="text-muted-foreground hover:bg-accent/40 flex w-full items-center gap-2 rounded-xl border border-dashed p-3 text-left text-sm transition-colors"
-                >
-                  <ChevronRightIcon className={cn("size-4 transition-transform", showParsing && "rotate-90")} />
-                  Reading package info for {parsing.length} more {parsing.length === 1 ? "app" : "apps"}…
-                </button>
-                {showParsing && (
-                  <ul className="mt-2 grid gap-2 @2xl:grid-cols-2">
-                    {parsing.map((g) => (
-                      <AppCard key={g.key} group={g} now={now} onLaunch={onLaunch} />
-                    ))}
-                  </ul>
-                )}
-              </li>
-            )}
-          </ul>
-        ) : (
-          <ul className="grid gap-2">
-            {rows.map((variants) => (
-              <ArtifactRow
-                key={`${variants[0]!.source}/${variants[0]!.id}`}
-                variants={variants}
-                now={now}
-                onLaunch={onLaunch}
-              />
-            ))}
-          </ul>
-        )}
+      <div className="flex flex-wrap items-start gap-5">
+        <section
+          aria-label={pkg ? "Builds" : "Apps"}
+          className={cn(
+            "bg-card min-w-0 flex-[999_1_640px] rounded-2xl border px-5 pt-1.5 pb-2",
+            dragging && "outline-foreground outline-2 outline-dashed",
+          )}
+        >
+          {artifacts.isPending ? (
+            <div className="grid gap-3 py-3">
+              {Array.from({ length: 5 }, (_, i) => (
+                <Skeleton key={i} className="h-14 rounded-xl" />
+              ))}
+            </div>
+          ) : empty ? (
+            <p className="text-muted-foreground py-12 text-center text-sm">
+              {query
+                ? "Nothing matches your search."
+                : pkg
+                  ? "No builds of this app in the selected sources."
+                  : canUpload
+                    ? "No APKs yet. Drop one here or press Upload APK."
+                    : "No APKs found in the configured sources yet."}
+            </p>
+          ) : pkg ? (
+            <ul className="flex flex-col">
+              {rows.map((variants, i) => (
+                <BuildRow
+                  key={`${variants[0]!.source}/${variants[0]!.id}`}
+                  variants={variants}
+                  latest={i === 0 && !q && source === ALL}
+                  now={now}
+                  onLaunch={onLaunch}
+                  detailed
+                />
+              ))}
+            </ul>
+          ) : (
+            <ul className="flex flex-col">
+              {ready.map((g) => (
+                <AppRow
+                  key={g.key}
+                  group={g}
+                  running={g.pkg ? (running.get(g.pkg) ?? 0) : 0}
+                  now={now}
+                  onLaunch={onLaunch}
+                />
+              ))}
+              {parsing.length > 0 && (
+                <li className="py-3">
+                  <button
+                    type="button"
+                    aria-expanded={showParsing}
+                    onClick={() => setShowParsing((v) => !v)}
+                    className="text-muted-foreground hover:bg-muted flex w-full items-center gap-2 rounded-xl border border-dashed p-3 text-left text-sm transition-colors"
+                  >
+                    <ChevronRightIcon className={cn("size-4 transition-transform", showParsing && "rotate-90")} />
+                    Reading package info for {parsing.length} more {parsing.length === 1 ? "app" : "apps"}…
+                  </button>
+                  {showParsing && (
+                    <ul className="mt-1 flex flex-col">
+                      {parsing.map((g) => (
+                        <AppRow key={g.key} group={g} running={0} now={now} onLaunch={onLaunch} />
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              )}
+            </ul>
+          )}
+        </section>
+        {aside && <aside className="flex min-w-0 flex-[1_1_360px] flex-col gap-4">{aside}</aside>}
       </div>
 
       <UploadDialog
@@ -272,81 +347,129 @@ export function ArtifactList({
         }}
         onUploaded={onLaunch}
       />
-    </section>
+    </div>
   )
 }
 
-function AppCard({
+function AppRow({
   group: { pkg, items },
+  running,
   now,
   onLaunch,
 }: {
   group: AppGroup
+  running: number
   now: number
   onLaunch: (a: ArtifactView) => void
 }) {
-  const latest = items[0]!
+  const [open, setOpen] = useState(false)
+  const [all, setAll] = useState(false)
+  const builds = useMemo(() => groupVariants(items).toSorted(byNewest), [items])
+  const latest = builds[0]?.[0] ?? items[0]!
   const title = appTitle(latest)
-  const versions = new Set(items.map((a) => a.app?.versionName).filter(Boolean)).size
-  const builds = groupVariants(items).length
   const sources = [...new Set(items.map((a) => a.source))]
   const apps = useApps()
   const description = pkg ? apps.data?.get(pkg)?.description : undefined
+  const shown = all ? builds : builds.slice(0, TIMELINE)
+  const hidden = builds.length - shown.length
   return (
-    <li className="bg-card hover:bg-accent/40 relative flex flex-col gap-2 rounded-xl border p-3 transition-colors">
-      <div className="flex items-start gap-3">
-        <AppIcon src={latest.iconUrl} className="size-12" />
+    <li className="border-b border-dashed py-3.5 last:border-0">
+      <div className="flex items-center gap-3.5">
+        <AppIcon src={latest.iconUrl} className="size-9 rounded-[10px]" />
         <div className="min-w-0 flex-1">
-          {pkg ? (
-            <Link
-              to="/apps/$pkg"
-              params={{ pkg }}
-              className="block truncate font-medium after:absolute after:inset-0 after:rounded-xl"
-            >
-              {title}
-            </Link>
-          ) : (
-            <span className="block truncate font-medium">{title}</span>
-          )}
-          <span className="text-muted-foreground block truncate font-mono text-xs">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            {pkg ? (
+              <Link
+                to="/apps/$pkg"
+                params={{ pkg }}
+                className="truncate text-[15px] font-semibold underline-offset-4 hover:underline"
+              >
+                {title}
+              </Link>
+            ) : (
+              <span className="truncate text-[15px] font-semibold">{title}</span>
+            )}
+            {latest.app?.versionName && (
+              <Badge variant="secondary" className="font-mono">
+                {latest.app.versionName}
+              </Badge>
+            )}
+            {sources.map((s) => (
+              <Badge key={s} variant="secondary">
+                {s}
+              </Badge>
+            ))}
+            {running > 0 && (
+              <Badge variant="success" dot>
+                {running} running
+              </Badge>
+            )}
+          </div>
+          <div className="text-muted-foreground mt-0.5 truncate font-mono text-xs">
             {pkg ?? "Reading package info…"}
+          </div>
+          {description && (
+            <p className="text-muted-foreground mt-1 line-clamp-1 text-xs" title={description}>
+              {paragraphs(description).join(" ")}
+            </p>
+          )}
+        </div>
+        <div className="hidden min-w-[110px] flex-col items-end gap-0.5 md:flex">
+          <span className="text-[13px]">
+            {builds.length} {builds.length === 1 ? "build" : "builds"}
+          </span>
+          <span className="text-muted-foreground text-xs" title={new Date(latest.uploadedAt).toLocaleString()}>
+            {formatRelative(latest.uploadedAt, now)}
           </span>
         </div>
-        {pkg && <PinButton pkg={pkg} title={title} pinned={!!apps.data?.get(pkg)?.pinned} />}
-      </div>
-      {description && (
-        <p className="text-muted-foreground line-clamp-2 text-sm" title={description}>
-          {paragraphs(description).join(" ")}
-        </p>
-      )}
-      <div className="flex flex-wrap items-center gap-1">
-        {latest.app?.versionName && <Badge variant="secondary">{latest.app.versionName}</Badge>}
-        <Badge variant="outline">
-          {builds} {builds === 1 ? "build" : "builds"}
-          {versions > 1 ? ` · ${versions} versions` : ""}
-        </Badge>
-        {sources.map((s) => (
-          <Badge key={s} variant="outline" className="font-normal">
-            {s}
-          </Badge>
-        ))}
-      </div>
-      <div className="mt-auto flex items-center gap-2">
-        <span
-          className="text-muted-foreground min-w-0 flex-1 truncate text-xs"
-          title={new Date(latest.uploadedAt).toLocaleString()}
-        >
-          Latest {formatRelative(latest.uploadedAt, now)}
-          {latest.meta.uploadedBy ? ` by ${latest.meta.uploadedBy}` : ""}
-        </span>
-        <div className="relative z-10 flex shrink-0 items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1.5">
+          {pkg && <PinButton pkg={pkg} title={title} pinned={!!apps.data?.get(pkg)?.pinned} />}
           <QuickLaunchButton artifact={latest} />
           <Button onClick={() => onLaunch(latest)}>
-            <RocketIcon />
+            <PlayIcon />
             Launch
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            aria-expanded={open}
+            aria-label={open ? "Hide builds" : "Show builds"}
+            onClick={() => setOpen(!open)}
+          >
+            {open ? <ChevronUpIcon /> : <ChevronDownIcon />}
           </Button>
         </div>
       </div>
+      {open && (
+        <div className="mt-3.5 mb-0.5 flex flex-col border-l pl-4 sm:ml-[50px]">
+          <ul className="flex flex-col">
+            {shown.map((variants, i) => (
+              <BuildRow
+                key={`${variants[0]!.source}/${variants[0]!.id}`}
+                variants={variants}
+                latest={i === 0}
+                now={now}
+                onLaunch={onLaunch}
+              />
+            ))}
+          </ul>
+          <div className="mt-1.5 flex gap-1">
+            {hidden > 0 && (
+              <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setAll(true)}>
+                Show {hidden} older {hidden === 1 ? "build" : "builds"}
+              </Button>
+            )}
+            {pkg && (
+              <Button variant="ghost" size="sm" className="text-muted-foreground" asChild>
+                <Link to="/apps/$pkg" params={{ pkg }}>
+                  Notes and changelogs
+                  <ChevronRightIcon />
+                </Link>
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
     </li>
   )
 }
@@ -357,7 +480,7 @@ function PinButton({ pkg, title, pinned }: { pkg: string; title: string; pinned:
     <Button
       variant="ghost"
       size="icon"
-      className={cn("relative z-10 shrink-0", !pinned && "text-muted-foreground")}
+      className={cn("max-sm:hidden", !pinned && "text-muted-foreground")}
       aria-label={`${pinned ? "Unpin" : "Pin"} ${title}`}
       aria-pressed={pinned}
       title={pinned ? "Unpin" : "Pin for everyone"}
@@ -374,40 +497,53 @@ function PinButton({ pkg, title, pinned }: { pkg: string; title: string; pinned:
   )
 }
 
-function ArtifactRow({
+function BuildRow({
   variants,
+  latest,
   now,
   onLaunch,
+  detailed = false,
 }: {
   variants: ArtifactView[]
+  latest: boolean
   now: number
   onLaunch: (a: ArtifactView) => void
+  detailed?: boolean
 }) {
   const a = variants[0]!
   const abis = [...new Set(variants.flatMap((v) => v.app?.abis ?? []))]
-  const downloads = variants.filter((v) => v.canDownload)
   const title = artifactTitle(a)
-  const isPrivate = a.meta.visibility === "private"
-  const tags = Object.entries(a.meta.tags ?? {})
-  const link = safeLink(a.meta.link)
+  const branch = a.meta.tags?.branch
+  const tags = Object.entries(a.meta.tags ?? {}).filter(([k]) => k !== "branch")
   return (
-    <li className="bg-card hover:bg-accent/40 flex items-start gap-3 rounded-xl border p-3 transition-colors">
-      <AppIcon src={a.iconUrl} className="size-12" />
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="truncate font-medium">{title}</span>
-          {a.app?.versionName && <Badge variant="secondary">{a.app.versionName}</Badge>}
-          {isPrivate && (
-            <Badge variant="outline" className="gap-1">
-              <LockIcon className="size-3" />
+    <li className={cn("flex flex-col", detailed && "border-b border-dashed py-2 last:border-0")}>
+      <div className="flex min-h-11 items-center gap-3 text-[13px]">
+        {detailed && <AppIcon src={a.iconUrl} className="size-7 rounded-lg" />}
+        <span className="w-16 shrink-0 truncate font-mono font-medium" title={title}>
+          {a.app?.versionName || (a.app ? "—" : "…")}
+        </span>
+        <span className="text-muted-foreground hidden w-11 shrink-0 font-mono text-xs sm:inline">
+          {a.app?.versionCode ?? ""}
+        </span>
+        <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+          {branch && (
+            <Badge variant="secondary" className="max-w-[220px]">
+              <GitBranchIcon />
+              <span className="truncate">{branch}</span>
+            </Badge>
+          )}
+          {latest && <Badge variant="info">Latest</Badge>}
+          {a.meta.visibility === "private" && (
+            <Badge variant="secondary">
+              <LockIcon />
               private
             </Badge>
           )}
           {a.expiresAt && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <Badge variant="outline" className="gap-1">
-                  <HourglassIcon className="size-3" />
+                <Badge variant="warning">
+                  <HourglassIcon />
                   temporary
                 </Badge>
               </TooltipTrigger>
@@ -417,118 +553,75 @@ function ArtifactRow({
               </TooltipContent>
             </Tooltip>
           )}
-          {abis.map((abi) => (
-            <Badge key={abi} variant="outline" className="font-mono text-[10px]">
-              {abi}
-            </Badge>
-          ))}
-        </div>
-        <div className="text-muted-foreground mt-0.5 flex flex-wrap gap-x-3 text-xs">
-          {a.app ? <span className="font-mono">{a.app.package}</span> : <span>Reading package info…</span>}
-          {title !== a.fileName && <span>{a.fileName}</span>}
-          <span>{formatBytes(a.size)}</span>
-          <span title={new Date(a.uploadedAt).toLocaleString()}>
-            {formatRelative(a.uploadedAt, now)}
-            {a.meta.uploadedBy ? ` by ${a.meta.uploadedBy}` : ""}
+          {detailed && title !== a.app?.label && (
+            <span className="text-muted-foreground truncate text-xs">{title}</span>
+          )}
+        </span>
+        {a.meta.uploadedBy && (
+          <span className="hidden max-w-36 items-center gap-1.5 lg:inline-flex">
+            <UserAvatar user={a.meta.uploadedBy} className="size-[22px]" />
+            <span className="truncate">{a.meta.uploadedBy}</span>
           </span>
-          <span>{a.meta.origin ? `${a.source} · ${a.meta.origin}` : a.source}</span>
-        </div>
-        {tags.length > 0 && (
-          <div className="mt-1 flex flex-wrap gap-1">
+        )}
+        <span className="text-muted-foreground hidden w-16 shrink-0 text-right text-xs sm:inline">
+          {formatBytes(a.size)}
+        </span>
+        <span
+          className="text-muted-foreground w-[72px] shrink-0 text-right text-xs"
+          title={new Date(a.uploadedAt).toLocaleString()}
+        >
+          {formatRelative(a.uploadedAt, now)}
+        </span>
+        <span className="flex shrink-0 items-center gap-1">
+          <QuickLaunchButton artifact={a} size="icon-sm" />
+          <Button
+            variant="outline"
+            size="icon-sm"
+            aria-label={`Launch ${title} ${a.app?.versionName ?? ""}`}
+            onClick={() => onLaunch(a)}
+          >
+            <PlayIcon />
+          </Button>
+          <BuildMenu variants={variants} title={title} />
+        </span>
+      </div>
+      {detailed && (
+        <div className="text-muted-foreground grid gap-1.5 pb-1 pl-10 text-xs">
+          <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+            <span>{a.fileName}</span>
+            <span>{a.meta.origin ? `${a.source} · ${a.meta.origin}` : a.source}</span>
+            {abis.length > 0 && <span className="font-mono">{abis.join(", ")}</span>}
             {tags.map(([k, v]) => (
-              <Badge key={k} variant="outline" className="font-mono text-[10px] font-normal">
+              <span key={k} className="font-mono">
                 {k}: {v}
-              </Badge>
+              </span>
             ))}
           </div>
-        )}
-        {a.meta.note && <p className="mt-1.5 line-clamp-2 text-sm whitespace-pre-line">{a.meta.note}</p>}
-        {a.meta.changelog && (
-          <details className="mt-1.5 text-sm">
-            <summary className="text-muted-foreground hover:text-foreground cursor-pointer text-xs select-none">
-              Changelog
-            </summary>
-            <p className="bg-muted/50 mt-1 max-h-60 overflow-y-auto rounded-lg p-2 font-mono text-xs whitespace-pre-wrap">
-              {a.meta.changelog}
-            </p>
-          </details>
-        )}
-      </div>
-      <div className="flex shrink-0 items-center gap-1">
-        {link && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" asChild>
-                <a
-                  href={link.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Open where this build came from"
-                >
-                  <ExternalLinkIcon />
-                </a>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent className="block">
-              Open where this build came from{a.meta.origin ? ` (${a.meta.origin})` : ""}{" "}
-              <span className="font-mono opacity-70">{link.host}</span>
-            </TooltipContent>
-          </Tooltip>
-        )}
-        {downloads.length > 1 ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="Download an APK">
-                <DownloadIcon />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {downloads.map((v) => (
-                <DropdownMenuItem key={v.id} asChild>
-                  <a href={artifactDownloadURL(v)} download={v.fileName}>
-                    <DownloadIcon />
-                    <span className="font-mono text-xs">{v.app?.abis.join(", ") || v.fileName}</span>
-                    <span className="text-muted-foreground ml-auto text-xs">{formatBytes(v.size)}</span>
-                  </a>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : (
-          downloads[0] && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" asChild>
-                  <a
-                    href={artifactDownloadURL(downloads[0])}
-                    download={downloads[0].fileName}
-                    aria-label="Download the APK"
-                  >
-                    <DownloadIcon />
-                  </a>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Download {downloads[0].fileName}</TooltipContent>
-            </Tooltip>
-          )
-        )}
-        {a.canManage && <ManageMenu artifact={a} title={title} />}
-        <QuickLaunchButton artifact={a} />
-        <Button onClick={() => onLaunch(a)}>
-          <RocketIcon />
-          Launch
-        </Button>
-      </div>
+          {a.meta.note && <p className="text-foreground line-clamp-2 text-sm whitespace-pre-line">{a.meta.note}</p>}
+          {a.meta.changelog && (
+            <details className="text-sm">
+              <summary className="hover:text-foreground cursor-pointer text-xs select-none">Changelog</summary>
+              <p className="bg-muted text-foreground mt-1 max-h-60 overflow-y-auto rounded-lg p-2 font-mono text-xs whitespace-pre-wrap">
+                {a.meta.changelog}
+              </p>
+            </details>
+          )}
+        </div>
+      )}
     </li>
   )
 }
 
-function ManageMenu({ artifact, title }: { artifact: ArtifactView; title: string }) {
+function BuildMenu({ variants, title }: { variants: ArtifactView[]; title: string }) {
+  const artifact = variants[0]!
   const update = useUpdateArtifact()
   const remove = useDeleteArtifact()
   const [confirming, setConfirming] = useState(false)
+  const downloads = variants.filter((v) => v.canDownload)
+  const link = safeLink(artifact.meta.link)
   const isPrivate = artifact.meta.visibility === "private"
   const isTemporary = !!artifact.meta.temporary
+  if (!link && downloads.length === 0 && !artifact.canManage) return null
 
   const toggle = () =>
     update.mutate(
@@ -553,24 +646,56 @@ function ManageMenu({ artifact, title }: { artifact: ArtifactView; title: string
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" aria-label="Manage">
-            <EllipsisVerticalIcon />
+          <Button variant="outline" size="icon-sm" aria-label="More">
+            <EllipsisIcon />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={toggle} disabled={update.isPending}>
-            {isPrivate ? <EyeIcon /> : <LockIcon />}
-            {isPrivate ? "Make public" : "Make private"}
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={toggleTemporary} disabled={update.isPending}>
-            {isTemporary ? <InfinityIcon /> : <HourglassIcon />}
-            {isTemporary ? "Make permanent" : "Make temporary"}
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem variant="destructive" onSelect={() => setConfirming(true)}>
-            <Trash2Icon />
-            Delete
-          </DropdownMenuItem>
+        <DropdownMenuContent align="end" className="min-w-56">
+          {link && (
+            <DropdownMenuItem asChild>
+              <a href={link.href} target="_blank" rel="noopener noreferrer">
+                <ExternalLinkIcon />
+                Open where it came from
+                <span className="text-muted-foreground ml-auto font-mono text-xs">{link.host}</span>
+              </a>
+            </DropdownMenuItem>
+          )}
+          {downloads.length > 0 && (
+            <>
+              {downloads.length > 1 && <DropdownMenuLabel>Download an APK</DropdownMenuLabel>}
+              {downloads.map((v) => (
+                <DropdownMenuItem key={v.id} asChild>
+                  <a href={artifactDownloadURL(v)} download={v.fileName}>
+                    <DownloadIcon />
+                    {downloads.length > 1 ? (
+                      <span className="font-mono text-xs">{v.app?.abis.join(", ") || v.fileName}</span>
+                    ) : (
+                      "Download the APK"
+                    )}
+                    <span className="text-muted-foreground ml-auto text-xs">{formatBytes(v.size)}</span>
+                  </a>
+                </DropdownMenuItem>
+              ))}
+            </>
+          )}
+          {artifact.canManage && (
+            <>
+              {(link || downloads.length > 0) && <DropdownMenuSeparator />}
+              <DropdownMenuItem onSelect={toggle} disabled={update.isPending}>
+                {isPrivate ? <EyeIcon /> : <LockIcon />}
+                {isPrivate ? "Make public" : "Make private"}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={toggleTemporary} disabled={update.isPending}>
+                {isTemporary ? <InfinityIcon /> : <HourglassIcon />}
+                {isTemporary ? "Make permanent" : "Make temporary"}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" onSelect={() => setConfirming(true)}>
+                <Trash2Icon />
+                Delete
+              </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
       <Dialog open={confirming} onOpenChange={setConfirming}>

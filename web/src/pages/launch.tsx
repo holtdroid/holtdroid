@@ -1,8 +1,12 @@
 import { Link, useNavigate } from "@tanstack/react-router"
-import { useEffect, useEffectEvent, useState } from "react"
-import { useLaunch, useProviders } from "@/api/queries"
-import { StartProgress } from "@/components/session/start-progress"
+import { type ReactNode, useEffect, useEffectEvent, useState } from "react"
+import type { ArtifactView, ProviderView, WebViewView } from "@/api/client"
+import { useArtifact, useLaunch, useProviders, useWebViews } from "@/api/queries"
+import { artifactTitle } from "@/components/artifact-list"
+import { type StartInfo, StartProgress } from "@/components/session/start-progress"
 import { Button } from "@/components/ui/button"
+import { locationLabel } from "@/lib/location"
+import { screenName } from "@/lib/screens"
 
 export type LaunchSearch = {
   source: string
@@ -31,6 +35,45 @@ export function validateLaunchSearch(search: Record<string, unknown>): LaunchSea
     webview: str(search.webview),
     data: str(search.data),
     cache: search.cache === true || search.cache === "true" || undefined,
+  }
+}
+
+export function launchInfo(
+  search: LaunchSearch,
+  artifact: ArtifactView | undefined,
+  pool: ProviderView[],
+  webviews: WebViewView[],
+): StartInfo {
+  const caps = pool.map((p) => p.capabilities)
+  const slot = pool.flatMap((p) => p.capacity.slots).find((s) => s.id === search.slot)
+  const screen = caps.flatMap((c) => c.screens ?? []).find((d) => d.id === search.screen)
+  const location = caps.flatMap((c) => c.locations).find((l) => l.id === search.location)
+  const webview = webviews.find((w) => w.id === search.webview)
+  const appData = search.data ? (search.cache ? "Saved data with cache" : "Saved data") : "Fresh install"
+  return {
+    label: artifact ? artifactTitle(artifact) : undefined,
+    iconUrl: artifact?.iconUrl,
+    versionName: artifact?.app?.versionName,
+    badges: [
+      slot ? slot.capabilities?.model || slot.label : screen && screenName(screen),
+      search.android && `Android ${search.android}`,
+      webview?.title,
+      location && locationLabel(location),
+    ].filter((b): b is string => !!b),
+    rows: [
+      ...(artifact?.app
+        ? [
+            [
+              "Package",
+              <span key="package" className="font-mono">
+                {artifact.app.package}
+              </span>,
+            ] as [string, ReactNode],
+          ]
+        : []),
+      ...(search.provider ? [["Provider", search.provider] as [string, ReactNode]] : []),
+      ["App data", appData],
+    ],
   }
 }
 
@@ -89,6 +132,8 @@ export function LaunchPage({
     }
   }, [])
 
+  const build = useArtifact(source, artifact)
+  const catalog = useWebViews(!!webview)
   const pool = (providers.data ?? []).filter(
     (p) =>
       !p.error &&
@@ -115,11 +160,18 @@ export function LaunchPage({
           : undefined
       }
       appData={appData}
+      webview={catalog.data?.items.find((w) => w.id === webview)?.version}
       queued={wasQueued}
+      info={launchInfo(
+        { source, artifact, provider, slot, screen, android, location, webview, data, cache },
+        build.data,
+        pool,
+        catalog.data?.items ?? [],
+      )}
     >
       {(error || queued) && (
-        <Button variant={error ? "default" : "outline"} size="sm" asChild>
-          <Link to="/">{error ? "Back to APKs" : "Leave the queue"}</Link>
+        <Button variant={error ? "default" : "outline"} asChild>
+          <Link to="/">{error ? "Back to apps" : "Leave the queue"}</Link>
         </Button>
       )}
     </StartProgress>

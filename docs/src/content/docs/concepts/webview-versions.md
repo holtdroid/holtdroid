@@ -14,20 +14,19 @@ device, including yours, uses it.
 
 ## Choosing a version
 
-On a virtual device, the launch dialog shows a **WebView** step under the
-Android version. It lists:
+On a virtual device, the launch dialog has a **WebView** section under the
+screen. Its cards are the kinds of WebView:
 
 - **Built-in**, the WebView shipped with the Android image;
-- one card per Chromium milestone in the catalog, marked with the release
-  channels it is on today (Stable, Beta, Dev, Canary);
-- with a Google WebView catalog, one card per Google WebView build, titled
-  _Google WebView_.
+- **Chromium WebView** (`com.android.webview`), the open-source builds;
+- with a Google WebView catalog, **Chrome WebView**
+  (`com.google.android.webview`), with the proprietary codecs (H.264, AAC).
 
-When the catalog has more than one kind of WebView, the step shows one kind
-at a time: **Chrome WebView** (`com.google.android.webview`) or **Chromium
-WebView** (`com.android.webview`). The **Kinds of WebView** button goes back
-to the list of kinds; picking one shows its versions and selects its newest
-Stable build.
+Picking a kind selects its newest Stable build and lists its versions below
+the cards, newest first: one row per build with its version, the release
+channels it is on today (Stable, Beta, Dev, Canary), its release date and
+size. The four newest are shown; the rest open with **N older versions**. The
+preview column on the right repeats the chosen version.
 
 The launch dialog preselects the newest Stable build of the default kind,
 `webview.defaultPackage` (Chromium WebView unless configured), and restores

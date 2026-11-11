@@ -7,27 +7,27 @@ export default {
       target: "sessions",
       action: "look",
       text: {
-        en: "Active sessions on the right lists every running device: yours and your colleagues'.",
-        ru: "Справа, в Active sessions, видны все запущенные устройства: ваши и коллег.",
-        uk: "Праворуч, в Active sessions, видно всі запущені пристрої: ваші й колег.",
+        en: "The Devices card on the right lists every running device: yours first, then your colleagues'.",
+        ru: "Справа, в карточке Devices, видны все запущенные устройства: сначала ваши, потом коллег.",
+        uk: "Праворуч, у картці Devices, видно всі запущені пристрої: спершу ваші, потім колег.",
       },
     },
     {
       target: "slots",
       action: "look",
       text: {
-        en: "The bar shows the device pool: green ones are free, amber ones are busy. When none is free, a new launch waits in line.",
-        ru: "Полоска показывает пул устройств: зелёные свободны, жёлтые заняты. Если свободных нет, новый запуск встаёт в очередь.",
-        uk: "Смужка показує пул пристроїв: зелені вільні, жовті зайняті. Якщо вільних немає, новий запуск стає в чергу.",
+        en: "The bar shows the device pool, one tick per device: green ones run, blue ones are starting, amber ones are about to stop, grey ones are free. When none is free, a new launch waits in line.",
+        ru: "Полоска показывает пул устройств, по черточке на каждое: зелёные работают, синие запускаются, жёлтые скоро остановятся, серые свободны. Если свободных нет, новый запуск встаёт в очередь.",
+        uk: "Смужка показує пул пристроїв, по рисці на кожен: зелені працюють, сині запускаються, жовті скоро зупиняться, сірі вільні. Якщо вільних немає, новий запуск стає в чергу.",
       },
     },
     {
       target: "idle-timer",
       action: "look",
       text: {
-        en: "Each device is taken back when nobody touches it for a while, and in any case after a few hours. This line shows how much time is left.",
-        ru: "Устройство забирают, если его долго никто не трогает, и в любом случае через несколько часов. Эта строка показывает, сколько осталось.",
-        uk: "Пристрій забирають, якщо його довго ніхто не чіпає, і в будь-якому разі за кілька годин. Цей рядок показує, скільки лишилося.",
+        en: "Each device is taken back when nobody touches it for a while, and in any case after a few hours. In the last minutes the badge turns amber and counts down.",
+        ru: "Устройство забирают, если его долго никто не трогает, и в любом случае через несколько часов. В последние минуты значок становится жёлтым и показывает обратный отсчёт.",
+        uk: "Пристрій забирають, якщо його довго ніхто не чіпає, і в будь-якому разі за кілька годин. В останні хвилини значок стає жовтим і показує зворотний відлік.",
       },
     },
     {
