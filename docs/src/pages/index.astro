@@ -23,10 +23,58 @@ import Stats from "../components/landing/Stats.astro"
 import Ticker from "../components/landing/Ticker.astro"
 import { localized as url } from "../topics.mjs"
 
-const title = "Holtdroid — give your testers a cozy holt"
+const title = "Holtdroid — self-hosted Android emulators in the browser for APK testing"
 const description =
-  "Self-hosted Android devices in a browser tab for testing APKs: the screen, WebView DevTools, a VPN location per device and recordings."
+  "Open-source Android devices in a browser tab, on your own Kubernetes: test APKs with WebView DevTools, a VPN country per device, network presets and recordings."
 const image = "https://github.com/holtdroid/.github/raw/main/profile/assets/social-holtdroid.png"
+const site = new URL(url("/"), Astro.site).href
+const structuredData = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": `${site}#website`,
+      url: site,
+      name: "Holtdroid",
+      inLanguage: ["en", "ru", "uk"],
+      publisher: { "@id": `${site}#organization` },
+    },
+    {
+      "@type": "Organization",
+      "@id": `${site}#organization`,
+      name: "Holtdroid",
+      url: site,
+      logo: new URL(url("/favicon.svg"), Astro.site).href,
+      sameAs: ["https://github.com/holtdroid"],
+    },
+    {
+      "@type": "SoftwareApplication",
+      name: "Holtdroid",
+      url: site,
+      description,
+      image,
+      applicationCategory: "DeveloperApplication",
+      applicationSubCategory: "Mobile app testing",
+      operatingSystem: "Kubernetes, Linux",
+      license: "https://www.apache.org/licenses/LICENSE-2.0",
+      isAccessibleForFree: true,
+      offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+      codeRepository: "https://github.com/holtdroid/holtdroid",
+      softwareHelp: new URL(url("/start/introduction/"), Astro.site).href,
+      featureList: [
+        "Android 11–16 devices in a browser tab",
+        "Chrome DevTools for every WebView without modifying the APK",
+        "A VPN country per device, switchable live",
+        "Network presets: 3G, weak signal, packet loss",
+        "Logcat, files, terminal and ADB from your computer",
+        "Session recordings with network, console and logcat",
+        "Builds from Slack, S3, GitHub releases and uploads",
+        "Real Android phones over USB",
+      ],
+      publisher: { "@id": `${site}#organization` },
+    },
+  ],
+}
 ---
 
 <!doctype html>
@@ -52,14 +100,18 @@ const image = "https://github.com/holtdroid/.github/raw/main/profile/assets/soci
     <title>{title}</title>
     <meta name="description" content={description} />
     <link rel="icon" href={url("/favicon.svg")} type="image/svg+xml" />
-    <link rel="canonical" href={new URL(url("/"), Astro.site)} />
+    <link rel="canonical" href={site} />
+    <link rel="sitemap" href={url("/sitemap-index.xml")} />
     <meta name="theme-color" content="#f2f2f3" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#0a0a0b" media="(prefers-color-scheme: dark)" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:image" content={image} />
+    <meta property="og:url" content={site} />
+    <meta property="og:site_name" content="Holtdroid" />
     <meta name="twitter:card" content="summary_large_image" />
+    <script type="application/ld+json" set:html={JSON.stringify(structuredData)} />
   </head>
   <body class="l-page">
     <Bar />

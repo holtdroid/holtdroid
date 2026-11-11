@@ -5,11 +5,16 @@ import react from "@astrojs/react"
 import starlight from "@astrojs/starlight"
 import tailwindcss from "@tailwindcss/vite"
 import mermaid from "astro-mermaid"
+import starlightLlmsTxt from "starlight-llms-txt"
 import starlightSidebarTopics from "starlight-sidebar-topics"
+import { pageIndex } from "./src/llms.mjs"
 import { topics } from "./src/topics.mjs"
 
+const site = "https://holtdroid.github.io"
+const socialImage = "https://github.com/holtdroid/.github/raw/main/profile/assets/social-holtdroid.png"
+
 export default defineConfig({
-	site: "https://holtdroid.github.io",
+	site,
 	redirects: { "/uk": "/", "/ru": "/" },
 	vite: {
 		plugins: [tailwindcss()],
@@ -40,9 +45,14 @@ export default defineConfig({
 		react(),
 		starlight({
 			title: "Holtdroid",
-			description: "A cozy holt for your test Androids — self-hosted, browser-based Android sandboxes for APK testing.",
+			description:
+				"Self-hosted, open-source Android devices in the browser for testing APKs and WebViews: emulators on Kubernetes and real phones, with DevTools, a VPN country per device and recordings.",
 			logo: { src: "./src/assets/logo.svg" },
 			favicon: "/favicon.svg",
+			head: [
+				{ tag: "meta", attrs: { property: "og:image", content: socialImage } },
+				{ tag: "meta", attrs: { name: "twitter:image", content: socialImage } },
+			],
 			social: [{ icon: "github", label: "GitHub", href: "https://github.com/holtdroid/holtdroid" }],
 			editLink: { baseUrl: "https://github.com/holtdroid/holtdroid/edit/main/docs/" },
 			lastUpdated: true,
@@ -99,7 +109,33 @@ export default defineConfig({
 					},
 				},
 			},
-			plugins: [starlightSidebarTopics(topics.map(({ groupIcons: _, ...topic }) => topic))],
+			plugins: [
+				starlightSidebarTopics(topics.map(({ groupIcons: _, ...topic }) => topic)),
+				starlightLlmsTxt({
+					description:
+						"Holtdroid is a self-hosted, open-source (Apache-2.0) web portal that launches Android devices on demand for testing APKs. Each device opens in a browser tab with its screen, Chrome DevTools for the app's WebViews (enabled at runtime, the APK is never modified), Logcat, files, a terminal, network shaping, GPS, a VPN country per device, recordings and bug reports.",
+					details: [
+						"- Runs on Kubernetes (Helm chart): virtual devices are redroid Pods (Android 11–16), real phones plug into a host over USB.",
+						"- Builds come from sources: folders or S3 buckets that sync jobs fill from Slack, S3, GitHub releases, Chromium and browser release archives, plus uploads.",
+						"- Not a cloud service: there is no hosted instance to sign up for; you install it on your own cluster. No iOS.",
+						"- Sign-in: anonymous, a shared password, OIDC, a forward-auth header, or users with passkeys.",
+						"- Source code: https://github.com/holtdroid/holtdroid. The portal's HTTP API is described by OpenAPI at `/api/docs` on every installation.",
+						"",
+						"Pages of the documentation, each with what it covers:",
+						"",
+						pageIndex(site),
+					].join("\n"),
+					customSets: [
+						{ label: "Guides", description: "task-by-task guides for testers using the portal", paths: ["guides/**"] },
+						{
+							label: "Running Holtdroid",
+							description: "installation, configuration, APK sources and operations for administrators",
+							paths: ["start/installation", "configuration/**", "sources/**", "operations/**"],
+						},
+					],
+					promote: ["start/introduction", "start/alternatives", "start/installation"],
+				}),
+			],
 		}),
 	],
 })

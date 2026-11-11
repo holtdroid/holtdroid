@@ -5715,3 +5715,34 @@ themes.
   holds that phase for good, and the ticker has a pause button. Blocks reveal
   with a CSS animation rather than a transition, so the stagger never delays
   a hover. Without JavaScript the islands show their label as text.
+
+## 194. The docs site is written for search engines and agents too
+
+**Context.** People look for tools like Holtdroid by what they replace
+("self-hosted BrowserStack alternative", "Android emulator in the browser",
+"debug WebView without USB"), and more and more through an AI agent that
+reads the site for them. The landing's title was only the tagline, docs pages
+had no preview image, nothing said where the sitemap is, and an agent had to
+crawl HTML pages full of interactive guide players.
+
+**Decision.**
+
+- `starlight-llms-txt` generates `llms.txt`, `llms-full.txt`,
+  `llms-small.txt` and two sets (guides for testers, running Holtdroid for
+  administrators) from the English docs at build time. `llms.txt` also lists
+  every page with its `description`, built by `docs/src/llms.mjs` from the
+  frontmatter and the sidebar sections in `topics.mjs`, so a page's
+  description is what agents see: keep it a real sentence about the page.
+- The guide player renders nothing outside a Starlight page (the plugin
+  renders entries without route data or a React renderer), so the text
+  outputs keep a guide's steps and drop the player.
+- The landing's `<title>` and description carry the words people search for;
+  the tagline stays in the hero. The landing has JSON-LD (`WebSite`,
+  `Organization`, `SoftwareApplication`), every docs page an `og:image`, and
+  `robots.txt` points to the sitemap and allows every crawler, AI ones
+  included.
+- `start/alternatives` compares Holtdroid with cloud device services,
+  Appetize, Genymotion, STF, docker-android, redroid and a local emulator,
+  says when another tool fits better, and stays factual about the others.
+- The docs stay English with Russian and Ukrainian guides; no translated
+  landing until there is copy for it.

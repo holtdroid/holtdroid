@@ -43,6 +43,11 @@ deployment"):
     sources, tools, a comparison, developers and operators sections, with
     CSS motion that pauses off screen and rests under reduced motion. The
     guide portal scenes still need to be updated to the redesigned pages.
+  - Docs search and agents (decision #194): `robots.txt` with the sitemap,
+    `llms.txt` (summary plus an index of every English page),
+    `llms-full.txt`, `llms-small.txt` and per-audience sets, JSON-LD and
+    a keyword title on the landing, an `og:image` on every page, and a
+    comparison page (`start/alternatives`) for "alternative to" searches.
 - A replaced microphone on redroid (decision #146): the session page's
   Microphone card plays a line-up tone, beeps, pink noise, a file from the
   user's media library or the browser's microphone into every app's

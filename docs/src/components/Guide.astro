@@ -5,10 +5,17 @@ interface Props {
   id: string
 }
 
-const locale = Astro.locals.starlightRoute.locale
-const lang = locale === "ru" || locale === "uk" ? locale : "en"
+let lang: string | undefined
+try {
+  const locale = Astro.locals.starlightRoute.locale
+  lang = locale === "ru" || locale === "uk" ? locale : "en"
+} catch {}
 ---
 
-<div class="hd-guide">
-  <GuidePlayer client:only="react" guide={Astro.props.id} lang={lang} />
-</div>
+{
+  lang && (
+    <div class="hd-guide">
+      <GuidePlayer client:only="react" guide={Astro.props.id} lang={lang} />
+    </div>
+  )
+}
