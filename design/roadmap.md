@@ -355,11 +355,18 @@ Goal: several Android devices per node instead of one emulator per node.
 
 - [x] Design tokens for light and dark, Inter + JetBrains Mono, restyled shared primitives, `stage-*` retired
 - [x] Floating bottom dock instead of the header, running-device chips with hover cards, ⌘K command palette, docs link with `#returnUrl`
-- [ ] Apps page, launch configurator and starting pipeline
-- [ ] Session page: three columns, screen-state overlays, network picker modal (scenario steps in the contract)
-- [ ] Recordings list and recording player with lanes
-- [ ] Inventory and the remaining pages restyled
-- [ ] Docs site on the same tokens and dock
+- [x] Apps page, launch configurator and starting pipeline (decisions #185, #186)
+- [x] Session page redesign: header with idle bar, record/share/extend/stop; Device panel with grouped collapsible rows; stage toolbar; screen-state cards (screen off, locked, reconnecting, crashed, closed); tools card with a More menu (decision #187)
+- [x] Network picker modal (Networks / Scenarios / Region) with scenario steps and the live step (`steps`, `burst`, `networkStep`, `networkStepSince`)
+- [x] Recordings list and recording player with lanes, Findings and quick marker (decision #188)
+- [x] Record screen on/locked as a recording event
+- [x] Inventory page (capacity bar, per-node cards with slot tiles and CPU, memory and temperature meters, longest-running sessions)
+- [x] Users, Audit, Account, Computers, App data, Pixel perfect, Invite and sign-in screens restyled with the shared page components
+- [x] `Slot.group` filled by the emulator provider (decision #189)
+- [x] Fake provider reports screen and Android capabilities for `make dev` (decision #190)
+- [x] Docs site on the same tokens and dock (decision #191)
+- [ ] Session page passes `session` to `StartProgress` so its start card shows session details
+- [ ] Guide scenes still drawing the old session layout (session-tour, app-actions, crash, bug-report, device-settings, vpn, gps) and the session part of `start/introduction.mdx`
 
 ## Later
 

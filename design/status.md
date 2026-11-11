@@ -16,8 +16,31 @@ deployment"):
   Tabs, Card and Input, the floating bottom dock in place of the header
   (running-device chips, **+** launch, search, docs link with
   `#returnUrl`), and the ⌘K command palette. Checked through types, lint
-  and tests only. The page redesign (Apps, Launch, Starting, Session with
-  the network picker, Recordings, Inventory and the rest) is next.
+  and tests only.
+- Page redesign (decisions #185–#191), checked through types, lint and
+  tests only:
+  - Apps page: app rows with build timelines, a Devices card with slot
+    ticks, Recent recordings; the one-screen launch configurator with a live
+    preview and the All devices picker; the start pipeline card. The session
+    page still needs to pass `session` to `StartProgress`.
+  - Session page: Device panel rows, stage toolbar, screen-state cards,
+    tools card with More. Network conditions moved from a tab into a picker
+    that shows scenario steps and the live step from the agent. Guide
+    scenes other than the network guide still show the old layout.
+  - Recordings: list rows, player with header actions, side cards, stage,
+    Findings tab and a lane timeline; the agent records `screen` events;
+    `RecordingView.owner/ownerName/markers`.
+  - Inventory: node cards built from `Slot.group` and HostInfo, a capacity
+    bar and a longest-running table. Users, Audit, Account, Computers, App
+    data, Pixel perfect, Invite and sign-in are restyled with
+    `components/page.tsx`. The fake provider offers the `classic` screen and
+    Android 15, 14 and 13.
+  - Docs site: the portal's tokens in light and dark with Inter and
+    JetBrains Mono, the bottom dock on every page (search, language on guide
+    pages, theme, GitHub, **Open the portal** when opened from the portal
+    with `#returnUrl`), the restyled sidebar, page titles with breadcrumbs,
+    the new landing with live scene islands, and the new guide player. The
+    guide portal scenes still need to be updated to the redesigned pages.
 - A replaced microphone on redroid (decision #146): the session page's
   Microphone card plays a line-up tone, beeps, pink noise, a file from the
   user's media library or the browser's microphone into every app's

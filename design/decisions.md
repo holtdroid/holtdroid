@@ -5482,3 +5482,163 @@ instead of the header's. The docs' guide scenes draw the dock, the
 scenarios point at it, and the page descriptions say "dock" where they said
 "header" for navigation. The page-level redesign (Apps, Launch, Session,
 Recordings, Inventory) builds on these tokens next.
+
+## 185. The launch dialog is one configurator with a live preview
+
+**Context.** #87 split the launch dialog into a provider step and an options
+step. #176 showed one kind of WebView at a time, behind a "Kinds of WebView"
+button. The redesign (#184) draws the dialog as one screen: the choices on
+the left and the phone being assembled on the right.
+
+**Decision.** The dialog is a single two-pane screen. It supersedes #87,
+#127 and the WebView-step part of #176.
+
+- The provider is a segmented control at the top: kind, name when two
+  providers share a kind, and free count. It is hidden with one provider,
+  and the first virtual provider that runs the build is preselected.
+- Android versions are compact tiles. Versions below minSdk are disabled
+  with the reason, or offer the newest build that runs.
+- The screen shows four cards (favourites first, the chosen one kept) and
+  an "All devices · N" card. That card replaces the dialog's content with a
+  picker: search, brand chips with counts, cutout filters (notch, punch
+  hole, none) and ≤ 360 dp.
+- WebView shows kind cards (Built-in plus one per package). Under them is a
+  radio list of the chosen kind's versions (channels, release date, size);
+  the four newest show and the rest collapse.
+- VPN chips and app data sit side by side.
+- The right column draws the chosen screen at scale, with px/dp and its
+  cutout, plus a summary, the queue notice, "Record from start" and Launch.
+- A physical provider lists its phones instead of Android and screen.
+- The drawn Android badge of #127 is removed. Tiles use the release's
+  colour.
+
+**Consequences.** One click fewer to reach Launch. The guide scenarios lost
+their Continue step (`launchStage` is gone from the guide state). Quick
+launch and launch links are unchanged.
+
+## 186. The Apps page is a list of app rows with build timelines and a Devices card
+
+**Context.** Apps were cards in a two-column grid, and a separate page
+listed one app's builds. The sessions panel drew at most eight slot pills
+per provider (#87).
+
+**Decision.**
+
+- Apps are rows. Each has its badges, the number of running devices, and
+  launch controls.
+- An expander shows the five newest builds as a timeline: version, code,
+  branch tag, Latest, uploader, size, age, launch, and a ⋯ menu with origin,
+  downloads and management. `/apps/$pkg` keeps notes and changelogs.
+- Source filtering is pill tabs with app counts, done client-side on the
+  full list.
+- The right column is a Devices card: one tick per slot, coloured by the
+  session on it (running, starting, idle-stop near, failed), held, offline
+  or free, with a legend. Sessions are listed yours first, with Extend
+  inline when the idle stop is near and Extend/Stop in a menu. A Recent
+  recordings card follows.
+- The start progress is a pipeline card: one segment per real start state,
+  time since launch, session facts.
+
+**Consequences.** Many slots fit on one bar. The idle countdown shows only
+in the last five minutes; the row's tooltip still gives both limits.
+
+## 187. Session page: Device panel rows, stage toolbar, network picker
+
+**Context.** The redesign gives the session page a header row and three
+columns. The 14 widgets were hover cards in a 158 px column, and the
+phone's keys sat around the bezel. Network conditions filled a whole
+inspector tab, and a running scenario's step wasn't visible.
+
+**Decision.**
+
+- Widgets become collapsible rows in a Device card with three tabs
+  (Environment, Media, App). The shade primitives get a row mode
+  (`ShadeModeContext`), so each widget's controls open in place. Hover mode
+  stays for toolbar popovers and recording side cards.
+- The phone keys become one toolbar beside the frame, or under it in
+  landscape.
+- Device states show as small cards over the last frame, driven only by
+  live data: the screen SSE, the stream status, logcat crash detection and
+  `appRunning`.
+- The Network tab is replaced by a picker modal opened from the Network
+  row.
+- `NetworkProfileInfo` exposes `steps` and `burst`, and `DeviceState`
+  exposes `networkStep` and `networkStepSince`, read from the shaper's
+  loop. The fake provider holds each step for the middle of its range.
+- The portal reads the device again when the current step's shortest hold
+  is over, instead of polling faster.
+
+## 188. Recording timeline lanes, screen state events and Findings
+
+**Context.** The redesign's player shows lanes for screen, app, network and
+events. The real screen state was available only live (`GET /v1/screen`),
+so a screen that timed out or was turned off on the device didn't show in
+recordings. The recordings list showed neither the author nor the markers.
+
+**Decision.**
+
+- The agent subscribes its `ScreenState` poller while recording and writes
+  `screen` events (`{on, locked}`) on every change. That costs one
+  `dumpsys` per second during a recording.
+- Lanes are derived in the browser (`web/src/lib/recording/lanes.ts`).
+  Orientation comes from video segment sizes. Off and locked come from
+  `screen` events, falling back to the portal's buttons for older
+  recordings. App comes from `status.appRunning`, with crashes and ANRs
+  scanned from logcat chunks. Network comes from `device` and `network`
+  events.
+- A client-side **Findings** tab (failed requests, console errors, crashes
+  and ANRs, closes) is the default tab. "Jump to" uses the same list.
+- `RecordingView` carries `owner`, `ownerName` (users mode) and `markers`
+  (a count); the export strips `owner` and `ownerName`.
+- M opens an inline marker field on the stage instead of the popover.
+
+## 189. Slots carry the machine they run on (`Slot.group`)
+
+**Context.** The redesigned Inventory page shows one card per machine
+(node) with its slots as tiles and HostInfo meters, and the Apps page may
+group capacity by node for non-admins. Grouping by
+`InventoryDevice.host.hostname` only works on the admin-only inventory and
+not on `capacity`.
+
+**Decision.** `contract.Slot` gets an optional `group`: the machine a slot
+runs on, so slots that share one have the same value. The emulator provider
+sets it to the node name; the phone and fake providers leave it empty,
+since all their slots share the provider's one host. Inventory groups by
+`group`, then by the host's name, then puts everything in one card per
+provider. The field is additive and optional, so other providers need not
+set it.
+
+## 190. The fake provider offers a screen and Android versions
+
+**Context.** `holtdroid dev` showed no launch configurator and no device
+badges, because the fake provider reported no `screens`, `versions` or
+session capabilities.
+
+**Decision.** The fake provider offers one screen, `classic` (1080×1920 at
+480 dpi, which matches its 360×640 dp recording so pixel-perfect overlays
+line up), and Android 15, 14 and 13. Each session reports the chosen model,
+Android and screen as its capabilities. An unknown Android value is
+accepted rather than refused, so tests can launch with any version.
+
+## 191. The docs site shares the portal's tokens and dock, and returns to the portal through `#returnUrl`
+
+**Context.** The redesign (#184) gave the portal one set of colours and
+fonts for light and dark, and a floating bottom dock. The docs site was
+dark-only with its own green accent, Geist and a top header, and readers
+who opened it from the portal had no way back.
+
+**Decision.** The docs keep a copy of the portal's tokens in
+`docs/src/styles/tokens.css` under `data-theme`. A test keeps it equal to
+`web/src/theme.css`, and every `--sl-*` variable, code-block colour and
+Mermaid colour comes from it. Starlight pages and the landing render one
+static dock (`docs/src/components/dock/Dock.astro`) instead of the header.
+Search opens Starlight's own window, the theme toggle writes Starlight's
+`starlight-theme` key, and on phones the sidebar opens from the dock as a
+bottom sheet. The portal's documentation link adds `#returnUrl=<portal
+URL>`. Every docs page decodes it once and accepts only an http(s) URL
+without credentials, not on the docs' own origin and at most 2048
+characters long. It keeps the clean URL in `sessionStorage` for that tab,
+removes it from the address and shows **Open the portal** in the dock,
+setting the link only through `.href`. A stored value is checked again on
+every read. The landing's pictures are islands that render the guide
+scenes, which use the portal's own components, rather than screenshots.
