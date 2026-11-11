@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import type { DeviceState, NetworkProfileInfo } from "@/api/client"
-import { devicePoll, hold, loop, position, quality, speed, stepName } from "./network-conditions"
+import { bandwidth, devicePoll, hold, loop, position, quality, speed, stepName } from "./network-conditions"
 
 const lte: NetworkProfileInfo = {
   id: "lte",
@@ -35,6 +35,12 @@ const subway: NetworkProfileInfo = {
 const profiles = [{ id: "full", name: "No limits", description: "", scenario: false }, lte, gprs, subway]
 
 describe("network conditions", () => {
+  test("bandwidth", () => {
+    expect(bandwidth(692_587)).toBe("693 Mbit/s")
+    expect(bandwidth(1_250)).toBe("1.3 Mbit/s")
+    expect(bandwidth(512.4)).toBe("512 kbit/s")
+    expect(bandwidth()).toBe("∞")
+  })
   test("hold and loop", () => {
     expect(hold({ profile: "lte", min: 20_000, max: 40_000 })).toBe("20–40 s")
     expect(hold({ profile: "", min: 3_000, max: 3_000 })).toBe("3 s")

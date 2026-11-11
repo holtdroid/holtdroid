@@ -15,7 +15,7 @@ export function emulating(s: DeviceState) {
 
 export function bandwidth(kbit?: number) {
   if (!kbit) return "∞"
-  return kbit >= 1000 ? `${kbit / 1000} Mbit/s` : `${kbit} kbit/s`
+  return kbit >= 1000 ? `${mbit(kbit)} Mbit/s` : `${Math.round(kbit)} kbit/s`
 }
 
 export function mbit(kbit?: number) {

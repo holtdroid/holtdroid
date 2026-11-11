@@ -340,7 +340,7 @@ function Networks({
             >
               <Radio on={on} />
               <span className="flex min-w-0 flex-col">
-                <span className="font-medium">{typical ? `Typical mobile in ${info.name}` : p.name}</span>
+                <span className="truncate font-medium">{typical ? `Typical mobile in ${info.name}` : p.name}</span>
                 <span className="truncate text-xs text-muted-foreground">
                   {typical ? "The region's median mobile connection." : p.description}
                 </span>
@@ -381,7 +381,8 @@ function Networks({
 }
 
 const outage: CSSProperties = {
-  background: "repeating-linear-gradient(135deg, var(--danger) 0 3px, transparent 3px 7px)",
+  backgroundImage:
+    "repeating-linear-gradient(135deg, color-mix(in oklab, var(--danger) 30%, transparent) 0 3px, transparent 3px 7px)",
 }
 
 function Strip({
@@ -395,21 +396,44 @@ function Strip({
 }) {
   const steps = scenario.steps ?? []
   return (
-    <div className="flex h-[22px] gap-0.5" aria-hidden>
+    <span
+      className="grid gap-x-0.5 gap-y-1 overflow-hidden"
+      style={{ gridTemplateColumns: steps.map((st) => `minmax(min-content, ${(st.min + st.max) / 2}fr)`).join(" ") }}
+      aria-hidden
+    >
+      {steps.map((st, i) => {
+        const name = stepName(profiles, st, scenario)
+        return (
+          <span
+            key={i}
+            title={`${name} · ${hold(st)}`}
+            style={st.profile ? undefined : outage}
+            className={cn(
+              "relative h-[22px] rounded-[5px]",
+              st.profile ? "bg-accent" : "border border-danger/50 bg-danger-soft",
+              i === current && "outline-2 outline-info",
+            )}
+          >
+            {st.profile && (
+              <span className="absolute inset-x-1.5 top-1/2 -translate-y-1/2 truncate text-[10.5px] font-medium text-foreground">
+                {name}
+              </span>
+            )}
+          </span>
+        )
+      })}
       {steps.map((st, i) => (
         <span
           key={i}
-          style={{ flex: (st.min + st.max) / 2, ...(st.profile ? undefined : outage) }}
           className={cn(
-            "flex min-w-1 items-center overflow-hidden rounded-[5px] px-1.5 text-[10.5px] font-medium whitespace-nowrap",
-            st.profile ? "bg-accent text-foreground" : "border border-danger text-danger",
-            i === current && "outline-2 outline-info",
+            "truncate text-center font-mono text-[10.5px]",
+            st.profile ? "text-muted-foreground" : "text-danger",
           )}
         >
-          {st.profile ? `${stepName(profiles, st, scenario)} ${hold(st)}` : hold(st)}
+          {hold(st)}
         </span>
       ))}
-    </div>
+    </span>
   )
 }
 
@@ -433,40 +457,42 @@ function Scenarios({
   if (!selected) return <p className="p-6 text-sm text-muted-foreground">No scenarios on this device.</p>
   return (
     <div className="flex min-h-[460px] flex-wrap">
-      <div className="grid min-w-0 flex-[999_1_520px] grid-cols-1 content-start gap-2.5 px-5 py-4 sm:grid-cols-2">
-        {scenarios.map((p) => {
-          const l = loop(p.steps ?? [])
-          const on = p.id === s.networkProfile
-          return (
-            <button
-              key={p.id}
-              type="button"
-              aria-pressed={p.id === selected.id}
-              onClick={() => setPicked(p.id)}
-              className={cn(
-                "flex cursor-pointer flex-col gap-2.5 rounded-xl border bg-card p-3.5 text-left transition-colors hover:bg-muted/50",
-                p.id === selected.id && "border-foreground shadow-[inset_0_0_0_1px_var(--foreground)]",
-              )}
-            >
-              <span className="flex items-center gap-2">
-                <span className="font-semibold">{p.name}</span>
-                {on && (
-                  <Badge variant="success" dot>
-                    Running
-                  </Badge>
+      <div className="@container min-w-0 flex-[3_1_420px] px-5 py-4">
+        <div className="grid grid-cols-1 content-start gap-2.5 @xl:grid-cols-2">
+          {scenarios.map((p) => {
+            const l = loop(p.steps ?? [])
+            const on = p.id === s.networkProfile
+            return (
+              <button
+                key={p.id}
+                type="button"
+                aria-pressed={p.id === selected.id}
+                onClick={() => setPicked(p.id)}
+                className={cn(
+                  "flex min-w-0 cursor-pointer flex-col gap-2.5 rounded-xl border bg-card p-3.5 text-left transition-colors hover:bg-muted/50",
+                  p.id === selected.id && "border-foreground shadow-[inset_0_0_0_1px_var(--foreground)]",
                 )}
-                <span className="flex-1" />
-                <span className="font-mono text-xs text-muted-foreground">{l.text} ↻</span>
-              </span>
-              <span className="line-clamp-2 text-[13px] text-muted-foreground">{p.description}</span>
-              <Strip scenario={p} profiles={profiles} current={on && pos ? pos.step : undefined} />
-              <span className="flex justify-between font-mono text-xs text-muted-foreground">
-                <span>0 s</span>
-                <span>{l.min === l.max ? `${seconds(l.mean)} s` : `≈ ${seconds(l.mean)} s`}</span>
-              </span>
-            </button>
-          )
-        })}
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="truncate font-semibold">{p.name}</span>
+                  {on && (
+                    <Badge variant="success" dot>
+                      Running
+                    </Badge>
+                  )}
+                  <span className="flex-1" />
+                  <span className="shrink-0 font-mono text-xs whitespace-nowrap text-muted-foreground">{l.text} ↻</span>
+                </span>
+                <span className="line-clamp-2 text-[13px] text-muted-foreground">{p.description}</span>
+                <Strip scenario={p} profiles={profiles} current={on && pos ? pos.step : undefined} />
+                <span className="flex justify-between font-mono text-xs text-muted-foreground">
+                  <span>0 s</span>
+                  <span>{l.min === l.max ? `${seconds(l.mean)} s` : `≈ ${seconds(l.mean)} s`}</span>
+                </span>
+              </button>
+            )
+          })}
+        </div>
       </div>
       <ScenarioDetail
         scenario={selected}
@@ -483,7 +509,7 @@ function stepNumbers(link: NetworkProfileInfo | undefined, st: NetworkStep) {
   if (!st.profile) return { rtt: "—", bw: "100% loss" }
   if (!link) return { rtt: "—", bw: "—" }
   return {
-    rtt: link.rtt ? `${link.rtt}${link.jitter ? ` ± ${link.jitter}` : ""}` : "—",
+    rtt: link.rtt ? `${link.rtt}${link.jitter ? ` ± ${link.jitter}` : ""} ms` : "—",
     bw: link.down || link.up ? `${mbit(link.down)} / ${mbit(link.up)} M` : "unlimited",
   }
 }
@@ -505,23 +531,23 @@ function ScenarioDetail({
   const current = pos ? steps[pos.step] : undefined
   const next = pos ? steps[pos.next] : undefined
   return (
-    <aside className="flex min-w-0 flex-[1_1_320px] flex-col gap-3.5 border-l bg-muted px-5 py-4 max-sm:border-t max-sm:border-l-0">
-      <div className="flex items-center gap-2">
-        <span className="text-[15px] font-semibold">{scenario.name}</span>
+    <aside className="flex min-w-0 flex-[2_1_380px] flex-col gap-3.5 border-l bg-muted px-5 py-4 max-sm:border-t max-sm:border-l-0">
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="truncate text-[15px] font-semibold">{scenario.name}</span>
         <Badge variant="secondary">Loops</Badge>
       </div>
       <p className="text-[13px] leading-normal text-muted-foreground">
         {scenario.description} Each step is held for a random time in its range.
       </p>
-      <div className="overflow-hidden rounded-2xl border bg-card">
+      <div className="overflow-x-auto rounded-2xl border bg-card">
         <table className="w-full border-collapse text-[12.5px]">
           <thead>
-            <tr className="h-8 border-b text-left text-xs text-muted-foreground">
-              <th className="px-2.5 font-medium">Step</th>
-              <th className="px-2.5 font-medium">Link</th>
-              <th className="px-2.5 text-right font-medium">RTT</th>
-              <th className="px-2.5 text-right font-medium">Down / up</th>
-              <th className="px-2.5 text-right font-medium">Hold</th>
+            <tr className="h-8 border-b text-left text-xs whitespace-nowrap text-muted-foreground">
+              <th className="pr-1 pl-3 font-medium">#</th>
+              <th className="px-2 font-medium">Link</th>
+              <th className="px-2 text-right font-medium">RTT</th>
+              <th className="px-2 text-right font-medium">Down / up</th>
+              <th className="pr-3 pl-2 text-right font-medium">Hold</th>
             </tr>
           </thead>
           <tbody>
@@ -534,16 +560,16 @@ function ScenarioDetail({
                   key={i}
                   className={cn("h-[30px] border-b border-border-subtle last:border-b-0", on && "bg-info-soft")}
                 >
-                  <td className="px-2.5 font-mono">{i + 1}</td>
-                  <td className={cn("px-2.5", !st.profile && "text-danger")}>
+                  <td className="pr-1 pl-3 font-mono">{i + 1}</td>
+                  <td className={cn("min-w-20 px-2 py-1", !st.profile && "text-danger")}>
                     <span className="flex items-center gap-1.5">
                       {st.profile === scenario.id ? "Own link" : stepName(profiles, st)}
-                      {on && <span className="size-1.5 rounded-full bg-info" />}
+                      {on && <span className="size-1.5 shrink-0 rounded-full bg-info" />}
                     </span>
                   </td>
-                  <td className="px-2.5 text-right font-mono">{n.rtt}</td>
-                  <td className="px-2.5 text-right font-mono whitespace-nowrap">{n.bw}</td>
-                  <td className="px-2.5 text-right font-mono whitespace-nowrap">{hold(st)}</td>
+                  <td className="px-2 text-right font-mono whitespace-nowrap">{n.rtt}</td>
+                  <td className="px-2 text-right font-mono whitespace-nowrap">{n.bw}</td>
+                  <td className="pr-3 pl-2 text-right font-mono whitespace-nowrap">{hold(st)}</td>
                 </tr>
               )
             })}
@@ -621,7 +647,7 @@ function Region({
 
   return (
     <div className="flex min-h-[460px] flex-wrap">
-      <div className="grid min-w-0 flex-[999_1_480px] content-start gap-1 px-3 py-3">
+      <div className="grid min-w-0 flex-[3_1_420px] content-start gap-1 px-3 py-3">
         <div className="grid px-2 pb-1">
           <SectionTitle>Region</SectionTitle>
           <span className="text-xs text-muted-foreground">
@@ -653,7 +679,7 @@ function Region({
           })}
         </div>
       </div>
-      <aside className="flex min-w-0 flex-[1_1_360px] flex-col gap-4 border-l bg-muted px-5 py-4 max-sm:border-t max-sm:border-l-0">
+      <aside className="flex min-w-0 flex-[2_1_380px] flex-col gap-4 border-l bg-muted px-5 py-4 max-sm:border-t max-sm:border-l-0">
         {region && info ? (
           <>
             <div className="grid gap-1">
@@ -684,13 +710,16 @@ function Region({
                       tabIndex={on ? 0 : -1}
                       onClick={() => !on && !busy && setRegion({ server: srv.id })}
                       className={cn(
-                        "grid cursor-pointer gap-0.5 rounded-[9px] border bg-card px-3 py-2 text-left text-[13px] transition-colors outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50 aria-disabled:cursor-default",
+                        "grid min-w-0 cursor-pointer gap-0.5 rounded-[9px] border bg-card px-3 py-2 text-left text-[13px] transition-colors outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50 aria-disabled:cursor-default",
                         on && "border-primary bg-primary text-primary-foreground hover:bg-primary",
                       )}
                     >
-                      <span className="font-medium">{srv.name}</span>
+                      <span className="truncate font-medium">{srv.name}</span>
                       <span
-                        className={cn("font-mono text-xs", on ? "text-primary-foreground/75" : "text-muted-foreground")}
+                        className={cn(
+                          "truncate font-mono text-xs",
+                          on ? "text-primary-foreground/75" : "text-muted-foreground",
+                        )}
                       >
                         {theirs} ms
                         {mine && theirs && mine > theirs && (
@@ -759,10 +788,14 @@ function RegionRow({
     >
       <Radio on={on} />
       <span className="flex min-w-0 flex-col">
-        <span className="font-medium">{title}</span>
+        <span className="truncate font-medium">{title}</span>
         <span className="truncate font-mono text-xs text-muted-foreground">{detail}</span>
       </span>
-      {warning && <Badge variant="warning">{warning}</Badge>}
+      {warning && (
+        <Badge variant="warning" className="max-w-44" title={warning}>
+          <span className="truncate">{warning}</span>
+        </Badge>
+      )}
     </button>
   )
 }
