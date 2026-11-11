@@ -6,6 +6,7 @@ export function Modal({ className, children }: { className?: string; children: R
   return (
     <div className="animate-in fade-in-0 absolute inset-0 z-40 grid place-items-center bg-black/10 backdrop-blur-xs duration-200">
       <div
+        data-modal
         className={cn(
           "bg-popover text-popover-foreground animate-in zoom-in-95 fade-in-0 relative grid w-full max-w-sm gap-4 rounded-xl p-4 text-sm ring-1 ring-foreground/10 duration-200",
           className,

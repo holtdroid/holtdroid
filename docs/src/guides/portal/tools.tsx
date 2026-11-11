@@ -500,6 +500,7 @@ export function NetworkDialog({ s }: { s: PortalState }) {
     <div className="animate-in fade-in-0 absolute inset-y-4 right-4 z-40 flex w-[min(560px,55%)] duration-200">
       <div
         data-g="net-picker"
+        data-modal
         className="bg-popover text-popover-foreground shadow-float flex min-h-0 w-full flex-col overflow-hidden rounded-2xl border text-sm"
       >
         <div className="flex items-center gap-3 border-b px-5 py-4">

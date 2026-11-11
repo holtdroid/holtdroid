@@ -135,7 +135,7 @@ export function LaunchDialog({ s }: { s: PortalState }) {
   const loc = locations.find((l) => l.id === s.location)
   const webview = webviews.find((w) => w.id === s.webview)
   return (
-    <Modal className="max-h-[640px] max-w-[1000px] grid-cols-[minmax(0,1fr)_280px] gap-0 overflow-hidden p-0">
+    <Modal className="h-[640px] max-w-[1000px] grid-cols-[minmax(0,1fr)_280px] grid-rows-[minmax(0,1fr)] gap-0 overflow-hidden p-0">
       <div className="flex min-h-0 flex-col">
         <div className="flex items-center gap-3 border-b px-5 py-4">
           <AppIcon src={app.icon} className="size-10 rounded-[11px]" />
@@ -173,14 +173,18 @@ export function LaunchDialog({ s }: { s: PortalState }) {
       </div>
       <aside className="bg-muted flex min-h-0 flex-col border-l">
         <div className="text-muted-foreground border-b px-4 py-3.5 font-mono text-xs">Preview</div>
-        <div data-g="launch-preview" className="scale-90 px-4 pt-2">
-          <LivePreview display={screen} />
+        <div className="relative min-h-0 flex-1">
+          <div data-g="launch-preview" className="absolute inset-0 grid place-items-center overflow-hidden">
+            <div className="scale-[0.7]">
+              <LivePreview display={screen} />
+            </div>
+          </div>
         </div>
         <div className="px-4 text-center">
           <div className="font-semibold">{screen.label}</div>
           <div className="text-muted-foreground text-xs">{screen.like}</div>
         </div>
-        <dl className="m-4 grid grid-cols-[80px_minmax(0,1fr)] gap-y-2 text-[13px]">
+        <dl className="mx-4 my-3 grid grid-cols-[80px_minmax(0,1fr)] gap-y-2 text-[13px]">
           <dt className="text-muted-foreground">Android</dt>
           <dd>{s.android}</dd>
           <dt className="text-muted-foreground">WebView</dt>
@@ -192,7 +196,7 @@ export function LaunchDialog({ s }: { s: PortalState }) {
           <dt className="text-muted-foreground">App data</dt>
           <dd>{s.appData === "saved" ? "Saved 2 hours ago" : "Fresh install"}</dd>
         </dl>
-        <div className="mt-auto grid gap-3 border-t px-4 pt-3.5 pb-4">
+        <div className="grid gap-3 border-t px-4 pt-3.5 pb-4">
           <p className="text-muted-foreground flex items-center gap-2 text-xs">
             <ClockIcon className="size-3.5" />
             {5 - s.sessions} of 6 devices free
