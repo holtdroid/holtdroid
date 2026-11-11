@@ -25,13 +25,18 @@ import {
   Trash2Icon,
   UploadIcon,
 } from "lucide-react"
-import type { ReactNode } from "react"
+import type { CSSProperties, ReactNode } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { PortalState, Tab } from "../types"
 import { frames, issues, locationOf, logLines, networkProfiles, requests } from "./data"
 import { Dns, Routes } from "./insights"
+
+const subwayOutage: CSSProperties = {
+  backgroundImage:
+    "repeating-linear-gradient(135deg, color-mix(in oklab, var(--danger) 30%, transparent) 0 3px, transparent 3px 7px)",
+}
 
 const tabs: [Tab, string, LucideIcon][] = [
   ["devtools", "DevTools", SquareCodeIcon],
@@ -549,10 +554,35 @@ export function NetworkDialog({ s }: { s: PortalState }) {
               <span className="text-muted-foreground text-xs">{p.detail}</span>
               {p.numbers && <span className="text-muted-foreground font-mono text-[11px]">{p.numbers}</span>}
               {p.scenario && (
-                <span className="flex h-5 gap-0.5" aria-hidden>
-                  <span className="bg-accent flex-[30] rounded-[5px]" />
-                  <span className="bg-accent outline-info flex-[15] rounded-[5px] outline-2" />
-                  <span className="border-danger flex-[12] rounded-[5px] border" />
+                <span className="grid grid-cols-[30fr_15fr_12.5fr] gap-x-0.5 gap-y-1 overflow-hidden" aria-hidden>
+                  {["Typical 4G", "3G", ""].map((name, i) => (
+                    <span
+                      key={i}
+                      style={name ? undefined : subwayOutage}
+                      className={cn(
+                        "relative h-[22px] rounded-[5px]",
+                        name ? "bg-accent" : "border-danger/50 bg-danger-soft border",
+                        i === 1 && "outline-info outline-2 -outline-offset-2",
+                      )}
+                    >
+                      {name && (
+                        <span className="text-foreground absolute inset-x-1.5 top-1/2 -translate-y-1/2 truncate text-[10.5px] font-medium">
+                          {name}
+                        </span>
+                      )}
+                    </span>
+                  ))}
+                  {["20–40 s", "10–20 s", "5–20 s"].map((h, i) => (
+                    <span
+                      key={h}
+                      className={cn(
+                        "truncate text-center font-mono text-[10.5px]",
+                        i === 2 ? "text-danger" : "text-muted-foreground",
+                      )}
+                    >
+                      {h}
+                    </span>
+                  ))}
                 </span>
               )}
             </div>

@@ -15,7 +15,7 @@ import {
   WifiOffIcon,
   type LucideIcon,
 } from "lucide-react"
-import { type FocusEvent, type KeyboardEvent, memo, type PointerEvent, useMemo, useState } from "react"
+import { type FocusEvent, type KeyboardEvent, memo, type PointerEvent, useCallback, useMemo, useState } from "react"
 import type { RecordingMarker } from "@/api/client"
 import { MarkerPin } from "@/components/recording/markers"
 import {
@@ -91,15 +91,16 @@ function changesOf(lanes: Lanes): Change[] {
     icon: (k: K) => LucideIcon,
     tone: Record<K, string>,
     fallback: string,
+    usual: K[],
   ) => {
     spans.forEach((s, i) => {
-      if (i > 0)
+      if (i > 0 || !usual.includes(s.kind))
         out.push({ t: s.start, icon: icon(s.kind), tone: tone[s.kind], title: `${what}: ${s.label || fallback}` })
     })
   }
-  add("Screen", lanes.screen, (k) => screenIcons[k] ?? VideoOffIcon, screenTones, "No video")
-  add("App", lanes.app, (k) => appIcons[k], appTones, "")
-  add("Network", lanes.network, (k) => networkIcons[k], networkTones, "")
+  add("Screen", lanes.screen, (k) => screenIcons[k] ?? VideoOffIcon, screenTones, "No video", ["portrait"])
+  add("App", lanes.app, (k) => appIcons[k], appTones, "", ["running", "starting"])
+  add("Network", lanes.network, (k) => networkIcons[k], networkTones, "", ["normal"])
   out.push(...lanes.dns.map((d) => ({ t: d.t, icon: GlobeIcon, tone: "text-violet", title: d.title })))
   return out
 }
@@ -113,9 +114,11 @@ function percent(duration: number) {
   return (t: number) => `${duration > 0 ? Math.min(100, Math.max(0, (t / duration) * 100)) : 0}%`
 }
 
-const Marks = memo(function Marks({ duration, lanes }: { duration: number; lanes: Lanes }) {
+const changeWidth = 18
+
+const Marks = memo(function Marks({ duration, lanes, width }: { duration: number; lanes: Lanes; width: number }) {
   const pct = percent(duration)
-  const changes = thin(changesOf(lanes), duration, 160).toReversed()
+  const changes = thin(changesOf(lanes), duration, Math.max(1, Math.floor(width / changeWidth))).toReversed()
   const taps = thin(lanes.taps, duration)
   const issues = thin(lanes.issues, duration, 400)
   return (
@@ -141,7 +144,7 @@ const Marks = memo(function Marks({ duration, lanes }: { duration: number; lanes
         <span
           key={`${c.t}-${c.title}`}
           className={cn("absolute inset-y-0 flex -translate-x-1/2 flex-col items-center", c.tone)}
-          style={{ left: pct(c.t) }}
+          style={{ left: `clamp(0.5rem, ${pct(c.t)}, calc(100% - 0.5rem))` }}
         >
           <span className="mt-1 grid size-4 shrink-0 place-items-center rounded-full border border-current bg-card [&_svg]:size-2.5">
             <c.icon />
@@ -201,6 +204,13 @@ export function Timeline({
 }) {
   const [hover, setHover] = useState<number | null>(null)
   const [keyboard, setKeyboard] = useState(false)
+  const [width, setWidth] = useState(960)
+  const track = useCallback((el: HTMLDivElement | null) => {
+    if (!el) return
+    const observer = new ResizeObserver(() => setWidth(el.clientWidth))
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
   const pct = percent(duration)
   const points = useMemo(
     () => [...lanes.issues, ...changesOf(lanes), ...markers.map((m) => ({ t: m.t, title: m.label || "Marker" }))],
@@ -239,6 +249,7 @@ export function Timeline({
           .toSorted((a, b) => Math.abs(a.t - shown) - Math.abs(b.t - shown))[0]?.title
   const states = shown === null ? "" : statesAt(lanes, shown)
   const share = shown === null || duration <= 0 ? 0 : shown / duration
+  const room = share < 0.2 ? 1 - share : share > 0.8 ? share : 2 * Math.min(share, 1 - share)
 
   return (
     <div className="relative pt-6">
@@ -286,12 +297,12 @@ export function Timeline({
         }}
         onPointerLeave={() => setHover(null)}
       >
-        <div className="relative h-9">
+        <div ref={track} className="relative h-9">
           <div className="absolute inset-0 overflow-hidden rounded-md bg-muted">
             <div className="absolute inset-y-0 left-0 bg-foreground/[0.06]" style={{ width: pct(time) }} />
             <div className="absolute bottom-0 left-0 h-0.5 bg-foreground" style={{ width: pct(time) }} />
           </div>
-          <Marks duration={duration} lanes={lanes} />
+          <Marks duration={duration} lanes={lanes} width={width} />
           <span
             aria-hidden
             className="pointer-events-none absolute -inset-y-1 w-0.5 -translate-x-1/2 rounded-[1px] bg-foreground"
@@ -300,10 +311,10 @@ export function Timeline({
           {shown !== null && (
             <span
               className={cn(
-                "pointer-events-none absolute bottom-full z-30 mb-1.5 max-w-[min(32rem,100%)] truncate rounded-lg border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-float",
+                "pointer-events-none absolute bottom-full z-30 mb-1.5 truncate rounded-lg border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-float",
                 share < 0.2 ? "translate-x-0" : share > 0.8 ? "-translate-x-full" : "-translate-x-1/2",
               )}
-              style={{ left: pct(shown) }}
+              style={{ left: pct(shown), maxWidth: `min(32rem, ${room * 100}%)` }}
             >
               <span className="font-mono">{clock(shown)}</span>
               {near && <span className="font-medium"> · {near}</span>}

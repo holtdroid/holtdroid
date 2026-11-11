@@ -395,10 +395,12 @@ function Strip({
   current?: number
 }) {
   const steps = scenario.steps ?? []
+  const weights = steps.map((st) => (st.min + st.max) / 2)
+  const floor = weights.reduce((a, w) => a + w, 0) / Math.max(1, steps.length) / 2
   return (
     <span
       className="grid gap-x-0.5 gap-y-1 overflow-hidden"
-      style={{ gridTemplateColumns: steps.map((st) => `minmax(min-content, ${(st.min + st.max) / 2}fr)`).join(" ") }}
+      style={{ gridTemplateColumns: weights.map((w) => `minmax(1.25rem, ${Math.max(w, floor)}fr)`).join(" ") }}
       aria-hidden
     >
       {steps.map((st, i) => {
@@ -411,7 +413,7 @@ function Strip({
             className={cn(
               "relative h-[22px] rounded-[5px]",
               st.profile ? "bg-accent" : "border border-danger/50 bg-danger-soft",
-              i === current && "outline-2 outline-info",
+              i === current && "outline-2 -outline-offset-2 outline-info",
             )}
           >
             {st.profile && (
@@ -425,6 +427,7 @@ function Strip({
       {steps.map((st, i) => (
         <span
           key={i}
+          title={hold(st)}
           className={cn(
             "truncate text-center font-mono text-[10.5px]",
             st.profile ? "text-muted-foreground" : "text-danger",
@@ -509,7 +512,7 @@ function stepNumbers(link: NetworkProfileInfo | undefined, st: NetworkStep) {
   if (!st.profile) return { rtt: "—", bw: "100% loss" }
   if (!link) return { rtt: "—", bw: "—" }
   return {
-    rtt: link.rtt ? `${link.rtt}${link.jitter ? ` ± ${link.jitter}` : ""} ms` : "—",
+    rtt: link.rtt ? `${link.rtt}${link.jitter ? ` ± ${link.jitter}` : ""}` : "—",
     bw: link.down || link.up ? `${mbit(link.down)} / ${mbit(link.up)} M` : "unlimited",
   }
 }
@@ -545,7 +548,7 @@ function ScenarioDetail({
             <tr className="h-8 border-b text-left text-xs whitespace-nowrap text-muted-foreground">
               <th className="pr-1 pl-3 font-medium">#</th>
               <th className="px-2 font-medium">Link</th>
-              <th className="px-2 text-right font-medium">RTT</th>
+              <th className="px-2 text-right font-medium">RTT, ms</th>
               <th className="px-2 text-right font-medium">Down / up</th>
               <th className="pr-3 pl-2 text-right font-medium">Hold</th>
             </tr>

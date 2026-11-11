@@ -5570,6 +5570,8 @@ inspector tab, and a running scenario's step wasn't visible.
 
 ## 188. Recording timeline lanes, screen state events and Findings
 
+Partly superseded by #192: the timeline is one track, not a row per lane.
+
 **Context.** The redesign's player shows lanes for screen, app, network and
 events. The real screen state was available only live (`GET /v1/screen`),
 so a screen that timed out or was turned off on the device didn't show in

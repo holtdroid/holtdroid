@@ -137,9 +137,10 @@ unaffected.
 
 Scenarios loop through networks, holding each for a random time within the
 range given. The **Scenarios** tab shows one card per scenario with its
-loop length (`20–60 s ↻`) and a strip of its steps, each as wide as its
-average hold: networks in grey, outages hatched in red, and the step
-running now outlined in blue. The running scenario has a **Running** badge.
+loop length (`20–60 s ↻`) and a strip of its steps, each named and
+roughly as wide as its average hold, with its hold range under it:
+networks in grey, outages light red and hatched, and the step running now
+outlined in blue. The running scenario has a **Running** badge.
 
 Picking a card shows its steps on the right: the link of each, its RTT,
 download and upload, and how long it is held. While that scenario runs, its

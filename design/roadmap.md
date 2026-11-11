@@ -358,7 +358,7 @@ Goal: several Android devices per node instead of one emulator per node.
 - [x] Apps page, launch configurator and starting pipeline (decisions #185, #186)
 - [x] Session page redesign: header with idle bar, record/share/extend/stop; Device panel with grouped collapsible rows; stage toolbar; screen-state cards (screen off, locked, reconnecting, crashed, closed); tools card with a More menu (decision #187)
 - [x] Network picker modal (Networks / Scenarios / Region) with scenario steps and the live step (`steps`, `burst`, `networkStep`, `networkStepSince`)
-- [x] Recordings list and recording player with lanes, Findings and quick marker (decision #188)
+- [x] Recordings list and recording player with lanes, Findings and quick marker (decision #188; timeline superseded by #192)
 - [x] Recording timeline on one track with change icons and markers; wider tools column with a More menu and a narrow Routes table (decision #192)
 - [x] Record screen on/locked as a recording event
 - [x] Inventory page (capacity bar, per-node cards with slot tiles and CPU, memory and temperature meters, longest-running sessions)

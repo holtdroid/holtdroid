@@ -191,7 +191,7 @@ export function Recording({ s }: { s: PortalState }) {
   return (
     <div className="flex h-full flex-col gap-2.5 px-4 pt-3">
       <RecordingHeader s={s} />
-      <div className="grid min-h-0 flex-1 grid-cols-[210px_minmax(0,1fr)_minmax(0,500px)] gap-3">
+      <div className="grid min-h-0 flex-1 grid-cols-[210px_minmax(0,1fr)_40%] gap-3">
         <div data-g="rec-cards" className="grid min-h-0 content-start gap-2.5 overflow-hidden">
           <SideCard
             title={`At ${recClock(s.recTime)}`}

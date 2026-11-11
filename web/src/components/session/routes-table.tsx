@@ -18,7 +18,7 @@ import {
 import { cn } from "@/lib/utils"
 
 const cols =
-  "grid-cols-[minmax(0,2fr)_minmax(0,1.6fr)_44px_64px] @lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1.6fr)_44px_64px] @2xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1.6fr)_72px_52px_80px_minmax(0,1fr)]"
+  "grid-cols-[minmax(0,2fr)_minmax(0,1.6fr)_56px_64px] @lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1.6fr)_56px_64px] @2xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1.6fr)_72px_52px_80px_minmax(0,1fr)]"
 
 const flagTones: Record<RouteFlag["id"], string> = {
   far: "bg-warning-soft text-warning",
@@ -163,7 +163,10 @@ export function RoutesTable({
               {r.addresses[0] ? <Place info={geo.info.get(r.addresses[0])} edge={r.edge} /> : null}
             </span>
             <span className="hidden truncate @2xl:block">{r.outbounds.join(", ")}</span>
-            <span className="text-right font-mono tabular-nums">
+            <span
+              className="truncate text-right font-mono tabular-nums"
+              title={r.open > 0 ? `${r.conns.length} connections, ${r.open} open` : `${r.conns.length} connections`}
+            >
               {r.conns.length}
               {r.open > 0 && <span className="text-muted-foreground"> ({r.open})</span>}
             </span>

@@ -519,20 +519,20 @@ function BuildRow({
     <li className={cn("flex flex-col", detailed && "border-b border-dashed py-2 last:border-0")}>
       <div className="flex min-h-11 items-center gap-3 text-[13px]">
         {detailed && <AppIcon src={a.iconUrl} className="size-7 rounded-lg" />}
-        <span className="w-32 min-w-16 truncate font-mono font-medium" title={a.app?.versionName || title}>
+        <span className="w-28 shrink-0 truncate font-mono font-medium" title={a.app?.versionName || title}>
           {a.app?.versionName || (a.app ? "—" : "…")}
         </span>
         <span className="text-muted-foreground hidden w-20 shrink-0 truncate font-mono text-xs tabular-nums sm:inline">
           {a.app?.versionCode ?? ""}
         </span>
-        <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 overflow-hidden">
+        <span className="flex min-w-14 flex-1 items-center gap-1.5 overflow-hidden">
+          {latest && <Badge variant="info">Latest</Badge>}
           {branch && (
-            <Badge variant="secondary" className="max-w-[220px]">
+            <Badge variant="secondary" className="min-w-0 max-w-[220px] shrink justify-start" title={branch}>
               <GitBranchIcon />
               <span className="truncate">{branch}</span>
             </Badge>
           )}
-          {latest && <Badge variant="info">Latest</Badge>}
           {a.meta.visibility === "private" && (
             <Badge variant="secondary">
               <LockIcon />
@@ -558,7 +558,7 @@ function BuildRow({
           )}
         </span>
         {a.meta.uploadedBy && (
-          <span className="hidden max-w-36 items-center gap-1.5 lg:inline-flex">
+          <span className="hidden max-w-36 items-center gap-1.5 xl:inline-flex">
             <UserAvatar user={a.meta.uploadedBy} className="size-[22px]" />
             <span className="truncate">{a.meta.uploadedBy}</span>
           </span>
