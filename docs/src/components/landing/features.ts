@@ -68,7 +68,7 @@ const ready: Partial<PortalState> = { page: "session", sessions: 1, start: "read
 export const bento: Tile[] = [
   {
     title: "The screen, in the tab",
-    text: "Streamed with scrcpy and decoded by WebCodecs: H.264 by default, H.265 or AV1 where the browser decodes them, up to 1080p, with the device's audio and a real keyboard.",
+    text: "Streamed with scrcpy and decoded by WebCodecs: H.264 by default, H.265 or AV1 where the browser decodes them, up to 1080p, with the device's audio and a USB keyboard that types in any layout.",
     href: "/start/introduction/",
     size: "xl",
     scene: { state: ready, view: [17, 100, 590, 540], label: "A device's screen with its controls" },
@@ -86,14 +86,14 @@ export const bento: Tile[] = [
   },
   {
     title: "A country per device",
-    text: "Each device reaches the internet through its own VPN location. Switch it from the session without restarting.",
+    text: "Where VPN locations are configured, each device reaches the internet through its own. Switch it from the session without restarting.",
     href: "/concepts/vpn/",
     size: "s",
     vignette: "vpn",
   },
   {
     title: "Bad networks on purpose",
-    text: "Presets down to 2G (EDGE), a region's round trips to CDNs, and scenarios like a subway ride. Emulator sessions with a VPN location.",
+    text: "Networks from 5G down to GPRS, a region's round trips to CDNs, and scenarios like a subway ride. Emulator sessions with a VPN location.",
     href: "/session-tools/network/",
     size: "s",
     vignette: "network",
@@ -137,7 +137,7 @@ export const bento: Tile[] = [
   },
   {
     title: "One-click launch, deep links",
-    text: "⚡ repeats your last launch. The app's row opens deep links, grants permissions and clears data.",
+    text: "⚡ repeats your last launch. In a session, the App row opens deep links, grants permissions and clears data.",
     href: "/guides/first-steps/quick-launch/",
     size: "s",
     vignette: "quick",
@@ -183,8 +183,8 @@ export const more: { icon: IconName; title: string; text: string; href: string }
   },
   {
     icon: "globe",
-    title: "GPS and device settings",
-    text: "A mocked location, language, time zone, dark theme, battery.",
+    title: "Device settings",
+    text: "Language, time zone, dark theme, battery.",
     href: "/guides/conditions/device-settings/",
   },
   {
@@ -260,7 +260,7 @@ export const compare: { topic: string; usual: string; here: string }[] = [
 export const operate: { icon?: IconName; title: string; text: string; chips?: string[] }[] = [
   {
     title: "Android in containers",
-    text: "redroid on the node's own kernel, several devices per node, with ARM translation for ARM-only builds.",
+    text: "redroid on the node's own kernel, several devices per node, with ARM translation for 64-bit ARM builds.",
   },
   {
     icon: "phone",

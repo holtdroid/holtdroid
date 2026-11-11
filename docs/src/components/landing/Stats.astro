@@ -3,13 +3,13 @@ import { stats } from "./features"
 ---
 
 <section class="l-wrap l-section l-stats-wrap" aria-labelledby="at-a-glance">
-  <p class="l-eyebrow" id="at-a-glance">At a glance</p>
+  <h2 class="l-eyebrow" id="at-a-glance">At a glance</h2>
   <ul class="l-card l-stats" data-reveal>
     {
       stats.map((s) => (
         <li class="l-stat">
           <span class="l-stat-num l-mono">
-            {s.parts.map((p) => (typeof p === "number" ? <span data-count={p}>{p}</span> : p))}
+            {s.parts.map((p) => (typeof p === "number" ? <span data-count={p} style={`min-width:${String(p).length}ch`}>{p}</span> : p))}
           </span>
           <span class="l-stat-label">{s.label}</span>
         </li>

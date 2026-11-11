@@ -6,6 +6,7 @@
 
 html {
   scroll-behavior: smooth;
+  scroll-padding-top: 80px;
 }
 
 body.l-page {
@@ -29,7 +30,7 @@ body.l-page {
   --l-glow: color-mix(in oklab, var(--hd-in) 16%, transparent);
 }
 
-.l-page :is(h1, h2, h3, p, ul) {
+:where(.l-page) :is(h1, h2, h3, p, ul) {
   margin: 0;
 }
 
@@ -192,18 +193,26 @@ body.l-page {
 
 /* reveal */
 
-html.js [data-reveal] {
+html.js [data-reveal]:not(.is-in) {
   opacity: 0;
   translate: 0 12px;
-  transition:
-    opacity 0.48s var(--l-ease),
-    translate 0.48s var(--l-ease);
-  transition-delay: min(calc(var(--i, 0) * 60ms), 360ms);
 }
 
 html.js [data-reveal].is-in {
-  opacity: 1;
-  translate: 0 0;
+  animation: l-reveal 0.48s var(--l-ease) backwards;
+  animation-delay: min(calc(var(--i, 0) * 60ms), 360ms);
+}
+
+@keyframes l-reveal {
+  from {
+    opacity: 0;
+    translate: 0 12px;
+  }
+}
+
+:where(.l-page) :is(a, button):focus-visible {
+  outline: 2px solid var(--hd-in);
+  outline-offset: 2px;
 }
 
 html.js [data-live]:not(.is-live) *,
@@ -382,6 +391,7 @@ html:not(.js) [data-live] {
 
 .l-stage astro-island:empty {
   display: block;
+  margin-bottom: 60px;
   aspect-ratio: 1180 / 720;
   border: 1px solid var(--hd-bd);
   border-radius: 18px;
@@ -389,7 +399,7 @@ html:not(.js) [data-live] {
 }
 
 .l-caption {
-  margin-top: 14px !important;
+  margin-top: 14px;
   color: var(--hd-mu);
   font-size: 13px;
   text-align: center;
@@ -408,7 +418,7 @@ html:not(.js) [data-live] {
     transform-origin: 50% 0;
     animation: l-tilt linear both;
     animation-timeline: view();
-    animation-range: entry 10% cover 35%;
+    animation-range: entry 0% entry 30%;
   }
 }
 
@@ -479,15 +489,11 @@ html:not(.js) [data-live] {
   border-color: var(--hd-in);
 }
 
-.l-chip:focus-visible {
-  outline: 2px solid var(--hd-in);
-  outline-offset: 2px;
-}
-
 .l-chip-text {
   display: flex;
   gap: 6px;
   align-items: center;
+  white-space: nowrap;
 }
 
 .l-chip-check {
@@ -534,11 +540,30 @@ html:not(.js) [data-live] {
 /* ticker */
 
 .l-ticker {
+  display: flex;
+  gap: 8px;
+  align-items: center;
   margin-top: 72px;
-  padding: 14px 0;
-  overflow: hidden;
+  padding: 8px 16px 8px 0;
   border-block: 1px solid var(--hd-bd2);
+}
+
+.l-ticker-view {
+  flex: 1;
+  min-width: 0;
+  padding-block: 6px;
+  overflow: hidden;
   mask-image: linear-gradient(90deg, transparent, #000 48px, #000 calc(100% - 48px), transparent);
+}
+
+.l-ticker-toggle {
+  flex: none;
+  color: var(--hd-mu);
+}
+
+.l-ticker-toggle[aria-pressed="true"] .l-ticker-pause,
+.l-ticker-toggle:not([aria-pressed="true"]) .l-ticker-play {
+  display: none;
 }
 
 .l-ticker-track {
@@ -547,7 +572,7 @@ html:not(.js) [data-live] {
   animation: l-ticker 50s linear infinite;
 }
 
-.l-ticker:is(:hover, :focus-within) .l-ticker-track {
+.l-ticker:is(:hover, :focus-within, [data-paused]) .l-ticker-track {
   animation-play-state: paused;
 }
 
@@ -572,6 +597,10 @@ html:not(.js) [data-live] {
 }
 
 html:not(.js) .l-ticker {
+  padding-right: 0;
+}
+
+html:not(.js) .l-ticker-view {
   mask-image: none;
 }
 
@@ -583,7 +612,16 @@ html:not(.js) .l-ticker-list {
   white-space: normal;
 }
 
-html:not(.js) .l-ticker-copy {
+html:not(.js) .l-ticker-list {
+  flex: 1 1 100%;
+  padding-inline: 16px;
+}
+
+html:not(.js) .l-ticker-list li:last-child::after {
+  content: none;
+}
+
+html:not(.js) :is(.l-ticker-copy, .l-ticker-toggle) {
   display: none;
 }
 
@@ -609,6 +647,11 @@ html:not(.js) .l-ticker-copy {
   gap: 8px;
   padding: 28px 24px;
   box-shadow: -1px 0 0 var(--hd-bd2);
+}
+
+.l-stat-num [data-count] {
+  display: inline-block;
+  text-align: right;
 }
 
 .l-stat-num {
@@ -643,13 +686,6 @@ html:not(.js) .l-ticker-copy {
   text-decoration: none;
   transition:
     translate 0.16s,
-    border-color 0.16s;
-}
-
-html.js .l-tile[data-reveal] {
-  transition:
-    opacity 0.48s var(--l-ease),
-    translate 0.48s var(--l-ease),
     border-color 0.16s;
 }
 
@@ -744,18 +780,20 @@ html.js .l-tile[data-reveal] {
     color 0.16s;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .l-tile:hover,
-  .l-more-tile:hover {
-    border-color: var(--l-lift);
-  }
+:is(.l-tile, .l-more-tile):focus-visible {
+  border-color: var(--l-lift);
+  translate: 0 -2px;
+}
 
-  html.js .l-tile.is-in:hover,
-  html.js .l-more-tile.is-in:hover,
-  html:not(.js) .l-tile:hover,
-  html:not(.js) .l-more-tile:hover {
+:is(.l-tile, .l-more-tile):focus-visible .l-tile-arrow {
+  color: var(--hd-tx);
+  transform: translateX(3px);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  :is(.l-tile, .l-more-tile):hover {
+    border-color: var(--l-lift);
     translate: 0 -2px;
-    transition-delay: 0s;
   }
 
   :is(.l-tile, .l-more-tile):hover .l-tile-arrow {
@@ -1233,7 +1271,7 @@ html.js .l-tile[data-reveal] {
 }
 
 .l-rec-kept {
-  margin-bottom: 10px !important;
+  margin-bottom: 10px;
 }
 
 .l-kept {
@@ -1257,9 +1295,28 @@ html.js .l-tile[data-reveal] {
   translate: 0 -1px;
 }
 
+.l-rec-shot {
+  position: relative;
+}
+
 .l-rec-shot astro-island:empty {
   display: block;
   aspect-ratio: 1180 / 720;
+}
+
+.l-noscript {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  color: var(--hd-mu);
+  font-size: 14px;
+  text-align: center;
+}
+
+.l-stage .l-noscript {
+  bottom: 60px;
 }
 
 .l-shot-card {
@@ -1739,13 +1796,6 @@ html:not(.js) .l-tl-head::before {
     border-color 0.15s;
 }
 
-html.js .l-more-tile[data-reveal] {
-  transition:
-    opacity 0.48s var(--l-ease),
-    translate 0.48s var(--l-ease),
-    border-color 0.15s;
-}
-
 .l-more-icon {
   display: grid;
   flex: none;
@@ -1775,7 +1825,7 @@ html.js .l-more-tile[data-reveal] {
 }
 
 .l-more-tile .l-tile-arrow {
-  top: 22px;
+  top: 26px;
   bottom: auto;
 }
 
@@ -1871,6 +1921,10 @@ html.js .l-cmp-row.is-in .l-cmp-here mark {
 .l-dev .terminal-demo .window {
   border-radius: 12px;
   box-shadow: var(--hd-shadow);
+}
+
+.l-dev .terminal-demo :is(.tab, .screen) {
+  font-family: var(--hd-mono);
 }
 
 .l-dev .terminal-demo figcaption {
@@ -2184,10 +2238,11 @@ html.js .l-cmp-row.is-in .l-cmp-here mark {
   }
 
   .l-stats {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 
   .l-stat {
+    grid-column: span 2;
     box-shadow:
       -1px 0 0 var(--hd-bd2),
       0 -1px 0 var(--hd-bd2);
@@ -2211,8 +2266,16 @@ html.js .l-cmp-row.is-in .l-cmp-here mark {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .l-stat:nth-child(n + 4) {
+    grid-column: span 3;
+  }
+
   .l-op-big {
     grid-row: auto;
+  }
+
+  .l-op:last-child {
+    grid-column: span 2;
   }
 }
 
@@ -2279,6 +2342,10 @@ html.js .l-cmp-row.is-in .l-cmp-here mark {
     font-size: 11px;
   }
 
+  .l-chip-num {
+    display: none;
+  }
+
   .l-ticker {
     margin-top: 48px;
   }
@@ -2293,6 +2360,11 @@ html.js .l-cmp-row.is-in .l-cmp-here mark {
 
   .l-stat {
     padding: 20px 16px;
+  }
+
+  .l-stat,
+  .l-stat:nth-child(n + 4) {
+    grid-column: auto;
   }
 
   .l-stat:last-child {
@@ -2321,12 +2393,26 @@ html.js .l-cmp-row.is-in .l-cmp-here mark {
     height: 240px;
   }
 
+  .l-bento .l-vig-shot {
+    height: auto;
+  }
+
+  .l-vig-shot .l-scene-stage {
+    width: 100%;
+    height: auto;
+  }
+
+  .l-vig-shot astro-island:empty {
+    aspect-ratio: 16 / 10;
+  }
+
   .l-more,
   .l-ops {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .l-op-big {
+  .l-op-big,
+  .l-op:last-child {
     grid-column: auto;
   }
 
@@ -2378,6 +2464,10 @@ html.js .l-cmp-row.is-in .l-cmp-here mark {
     display: none;
   }
 
+  .l-cmp-head + .l-cmp-row {
+    border-top: 0;
+  }
+
   .l-cmp-row {
     grid-template-columns: minmax(0, 1fr);
     padding: 16px;
@@ -2412,6 +2502,7 @@ html.js .l-cmp-row.is-in .l-cmp-here mark {
   }
 
   .l-closing {
+    margin-top: 72px;
     padding: 72px 0;
   }
 
@@ -2425,9 +2516,8 @@ html.js .l-cmp-row.is-in .l-cmp-here mark {
     scroll-behavior: auto;
   }
 
-  html.js [data-reveal] {
+  html.js [data-reveal]:not(.is-in) {
     translate: none;
-    transition: opacity 1ms;
   }
 
   .l-page *,
@@ -2437,6 +2527,10 @@ html.js .l-cmp-row.is-in .l-cmp-here mark {
   }
 
   .l-ticker {
+    padding-right: 0;
+  }
+
+  .l-ticker-view {
     mask-image: none;
   }
 
@@ -2448,7 +2542,17 @@ html.js .l-cmp-row.is-in .l-cmp-here mark {
     white-space: normal;
   }
 
-  .l-ticker-copy {
+  .l-ticker-list {
+    flex: 1 1 100%;
+    padding-inline: 16px;
+  }
+
+  .l-ticker-list li:last-child::after {
+    content: none;
+  }
+
+  .l-ticker-copy,
+  .l-ticker-toggle {
     display: none;
   }
 

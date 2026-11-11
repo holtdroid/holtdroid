@@ -14,7 +14,7 @@ const cards = [
   {
     title: "On Kubernetes",
     badge: "Helm",
-    text: "Nodes with /dev/kvm run Android in containers, several per node.",
+    text: "Nodes with binder run Android in containers, several per node.",
     code: "helm install holtdroid \\\n  oci://ghcr.io/holtdroid/charts/holtdroid \\\n  -n holtdroid -f values.yaml",
     comment: "",
     link: { label: "Installation", href: "/start/installation/" },
@@ -25,7 +25,7 @@ const cards = [
 <section class="l-wrap l-section" id="start">
   <div class="l-head">
     <p class="l-eyebrow">Get started</p>
-    <h2 class="l-title">Start in two commands</h2>
+    <h2 class="l-title">Try it locally or install it</h2>
     <p class="l-note l-mono">No cluster? <code>make dev</code> runs the whole UI with simulated devices that stream a recorded screen.</p>
   </div>
   <div class="l-start">
@@ -40,16 +40,17 @@ const cards = [
           <div class="l-code">
             <div class="l-code-head">
               <span class="l-mono">shell</span>
-              <button class="hd-btn hd-btn-s l-copy" type="button" data-copy={c.code}>
-                <span class="l-copy-icons">
+              <button class="hd-btn hd-btn-s l-copy" type="button" data-copy={c.code} aria-label="Copy">
+                <span class="l-copy-icons" aria-hidden="true">
                   <DockIcon name="copy" class="l-copy-idle" />
                   <DockIcon name="check" class="l-copy-done" />
                 </span>
-                <span class="l-copy-label">
+                <span class="l-copy-label" aria-hidden="true">
                   <span class="l-copy-idle">Copy</span>
                   <span class="l-copy-done">Copied</span>
                 </span>
               </button>
+              <span class="l-sr" role="status" />
             </div>
             <pre>{c.code}{c.comment && <span class="l-mu">{`   ${c.comment}`}</span>}</pre>
           </div>
@@ -67,8 +68,13 @@ const cards = [
     button.addEventListener("click", async () => {
       try {
         await navigator.clipboard.writeText(button.dataset.copy ?? "")
+        const status = button.nextElementSibling
         button.dataset.copied = ""
-        setTimeout(() => delete button.dataset.copied, 1500)
+        if (status) status.textContent = "Copied"
+        setTimeout(() => {
+          delete button.dataset.copied
+          if (status) status.textContent = ""
+        }, 1500)
       } catch {}
     })
   }

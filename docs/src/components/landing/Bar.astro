@@ -1,0 +1,20 @@
+---
+import logo from "../../assets/logo.svg"
+import { localized as url } from "../../topics.mjs"
+import DockIcon from "../dock/DockIcon.astro"
+---
+
+<header class="l-bar">
+  <div class="l-wrap l-brand">
+    <a class="l-brand-name" href={url("/")}>
+      <img src={logo.src} alt="" width="32" height="32" />
+      holtdroid
+    </a>
+    <span class="l-grow"></span>
+    <span class="hd-badge l-mono">Apache-2.0</span>
+    <a class="hd-btn" href="https://github.com/holtdroid/holtdroid">
+      <DockIcon name="git" />
+      GitHub
+    </a>
+  </div>
+</header>

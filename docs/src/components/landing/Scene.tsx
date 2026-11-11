@@ -13,7 +13,6 @@ import type { PortalState } from "../../guides/types"
 export type Frame = { state: Partial<PortalState>; hold: number; label?: string }
 
 const FULL: View = [0, 0, 1180, 720]
-const PAUSE = 10_000
 
 function media(query: string) {
   return {
@@ -30,7 +29,7 @@ const narrowQuery = media("(max-width: 640px)")
 const reduceQuery = media("(prefers-reduced-motion: reduce)")
 const off = () => false
 
-type Pos = { index: number; prev: number | null; run: number; delay: number; lead: number; picked: boolean }
+type Pos = { index: number; prev: number | null; run: number; picked: boolean }
 
 function isViews(v: View | View[]): v is View[] {
   return Array.isArray(v[0])
@@ -58,7 +57,7 @@ export default function Scene({
   const rootRef = useRef<HTMLDivElement>(null)
   const [seen, setSeen] = useState(false)
   const [playing, setPlaying] = useState(false)
-  const [pos, setPos] = useState<Pos>({ index: 0, prev: null, run: 0, delay: 0, lead: 0, picked: false })
+  const [pos, setPos] = useState<Pos>({ index: 0, prev: null, run: 0, picked: false })
   const narrow = useSyncExternalStore(narrowQuery.subscribe, narrowQuery.get, off)
   const reduce = useSyncExternalStore(reduceQuery.subscribe, reduceQuery.get, off)
 
@@ -97,8 +96,8 @@ export default function Scene({
   }, [])
 
   useEffect(() => {
-    if (!playing || reduce || frames.length < 2) return undefined
-    const hold = (frames[pos.index]?.hold ?? 1000) + pos.delay
+    if (!playing || reduce || pos.picked || frames.length < 2) return undefined
+    const hold = frames[pos.index]?.hold ?? 1000
     const timer = setTimeout(() => {
       setPos((p) => {
         const next = (p.index + 1) % frames.length
@@ -107,8 +106,6 @@ export default function Scene({
           index: next,
           prev: phaseChange ? p.index : null,
           run: phaseChange ? p.run + 1 : p.run,
-          delay: 0,
-          lead: phaseChange ? 0 : p.lead,
           picked: p.picked,
         }
       })
@@ -134,8 +131,6 @@ export default function Scene({
       index: target,
       prev: !reduce && labelOf(target) !== labelOf(p.index) ? p.index : null,
       run: p.run + 1,
-      delay: PAUSE,
-      lead: PAUSE,
       picked: true,
     }))
   }
@@ -154,8 +149,8 @@ export default function Scene({
         ref={rootRef}
         className={`l-scene-stage ${frame}`}
         style={{ "--ar": `${w} / ${h}` } as CSSProperties}
-        role={seen ? undefined : "img"}
-        aria-label={seen ? undefined : label}
+        role="img"
+        aria-label={label}
       >
         {seen &&
           layers.map((i) => (
@@ -163,13 +158,14 @@ export default function Scene({
               key={labelOf(i)}
               className={layers.length > 1 && i === index ? "l-scene-layer l-scene-in" : "l-scene-layer"}
               onAnimationEnd={layers.length > 1 && i === index ? settle : undefined}
+              aria-hidden="true"
             >
               <Showcase state={states[i] ?? {}} view={viewOf(i)} label={label} />
             </div>
           ))}
       </div>
       {rail && phases.length > 1 && (
-        <div className={playing && !reduce ? "l-rail" : "l-rail l-rail-paused"}>
+        <div className={playing && !reduce && !pos.picked ? "l-rail" : "l-rail l-rail-paused"}>
           {phases.map((p, i) => (
             <button
               key={p}
@@ -185,7 +181,7 @@ export default function Scene({
                     <path d="M5 12l5 5 9-10" />
                   </svg>
                 )}
-                {p}
+                <PhaseName name={p} />
               </span>
               <span className="l-chip-bar" aria-hidden="true">
                 {i === active && (
@@ -194,7 +190,6 @@ export default function Scene({
                     className="l-chip-fill"
                     style={{
                       animationDuration: `${phaseHold}ms`,
-                      animationDelay: `${pos.lead}ms`,
                     }}
                   />
                 )}
@@ -204,5 +199,16 @@ export default function Scene({
         </div>
       )}
     </div>
+  )
+}
+
+function PhaseName({ name }: { name: string }) {
+  const [, num, rest] = /^(\d+) (.*)$/.exec(name) ?? []
+  if (!num) return name
+  return (
+    <>
+      <span className="l-chip-num">{num}</span>
+      {rest}
+    </>
   )
 }

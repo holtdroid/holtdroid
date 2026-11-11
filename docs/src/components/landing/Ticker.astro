@@ -1,14 +1,31 @@
 ---
+import DockIcon from "../dock/DockIcon.astro"
 import { ticker } from "./features"
 ---
 
-<section class="l-ticker" data-live aria-label="What a session has">
-  <div class="l-ticker-track">
-    <ul class="l-ticker-list l-mono">
-      {ticker.map((t) => <li>{t}</li>)}
-    </ul>
-    <ul class="l-ticker-list l-ticker-copy l-mono" aria-hidden="true">
-      {ticker.map((t) => <li>{t}</li>)}
-    </ul>
+<section class="l-ticker" data-live aria-label="What Holtdroid has">
+  <div class="l-ticker-view">
+    <div class="l-ticker-track">
+      <ul class="l-ticker-list l-mono">
+        {ticker.map((t) => <li>{t}</li>)}
+      </ul>
+      <ul class="l-ticker-list l-ticker-copy l-mono" aria-hidden="true">
+        {ticker.map((t) => <li>{t}</li>)}
+      </ul>
+    </div>
   </div>
+  <button class="hd-btn hd-btn-s l-icon-btn l-ticker-toggle" type="button" aria-label="Pause" aria-pressed="false">
+    <DockIcon name="pause" class="l-ticker-pause" />
+    <DockIcon name="play" class="l-ticker-play" />
+  </button>
 </section>
+
+<script>
+  for (const button of document.querySelectorAll<HTMLButtonElement>(".l-ticker-toggle")) {
+    button.addEventListener("click", () => {
+      const paused = button.getAttribute("aria-pressed") !== "true"
+      button.setAttribute("aria-pressed", String(paused))
+      button.closest(".l-ticker")?.toggleAttribute("data-paused", paused)
+    })
+  }
+</script>

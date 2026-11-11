@@ -5626,6 +5626,8 @@ accepted rather than refused, so tests can launch with any version.
 
 ## 191. The docs site shares the portal's tokens and dock, and returns to the portal through `#returnUrl`
 
+_The landing part is superseded by #193._
+
 **Context.** The redesign (#184) gave the portal one set of colours and
 fonts for light and dark, and a floating bottom dock. The docs site was
 dark-only with its own green accent, Geist and a top header, and readers
@@ -5699,10 +5701,14 @@ themes.
   feature tiles, the sources flow, the recording timeline and the slots on a
   node. One inline script reveals blocks, counts up the numbers, cycles the
   node's slots and toggles `.is-live`, which pauses every loop that is off
-  screen. Without JavaScript and under `prefers-reduced-motion` each picture
-  rests on a still frame.
+  screen. Under `prefers-reduced-motion` each picture rests on a still frame,
+  and without JavaScript the CSS ones do.
 - No animation library, only `--hd-*` tokens, and the copy and data live in
   `docs/src/components/landing/features.ts`. `showcase.test.tsx` renders
   every frame and checks every link resolves to a docs page.
 - The landing's link reset is `:where(.l-page) a`, so any class on a link
   wins over it.
+- Nothing loops without a way to stop it: picking a phase on the hero's rail
+  holds that phase for good, and the ticker has a pause button. Blocks reveal
+  with a CSS animation rather than a transition, so the stagger never delays
+  a hover. Without JavaScript the islands show their label as text.

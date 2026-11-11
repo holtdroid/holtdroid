@@ -11,6 +11,7 @@ export const icons = {
   moon: ["M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"],
   git: [circle(6, 5, 2), circle(6, 19, 2), circle(18, 7, 2), "M6 7v10M18 9c0 4-4 5-10 8"],
   play: ["M7 5l12 7-12 7z"],
+  pause: ["M8 5v14M16 5v14"],
   pages: ["M4 6h16M4 12h16M4 18h10"],
   close: ["M6 6l12 12M18 6L6 18"],
   arrow: ["M5 12h14M13 6l6 6-6 6"],

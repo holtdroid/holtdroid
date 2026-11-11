@@ -11,7 +11,7 @@ const codes = ["NL", "KZ", "PL", "US", "NL"]
 const steps = [
   { name: "4G", label: "step 1 of 3: Typical 4G", grow: 30 },
   { name: "3G", label: "step 2 of 3: 3G", grow: 15 },
-  { name: "", label: "step 3 of 3: no signal", grow: 12.5 },
+  { name: "", label: "step 3 of 3: Outage", grow: 12.5 },
 ]
 ---
 
@@ -27,7 +27,7 @@ const steps = [
     {
       bento.map((t, i) => (
         <a class:list={["l-card l-tile", `l-tile-${t.size}`]} href={url(t.href)} data-reveal style={`--i:${i % 4}`}>
-          <div class:list={["l-vig", { "l-vig-shot": t.scene }]} aria-hidden={t.scene ? undefined : "true"}>
+          <div class:list={["l-vig", { "l-vig-shot": t.scene }]} aria-hidden="true">
             {t.scene && (
               <Scene
                 client:only="react"

@@ -11,6 +11,7 @@ import Closing from "../components/landing/Closing.astro"
 import Compare from "../components/landing/Compare.astro"
 import Developers from "../components/landing/Developers.astro"
 import Features from "../components/landing/Features.astro"
+import Bar from "../components/landing/Bar.astro"
 import Hero from "../components/landing/Hero.astro"
 import More from "../components/landing/More.astro"
 import Operate from "../components/landing/Operate.astro"
@@ -61,8 +62,9 @@ const image = "https://github.com/holtdroid/.github/raw/main/profile/assets/soci
     <meta name="twitter:card" content="summary_large_image" />
   </head>
   <body class="l-page">
-    <Hero />
+    <Bar />
     <main>
+      <Hero />
       <Ticker />
       <Stats />
       <Features />
