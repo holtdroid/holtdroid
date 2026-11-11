@@ -269,7 +269,10 @@ func (s *Shaper) reapply(ctx context.Context) {
 		return
 	}
 	p, _ := Find(s.current)
-	if err := s.apply(ctx, p, s.region); err != nil {
+	s.smu.Lock()
+	step, since := s.step, s.stepSince
+	s.smu.Unlock()
+	if err := s.applyAt(ctx, p, s.region, step, since); err != nil {
 		s.log.Warn("network region: re-apply", "err", err)
 	}
 }
@@ -293,21 +296,35 @@ func (s *Shaper) Refresh() {
 }
 
 func (s *Shaper) apply(ctx context.Context, p Profile, c *choice) error {
+	return s.applyAt(ctx, p, c, 0, time.Time{})
+}
+
+// applyAt applies p from the given scenario step, which began at since;
+// a zero since starts the step now.
+func (s *Shaper) applyAt(ctx context.Context, p Profile, c *choice, step int, since time.Time) error {
 	s.halt()
+	if step < 0 || step >= max(len(p.Steps), 1) {
+		step, since = 0, time.Time{}
+	}
+	if since.IsZero() {
+		since = s.now()
+	}
 	st := state{profile: p, region: c}
-	if err := s.run(ctx, s.script(s.plan(st, 0))); err != nil {
+	if err := s.run(ctx, s.script(s.plan(st, step))); err != nil {
 		s.current, s.region = contract.NetworkFull, nil
 		_ = s.run(ctx, s.clear())
 		return fmt.Errorf("apply network profile %s: %w", p.ID, err)
 	}
 	s.current, s.region = p.ID, c
-	s.setStep(0)
+	s.smu.Lock()
+	s.step, s.stepSince = step, since
+	s.smu.Unlock()
 	if p.ID == contract.NetworkFull && c == nil {
 		return nil
 	}
 	loop, cancel := context.WithCancel(context.Background())
 	s.stop, s.done = cancel, make(chan struct{})
-	go s.loop(loop, st, s.done)
+	go s.loop(loop, st, step, s.now().Sub(since), s.done)
 	return nil
 }
 
@@ -335,13 +352,14 @@ type state struct {
 
 // loop steps through a scenario; a plain link is re-applied whenever the
 // tun lost its qdiscs, as it does when the VPN sidecar restarts.
-func (s *Shaper) loop(ctx context.Context, st state, done chan struct{}) {
+func (s *Shaper) loop(ctx context.Context, st state, step int, elapsed time.Duration, done chan struct{}) {
 	defer close(done)
 	steps := st.profile.Steps
-	for step := 0; ; {
+	for {
 		wait := s.check
 		if len(steps) > 0 {
-			wait = hold(steps[step])
+			wait = max(hold(steps[step])-elapsed, 0)
+			elapsed = 0
 		}
 		select {
 		case <-ctx.Done():

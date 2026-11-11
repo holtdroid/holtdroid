@@ -804,10 +804,13 @@ func TestRequiredSDK(t *testing.T) {
 	if rec := launch("13"); rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "needs Android API level 35, Android 13 is 33") {
 		t.Fatalf("too old: %d %s", rec.Code, rec.Body.String())
 	}
-	for _, android := range []string{"15", "", "99"} {
+	for _, android := range []string{"15", ""} {
 		if rec := launch(android); rec.Code != http.StatusCreated {
 			t.Fatalf("android %q: %d %s", android, rec.Code, rec.Body.String())
 		}
+	}
+	if rec := launch("99"); rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "unknown Android version") {
+		t.Fatalf("a version the provider doesn't offer: %d %s", rec.Code, rec.Body.String())
 	}
 	list := decode[ArtifactList](t, h.do(http.MethodGet, "/api/v1/artifacts", "otter", "", nil))
 	for _, a := range list.Items {

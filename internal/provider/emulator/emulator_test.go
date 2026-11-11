@@ -611,6 +611,11 @@ func TestFillOrder(t *testing.T) {
 	if !slices.Equal(got, want) {
 		t.Fatalf("order %v, want %v", got, want)
 	}
+	for _, s := range c.Slots {
+		if node := s.ID[:strings.LastIndex(s.ID, "-")]; s.Group != node {
+			t.Errorf("slot %s (%s): group %q, want the node %q", s.ID, s.Label, s.Group, node)
+		}
+	}
 	for i, label := range map[int]string{0: "Fox", 1: "core-2", 2: "k3s-1-1", 4: "Owl"} {
 		if c.Slots[i].Label != label {
 			t.Errorf("slot %s: label %q, want %q", c.Slots[i].ID, c.Slots[i].Label, label)

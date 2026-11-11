@@ -1,7 +1,10 @@
 package agent
 
 import (
+	"context"
+	"log/slog"
 	"testing"
+	"time"
 
 	"github.com/holtdroid/holtdroid/internal/contract"
 )
@@ -23,5 +26,28 @@ func TestParseScreenState(t *testing.T) {
 				t.Errorf("got %+v, want %+v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestRecordScreen(t *testing.T) {
+	dev := scriptedShell{outs: make(chan string)}
+	s := NewScreenState(dev, slog.New(slog.DiscardHandler))
+	s.interval = time.Millisecond
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	got := make(chan contract.RecordingEvent, 8)
+	go func() { _ = recordScreen(ctx, s, func(ev contract.RecordingEvent) { got <- ev }) }()
+	for _, out := range []string{"  mWakefulness=Awake\n", "  mWakefulness=Awake\n", "  mWakefulness=Asleep\n"} {
+		dev.outs <- out
+	}
+	for _, want := range []contract.Screen{{On: true}, {}} {
+		select {
+		case ev := <-got:
+			if ev.Type != contract.EventScreen || ev.Screen == nil || *ev.Screen != want {
+				t.Fatalf("event %+v, want a screen event %+v", ev, want)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatalf("no screen event %+v", want)
+		}
 	}
 }

@@ -415,16 +415,21 @@ toast and, with the audio switch on, plays a synthesized motor buzz of the
 vibration's length (`web/src/lib/vibration.ts`). `/v1/screen` reports
 whether the display is awake (`dumpsys power` wakefulness) and the
 keyguard is up (`dumpsys window` / `dumpsys activity`), polled every second
-while someone listens; the page draws a blurred badge over the canvas while
-it is off or locked, which fades under the mouse and lets clicks through.
+while someone listens, and a running recording counts as a listener (it
+records every change as a screen event), so with `recordings.mode: always`
+the poll runs for the whole session; the page shows a small card over the
+canvas while it is off or locked, which lets taps and swipes through to the
+screen (only its buttons take the pointer).
 The fake agent tracks the screen-off, lock and unlock actions and wakes on
 back-or-screen-on. A rotated device streams a rotated picture. The fake provider
 replays a short H.264 recording over the same protocol, refuses other
 codecs and reports that it can't capture audio. It offers one screen, the
 16:9 1080×1920 at 480 dpi that matches the recording's 360×640 dp, and
 Android 15, 14 and 13 as launch choices, and reports the chosen ones as the
-session's capabilities, so `holtdroid dev` shows the launch options and
-device badges like the emulator.
+session's capabilities and in the device's state (screen size and
+density), so `holtdroid dev` shows the launch options and device badges
+like the emulator. Like the emulator it refuses a screen or Android version
+it doesn't offer with `ErrInvalid`.
 
 ### DevTools
 

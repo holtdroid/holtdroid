@@ -31,11 +31,13 @@ func DefaultConfig() Config {
 	return Config{Listen: ":8080", TunnelListen: ":8081", Slots: 4, PublicURL: "http://localhost:8080", StepDelay: 2 * time.Second}
 }
 
-var Screens = []contract.Display{
+var screens = []contract.Display{
 	{ID: "classic", Label: "Classic 16:9", Like: "Galaxy S5, Nexus 5X, Moto G4", Width: 1080, Height: 1920, DPI: 480, Radius: 12, Cutout: "none"},
 }
 
-var Versions = []string{"15", "14", "13"}
+var versions = []string{"15", "14", "13"}
+
+var abis = []string{"x86_64", "x86", "arm64-v8a"}
 
 var Locations = []contract.Location{
 	{ID: "direct", Label: "Direct"},
@@ -82,9 +84,9 @@ func (p *Provider) Capabilities(context.Context) (contract.Capabilities, error) 
 		Clipboard:       true,
 		Locations:       p.locations,
 		DefaultLocation: p.location,
-		ABIs:            []string{"x86_64", "x86", "arm64-v8a"},
-		Screens:         Screens,
-		Versions:        Versions,
+		ABIs:            slices.Clone(abis),
+		Screens:         slices.Clone(screens),
+		Versions:        slices.Clone(versions),
 		WebView:         true,
 	}, nil
 }
@@ -139,7 +141,10 @@ func (p *Provider) Create(_ context.Context, req contract.CreateSession) (contra
 	if req.Location != "" && !p.offers(req.Location) {
 		return contract.Session{}, fmt.Errorf("%w: unknown location %q", contract.ErrInvalid, req.Location)
 	}
-	screen, android := pickDevice(req)
+	screen, android, err := pickDevice(req)
+	if err != nil {
+		return contract.Session{}, err
+	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -171,7 +176,7 @@ func (p *Provider) Create(_ context.Context, req contract.CreateSession) (contra
 		Capabilities: &contract.SlotCapabilities{
 			Model:    "Fake " + screen.Label,
 			Android:  android,
-			ABIs:     []string{"x86_64", "x86", "arm64-v8a"},
+			ABIs:     slices.Clone(abis),
 			Root:     true,
 			DevTools: contract.DevToolsAll,
 			ADB:      true,
@@ -190,12 +195,19 @@ func (p *Provider) Create(_ context.Context, req contract.CreateSession) (contra
 	return d.session(), nil
 }
 
-func pickDevice(req contract.CreateSession) (contract.Display, string) {
-	screen := Screens[0]
-	if i := slices.IndexFunc(Screens, func(s contract.Display) bool { return s.ID == req.Screen }); i >= 0 {
-		screen = Screens[i]
+func pickDevice(req contract.CreateSession) (contract.Display, string, error) {
+	screen := screens[0]
+	if req.Screen != "" {
+		i := slices.IndexFunc(screens, func(s contract.Display) bool { return s.ID == req.Screen })
+		if i < 0 {
+			return contract.Display{}, "", fmt.Errorf("%w: unknown screen %q", contract.ErrInvalid, req.Screen)
+		}
+		screen = screens[i]
 	}
-	return screen, cmp.Or(req.Android, Versions[0])
+	if req.Android != "" && !slices.Contains(versions, req.Android) {
+		return contract.Display{}, "", fmt.Errorf("%w: unknown Android version %q", contract.ErrInvalid, req.Android)
+	}
+	return screen, cmp.Or(req.Android, versions[0]), nil
 }
 
 func (p *Provider) device(id string) (*device, error) {

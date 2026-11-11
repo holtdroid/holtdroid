@@ -125,12 +125,7 @@ func (a *Agent) record(ev contract.RecordingEvent) {
 
 func (a *Agent) feedRecording(ctx context.Context, rec *recording.Recorder, thumb *thumbPicker) {
 	go a.recordLogcat(ctx, rec)
-	go func() {
-		_ = a.display.Watch(ctx, func(s contract.Screen) error {
-			rec.Event(contract.RecordingEvent{Type: contract.EventScreen, Screen: &s})
-			return nil
-		})
-	}()
+	go func() { _ = recordScreen(ctx, a.display, rec.Event) }()
 	go func() {
 		select {
 		case <-ctx.Done():
@@ -200,6 +195,13 @@ func (a *Agent) feedRecording(ctx context.Context, rec *recording.Recorder, thum
 			pollDevice()
 		}
 	}
+}
+
+func recordScreen(ctx context.Context, display *ScreenState, event func(contract.RecordingEvent)) error {
+	return display.Watch(ctx, func(s contract.Screen) error {
+		event(contract.RecordingEvent{Type: contract.EventScreen, Screen: &s})
+		return nil
+	})
 }
 
 func (a *Agent) recordInfo(ctx context.Context, rec *recording.Recorder) {

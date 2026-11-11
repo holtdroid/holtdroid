@@ -249,8 +249,82 @@ func TestSetLink(t *testing.T) {
 	}
 }
 
+type testClock struct {
+	mu  sync.Mutex
+	now time.Time
+}
+
+func (c *testClock) at() time.Time {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.now
+}
+
+func (c *testClock) add(d time.Duration) {
+	c.mu.Lock()
+	c.now = c.now.Add(d)
+	c.mu.Unlock()
+}
+
+func withClock(s *Shaper) *testClock {
+	c := &testClock{now: time.Unix(1_760_000_000, 0)}
+	s.now = c.at
+	return c
+}
+
+func waitScripts(t *testing.T, r *recorder, n int) []string {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		got := r.got()
+		if len(got) >= n {
+			return got
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("%d scripts, want %d: %q", len(got), n, got)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+func TestReapplyKeepsScenarioStep(t *testing.T) {
+	s, r := newTestShaper()
+	clock := withClock(s)
+	ctx := t.Context()
+	s.setMeasured(measured{edge: 20 * ms, servers: map[string]time.Duration{"frankfurt": 400 * ms}})
+	if err := s.SetRegion(ctx, contract.NetworkRegionSettings{Region: "de"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Set(ctx, "elevator"); err != nil {
+		t.Fatal(err)
+	}
+	start := clock.at()
+	n := len(r.got())
+	clock.add(50 * time.Second)
+	r.tick <- time.Time{}
+	waitScripts(t, r, n+1)
+	clock.add(3 * time.Second)
+	s.reapply(ctx)
+	if step, since, _ := s.Step(); step != 1 || !since.Equal(start.Add(50*time.Second)) {
+		t.Fatalf("after re-apply: step %d since +%v, want 1 since +50s", step, since.Sub(start))
+	}
+	if got := r.got(); !strings.Contains(got[len(got)-1], "loss random 100%") {
+		t.Errorf("re-apply did not keep the outage:\n%s", got[len(got)-1])
+	}
+	n = len(r.got())
+	r.tick <- time.Time{}
+	waitScripts(t, r, n+1)
+	if step, _, _ := s.Step(); step != 0 {
+		t.Errorf("after the next tick: step %d, want 0", step)
+	}
+	if err := s.Close(ctx); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestSetScenario(t *testing.T) {
 	s, r := newTestShaper()
+	clock := withClock(s)
 	if _, _, ok := s.Step(); ok {
 		t.Error("a step without a scenario")
 	}
@@ -260,11 +334,21 @@ func TestSetScenario(t *testing.T) {
 	if step, since, ok := s.Step(); !ok || step != 0 || since.IsZero() {
 		t.Errorf("step %d since %v, %v", step, since, ok)
 	}
+	start := clock.at()
+	clock.add(50 * time.Second)
 	r.tick <- time.Time{}
+	waitScripts(t, r, 2)
+	if step, since, _ := s.Step(); step != 1 || !since.Equal(start.Add(50*time.Second)) {
+		t.Errorf("after one tick: step %d since +%v", step, since.Sub(start))
+	}
+	clock.add(10 * time.Second)
 	r.tick <- time.Time{}
-	got := r.got()
-	if len(got) < 2 || !strings.Contains(got[0], "htb rate 3000kbit") || !strings.Contains(got[1], "loss random 100%") {
+	got := waitScripts(t, r, 3)
+	if !strings.Contains(got[0], "htb rate 3000kbit") || !strings.Contains(got[1], "loss random 100%") {
 		t.Fatalf("scripts = %q", got)
+	}
+	if step, since, _ := s.Step(); step != (0+2)%2 || !since.Equal(start.Add(60*time.Second)) {
+		t.Errorf("after two ticks: step %d since +%v", step, since.Sub(start))
 	}
 	if err := s.Close(t.Context()); err != nil {
 		t.Fatal(err)

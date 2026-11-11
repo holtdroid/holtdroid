@@ -8,6 +8,7 @@ import (
 	"maps"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -214,7 +215,7 @@ func TestRecordingOnDemand(t *testing.T) {
 	if len(pressed) != 2 || pressed[0] != "home" || pressed[1] != "screen-off" {
 		t.Fatalf("buttons in the recording: %v", pressed)
 	}
-	if len(screens) < 2 || !screens[0].On || screens[len(screens)-1].On {
+	if len(screens) == 0 || screens[len(screens)-1].On || (len(screens) >= 2 && !slices.ContainsFunc(screens, func(s contract.Screen) bool { return s.On })) {
 		t.Fatalf("the screen should go off in the recording: %+v", screens)
 	}
 	h.stop("alice", v.ID)

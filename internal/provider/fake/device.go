@@ -66,6 +66,10 @@ func newDevice(s contract.Session, step time.Duration, offers func(string) bool,
 	if req.DarkMode != nil {
 		d.settings.DarkMode = *req.DarkMode
 	}
+	if c := s.Capabilities; c != nil && c.Screen != nil {
+		d.settings.ScreenWidth, d.settings.ScreenHeight = c.Screen.Width, c.Screen.Height
+		d.settings.Density, d.settings.DefaultDensity = c.Screen.DPI, c.Screen.DPI
+	}
 	d.settings.VPNTimeZone = timeZones[s.Location]
 	d.settings.TimeZone = cmp.Or(d.settings.VPNTimeZone, d.settings.TimeZone)
 	d.ports = &fakePorts{adbd: d.serveADB}
