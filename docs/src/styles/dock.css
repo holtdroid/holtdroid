@@ -1,0 +1,273 @@
+.hd-i {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.hd-btn {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--hd-bd);
+  border-radius: 9px;
+  background: var(--hd-sf);
+  color: var(--hd-tx);
+  font: 500 13px/1 var(--hd-font);
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
+}
+
+.hd-btn:hover {
+  background: var(--hd-sf2);
+  color: var(--hd-tx);
+}
+
+.hd-btn-p,
+.hd-btn-p:hover {
+  border-color: var(--hd-inv);
+  background: var(--hd-inv);
+  color: var(--hd-invtx);
+}
+
+.hd-btn-p:hover {
+  opacity: 0.88;
+}
+
+.hd-btn-l {
+  height: 42px;
+  padding: 0 18px;
+  border-radius: 11px;
+  font-size: 14px;
+}
+
+.hd-btn-s {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 8px;
+}
+
+.hd-badge {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  height: 20px;
+  padding: 0 7px;
+  border: 1px solid var(--hd-bd);
+  border-radius: 6px;
+  background: var(--hd-sf2);
+  color: var(--hd-mu);
+  font: 500 12px/1 var(--hd-font);
+  white-space: nowrap;
+}
+
+.hd-kbd {
+  padding: 1px 5px;
+  border: 1px solid var(--hd-bd);
+  border-radius: 5px;
+  color: var(--hd-mu);
+  font: 500 11px/1.4 var(--hd-font);
+}
+
+.hd-dock-wrap {
+  position: fixed;
+  z-index: 40;
+  inset-inline: 0;
+  bottom: 12px;
+  display: flex;
+  justify-content: center;
+  padding: 0 12px;
+  pointer-events: none;
+}
+
+.hd-dock {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  max-width: 100%;
+  padding: 6px;
+  border: 1px solid var(--hd-bd);
+  border-radius: 18px;
+  background: var(--hd-sf);
+  box-shadow: var(--hd-shadow);
+  font-family: var(--hd-font);
+  pointer-events: auto;
+}
+
+.hd-dk {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  height: 40px;
+  min-width: 40px;
+  margin: 0;
+  padding: 0 10px;
+  border: none;
+  border-radius: 12px;
+  background: none;
+  color: var(--hd-mu);
+  font: 500 13px/1 var(--hd-font);
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    color 0.15s;
+}
+
+.hd-dk:hover {
+  background: var(--hd-sf2);
+  color: var(--hd-tx);
+}
+
+.hd-dk[aria-current="page"] {
+  background: var(--hd-inv);
+  color: var(--hd-invtx);
+}
+
+.hd-dk-icon {
+  width: 40px;
+  padding: 0;
+}
+
+.hd-dk img {
+  width: 28px;
+  height: 28px;
+}
+
+.hd-dsep {
+  flex: none;
+  width: 1px;
+  height: 24px;
+  margin: 0 4px;
+  background: var(--hd-bd);
+}
+
+.hd-dock-search {
+  justify-content: flex-start;
+  width: 190px;
+  border: 1px solid var(--hd-bd);
+  background: var(--hd-sf);
+}
+
+.hd-dock-search .hd-kbd {
+  margin-inline-start: auto;
+}
+
+.hd-dk-pages {
+  display: none;
+}
+
+.hd-dock-portal {
+  height: 40px;
+  margin-inline-start: 2px;
+  border-radius: 12px;
+}
+
+.hd-dock-portal[hidden] {
+  display: none;
+}
+
+:root[data-theme="dark"] .hd-theme-light,
+:root:not([data-theme="dark"]) .hd-theme-dark {
+  display: none;
+}
+
+.hd-dock-lang starlight-lang-select {
+  display: flex;
+}
+
+.hd-dock-lang label {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 40px;
+  border-radius: 12px;
+  color: var(--hd-mu);
+}
+
+.hd-dock-lang label:hover {
+  background: var(--hd-sf2);
+  color: var(--hd-tx);
+}
+
+.hd-dock-lang select {
+  height: 40px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: 500 13px var(--hd-font);
+  cursor: pointer;
+}
+
+.hd-dock-lang option {
+  background: var(--hd-sf);
+  color: var(--hd-tx);
+}
+
+@media (max-width: 72rem) {
+  .hd-dk-wide,
+  .hd-dock-search .hd-dk-label,
+  .hd-dock-search .hd-kbd {
+    display: none;
+  }
+
+  .hd-dock-search {
+    width: 40px;
+    padding: 0;
+    justify-content: center;
+    border-color: transparent;
+    background: none;
+  }
+}
+
+@media (max-width: 49.99rem) {
+  .hd-dock-wrap {
+    bottom: 10px;
+    padding: 0 10px;
+  }
+
+  .hd-dock {
+    justify-content: space-between;
+  }
+
+  .hd-dk-label,
+  .hd-dsep,
+  .hd-dock-gh,
+  .hd-dock-sheet .hd-dock-tools {
+    display: none;
+  }
+
+  .hd-dk:not(.hd-dk-icon) {
+    width: 44px;
+    padding: 0;
+  }
+
+  .hd-dk-pages {
+    display: inline-flex;
+  }
+
+  .hd-dock-portal {
+    width: 40px;
+    padding: 0;
+  }
+
+  .hd-dk .hd-i {
+    width: 20px;
+    height: 20px;
+  }
+}

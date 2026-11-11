@@ -52,13 +52,11 @@ const { compact = false } = Astro.props
     overflow: hidden;
     margin-block: 1.5rem;
     padding: 1.25rem 1.5rem;
-    border: 1px solid rgb(245 180 70 / 0.4);
-    border-radius: 1.1rem;
-    background:
-      radial-gradient(18rem 10rem at 3.5rem 50%, rgb(245 180 70 / 0.18), transparent 70%),
-      linear-gradient(135deg, #15110a, #0d0e0b);
-    color: #f4f1ea;
-    font-family: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+    border: 1px solid transparent;
+    border-radius: 16px;
+    background: var(--hd-wabg);
+    color: var(--hd-tx);
+    font-family: var(--hd-font);
   }
   .box {
     flex-shrink: 0;
@@ -86,19 +84,19 @@ const { compact = false } = Astro.props
     margin: 0;
   }
   .label {
-    color: #f5b446;
-    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    color: var(--hd-wa);
+    font-family: var(--hd-mono);
     font-size: 0.75rem;
     letter-spacing: 0.12em;
     text-transform: uppercase;
   }
   .title {
     font-size: 1.15rem;
-    font-weight: 650;
-    letter-spacing: -0.02em;
+    font-weight: 600;
+    letter-spacing: -0.01em;
   }
   .text {
-    color: #c9c2b4;
+    color: var(--hd-mu);
     font-size: 0.92rem;
     line-height: 1.55;
   }
@@ -133,10 +131,7 @@ const { compact = false } = Astro.props
     align-items: flex-start;
     margin-block: 0;
     padding: 0.6rem 0.75rem;
-    border-radius: 0.75rem;
-    background:
-      radial-gradient(6rem 4rem at 1.2rem 1.2rem, rgb(245 180 70 / 0.16), transparent 70%),
-      linear-gradient(135deg, #15110a, #0d0e0b);
+    border-radius: 12px;
   }
   .compact .box {
     width: 1.9rem;

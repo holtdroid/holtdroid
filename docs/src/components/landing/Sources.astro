@@ -1,75 +1,70 @@
 ---
-import { Icon } from "@astrojs/starlight/components"
 import { localized as url } from "../../topics.mjs"
+import DockIcon from "../dock/DockIcon.astro"
+import type { IconName } from "../dock/icons"
 
-type IconName = Parameters<typeof Icon>[0]["name"]
-
-const sources: { icon: IconName; label: string; href: string }[] = [
-  { icon: "slack", label: "Slack channels", href: "/sources/slack/" },
-  { icon: "database", label: "S3 buckets", href: "/sources/s3/" },
-  { icon: "github", label: "GitHub releases", href: "/sources/github/" },
-  { icon: "chrome", label: "Chromium builds", href: "/sources/chromium/" },
-  { icon: "add-document", label: "Drag-and-drop upload", href: "/sources/overview/" },
+const sources: { icon: IconName; title: string; text: string; badge: string; href: string }[] = [
+  {
+    icon: "message",
+    title: "Slack channels",
+    text: "A sync job copies every APK posted in a channel, with its message as the note.",
+    badge: "holtdroid-sync",
+    href: "/sources/slack/",
+  },
+  {
+    icon: "bucket",
+    title: "S3 buckets",
+    text: "CI writes builds to a bucket, the sync job copies the new ones.",
+    badge: "holtdroid-sync",
+    href: "/sources/s3/",
+  },
+  {
+    icon: "git",
+    title: "GitHub releases",
+    text: "The APK assets of a repository's newest releases.",
+    badge: "holtdroid-sync",
+    href: "/sources/github/",
+  },
+  {
+    icon: "chrome",
+    title: "Chromium builds",
+    text: "WebView versions from every channel, to install at launch.",
+    badge: "chromium-builds",
+    href: "/sources/chromium/",
+  },
+  {
+    icon: "upload",
+    title: "Upload",
+    text: "Drop an APK on the Apps page, with a note and only for you if you like.",
+    badge: "Portal",
+    href: "/sources/overview/",
+  },
 ]
 ---
 
-<section class="sources">
-  <div class="l-wrap row">
-    <p>Builds arrive from</p>
-    <ul>
-      {
-        sources.map((s) => (
-          <li>
-            <a href={url(s.href)}>
-              <Icon name={s.icon} size="1.15rem" />
-              {s.label}
-            </a>
-          </li>
-        ))
-      }
-    </ul>
+<section class="l-wrap l-section l-split">
+  <div class="l-split-copy">
+    <h2 class="l-title">Where builds come from</h2>
+    <p class="l-lead l-lead-s">
+      A sync job copies new APKs from a Slack channel, an S3 bucket or GitHub releases into a source. Testers see them on
+      the Apps page a few seconds later.
+    </p>
+    <a class="hd-btn" href={url("/sources/overview/")}>APK sources</a>
+  </div>
+  <div class="l-card l-rows">
+    {
+      sources.map((s) => (
+        <a class="l-row" href={url(s.href)}>
+          <span class="l-row-icon">
+            <DockIcon name={s.icon} />
+          </span>
+          <span class="l-row-text">
+            <span class="l-row-title">{s.title}</span>
+            <span class="l-label">{s.text}</span>
+          </span>
+          <span class="hd-badge l-mono">{s.badge}</span>
+        </a>
+      ))
+    }
   </div>
 </section>
-
-<style>
-  .sources {
-    border-block: 1px solid var(--l-line);
-    background: var(--l-bg-2);
-  }
-  .row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1rem 2.5rem;
-    align-items: center;
-    justify-content: center;
-    padding-block: 1.75rem;
-  }
-  p {
-    color: var(--l-dim);
-    font-family: var(--l-mono);
-    font-size: 0.8rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-  ul {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1rem 2.25rem;
-    justify-content: center;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-  a {
-    display: flex;
-    gap: 0.55rem;
-    align-items: center;
-    color: var(--l-muted);
-    font-weight: 500;
-    text-decoration: none;
-    transition: color 0.15s;
-  }
-  a:hover {
-    color: var(--l-text);
-  }
-</style>

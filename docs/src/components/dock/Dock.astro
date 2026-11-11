@@ -1,0 +1,196 @@
+---
+import LanguageSelect from "@astrojs/starlight/components/LanguageSelect.astro"
+import logo from "../../assets/logo.svg"
+import { localized } from "../../topics.mjs"
+import ThemeSync from "../ThemeSync.astro"
+import DockIcon from "./DockIcon.astro"
+
+interface Props {
+  active?: "home" | "docs" | "guides" | undefined
+  locale?: string | undefined
+  sheet?: boolean
+  languages?: boolean
+}
+
+const { active, locale, sheet = false, languages = false } = Astro.props
+const lang = locale === "ru" || locale === "uk" ? locale : "en"
+
+const strings = {
+  en: {
+    nav: "Documentation",
+    home: "Home",
+    docs: "Docs",
+    guides: "Guides",
+    repos: "Repos",
+    search: "Search docs",
+    pages: "Pages",
+    theme: "Switch theme",
+    portal: "Open the portal",
+  },
+  ru: {
+    nav: "Документация",
+    home: "Главная",
+    docs: "Документация",
+    guides: "Гайды",
+    repos: "Репозитории",
+    search: "Поиск",
+    pages: "Страницы",
+    theme: "Сменить тему",
+    portal: "Открыть портал",
+  },
+  uk: {
+    nav: "Документація",
+    home: "Головна",
+    docs: "Документація",
+    guides: "Посібники",
+    repos: "Репозиторії",
+    search: "Пошук",
+    pages: "Сторінки",
+    theme: "Змінити тему",
+    portal: "Відкрити портал",
+  },
+}[lang]
+
+const items = [
+  { id: "home", label: strings.home, icon: "home", href: localized("/") },
+  { id: "docs", label: strings.docs, icon: "book", href: localized("/start/introduction/") },
+  {
+    id: "guides",
+    label: strings.guides,
+    icon: "guide",
+    href: localized("/guides/first-steps/launch-app/", lang === "en" ? undefined : lang),
+  },
+  { id: "repos", label: strings.repos, icon: "puzzle", href: localized("/#repositories"), wide: true },
+] as const
+---
+
+<div class="hd-dock-wrap">
+  <nav class:list={["hd-dock", { "hd-dock-sheet": sheet }]} aria-label={strings.nav}>
+    <a class="hd-dk hd-dk-icon" href={localized("/")} aria-label="Holtdroid">
+      <img src={logo.src} alt="" width="28" height="28" />
+    </a>
+    <span class="hd-dsep"></span>
+    {
+      items.map((it) => (
+        <a
+          class:list={["hd-dk", { "hd-dk-wide": "wide" in it }]}
+          href={it.href}
+          aria-current={active === it.id ? "page" : undefined}
+          aria-label={it.label}
+        >
+          <DockIcon name={it.icon} />
+          <span class="hd-dk-label">{it.label}</span>
+        </a>
+      ))
+    }
+    <span class="hd-dsep"></span>
+    <button
+      class="hd-dk hd-dock-search"
+      type="button"
+      data-hd-search
+      data-href={localized("/start/introduction/")}
+      aria-label={strings.search}
+      aria-keyshortcuts="Meta+K Control+K"
+    >
+      <DockIcon name="search" />
+      <span class="hd-dk-label">{strings.search}</span>
+      <span class="hd-kbd" aria-hidden="true">⌘K</span>
+    </button>
+    {
+      sheet && (
+        <button class="hd-dk hd-dk-pages" type="button" popovertarget="starlight__sidebar" aria-label={strings.pages}>
+          <DockIcon name="pages" />
+        </button>
+      )
+    }
+    <span class="hd-dsep hd-dock-tools"></span>
+    {
+      languages && (
+        <div class="hd-dock-lang hd-dock-tools">
+          <LanguageSelect />
+        </div>
+      )
+    }
+    <button class="hd-dk hd-dk-icon hd-dock-tools hd-theme" type="button" data-hd-theme aria-label={strings.theme}>
+      <DockIcon name="sun" class="hd-theme-dark" />
+      <DockIcon name="moon" class="hd-theme-light" />
+    </button>
+    <a class="hd-dk hd-dk-icon hd-dock-tools hd-dock-gh" href="https://github.com/holtdroid/holtdroid" aria-label="GitHub">
+      <DockIcon name="git" />
+    </a>
+    <a class="hd-btn hd-btn-p hd-dock-portal" data-hd-portal hidden aria-label={strings.portal}>
+      <DockIcon name="play" />
+      <span class="hd-dk-label">{strings.portal}</span>
+    </a>
+  </nav>
+</div>
+
+<ThemeSync />
+
+<script>
+  import { initPortalReturn } from "./return-url"
+
+  const searchFlag = "hd-open-search"
+
+  initPortalReturn(window, document)
+
+  const openButton = () => document.querySelector<HTMLButtonElement>("site-search button[data-open-modal]")
+
+  function setFlag(on: boolean) {
+    try {
+      if (on) sessionStorage.setItem(searchFlag, "1")
+      else sessionStorage.removeItem(searchFlag)
+    } catch {}
+  }
+
+  function flagged() {
+    try {
+      return sessionStorage.getItem(searchFlag) === "1"
+    } catch {
+      return false
+    }
+  }
+
+  function toggleTheme() {
+    const root = document.documentElement
+    const next = root.dataset.theme === "dark" ? "light" : "dark"
+    root.dataset.theme = next
+    try {
+      localStorage.setItem("starlight-theme", next)
+    } catch {}
+  }
+
+  document.addEventListener("click", (e) => {
+    const target = e.target instanceof Element ? e.target : null
+    if (target?.closest("[data-hd-theme]")) {
+      toggleTheme()
+      return
+    }
+    const search = target?.closest<HTMLElement>("[data-hd-search]")
+    if (!search) return
+    e.preventDefault()
+    e.stopPropagation()
+    const open = openButton()
+    if (open) {
+      open.click()
+    } else if (search.dataset.href) {
+      setFlag(true)
+      location.assign(search.dataset.href)
+    }
+  })
+
+  addEventListener("keydown", (e) => {
+    if (!(e.metaKey || e.ctrlKey) || e.key !== "k" || openButton()) return
+    const search = document.querySelector<HTMLElement>("[data-hd-search]")
+    if (!search?.dataset.href) return
+    e.preventDefault()
+    setFlag(true)
+    location.assign(search.dataset.href)
+  })
+
+  if (flagged()) {
+    setFlag(false)
+    const open = openButton()
+    if (open) void customElements.whenDefined("site-search").then(() => open.click())
+  }
+</script>

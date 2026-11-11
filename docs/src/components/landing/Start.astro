@@ -1,0 +1,65 @@
+---
+import { localized as url } from "../../topics.mjs"
+import DockIcon from "../dock/DockIcon.astro"
+
+const cards = [
+  {
+    title: "On your laptop",
+    badge: "No cluster",
+    text: "The whole UI with simulated devices that stream a recorded screen.",
+    code: "git clone https://github.com/holtdroid/holtdroid\ncd holtdroid && mise install && make dev",
+    comment: "# :8080",
+    link: { label: "Local development", href: "/start/local-development/" },
+  },
+  {
+    title: "On Kubernetes",
+    badge: "Helm",
+    text: "Nodes with /dev/kvm run Android in containers, several per node.",
+    code: "helm install holtdroid \\\n  oci://ghcr.io/holtdroid/charts/holtdroid \\\n  -n holtdroid -f values.yaml",
+    comment: "",
+    link: { label: "Installation", href: "/start/installation/" },
+  },
+]
+---
+
+<section class="l-wrap l-section">
+  <h2 class="l-title">Get started</h2>
+  <div class="l-start">
+    {
+      cards.map((c) => (
+        <div class="l-card l-start-card">
+          <div class="l-start-head">
+            <span class="l-strong">{c.title}</span>
+            <span class="hd-badge">{c.badge}</span>
+          </div>
+          <p class="l-label l-start-text">{c.text}</p>
+          <div class="l-code">
+            <div class="l-code-head">
+              <span class="l-mono">shell</span>
+              <button class="hd-btn hd-btn-s l-copy" type="button" data-copy={c.code}>
+                <DockIcon name="copy" />
+                <span>Copy</span>
+              </button>
+            </div>
+            <pre>{c.code}{c.comment && <span class="l-mu">{`   ${c.comment}`}</span>}</pre>
+          </div>
+          <a class="hd-btn" href={url(c.link.href)}>
+            {c.link.label}
+          </a>
+        </div>
+      ))
+    }
+  </div>
+</section>
+
+<script>
+  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-copy]")) {
+    button.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(button.dataset.copy ?? "")
+        button.dataset.copied = ""
+        setTimeout(() => delete button.dataset.copied, 1500)
+      } catch {}
+    })
+  }
+</script>

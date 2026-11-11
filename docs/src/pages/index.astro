@@ -1,31 +1,50 @@
 ---
-import "@fontsource-variable/geist"
+import "@fontsource-variable/inter"
+import "@fontsource-variable/jetbrains-mono"
+import "../styles/tokens.css"
+import "../styles/dock.css"
 import "../styles/landing.css"
-import Bento from "../components/landing/Bento.astro"
-import Cta from "../components/landing/Cta.astro"
-import Ecosystem from "../components/landing/Ecosystem.astro"
+import AiDisclaimer from "../components/AiDisclaimer.astro"
+import Dock from "../components/dock/Dock.astro"
 import Footer from "../components/landing/Footer.astro"
 import Hero from "../components/landing/Hero.astro"
-import Nav from "../components/landing/Nav.astro"
+import Moments from "../components/landing/Moments.astro"
+import Repos from "../components/landing/Repos.astro"
 import Sources from "../components/landing/Sources.astro"
+import Start from "../components/landing/Start.astro"
 import { localized as url } from "../topics.mjs"
 
-const title = "Holtdroid — Android test devices in your browser"
+const title = "Holtdroid — give your testers a cozy holt"
 const description =
-  "Self-hosted, browser-based Android sandboxes for testing APKs: the device screen, WebView DevTools, clipboard and a VPN per device in one tab."
+  "Self-hosted Android devices in a browser tab for testing APKs: the screen, WebView DevTools, a VPN location per device and recordings."
 const image = "https://github.com/holtdroid/.github/raw/main/profile/assets/social-holtdroid.png"
 ---
 
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script is:inline>
+      ;(() => {
+        let theme = null
+        try {
+          theme = localStorage.getItem("starlight-theme")
+        } catch {}
+        document.documentElement.dataset.theme =
+          theme === "light" || theme === "dark"
+            ? theme
+            : matchMedia("(prefers-color-scheme: light)").matches
+              ? "light"
+              : "dark"
+      })()
+    </script>
     <title>{title}</title>
     <meta name="description" content={description} />
     <link rel="icon" href={url("/favicon.svg")} type="image/svg+xml" />
     <link rel="canonical" href={new URL(url("/"), Astro.site)} />
-    <meta name="theme-color" content="#0a0b09" />
+    <meta name="theme-color" content="#f2f2f3" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0a0a0b" media="(prefers-color-scheme: dark)" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
@@ -33,19 +52,17 @@ const image = "https://github.com/holtdroid/.github/raw/main/profile/assets/soci
     <meta name="twitter:card" content="summary_large_image" />
   </head>
   <body class="l-page">
-    <Nav />
+    <Hero />
     <main>
-      <Hero />
+      <Moments />
       <Sources />
-      <Bento />
-      <Ecosystem />
-      <Cta />
+      <Start />
+      <Repos />
+      <section class="l-wrap l-section l-disclaimer">
+        <AiDisclaimer />
+      </section>
     </main>
     <Footer />
-    <script>
-      const mark = () => document.documentElement.toggleAttribute("data-scrolled", window.scrollY > 8)
-      mark()
-      addEventListener("scroll", mark, { passive: true })
-    </script>
+    <Dock active="home" />
   </body>
 </html>

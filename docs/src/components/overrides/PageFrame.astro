@@ -1,0 +1,17 @@
+---
+import Default from "@astrojs/starlight/components/PageFrame.astro"
+import Dock from "../dock/Dock.astro"
+
+const { hasSidebar, id, locale } = Astro.locals.starlightRoute
+const topics = Astro.locals.starlightSidebarTopics?.topics ?? []
+const current = topics.findIndex((t) => t.isCurrent)
+const active = current === 0 ? "docs" : current === 1 ? "guides" : undefined
+const translated = /^(?:(?:uk|ru)\/)?guides\//.test(id)
+---
+
+<Default>
+  <slot name="header" slot="header" />
+  <slot name="sidebar" slot="sidebar" />
+  <slot />
+</Default>
+<Dock active={active} locale={locale} sheet={hasSidebar} languages={translated} />

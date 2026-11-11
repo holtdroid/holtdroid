@@ -1,4 +1,4 @@
-import { ChevronLeftIcon, ChevronRightIcon, PauseIcon, PlayIcon, RotateCcwIcon } from "lucide-react"
+import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, PauseIcon, PlayIcon, RotateCcwIcon } from "lucide-react"
 import { Suspense, use, useEffect, useReducer, useRef, useState } from "react"
 import { cn } from "@/lib/utils"
 import css from "./guides.css?inline"
@@ -9,6 +9,7 @@ import type { Lang, Scenario, Step } from "./types"
 
 const WIDTH = 1180
 const HEIGHT = 720
+const SPEEDS = [1, 1.5, 2]
 
 const ui = {
   en: {
@@ -20,6 +21,8 @@ const ui = {
     step: "Step",
     of: "of",
     tap: "Click the picture for the next step",
+    steps: "Steps",
+    speed: "Playback speed",
   },
   ru: {
     play: "Воспроизвести",
@@ -30,6 +33,8 @@ const ui = {
     step: "Шаг",
     of: "из",
     tap: "Нажмите на картинку, чтобы перейти дальше",
+    steps: "Шаги",
+    speed: "Скорость воспроизведения",
   },
   uk: {
     play: "Відтворити",
@@ -40,6 +45,8 @@ const ui = {
     step: "Крок",
     of: "з",
     tap: "Натисніть на картинку, щоб перейти далі",
+    steps: "Кроки",
+    speed: "Швидкість відтворення",
   },
 }
 
@@ -85,20 +92,10 @@ function center(stage: HTMLElement, target: string | undefined, scale: number) {
   }
 }
 
-export function Player({
-  sc,
-  lang,
-  onFinish,
-  compact,
-  pace = 1,
-}: {
-  sc: Scenario
-  lang: Lang
-  onFinish?: () => void
-  compact?: boolean
-  pace?: number
-}) {
+export function Player({ sc, lang }: { sc: Scenario; lang: Lang }) {
   const t = ui[lang]
+  const [speed, setSpeed] = useState(1)
+  const pace = 1 / speed
   const height = sc.height ?? HEIGHT
   const last = sc.steps.length - 1
   const [play, dispatch] = useReducer(reduce, { index: 0, phase: "move", typed: 0, auto: false, started: false })
@@ -181,12 +178,10 @@ export function Player({
       timer =
         play.index < last
           ? window.setTimeout(() => dispatch({ type: "goto", index: play.index + 1 }), readTime(step, lang) * pace)
-          : onFinish
-            ? window.setTimeout(onFinish, readTime(step, lang) * pace)
-            : window.setTimeout(() => dispatch({ type: "auto", auto: false }), 0)
+          : window.setTimeout(() => dispatch({ type: "auto", auto: false }), 0)
     }
     return () => window.clearTimeout(timer)
-  }, [play, visible, step, last, lang, onFinish, pace])
+  }, [play, visible, step, last, lang, pace])
 
   useEffect(() => {
     if (!visible || !step.target) return undefined
@@ -242,140 +237,171 @@ export function Player({
   const finished = play.index === last && play.phase === "done" && !play.auto
 
   return (
-    <div className={cn("hd-demo not-content grid gap-3", !compact && "my-6")} data-guide-player>
+    <div
+      className="hd-demo not-content bg-card text-card-foreground my-6 flex flex-wrap overflow-hidden rounded-2xl border"
+      data-guide-player
+    >
       <style href="hd-guides" precedence="default">
         {css}
       </style>
-      <div
-        ref={frameRef}
-        role="button"
-        tabIndex={0}
-        aria-label={t.tap}
-        title={t.tap}
-        className="relative cursor-pointer overflow-hidden rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-sky-400/60"
-        style={{ aspectRatio: `${WIDTH} / ${height}`, maxHeight: height }}
-        onClick={() =>
-          finished ? go(0) : play.phase === "done" ? go(play.index + 1) : dispatch({ type: "phase", phase: "done" })
-        }
-        onKeyDown={(e) => {
-          if (e.key === "ArrowRight") go(play.index + 1)
-          else if (e.key === "ArrowLeft") go(play.index - 1)
-          else if (e.key === " " || e.key === "Enter") {
-            e.preventDefault()
-            dispatch({ type: "auto", auto: !play.auto })
-          } else return
-          e.preventDefault()
-        }}
-      >
+      <div className="flex min-w-0 flex-[999_1_560px] flex-col">
         <div
-          ref={stageRef}
-          inert
-          className="pointer-events-none absolute top-0 left-0 origin-top-left select-none"
-          style={{
-            width: WIDTH,
-            height,
-            transform: `scale(${scale})`,
-            visibility: width === null ? "hidden" : undefined,
+          ref={frameRef}
+          role="button"
+          tabIndex={0}
+          aria-label={t.tap}
+          title={t.tap}
+          className="bg-background focus-visible:ring-info/60 relative cursor-pointer overflow-hidden outline-none focus-visible:ring-3 focus-visible:ring-inset"
+          style={{ aspectRatio: `${WIDTH} / ${height}`, maxHeight: height }}
+          onClick={() =>
+            finished ? go(0) : play.phase === "done" ? go(play.index + 1) : dispatch({ type: "phase", phase: "done" })
+          }
+          onKeyDown={(e) => {
+            if (e.key === "ArrowRight") go(play.index + 1)
+            else if (e.key === "ArrowLeft") go(play.index - 1)
+            else if (e.key === " " || e.key === "Enter") {
+              e.preventDefault()
+              dispatch({ type: "auto", auto: !play.auto })
+            } else return
+            e.preventDefault()
           }}
         >
-          <Portal s={s} />
           <div
-            ref={focusRef}
-            className="hd-focus pointer-events-none absolute top-0 left-0 z-[60] rounded-xl ring-2 ring-sky-500 ring-offset-2 ring-offset-transparent"
-            style={{ opacity: 0, boxShadow: "0 0 0 9999px rgb(0 0 0 / 0.08)" }}
-          />
-          <div
-            ref={cursorRef}
-            className="hd-cursor pointer-events-none absolute top-0 left-0 z-[70]"
+            ref={stageRef}
+            inert
+            className="pointer-events-none absolute top-0 left-0 origin-top-left select-none"
             style={{
-              transform: `translate(${WIDTH / 2}px, ${height - 60}px)`,
-              transitionDuration: pace < 1 ? `${Math.round(750 * Math.max(pace, 0.45))}ms` : undefined,
+              width: WIDTH,
+              height,
+              transform: `scale(${scale})`,
+              visibility: width === null ? "hidden" : undefined,
             }}
           >
-            <span ref={rippleRef} className="absolute top-0 left-0 size-14 rounded-full bg-sky-500/50 opacity-0" />
-            <svg ref={pointerRef} width="20" height="28" viewBox="0 0 20 28" className="origin-top-left drop-shadow-md">
-              <path
-                d="M2 2v19.5l4.8-4.5 3.2 7.6 3.4-1.4-3.1-7.4h6.5z"
-                fill="#111"
-                stroke="#fff"
-                strokeWidth="2"
-                strokeLinejoin="round"
-              />
-            </svg>
+            <Portal s={s} />
+            <div
+              ref={focusRef}
+              className="hd-focus ring-info pointer-events-none absolute top-0 left-0 z-[60] rounded-xl ring-3"
+              style={{ opacity: 0, boxShadow: "0 0 0 9999px rgb(0 0 0 / 0.3)" }}
+            />
+            <div
+              ref={cursorRef}
+              className="hd-cursor pointer-events-none absolute top-0 left-0 z-[70]"
+              style={{
+                transform: `translate(${WIDTH / 2}px, ${height - 60}px)`,
+                transitionDuration: pace < 1 ? `${Math.round(750 * Math.max(pace, 0.45))}ms` : undefined,
+              }}
+            >
+              <span ref={rippleRef} className="bg-info/50 absolute top-0 left-0 size-14 rounded-full opacity-0" />
+              <svg
+                ref={pointerRef}
+                width="20"
+                height="28"
+                viewBox="0 0 20 28"
+                className="origin-top-left drop-shadow-md"
+              >
+                <path
+                  d="M2 2v19.5l4.8-4.5 3.2 7.6 3.4-1.4-3.1-7.4h6.5z"
+                  fill="#111"
+                  stroke="#fff"
+                  strokeWidth="2"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
           </div>
         </div>
-        {compact && (
-          <div className="absolute inset-x-0 top-0 flex h-1 gap-px">
+
+        <div className="flex items-start gap-3 border-t px-4 pt-3">
+          <span className="text-muted-foreground shrink-0 pt-1 text-xs font-medium tabular-nums">
+            {t.step} {play.index + 1} {t.of} {sc.steps.length}
+          </span>
+          <p aria-live="polite" className="min-h-12 flex-1 text-[15px] leading-6">
+            {step.text[lang]}
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 px-4 pt-1 pb-3">
+          <ControlButton label={t.back} disabled={play.index === 0} onClick={() => go(play.index - 1)}>
+            <ChevronLeftIcon />
+          </ControlButton>
+          <ControlButton
+            label={finished ? t.restart : play.auto ? t.pause : t.play}
+            primary
+            onClick={() =>
+              finished ? dispatch({ type: "goto", index: 0, auto: true }) : dispatch({ type: "auto", auto: !play.auto })
+            }
+          >
+            {finished ? <RotateCcwIcon /> : play.auto ? <PauseIcon /> : <PlayIcon />}
+          </ControlButton>
+          <ControlButton label={t.next} disabled={play.index === last} onClick={() => go(play.index + 1)}>
+            <ChevronRightIcon />
+          </ControlButton>
+          <div className="mx-2 flex min-w-40 flex-1 items-center gap-[3px]">
             {sc.steps.map((st, i) => (
-              <span
-                key={st.text.en}
-                className={cn("flex-1 transition-colors", i <= play.index ? "bg-primary" : "bg-transparent")}
+              <button
+                key={i}
+                type="button"
+                title={`${t.step} ${i + 1}: ${st.text[lang]}`}
+                aria-label={`${t.step} ${i + 1}`}
+                aria-current={i === play.index ? "step" : undefined}
+                className={cn(
+                  "h-1.5 flex-1 rounded-full transition-colors",
+                  i < play.index ? "bg-primary" : i === play.index ? "bg-info" : "bg-border",
+                )}
+                onClick={() => go(i)}
               />
             ))}
           </div>
-        )}
+          <ControlButton label={t.restart} small onClick={() => dispatch({ type: "goto", index: 0, auto: true })}>
+            <RotateCcwIcon />
+          </ControlButton>
+          <button
+            type="button"
+            title={t.speed}
+            aria-label={`${t.speed}: ${speed}×`}
+            onClick={() => setSpeed(SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length] ?? 1)}
+            className="hover:bg-muted h-7 shrink-0 rounded-lg border px-2.5 text-[13px] font-medium tabular-nums transition-colors"
+          >
+            {speed}×
+          </button>
+        </div>
       </div>
 
-      {compact && (
-        <p aria-live="polite" className="text-muted-foreground flex min-h-10 gap-2 px-1 text-sm leading-5">
-          <span className="text-foreground font-semibold tabular-nums">{play.index + 1}.</span>
-          {step.text[lang]}
-        </p>
-      )}
-
-      {!compact && (
-        <div className="grid gap-3 rounded-xl border bg-card px-4 py-3 text-card-foreground">
-          <div className="flex items-start gap-3">
-            <span className="bg-primary text-primary-foreground grid size-7 shrink-0 place-items-center rounded-full text-xs font-semibold tabular-nums">
-              {play.index + 1}
-            </span>
-            <p aria-live="polite" className="min-h-12 flex-1 text-[15px] leading-6">
-              {step.text[lang]}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <ControlButton label={t.back} disabled={play.index === 0} onClick={() => go(play.index - 1)}>
-              <ChevronLeftIcon />
-            </ControlButton>
-            <ControlButton
-              label={finished ? t.restart : play.auto ? t.pause : t.play}
-              primary
-              onClick={() =>
-                finished
-                  ? dispatch({ type: "goto", index: 0, auto: true })
-                  : dispatch({ type: "auto", auto: !play.auto })
-              }
-            >
-              {finished ? <RotateCcwIcon /> : play.auto ? <PauseIcon /> : <PlayIcon />}
-            </ControlButton>
-            <ControlButton label={t.next} disabled={play.index === last} onClick={() => go(play.index + 1)}>
-              <ChevronRightIcon />
-            </ControlButton>
-            <div className="mx-2 flex flex-1 flex-wrap items-center gap-1">
-              {sc.steps.map((st, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  title={`${t.step} ${i + 1}: ${st.text[lang]}`}
-                  aria-label={`${t.step} ${i + 1}`}
-                  aria-current={i === play.index ? "step" : undefined}
-                  className={cn(
-                    "h-1.5 flex-1 rounded-full transition-colors",
-                    i < play.index ? "bg-primary/60" : i === play.index ? "bg-primary" : "bg-muted",
-                  )}
-                  onClick={() => go(i)}
-                />
-              ))}
-            </div>
-            <span className="text-muted-foreground text-xs tabular-nums">
-              {t.step} {play.index + 1} {t.of} {sc.steps.length}
-            </span>
-            <ControlButton label={t.restart} onClick={() => dispatch({ type: "goto", index: 0, auto: true })}>
-              <RotateCcwIcon />
-            </ControlButton>
-          </div>
-        </div>
-      )}
+      <div className="relative min-h-64 min-w-0 flex-[1_1_240px] border-l">
+        <ol aria-label={t.steps} className="absolute inset-0 flex flex-col gap-0.5 overflow-y-auto p-3">
+          <li
+            aria-hidden="true"
+            className="text-muted-foreground px-2.5 pt-1 pb-2 text-xs font-semibold tracking-[0.06em] uppercase"
+          >
+            {t.steps}
+          </li>
+          {sc.steps.map((st, i) => (
+            <li key={i}>
+              <button
+                type="button"
+                onClick={() => go(i)}
+                aria-current={i === play.index ? "step" : undefined}
+                className={cn(
+                  "flex min-h-[34px] w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-[13px] leading-snug transition-colors",
+                  i === play.index ? "bg-muted font-medium" : "hover:bg-muted/60",
+                )}
+              >
+                {i < play.index ? (
+                  <CheckIcon className="text-success size-4 shrink-0" />
+                ) : (
+                  <span
+                    className={cn(
+                      "mx-px size-3.5 shrink-0 rounded-full border-[1.5px]",
+                      i === play.index ? "border-info" : "border-border",
+                    )}
+                  />
+                )}
+                <span className={cn("line-clamp-2", i > play.index && "text-muted-foreground")}>{st.text[lang]}</span>
+              </button>
+            </li>
+          ))}
+        </ol>
+      </div>
     </div>
   )
 }
@@ -383,12 +409,14 @@ export function Player({
 function ControlButton({
   label,
   primary,
+  small,
   disabled,
   onClick,
   children,
 }: {
   label: string
   primary?: boolean
+  small?: boolean
   disabled?: boolean
   onClick: () => void
   children: React.ReactNode
@@ -401,8 +429,12 @@ function ControlButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "grid size-8 shrink-0 place-items-center rounded-lg transition-colors disabled:opacity-40 [&_svg]:size-4",
-        primary ? "bg-primary text-primary-foreground hover:bg-primary/85" : "hover:bg-muted border",
+        "grid shrink-0 place-items-center transition-colors disabled:opacity-40 [&_svg]:size-4",
+        primary
+          ? "bg-primary text-primary-foreground hover:bg-primary/85 size-10 rounded-xl"
+          : small
+            ? "hover:bg-muted size-7 rounded-lg border"
+            : "hover:bg-muted size-8 rounded-[9px] border",
       )}
     >
       {children}
@@ -417,11 +449,7 @@ function Loaded({ guide, lang }: { guide: string; lang: Lang }) {
 
 export default function Guide({ guide, lang }: { guide: string; lang: Lang }) {
   return (
-    <Suspense
-      fallback={
-        <div className="hd-demo not-content my-6 aspect-[1180/820] rounded-xl border bg-[var(--sl-color-gray-6)]" />
-      }
-    >
+    <Suspense fallback={<div className="hd-demo not-content bg-card my-6 aspect-[1180/800] rounded-2xl border" />}>
       <Loaded guide={guide} lang={lang} />
     </Suspense>
   )

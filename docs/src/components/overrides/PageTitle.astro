@@ -1,24 +1,54 @@
 ---
-const { entry, sidebar } = Astro.locals.starlightRoute
+import { Icon } from "@astrojs/starlight/components"
+import { topics } from "../../topics.mjs"
+import DockIcon from "../dock/DockIcon.astro"
+
+type IconName = Parameters<typeof Icon>[0]["name"]
+
+const { entry, sidebar, locale } = Astro.locals.starlightRoute
 const { title, description } = entry.data
+const current = Astro.locals.starlightSidebarTopics?.topics ?? []
+const active = current.findIndex((t) => t.isCurrent)
+const lang = locale === "ru" || locale === "uk" ? locale : "en"
+const root = active === 1 ? { en: "Guides", ru: "Гайды", uk: "Посібники" }[lang] : active === 0 ? "Docs" : undefined
 
 type SidebarEntry = (typeof sidebar)[number]
 
-const groupOf = (entries: SidebarEntry[], parent?: string): string | undefined => {
+const contains = (e: SidebarEntry): boolean => (e.type === "link" ? e.isCurrent : e.entries.some(contains))
+const trail = (entries: SidebarEntry[]): string[] => {
   for (const e of entries) {
-    if (e.type === "link" && e.isCurrent) return parent
-    if (e.type === "group") {
-      const found = groupOf(e.entries, e.label)
-      if (found) return found
-    }
+    if (e.type === "group" && contains(e)) return [e.label, ...trail(e.entries)]
   }
-  return undefined
+  return []
 }
-const group = groupOf(sidebar)
+const groups = trail(sidebar)
+const top = sidebar.findIndex(contains)
+const icon = (active >= 0 && top >= 0 ? topics[active]?.groupIcons[top] : undefined) as IconName | undefined
+const crumbs = [root, ...groups].filter((c): c is string => !!c)
 ---
 
 <div class="hd-title">
-  {group && <p class="hd-eyebrow">{group}</p>}
-  <h1 id="_top">{title}</h1>
+  {
+    crumbs.length > 0 && (
+      <nav class="hd-crumbs" aria-label="Breadcrumbs">
+        {crumbs.map((c, i) => (
+          <>
+            {i > 0 && <DockIcon name="right" />}
+            <span>{c}</span>
+          </>
+        ))}
+      </nav>
+    )
+  }
+  <div class="hd-title-row">
+    {
+      icon && (
+        <span class="hd-title-icon">
+          <Icon name={icon} />
+        </span>
+      )
+    }
+    <h1 id="_top">{title}</h1>
+  </div>
   {description && <p class="hd-description">{description}</p>}
 </div>

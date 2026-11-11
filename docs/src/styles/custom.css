@@ -1,5 +1,5 @@
 html:has(.hd-guide) {
-  --sl-content-width: 64rem;
+  --sl-content-width: 66rem;
 }
 
 .hd-guide astro-island:empty {
@@ -10,35 +10,57 @@ html:has(.hd-guide) {
 .hd-guide astro-island:empty::before {
   content: "";
   display: block;
-  aspect-ratio: 1180 / 720;
-  border-radius: 0.75rem;
-  background: rgb(255 255 255 / 0.03);
-}
-
-.hd-guide astro-island:empty::after {
-  content: "";
-  display: block;
-  height: 6.6rem;
-  margin-top: 0.75rem;
-  border-radius: 0.75rem;
-  background: rgb(255 255 255 / 0.02);
+  aspect-ratio: 1180 / 800;
+  border: 1px solid var(--hd-bd);
+  border-radius: 16px;
+  background: var(--hd-sf);
 }
 
 .hd-hint {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--hd-bd);
+  border-radius: 7px;
+  background: var(--hd-sf);
+  color: var(--hd-tx);
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1;
+  vertical-align: 1px;
   cursor: help;
-  border-radius: 0.25rem;
-  text-decoration: underline dotted var(--sl-color-accent);
-  text-decoration-thickness: 2px;
-  text-underline-offset: 0.25em;
-  transition: background-color 0.15s;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
+}
+
+.hd-hint[data-step] {
+  padding-inline-start: 4px;
+  cursor: pointer;
+}
+
+.hd-hint[data-step]::before {
+  content: attr(data-step);
+  display: inline-grid;
+  place-items: center;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 5px;
+  background: var(--hd-sf2);
+  color: var(--hd-mu);
+  font-size: 10.5px;
 }
 
 .hd-hint:hover,
 .hd-hint:focus-visible {
-  background-color: var(--sl-color-accent-low);
+  border-color: var(--hd-in);
+  background: var(--hd-inbg);
   outline: none;
 }
 
-.hd-hint[data-step] {
-  cursor: pointer;
+.hd-hint[data-step]:is(:hover, :focus-visible)::before {
+  background: var(--hd-in);
+  color: var(--hd-invtx);
 }

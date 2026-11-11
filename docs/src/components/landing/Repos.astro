@@ -1,0 +1,32 @@
+---
+import { Image } from "astro:assets"
+import DockIcon from "../dock/DockIcon.astro"
+import { repos } from "./repos"
+---
+
+<section class="l-wrap l-section" id="repositories">
+  <div class="l-head">
+    <h2 class="l-title">Six repositories</h2>
+    <p class="l-lead l-lead-s">Each does one job. Use them together or take only the piece you need.</p>
+  </div>
+  <div class="l-card l-rows">
+    {
+      repos.map((r) => (
+        <a class="l-row" href={`https://github.com/holtdroid/${r.name}`} id={`repo-${r.name}`}>
+          <Image class="l-repo-icon" src={r.icon} alt="" width={36} height={36} />
+          <span class="l-row-text">
+            <span class="l-row-title">
+              <span class="l-mono">{r.name}</span>
+              <span class="l-label">{r.role}</span>
+            </span>
+            <span class="l-label">{r.description}</span>
+          </span>
+          <span class="hd-badge l-hide-s">{r.tags.join(" · ")}</span>
+          <span class="hd-btn l-icon-btn" aria-hidden="true">
+            <DockIcon name="external" />
+          </span>
+        </a>
+      ))
+    }
+  </div>
+</section>

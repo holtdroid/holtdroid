@@ -1,6 +1,5 @@
 ---
 import GuidePlayer from "../guides/player"
-import ThemeSync from "./ThemeSync.astro"
 
 interface Props {
   id: string
@@ -13,5 +12,3 @@ const lang = locale === "ru" || locale === "uk" ? locale : "en"
 <div class="hd-guide">
   <GuidePlayer client:only="react" guide={Astro.props.id} lang={lang} />
 </div>
-
-<ThemeSync />
