@@ -12,6 +12,7 @@ const WIDTH = 1180
 const HEIGHT = 720
 const SPEEDS = [1, 1.5, 2]
 const VEIL = "0 0 0 9999px rgb(0 0 0 / 0.3)"
+const CLEAR = "0 0 0 9999px rgb(0 0 0 / 0)"
 
 const ui = {
   en: {
@@ -84,7 +85,7 @@ function find(stage: HTMLElement, target: string | undefined) {
   return target ? stage.querySelector<HTMLElement>(`[data-g="${CSS.escape(target)}"]`) : null
 }
 
-function locate(stage: HTMLElement, target: string | undefined, scale: number) {
+function locate(stage: HTMLElement, target: string | undefined, scale: number, pin = false) {
   const el = find(stage, target)
   if (!el) return null
   const base = stage.getBoundingClientRect()
@@ -96,8 +97,14 @@ function locate(stage: HTMLElement, target: string | undefined, scale: number) {
   })
   const view = el.closest<HTMLElement>("[data-scroll]")
   const r = scene(el.getBoundingClientRect())
-  const shown = view ? clip(r, scene(view.getBoundingClientRect())) : r
-  if (!shown) return null
+  const bounds = view ? scene(view.getBoundingClientRect()) : null
+  const shown = bounds ? clip(r, bounds) : r
+  if (!shown) {
+    if (!pin || !bounds) return null
+    const x = Math.min(Math.max((r.left + r.right) / 2, bounds.left), bounds.right)
+    const y = Math.min(Math.max((r.top + r.bottom) / 2, bounds.top), bounds.bottom)
+    return { x, y, w: 0, h: 0, modal: !!el.closest("[data-modal]") }
+  }
   return {
     x: shown.left,
     y: shown.top,
@@ -199,29 +206,32 @@ export function Player({ sc, lang }: { sc: Scenario; lang: Lang }) {
   }, [play, visible, step, last, lang, pace])
 
   useEffect(() => {
-    if (!visible || !step.target) return undefined
+    const target = hint ?? step.target
+    if (!visible || !target) return undefined
     const raf = requestAnimationFrame(() => {
-      const el = stageRef.current && find(stageRef.current, step.target)
+      const el = stageRef.current && find(stageRef.current, target)
       const box = el?.closest<HTMLElement>("[data-scroll]")
       if (!el || !box) return
+      const view = box.getBoundingClientRect()
+      const k = box.offsetHeight ? view.height / box.offsetHeight : scale
       const to = reveal(
         el.getBoundingClientRect(),
-        box.getBoundingClientRect(),
-        { top: box.scrollTop * scale, left: box.scrollLeft * scale },
+        view,
+        { top: box.scrollTop * k, left: box.scrollLeft * k },
         {
-          top: (box.scrollHeight - box.clientHeight) * scale,
-          left: (box.scrollWidth - box.clientWidth) * scale,
+          top: (box.scrollHeight - box.clientHeight) * k,
+          left: (box.scrollWidth - box.clientWidth) * k,
         },
-        8 * scale,
+        8 * k,
       )
       box.scrollTo({
-        top: to.top / scale,
-        left: to.left / scale,
+        top: to.top / k,
+        left: to.left / k,
         behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
       })
     })
     return () => cancelAnimationFrame(raf)
-  }, [visible, step, scale])
+  }, [visible, step, hint, scale])
 
   useEffect(() => {
     if (!visible) return undefined
@@ -229,7 +239,7 @@ export function Player({ sc, lang }: { sc: Scenario; lang: Lang }) {
     const tick = () => {
       const stage = stageRef.current
       if (stage) {
-        const at = locate(stage, step.target, scale)
+        const at = locate(stage, step.target, scale, true)
         const cursor = cursorRef.current
         if (at && cursor) {
           const next = `translate(${at.x + at.w / 2}px, ${at.y + at.h * 0.55}px)`
@@ -240,7 +250,7 @@ export function Player({ sc, lang }: { sc: Scenario; lang: Lang }) {
         if (focus) {
           if (box) {
             focus.style.opacity = "1"
-            focus.style.boxShadow = box.modal ? "none" : VEIL
+            focus.style.boxShadow = box.modal ? CLEAR : VEIL
             focus.style.transform = `translate(${box.x - 4}px, ${box.y - 4}px)`
             focus.style.width = `${box.w + 8}px`
             focus.style.height = `${box.h + 8}px`

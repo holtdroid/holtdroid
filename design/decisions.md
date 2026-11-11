@@ -4947,7 +4947,7 @@ open portals are redrawn there with the same classes. A step names a
 it, with its caption in each language; the player moves a cursor to the
 target, plays the click and applies the state. A target inside a scrolling
 area (`data-scroll`) is scrolled into view first, and inside a dialog
-(`data-modal`) the spotlight rings it without dimming the dialog. `<Hint>` in the text
+(`data-modal`, drawn over its own light backdrop like the portal's dialogs) the spotlight rings it without dimming the dialog. `<Hint>` in the text
 highlights an element or jumps to a step. The guides' CSS is inlined into
 the player's bundle, so Tailwind and the portal's variables load only on
 guide pages.

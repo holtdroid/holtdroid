@@ -497,97 +497,99 @@ export function NetworkDialog({ s }: { s: PortalState }) {
   const current = networkProfiles.find((p) => p.id === s.network)
   const scenarios = current?.scenario === true
   return (
-    <div className="animate-in fade-in-0 absolute inset-y-4 right-4 z-40 flex w-[min(560px,55%)] duration-200">
-      <div
-        data-g="net-picker"
-        data-modal
-        className="bg-popover text-popover-foreground shadow-float flex min-h-0 w-full flex-col overflow-hidden rounded-2xl border text-sm"
-      >
-        <div className="flex items-center gap-3 border-b px-5 py-4">
-          <span className="bg-muted grid size-[30px] place-items-center rounded-[9px] border">
-            <SignalIcon className="size-4" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="text-[17px] font-semibold">Network conditions</div>
-            <div className="text-muted-foreground text-xs">
-              For the whole device. On top of the VPN route through {locationOf(s.location)?.label ?? "no VPN"}.
-            </div>
-          </div>
-          {scenarios && current && (
-            <Badge variant="warning">
-              <ActivityIcon />
-              {current.name} · step 2 of 3
-            </Badge>
-          )}
-          <Button data-g="net-full" variant="outline" size="sm">
-            No emulation
-          </Button>
-        </div>
-        <div className="flex items-center gap-1 border-b px-5 py-3">
-          {(["Networks", "Scenarios", "Region"] as const).map((t, i) => (
-            <span
-              key={t}
-              className={cn(
-                "rounded-md border px-3 py-1 text-[13px] font-medium",
-                (i === 1) === scenarios && i < 2
-                  ? "bg-card text-foreground"
-                  : "text-muted-foreground border-transparent",
-              )}
-            >
-              {t}
+    <div className="animate-in fade-in-0 absolute inset-0 z-40 bg-black/10 backdrop-blur-xs duration-200">
+      <div className="absolute inset-y-4 right-4 flex w-[min(560px,55%)]">
+        <div
+          data-g="net-picker"
+          data-modal
+          className="bg-popover text-popover-foreground shadow-float flex min-h-0 w-full flex-col overflow-hidden rounded-2xl border text-sm"
+        >
+          <div className="flex items-center gap-3 border-b px-5 py-4">
+            <span className="bg-muted grid size-[30px] place-items-center rounded-[9px] border">
+              <SignalIcon className="size-4" />
             </span>
-          ))}
-        </div>
-        <div data-scroll className="grid min-h-0 content-start gap-2 overflow-y-auto p-4 [scrollbar-width:none]">
-          {networkProfiles.map((p) => (
-            <div
-              key={p.id}
-              data-g={p.id === "full" ? undefined : `net-${p.id}`}
-              className={cn(
-                "grid gap-1 rounded-xl border p-3",
-                p.id === s.network && "border-foreground shadow-[inset_0_0_0_1px_var(--foreground)]",
-              )}
-            >
-              <span className="flex items-center gap-1.5 text-sm font-medium">
-                {p.scenario ? <ActivityIcon className="size-3.5" /> : <SignalIcon className="size-3.5" />}
-                {p.name}
-              </span>
-              <span className="text-muted-foreground text-xs">{p.detail}</span>
-              {p.numbers && <span className="text-muted-foreground font-mono text-[11px]">{p.numbers}</span>}
-              {p.scenario && (
-                <span className="grid grid-cols-[30fr_15fr_12.5fr] gap-x-0.5 gap-y-1 overflow-hidden" aria-hidden>
-                  {["Typical 4G", "3G", ""].map((name, i) => (
-                    <span
-                      key={i}
-                      style={name ? undefined : subwayOutage}
-                      className={cn(
-                        "relative h-[22px] rounded-[5px]",
-                        name ? "bg-accent" : "border-danger/50 bg-danger-soft border",
-                        i === 1 && "outline-info outline-2 -outline-offset-2",
-                      )}
-                    >
-                      {name && (
-                        <span className="text-foreground absolute inset-x-1.5 top-1/2 -translate-y-1/2 truncate text-[10.5px] font-medium">
-                          {name}
-                        </span>
-                      )}
-                    </span>
-                  ))}
-                  {["20–40 s", "10–20 s", "5–20 s"].map((h, i) => (
-                    <span
-                      key={h}
-                      className={cn(
-                        "truncate text-center font-mono text-[10.5px]",
-                        i === 2 ? "text-danger" : "text-muted-foreground",
-                      )}
-                    >
-                      {h}
-                    </span>
-                  ))}
-                </span>
-              )}
+            <div className="min-w-0 flex-1">
+              <div className="text-[17px] font-semibold">Network conditions</div>
+              <div className="text-muted-foreground text-xs">
+                For the whole device. On top of the VPN route through {locationOf(s.location)?.label ?? "no VPN"}.
+              </div>
             </div>
-          ))}
+            {scenarios && current && (
+              <Badge variant="warning">
+                <ActivityIcon />
+                {current.name} · step 2 of 3
+              </Badge>
+            )}
+            <Button data-g="net-full" variant="outline" size="sm">
+              No emulation
+            </Button>
+          </div>
+          <div className="flex items-center gap-1 border-b px-5 py-3">
+            {(["Networks", "Scenarios", "Region"] as const).map((t, i) => (
+              <span
+                key={t}
+                className={cn(
+                  "rounded-md border px-3 py-1 text-[13px] font-medium",
+                  (i === 1) === scenarios && i < 2
+                    ? "bg-card text-foreground"
+                    : "text-muted-foreground border-transparent",
+                )}
+              >
+                {t}
+              </span>
+            ))}
+          </div>
+          <div data-scroll className="grid min-h-0 content-start gap-2 overflow-y-auto p-4 [scrollbar-width:none]">
+            {networkProfiles.map((p) => (
+              <div
+                key={p.id}
+                data-g={p.id === "full" ? undefined : `net-${p.id}`}
+                className={cn(
+                  "grid gap-1 rounded-xl border p-3",
+                  p.id === s.network && "border-foreground shadow-[inset_0_0_0_1px_var(--foreground)]",
+                )}
+              >
+                <span className="flex items-center gap-1.5 text-sm font-medium">
+                  {p.scenario ? <ActivityIcon className="size-3.5" /> : <SignalIcon className="size-3.5" />}
+                  {p.name}
+                </span>
+                <span className="text-muted-foreground text-xs">{p.detail}</span>
+                {p.numbers && <span className="text-muted-foreground font-mono text-[11px]">{p.numbers}</span>}
+                {p.scenario && (
+                  <span className="grid grid-cols-[30fr_15fr_12.5fr] gap-x-0.5 gap-y-1 overflow-hidden" aria-hidden>
+                    {["Typical 4G", "3G", ""].map((name, i) => (
+                      <span
+                        key={i}
+                        style={name ? undefined : subwayOutage}
+                        className={cn(
+                          "relative h-[22px] rounded-[5px]",
+                          name ? "bg-accent" : "border-danger/50 bg-danger-soft border",
+                          i === 1 && "outline-info outline-2 -outline-offset-2",
+                        )}
+                      >
+                        {name && (
+                          <span className="text-foreground absolute inset-x-1.5 top-1/2 -translate-y-1/2 truncate text-[10.5px] font-medium">
+                            {name}
+                          </span>
+                        )}
+                      </span>
+                    ))}
+                    {["20–40 s", "10–20 s", "5–20 s"].map((h, i) => (
+                      <span
+                        key={h}
+                        className={cn(
+                          "truncate text-center font-mono text-[10.5px]",
+                          i === 2 ? "text-danger" : "text-muted-foreground",
+                        )}
+                      >
+                        {h}
+                      </span>
+                    ))}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>

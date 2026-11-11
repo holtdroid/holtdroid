@@ -174,8 +174,8 @@ export function LaunchDialog({ s }: { s: PortalState }) {
       <aside className="bg-muted flex min-h-0 flex-col border-l">
         <div className="text-muted-foreground border-b px-4 py-3.5 font-mono text-xs">Preview</div>
         <div className="relative min-h-0 flex-1">
-          <div data-g="launch-preview" className="absolute inset-0 grid place-items-center overflow-hidden">
-            <div className="scale-[0.7]">
+          <div data-g="launch-preview" className="absolute inset-0 overflow-hidden">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 scale-[0.7]">
               <LivePreview display={screen} />
             </div>
           </div>
