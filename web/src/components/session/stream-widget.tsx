@@ -75,6 +75,7 @@ export function StreamWidget({ provider, id, live }: { provider: string; id: str
         aria-label="Stream and keyboard"
         icon={MonitorPlayIcon}
         changed={changed}
+        attention={audio.waitingForClick}
         summary={
           audio.waitingForClick ? (
             <span className="text-warning">Click anywhere for sound</span>

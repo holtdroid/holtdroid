@@ -21,9 +21,9 @@ test("the hero scene renders the session page", () => {
 })
 
 test.each(moments.map((m) => [m.step, m] as const))("%s links a guide and renders", (_, moment) => {
-  expect(guideIds).toContain(moment.guide)
+  const guide = moment.href.split("/").filter(Boolean).at(-1)
+  expect(guideIds).toContain(guide)
   const page = moment.href.replace(/^\//, "").replace(/\/$/, ".mdx")
   expect(existsSync(join(import.meta.dir, "../content/docs", page))).toBe(true)
-  expect(page).toEndWith(`/${moment.guide}.mdx`)
   expect(renderToStaticMarkup(<Portal s={sceneState(moment.state)} />).length).toBeGreaterThan(0)
 })

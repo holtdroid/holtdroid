@@ -204,16 +204,25 @@ export class CrashScan {
     readonly pkg: string,
   ) {}
 
-  async scan(chunks: RecordingChunk[], growing: boolean) {
-    for (const [i, c] of chunks.entries()) {
-      if (this.#done.has(c.file)) continue
-      const text = await this.files.text(c.file).catch(() => "")
-      const found = scanCrashes(parseLogcat(text, c.file), this.pkg)
-      if (growing && i === chunks.length - 1)
-        return [...chunks.slice(0, i).flatMap((x) => this.#done.get(x.file) ?? []), ...found]
-      this.#done.set(c.file, found)
+  async scan(chunks: RecordingChunk[], growing: boolean, concurrency = 3) {
+    const last = growing ? chunks.length - 1 : -1
+    const settled = chunks.filter((_, i) => i !== last)
+    const todo = settled.filter((c) => !this.#done.has(c.file))
+    let next = 0
+    const worker = async () => {
+      while (next < todo.length) {
+        const c = todo[next++]!
+        this.#done.set(c.file, await this.#read(c))
+      }
     }
-    return chunks.flatMap((c) => this.#done.get(c.file) ?? [])
+    await Promise.all(Array.from({ length: Math.min(concurrency, todo.length) }, worker))
+    const tail = last >= 0 ? await this.#read(chunks[last]!) : []
+    return [...settled.flatMap((c) => this.#done.get(c.file) ?? []), ...tail]
+  }
+
+  async #read(c: RecordingChunk) {
+    const text = await this.files.text(c.file).catch(() => "")
+    return scanCrashes(parseLogcat(text, c.file), this.pkg)
   }
 }
 

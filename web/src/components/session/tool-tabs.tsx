@@ -115,7 +115,7 @@ export function ToolTabs({
         <div className="flex items-center gap-5 border-b px-[18px]">
           <TabsList
             variant="line"
-            className="min-w-0 flex-1 justify-start overflow-x-auto overflow-y-hidden border-b-0 [scrollbar-width:none]"
+            className="min-w-0 flex-1 justify-start overflow-x-auto overflow-y-hidden border-b-0 [scrollbar-width:none] *:after:hidden *:data-active:shadow-[inset_0_-2px_0_var(--foreground)]"
           >
             {shown.map((t) => (
               <TabsTrigger key={t.value} value={t.value}>

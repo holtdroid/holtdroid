@@ -11,6 +11,7 @@ import {
   type LucideIcon,
   Link2OffIcon,
   LinkIcon,
+  Share2Icon,
   MaximizeIcon,
   PauseIcon,
   PinIcon,
@@ -157,10 +158,20 @@ export function RecordingPlayer({
     [pixelEnabled, pp, player, r.package, r.title, r.label, r.versionName, r.screen],
   )
   const growing = r.state === "recording"
+  const [idle, setIdle] = useState(false)
+  useEffect(() => {
+    if (typeof window.requestIdleCallback !== "function") {
+      const timer = window.setTimeout(() => setIdle(true), 1500)
+      return () => window.clearTimeout(timer)
+    }
+    const handle = window.requestIdleCallback(() => setIdle(true), { timeout: 3000 })
+    return () => window.cancelIdleCallback(handle)
+  }, [])
   const crashes = useQuery({
     queryKey: ["recording-crashes", sourceKey(source), manifest.logcat.length, growing],
     queryFn: () => scan.scan(manifest.logcat, growing),
     staleTime: Infinity,
+    enabled: idle,
   }).data
   const canvas = useRef<HTMLCanvasElement | null>(null)
   const clocks = useMemo(
@@ -351,7 +362,7 @@ export function RecordingPlayer({
               {r.keep ? "Kept" : "Keep"}
             </Button>
           )}
-          {source.kind === "shared" && (
+          {(own || source.kind === "shared") && (
             <Button
               variant="outline"
               title="Copy a link that opens here, with this tab and what is open in it"
@@ -367,13 +378,13 @@ export function RecordingPlayer({
               disabled={share.isPending}
               title={
                 r.share
-                  ? `Copy the share link at ${clock(state.time)}, with this tab and what is open in it`
-                  : `Make a link anyone can open at ${clock(state.time)}, and keep the recording`
+                  ? `Copy the public share link at ${clock(state.time)}, with this tab and what is open in it`
+                  : "Make a public link anyone can open without signing in, and keep the recording while it is shared"
               }
               onClick={() => void copyLink()}
             >
-              <LinkIcon />
-              Link at {clock(state.time)}
+              <Share2Icon />
+              {r.share ? "Copy share link" : "Share"}
             </Button>
           )}
           {own && r.share && (

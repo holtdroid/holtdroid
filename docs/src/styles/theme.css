@@ -462,6 +462,10 @@ header.header {
 }
 
 @media (max-width: 49.99rem) {
+  body:has(#starlight__sidebar:popover-open) {
+    overflow: hidden;
+  }
+
   .hd-title h1 {
     font-size: 1.75rem;
   }

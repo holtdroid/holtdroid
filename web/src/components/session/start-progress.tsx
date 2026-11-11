@@ -1,11 +1,12 @@
 import { CheckIcon, CircleAlertIcon, CopyIcon, Loader2Icon } from "lucide-react"
 import { useState, type ReactNode } from "react"
 import { toast } from "sonner"
-import type { SessionState, SessionView } from "@/api/client"
+import type { Location, SessionState, SessionView } from "@/api/client"
 import { AppIcon } from "@/components/app-icon"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useNow } from "@/hooks/use-now"
+import { locationLabel } from "@/lib/location"
 import { cn } from "@/lib/utils"
 
 export type StartState = SessionState | "queued"
@@ -19,6 +20,8 @@ export type StartInfo = {
   rows?: [string, ReactNode][]
   since?: string | number
 }
+
+const noInfo: StartInfo = {}
 
 export function startSteps(queued: boolean, appData: SessionView["appData"], webview?: string) {
   const steps: { state: StartState; label: string }[] = [
@@ -38,7 +41,8 @@ export function startSteps(queued: boolean, appData: SessionView["appData"], web
   return steps
 }
 
-export function sessionStartInfo(s: SessionView): StartInfo {
+export function sessionStartInfo(s: SessionView, locations: Location[] = []): StartInfo {
+  const location = locations.find((l) => l.id === s.location)
   const appData = s.appData === "cache" ? "Restored with cache" : s.appData ? "Restored" : "Fresh install"
   return {
     id: s.id,
@@ -49,7 +53,7 @@ export function sessionStartInfo(s: SessionView): StartInfo {
       s.capabilities?.model || s.capabilities?.screen?.label,
       s.capabilities?.android && `Android ${s.capabilities.android}`,
       s.webview && `WebView ${s.webview}`,
-      s.location,
+      location ? locationLabel(location) : s.location,
     ].filter((b): b is string => !!b),
     rows: [
       [
@@ -91,8 +95,7 @@ export function StartProgress({
   appData,
   webview,
   queued = false,
-  session,
-  info: given,
+  info = noInfo,
   children,
 }: {
   state: StartState
@@ -101,15 +104,16 @@ export function StartProgress({
   appData?: SessionView["appData"]
   webview?: string
   queued?: boolean
-  session?: SessionView
   info?: StartInfo
   children?: ReactNode
 }) {
   const [mounted] = useState(Date.now)
-  const info = given ?? (session ? sessionStartInfo(session) : {})
+  const [last, setLast] = useState<StartState | undefined>(state === "failed" ? undefined : state)
+  if (state !== "failed" && state !== last) setLast(state)
   const steps = startSteps(queued, appData, webview)
   const current = steps.findIndex((s) => s.state === state)
   const failed = state === "failed"
+  const brokenAt = failed && last ? steps.findIndex((s) => s.state === last) : -1
   const since = info.since ?? mounted
 
   return (
@@ -176,9 +180,13 @@ export function StartProgress({
                 className={cn(
                   "h-1.5 flex-1 rounded-full",
                   failed
-                    ? i === 0
-                      ? "bg-danger"
-                      : "bg-border"
+                    ? brokenAt < 0
+                      ? "bg-danger-soft"
+                      : i < brokenAt
+                        ? "bg-success"
+                        : i === brokenAt
+                          ? "bg-danger"
+                          : "bg-border"
                     : i < current || state === "ready"
                       ? "bg-success"
                       : i === current
@@ -196,9 +204,9 @@ export function StartProgress({
 
         <ol className="mx-4 overflow-hidden rounded-xl border">
           {steps.map((step, i) => {
-            const done = !failed && (i < current || state === "ready")
+            const done = failed ? i < brokenAt : i < current || state === "ready"
             const active = !failed && i === current && state !== "ready"
-            const broken = failed && i === 0
+            const broken = failed && i === brokenAt
             return (
               <li
                 key={step.state}

@@ -113,7 +113,7 @@ A recording opens on a page of its own:
   (with the pencil to rename it), its version, the screen it was recorded on,
   the VPN location, who recorded it, when, how long it is and its size. On the
   right: when retention deletes it (or **Kept**, **Shared, kept**), **Keep**,
-  **Link at 04:09** (see [Sharing](#sharing)), stop sharing, and **Export**
+  **Link at 04:09**, **Share** (see [Sharing](#sharing)), stop sharing, and **Export**
   (see [Downloads](#downloads));
 - **cards on the left** with the state at the playhead: **At 04:09** (real
   time, the device clock with how far it was set off, its time zone, the
@@ -399,20 +399,22 @@ header.
 
 ## Sharing
 
-**Link at 04:09** in the player's header (or the link button on a row in
+**Share** in the player's header (or the link button on a row in
 the list) makes a link that opens the recording without signing in, and
-copies it. Asking again gives the same
-link; **Stop sharing** turns it off. A shared recording is kept, so the link
+copies it. Once shared, the button reads **Copy share link** and gives the
+same link, at the moment you are at; **Stop sharing** turns it off. A shared recording is kept, so the link
 doesn't die after `recordings.maxAge`; it stays kept when you stop sharing,
 until you let it expire yourself. People with the link can watch and
-download the logcat, but the page has no video download.
+download the logcat, but the page has no video download. The shared page
+shows the recording's name and who recorded it (their display name).
 
 The link you copy carries the moment you are at, like a video link with a
 time: `#t=46.2&tab=network&request=…` opens the recording there, on the same
 tab (Findings, Logcat, Network, Console, WebSockets, DNS, Routes or Cache), with the request,
 console message, socket frame, name or finding you had open opened and scrolled to. `t` also takes
-`1m20s`. On a shared recording, **Link at 00:46** copies such a link for the
-page you are on. Someone signed in to the portal who opens a share link sees it inside the
+`1m20s`. **Link at 00:46** copies such a link for the page you are on: for
+your own recording that is the portal's page, which only signed-in people
+can open, and it doesn't share anything. Someone signed in to the portal who opens a share link sees it inside the
 portal, with its dock and menus.
 
 ## Keeping and space

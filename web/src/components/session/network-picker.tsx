@@ -1,5 +1,5 @@
 import { PlayIcon, RepeatIcon, RotateCcwIcon, SearchIcon, SignalIcon, TriangleAlertIcon, XIcon } from "lucide-react"
-import { type CSSProperties, useState } from "react"
+import { type CSSProperties, type KeyboardEvent, useState } from "react"
 import type {
   DeviceState,
   NetworkPath,
@@ -93,7 +93,6 @@ function Picker({
 }) {
   const device = useDevice(provider, id)
   const update = useUpdateDevice(provider, id)
-  const now = useNow()
   const s = device.data
   const header = (
     <div className="flex flex-wrap items-center gap-3 border-b px-5 py-4">
@@ -107,7 +106,7 @@ function Picker({
           {location ? `On top of the VPN route through ${location}.` : "On top of the session's own route."}
         </DialogDescription>
       </div>
-      {s && <Current s={s} now={now} />}
+      {s && <Current s={s} />}
       {s?.networkProfiles && (
         <Button
           variant="outline"
@@ -167,7 +166,7 @@ function Picker({
           <Networks links={links} s={s} info={info} busy={busy} onPick={set} />
         </TabsContent>
         <TabsContent value="scenarios" className="min-h-0 overflow-auto">
-          <Scenarios scenarios={scenarios} s={s} now={now} busy={busy} onStart={set} />
+          <Scenarios scenarios={scenarios} s={s} busy={busy} onStart={set} />
         </TabsContent>
         {s.networkRegions && (
           <TabsContent value="region" className="min-h-0 overflow-auto">
@@ -187,7 +186,8 @@ function Count({ n }: { n: number }) {
   )
 }
 
-function Current({ s, now }: { s: DeviceState; now: number }) {
+function Current({ s }: { s: DeviceState }) {
+  const now = useNow()
   const profile = s.networkProfiles?.find((p) => p.id === s.networkProfile)
   const pos = position(s, now)
   if (profile && pos) {
@@ -247,6 +247,17 @@ function RouteBadges({ route, servers }: { route?: NetworkRoute; servers: Networ
 const linkGrid =
   "grid grid-cols-[22px_minmax(0,1fr)_88px] items-center gap-3 sm:grid-cols-[22px_minmax(0,1.4fr)_100px_140px_60px_minmax(0,1fr)]"
 
+function radioKeys(e: KeyboardEvent<HTMLElement>) {
+  const move = ({ ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 } as Record<string, number>)[e.key]
+  if (!move) return
+  const radios = [...e.currentTarget.querySelectorAll<HTMLElement>('[role="radio"]')]
+  const next = radios[(radios.indexOf(document.activeElement as HTMLElement) + move + radios.length) % radios.length]
+  if (!next) return
+  e.preventDefault()
+  next.focus()
+  next.click()
+}
+
 function Radio({ on }: { on: boolean }) {
   return (
     <span
@@ -296,7 +307,7 @@ function Networks({
           />
         </label>
       </div>
-      <div className="p-2" role="radiogroup" aria-label="Networks">
+      <div className="p-2" role="radiogroup" aria-label="Networks" onKeyDown={radioKeys}>
         <div className={cn(linkGrid, "h-[30px] px-3 text-xs text-muted-foreground")}>
           <span />
           <span>Network</span>
@@ -305,7 +316,7 @@ function Networks({
           <span className="max-sm:hidden">Loss</span>
           <span className="max-sm:hidden">Speed</span>
         </div>
-        {shown.map((p) => {
+        {shown.map((p, i) => {
           const typical = p.id === "full" && info
           const link = typical ? info.access : p
           const on = p.id === s.networkProfile
@@ -318,11 +329,12 @@ function Networks({
               type="button"
               role="radio"
               aria-checked={on}
-              disabled={busy}
-              onClick={() => !on && onPick(p.id)}
+              aria-disabled={busy}
+              tabIndex={on || (i === 0 && !shown.some((x) => x.id === s.networkProfile)) ? 0 : -1}
+              onClick={() => !on && !busy && onPick(p.id)}
               className={cn(
                 linkGrid,
-                "min-h-11 w-full cursor-pointer rounded-[9px] px-3 py-1.5 text-left text-[13px] transition-colors hover:bg-muted disabled:cursor-default",
+                "min-h-11 w-full cursor-pointer rounded-[9px] px-3 py-1.5 text-left text-[13px] transition-colors outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50 aria-disabled:cursor-default",
                 on && "bg-muted shadow-[inset_0_0_0_1px_var(--border)]",
               )}
             >
@@ -404,18 +416,17 @@ function Strip({
 function Scenarios({
   scenarios,
   s,
-  now,
   busy,
   onStart,
 }: {
   scenarios: NetworkProfileInfo[]
   s: DeviceState
-  now: number
   busy: boolean
   onStart: (id: string) => void
 }) {
   const profiles = s.networkProfiles ?? []
   const running = scenarios.find((p) => p.id === s.networkProfile)
+  const now = useNow(running ? 1000 : 3_600_000)
   const [picked, setPicked] = useState(running?.id)
   const selected = scenarios.find((p) => p.id === picked) ?? running ?? scenarios[0]
   const pos = position(s, now)
@@ -597,7 +608,7 @@ function Region({
   const busy = update.isPending
   const route = s.networkRoute
   const region = s.networkRegion
-  const server = region?.server ?? s.networkServers?.[0]?.id ?? ""
+  const server = region?.server || s.networkServers?.[0]?.id || ""
   const setRegion = (patch: Partial<NetworkRegionSettings>) =>
     update.mutate({
       networkRegion: {
@@ -618,7 +629,7 @@ function Region({
             servers, on top of the access link.
           </span>
         </div>
-        <div role="radiogroup" aria-label="Region" className="grid gap-0.5">
+        <div role="radiogroup" aria-label="Region" className="grid gap-0.5" onKeyDown={radioKeys}>
           <RegionRow
             on={!region}
             busy={busy}
@@ -653,21 +664,27 @@ function Region({
             </div>
             <section className="grid gap-1.5">
               <SectionTitle>Servers in</SectionTitle>
-              <div className="grid grid-cols-2 gap-1.5" role="radiogroup" aria-label="Server location">
+              <div
+                className="grid grid-cols-2 gap-1.5"
+                role="radiogroup"
+                aria-label="Server location"
+                onKeyDown={radioKeys}
+              >
                 {s.networkServers?.map((srv) => {
                   const theirs = info.servers.find((x) => x.server === srv.id)?.rtt
                   const mine = route?.servers?.find((x) => x.server === srv.id)?.rtt
-                  const on = srv.id === region.server
+                  const on = srv.id === server
                   return (
                     <button
                       key={srv.id}
                       type="button"
                       role="radio"
                       aria-checked={on}
-                      disabled={busy}
-                      onClick={() => !on && setRegion({ server: srv.id })}
+                      aria-disabled={busy}
+                      tabIndex={on ? 0 : -1}
+                      onClick={() => !on && !busy && setRegion({ server: srv.id })}
                       className={cn(
-                        "grid cursor-pointer gap-0.5 rounded-[9px] border bg-card px-3 py-2 text-left text-[13px] transition-colors hover:bg-muted disabled:cursor-default",
+                        "grid cursor-pointer gap-0.5 rounded-[9px] border bg-card px-3 py-2 text-left text-[13px] transition-colors outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50 aria-disabled:cursor-default",
                         on && "border-primary bg-primary text-primary-foreground hover:bg-primary",
                       )}
                     >
@@ -688,7 +705,7 @@ function Region({
             <Paths
               paths={region.paths}
               info={info}
-              server={s.networkServers?.find((x) => x.id === region.server)?.name ?? region.server}
+              server={s.networkServers?.find((x) => x.id === server)?.name ?? server}
               measuring={!route}
             />
             <Backends
@@ -732,10 +749,11 @@ function RegionRow({
       type="button"
       role="radio"
       aria-checked={on}
-      disabled={busy}
-      onClick={() => !on && onPick()}
+      aria-disabled={busy}
+      tabIndex={on ? 0 : -1}
+      onClick={() => !on && !busy && onPick()}
       className={cn(
-        "grid min-h-11 w-full cursor-pointer grid-cols-[22px_minmax(0,1fr)_auto] items-center gap-3 rounded-[9px] px-3 py-1.5 text-left text-[13px] transition-colors hover:bg-muted disabled:cursor-default",
+        "grid min-h-11 w-full cursor-pointer grid-cols-[22px_minmax(0,1fr)_auto] items-center gap-3 rounded-[9px] px-3 py-1.5 text-left text-[13px] transition-colors outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50 aria-disabled:cursor-default",
         on && "bg-muted shadow-[inset_0_0_0_1px_var(--border)]",
       )}
     >
@@ -887,6 +905,7 @@ function Backends({
       <Textarea
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
+        aria-label="Backends behind a CDN"
         placeholder={"api.example.com\n*.example.com"}
         rows={2}
         className="bg-card font-mono text-xs"

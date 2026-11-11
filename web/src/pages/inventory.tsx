@@ -60,6 +60,7 @@ import {
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
@@ -67,6 +68,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { UserAvatar } from "@/components/user-avatar"
 import { useNow } from "@/hooks/use-now"
 import { countryFlag, formatBytes, formatDuration, formatRelative } from "@/lib/format"
+import { slotTones, type SlotTone } from "@/lib/capacity"
 import { sessionTone, stopsIn } from "@/lib/session-tone"
 import { celsius, hottest, type Level, level, sensorLabel, temperatureLevel, worst } from "@/lib/thermal"
 import { cn } from "@/lib/utils"
@@ -100,25 +102,14 @@ const tabPaths: Record<InventoryTab, "/inventory" | "/inventory/sessions" | "/in
   devtools: "/inventory/devtools",
 }
 
-type Tone = "ready" | "starting" | "idle" | "failed" | "stopping" | "held" | "offline" | "free"
+const toneStyle = new Map(slotTones.map((t) => [t.tone, t]))
 
-const tones: { tone: Tone; label: string; tick: string; tile: string }[] = [
-  { tone: "ready", label: "Running", tick: "bg-success", tile: "border-transparent bg-success-soft" },
-  { tone: "starting", label: "Starting", tick: "bg-info", tile: "border-transparent bg-info-soft" },
-  { tone: "idle", label: "Stops soon", tick: "bg-warning", tile: "border-transparent bg-warning-soft" },
-  { tone: "failed", label: "Failed", tick: "bg-danger", tile: "border-transparent bg-danger-soft" },
-  { tone: "stopping", label: "Stopping", tick: "bg-muted-foreground", tile: "border-transparent bg-muted" },
-  { tone: "held", label: "On hold", tick: "bg-violet", tile: "border-transparent bg-violet-soft" },
-  { tone: "offline", label: "Offline", tick: "bg-muted-foreground/30", tile: "border-dashed text-muted-foreground" },
-  { tone: "free", label: "Free", tick: "bg-border", tile: "text-muted-foreground" },
-]
-
-const toneStyle = new Map(tones.map((t) => [t.tone, t]))
-
-function slotTone(d: InventoryDevice, session: SessionView | undefined, now: number): Tone {
+function slotTone(d: InventoryDevice, session: SessionView | undefined, now: number): SlotTone {
   switch (d.slot.state) {
-    case "busy":
-      return session ? sessionTone(session, now) : "ready"
+    case "busy": {
+      const tone = session ? sessionTone(session, now) : "ready"
+      return tone === "ready" ? "running" : tone
+    }
     case "maintenance":
       return "held"
     case "offline":
@@ -280,7 +271,7 @@ function CapacitySummary({
       tone: slotTone(d, d.session ? sessions.get(sessionKey(p.name, d.session)) : undefined, now),
     })),
   )
-  const counts = new Map<Tone, number>()
+  const counts = new Map<SlotTone, number>()
   for (const t of ticks) counts.set(t.tone, (counts.get(t.tone) ?? 0) + 1)
   const busy = providers.reduce((n, p) => n + p.devices.filter((d) => d.slot.state === "busy").length, 0)
   const people = new Set(items.map((s) => s.owner)).size
@@ -294,15 +285,15 @@ function CapacitySummary({
       <div className="flex min-w-0 flex-[1_1_520px] flex-col gap-3">
         <div className="flex gap-[3px]">
           {ticks.map((t) => (
-            <span key={t.key} className={cn("h-7 min-w-0.5 flex-1 rounded-xs", toneStyle.get(t.tone)?.tick)} />
+            <span key={t.key} className={cn("h-7 min-w-0.5 flex-1 rounded-xs", toneStyle.get(t.tone)?.className)} />
           ))}
         </div>
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-[13px]">
-          {tones
+          {slotTones
             .filter((t) => t.tone === "free" || counts.get(t.tone))
             .map((t) => (
               <span key={t.tone} className="inline-flex items-center gap-1.5 tabular-nums">
-                <span className={cn("h-3 w-1 rounded-xs", t.tick)} />
+                <span className={cn("h-3 w-1 rounded-xs", t.className)} />
                 {counts.get(t.tone) ?? 0} {t.label}
               </span>
             ))}
@@ -420,7 +411,19 @@ function NodeCard({
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-2">
-            <span className="truncate font-mono text-[15px] font-medium">{n.name}</span>
+            {h ? (
+              <Popover>
+                <PopoverTrigger className="hover:bg-accent min-w-0 truncate rounded-md font-mono text-[15px] font-medium underline-offset-4 hover:underline">
+                  {n.name}
+                </PopoverTrigger>
+                <PopoverContent align="start" className="grid w-80 gap-3">
+                  <HostDetails host={h} />
+                  {h.thermal.length > 0 && <Sensors thermal={h.thermal} emulated={false} />}
+                </PopoverContent>
+              </Popover>
+            ) : (
+              <span className="truncate font-mono text-[15px] font-medium">{n.name}</span>
+            )}
             {conditions.length > 0 ? (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -516,21 +519,32 @@ function SlotTile({
   const tone = slotTone(d, session, now)
   const style = toneStyle.get(tone)
   const title = session ? session.label || session.package : d.session ? d.session : d.slot.label
-  const sub = session
-    ? `${d.slot.label} · ${session.ownerName || session.owner}`
-    : d.session
-      ? d.slot.label
-      : tone === "free"
-        ? "Free"
-        : style?.label
+  const phone = d.device
+    ? [
+        d.device.battery && `${d.device.battery.level}%`,
+        d.device.battery && celsius(d.device.battery.celsius),
+        d.device.storageTotal && `${formatBytes(d.device.storageTotal - (d.device.storageUsed ?? 0))} free`,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : ""
+  const sub = d.error
+    ? d.error
+    : session
+      ? `${d.slot.label} · ${session.ownerName || session.owner}`
+      : d.session
+        ? d.slot.label
+        : phone || (tone === "free" ? "Free" : style?.label)
   return (
     <button
       type="button"
       onClick={onOpen}
-      title={[d.slot.label, d.slot.label !== d.slot.id && d.slot.id, style?.label].filter(Boolean).join(" · ")}
+      title={[d.slot.label, d.slot.label !== d.slot.id && d.slot.id, style?.label, d.error, phone]
+        .filter(Boolean)
+        .join(" · ")}
       className={cn(
         "hover:ring-ring/40 flex min-h-11 min-w-0 items-center gap-1.5 rounded-[9px] border px-2 py-1 text-left text-xs transition-shadow hover:ring-2",
-        style?.tile,
+        d.error ? "border-danger/40 bg-danger-soft" : style?.tile,
       )}
     >
       {session ? (
@@ -544,7 +558,9 @@ function SlotTile({
         >
           {title}
         </span>
-        {sub && <span className="text-muted-foreground truncate text-[11px]">{sub}</span>}
+        {sub && (
+          <span className={cn("truncate text-[11px]", d.error ? "text-danger" : "text-muted-foreground")}>{sub}</span>
+        )}
       </span>
     </button>
   )

@@ -5,6 +5,7 @@ import {
   FlagIcon,
   FolderOpenIcon,
   InfoIcon,
+  Link2OffIcon,
   LinkIcon,
   PinIcon,
   PinOffIcon,
@@ -16,6 +17,7 @@ import type { RecordingView } from "@/api/client"
 import { useDeleteRecording, useKeepRecording, useRecordings, useShareRecording } from "@/api/queries"
 import { AppIcon } from "@/components/app-icon"
 import { recordingName, RenameButton } from "@/components/recording/rename-button"
+import { PageHeader } from "@/components/page"
 import { RecordingState } from "@/components/recording/recording-state"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -44,15 +46,15 @@ export function RecordingsPage() {
     <div className="h-full overflow-y-auto">
       <div className="mx-auto grid max-w-7xl gap-6 px-4 py-5 lg:grid-cols-[minmax(0,1fr)_340px] lg:px-6">
         <div className="grid content-start gap-4">
-          <header className="flex flex-wrap items-center gap-3">
-            <div className="grid gap-0.5">
-              <h1 className="text-xl font-semibold tracking-tight">Recordings</h1>
-              <p className="text-sm text-muted-foreground">
-                {rules?.enabled
-                  ? `${items.length} ${items.length === 1 ? "recording" : "recordings"} · ${formatBytes(rules.used)} used`
-                  : "Sessions recorded on the server, to watch, download or share"}
-              </p>
-            </div>
+          <PageHeader
+            title="Recordings"
+            meta={
+              rules?.enabled
+                ? `${items.length} ${items.length === 1 ? "recording" : "recordings"} · ${formatBytes(rules.used)} used`
+                : undefined
+            }
+            description={rules?.enabled ? undefined : "Sessions recorded on the server, to watch, download or share"}
+          >
             <span className="flex-1" />
             <Button variant="outline" asChild>
               <Link to="/open">
@@ -60,7 +62,7 @@ export function RecordingsPage() {
                 Open a file
               </Link>
             </Button>
-          </header>
+          </PageHeader>
 
           {rules && !rules.enabled && (
             <Alert>
@@ -226,14 +228,25 @@ function RecordingRow({ recording: r, now, canShare }: { recording: RecordingVie
           </Tooltip>
         )}
         {r.share && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="hidden text-muted-foreground md:inline-flex"
-            onClick={() => share.mutate({ id: r.id, share: false })}
-          >
-            Stop sharing
-          </Button>
+          <>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="md:hidden"
+              aria-label="Stop sharing"
+              onClick={() => share.mutate({ id: r.id, share: false })}
+            >
+              <Link2OffIcon />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="hidden text-muted-foreground md:inline-flex"
+              onClick={() => share.mutate({ id: r.id, share: false })}
+            >
+              Stop sharing
+            </Button>
+          </>
         )}
         <RenameButton recording={r} />
         <Button variant="ghost" size="icon-sm" aria-label="Delete" onClick={() => setConfirming(true)}>

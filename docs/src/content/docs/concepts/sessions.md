@@ -63,10 +63,12 @@ without one) aren't shown.
 
 In the middle is the **stage**: the device's screen in its frame, with a
 toolbar beside it (under it while the screen is in landscape): Back, Home,
-Recent apps, Notifications, Quick settings; Rotate (hover it for left and
-right), Screenshot, the keyboard mode (text input or a USB keyboard),
-Volume (hover for the slider and mute), Power (click for the key, hover for
-wake, lock and screen off and what the key does); and **Restart app**. The
+Recent apps, Notifications, Quick settings; Rotate (click turns left,
+shift-click right), Screenshot, the keyboard mode (text input or a USB
+keyboard), Volume (click for the volume keys, the slider and mute), Power
+(click for the key; its panel has wake, lock and screen off and what the
+key does); and **Restart app**. Rotate, Volume and Power open their panel
+on hover, and on a right-click, a long press or the context-menu key too. The
 stage and the tools card on the right share the space; drag the handle
 between them, or let the stage fit the screen.
 
@@ -86,7 +88,7 @@ wallpaper with the Holtdroid logo; the system apps are in the app drawer
 and there is no search bar. Text pasted from the browser lands in the
 device's clipboard without Android's clipboard preview popping up.
 
-**Switch version** (click the app's name and icon in the session header)
+**Switch version** (click the app's name in the session header)
 lists every build with the same application ID that the device runs (of
 the x86 and ARM builds of one version, the device's own) and installs the
 chosen one into the running device:
@@ -101,7 +103,8 @@ If the install fails, the previous build keeps running.
 ## The screen
 
 States of the device show as a small card over the last frame instead of
-hiding it:
+hiding it. Taps and swipes pass through the cards to the screen; only their
+buttons catch the pointer:
 
 - **Screen is off**, since when and for how long, with **Wake**;
   right-clicking the screen wakes it too;

@@ -6,7 +6,7 @@ import { useNow } from "@/hooks/use-now"
 import type { Crash } from "@/lib/logcat"
 import { cn } from "@/lib/utils"
 
-export function StateCard({
+function StateCard({
   icon,
   title,
   detail,
@@ -23,9 +23,8 @@ export function StateCard({
 }) {
   return (
     <div
-      role="status"
       className={cn(
-        "pointer-events-auto absolute z-10 flex max-w-[calc(100%-1.5rem)] items-center gap-2 rounded-xl border bg-card py-2 pr-2.5 pl-3 text-[13px] text-card-foreground shadow-float [&>svg]:size-4 [&>svg]:shrink-0",
+        "pointer-events-none absolute z-10 flex max-w-[calc(100%-1.5rem)] items-center gap-2 rounded-xl border bg-card py-2 pr-2.5 pl-3 text-[13px] text-card-foreground shadow-float [&_button]:pointer-events-auto [&>svg]:size-4 [&>svg]:shrink-0",
         place === "bottom" && "bottom-3 left-1/2 -translate-x-1/2",
         place === "center" && "top-1/2 left-1/2 -translate-1/2",
         place === "top" && "inset-x-3 top-3",
@@ -34,7 +33,9 @@ export function StateCard({
     >
       {icon}
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate font-medium">{title}</span>
+        <span role="status" className="truncate font-medium">
+          {title}
+        </span>
         {detail && <span className="truncate text-xs text-muted-foreground">{detail}</span>}
       </span>
       {children}
@@ -91,6 +92,7 @@ export function ScreenOff({ since, onWake }: { since?: number; onWake: () => voi
 export function Locked({ onUnlock }: { onUnlock: () => void }) {
   return (
     <StateCard
+      place="center"
       icon={<LockIcon className="text-violet" />}
       title="Locked"
       detail="Swipe up on the screen, or unlock here"
@@ -102,7 +104,7 @@ export function Locked({ onUnlock }: { onUnlock: () => void }) {
   )
 }
 
-export function crashLine(crash: Crash) {
+function crashLine(crash: Crash) {
   return (
     crash.lines.find((l) => /(Exception|Error)\b/.test(l))?.trim() ??
     crash.lines[0]?.trim() ??

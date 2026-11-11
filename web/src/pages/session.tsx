@@ -16,7 +16,7 @@ import { useNetwork } from "@/components/session/use-device"
 import { ScreenSplit } from "@/components/session/screen-split"
 import { SessionHeader } from "@/components/session/session-header"
 import { ShadeBounds } from "@/components/session/shade"
-import { StartProgress } from "@/components/session/start-progress"
+import { StartProgress, sessionStartInfo } from "@/components/session/start-progress"
 import { ToolTabs } from "@/components/session/tool-tabs"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -116,7 +116,7 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
                 reason={session.reason || status?.reason}
                 appData={session.appData}
                 webview={session.webview}
-                session={session}
+                info={sessionStartInfo(session, locations)}
               />
             </div>
           ) : (

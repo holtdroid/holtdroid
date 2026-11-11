@@ -1,16 +1,22 @@
 import type { ProviderView, SessionView } from "@/api/client"
 import { sessionTone } from "@/lib/session-tone"
 
-export type SlotTone = "running" | "starting" | "idle" | "failed" | "held" | "offline" | "free"
+export type SlotTone = "running" | "starting" | "stopping" | "idle" | "failed" | "held" | "offline" | "free"
 
-export const slotTones: { tone: SlotTone; label: string; className: string }[] = [
-  { tone: "running", label: "Running", className: "bg-success" },
-  { tone: "starting", label: "Starting", className: "bg-info" },
-  { tone: "idle", label: "Idle", className: "bg-warning" },
-  { tone: "failed", label: "Failed", className: "bg-danger" },
-  { tone: "held", label: "Held", className: "bg-violet" },
-  { tone: "offline", label: "Offline", className: "bg-muted-foreground/40" },
-  { tone: "free", label: "Free", className: "bg-border" },
+export const slotTones: { tone: SlotTone; label: string; className: string; tile: string }[] = [
+  { tone: "running", label: "Running", className: "bg-success", tile: "border-transparent bg-success-soft" },
+  { tone: "starting", label: "Starting", className: "bg-info", tile: "border-transparent bg-info-soft" },
+  { tone: "idle", label: "Idle", className: "bg-warning", tile: "border-transparent bg-warning-soft" },
+  { tone: "failed", label: "Failed", className: "bg-danger", tile: "border-transparent bg-danger-soft" },
+  { tone: "stopping", label: "Stopping", className: "bg-muted-foreground", tile: "border-transparent bg-muted" },
+  { tone: "held", label: "On hold", className: "bg-violet", tile: "border-transparent bg-violet-soft" },
+  {
+    tone: "offline",
+    label: "Offline",
+    className: "bg-muted-foreground/40",
+    tile: "border-dashed text-muted-foreground",
+  },
+  { tone: "free", label: "Free", className: "bg-border", tile: "text-muted-foreground" },
 ]
 
 export type Tick = { id: string; label: string; tone: SlotTone; session?: SessionView }

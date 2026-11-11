@@ -23,7 +23,7 @@ import { Badge } from "@/components/ui/badge"
 import { HoverCard, HoverCardContent } from "@/components/ui/hover-card"
 import { cn } from "@/lib/utils"
 
-export const widgetWidth = 158
+const widgetWidth = 158
 
 export type ShadeMode = "hover" | "row"
 
@@ -35,8 +35,11 @@ type RowState = { open: boolean; toggle: () => void }
 
 const RowContext = createContext<RowState | null>(null)
 
+export const ShadeFlag = createContext<((key: string, on: boolean) => void) | null>(null)
+
 export function ShadeCard({
   changed,
+  attention,
   className,
   children,
   icon: Icon,
@@ -46,6 +49,7 @@ export function ShadeCard({
   ...props
 }: ComponentProps<"button"> & {
   changed?: boolean
+  attention?: boolean
   icon?: LucideIcon
   title?: string
   summary?: ReactNode
@@ -54,6 +58,13 @@ export function ShadeCard({
   const mode = use(ShadeModeContext)
   const row = use(RowContext)
   const filter = use(ShadeFilter)
+  const flag = use(ShadeFlag)
+  const key = useId()
+  const flagged = !!changed || !!attention
+  useEffect(() => {
+    flag?.(key, flagged)
+    return () => flag?.(key, false)
+  }, [flag, key, flagged])
   if (mode === "row") {
     const name = title ?? props["aria-label"] ?? ""
     if (filter && !name.toLowerCase().includes(filter.toLowerCase())) return null
@@ -122,7 +133,7 @@ export function CardLine({ icon: Icon, children }: { icon: LucideIcon; children:
   )
 }
 
-type Active = { id: string; pinned: boolean } | null
+type Active = { id: string; pinned: boolean; focus?: boolean } | null
 
 let active: Active = null
 const listeners = new Set<() => void>()
@@ -143,7 +154,13 @@ export const ShadeSideContext = createContext<ShadeSide>("right")
 
 export const ShadeBounds = createContext<Element | null>(null)
 
-const Pin = createContext<{ pin: () => void; close: () => void }>({ pin: () => undefined, close: () => undefined })
+type Pins = { pin: () => void; close: () => void; toggle: () => void; focus: boolean }
+
+const Pin = createContext<Pins>({ pin: () => undefined, close: () => undefined, toggle: () => undefined, focus: false })
+
+export function useShadeToggle() {
+  return use(Pin).toggle
+}
 
 export function ShadeRoot({ children, onOpenChange }: { children: ReactNode; onOpenChange?: (open: boolean) => void }) {
   const mode = use(ShadeModeContext)
@@ -178,6 +195,7 @@ function HoverShade({ children, onOpenChange }: { children: ReactNode; onOpenCha
     },
     [id],
   )
+  const focus = open && !!current?.focus
   const pins = useMemo(
     () => ({
       pin: () => {
@@ -186,8 +204,10 @@ function HoverShade({ children, onOpenChange }: { children: ReactNode; onOpenCha
       close: () => {
         if (active?.id === id) setActive(null)
       },
+      toggle: () => setActive(active?.id === id && active.pinned ? null : { id, pinned: true, focus: true }),
+      focus,
     }),
-    [id],
+    [id, focus],
   )
   return (
     <Pin value={pins}>
@@ -221,7 +241,7 @@ export function ShadePanel({ className, children, ...props }: ComponentProps<typ
 }
 
 function HoverPanel({ className, ...props }: ComponentProps<typeof HoverCardContent>) {
-  const { pin, close } = use(Pin)
+  const { pin, close, focus } = use(Pin)
   const side = use(ShadeSideContext)
   const bounds = use(ShadeBounds)
   return (
@@ -231,6 +251,11 @@ function HoverPanel({ className, ...props }: ComponentProps<typeof HoverCardCont
       sideOffset={10}
       collisionPadding={8}
       collisionBoundary={bounds}
+      ref={(el) => {
+        if (!el || !focus) return
+        el.querySelector<HTMLElement>("button:not(:disabled), [tabindex]:not([tabindex='-1'])")?.focus()
+        if (active?.focus) setActive({ ...active, focus: false })
+      }}
       onPointerDownCapture={pin}
       onPointerDownOutside={close}
       onEscapeKeyDown={close}

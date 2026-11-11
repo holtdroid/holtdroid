@@ -76,28 +76,30 @@ export function SessionHeader({
           <ChevronLeftIcon />
         </Link>
       </Button>
-      <VersionSwitcher session={session} disabled={state !== "ready" || !manage}>
-        <AppIcon src={session.iconUrl} className="size-10 rounded-[11px]" />
-        <span className="flex min-w-0 items-center gap-2">
-          <span className="truncate text-lg font-semibold">{session.label || session.package}</span>
-          {session.versionName && (
-            <span className="shrink-0 font-mono text-[15px] text-muted-foreground">{session.versionName}</span>
+      <AppIcon src={session.iconUrl} className="size-10 rounded-[11px]" />
+      <div className="grid min-w-0 gap-1">
+        <VersionSwitcher session={session} disabled={state !== "ready" || !manage}>
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="truncate text-lg font-semibold">{session.label || session.package}</span>
+            {session.versionName && (
+              <span className="shrink-0 font-mono text-[15px] text-muted-foreground">{session.versionName}</span>
+            )}
+            <SessionStateBadge state={state} />
+          </span>
+        </VersionSwitcher>
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          {device && <Badge variant="secondary">{device}</Badge>}
+          {caps?.android && <Badge variant="secondary">Android {caps.android}</Badge>}
+          {session.webview && <Badge variant="secondary">WebView {session.webview}</Badge>}
+          {location && (
+            <Badge variant="secondary">
+              {locationFlag(location)} {location.label}
+            </Badge>
           )}
-          <SessionStateBadge state={state} />
-        </span>
-      </VersionSwitcher>
-      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-        {device && <Badge variant="secondary">{device}</Badge>}
-        {caps?.android && <Badge variant="secondary">Android {caps.android}</Badge>}
-        {session.webview && <Badge variant="secondary">WebView {session.webview}</Badge>}
-        {location && (
-          <Badge variant="secondary">
-            {locationFlag(location)} {location.label}
-          </Badge>
-        )}
-        <span className="ml-1 truncate font-mono text-xs text-muted-foreground" title={session.package}>
-          {session.slotLabel || session.slot}
-        </span>
+          <span className="ml-1 truncate font-mono text-xs text-muted-foreground" title={session.package}>
+            {session.slotLabel || session.slot}
+          </span>
+        </div>
       </div>
       <span className="flex-1" />
       <div className="flex w-44 flex-col gap-1.5" title={left.idle ? "Any input on the device resets it" : undefined}>
@@ -220,6 +222,7 @@ function RecordControls({
           variant="outline"
           disabled={!manage || mark.isPending}
           title="Recording: click to mark this moment"
+          aria-label={`Add a marker (recording ${clock(elapsed)})`}
           onClick={addMarker}
         >
           <span className="size-[7px] animate-pulse rounded-full bg-danger" />

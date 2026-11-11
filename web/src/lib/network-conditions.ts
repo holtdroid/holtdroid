@@ -74,13 +74,6 @@ export function quality(score: number): Quality {
   return score >= 0.6 ? "good" : score >= 0.35 ? "fair" : "poor"
 }
 
-export const qualityText: Record<Quality, string> = {
-  good: "text-success",
-  fair: "text-warning",
-  poor: "text-danger",
-  outage: "text-danger",
-}
-
 export const qualityFill: Record<Quality, string> = {
   good: "bg-success",
   fair: "bg-warning",

@@ -570,33 +570,35 @@ function LaunchFlow({ artifact, onSwitch }: { artifact: ArtifactView; onSwitch: 
         </div>
       </div>
 
-      <aside className="bg-muted flex flex-col border-t lg:w-[340px] lg:shrink-0 lg:overflow-y-auto lg:border-t-0 lg:border-l">
-        <div className="hidden items-center justify-between border-b px-5 py-[18px] lg:flex">
-          <span className="text-muted-foreground font-mono text-xs">Preview</span>
-          <DialogClose asChild>
-            <Button variant="outline" size="icon" aria-label="Close">
-              <XIcon />
-            </Button>
-          </DialogClose>
+      <aside className="max-lg:contents lg:bg-muted lg:flex lg:w-[340px] lg:shrink-0 lg:flex-col lg:overflow-y-auto lg:border-l">
+        <div className="max-lg:bg-muted max-lg:border-t lg:contents">
+          <div className="hidden items-center justify-between border-b px-5 py-[18px] lg:flex">
+            <span className="text-muted-foreground font-mono text-xs">Preview</span>
+            <DialogClose asChild>
+              <Button variant="outline" size="icon" aria-label="Close">
+                <XIcon />
+              </Button>
+            </DialogClose>
+          </div>
+          <div className="px-5 pt-7 pb-2">
+            <LivePreview display={display} />
+          </div>
+          <div className="px-5 pt-2 text-center">
+            <div className="font-semibold">{deviceName}</div>
+            <div className="text-muted-foreground text-xs">{deviceFacts.filter(Boolean).join(" · ")}</div>
+          </div>
+          {rows.length > 0 && (
+            <dl className="m-5 grid grid-cols-[96px_minmax(0,1fr)] gap-y-2.5 text-[13px]">
+              {rows.map(([k, v]) => (
+                <div key={k} className="contents">
+                  <dt className="text-muted-foreground">{k}</dt>
+                  <dd className="min-w-0 truncate">{v}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
         </div>
-        <div className="px-5 pt-7 pb-2">
-          <LivePreview display={display} />
-        </div>
-        <div className="px-5 pt-2 text-center">
-          <div className="font-semibold">{deviceName}</div>
-          <div className="text-muted-foreground text-xs">{deviceFacts.filter(Boolean).join(" · ")}</div>
-        </div>
-        {rows.length > 0 && (
-          <dl className="m-5 grid grid-cols-[96px_minmax(0,1fr)] gap-y-2.5 text-[13px]">
-            {rows.map(([k, v]) => (
-              <div key={k} className="contents">
-                <dt className="text-muted-foreground">{k}</dt>
-                <dd className="min-w-0 truncate">{v}</dd>
-              </div>
-            ))}
-          </dl>
-        )}
-        <div className="mt-auto grid gap-3 border-t px-5 pt-4 pb-5">
+        <div className="bg-muted mt-auto grid gap-3 border-t px-5 pt-4 pb-5 max-lg:sticky max-lg:bottom-0 max-lg:z-10">
           {provider && (
             <p className={cn("flex items-start gap-2 text-xs", free === 0 ? "text-warning" : "text-muted-foreground")}>
               <ClockIcon className="mt-px size-3.5 shrink-0" />

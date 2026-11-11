@@ -1,5 +1,13 @@
 import { describe, expect, test } from "bun:test"
-import { maxLength, resolveReturnUrl, splitHash, storageKey, validReturnUrl } from "./return-url"
+import {
+  initPortalReturn,
+  maxLength,
+  resolveReturnUrl,
+  showPortalLinks,
+  splitHash,
+  storageKey,
+  validReturnUrl,
+} from "./return-url"
 
 const docs = "https://holtdroid.github.io"
 
@@ -137,5 +145,68 @@ describe("resolveReturnUrl", () => {
     const e = env(`#returnUrl=${encodeURIComponent("https://holtdroid.example.com/")}`, null, { throws: true })
     expect(resolveReturnUrl(e.env)).toBe("https://holtdroid.example.com/")
     expect(resolveReturnUrl(env("", null, { throws: true }).env)).toBeNull()
+  })
+})
+
+type StubLink = {
+  href: string
+  rel: string
+  hidden: boolean
+  removed: string[]
+  removeAttribute: (name: string) => void
+}
+
+function stubLink(): StubLink {
+  const link: StubLink = {
+    href: "https://stale.example.com/",
+    rel: "",
+    hidden: false,
+    removed: [],
+    removeAttribute: (name) => {
+      link.removed.push(name)
+      if (name === "href") link.href = ""
+    },
+  }
+  return link
+}
+
+function stubRoot(links: StubLink[]) {
+  return { querySelectorAll: () => links } as unknown as ParentNode
+}
+
+describe("showPortalLinks", () => {
+  test("shows the links with a valid url", () => {
+    const links = [stubLink(), stubLink()]
+    showPortalLinks(stubRoot(links), "https://holtdroid.example.com/apps")
+    for (const l of links) {
+      expect(l.href).toBe("https://holtdroid.example.com/apps")
+      expect(l.rel).toBe("noopener")
+      expect(l.hidden).toBe(false)
+      expect(l.removed).toEqual([])
+    }
+  })
+
+  test("hides the links and drops href without one", () => {
+    const links = [stubLink()]
+    showPortalLinks(stubRoot(links), null)
+    expect(links[0]!.hidden).toBe(true)
+    expect(links[0]!.removed).toEqual(["href"])
+    expect(links[0]!.href).toBe("")
+  })
+})
+
+describe("initPortalReturn", () => {
+  test("survives a sessionStorage getter that throws", () => {
+    const links = [stubLink()]
+    const win = {
+      location: { hash: "#returnUrl=https%3A%2F%2Fholtdroid.example.com%2F", origin: docs, pathname: "/", search: "" },
+      history: { state: null, replaceState: () => {} },
+      get sessionStorage(): Storage {
+        throw new Error("blocked")
+      },
+    } as unknown as Window
+    expect(() => initPortalReturn(win, stubRoot(links))).not.toThrow()
+    expect(links[0]!.href).toBe("https://holtdroid.example.com/")
+    expect(links[0]!.hidden).toBe(false)
   })
 })

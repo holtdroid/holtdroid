@@ -1,5 +1,5 @@
 import { SearchIcon, XIcon } from "lucide-react"
-import { type ReactNode, useState } from "react"
+import { type ReactNode, useCallback, useState } from "react"
 import type { Location, Metrics, SessionView } from "@/api/client"
 import type { AdbSession } from "@/components/session/adb-session"
 import { AppWidget } from "@/components/session/app-widget"
@@ -14,7 +14,7 @@ import type { LiveScreen } from "@/components/session/live-screen"
 import { MicrophoneWidget } from "@/components/session/microphone-widget"
 import { NetworkWidget } from "@/components/session/network-widget"
 import { RecordingWidget } from "@/components/session/recording-widget"
-import { SectionTitle, ShadeFilter, ShadeModeContext } from "@/components/session/shade"
+import { SectionTitle, ShadeFilter, ShadeFlag, ShadeModeContext } from "@/components/session/shade"
 import { SSHWidget } from "@/components/session/ssh-widget"
 import { StreamWidget } from "@/components/session/stream-widget"
 import { TimeWidget } from "@/components/session/time-widget"
@@ -63,6 +63,12 @@ export function DevicePanel({
   const [searching, setSearching] = useState(false)
   const [query, setQuery] = useState("")
   const filter = searching ? query.trim() : ""
+  const [flags, setFlags] = useState<Record<Group, string[]>>({ environment: [], media: [], app: [] })
+  const flaggers = {
+    environment: useFlagger("environment", setFlags),
+    media: useFlagger("media", setFlags),
+    app: useFlagger("app", setFlags),
+  }
 
   const content: Record<Group, ReactNode> = {
     environment: (
@@ -140,6 +146,9 @@ export function DevicePanel({
                   {groups.map((g) => (
                     <TabsTrigger key={g.value} value={g.value} className="h-[26px]">
                       {g.label}
+                      {flags[g.value].length > 0 && (
+                        <span className="size-1.5 rounded-full bg-warning" aria-label="has changes" />
+                      )}
                     </TabsTrigger>
                   ))}
                 </TabsList>
@@ -158,7 +167,7 @@ export function DevicePanel({
                       <SectionTitle>{g.label}</SectionTitle>
                     </span>
                   )}
-                  {content[g.value]}
+                  <ShadeFlag value={flaggers[g.value]}>{content[g.value]}</ShadeFlag>
                 </TabsContent>
               ))}
             </div>
@@ -166,5 +175,17 @@ export function DevicePanel({
         </ShadeFilter>
       </ShadeModeContext>
     </aside>
+  )
+}
+
+function useFlagger(group: Group, setFlags: (f: (prev: Record<Group, string[]>) => Record<Group, string[]>) => void) {
+  return useCallback(
+    (key: string, on: boolean) =>
+      setFlags((prev) => {
+        const has = prev[group].includes(key)
+        if (has === on) return prev
+        return { ...prev, [group]: on ? [...prev[group], key] : prev[group].filter((k) => k !== key) }
+      }),
+    [group, setFlags],
   )
 }

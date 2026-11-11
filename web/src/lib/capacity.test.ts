@@ -54,7 +54,7 @@ describe("capacityTicks", () => {
       ["Running", 2],
       ["Starting", 1],
       ["Idle", 1],
-      ["Held", 1],
+      ["On hold", 1],
       ["Offline", 1],
       ["Free", 1],
     ])

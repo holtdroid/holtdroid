@@ -38,6 +38,7 @@ import {
   ShadeSideContext,
   ShadeSlider,
   Tile,
+  useShadeToggle,
 } from "@/components/session/shade"
 import { HoverCardTrigger } from "@/components/ui/hover-card"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -81,7 +82,9 @@ export function StageToolbar({
         aria-orientation={across ? "horizontal" : "vertical"}
         className={cn(
           "flex shrink-0 gap-1.5",
-          across ? "flex-row flex-wrap justify-center rounded-xl border bg-card p-1" : "flex-col",
+          across
+            ? "flex-row flex-wrap justify-center rounded-xl border bg-card p-1"
+            : "max-h-[calc(100cqh-1rem)] flex-col overflow-y-auto p-0.5 [scrollbar-width:none]",
         )}
       >
         <Tool label="Back" side={tip} icon={ChevronLeftIcon} onClick={() => run("back")} />
@@ -155,6 +158,21 @@ function Tool({
   )
 }
 
+function ShadeTool({ onClick, ...props }: ComponentProps<typeof ToolButton>) {
+  const toggle = useShadeToggle()
+  return (
+    <ToolButton
+      aria-haspopup="dialog"
+      onClick={onClick ?? toggle}
+      onContextMenu={(e) => {
+        e.preventDefault()
+        toggle()
+      }}
+      {...props}
+    />
+  )
+}
+
 function useScreenshot(provider: string, id: string, live: LiveScreen, pkg: string) {
   const [shooting, setShooting] = useState(false)
   const take = async () => {
@@ -180,7 +198,11 @@ function RotateTool({ run }: { run: Run }) {
   return (
     <ShadeRoot>
       <HoverCardTrigger asChild>
-        <ToolButton icon={RotateCcwIcon} aria-label="Rotate left" onClick={() => run("rotate-left")} />
+        <ShadeTool
+          icon={RotateCcwIcon}
+          aria-label="Rotate left (shift-click: right)"
+          onClick={(e) => run(e.shiftKey ? "rotate-right" : "rotate-left")}
+        />
       </HoverCardTrigger>
       <ShadePanel className="w-72">
         <ShadeHeader title="Rotate" summary="Turns the device a quarter turn" />
@@ -221,7 +243,7 @@ function VolumeTool({ provider, id, run }: { provider: string; id: string; run: 
   return (
     <ShadeRoot>
       <HoverCardTrigger asChild>
-        <ToolButton icon={muted ? VolumeXIcon : Volume2Icon} aria-label="Volume" on={muted} />
+        <ShadeTool icon={muted ? VolumeXIcon : Volume2Icon} aria-label="Volume" on={muted} />
       </HoverCardTrigger>
       <ShadePanel className="w-80">
         <ShadeHeader
@@ -271,7 +293,7 @@ function PowerTool({ run }: { run: Run }) {
   return (
     <ShadeRoot>
       <HoverCardTrigger asChild>
-        <ToolButton
+        <ShadeTool
           icon={PowerIcon}
           aria-label={`Power: ${lockModes[mode].label.toLowerCase()}`}
           onClick={() => run(mode)}

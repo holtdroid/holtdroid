@@ -80,7 +80,7 @@ export function VersionSwitcher({
     )
   }
 
-  if (disabled) return <div className="flex min-w-0 items-center gap-3 px-2 py-1">{children}</div>
+  if (disabled) return <div className="-mx-2 flex min-w-0 items-center gap-3 px-2 py-0.5">{children}</div>
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -89,7 +89,7 @@ export function VersionSwitcher({
           type="button"
           title="Switch version"
           disabled={install.isPending}
-          className="hover:bg-accent/60 focus-visible:ring-ring data-[state=open]:bg-accent/60 flex min-w-0 items-center gap-3 rounded-lg px-2 py-1 text-left transition-colors outline-none focus-visible:ring-2"
+          className="hover:bg-accent/60 focus-visible:ring-ring data-[state=open]:bg-accent/60 -mx-2 flex min-w-0 items-center gap-3 rounded-lg px-2 py-0.5 text-left transition-colors outline-none focus-visible:ring-2"
         >
           {children}
           {install.isPending ? (

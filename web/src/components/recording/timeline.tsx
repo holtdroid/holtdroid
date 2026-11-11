@@ -9,7 +9,7 @@ import {
   TriangleAlertIcon,
   type LucideIcon,
 } from "lucide-react"
-import { type PointerEvent, type ReactNode, useState } from "react"
+import { type KeyboardEvent, memo, type PointerEvent, type ReactNode, useMemo, useState } from "react"
 import type { RecordingMarker } from "@/api/client"
 import { MarkerPin } from "@/components/recording/markers"
 import {
@@ -39,7 +39,7 @@ export type Lanes = {
 const screenTones: Record<ScreenKind, string> = {
   portrait: "bg-accent text-muted-foreground",
   landscape: "bg-info-soft text-info",
-  off: "bg-frame text-white/60",
+  off: "bg-screen-off text-screen-off-foreground",
   locked: "bg-violet-soft text-violet",
   novideo: "bg-[repeating-linear-gradient(135deg,var(--border)_0_4px,transparent_4px_8px)] text-muted-foreground",
 }
@@ -115,6 +115,81 @@ function Lane<K extends string>({
   )
 }
 
+function percent(duration: number) {
+  return (t: number) => `${duration > 0 ? Math.min(100, Math.max(0, (t / duration) * 100)) : 0}%`
+}
+
+const LaneRows = memo(function LaneRows({ duration, lanes }: { duration: number; lanes: Lanes }) {
+  const pct = percent(duration)
+  const taps = thin(lanes.taps, duration)
+  const marks = thin(lanes.issues, duration, 400)
+  const crashes = thin(lanes.crashes, duration, 400)
+  const dns = thin(lanes.dns, duration, 400)
+  return (
+    <>
+      <LaneLabel icon={SmartphoneIcon}>Screen</LaneLabel>
+      <Lane spans={lanes.screen} tones={screenTones} icons={screenIcons} pct={pct} />
+
+      <LaneLabel icon={PackageIcon}>App</LaneLabel>
+      <Lane spans={lanes.app} tones={appTones} pct={pct}>
+        {crashes.map((c) => (
+          <span
+            key={`crash-${c.t}`}
+            className={cn("absolute inset-y-0 w-[3px] -translate-x-1/2", c.kind === "anr" ? "bg-warning" : "bg-danger")}
+            style={{ left: pct(c.t) }}
+          />
+        ))}
+      </Lane>
+
+      <LaneLabel icon={SignalIcon}>Network</LaneLabel>
+      <Lane spans={lanes.network} tones={networkTones} pct={pct}>
+        {dns.map((d) => (
+          <span
+            key={`dns-${d.t}`}
+            className="absolute inset-y-[3px] w-[3px] -translate-x-1/2 rounded-sm bg-violet"
+            style={{ left: pct(d.t) }}
+          />
+        ))}
+      </Lane>
+
+      <LaneLabel icon={TriangleAlertIcon}>Events</LaneLabel>
+      <div className="relative h-[22px] rounded-md border border-border-subtle">
+        {taps.map((t) => (
+          <span
+            key={`tap-${t.t}`}
+            className="absolute inset-y-1.5 w-0.5 rounded-[1px] bg-muted-foreground/50"
+            style={{ left: pct(t.t) }}
+          />
+        ))}
+        {marks.map((m) => (
+          <span
+            key={m.id}
+            className={cn("absolute inset-y-0.5 w-0.5 rounded-[1px]", m.level === "error" ? "bg-danger" : "bg-warning")}
+            style={{ left: pct(m.t) }}
+          />
+        ))}
+      </div>
+    </>
+  )
+})
+
+const TimeTicks = memo(function TimeTicks({ duration }: { duration: number }) {
+  const pct = percent(duration)
+  const step = niceStep(duration)
+  const ticks: number[] = []
+  for (let t = 0; t < duration - step * 0.4; t += step) ticks.push(t)
+  return (
+    <div className="relative h-4 font-mono text-[11px] text-muted-foreground">
+      {ticks.map((t, i) => (
+        <span key={t} className={cn("absolute", i > 0 && "-translate-x-1/2")} style={{ left: pct(t) }}>
+          {clock(t)}
+        </span>
+      ))}
+      <span className="absolute right-0">{clock(duration)}</span>
+    </div>
+  )
+})
+
 /** The recording at a glance: markers, then lanes for the screen, the app, the network and what happened. */
 export function Timeline({
   duration,
@@ -138,25 +213,39 @@ export function Timeline({
   onSeek: (t: number) => void
 }) {
   const [hover, setHover] = useState<number | null>(null)
-  const pct = (t: number) => `${duration > 0 ? Math.min(100, Math.max(0, (t / duration) * 100)) : 0}%`
+  const pct = percent(duration)
+  const points = useMemo(() => [...lanes.issues, ...lanes.crashes, ...lanes.dns], [lanes])
   const at = (e: PointerEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect()
     return Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width)) * duration
   }
-  const step = niceStep(duration)
-  const ticks: number[] = []
-  for (let t = 0; t < duration - step * 0.4; t += step) ticks.push(t)
-  const taps = thin(lanes.taps, duration)
-  const marks = thin(lanes.issues, duration, 400)
+  const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    const big = Math.max(30_000, duration / 10)
+    const next: Record<string, number> = {
+      ArrowLeft: time - 5000,
+      ArrowDown: time - 5000,
+      ArrowRight: time + 5000,
+      ArrowUp: time + 5000,
+      PageDown: time - big,
+      PageUp: time + big,
+      Home: 0,
+      End: duration,
+    }
+    const t = next[e.key]
+    if (t === undefined) return
+    e.preventDefault()
+    e.stopPropagation()
+    onSeek(Math.min(duration, Math.max(0, t)))
+  }
+  const screen = hover === null ? undefined : spanAt(lanes.screen, hover)
   const hovered =
     hover === null
       ? []
       : [
-          spanAt(lanes.screen, hover)?.label || (spanAt(lanes.screen, hover) ? "No video" : ""),
+          screen?.label || (screen ? "No video" : ""),
           spanAt(lanes.app, hover)?.label,
           spanAt(lanes.network, hover)?.label,
-          [...lanes.issues, ...lanes.crashes, ...lanes.dns].find((x) => Math.abs(x.t - hover) < duration * 0.006)
-            ?.title,
+          points.find((x) => Math.abs(x.t - hover) < duration * 0.006)?.title,
         ].filter(Boolean)
 
   return (
@@ -185,51 +274,7 @@ export function Timeline({
         ))}
       </div>
 
-      <LaneLabel icon={SmartphoneIcon}>Screen</LaneLabel>
-      <Lane spans={lanes.screen} tones={screenTones} icons={screenIcons} pct={pct} />
-
-      <LaneLabel icon={PackageIcon}>App</LaneLabel>
-      <Lane spans={lanes.app} tones={appTones} pct={pct}>
-        {lanes.crashes.map((c) => (
-          <span
-            key={`crash-${c.t}`}
-            title={`${c.title} at ${clock(c.t)}${c.detail ? `: ${c.detail}` : ""}`}
-            className={cn("absolute inset-y-0 w-[3px] -translate-x-1/2", c.kind === "anr" ? "bg-warning" : "bg-danger")}
-            style={{ left: pct(c.t) }}
-          />
-        ))}
-      </Lane>
-
-      <LaneLabel icon={SignalIcon}>Network</LaneLabel>
-      <Lane spans={lanes.network} tones={networkTones} pct={pct}>
-        {lanes.dns.map((d) => (
-          <span
-            key={`dns-${d.t}`}
-            title={`${d.title} at ${clock(d.t)}`}
-            className="absolute inset-y-[3px] w-[3px] -translate-x-1/2 rounded-sm bg-violet"
-            style={{ left: pct(d.t) }}
-          />
-        ))}
-      </Lane>
-
-      <LaneLabel icon={TriangleAlertIcon}>Events</LaneLabel>
-      <div className="relative h-[22px] rounded-md border border-border-subtle">
-        {taps.map((t) => (
-          <span
-            key={`tap-${t.t}`}
-            className="absolute inset-y-1.5 w-0.5 rounded-[1px] bg-muted-foreground/50"
-            style={{ left: pct(t.t) }}
-          />
-        ))}
-        {marks.map((m) => (
-          <span
-            key={m.id}
-            title={`${m.title} at ${clock(m.t)}`}
-            className={cn("absolute inset-y-0.5 w-0.5 rounded-[1px]", m.level === "error" ? "bg-danger" : "bg-warning")}
-            style={{ left: pct(m.t) }}
-          />
-        ))}
-      </div>
+      <LaneRows duration={duration} lanes={lanes} />
 
       <span />
       <div className="relative">
@@ -238,24 +283,18 @@ export function Timeline({
       </div>
 
       <span />
-      <div className="relative h-4 font-mono text-[11px] text-muted-foreground">
-        {ticks.map((t, i) => (
-          <span key={t} className={cn("absolute", i > 0 && "-translate-x-1/2")} style={{ left: pct(t) }}>
-            {clock(t)}
-          </span>
-        ))}
-        <span className="absolute right-0">{clock(duration)}</span>
-      </div>
+      <TimeTicks duration={duration} />
 
       <div
         role="slider"
-        tabIndex={-1}
+        tabIndex={0}
         aria-label="Position"
         aria-valuemin={0}
         aria-valuemax={duration}
         aria-valuenow={time}
         aria-valuetext={clock(time)}
-        className="relative z-10 col-start-2 row-span-6 row-start-2 cursor-pointer touch-none select-none"
+        className="relative z-10 col-start-2 row-span-6 row-start-2 cursor-pointer touch-none rounded-md outline-none select-none focus-visible:ring-2 focus-visible:ring-ring/50"
+        onKeyDown={onKey}
         onPointerDown={(e) => {
           e.currentTarget.setPointerCapture(e.pointerId)
           onSeek(at(e))

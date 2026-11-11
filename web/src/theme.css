@@ -51,6 +51,8 @@
   --color-violet: var(--violet);
   --color-violet-soft: var(--violet-soft);
   --color-frame: var(--frame);
+  --color-screen-off: var(--screen-off);
+  --color-screen-off-foreground: var(--screen-off-foreground);
   --color-stage: var(--stage);
   --color-veil: var(--veil);
   --shadow-float: var(--float-shadow);
@@ -99,6 +101,8 @@
   --violet: #6b46d9;
   --violet-soft: #efe9fc;
   --frame: #202024;
+  --screen-off: #050506;
+  --screen-off-foreground: #a1a1aa;
   --stage: #e9e9ec;
   --veil: rgb(242 242 243 / 0.7);
   --float-shadow: 0 16px 48px rgb(20 20 30 / 0.14);
@@ -153,6 +157,8 @@
   --violet: #b494ff;
   --violet-soft: rgb(180 148 255 / 0.14);
   --frame: #1c1c20;
+  --screen-off: #050506;
+  --screen-off-foreground: #8b8b94;
   --stage: #0e0e10;
   --veil: rgb(5 5 6 / 0.66);
   --float-shadow: 0 16px 48px rgb(0 0 0 / 0.5);
