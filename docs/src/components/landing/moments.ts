@@ -23,7 +23,7 @@ export const moments: Moment[] = [
     text: "The Android version, a screen with its cutout, the WebView version and a country.",
     href: "/guides/first-steps/launch-app/",
     guide: "launch-app",
-    state: { dialog: "launch", launchStage: "options" },
+    state: { dialog: "launch" },
     view: [0, 0, 1180, 720],
   },
   {
