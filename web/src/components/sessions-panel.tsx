@@ -24,11 +24,11 @@ const toneClass = Object.fromEntries(slotTones.map((t) => [t.tone, t.className])
 
 function Ticks({ ticks }: { ticks: Tick[] }) {
   return (
-    <div className="flex gap-[3px]">
+    <div className="flex min-w-0 gap-[3px]">
       {ticks.map((t) => (
         <Tooltip key={t.id}>
           <TooltipTrigger asChild>
-            <span className={cn("h-5 min-w-0.5 flex-1 rounded-[2px]", toneClass[t.tone])} />
+            <span className={cn("h-5 max-w-10 min-w-0.5 flex-1 rounded-[2px]", toneClass[t.tone])} />
           </TooltipTrigger>
           <TooltipContent>
             {t.label}: {slotTones.find((s) => s.tone === t.tone)?.label.toLowerCase()}
@@ -44,27 +44,27 @@ function Capacity({ providers, sessions, now }: { providers: ProviderView[]; ses
   const rows = providers.map((p) => ({ provider: p, ticks: p.error ? [] : capacityTicks(p, sessions, now) }))
   const legend = countTones(rows.flatMap((r) => r.ticks))
   return (
-    <div className="grid gap-3">
+    <div className="flex min-w-0 flex-col gap-3">
       {rows.map(({ provider: p, ticks }) => (
-        <div key={p.name} className="grid gap-1.5">
+        <div key={p.name} className="flex min-w-0 flex-col gap-1.5">
           {providers.length > 1 && (
             <div className="flex items-baseline justify-between gap-2 text-xs">
-              <span className="truncate font-medium">{p.name}</span>
+              <span className="min-w-0 truncate font-medium">{p.name}</span>
               {!p.error && (
-                <span className="text-muted-foreground tabular-nums">
+                <span className="text-muted-foreground shrink-0 whitespace-nowrap tabular-nums">
                   {ticks.filter((t) => t.tone === "free").length}/{ticks.length} free
                 </span>
               )}
             </div>
           )}
-          {p.error ? <p className="text-danger truncate text-xs">{p.error}</p> : <Ticks ticks={ticks} />}
+          {p.error ? <p className="text-danger text-xs break-words">{p.error}</p> : <Ticks ticks={ticks} />}
         </div>
       ))}
       {legend.length > 0 && (
         <div className="flex flex-wrap gap-x-3.5 gap-y-1 text-[13px]">
           {legend.map((t) => (
-            <span key={t.tone} className="inline-flex items-center gap-1.5">
-              <span className={cn("h-3 w-1 rounded-[2px]", t.className)} />
+            <span key={t.tone} className="inline-flex items-center gap-1.5 whitespace-nowrap">
+              <span className={cn("h-3 w-1 shrink-0 rounded-[2px]", t.className)} />
               {t.count} {t.label}
             </span>
           ))}
@@ -88,7 +88,7 @@ export function SessionsPanel({ className }: { className?: string }) {
 
   return (
     <section className={cn("bg-card flex min-h-0 min-w-0 flex-col gap-4 rounded-2xl border p-5", className)}>
-      <div className="flex items-center gap-2">
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
         <h2 className="text-base font-semibold">Devices</h2>
         {items.length > 0 && (
           <Badge variant="secondary">
@@ -113,15 +113,15 @@ export function SessionsPanel({ className }: { className?: string }) {
         </Alert>
       ))}
 
-      <div className="relative min-h-0 flex-1 overflow-y-auto">
+      <div className="relative min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
         {sessions.isPending ? (
           <Skeleton className="h-16 rounded-xl" />
         ) : items.length === 0 ? (
-          <p className="text-muted-foreground rounded-xl border border-dashed py-8 text-center text-sm">
+          <p className="text-muted-foreground rounded-xl border border-dashed px-4 py-8 text-center text-sm text-balance break-words">
             No devices running. Launch an app to start one.
           </p>
         ) : (
-          <ul className="flex flex-col">
+          <ul className="flex min-w-0 flex-col">
             {ordered.map((s) => (
               <SessionRow key={`${s.provider}/${s.id}`} session={s} now={now} mine={s.owner === user} />
             ))}
@@ -161,12 +161,12 @@ function SessionRow({ session: s, now, mine }: { session: SessionView; now: numb
     extend.mutate(s, { onError: (e) => toast.error("Could not extend", { description: e.message }) })
 
   return (
-    <li className="grid gap-2 border-b border-dashed py-3 last:border-0 last:pb-0">
-      <div className="flex items-center gap-2.5">
-        <AppIcon src={s.iconUrl} className="size-7 rounded-lg" />
+    <li className="flex min-w-0 flex-col gap-2 border-b border-dashed py-3 last:border-0 last:pb-0">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <AppIcon src={s.iconUrl} className="size-7 shrink-0 rounded-lg" />
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-1.5 font-medium">
-            <span className="truncate">{label}</span>
+            <span className="min-w-0 truncate">{label}</span>
             <SessionBadge session={s} now={now} />
           </div>
           <div className="text-muted-foreground flex min-w-0 items-center gap-1.5 text-xs">
@@ -174,7 +174,7 @@ function SessionRow({ session: s, now, mine }: { session: SessionView; now: numb
               <UserAvatar
                 user={s.owner}
                 picture={me.data?.user === s.owner ? me.data.picture : undefined}
-                className="size-4"
+                className="size-4 shrink-0"
               />
             )}
             <span className="truncate" title={limits}>
@@ -184,19 +184,25 @@ function SessionRow({ session: s, now, mine }: { session: SessionView; now: numb
           {s.reason && <p className="text-danger mt-0.5 text-xs break-all">{s.reason}</p>}
         </div>
         {starting && (
-          <span className="text-muted-foreground font-mono text-xs tabular-nums">
+          <span className="text-muted-foreground shrink-0 font-mono text-xs tabular-nums">
             {step + 1}/{steps.length}
           </span>
         )}
         {tone === "idle" && manage && (
-          <Button variant="outline" size="sm" onClick={extendNow} disabled={extend.isPending}>
+          <Button variant="outline" size="sm" className="shrink-0" onClick={extendNow} disabled={extend.isPending}>
             <TimerResetIcon />
             Extend
           </Button>
         )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label={`More for ${label}`} disabled={!manage}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="shrink-0"
+              aria-label={`More for ${label}`}
+              disabled={!manage}
+            >
               <EllipsisIcon />
             </Button>
           </DropdownMenuTrigger>
@@ -217,7 +223,7 @@ function SessionRow({ session: s, now, mine }: { session: SessionView; now: numb
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <Button variant="outline" size="icon" asChild>
+        <Button variant="outline" size="icon" className="shrink-0" asChild>
           <Link to="/session/$provider/$id" params={{ provider: s.provider, id: s.id }} aria-label={`Open ${label}`}>
             <ArrowUpRightIcon />
           </Link>

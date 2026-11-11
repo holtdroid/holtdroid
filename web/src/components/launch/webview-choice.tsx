@@ -17,7 +17,12 @@ const channelVariant: Record<string, "success" | "info" | "violet" | "warning"> 
   canary: "warning",
 }
 
-const day = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" })
+const day = new Intl.DateTimeFormat(undefined, { year: "numeric", month: "short", day: "numeric" })
+
+function releasedOn(released: string) {
+  const at = new Date(released)
+  return Number.isNaN(at.getTime()) ? "" : day.format(at)
+}
 
 export function WebViewChoice({
   webviews: all,
@@ -106,17 +111,21 @@ export function WebViewChoice({
                       on ? "border-foreground border-[5px]" : "border-muted-foreground",
                     )}
                   />
-                  <span className="w-32 truncate font-mono text-[13px]">{w.version}</span>
-                  <span className="flex gap-1">
+                  <span className="w-32 min-w-16 truncate font-mono text-[13px]" title={w.version}>
+                    {w.version}
+                  </span>
+                  <span className="flex min-w-0 flex-1 gap-1 overflow-hidden">
                     {w.channels.map((c) => (
                       <Badge key={c} variant={channelVariant[c] ?? "secondary"} className="capitalize">
                         {c}
                       </Badge>
                     ))}
                   </span>
-                  <span className="text-muted-foreground flex-1 text-xs">{day.format(new Date(w.released))}</span>
+                  <span className="text-muted-foreground min-w-24 shrink-0 text-right text-xs whitespace-nowrap tabular-nums">
+                    {releasedOn(w.released)}
+                  </span>
                   {w.size > 0 && (
-                    <span className="text-muted-foreground hidden font-mono text-xs sm:inline">
+                    <span className="text-muted-foreground hidden w-16 shrink-0 text-right font-mono text-xs sm:inline">
                       {formatBytes(w.size)}
                     </span>
                   )}

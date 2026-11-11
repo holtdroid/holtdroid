@@ -377,26 +377,26 @@ function AppRow({
       <div className="flex items-center gap-3.5">
         <AppIcon src={latest.iconUrl} className="size-9 rounded-[10px]" />
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
             {pkg ? (
               <Link
                 to="/apps/$pkg"
                 params={{ pkg }}
-                className="truncate text-[15px] font-semibold underline-offset-4 hover:underline"
+                className="max-w-full truncate text-[15px] font-semibold underline-offset-4 hover:underline"
               >
                 {title}
               </Link>
             ) : (
-              <span className="truncate text-[15px] font-semibold">{title}</span>
+              <span className="max-w-full truncate text-[15px] font-semibold">{title}</span>
             )}
             {latest.app?.versionName && (
-              <Badge variant="secondary" className="font-mono">
-                {latest.app.versionName}
+              <Badge variant="secondary" className="max-w-48 font-mono" title={latest.app.versionName}>
+                <span className="truncate">{latest.app.versionName}</span>
               </Badge>
             )}
             {sources.map((s) => (
-              <Badge key={s} variant="secondary">
-                {s}
+              <Badge key={s} variant="secondary" className="max-w-40" title={s}>
+                <span className="truncate">{s}</span>
               </Badge>
             ))}
             {running > 0 && (
@@ -414,7 +414,7 @@ function AppRow({
             </p>
           )}
         </div>
-        <div className="hidden min-w-[110px] flex-col items-end gap-0.5 md:flex">
+        <div className="hidden min-w-[110px] shrink-0 flex-col items-end gap-0.5 whitespace-nowrap md:flex">
           <span className="text-[13px]">
             {builds.length} {builds.length === 1 ? "build" : "builds"}
           </span>
@@ -519,13 +519,13 @@ function BuildRow({
     <li className={cn("flex flex-col", detailed && "border-b border-dashed py-2 last:border-0")}>
       <div className="flex min-h-11 items-center gap-3 text-[13px]">
         {detailed && <AppIcon src={a.iconUrl} className="size-7 rounded-lg" />}
-        <span className="w-16 shrink-0 truncate font-mono font-medium" title={title}>
+        <span className="w-32 min-w-16 truncate font-mono font-medium" title={a.app?.versionName || title}>
           {a.app?.versionName || (a.app ? "—" : "…")}
         </span>
-        <span className="text-muted-foreground hidden w-11 shrink-0 font-mono text-xs sm:inline">
+        <span className="text-muted-foreground hidden w-20 shrink-0 truncate font-mono text-xs tabular-nums sm:inline">
           {a.app?.versionCode ?? ""}
         </span>
-        <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+        <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 overflow-hidden">
           {branch && (
             <Badge variant="secondary" className="max-w-[220px]">
               <GitBranchIcon />
