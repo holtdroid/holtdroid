@@ -50,6 +50,7 @@ const steps: Step[] = [
   },
 ]
 const tabs = ["holtdroid", "zsh"]
+const wide = /([\u2190-\u27bf])/
 const last = (i: number) => {
   const mine = steps.filter((s) => s.tab === i)
   const frameAt = mine.findLastIndex((s) => s.frame)
@@ -70,7 +71,9 @@ const last = (i: number) => {
       tabs.map((_, i) => (
         <pre class:list={["screen", { hidden: i !== 0 }]} data-screen={i} aria-hidden="true">
           {last(i).map((l: Line) => (
-            <span class:list={["line", l.kind]}>{l.text || " "}</span>
+            <span class:list={["line", l.kind]}>
+              {(l.text || " ").split(wide).map((part, j) => (j % 2 ? <span class="cell">{part}</span> : part))}
+            </span>
           ))}
         </pre>
       ))
@@ -84,6 +87,19 @@ const last = (i: number) => {
   type Step = { tab: number; caption: string; lines?: Line[]; frame?: string; pause?: number }
 
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+  const wide = /([\u2190-\u27bf])/
+
+  function fill(span: HTMLElement, text: string) {
+    span.replaceChildren(
+      ...text.split(wide).map((part, j) => {
+        if (j % 2 === 0) return part
+        const cell = document.createElement("span")
+        cell.className = "cell"
+        cell.textContent = part
+        return cell
+      }),
+    )
+  }
 
   async function play(root: HTMLElement) {
     const steps: Step[] = JSON.parse(root.dataset.steps ?? "[]")
@@ -97,7 +113,7 @@ const last = (i: number) => {
     const add = (screen: HTMLElement, line: Line) => {
       const span = document.createElement("span")
       span.className = `line ${line.kind ?? ""}`
-      span.textContent = line.kind === "cmd" ? "" : line.text || " "
+      fill(span, line.kind === "cmd" ? "" : line.text || " ")
       screen.append(span)
       screen.scrollTop = screen.scrollHeight
       return span
@@ -210,6 +226,13 @@ const last = (i: number) => {
   .terminal-demo .line {
     display: block;
     white-space: pre;
+  }
+  .terminal-demo .cell {
+    display: inline-block;
+    width: 1ch;
+    overflow: hidden;
+    vertical-align: top;
+    text-align: center;
   }
   .terminal-demo .cmd::before {
     content: "~ $ ";

@@ -47,13 +47,12 @@ const sources: { icon: IconName; title: string; text: string; badge: string; hre
     href: "/sources/overview/",
   },
 ]
-const origins: [IconName, string][] = [
-  ["message", "Slack"],
-  ["bucket", "S3"],
-  ["git", "GitHub"],
-  ["globe", "Opera"],
+const origins: { icon: IconName; name: string; app: string; builds: string[] }[] = [
+  { icon: "message", name: "Slack", app: "Pinecone Shop", builds: ["2.5.0-rc1", "2.4.0", "2.3.1"] },
+  { icon: "bucket", name: "S3", app: "Otter Pay", builds: ["1.18.0-412", "1.17.2", "1.17.1"] },
+  { icon: "git", name: "GitHub", app: "WebView Browser", builds: ["0.9.0", "0.8.2", "0.8.1"] },
+  { icon: "globe", name: "Opera", app: "Opera", builds: ["95.1.4917", "95.0.4900", "94.2.4851"] },
 ]
-const builds = ["2.5.0-rc1", "2.4.0", "2.3.1"]
 ---
 
 <section class="l-wrap l-section l-sources" id="sources">
@@ -69,10 +68,10 @@ const builds = ["2.5.0-rc1", "2.4.0", "2.3.1"]
   <div class="l-flow" data-live aria-hidden="true" data-reveal style="--i:1">
     <div class="l-flow-from">
       {
-        origins.map(([icon, name]) => (
+        origins.map((o) => (
           <span class="l-flow-src">
-            <DockIcon name={icon} />
-            {name}
+            <DockIcon name={o.icon} />
+            {o.name}
           </span>
         ))
       }
@@ -83,15 +82,19 @@ const builds = ["2.5.0-rc1", "2.4.0", "2.3.1"]
       <path d="M0 75 L100 60" />
       <path d="M0 105 L100 60" />
     </svg>
-    <div class="l-flow-apps">
-      <span class="l-flow-title">Pinecone Shop</span>
+    <div class="l-flow-stack">
       {
-        builds.map((b, i) => (
-          <span class="l-flow-row l-mono">
-            {i === 0 && <span class="l-flow-flash" />}
-            {b}
-            {i === 0 && <span class="l-flow-badge">new</span>}
-          </span>
+        origins.map((o) => (
+          <div class="l-flow-apps">
+            <span class="l-flow-title">{o.app}</span>
+            {o.builds.map((b, i) => (
+              <span class="l-flow-row l-mono">
+                {i === 0 && <span class="l-flow-flash" />}
+                {b}
+                {i === 0 && <span class="l-flow-badge">new</span>}
+              </span>
+            ))}
+          </div>
         ))
       }
     </div>

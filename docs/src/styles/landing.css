@@ -1535,11 +1535,17 @@ html:not(.js) .l-tl-head::before {
   vector-effect: non-scaling-stroke;
 }
 
+.l-flow-stack {
+  display: grid;
+  align-self: center;
+}
+
 .l-flow-apps {
   display: flex;
   flex-direction: column;
+  grid-area: 1 / 1;
   gap: 4px;
-  align-self: center;
+  animation: l-card 16s infinite;
   padding: 12px;
   border: 1px solid var(--hd-bd);
   border-radius: 14px;
@@ -1592,6 +1598,36 @@ html:not(.js) .l-tl-head::before {
   color: var(--hd-ok);
   font: 500 10px/1.4 var(--hd-font);
   animation: l-badge 4s infinite;
+}
+
+.l-flow-apps:not(:first-child) {
+  opacity: 0;
+}
+
+.l-flow-apps:nth-child(2) {
+  animation-delay: -12s;
+}
+
+.l-flow-apps:nth-child(3) {
+  animation-delay: -8s;
+}
+
+.l-flow-apps:nth-child(4) {
+  animation-delay: -4s;
+}
+
+@keyframes l-card {
+  0%,
+  8%,
+  35%,
+  100% {
+    opacity: 0;
+  }
+
+  10%,
+  33% {
+    opacity: 1;
+  }
 }
 
 @keyframes l-flash {
