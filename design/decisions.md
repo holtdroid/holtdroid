@@ -5642,3 +5642,32 @@ removes it from the address and shows **Open the portal** in the dock,
 setting the link only through `.href`. A stored value is checked again on
 every read. The landing's pictures are islands that render the guide
 scenes, which use the portal's own components, rather than screenshots.
+
+## 192. The recording timeline is one track; the tools column is the widest
+
+Supersedes the lanes part of #188.
+
+**Context.** The player's timeline drew a row per lane (markers, screen,
+app, network, events) with a label column. It was close to 300 px tall and
+mostly empty, since state changes are rare, and the grid's auto-placement
+pushed the lane bars into the label column. The tools column was capped at
+420 px, so the Routes table's headers overlapped and its tabs scrolled out
+of view.
+
+**Decision.**
+
+- The timeline is one track with the time under it, about 80 px. Markers are
+  flags above it; near the end they open to the left so their note stays
+  inside. Every change of the screen, app and network lanes (not their
+  first state), crashes, ANRs and DNS changes is a round icon with a thin
+  line at its time; taps and DevTools issues are short ticks at the bottom.
+  Hovering or keyboard focus shows the time, what changed there and the
+  states at that point. The lanes are still derived by
+  `web/src/lib/recording/lanes.ts`.
+- The player's grid is about 260 | flexible | 40 % (at least 440 px). The
+  tools' tabs that don't fit go under **More**, measured with a
+  `ResizeObserver`, and the open tab always stays in the row.
+- The Routes table queries its own width (`@container`): narrow, it shows
+  name (with the flags next to it), where, connections and bytes; the
+  address joins from 32 rem and via and a flags column from 42 rem. That
+  also applies in live sessions.

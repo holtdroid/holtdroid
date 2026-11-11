@@ -860,11 +860,12 @@ device ─scrcpy H.264─▶ agent ──tee──▶ viewer's WebSocket
                          ▲ GET /api/v1/recordings/{id}/files/…, /events, /devtools (or /api/v1/shared/{token}/…)
 browser: mediabunny decodes one init+segment at a time; the player shows the
          moment, network, device, load cards | phone | tools (findings, logcat, network,
-         console, WebSockets, cache) as HTML over a timeline with lanes, and the MP4
+         console, WebSockets, cache) as HTML over a one-track timeline, and the MP4
          download (WebCodecs encode into OPFS) draws phone | panels on a canvas
 ```
 
-The timeline's lanes are derived in the browser (`web/src/lib/recording/lanes.ts`):
+The timeline's lanes are derived in the browser (`web/src/lib/recording/lanes.ts`)
+and drawn on one track as change icons and event ticks (decision #192):
 Screen from the video segments' sizes, `screen` events (the agent subscribes
 its `ScreenState` poller while it records) and, for older recordings, the
 portal's power and lock buttons; App from `status.appRunning` plus crashes

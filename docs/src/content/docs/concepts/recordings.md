@@ -43,8 +43,8 @@ already encodes and writes the rest as small text files next to it. The
 portal draws the page from that data: cards on the left for the moment, the
 network, the device and the load, the phone in the middle, tools on the
 right (findings, logcat and the WebViews' network, console and WebSockets),
-and under them a timeline with lanes for the markers, the screen, the app,
-the network and what happened.
+and under them a timeline: one track with the markers above it and, along
+it, where the screen, the app and the network changed and what happened.
 
 ## Recording a session
 
@@ -130,8 +130,10 @@ A recording opens on a page of its own:
   the corner on your own recordings;
 - **the tools on the right**: **Findings**, Logcat, and, when the app had
   WebViews, Network, Console, WebSockets and Cache, plus DNS and Routes when
-  the session had them and Pixel perfect for signed-in viewers. Every tab
-  shows what had happened up to the moment you are at.
+  the session had them and Pixel perfect for signed-in viewers. The tabs
+  that don't fit in the column's width go under **More**, the open one always
+  stays in view. Every tab shows what had happened up to the moment you are
+  at.
 
 Everything beside the phone is ordinary page text, so you can select and
 copy it.
@@ -153,19 +155,23 @@ seconds forward, the time, the speed (**0.5×**, **1×**, **2×**, **4×**), the
 sound, and **Jump to** **Error**, **Marker** or **Tap**, each going to the
 next one after the playhead.
 
-Under them, lanes show the whole recording:
+Under them, one track shows the whole recording, with the time under it:
 
-| Lane        | Shows                                                                                                                                                                                              |
-| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Markers** | the markers as labelled pins (see [Markers](#markers))                                                                                                                                             |
-| **Screen**  | **Portrait** and **Landscape** from the video, **Off** and **Locked** from the recorded screen state (older recordings: from the portal's power and lock buttons), hatched where there is no video |
-| **App**     | the app's name while it runs (**reopened** after a close), **Closed**, the start-up steps, and a red mark at each crash (amber for an ANR)                                                         |
-| **Network** | the emulated network and region (amber), **Airplane mode** or **No network** (red), and the VPN exit; violet marks where DNS rewrites or the TTL limit changed or the DNS cache was cleared        |
-| **Events**  | taps and swipes (grey), errors (red) and closes and 4xx answers (amber)                                                                                                                            |
+| On the track        | Shows                                                                                                                                                                                                                                                                               |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| flags above it      | the markers, with their note (see [Markers](#markers)); near the end they open to the left                                                                                                                                                                                          |
+| round icons         | where something changed: the **screen** (portrait, landscape, off, locked, no video), the **app** (running, closed, starting), the **network** (the emulated network, region or VPN exit; amber when throttled, red when offline) and DNS rewrites, TTL or a cleared cache (violet) |
+| red and amber icons | crashes (a bug) and ANRs (an hourglass)                                                                                                                                                                                                                                             |
+| short ticks         | taps and swipes (grey), errors (red) and closes and 4xx answers (amber)                                                                                                                                                                                                             |
 
-A line across the lanes marks the playhead. Hover them to see the time under
-the pointer with what the screen, the app and the network were doing and
-what happened there; click or drag to go there.
+The part already played is shaded, and a line marks the playhead. Hover the
+track to see the time under the pointer, what changed or happened there and
+what the screen, the app and the network were doing; click or drag to go
+there. With the keyboard, focus the track: the arrows move five seconds,
+<kbd>Page Up</kbd> / <kbd>Page Down</kbd> a tenth of the recording (at least
+thirty seconds),
+<kbd>Home</kbd> / <kbd>End</kbd> to either end, and the same readout follows
+the playhead.
 
 | Key                              | Does                                    |
 | -------------------------------- | --------------------------------------- |

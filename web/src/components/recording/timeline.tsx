@@ -1,15 +1,21 @@
 import {
-  FlagIcon,
+  BugIcon,
+  GlobeIcon,
+  HourglassIcon,
+  LoaderIcon,
   LockIcon,
   MoonIcon,
   PackageIcon,
+  PackageXIcon,
   RotateCwIcon,
-  SignalIcon,
   SmartphoneIcon,
-  TriangleAlertIcon,
+  VideoOffIcon,
+  WifiIcon,
+  WifiLowIcon,
+  WifiOffIcon,
   type LucideIcon,
 } from "lucide-react"
-import { type KeyboardEvent, memo, type PointerEvent, type ReactNode, useMemo, useState } from "react"
+import { type FocusEvent, type KeyboardEvent, memo, type PointerEvent, useMemo, useState } from "react"
 import type { RecordingMarker } from "@/api/client"
 import { MarkerPin } from "@/components/recording/markers"
 import {
@@ -36,14 +42,6 @@ export type Lanes = {
   issues: Issue[]
 }
 
-const screenTones: Record<ScreenKind, string> = {
-  portrait: "bg-accent text-muted-foreground",
-  landscape: "bg-info-soft text-info",
-  off: "bg-screen-off text-screen-off-foreground",
-  locked: "bg-violet-soft text-violet",
-  novideo: "bg-[repeating-linear-gradient(135deg,var(--border)_0_4px,transparent_4px_8px)] text-muted-foreground",
-}
-
 export const screenIcons: Partial<Record<ScreenKind, LucideIcon>> = {
   portrait: SmartphoneIcon,
   landscape: RotateCwIcon,
@@ -51,124 +49,106 @@ export const screenIcons: Partial<Record<ScreenKind, LucideIcon>> = {
   locked: LockIcon,
 }
 
+const screenTones: Record<ScreenKind, string> = {
+  portrait: "text-muted-foreground",
+  landscape: "text-info",
+  off: "text-foreground",
+  locked: "text-violet",
+  novideo: "text-muted-foreground",
+}
+
+const appIcons: Record<AppKind, LucideIcon> = { running: PackageIcon, closed: PackageXIcon, starting: LoaderIcon }
 const appTones: Record<AppKind, string> = {
-  running: "bg-success-soft text-success",
-  closed: "bg-accent text-muted-foreground",
-  starting: "bg-info-soft text-info",
+  running: "text-success",
+  closed: "text-muted-foreground",
+  starting: "text-info",
 }
 
+const networkIcons: Record<NetworkKind, LucideIcon> = { normal: WifiIcon, throttled: WifiLowIcon, offline: WifiOffIcon }
 const networkTones: Record<NetworkKind, string> = {
-  normal: "bg-accent text-muted-foreground",
-  throttled: "bg-warning-soft text-warning",
-  offline: "bg-danger-soft text-danger",
+  normal: "text-muted-foreground",
+  throttled: "text-warning",
+  offline: "text-danger",
 }
 
-const rowHeights = "grid-rows-[50px_22px_22px_22px_22px_16px_auto]"
+type Change = { t: number; icon: LucideIcon; tone: string; title: string }
+
+/** Pins past this share of the timeline open to the left, so their label stays inside it. */
+export function pinFlips(t: number, duration: number) {
+  return duration > 0 && t / duration > 0.7
+}
+
+function changesOf(lanes: Lanes): Change[] {
+  const out: Change[] = lanes.crashes.map((c) => ({
+    t: c.t,
+    icon: c.kind === "anr" ? HourglassIcon : BugIcon,
+    tone: c.kind === "anr" ? "text-warning" : "text-danger",
+    title: c.title,
+  }))
+  const add = <K extends string>(
+    what: string,
+    spans: Span<K>[],
+    icon: (k: K) => LucideIcon,
+    tone: Record<K, string>,
+    fallback: string,
+  ) => {
+    spans.forEach((s, i) => {
+      if (i > 0)
+        out.push({ t: s.start, icon: icon(s.kind), tone: tone[s.kind], title: `${what}: ${s.label || fallback}` })
+    })
+  }
+  add("Screen", lanes.screen, (k) => screenIcons[k] ?? VideoOffIcon, screenTones, "No video")
+  add("App", lanes.app, (k) => appIcons[k], appTones, "")
+  add("Network", lanes.network, (k) => networkIcons[k], networkTones, "")
+  out.push(...lanes.dns.map((d) => ({ t: d.t, icon: GlobeIcon, tone: "text-violet", title: d.title })))
+  return out
+}
 
 function niceStep(duration: number) {
   const steps = [5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200].map((s) => s * 1000)
   return steps.find((s) => duration / s <= 7) ?? steps.at(-1)!
 }
 
-function LaneLabel({ icon: Icon, children }: { icon: LucideIcon; children: ReactNode }) {
-  return (
-    <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-      <Icon className="size-3.5 shrink-0" />
-      {children}
-    </span>
-  )
-}
-
-function Lane<K extends string>({
-  spans,
-  tones,
-  icons,
-  pct,
-  children,
-}: {
-  spans: Span<K>[]
-  tones: Record<K, string>
-  icons?: Partial<Record<K, LucideIcon>>
-  pct: (t: number) => string
-  children?: ReactNode
-}) {
-  return (
-    <div className="relative h-[22px] overflow-hidden rounded-md bg-muted">
-      {spans.map((s) => {
-        const Icon: LucideIcon | undefined = icons?.[s.kind]
-        return (
-          <span
-            key={`${s.start}-${s.kind}`}
-            className={cn(
-              "absolute inset-y-0 flex items-center gap-1 overflow-hidden px-1.5 text-[11px] font-medium whitespace-nowrap",
-              tones[s.kind],
-            )}
-            style={{ left: pct(s.start), width: `max(2px, ${pct(s.end - s.start)})` }}
-          >
-            {Icon && <Icon className="size-3 shrink-0" />}
-            {s.label}
-          </span>
-        )
-      })}
-      {children}
-    </div>
-  )
-}
-
 function percent(duration: number) {
   return (t: number) => `${duration > 0 ? Math.min(100, Math.max(0, (t / duration) * 100)) : 0}%`
 }
 
-const LaneRows = memo(function LaneRows({ duration, lanes }: { duration: number; lanes: Lanes }) {
+const Marks = memo(function Marks({ duration, lanes }: { duration: number; lanes: Lanes }) {
   const pct = percent(duration)
+  const changes = thin(changesOf(lanes), duration, 160).toReversed()
   const taps = thin(lanes.taps, duration)
-  const marks = thin(lanes.issues, duration, 400)
-  const crashes = thin(lanes.crashes, duration, 400)
-  const dns = thin(lanes.dns, duration, 400)
+  const issues = thin(lanes.issues, duration, 400)
   return (
     <>
-      <LaneLabel icon={SmartphoneIcon}>Screen</LaneLabel>
-      <Lane spans={lanes.screen} tones={screenTones} icons={screenIcons} pct={pct} />
-
-      <LaneLabel icon={PackageIcon}>App</LaneLabel>
-      <Lane spans={lanes.app} tones={appTones} pct={pct}>
-        {crashes.map((c) => (
-          <span
-            key={`crash-${c.t}`}
-            className={cn("absolute inset-y-0 w-[3px] -translate-x-1/2", c.kind === "anr" ? "bg-warning" : "bg-danger")}
-            style={{ left: pct(c.t) }}
-          />
-        ))}
-      </Lane>
-
-      <LaneLabel icon={SignalIcon}>Network</LaneLabel>
-      <Lane spans={lanes.network} tones={networkTones} pct={pct}>
-        {dns.map((d) => (
-          <span
-            key={`dns-${d.t}`}
-            className="absolute inset-y-[3px] w-[3px] -translate-x-1/2 rounded-sm bg-violet"
-            style={{ left: pct(d.t) }}
-          />
-        ))}
-      </Lane>
-
-      <LaneLabel icon={TriangleAlertIcon}>Events</LaneLabel>
-      <div className="relative h-[22px] rounded-md border border-border-subtle">
-        {taps.map((t) => (
-          <span
-            key={`tap-${t.t}`}
-            className="absolute inset-y-1.5 w-0.5 rounded-[1px] bg-muted-foreground/50"
-            style={{ left: pct(t.t) }}
-          />
-        ))}
-        {marks.map((m) => (
-          <span
-            key={m.id}
-            className={cn("absolute inset-y-0.5 w-0.5 rounded-[1px]", m.level === "error" ? "bg-danger" : "bg-warning")}
-            style={{ left: pct(m.t) }}
-          />
-        ))}
-      </div>
+      {taps.map((t) => (
+        <span
+          key={`tap-${t.t}`}
+          className="absolute bottom-1.5 h-1.5 w-0.5 rounded-[1px] bg-muted-foreground/50"
+          style={{ left: pct(t.t) }}
+        />
+      ))}
+      {issues.map((m) => (
+        <span
+          key={m.id}
+          className={cn(
+            "absolute bottom-1 h-2.5 w-0.5 rounded-[1px]",
+            m.level === "error" ? "bg-danger" : "bg-warning",
+          )}
+          style={{ left: pct(m.t) }}
+        />
+      ))}
+      {changes.map((c) => (
+        <span
+          key={`${c.t}-${c.title}`}
+          className={cn("absolute inset-y-0 flex -translate-x-1/2 flex-col items-center", c.tone)}
+          style={{ left: pct(c.t) }}
+        >
+          <span className="mt-1 grid size-4 shrink-0 place-items-center rounded-full border border-current bg-card [&_svg]:size-2.5">
+            <c.icon />
+          </span>
+          <span className="w-px flex-1 bg-current opacity-50" />
+        </span>
+      ))}
     </>
   )
 })
@@ -190,7 +170,14 @@ const TimeTicks = memo(function TimeTicks({ duration }: { duration: number }) {
   )
 })
 
-/** The recording at a glance: markers, then lanes for the screen, the app, the network and what happened. */
+function statesAt(lanes: Lanes, t: number) {
+  const screen = spanAt(lanes.screen, t)
+  return [screen?.label || (screen ? "No video" : ""), spanAt(lanes.app, t)?.label, spanAt(lanes.network, t)?.label]
+    .filter(Boolean)
+    .join(" · ")
+}
+
+/** The recording at a glance on one track: markers above it, what changed and what happened on it, by time. */
 export function Timeline({
   duration,
   time,
@@ -213,8 +200,12 @@ export function Timeline({
   onSeek: (t: number) => void
 }) {
   const [hover, setHover] = useState<number | null>(null)
+  const [keyboard, setKeyboard] = useState(false)
   const pct = percent(duration)
-  const points = useMemo(() => [...lanes.issues, ...lanes.crashes, ...lanes.dns], [lanes])
+  const points = useMemo(
+    () => [...lanes.issues, ...changesOf(lanes), ...markers.map((m) => ({ t: m.t, title: m.label || "Marker" }))],
+    [lanes, markers],
+  )
   const at = (e: PointerEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect()
     return Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width)) * duration
@@ -235,30 +226,29 @@ export function Timeline({
     if (t === undefined) return
     e.preventDefault()
     e.stopPropagation()
+    setKeyboard(true)
     onSeek(Math.min(duration, Math.max(0, t)))
   }
-  const screen = hover === null ? undefined : spanAt(lanes.screen, hover)
-  const hovered =
-    hover === null
-      ? []
-      : [
-          screen?.label || (screen ? "No video" : ""),
-          spanAt(lanes.app, hover)?.label,
-          spanAt(lanes.network, hover)?.label,
-          points.find((x) => Math.abs(x.t - hover) < duration * 0.006)?.title,
-        ].filter(Boolean)
+  const onFocus = (e: FocusEvent<HTMLDivElement>) => setKeyboard(e.currentTarget.matches(":focus-visible"))
+  const shown = hover ?? (keyboard ? time : null)
+  const near =
+    shown === null
+      ? undefined
+      : points
+          .filter((x) => Math.abs(x.t - shown) < duration * 0.006)
+          .toSorted((a, b) => Math.abs(a.t - shown) - Math.abs(b.t - shown))[0]?.title
+  const states = shown === null ? "" : statesAt(lanes, shown)
+  const share = shown === null || duration <= 0 ? 0 : shown / duration
 
   return (
-    <div className={cn("grid grid-cols-[92px_minmax(0,1fr)] gap-x-2.5 gap-y-1.5", rowHeights)}>
-      <span className="flex items-end pb-1">
-        <LaneLabel icon={FlagIcon}>Markers</LaneLabel>
-      </span>
-      <div className="relative z-20 col-start-2 row-start-1">
+    <div className="relative pt-6">
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-6">
         {markers.map((m) => (
           <MarkerPin
             key={m.id}
             marker={m}
-            left={pct(m.t)}
+            left={(m.t / Math.max(1, duration)) * 100}
+            flip={pinFlips(m.t, duration)}
             open={editing === m.id}
             editable={editable}
             onOpen={(open) => {
@@ -273,18 +263,6 @@ export function Timeline({
           />
         ))}
       </div>
-
-      <LaneRows duration={duration} lanes={lanes} />
-
-      <span />
-      <div className="relative">
-        <div className="absolute inset-x-0 top-1.5 h-1 rounded-full bg-border" />
-        <div className="absolute top-1.5 left-0 h-1 rounded-full bg-foreground" style={{ width: pct(time) }} />
-      </div>
-
-      <span />
-      <TimeTicks duration={duration} />
-
       <div
         role="slider"
         tabIndex={0}
@@ -292,11 +270,14 @@ export function Timeline({
         aria-valuemin={0}
         aria-valuemax={duration}
         aria-valuenow={time}
-        aria-valuetext={clock(time)}
-        className="relative z-10 col-start-2 row-span-6 row-start-2 cursor-pointer touch-none rounded-md outline-none select-none focus-visible:ring-2 focus-visible:ring-ring/50"
+        aria-valuetext={[clock(time), statesAt(lanes, time)].filter(Boolean).join(" · ")}
+        className="grid cursor-pointer touch-none gap-1 rounded-md outline-none select-none focus-visible:ring-2 focus-visible:ring-ring/50"
         onKeyDown={onKey}
+        onFocus={onFocus}
+        onBlur={() => setKeyboard(false)}
         onPointerDown={(e) => {
           e.currentTarget.setPointerCapture(e.pointerId)
+          setKeyboard(false)
           onSeek(at(e))
         }}
         onPointerMove={(e) => {
@@ -305,20 +286,32 @@ export function Timeline({
         }}
         onPointerLeave={() => setHover(null)}
       >
-        <span
-          aria-hidden
-          className="pointer-events-none absolute -top-[62px] bottom-5 w-0.5 -translate-x-1/2 rounded-[1px] bg-foreground"
-          style={{ left: pct(time) }}
-        />
-        {hover !== null && (
+        <div className="relative h-9">
+          <div className="absolute inset-0 overflow-hidden rounded-md bg-muted">
+            <div className="absolute inset-y-0 left-0 bg-foreground/[0.06]" style={{ width: pct(time) }} />
+            <div className="absolute bottom-0 left-0 h-0.5 bg-foreground" style={{ width: pct(time) }} />
+          </div>
+          <Marks duration={duration} lanes={lanes} />
           <span
-            className="pointer-events-none absolute bottom-full mb-[60px] -translate-x-1/2 rounded-lg border bg-popover px-2 py-1 text-xs whitespace-nowrap text-popover-foreground shadow-float"
-            style={{ left: pct(hover) }}
-          >
-            <span className="font-mono">{clock(hover)}</span>
-            {hovered.length > 0 && <span className="text-muted-foreground"> · {hovered.join(" · ")}</span>}
-          </span>
-        )}
+            aria-hidden
+            className="pointer-events-none absolute -inset-y-1 w-0.5 -translate-x-1/2 rounded-[1px] bg-foreground"
+            style={{ left: pct(time) }}
+          />
+          {shown !== null && (
+            <span
+              className={cn(
+                "pointer-events-none absolute bottom-full z-30 mb-1.5 max-w-[min(32rem,100%)] truncate rounded-lg border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-float",
+                share < 0.2 ? "translate-x-0" : share > 0.8 ? "-translate-x-full" : "-translate-x-1/2",
+              )}
+              style={{ left: pct(shown) }}
+            >
+              <span className="font-mono">{clock(shown)}</span>
+              {near && <span className="font-medium"> · {near}</span>}
+              {states && <span className="text-muted-foreground"> · {states}</span>}
+            </span>
+          )}
+        </div>
+        <TimeTicks duration={duration} />
       </div>
     </div>
   )
