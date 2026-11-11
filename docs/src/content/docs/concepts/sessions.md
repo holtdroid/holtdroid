@@ -117,7 +117,7 @@ first served; leaving the page gives up the place. The line lives in the api
 replica's memory, so a restart drops it.
 
 Admins see every slot on the **Inventory** page (the server icon in the
-header): the device's or node's model, system, battery, memory, storage and
+dock): the device's or node's model, system, battery, memory, storage and
 temperature sensors, and the session running on it. **Hold** keeps new
 sessions off a slot, or off a whole provider, while someone works on it; a
 running session keeps going, and the slot shows `maintenance` once it ends

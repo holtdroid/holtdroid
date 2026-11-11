@@ -16,7 +16,7 @@ const filters: { level: Level; label: string }[] = [
 ]
 
 function ink(color: string) {
-  return `color-mix(in oklab, ${color}, black var(--stage-ink-shade))`
+  return `color-mix(in oklab, ${color}, black var(--ink-shade))`
 }
 
 function Badge({ level }: { level: string }) {
@@ -75,13 +75,13 @@ export function LogcatView({ player, time }: { player: Player; time: number }) {
   return (
     <>
       <header className="flex flex-wrap items-center gap-2 px-5 pb-2">
-        <span className="mr-auto text-sm text-stage-outline-dim">{lines.length} lines</span>
+        <span className="mr-auto text-sm text-muted-foreground">{lines.length} lines</span>
         <label className="relative">
           <span className="sr-only">Minimum level</span>
           <select
             value={minLevel}
             onChange={(e) => setMinLevel(e.target.value as Level)}
-            className="appearance-none rounded-full bg-stage-surface-container py-1.5 pr-8 pl-3 text-sm text-stage-on-surface outline-none hover:bg-stage-surface-container-hover [&>option]:bg-stage-surface-container"
+            className="appearance-none rounded-full bg-muted py-1.5 pr-8 pl-3 text-sm text-foreground outline-none hover:bg-accent [&>option]:bg-muted"
           >
             {filters.map((f) => (
               <option key={f.level} value={f.level}>
@@ -89,35 +89,33 @@ export function LogcatView({ player, time }: { player: Player; time: number }) {
               </option>
             ))}
           </select>
-          <ChevronDownIcon className="pointer-events-none absolute top-1/2 right-2.5 size-4 -translate-y-1/2 text-stage-outline" />
+          <ChevronDownIcon className="pointer-events-none absolute top-1/2 right-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
         </label>
         <button
           type="button"
           onClick={copy}
-          className="inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-sm text-stage-on-surface-variant hover:bg-stage-surface-container"
+          className="inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-sm text-muted-foreground hover:bg-muted"
           title="Copy the lines shown here"
         >
           <CopyIcon className="size-4" />
           Copy
         </button>
       </header>
-      <label className="mx-4 mb-2 flex items-center gap-2 rounded-full bg-stage-surface-container px-3 py-1.5 text-sm">
-        <SearchIcon className="size-4 shrink-0 text-stage-outline" />
+      <label className="mx-4 mb-2 flex items-center gap-2 rounded-full bg-muted px-3 py-1.5 text-sm">
+        <SearchIcon className="size-4 shrink-0 text-muted-foreground" />
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Filter by tag or message"
-          className="min-w-0 flex-1 bg-transparent text-stage-on-surface outline-none placeholder:text-stage-outline"
+          className="min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground"
         />
       </label>
       {held !== null && (
-        <p className="mx-5 mb-1 text-xs text-stage-primary">
-          Paused while you select — click elsewhere to follow again
-        </p>
+        <p className="mx-5 mb-1 text-xs text-info">Paused while you select — click elsewhere to follow again</p>
       )}
       <div ref={scroller} className="min-h-0 flex-1 overflow-auto px-2 pb-3 font-mono text-[12.5px] leading-[1.45]">
         {lines.length === 0 ? (
-          <p className="px-3 py-6 text-center font-sans text-sm text-stage-outline">
+          <p className="px-3 py-6 text-center font-sans text-sm text-muted-foreground">
             {needle || minLevel !== "V" ? "No lines match" : "No logcat yet"}
           </p>
         ) : (
@@ -132,22 +130,22 @@ function Line({ line: l, onSeek }: { line: LogLine; onSeek: (t: number) => void 
   const color = logLevels[l.level]?.color ?? "#bbbbbb"
   const loud = l.level === "W" || l.level === "E" || l.level === "F" || l.level === "A"
   return (
-    <div className="flex items-start gap-2 rounded-lg px-2 py-px hover:bg-stage-surface-container">
+    <div className="flex items-start gap-2 rounded-lg px-2 py-px hover:bg-muted">
       <button
         type="button"
         onClick={() => onSeek(l.t)}
-        className="w-14 shrink-0 cursor-pointer text-left text-stage-outline-dim tabular-nums hover:text-stage-primary"
+        className="w-14 shrink-0 cursor-pointer text-left text-muted-foreground tabular-nums hover:text-foreground"
         title={`Go to ${clock(l.t, true)}`}
       >
         {clock(l.t)}
       </button>
       <Badge level={l.level} />
       <span
-        className="min-w-0 flex-1 break-words whitespace-pre-wrap text-stage-on-surface"
+        className="min-w-0 flex-1 break-words whitespace-pre-wrap text-foreground"
         style={loud ? { color: ink(color) } : undefined}
       >
         {l.tag && (
-          <span className="mr-1.5" style={{ color: loud ? ink(color) : "var(--stage-tag)" }}>
+          <span className="mr-1.5" style={{ color: loud ? ink(color) : "var(--info)" }}>
             {l.tag}
           </span>
         )}

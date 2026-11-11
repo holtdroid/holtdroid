@@ -249,6 +249,7 @@ export function DeviceScreen({
   const onKey = (e: React.KeyboardEvent<HTMLCanvasElement>, down: boolean) => {
     const c = live.connection?.control
     if (!c) return
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.code === "KeyK") return
     if (down && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "v") {
       e.preventDefault()
       navigator.clipboard.readText().then(

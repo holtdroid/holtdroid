@@ -43,5 +43,5 @@ export const logLevels: Record<string, { color: string; name: string }> = {
 
 export const levelRank: Record<string, number> = { V: 0, D: 1, I: 2, W: 3, E: 4, F: 5, A: 5 }
 
-export const sans = '"Google Sans Text", "Google Sans", Roboto, "Geist Variable", system-ui, sans-serif'
+export const sans = '"Google Sans Text", "Google Sans", Roboto, "Inter Variable", system-ui, sans-serif'
 export const mono = '"Roboto Mono", ui-monospace, "SF Mono", Menlo, monospace'

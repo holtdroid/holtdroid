@@ -147,7 +147,7 @@ export function DNSPanel({ provider, id }: { provider: string; id: string }) {
   const ttlValue = settings.ttlMode === "keep" ? "keep" : String(settings.maxTtl)
 
   return (
-    <div className="devtools-skin flex h-full flex-col bg-background text-[12px]">
+    <div className="flex h-full flex-col bg-background text-[12px]">
       <div className="flex h-8 shrink-0 items-center gap-1 overflow-x-auto border-b px-2 [scrollbar-width:none]">
         <ViewTab active={view === "queries"} onClick={() => setView("queries")} count={lookups.length}>
           Queries

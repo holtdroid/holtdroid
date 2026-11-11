@@ -80,10 +80,13 @@ const inviteRoute = createRoute({
 const homeRoute = createRoute({
   getParentRoute: () => portalRoute,
   path: "/",
-  validateSearch: (search: Record<string, unknown>): { source?: string; launch?: string; quick?: boolean } => ({
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { source?: string; launch?: string; quick?: boolean; upload?: boolean } => ({
     source: typeof search.source === "string" ? search.source : undefined,
     launch: typeof search.launch === "string" ? search.launch : undefined,
     quick: search.quick === 1 || search.quick === "1" || search.quick === true ? true : undefined,
+    upload: search.upload === 1 || search.upload === "1" || search.upload === true ? true : undefined,
   }),
   component: HomePage,
 })
@@ -213,7 +216,7 @@ createRoot(document.getElementById("root")!).render(
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <RouterProvider router={router} />
-          <Toaster richColors />
+          <Toaster richColors offset={{ bottom: 88 }} mobileOffset={{ bottom: 88 }} />
         </TooltipProvider>
       </QueryClientProvider>
     </ThemeProvider>

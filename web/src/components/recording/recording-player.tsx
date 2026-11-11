@@ -70,7 +70,7 @@ function Tonal({ className, ...props }: ComponentProps<"button">) {
     <button
       type="button"
       className={cn(
-        "inline-flex h-9 items-center gap-2 rounded-full bg-stage-secondary-container px-4 text-sm font-medium text-stage-on-secondary-container transition-colors hover:bg-stage-secondary-container-hover disabled:opacity-40 [&_svg]:size-4",
+        "inline-flex h-9 items-center gap-2 rounded-full bg-accent px-4 text-sm font-medium text-accent-foreground transition-colors hover:bg-border disabled:opacity-40 [&_svg]:size-4",
         className,
       )}
       {...props}
@@ -83,7 +83,7 @@ function IconButton({ className, ...props }: ComponentProps<"button">) {
     <button
       type="button"
       className={cn(
-        "grid size-10 place-items-center rounded-full text-stage-on-surface-variant transition-colors hover:bg-stage-surface-container [&_svg]:size-5",
+        "grid size-10 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted [&_svg]:size-5",
         className,
       )}
       {...props}
@@ -278,7 +278,7 @@ export function RecordingPlayer({
 
         <div className="order-1 grid min-h-0 place-items-center lg:order-2">
           <div
-            className="relative box-content rounded-[44px] bg-black p-2.5 shadow-[0_0_0_1.5px_var(--stage-outline-variant),0_24px_60px_-20px_#000]"
+            className="relative box-content rounded-[44px] bg-frame p-2.5 shadow-[0_0_0_1.5px_var(--border),var(--float-shadow)]"
             style={{
               aspectRatio: `${state.size.w} / ${state.size.h}`,
               height: `min(calc(var(--stage-h) - 1.25rem), calc((var(--phone-max-w) - 1.25rem) * ${state.size.h / state.size.w}))`,
@@ -297,7 +297,7 @@ export function RecordingPlayer({
                 type="button"
                 aria-label="Play"
                 onClick={() => player.play()}
-                className="absolute inset-0 m-auto grid size-16 place-items-center rounded-full bg-stage-primary text-stage-on-primary shadow-lg transition-transform hover:scale-105"
+                className="absolute inset-0 m-auto grid size-16 place-items-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105"
               >
                 <PlayIcon className="size-7 translate-x-0.5 fill-current" />
               </button>
@@ -306,7 +306,7 @@ export function RecordingPlayer({
         </div>
       </div>
 
-      <div className="grid gap-2 rounded-[28px] bg-stage-surface-low px-5 py-3">
+      <div className="grid gap-2 rounded-[28px] bg-background px-5 py-3">
         <Timeline
           duration={state.duration}
           time={state.time}
@@ -327,17 +327,17 @@ export function RecordingPlayer({
             type="button"
             aria-label={state.playing ? "Pause" : "Play"}
             onClick={() => player.toggle()}
-            className="grid size-12 place-items-center rounded-full bg-stage-primary text-stage-on-primary transition-transform hover:scale-105 [&_svg]:size-6 [&_svg]:fill-current"
+            className="grid size-12 place-items-center rounded-full bg-primary text-primary-foreground transition-transform hover:scale-105 [&_svg]:size-6 [&_svg]:fill-current"
           >
             {state.playing ? <PauseIcon /> : <PlayIcon className="translate-x-px" />}
           </button>
           <IconButton aria-label="Forward 5 seconds" onClick={() => void player.seek(state.time + 5000)}>
             <SkipForwardIcon />
           </IconButton>
-          <span className="mx-2 font-mono text-sm text-stage-on-surface-variant tabular-nums">
-            {clock(state.time)} <span className="text-stage-outline-dim">/ {clock(state.duration)}</span>
+          <span className="mx-2 font-mono text-sm text-muted-foreground tabular-nums">
+            <span className="text-foreground">{clock(state.time)}</span> / {clock(state.duration)}
           </span>
-          <div className="flex rounded-full bg-stage-surface-container p-0.5" role="group" aria-label="Speed">
+          <div className="flex rounded-full bg-muted p-0.5" role="group" aria-label="Speed">
             {rates.map((x) => (
               <button
                 key={x}
@@ -347,8 +347,8 @@ export function RecordingPlayer({
                 className={cn(
                   "h-8 rounded-full px-3 font-mono text-xs transition-colors",
                   state.rate === x
-                    ? "bg-stage-secondary-container text-stage-on-secondary-container"
-                    : "text-stage-outline hover:text-stage-on-surface-variant",
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 {x}×
@@ -397,10 +397,7 @@ export function RecordingPlayer({
                         ? "Let retention delete it when its time is up"
                         : "Keep it past the retention period"
                   }
-                  className={cn(
-                    r.keep &&
-                      "bg-stage-primary-container text-stage-on-primary-container hover:bg-stage-primary-container-hover disabled:opacity-100",
-                  )}
+                  className={cn(r.keep && "bg-success-soft text-success hover:bg-success-soft disabled:opacity-100")}
                   onClick={() => keep.mutate({ id: r.id, keep: !r.keep })}
                 >
                   <PinIcon className={cn(r.keep && "fill-current")} />
@@ -441,7 +438,7 @@ export function RecordingPlayer({
               <DropdownMenuContent
                 align="end"
                 side="top"
-                className="w-80 rounded-2xl border-0 bg-stage-surface-container p-1.5 text-stage-on-surface shadow-2xl ring-1 ring-black/10 dark:ring-white/10"
+                className="w-80 rounded-2xl border-0 bg-muted p-1.5 text-foreground shadow-2xl ring-1 ring-black/10 dark:ring-white/10"
               >
                 {!detail.shared && bakingSupported() && (
                   <MenuItem
@@ -488,10 +485,7 @@ export function RecordingPlayer({
               aria-label="Show taps and swipes"
               aria-pressed={showTouches}
               title={showTouches ? "Hide taps and swipes" : "Show taps and swipes"}
-              className={cn(
-                showTouches && "bg-stage-secondary-container text-stage-on-secondary-container",
-                telemetry.touches.empty && "hidden",
-              )}
+              className={cn(showTouches && "bg-accent text-accent-foreground", telemetry.touches.empty && "hidden")}
               onClick={() => setShowTouches((v) => !v)}
             >
               <PointerIcon />
@@ -538,14 +532,14 @@ function MenuItem({
 }) {
   const body = (
     <>
-      <Icon className="mt-0.5 size-4 shrink-0 text-stage-primary" />
+      <Icon className="mt-0.5 size-4 shrink-0 text-info" />
       <span className="grid gap-0.5">
         <span className="text-sm font-medium">{title}</span>
-        <span className="text-xs text-stage-outline">{hint}</span>
+        <span className="text-xs text-muted-foreground">{hint}</span>
       </span>
     </>
   )
-  const cls = "items-start gap-3 rounded-xl px-3 py-2 focus:bg-stage-surface-high focus:text-stage-on-surface"
+  const cls = "items-start gap-3 rounded-xl px-3 py-2 focus:bg-accent focus:text-foreground"
   return href ? (
     <DropdownMenuItem asChild className={cls}>
       <a href={href} download>
@@ -611,21 +605,21 @@ function Timeline({
       }}
       onPointerLeave={() => setHover(null)}
     >
-      <div className="absolute inset-x-0 top-[28px] h-1.5 overflow-hidden rounded-full bg-stage-surface-high">
+      <div className="absolute inset-x-0 top-[28px] h-1.5 overflow-hidden rounded-full bg-accent">
         {segments.map((s) => (
           <span
             key={s.file}
-            className="absolute inset-y-0 bg-stage-outline-variant"
+            className="absolute inset-y-0 bg-border"
             style={{ left: pct(s.start), width: pct(s.duration) }}
           />
         ))}
-        <span className="absolute inset-y-0 left-0 rounded-full bg-stage-primary" style={{ width: pct(time) }} />
+        <span className="absolute inset-y-0 left-0 rounded-full bg-primary" style={{ width: pct(time) }} />
       </div>
       {closes.map((c) => (
         <span
           key={c.t}
           title={`App closed at ${clock(c.t)}`}
-          className="absolute top-[24px] h-3.5 w-1 -translate-x-1/2 rounded-full bg-stage-error"
+          className="absolute top-[24px] h-3.5 w-1 -translate-x-1/2 rounded-full bg-danger"
           style={{ left: pct(c.t) }}
         />
       ))}
@@ -638,7 +632,7 @@ function Timeline({
         />
       ))}
       <span
-        className="absolute top-[22px] h-[18px] w-1 -translate-x-1/2 rounded-full bg-stage-primary shadow-[0_0_0_3px_var(--stage-surface-low)]"
+        className="absolute top-[22px] h-[18px] w-1 -translate-x-1/2 rounded-full bg-primary shadow-[0_0_0_3px_var(--background)]"
         style={{ left: pct(time) }}
       />
       {markers.map((m) => (
@@ -661,7 +655,7 @@ function Timeline({
       ))}
       {hover !== null && (
         <span
-          className="pointer-events-none absolute -top-8 -translate-x-1/2 rounded-lg bg-stage-surface-high px-2 py-0.5 font-mono text-xs text-stage-on-surface tabular-nums"
+          className="pointer-events-none absolute -top-8 -translate-x-1/2 rounded-lg bg-accent px-2 py-0.5 font-mono text-xs text-foreground tabular-nums"
           style={{ left: pct(hover) }}
         >
           {clock(hover)}

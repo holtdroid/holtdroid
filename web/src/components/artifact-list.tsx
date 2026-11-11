@@ -101,7 +101,17 @@ function matches(a: ArtifactView, q: string) {
     .some((v) => v!.toLowerCase().includes(q))
 }
 
-export function ArtifactList({ onLaunch, pkg }: { onLaunch: (artifact: ArtifactView) => void; pkg?: string }) {
+export function ArtifactList({
+  onLaunch,
+  pkg,
+  upload,
+  onUploadClose,
+}: {
+  onLaunch: (artifact: ArtifactView) => void
+  pkg?: string
+  upload?: boolean
+  onUploadClose?: () => void
+}) {
   const [source, setSource] = useState(ALL)
   const [query, setQuery] = useState("")
   const [uploading, setUploading] = useState<{ file: File | null } | null>(null)
@@ -254,9 +264,12 @@ export function ArtifactList({ onLaunch, pkg }: { onLaunch: (artifact: ArtifactV
       </div>
 
       <UploadDialog
-        open={!!uploading}
+        open={!!uploading || (!!upload && canUpload)}
         initialFile={uploading?.file ?? null}
-        onClose={() => setUploading(null)}
+        onClose={() => {
+          setUploading(null)
+          onUploadClose?.()
+        }}
         onUploaded={onLaunch}
       />
     </section>

@@ -1,4 +1,5 @@
-import geistFaces from "@fontsource-variable/geist/index.css?inline"
+import interFaces from "@fontsource-variable/inter/index.css?inline"
+import monoFaces from "@fontsource-variable/jetbrains-mono/index.css?inline"
 import type { DevToolsPrefs } from "@/lib/devtools-prefs"
 
 const styleID = "holtdroid-style"
@@ -19,12 +20,13 @@ const darkSurfaces = [4, 6, 8, 9, 11].map(
   (p, i) => `--sys-color-surface${i + 1}: color-mix(in srgb, white ${p}%, var(--ref-palette-neutral10)) !important;`,
 )
 
-const css = `${geistFaces}
+const css = `${interFaces}
+${monoFaces}
 :root {
   ${palette.join("\n  ")}
-  --default-font-family: "Geist Variable", system-ui, sans-serif !important;
-  --monospace-font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace !important;
-  --source-code-font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace !important;
+  --default-font-family: "Inter Variable", system-ui, sans-serif !important;
+  --monospace-font-family: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace !important;
+  --source-code-font-family: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace !important;
 }
 :root.-theme-with-dark-background,
 :root.theme-with-dark-background {

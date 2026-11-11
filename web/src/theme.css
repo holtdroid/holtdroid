@@ -1,8 +1,9 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  --font-sans: "Inter Variable", "Inter", system-ui, sans-serif;
   --font-heading: var(--font-sans);
-  --font-sans: "Geist Variable", sans-serif;
+  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -19,6 +20,7 @@
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
   --color-destructive: var(--destructive);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
@@ -34,165 +36,140 @@
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
-  --color-stage-surface: var(--stage-surface);
-  --color-stage-surface-low: var(--stage-surface-low);
-  --color-stage-surface-container: var(--stage-surface-container);
-  --color-stage-surface-high: var(--stage-surface-high);
-  --color-stage-outline-variant: var(--stage-outline-variant);
-  --color-stage-outline: var(--stage-outline);
-  --color-stage-outline-dim: var(--stage-outline-dim);
-  --color-stage-on-surface-variant: var(--stage-on-surface-variant);
-  --color-stage-on-surface: var(--stage-on-surface);
-  --color-stage-primary: var(--stage-primary);
-  --color-stage-on-primary: var(--stage-on-primary);
-  --color-stage-primary-container: var(--stage-primary-container);
-  --color-stage-primary-container-hover: var(--stage-primary-container-hover);
-  --color-stage-on-primary-container: var(--stage-on-primary-container);
-  --color-stage-secondary-container: var(--stage-secondary-container);
-  --color-stage-secondary-container-hover: var(--stage-secondary-container-hover);
-  --color-stage-on-secondary-container: var(--stage-on-secondary-container);
-  --color-stage-error: var(--stage-error);
-  --color-stage-on-error: var(--stage-on-error);
-  --color-stage-blue: var(--stage-blue);
-  --color-stage-on-blue: var(--stage-on-blue);
-  --color-stage-amber: var(--stage-amber);
-  --color-stage-on-amber: var(--stage-on-amber);
-  --color-stage-surface-container-hover: var(--stage-surface-container-hover);
-  --color-stage-amber-container: var(--stage-amber-container);
-  --color-stage-error-container: var(--stage-error-container);
-  --color-stage-tag: var(--stage-tag);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-success-foreground: var(--success-foreground);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-info-foreground: var(--info-foreground);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-violet: var(--violet);
+  --color-violet-soft: var(--violet-soft);
+  --color-frame: var(--frame);
+  --color-stage: var(--stage);
+  --color-veil: var(--veil);
+  --shadow-float: var(--float-shadow);
+  --radius-sm: 6px;
+  --radius-md: 8px;
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 18px;
+  --radius-4xl: 24px;
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-  --stage-surface: #f6fbf4;
-  --stage-surface-low: #f0f5ee;
-  --stage-surface-container: #eaefe9;
-  --stage-surface-high: #e4eae3;
-  --stage-outline-variant: #c0c9c1;
-  --stage-outline: #707973;
-  --stage-outline-dim: #8a938c;
-  --stage-on-surface-variant: #404943;
-  --stage-on-surface: #181d1a;
-  --stage-primary: #006d3e;
-  --stage-on-primary: #ffffff;
-  --stage-primary-container: #94f7b5;
-  --stage-primary-container-hover: #82eaa4;
-  --stage-on-primary-container: #00210e;
-  --stage-secondary-container: #d1e8d5;
-  --stage-secondary-container-hover: #c2dbc6;
-  --stage-on-secondary-container: #0d1f13;
-  --stage-error: #ba1a1a;
-  --stage-on-error: #ffffff;
-  --stage-blue: #415f91;
-  --stage-on-blue: #ffffff;
-  --stage-amber: #7a5900;
-  --stage-on-amber: #ffffff;
-  --stage-surface-container-hover: #dfe4dd;
-  --stage-amber-container: #ffdf9e;
-  --stage-error-container: #ffdad6;
-  --stage-tag: #2f6599;
-  --stage-ink-shade: 40%;
+  --radius: 9px;
+  --background: #f2f2f3;
+  --foreground: #17171a;
+  --card: #ffffff;
+  --card-foreground: #17171a;
+  --popover: #ffffff;
+  --popover-foreground: #17171a;
+  --primary: #17171a;
+  --primary-foreground: #ffffff;
+  --secondary: #f6f6f7;
+  --secondary-foreground: #17171a;
+  --muted: #f6f6f7;
+  --muted-foreground: #5e5e66;
+  --accent: #ededef;
+  --accent-foreground: #17171a;
+  --destructive: #bf2d2a;
+  --border: #e3e3e6;
+  --border-subtle: #ededf0;
+  --input: #e3e3e6;
+  --ring: #5e5e66;
+  --success: #0e7a45;
+  --success-soft: #e4f5ec;
+  --success-foreground: #ffffff;
+  --info: #1f5fd6;
+  --info-soft: #e7effd;
+  --info-foreground: #ffffff;
+  --warning: #8f5c00;
+  --warning-soft: #fcf1da;
+  --warning-foreground: #ffffff;
+  --danger: #bf2d2a;
+  --danger-soft: #fceaea;
+  --danger-foreground: #ffffff;
+  --violet: #6b46d9;
+  --violet-soft: #efe9fc;
+  --frame: #202024;
+  --stage: #e9e9ec;
+  --veil: rgb(242 242 243 / 0.7);
+  --float-shadow: 0 16px 48px rgb(20 20 30 / 0.14);
+  --chart-1: #0e7a45;
+  --chart-2: #1f5fd6;
+  --chart-3: #8f5c00;
+  --chart-4: #6b46d9;
+  --chart-5: #bf2d2a;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #17171a;
+  --sidebar-primary: #17171a;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #ededef;
+  --sidebar-accent-foreground: #17171a;
+  --sidebar-border: #e3e3e6;
+  --sidebar-ring: #5e5e66;
+  --ink-shade: 40%;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-  --stage-surface: #101411;
-  --stage-surface-low: #1c211e;
-  --stage-surface-container: #262b28;
-  --stage-surface-high: #313633;
-  --stage-outline-variant: #404943;
-  --stage-outline: #8a938c;
-  --stage-outline-dim: #6f7872;
-  --stage-on-surface-variant: #c0c9c1;
-  --stage-on-surface: #e0e3de;
-  --stage-primary: #78dc9a;
-  --stage-on-primary: #003919;
-  --stage-primary-container: #0a5230;
-  --stage-primary-container-hover: #0d6139;
-  --stage-on-primary-container: #94f7b5;
-  --stage-secondary-container: #354b3b;
-  --stage-secondary-container-hover: #3f5946;
-  --stage-on-secondary-container: #d1e8d5;
-  --stage-error: #ffb4ab;
-  --stage-on-error: #690005;
-  --stage-blue: #a8c8ff;
-  --stage-on-blue: #00315c;
-  --stage-amber: #f2c162;
-  --stage-on-amber: #3f2e00;
-  --stage-surface-container-hover: #2c322e;
-  --stage-amber-container: #4a3a0a;
-  --stage-error-container: #93000a;
-  --stage-tag: #7fb2e5;
-  --stage-ink-shade: 0%;
+  --background: #0a0a0b;
+  --foreground: #ededef;
+  --card: #131315;
+  --card-foreground: #ededef;
+  --popover: #131315;
+  --popover-foreground: #ededef;
+  --primary: #f4f4f5;
+  --primary-foreground: #0a0a0b;
+  --secondary: #1a1a1d;
+  --secondary-foreground: #ededef;
+  --muted: #1a1a1d;
+  --muted-foreground: #a1a1aa;
+  --accent: #222226;
+  --accent-foreground: #ededef;
+  --destructive: #f47c79;
+  --border: #27272c;
+  --border-subtle: #1e1e22;
+  --input: #27272c;
+  --ring: #a1a1aa;
+  --success: #3dd68c;
+  --success-soft: rgb(61 214 140 / 0.13);
+  --success-foreground: #0a0a0b;
+  --info: #6aa5ff;
+  --info-soft: rgb(106 165 255 / 0.13);
+  --info-foreground: #0a0a0b;
+  --warning: #f5b544;
+  --warning-soft: rgb(245 181 68 / 0.13);
+  --warning-foreground: #0a0a0b;
+  --danger: #f47c79;
+  --danger-soft: rgb(244 124 121 / 0.13);
+  --danger-foreground: #0a0a0b;
+  --violet: #b494ff;
+  --violet-soft: rgb(180 148 255 / 0.14);
+  --frame: #1c1c20;
+  --stage: #0e0e10;
+  --veil: rgb(5 5 6 / 0.66);
+  --float-shadow: 0 16px 48px rgb(0 0 0 / 0.5);
+  --chart-1: #3dd68c;
+  --chart-2: #6aa5ff;
+  --chart-3: #f5b544;
+  --chart-4: #b494ff;
+  --chart-5: #f47c79;
+  --sidebar: #131315;
+  --sidebar-foreground: #ededef;
+  --sidebar-primary: #f4f4f5;
+  --sidebar-primary-foreground: #0a0a0b;
+  --sidebar-accent: #222226;
+  --sidebar-accent-foreground: #ededef;
+  --sidebar-border: #27272c;
+  --sidebar-ring: #a1a1aa;
+  --ink-shade: 0%;
 }
 
 .geo-map .maplibregl-ctrl-attrib.maplibregl-compact {
@@ -318,14 +295,13 @@
 }
 
 .android-stage {
-  font-family: "Google Sans Text", "Google Sans", Roboto, var(--font-sans);
-  color: var(--stage-on-surface);
-  background: var(--stage-surface);
+  color: var(--foreground);
+  background: var(--background);
 }
 
 .android-stage ::selection {
-  background: var(--stage-primary-container);
-  color: var(--stage-on-primary-container);
+  background: var(--info-soft);
+  color: var(--foreground);
 }
 
 .android-stage ::-webkit-scrollbar {
@@ -334,26 +310,17 @@
 }
 
 .android-stage ::-webkit-scrollbar-thumb {
-  background: var(--stage-outline-variant);
+  background: var(--border);
   border-radius: 10px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
 
-.devtools-skin {
-  --stage-surface-low: var(--background);
-  --stage-surface-container: var(--muted);
-  --stage-surface-container-hover: var(--accent);
-  --stage-surface-high: var(--muted);
-  --stage-outline-variant: var(--border);
-  --stage-outline: var(--muted-foreground);
-  --stage-outline-dim: var(--muted-foreground);
-  --stage-on-surface: var(--foreground);
-  --stage-on-surface-variant: var(--muted-foreground);
-  --stage-secondary-container: var(--accent);
-  --stage-secondary-container-hover: var(--accent);
-  --stage-on-secondary-container: var(--accent-foreground);
-  --stage-primary-container: var(--accent);
-  --stage-on-primary-container: var(--accent-foreground);
-  font-family: var(--font-sans);
+html,
+.hd-demo {
+  font-feature-settings: "cv11", "ss01", "tnum";
+}
+
+:is(html, .hd-demo) :is(code, kbd, pre, samp, .font-mono) {
+  font-feature-settings: normal;
 }

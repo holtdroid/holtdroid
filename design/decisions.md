@@ -5421,3 +5421,64 @@ findings list stay.
 **Consequences.** Recordings that hold `images` lines or image bodies still
 play: the player ignores the lines and the Network tab shows the bodies it
 has. The docs pages and the guide about images and SVG are gone.
+
+## 184. A floating bottom dock replaces the portal's header; one token set with Inter and JetBrains Mono
+
+**Context.** The approved redesign moves the portal from a 56px top header
+with icon buttons to a dock floating at the bottom, as drawn on the design
+boards. The header also carried the session and recording titles through a
+portal slot, the theme was stock shadcn neutrals plus a separate
+Material-style `stage-*` palette for the recording player and the
+DevTools-like panels, status colours were raw Tailwind (emerald, amber,
+sky, red), the UI font was Geist and monospace fell back to the system
+stack.
+
+**Decision.**
+
+- `web/src/components/dock/` holds the shell's navigation: a fixed, centred
+  dock with the logo, the sections (same visibility as the header had),
+  chips for the signed-in user's own running sessions (owner = me) with a
+  status dot from the sessions event stream (green ready, blue starting,
+  amber when the idle stop or lifetime ends within 5 minutes, red failed)
+  and a hover card with the device, Android, location, idle countdown,
+  **Open** and **Stop**, at most three chips and a `+N` menu, a dashed **+**
+  that opens the command palette on the apps, the admin pages, search,
+  documentation, the theme switch and the account menu. Below `xl` the
+  admin pages, documentation and theme fold into a **More** menu, below
+  `md` the sections too; below `sm` the chips become one device menu.
+  Chips show their label from `2xl` and the wide search field from `xl`.
+  The middle of the dock scrolls on its own, so the logo, search, **More**
+  and the account menu stay visible. The palette also lists a **Stop**
+  item per running device, the keyboard path to what the hover card
+  offers. Pages keep their own
+  scrolling; `main` gets 5rem of bottom padding so the dock covers nothing.
+- The header slot is gone: the session and recording pages render their
+  header row themselves. A shared recording opened without a sign-in keeps
+  its simple header with the logo (`useInShell` is now a plain context).
+- A ⌘K/Ctrl+K command palette (cmdk via shadcn `command`) searches the
+  user's running devices, apps (picking one opens the existing launch
+  dialog through `/?source=…&launch=…`), recordings, pages and actions
+  (upload an APK through `/?upload=1`, theme, documentation).
+- The documentation link opens `https://holtdroid.github.io/#returnUrl=…`
+  with the current address, computed in the click handler.
+- `web/src/theme.css` defines one token set for light and dark from the
+  design's `hd.css`, mapped onto the shadcn variables (primary is the
+  inverse ink, so active and selected states are an ink fill) plus
+  semantic tokens `success`, `info`, `warning`, `danger`, `violet` with
+  `-soft` backgrounds and `-foreground` for solid fills, `border-subtle`,
+  `frame`, `stage`, `veil` and `shadow-float`. The `stage-*` family and
+  `.devtools-skin` are retired; their uses map onto these tokens.
+  Radii: 6 (badges), 8, 9 (buttons, inputs), 12 (wells), 16 (cards).
+  Buttons are 32/28/40px, inputs 36px, badges have soft status variants
+  with an optional dot, tabs are a bordered pill with an underline
+  variant (`line`).
+- Fonts are self-hosted Inter and JetBrains Mono
+  (`@fontsource-variable/*`, OFL), with tabular numbers on for UI text; the
+  DevTools restyle of #49 uses them too. Geist stays only on the docs site
+  until its redesign.
+
+**Consequences.** Screens are the full height minus the dock's strip
+instead of the header's. The docs' guide scenes draw the dock, the
+scenarios point at it, and the page descriptions say "dock" where they said
+"header" for navigation. The page-level redesign (Apps, Launch, Session,
+Recordings, Inventory) builds on these tokens next.

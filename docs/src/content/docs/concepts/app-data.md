@@ -47,7 +47,7 @@ there is none.
 
 ## Managing saves
 
-The **App data** page (the database icon in the header) lists your saves per
+The **App data** page (the database icon in the dock) lists your saves per
 app with their size, build and when they were last used. You can download
 a save as a `.tar.zst` archive, unless the server turned that off
 (`tar --zstd -xf <file>` unpacks it), and delete it. Saves are private:

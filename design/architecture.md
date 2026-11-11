@@ -82,6 +82,17 @@ With `sqlite` the api runs as one replica; PostgreSQL comes later for more.
 Features must still work with `memory`, where the data is gone after a
 restart.
 
+## Portal shell
+
+The web UI's shell (`web/src/components/app-shell.tsx`) is a full-height
+`main` plus a dock floating at the bottom (`components/dock/`): sections,
+the signed-in user's own running sessions as chips fed by the sessions
+event stream (`useSessionEvents`, mounted once in the shell), a launch
+button, admin pages, search, documentation, theme and account. ⌘K opens a
+command palette over devices, apps, recordings, pages and actions. Pages
+draw their own header row and scroll themselves; colours, radii and fonts
+come from the tokens in `web/src/theme.css` (decision #184).
+
 ## Request flow: launching a session
 
 ```mermaid
@@ -466,8 +477,8 @@ codecs and reports that it can't capture audio.
   seen merged with the store's archives), `DELETE …/{rev}` (archive and
   local files; 409 during a crawl; audited as `devtools.frontend.delete`)
   and `POST …/{rev}/fetch` (ahead of the queue), shown on the Inventory
-  page's DevTools frontends tab (`/inventory/devtools`; the tabs sit under
-  the site header, `/inventory` is the Devices one: a table per provider,
+  page's DevTools frontends tab (`/inventory/devtools`; the tabs sit at
+  the top of the page, `/inventory` is the Devices one: a table per provider,
   a row per slot with its session's age, idle time, next deadline, VPN
   location and WebView, and node conditions, with the device, machine,
   sensors and the slot's capabilities in a sheet on the right; and
@@ -693,7 +704,7 @@ The api's `GET /api/v1/ssh/computers` asks every replica
 goes to the replica that holds the computer, which forwards it as a
 `publish` message. The UI's **Computers** page shows each connected computer
 with its listening ports as toggles and its ADB ports, plus the connect
-command; the header's laptop button counts connected computers.
+command; the dock's laptop button counts connected computers.
 
 ### The gateway is not a shell server
 

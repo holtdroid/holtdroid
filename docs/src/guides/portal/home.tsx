@@ -11,6 +11,7 @@ import {
   MonitorSmartphoneIcon,
   MoonIcon,
   PackageIcon,
+  PlusIcon,
   RocketIcon,
   SearchIcon,
   SquareIcon,
@@ -19,7 +20,6 @@ import {
   ZapIcon,
   type LucideIcon,
 } from "lucide-react"
-import type { ReactNode } from "react"
 import { AppIcon } from "@/components/app-icon"
 import { SessionStateBadge } from "@/components/session-state-badge"
 import { Badge } from "@/components/ui/badge"
@@ -32,7 +32,14 @@ import type { PortalState } from "../types"
 import { app, locationOf, otherApps, otter } from "./data"
 import { Pop } from "./overlays"
 
-export function Header({ s, children }: { s: PortalState; children?: ReactNode }) {
+function DockSep() {
+  return <span aria-hidden className="bg-border mx-1 h-6 w-px shrink-0" />
+}
+
+const dockItem =
+  "relative inline-flex h-10 min-w-10 shrink-0 items-center justify-center gap-2 rounded-xl px-2.5 text-[13px] font-medium text-muted-foreground [&_svg]:size-5"
+
+export function Dock({ s }: { s: PortalState }) {
   const nav: [string, LucideIcon, boolean][] = [
     ["nav-apps", LayoutGridIcon, s.page === "home"],
     ["nav-app-data", DatabaseIcon, false],
@@ -40,38 +47,63 @@ export function Header({ s, children }: { s: PortalState; children?: ReactNode }
     ["nav-computers", LaptopIcon, s.page === "computers"],
   ]
   return (
-    <header className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
-      {children ?? (
-        <span className="flex items-center gap-2 font-semibold tracking-tight">
+    <div className="pointer-events-none absolute inset-x-0 bottom-2.5 z-10 flex justify-center px-3">
+      <nav className="bg-card shadow-float pointer-events-auto flex items-center gap-1 rounded-[18px] border p-1.5">
+        <span className={cn(dockItem, "px-0")}>
           <img src={logo} alt="" className="size-7" />
-          Holtdroid
         </span>
-      )}
-      <div className="ml-auto flex items-center gap-1">
+        <DockSep />
         {nav.map(([id, Icon, active]) => (
-          <Button key={id} data-g={id} variant="ghost" size="icon" className={cn("relative", active && "bg-muted")}>
+          <span key={id} data-g={id} className={cn(dockItem, active && "bg-primary text-primary-foreground")}>
             <Icon />
             {id === "nav-computers" && s.computerOnline && (
-              <span className="absolute -top-0.5 -right-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-emerald-500 px-1 text-[10px] leading-none font-semibold text-white">
+              <span className="bg-success text-success-foreground absolute top-0.5 right-0.5 grid h-4 min-w-4 place-items-center rounded-full px-1 text-[10px] leading-none font-semibold">
                 1
               </span>
             )}
-          </Button>
+          </span>
         ))}
-        <Button variant="ghost" size="icon">
+        <DockSep />
+        {s.sessions > 0 && (
+          <span
+            data-g="dock-device"
+            className={cn(
+              "bg-muted text-foreground inline-flex h-10 items-center gap-2 rounded-xl border pr-2.5 pl-1.5 text-[13px] font-medium",
+              s.page === "session" && "border-foreground",
+            )}
+          >
+            <AppIcon src={app.icon} className="size-7 rounded-lg" />
+            {app.label}
+            <span
+              className={cn(
+                "size-[7px] rounded-full",
+                s.start === "ready" ? "bg-success" : s.start === "stopping" ? "bg-muted-foreground" : "bg-info",
+              )}
+            />
+          </span>
+        )}
+        <span className={cn(dockItem, "border border-dashed")}>
+          <PlusIcon />
+        </span>
+        <DockSep />
+        <span className={cn(dockItem, "bg-card w-44 justify-start border px-3 [&_svg]:size-4")}>
+          <SearchIcon />
+          Search
+          <kbd className="ml-auto rounded-[5px] border px-[5px] py-px font-sans text-[11px]">⌘K</kbd>
+        </span>
+        <span className={dockItem}>
           <BookOpenIcon />
-        </Button>
-        <Button variant="ghost" size="icon">
+        </span>
+        <span className={dockItem}>
           <MoonIcon />
-        </Button>
-        <span className="ml-1 flex items-center gap-2 px-1.5">
-          <span className="grid size-7 place-items-center rounded-full bg-amber-200 text-xs font-semibold text-amber-900">
+        </span>
+        <span className={cn(dockItem, "px-1.5")}>
+          <span className="grid size-7 place-items-center rounded-full bg-warning-soft text-xs font-semibold text-warning">
             A
           </span>
-          <span className="text-sm">Alex</span>
         </span>
-      </div>
-    </header>
+      </nav>
+    </div>
   )
 }
 

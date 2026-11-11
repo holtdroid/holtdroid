@@ -84,7 +84,7 @@ When the device is silent, the recording is too.
 
 ## The recordings list
 
-**Recordings** in the header (the clapperboard) lists your recordings,
+**Recordings** in the dock (the clapperboard) lists your recordings,
 newest first. Each card has a preview, the app, the length, the size, when it
 was made and when retention deletes it (or **kept** and **shared**). The
 preview is the screen just before the touch nearest to the fifth second of the
@@ -382,7 +382,7 @@ tab (Logcat, Network, Console, WebSockets, DNS, Routes or Cache), with the reque
 console message, socket frame, name or finding you had open opened and scrolled to. `t` also takes
 `1m20s`. On a shared recording, **Link to 00:46** copies such a link for the
 page you are on. Someone signed in to the portal who opens a share link sees it inside the
-portal, with its header and menus.
+portal, with its dock and menus.
 
 ## Keeping and space
 

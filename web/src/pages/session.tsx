@@ -5,7 +5,6 @@ import { toast } from "sonner"
 import { sessionBase, type StatusEvent } from "@/api/client"
 import { canManage, useExtendSession, useMe, useProviders, useSession, useStopSession } from "@/api/queries"
 import { AppIcon } from "@/components/app-icon"
-import { HeaderSlot } from "@/components/header-slot"
 import { useADBInfo, useAdbSession } from "@/components/session/adb-session"
 import { DeviceScreen } from "@/components/session/device-screen"
 import { useLiveScreen } from "@/components/session/live-screen"
@@ -73,14 +72,12 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
   }
   if (!session) {
     return (
-      <div className="grid h-full place-items-center p-6 text-center">
-        <HeaderSlot>
-          <Button variant="ghost" size="icon-sm" asChild>
-            <Link to="/" aria-label="Back">
-              <ArrowLeftIcon />
-            </Link>
-          </Button>
-        </HeaderSlot>
+      <div className="relative grid h-full place-items-center p-6 text-center">
+        <Button variant="ghost" size="icon-sm" className="absolute top-3 left-4" asChild>
+          <Link to="/" aria-label="Back">
+            <ArrowLeftIcon />
+          </Link>
+        </Button>
         <div className="grid gap-3">
           <p className="font-medium">This session has ended.</p>
           <p className="text-muted-foreground text-sm">It was stopped or reaped after being idle.</p>
@@ -97,7 +94,7 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
 
   return (
     <div className="flex h-full flex-col">
-      <HeaderSlot>
+      <header className="flex h-14 shrink-0 items-center border-b px-4">
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <Button variant="ghost" size="icon-sm" asChild>
             <Link to="/" aria-label="Back">
@@ -156,7 +153,7 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
             </Button>
           </div>
         </div>
-      </HeaderSlot>
+      </header>
 
       <div ref={setShadeBounds} className="flex min-h-0 flex-1 flex-col">
         <ShadeBounds value={shadeBounds}>

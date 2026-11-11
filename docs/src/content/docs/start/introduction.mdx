@@ -30,6 +30,25 @@ loads fast and doesn't cook their phone. Just in case I'm not, I made it public
 ^.^ If something should be fixed or added, I'd be glad to hear it: open an
 [issue](https://github.com/holtdroid/holtdroid/issues).
 
+## Getting around
+
+The portal's navigation is a dock floating at the bottom of every page. From
+left to right: the sections (**Apps**, and **App data**, **Pixel perfect**,
+**Recordings** and **Computers** when they are enabled); a chip for each device
+you are running, with a status dot (green: ready, blue: starting, amber: the
+idle stop or the lifetime ends within 5 minutes, red: failed) and a hover card
+with the device, its Android version, location, the idle countdown, **Open**
+and **Stop**; **+** to launch an app; the admin pages (**Inventory**,
+**Users**, **Audit log**); search; the documentation; the theme switch; and
+your account menu. On smaller screens the admin pages, documentation and theme
+fold into a **More** menu, and on narrow ones the sections too.
+
+**⌘K** (Ctrl+K on Windows and Linux) anywhere in the portal opens a search
+over your running devices (open or stop one), the apps (picking one opens its
+launch dialog), recordings and pages, plus actions: upload an APK, switch the
+theme, open the documentation. The documentation link carries the page you
+were on in its address (`#returnUrl=`).
+
 ## A session, end to end
 
 1. Open the portal. The home page shows one card per app (package name) found
@@ -54,8 +73,7 @@ loads fast and doesn't cook their phone. Just in case I'm not, I made it public
    runtime.
 4. The session page shows the device screen on the left and Chrome DevTools on
    the right, with a picker for the inspected target (any WebView page,
-   iframe or worker in any process). The portal's header shows the app in place
-   of the logo: click its name and icon to switch to another build; the time
+   iframe or worker in any process). The page's header shows the app: click its name and icon to switch to another build; the time
    left, **Extend** and **Stop** sit on its right. Restarting, reinstalling
    and saving the app's data are in the app card next to the phone. By default the screen's side follows the screen: it
    grows or shrinks until the screen fills its height or the side reaches

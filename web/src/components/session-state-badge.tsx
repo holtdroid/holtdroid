@@ -1,6 +1,5 @@
 import type { SessionState } from "@/api/client"
 import { Badge } from "@/components/ui/badge"
-import { cn } from "@/lib/utils"
 
 const labels: Record<SessionState, string> = {
   provisioning: "Provisioning",
@@ -14,12 +13,13 @@ const labels: Record<SessionState, string> = {
 }
 
 export function SessionStateBadge({ state }: { state: SessionState }) {
+  const starting = state !== "ready" && state !== "failed" && state !== "stopping"
   return (
     <Badge
-      variant={state === "failed" ? "destructive" : state === "ready" ? "default" : "secondary"}
-      className={cn(state === "ready" && "bg-emerald-600 text-white dark:bg-emerald-500")}
+      variant={state === "failed" ? "destructive" : state === "ready" ? "success" : starting ? "info" : "secondary"}
+      dot={state === "ready"}
     >
-      {state !== "ready" && state !== "failed" && <span className="size-1.5 animate-pulse rounded-full bg-current" />}
+      {starting && <span className="size-1.5 animate-pulse rounded-full bg-current" />}
       {labels[state]}
     </Badge>
   )

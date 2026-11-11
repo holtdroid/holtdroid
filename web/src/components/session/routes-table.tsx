@@ -23,7 +23,7 @@ const flagTones: Record<RouteFlag["id"], string> = {
   far: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
   churn: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
   bypass: "bg-violet-500/15 text-violet-700 dark:text-violet-300",
-  plain: "bg-stage-error/15 text-stage-error",
+  plain: "bg-danger/15 text-danger",
 }
 
 function FlagBadge({ flag }: { flag: RouteFlag }) {

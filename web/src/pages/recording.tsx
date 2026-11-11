@@ -3,7 +3,7 @@ import { ArrowLeftIcon } from "lucide-react"
 import { type ServerRecording, useRecordingDetail } from "@/api/queries"
 import type { RecordingView } from "@/api/client"
 import { AppIcon } from "@/components/app-icon"
-import { HeaderSlot, useInShell } from "@/components/header-slot"
+import { useInShell } from "@/components/shell-context"
 import { RecordingPlayer } from "@/components/recording/recording-player"
 import { recordingName, RenameButton } from "@/components/recording/rename-button"
 import { RecordingState } from "@/components/recording/recording-state"
@@ -50,12 +50,13 @@ export function RecordingPage({ source }: { source: ServerRecording }) {
 
   return (
     <div className="flex h-full flex-col overflow-y-auto lg:overflow-hidden">
-      {r && (
-        <HeaderSlot>
-          <Title r={r} back={own} rename={own} />
-        </HeaderSlot>
-      )}
-      {!inShell && (
+      {inShell ? (
+        r && (
+          <header className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
+            <Title r={r} back={own} rename={own} />
+          </header>
+        )
+      ) : (
         <header className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
           {r && <Title r={r} back={false} />}
           <span className="ml-auto flex shrink-0 items-center gap-2 font-semibold tracking-tight">

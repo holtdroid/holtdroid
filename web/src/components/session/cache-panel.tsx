@@ -49,7 +49,7 @@ export function CachePanel({ provider, id }: { provider: string; id: string }) {
   const report = useMemo(() => analyzeCache([...requests.values()]), [requests])
 
   return (
-    <div className="devtools-skin flex h-full flex-col bg-background text-[12px]">
+    <div className="flex h-full flex-col bg-background text-[12px]">
       <LiveToolbar
         paused={paused}
         onPause={() => setPaused((v) => !v)}

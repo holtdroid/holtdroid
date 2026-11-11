@@ -29,7 +29,7 @@ export function RoutesPanel({ provider, id }: { provider: string; id: string }) 
   const routes = groupRoutes(conns, geo.info, exit)
 
   return (
-    <div className="devtools-skin flex h-full flex-col bg-background">
+    <div className="flex h-full flex-col bg-background">
       <RoutesTable
         routes={routes}
         geo={geo}

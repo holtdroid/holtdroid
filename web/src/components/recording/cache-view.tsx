@@ -142,7 +142,7 @@ function FindingDetails({
 
   return (
     <Details onClose={onClose} title={<FindingTitle severity={f.severity} title={f.title} />}>
-      <p className="text-sm text-stage-on-surface-variant">
+      <p className="text-sm text-muted-foreground">
         <Rich text={f.detail} />
       </p>
       <Section title={`Requests · ${f.requests.length}`}>
@@ -168,7 +168,7 @@ function FindingDetails({
                 <button
                   type="button"
                   onClick={() => onReveal(e.r.key)}
-                  className="ml-auto text-xs font-normal tracking-normal text-stage-primary normal-case hover:underline"
+                  className="ml-auto text-xs font-normal tracking-normal text-info normal-case hover:underline"
                 >
                   Open in Network
                 </button>
@@ -207,14 +207,14 @@ function RequestRow({
       onClick={onClick}
       onKeyDown={(ev) => ev.key === "Enter" && onClick()}
       className={cn(
-        "flex cursor-pointer items-center gap-2 rounded-lg px-2 py-[3px] hover:bg-stage-surface-container",
-        active && "bg-stage-secondary-container/70 hover:bg-stage-secondary-container",
+        "flex cursor-pointer items-center gap-2 rounded-lg px-2 py-[3px] hover:bg-muted",
+        active && "bg-accent/70 hover:bg-accent",
       )}
     >
       {onSeek ? (
         <TimeButton t={e.r.start} onSeek={onSeek} />
       ) : (
-        <span className="w-24 shrink-0 font-mono text-[12px] text-stage-outline-dim tabular-nums">
+        <span className="w-24 shrink-0 font-mono text-[12px] text-muted-foreground tabular-nums">
           {e.r.wall && wallClock ? wallClock(e.r.wall) : ""}
         </span>
       )}
@@ -223,14 +223,14 @@ function RequestRow({
       </span>
       <span className="min-w-0 flex-1 truncate" title={e.r.url}>
         {u.name}
-        <span className="ml-2 text-stage-outline-dim">{u.host}</span>
+        <span className="ml-2 text-muted-foreground">{u.host}</span>
       </span>
       {e.cdn && (
-        <span className="hidden shrink-0 font-mono text-[11px] text-stage-outline sm:block" title={e.cdn.name}>
+        <span className="hidden shrink-0 font-mono text-[11px] text-muted-foreground sm:block" title={e.cdn.name}>
           {e.cdn.status}
         </span>
       )}
-      <span className="w-24 shrink-0 text-right text-xs text-stage-outline tabular-nums">
+      <span className="w-24 shrink-0 text-right text-xs text-muted-foreground tabular-nums">
         {e.served === "network" && e.r.size ? formatBytes(e.r.size) : servedLabel[e.served]}
       </span>
     </div>

@@ -1,7 +1,7 @@
 import { LockIcon } from "lucide-react"
 import type { PortalState } from "../types"
 import { LaunchDialog, UploadDialog } from "./dialogs"
-import { Header, Home } from "./home"
+import { Dock, Home } from "./home"
 import { Toast } from "./overlays"
 import { Computers, Recording, RecordingHeader, RecordingsList } from "./pages"
 import { Session, SessionHeader } from "./session"
@@ -88,12 +88,15 @@ export function Portal({ s }: { s: PortalState }) {
         </span>
       </div>
       <div className="relative flex min-h-0 flex-1 flex-col">
-        <Header s={s}>
-          {slotted ? s.page === "session" ? <SessionHeader s={s} /> : <RecordingHeader /> : undefined}
-        </Header>
-        <main className="relative min-h-0 flex-1 overflow-hidden">
+        {slotted && (
+          <header className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
+            {s.page === "session" ? <SessionHeader s={s} /> : <RecordingHeader />}
+          </header>
+        )}
+        <main className="relative min-h-0 flex-1 overflow-hidden pb-[70px]">
           <Page s={s} />
         </main>
+        <Dock s={s} />
         {s.dialog === "launch" && <LaunchDialog s={s} />}
         {s.dialog === "upload" && <UploadDialog s={s} />}
         <Toasts s={s} />

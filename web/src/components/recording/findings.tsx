@@ -6,9 +6,9 @@ import type { CacheSeverity as Severity } from "@/lib/recording/cache"
 import { cn } from "@/lib/utils"
 
 export const severityInfo: Record<Severity, { icon: LucideIcon; tone: string; label: string }> = {
-  error: { icon: CircleAlertIcon, tone: "text-stage-error", label: "Errors" },
-  warning: { icon: TriangleAlertIcon, tone: "text-stage-amber", label: "Warnings" },
-  info: { icon: InfoIcon, tone: "text-stage-outline", label: "Hints" },
+  error: { icon: CircleAlertIcon, tone: "text-danger", label: "Errors" },
+  warning: { icon: TriangleAlertIcon, tone: "text-warning", label: "Warnings" },
+  info: { icon: InfoIcon, tone: "text-muted-foreground", label: "Hints" },
 }
 
 /** Text with `code` spans. */
@@ -17,7 +17,7 @@ export function Rich({ text }: { text: string }) {
     <>
       {text.split("`").map((part, i) =>
         i % 2 ? (
-          <code key={i} className="rounded bg-stage-surface-high px-1 font-mono text-[0.92em] break-all">
+          <code key={i} className="rounded bg-accent px-1 font-mono text-[0.92em] break-all">
             {part}
           </code>
         ) : (
@@ -30,9 +30,9 @@ export function Rich({ text }: { text: string }) {
 
 export function Stat({ label, value, title }: { label: string; value: ReactNode; title?: string }) {
   return (
-    <div className="min-w-0 rounded-xl bg-stage-surface-container px-3 py-1.5" title={title}>
-      <div className="text-[11px] text-stage-outline">{label}</div>
-      <div className="truncate text-sm font-medium text-stage-on-surface tabular-nums">{value}</div>
+    <div className="min-w-0 rounded-xl bg-muted px-3 py-1.5" title={title}>
+      <div className="text-[11px] text-muted-foreground">{label}</div>
+      <div className="truncate text-sm font-medium text-foreground tabular-nums">{value}</div>
     </div>
   )
 }
@@ -94,22 +94,22 @@ export function FindingList({
                 onClick={() => onPick(f.id === picked ? undefined : f.id)}
                 onKeyDown={(e) => e.key === "Enter" && onPick(f.id)}
                 className={cn(
-                  "flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1 hover:bg-stage-surface-container",
-                  f.id === picked && "bg-stage-secondary-container/70 hover:bg-stage-secondary-container",
+                  "flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1 hover:bg-muted",
+                  f.id === picked && "bg-accent/70 hover:bg-accent",
                 )}
               >
                 <info.icon className={cn("mt-0.5 size-3.5 shrink-0", info.tone)} aria-label={f.severity} />
-                <span className="min-w-0 flex-1 text-stage-on-surface">
+                <span className="min-w-0 flex-1 text-foreground">
                   <Rich text={f.title} />
                 </span>
                 {f.saving ? (
-                  <span className="shrink-0 text-xs text-stage-outline tabular-nums" title={f.savingTitle}>
+                  <span className="shrink-0 text-xs text-muted-foreground tabular-nums" title={f.savingTitle}>
                     {formatBytes(f.saving)}
                   </span>
                 ) : null}
                 {f.count !== undefined && (
                   <span
-                    className="w-8 shrink-0 text-right text-xs text-stage-outline tabular-nums"
+                    className="w-8 shrink-0 text-right text-xs text-muted-foreground tabular-nums"
                     title={f.countTitle}
                   >
                     ×{f.count}
@@ -127,7 +127,7 @@ export function FindingList({
 export function FindingTitle({ severity, title }: { severity: Severity; title: string }) {
   const info = severityInfo[severity]
   return (
-    <div className="flex items-start gap-2 text-sm font-medium text-stage-on-surface">
+    <div className="flex items-start gap-2 text-sm font-medium text-foreground">
       <info.icon className={cn("mt-0.5 size-4 shrink-0", info.tone)} />
       <span className="min-w-0">
         <Rich text={title} />

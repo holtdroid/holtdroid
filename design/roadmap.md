@@ -351,6 +351,16 @@ Goal: several Android devices per node instead of one emulator per node.
 - [x] A camera on redroid 13–15 (decision #155): holtdroid-redroid's own AIDL camera HAL (lazy on 15), fed by the agent over `@holtdroid-camera` with a test card, black, an image or a video from the media library, or the browser's camera; nothing renders while no app has the camera open
 - [ ] A camera on Android 11 and 12 (a HIDL camera provider)
 
+## Phase 9 — Portal redesign (decision #184)
+
+- [x] Design tokens for light and dark, Inter + JetBrains Mono, restyled shared primitives, `stage-*` retired
+- [x] Floating bottom dock instead of the header, running-device chips with hover cards, ⌘K command palette, docs link with `#returnUrl`
+- [ ] Apps page, launch configurator and starting pipeline
+- [ ] Session page: three columns, screen-state overlays, network picker modal (scenario steps in the contract)
+- [ ] Recordings list and recording player with lanes
+- [ ] Inventory and the remaining pages restyled
+- [ ] Docs site on the same tokens and dock
+
 ## Later
 
 - [ ] Speed and bearing on the faked GPS location (not settable through `cmd location`)

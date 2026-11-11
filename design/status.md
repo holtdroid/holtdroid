@@ -4,13 +4,20 @@ Snapshot for whoever continues the work — human or agent. Update the
 "Where things stand" and "Next steps" sections whenever a phase moves; the
 rest changes rarely.
 
-_Last updated: 2026-10-27._
+_Last updated: 2026-11-11._
 
 ## Where things stand
 
 **Works today** (deployed at https://holtdroid.homelab.example, see "Maintainer's
 deployment"):
 
+- Redesign foundation (decision #184): the token set for light and dark
+  from the design boards, Inter and JetBrains Mono, restyled Button, Badge,
+  Tabs, Card and Input, the floating bottom dock in place of the header
+  (running-device chips, **+** launch, search, docs link with
+  `#returnUrl`), and the ⌘K command palette. Checked through types, lint
+  and tests only. The page redesign (Apps, Launch, Starting, Session with
+  the network picker, Recordings, Inventory and the rest) is next.
 - A replaced microphone on redroid (decision #146): the session page's
   Microphone card plays a line-up tone, beeps, pink noise, a file from the
   user's media library or the browser's microphone into every app's

@@ -44,9 +44,9 @@ export default {
       target: "nav-recordings",
       set: { page: "recordings", panel: "none" },
       text: {
-        en: "Recordings in the header lists your recordings, newest first. A recording still in progress can be watched while it grows.",
-        ru: "Кнопка Recordings в шапке открывает список ваших записей, свежие сверху. Запись, которая ещё идёт, можно смотреть, пока она растёт.",
-        uk: "Кнопка Recordings у шапці відкриває список ваших записів, свіжі вгорі. Запис, який ще триває, можна дивитися, поки він росте.",
+        en: "Recordings in the dock lists your recordings, newest first. A recording still in progress can be watched while it grows.",
+        ru: "Кнопка Recordings в доке открывает список ваших записей, свежие сверху. Запись, которая ещё идёт, можно смотреть, пока она растёт.",
+        uk: "Кнопка Recordings у доку відкриває список ваших записів, свіжі вгорі. Запис, який ще триває, можна дивитися, поки він росте.",
       },
     },
     {

@@ -7,9 +7,9 @@ export default {
       target: "nav-computers",
       set: { page: "computers" },
       text: {
-        en: "Open Computers: the laptop button in the header.",
-        ru: "Откройте Computers — кнопка с ноутбуком в шапке.",
-        uk: "Відкрийте Computers — кнопка з ноутбуком у шапці.",
+        en: "Open Computers: the laptop button in the dock at the bottom.",
+        ru: "Откройте Computers — кнопка с ноутбуком в доке внизу.",
+        uk: "Відкрийте Computers — кнопка з ноутбуком у доку внизу.",
       },
     },
     {

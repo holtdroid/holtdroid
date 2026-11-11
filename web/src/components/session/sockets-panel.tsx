@@ -107,7 +107,7 @@ export function SocketsPanel({ provider, id }: { provider: string; id: string })
   })
 
   return (
-    <div className="devtools-skin flex h-full flex-col bg-background text-[12px]">
+    <div className="flex h-full flex-col bg-background text-[12px]">
       <div className="flex h-8 shrink-0 items-center gap-1 border-b px-2">
         <ToolbarButton label={paused ? "Resume" : "Pause"} onClick={() => setPaused((v) => !v)}>
           {paused ? <PlayIcon /> : <PauseIcon />}
@@ -342,16 +342,16 @@ function FrameTime({
         align="end"
         side="left"
         sideOffset={8}
-        className="w-72 rounded-[24px] border-0 bg-stage-surface-container p-4 text-stage-on-surface shadow-2xl ring-1 ring-black/10 dark:ring-white/10"
+        className="w-72 rounded-[24px] border-0 bg-muted p-4 text-foreground shadow-2xl ring-1 ring-black/10 dark:ring-white/10"
         onClick={(e) => e.stopPropagation()}
       >
         {recorded ? (
           <div className="grid gap-3">
             <div>
-              <p className="text-xs font-medium tracking-wide text-stage-outline uppercase">Mark this moment</p>
+              <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Mark this moment</p>
               <p className="mt-0.5 text-base font-medium">
                 {clock(frame.at!, true)}{" "}
-                <span className="text-sm font-normal text-stage-outline">of the recording</span>
+                <span className="text-sm font-normal text-muted-foreground">of the recording</span>
               </p>
             </div>
             <div className="grid grid-cols-6 gap-1">
@@ -363,26 +363,26 @@ function FrameTime({
                   aria-label={`Add a ${markerIcons[icon].name} marker`}
                   disabled={add.isPending}
                   onClick={() => mark(icon)}
-                  className="grid justify-items-center gap-1 rounded-2xl py-1.5 text-[10.5px] text-stage-on-surface-variant transition-colors hover:bg-stage-surface-high disabled:opacity-50"
+                  className="grid justify-items-center gap-1 rounded-2xl py-1.5 text-[10.5px] text-muted-foreground transition-colors hover:bg-accent disabled:opacity-50"
                 >
                   <MarkerBadge icon={icon} className="size-8 [&_svg]:size-4" />
                   {markerIcons[icon].name}
                 </button>
               ))}
             </div>
-            <p className="text-xs text-stage-outline">A click on the frame's time pins it right away.</p>
+            <p className="text-xs text-muted-foreground">A click on the frame's time pins it right away.</p>
             <a
               href={link}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-stage-secondary-container px-4 text-sm font-medium text-stage-on-secondary-container transition-colors hover:bg-stage-secondary-container-hover"
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-accent px-4 text-sm font-medium text-accent-foreground transition-colors hover:bg-border"
             >
               <ExternalLinkIcon className="size-4" />
               Open the recording from here
             </a>
           </div>
         ) : (
-          <p className="text-sm text-stage-on-surface-variant">This frame came while nothing was being recorded.</p>
+          <p className="text-sm text-muted-foreground">This frame came while nothing was being recorded.</p>
         )}
       </HoverCardContent>
     </HoverCard>

@@ -77,13 +77,13 @@ function Search({
   placeholder: string
 }) {
   return (
-    <label className="flex min-w-40 flex-1 items-center gap-2 rounded-full bg-stage-surface-container px-3 py-1.5 text-sm">
-      <SearchIcon className="size-4 shrink-0 text-stage-outline" />
+    <label className="flex min-w-40 flex-1 items-center gap-2 rounded-full bg-muted px-3 py-1.5 text-sm">
+      <SearchIcon className="size-4 shrink-0 text-muted-foreground" />
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="min-w-0 flex-1 bg-transparent text-stage-on-surface outline-none placeholder:text-stage-outline"
+        className="min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground"
       />
     </label>
   )
@@ -99,7 +99,7 @@ function ContextSelect({ log, value, onChange }: { log: DevToolsLog; value: stri
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="max-w-52 appearance-none truncate rounded-full bg-stage-surface-container py-1.5 pr-8 pl-3 text-sm text-stage-on-surface outline-none hover:bg-stage-surface-container-hover [&>option]:bg-stage-surface-container"
+        className="max-w-52 appearance-none truncate rounded-full bg-muted py-1.5 pr-8 pl-3 text-sm text-foreground outline-none hover:bg-accent [&>option]:bg-muted"
       >
         <option value="">All contexts</option>
         {contexts.map((c) => (
@@ -108,7 +108,7 @@ function ContextSelect({ log, value, onChange }: { log: DevToolsLog; value: stri
           </option>
         ))}
       </select>
-      <ChevronDownIcon className="pointer-events-none absolute top-1/2 right-2.5 size-4 -translate-y-1/2 text-stage-outline" />
+      <ChevronDownIcon className="pointer-events-none absolute top-1/2 right-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
     </label>
   )
 }
@@ -119,7 +119,7 @@ function ContextTag({ log, target }: { log: DevToolsLog; target: string }) {
   if (!c || !c.page.type || c.page.type === "page") return null
   return (
     <span
-      className="mr-1.5 inline-block max-w-40 truncate rounded bg-stage-surface-high px-1 align-[1px] font-sans text-[10.5px] leading-4 text-stage-outline"
+      className="mr-1.5 inline-block max-w-40 truncate rounded bg-accent px-1 align-[1px] font-sans text-[10.5px] leading-4 text-muted-foreground"
       title={c.page.url}
     >
       {c.label}
@@ -147,8 +147,8 @@ export function Chip({
       className={cn(
         "h-7 rounded-full px-2.5 text-xs font-medium whitespace-nowrap transition-colors",
         active
-          ? "bg-stage-secondary-container text-stage-on-secondary-container"
-          : "text-stage-outline hover:bg-stage-surface-container hover:text-stage-on-surface-variant",
+          ? "bg-accent text-accent-foreground"
+          : "text-muted-foreground hover:bg-muted hover:text-muted-foreground",
       )}
     >
       {children}
@@ -164,7 +164,7 @@ export function TimeButton({ t, onSeek }: { t: number; onSeek: (t: number) => vo
         e.stopPropagation()
         onSeek(t)
       }}
-      className="w-14 shrink-0 cursor-pointer text-left font-mono text-[12px] text-stage-outline-dim tabular-nums hover:text-stage-primary"
+      className="w-14 shrink-0 cursor-pointer text-left font-mono text-[12px] text-muted-foreground tabular-nums hover:text-foreground"
       title={`Go to ${clock(t, true)}`}
     >
       {clock(t)}
@@ -173,7 +173,7 @@ export function TimeButton({ t, onSeek }: { t: number; onSeek: (t: number) => vo
 }
 
 export function Empty({ children }: { children: ReactNode }) {
-  return <p className="px-3 py-8 text-center text-sm text-stage-outline">{children}</p>
+  return <p className="px-3 py-8 text-center text-sm text-muted-foreground">{children}</p>
 }
 
 /** The lower half of a panel once a row is picked. */
@@ -189,7 +189,7 @@ export function Details({
   children: ReactNode
 }) {
   return (
-    <div className="flex min-h-0 flex-[1_1_58%] flex-col border-t border-stage-outline-variant/70">
+    <div className="flex min-h-0 flex-[1_1_58%] flex-col border-t border-border/70">
       <div className="flex items-center gap-2 px-4 pt-3 pb-2">
         <div className="min-w-0 flex-1">{title}</div>
         {actions}
@@ -197,7 +197,7 @@ export function Details({
           type="button"
           aria-label="Close"
           onClick={onClose}
-          className="grid size-8 shrink-0 place-items-center rounded-full text-stage-on-surface-variant hover:bg-stage-surface-container"
+          className="grid size-8 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-muted"
         >
           <XIcon className="size-4" />
         </button>
@@ -210,7 +210,7 @@ export function Details({
 export function Section({ title, children, aside }: { title: string; children: ReactNode; aside?: ReactNode }) {
   return (
     <section className="mt-3 first:mt-0">
-      <h3 className="mb-1.5 flex items-center gap-2 text-xs font-medium tracking-wide text-stage-outline uppercase">
+      <h3 className="mb-1.5 flex items-center gap-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
         {title}
         {aside}
       </h3>
@@ -220,12 +220,12 @@ export function Section({ title, children, aside }: { title: string; children: R
 }
 
 const phaseStyle: Record<RequestPhase, string> = {
-  pending: "bg-stage-surface-high text-stage-outline",
-  failed: "bg-stage-error-container text-stage-error",
-  redirect: "bg-stage-secondary-container text-stage-on-secondary-container",
-  ok: "bg-stage-primary-container text-stage-on-primary-container",
-  "client-error": "bg-stage-amber-container text-stage-amber",
-  "server-error": "bg-stage-error-container text-stage-error",
+  pending: "bg-accent text-muted-foreground",
+  failed: "bg-danger-soft text-danger",
+  redirect: "bg-accent text-accent-foreground",
+  ok: "bg-success-soft text-success",
+  "client-error": "bg-warning-soft text-warning",
+  "server-error": "bg-danger-soft text-danger",
 }
 
 export function StatusBadge({ r, t }: { r: DevToolsRequest; t: number }) {
@@ -338,8 +338,8 @@ export function NetworkView({
                 onClick={() => onPick(r.key === picked ? undefined : r.key)}
                 onKeyDown={(e) => e.key === "Enter" && onPick(r.key)}
                 className={cn(
-                  "flex cursor-pointer items-center gap-2 rounded-lg px-2 py-[3px] hover:bg-stage-surface-container",
-                  r.key === picked && "bg-stage-secondary-container/70 hover:bg-stage-secondary-container",
+                  "flex cursor-pointer items-center gap-2 rounded-lg px-2 py-[3px] hover:bg-muted",
+                  r.key === picked && "bg-accent/70 hover:bg-accent",
                   preflight && "opacity-60",
                 )}
               >
@@ -348,7 +348,7 @@ export function NetworkView({
                   <StatusBadge r={r} t={time} />
                 </span>
                 <span
-                  className="w-[3.75rem] shrink-0 truncate font-mono text-[11.5px] text-stage-outline"
+                  className="w-[3.75rem] shrink-0 truncate font-mono text-[11.5px] text-muted-foreground"
                   title={r.method}
                 >
                   {r.method}
@@ -356,21 +356,19 @@ export function NetworkView({
                 <span className="min-w-0 flex-1 truncate" title={r.url}>
                   <ContextTag log={log} target={r.target} />
                   {preflight && (
-                    <span className="mr-1.5 rounded bg-stage-surface-high px-1 font-sans text-[10.5px] text-stage-outline">
+                    <span className="mr-1.5 rounded bg-accent px-1 font-sans text-[10.5px] text-muted-foreground">
                       preflight
                     </span>
                   )}
-                  <span
-                    className={cn(requestPhase(r, time) === "failed" ? "text-stage-error" : "text-stage-on-surface")}
-                  >
+                  <span className={cn(requestPhase(r, time) === "failed" ? "text-danger" : "text-foreground")}>
                     {u.name}
                   </span>
-                  <span className="ml-2 text-stage-outline-dim">{u.host}</span>
+                  <span className="ml-2 text-muted-foreground">{u.host}</span>
                 </span>
-                <span className="hidden w-16 shrink-0 text-right text-xs text-stage-outline tabular-nums sm:block">
+                <span className="hidden w-16 shrink-0 text-right text-xs text-muted-foreground tabular-nums sm:block">
                   {r.size ? formatBytes(r.size) : r.cached ? r.cached : ""}
                 </span>
-                <span className="w-14 shrink-0 text-right text-xs text-stage-outline tabular-nums">
+                <span className="w-14 shrink-0 text-right text-xs text-muted-foreground tabular-nums">
                   {done ? ms(r.end! - r.start) : ""}
                 </span>
               </div>
@@ -386,7 +384,7 @@ export function NetworkView({
 }
 
 const timingParts: { key: keyof NonNullable<DevToolsRequest["timing"]>; label: string; color: string }[] = [
-  { key: "blocked", label: "Queued, stalled", color: "var(--stage-outline-variant)" },
+  { key: "blocked", label: "Queued, stalled", color: "var(--border)" },
   { key: "dns", label: "DNS", color: "#7fdcd0" },
   { key: "connect", label: "Connect", color: "#f2a65a" },
   { key: "send", label: "Send", color: "#a8c8ff" },
@@ -396,12 +394,12 @@ const timingParts: { key: keyof NonNullable<DevToolsRequest["timing"]>; label: s
 
 function Timing({ r }: { r: DevToolsRequest }) {
   const t = r.timing
-  if (!t) return <p className="text-sm text-stage-outline">No timing for this request.</p>
+  if (!t) return <p className="text-sm text-muted-foreground">No timing for this request.</p>
   const parts = timingParts.map((p) => ({ ...p, v: Math.max(0, t[p.key]) })).filter((p) => p.v > 0)
   const total = parts.reduce((a, p) => a + p.v, 0) || 1
   return (
     <div className="grid gap-2">
-      <div className="flex h-2.5 overflow-hidden rounded-full bg-stage-surface-high">
+      <div className="flex h-2.5 overflow-hidden rounded-full bg-accent">
         {parts.map((p) => (
           <span
             key={p.key}
@@ -414,9 +412,9 @@ function Timing({ r }: { r: DevToolsRequest }) {
         {parts.map((p) => (
           <div key={p.key} className="contents">
             <span className="size-2.5 rounded-full" style={{ background: p.color }} />
-            <dt className="text-stage-on-surface-variant">
+            <dt className="text-muted-foreground">
               {p.label}
-              {p.key === "connect" && t.ssl > 0 && <span className="text-stage-outline"> · TLS {ms(t.ssl)}</span>}
+              {p.key === "connect" && t.ssl > 0 && <span className="text-muted-foreground"> · TLS {ms(t.ssl)}</span>}
             </dt>
             <dd className="font-mono text-[12.5px] tabular-nums">{ms(p.v)}</dd>
           </div>
@@ -485,9 +483,9 @@ function RequestDetails({
               {r.method} {u.path}
             </span>
           </div>
-          <div className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-stage-outline">
+          <div className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-muted-foreground">
             <span>{u.host}</span>
-            <button type="button" className="hover:text-stage-primary" onClick={() => onSeek(r.start)}>
+            <button type="button" className="hover:text-foreground" onClick={() => onSeek(r.start)}>
               sent {clock(r.start, true)}
             </button>
             {r.response ? <span>headers +{ms(r.response - r.start)}</span> : null}
@@ -501,7 +499,7 @@ function RequestDetails({
             type="button"
             title="Copy as cURL"
             onClick={() => copy(curlOf(r), "Copied as cURL")}
-            className="inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs text-stage-on-surface-variant hover:bg-stage-surface-container"
+            className="inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs text-muted-foreground hover:bg-muted"
           >
             <CopyIcon className="size-3.5" />
             cURL
@@ -510,7 +508,7 @@ function RequestDetails({
             type="button"
             title="Copy as fetch()"
             onClick={() => copy(fetchOf(r), "Copied as fetch")}
-            className="inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs text-stage-on-surface-variant hover:bg-stage-surface-container"
+            className="inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs text-muted-foreground hover:bg-muted"
           >
             <CopyIcon className="size-3.5" />
             fetch
@@ -518,7 +516,7 @@ function RequestDetails({
         </>
       }
     >
-      <div className="sticky top-0 z-10 -mx-4 mb-3 flex gap-1 bg-stage-surface-low px-4 pb-2">
+      <div className="sticky top-0 z-10 -mx-4 mb-3 flex gap-1 bg-background px-4 pb-2">
         {tabs
           .filter((x) => x.show)
           .map((x) => (
@@ -560,7 +558,7 @@ function RequestDetails({
             </Section>
           )}
           {!r.postData && r.postDataTruncated && (
-            <p className="text-sm text-stage-outline">The body was too big to record.</p>
+            <p className="text-sm text-muted-foreground">The body was too big to record.</p>
           )}
         </AtMoment>
       )}
@@ -575,7 +573,7 @@ function RequestDetails({
               size={r.bodyBase64 ? Math.floor((r.body.length * 3) / 4) : r.body.length}
             />
           ) : (
-            <p className="text-sm text-stage-outline">
+            <p className="text-sm text-muted-foreground">
               {r.error
                 ? `No response: ${r.error}`
                 : r.bodySkipped === "type"
@@ -595,7 +593,7 @@ function RequestDetails({
       )}
       {current === "timing" && <Timing r={r} />}
       {r.end && r.end > time && (
-        <p className="mt-3 text-xs text-stage-outline">
+        <p className="mt-3 text-xs text-muted-foreground">
           This request finishes later in the recording, at {clock(r.end, true)}.
         </p>
       )}
@@ -606,10 +604,10 @@ function RequestDetails({
 type ConsoleFilter = "all" | "error" | "warning" | "info" | "debug"
 
 const levelInfo: Record<string, { icon: LucideIcon; tone: string; row: string }> = {
-  error: { icon: CircleAlertIcon, tone: "text-stage-error", row: "bg-stage-error-container/45" },
-  warning: { icon: TriangleAlertIcon, tone: "text-stage-amber", row: "bg-stage-amber-container/45" },
-  info: { icon: InfoIcon, tone: "text-stage-outline", row: "" },
-  debug: { icon: InfoIcon, tone: "text-stage-blue", row: "" },
+  error: { icon: CircleAlertIcon, tone: "text-danger", row: "bg-danger-soft/45" },
+  warning: { icon: TriangleAlertIcon, tone: "text-warning", row: "bg-warning-soft/45" },
+  info: { icon: InfoIcon, tone: "text-muted-foreground", row: "" },
+  debug: { icon: InfoIcon, tone: "text-info", row: "" },
 }
 
 const consoleRank: Record<string, number> = { debug: 0, info: 1, warning: 2, error: 3 }
@@ -722,33 +720,26 @@ function ConsoleRow({
   const structured = (c.args ?? []).some((a) => a.json || (a.type === "string" && parseJSON(a.text).ok))
   const expandable = structured || !!c.stack || c.text.length > 160 || c.text.includes("\n")
   return (
-    <div data-key={c.key} className={cn("rounded-lg", info.row, picked && "ring-1 ring-stage-primary/60")}>
+    <div data-key={c.key} className={cn("rounded-lg", info.row, picked && "ring-1 ring-ring/60")}>
       <div
         role={expandable ? "button" : undefined}
         tabIndex={expandable ? 0 : undefined}
         onClick={expandable ? onToggle : undefined}
         onKeyDown={expandable ? (e) => e.key === "Enter" && onToggle() : undefined}
-        className={cn(
-          "flex items-start gap-2 px-2 py-[3px]",
-          expandable && "cursor-pointer hover:bg-stage-surface-container",
-        )}
+        className={cn("flex items-start gap-2 px-2 py-[3px]", expandable && "cursor-pointer hover:bg-muted")}
       >
         <TimeButton t={c.t} onSeek={onSeek} />
         <Icon className={cn("mt-[2px] size-3.5 shrink-0", info.tone)} />
         <span
           className={cn(
             "min-w-0 flex-1 break-words whitespace-pre-wrap",
-            c.level === "error"
-              ? "text-stage-error"
-              : c.level === "warning"
-                ? "text-stage-amber"
-                : "text-stage-on-surface",
+            c.level === "error" ? "text-danger" : c.level === "warning" ? "text-warning" : "text-foreground",
             !open && "line-clamp-2",
           )}
         >
           <ContextTag log={log} target={c.target} />
           {c.source === "browser" && c.kind && (
-            <span className="mr-1.5 rounded bg-stage-surface-high px-1 font-sans text-[10.5px] text-stage-outline">
+            <span className="mr-1.5 rounded bg-accent px-1 font-sans text-[10.5px] text-muted-foreground">
               {c.kind}
             </span>
           )}
@@ -756,7 +747,7 @@ function ConsoleRow({
         </span>
         {c.url && (
           <span
-            className="hidden max-w-36 shrink-0 truncate text-[11.5px] text-stage-outline-dim sm:block"
+            className="hidden max-w-36 shrink-0 truncate text-[11.5px] text-muted-foreground sm:block"
             title={`${c.url}:${c.line}:${c.column}`}
           >
             {shortURL(c.url, c.line)}
@@ -776,17 +767,17 @@ function ConsoleRow({
                 return <JsonView key={i} value={nested.value} open={1} />
               if (a.type !== "number") return null
               return (
-                <div key={i} className="text-stage-on-surface-variant">
+                <div key={i} className="text-muted-foreground">
                   <InlineValue value={a.text} />
                 </div>
               )
             })}
-            {c.stack && <pre className="text-[12px] whitespace-pre-wrap text-stage-outline">{c.stack}</pre>}
-            <div className="flex gap-3 font-sans text-xs text-stage-outline">
+            {c.stack && <pre className="text-[12px] whitespace-pre-wrap text-muted-foreground">{c.stack}</pre>}
+            <div className="flex gap-3 font-sans text-xs text-muted-foreground">
               {c.wall ? <span>device clock {new Date(c.wall).toISOString()}</span> : null}
               <button
                 type="button"
-                className="hover:text-stage-primary"
+                className="hover:text-foreground"
                 onClick={() => copy(`${c.text}${c.stack ? `\n${c.stack}` : ""}`)}
               >
                 Copy
@@ -800,11 +791,11 @@ function ConsoleRow({
 }
 
 const socketTone: Record<string, string> = {
-  connecting: "bg-stage-surface-high text-stage-outline",
-  open: "bg-stage-primary-container text-stage-on-primary-container",
-  closed: "bg-stage-surface-high text-stage-on-surface-variant",
-  error: "bg-stage-error-container text-stage-error",
-  stream: "bg-stage-amber-container text-stage-amber",
+  connecting: "bg-accent text-muted-foreground",
+  open: "bg-success-soft text-success",
+  closed: "bg-accent text-muted-foreground",
+  error: "bg-danger-soft text-danger",
+  stream: "bg-warning-soft text-warning",
 }
 
 type FrameLine = { label?: string; text: string; json: boolean; binary: boolean; bytes: boolean }
@@ -851,21 +842,21 @@ export const frameMatches = (f: SocketFrame, needle: string) =>
 export function FrameSummary({ f }: { f: SocketFrame }) {
   const s = summarize(f)
   return (
-    <span className={cn("min-w-0 flex-1 truncate", s.bytes ? "text-stage-outline" : "text-stage-on-surface")}>
+    <span className={cn("min-w-0 flex-1 truncate", s.bytes ? "text-muted-foreground" : "text-foreground")}>
       {s.binary && (
         <span
-          className="mr-1.5 rounded bg-stage-surface-high px-1 font-sans text-[10.5px] text-stage-outline"
+          className="mr-1.5 rounded bg-accent px-1 font-sans text-[10.5px] text-muted-foreground"
           title={s.bytes ? "Binary frame" : "Binary frame that holds UTF-8 text"}
         >
           bin
         </span>
       )}
       {s.label && (
-        <span className="mr-1.5 rounded-full bg-stage-secondary-container px-1.5 py-px font-sans text-[11px] font-medium text-stage-on-secondary-container">
+        <span className="mr-1.5 rounded-full bg-accent px-1.5 py-px font-sans text-[11px] font-medium text-accent-foreground">
           {s.label}
         </span>
       )}
-      <span className={cn(s.json && "text-stage-on-surface-variant")}>{s.text}</span>
+      <span className={cn(s.json && "text-muted-foreground")}>{s.text}</span>
     </span>
   )
 }
@@ -918,7 +909,7 @@ export function SocketsView({
       {socket && (
         <>
           <StreamNote s={socket} time={time} />
-          <div className="flex flex-wrap items-center gap-1.5 border-t border-stage-outline-variant/70 px-4 pt-2 pb-2">
+          <div className="flex flex-wrap items-center gap-1.5 border-t border-border/70 px-4 pt-2 pb-2">
             <Search value={query} onChange={setQuery} placeholder="Filter text frames" />
             <div className="flex gap-0.5">
               <Chip active={direction === "all"} onClick={() => setDirection("all")}>
@@ -949,18 +940,18 @@ export function SocketsView({
                   onClick={() => onPick(socket?.key, f.key === frameKey ? undefined : f.key)}
                   onKeyDown={(e) => e.key === "Enter" && onPick(socket?.key, f.key)}
                   className={cn(
-                    "flex cursor-pointer items-center gap-2 rounded-lg px-2 py-[3px] hover:bg-stage-surface-container",
-                    f.key === frameKey && "bg-stage-secondary-container/70 hover:bg-stage-secondary-container",
+                    "flex cursor-pointer items-center gap-2 rounded-lg px-2 py-[3px] hover:bg-muted",
+                    f.key === frameKey && "bg-accent/70 hover:bg-accent",
                   )}
                 >
                   <TimeButton t={f.t} onSeek={onSeek} />
                   {f.sent ? (
-                    <ArrowUpIcon className="size-3.5 shrink-0 text-stage-blue" aria-label="Sent" />
+                    <ArrowUpIcon className="size-3.5 shrink-0 text-info" aria-label="Sent" />
                   ) : (
-                    <ArrowDownIcon className="size-3.5 shrink-0 text-stage-primary" aria-label="Received" />
+                    <ArrowDownIcon className="size-3.5 shrink-0 text-success" aria-label="Received" />
                   )}
                   <FrameSummary f={f} />
-                  <span className="w-14 shrink-0 text-right font-sans text-xs text-stage-outline tabular-nums">
+                  <span className="w-14 shrink-0 text-right font-sans text-xs text-muted-foreground tabular-nums">
                     {formatBytes(f.size)}
                   </span>
                 </div>
@@ -973,14 +964,14 @@ export function SocketsView({
               title={
                 <div className="flex items-center gap-2 text-sm">
                   {frame.sent ? (
-                    <ArrowUpIcon className="size-4 text-stage-blue" />
+                    <ArrowUpIcon className="size-4 text-info" />
                   ) : (
-                    <ArrowDownIcon className="size-4 text-stage-primary" />
+                    <ArrowDownIcon className="size-4 text-success" />
                   )}
                   <span className="font-medium">{frame.sent ? "Sent" : "Received"}</span>
                   <button
                     type="button"
-                    className="text-xs text-stage-outline hover:text-stage-primary"
+                    className="text-xs text-muted-foreground hover:text-foreground"
                     onClick={() => onSeek(frame.t)}
                   >
                     {clock(frame.t, true)}
@@ -997,7 +988,7 @@ export function SocketsView({
                     size={frame.size}
                   />
                 ) : (
-                  <p className="text-sm text-stage-outline">The payload looked like media and wasn't recorded.</p>
+                  <p className="text-sm text-muted-foreground">The payload looked like media and wasn't recorded.</p>
                 )}
               </AtMoment>
             </Details>
@@ -1030,28 +1021,28 @@ function SocketRow({
       type="button"
       onClick={onPick}
       className={cn(
-        "flex items-center gap-2 rounded-xl px-3 py-1.5 text-left hover:bg-stage-surface-container",
-        active && "bg-stage-secondary-container/70 hover:bg-stage-secondary-container",
+        "flex items-center gap-2 rounded-xl px-3 py-1.5 text-left hover:bg-muted",
+        active && "bg-accent/70 hover:bg-accent",
       )}
     >
-      <RadioIcon className="size-4 shrink-0 text-stage-outline" />
+      <RadioIcon className="size-4 shrink-0 text-muted-foreground" />
       <span className="min-w-0 flex-1">
         <span className="block truncate font-mono text-[12.5px]" title={s.url}>
           {s.url ? (
             <>
               {u.host}
-              <span className="text-stage-outline">{u.path === "/" ? "" : u.path}</span>
+              <span className="text-muted-foreground">{u.path === "/" ? "" : u.path}</span>
             </>
           ) : (
             <span
-              className="font-sans text-stage-on-surface-variant"
+              className="font-sans text-muted-foreground"
               title="Its address isn't known: it opened before Holtdroid attached to the page"
             >
               Opened before Holtdroid attached
             </span>
           )}
         </span>
-        <span className="text-xs text-stage-outline">
+        <span className="text-xs text-muted-foreground">
           <ContextTag log={log} target={s.target} />
           {sse ? "Event stream" : "WebSocket"} · {count} frames recorded
         </span>
@@ -1070,7 +1061,7 @@ function StreamNote({ s, time }: { s: SocketTrack; time: number }) {
   if (!stream || stream.t > time) return null
   const last = socketAt(s, time)
   return (
-    <p className="mx-4 mb-2 rounded-2xl bg-stage-amber-container/70 px-3 py-2 text-xs text-stage-on-surface">
+    <p className="mx-4 mb-2 rounded-2xl bg-warning-soft/70 px-3 py-2 text-xs text-foreground">
       From {clock(stream.t, true)} this socket looked like video or another media stream, so its frames aren't recorded
       {last?.frames ? ` (${last.frames} frames, ${formatBytes(last.bytes ?? 0)} seen)` : ""}.
     </p>

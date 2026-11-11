@@ -50,9 +50,14 @@ export function HomePage({ pkg }: { pkg?: string }) {
               </AlertDescription>
             </Alert>
           )}
-          <ArtifactList pkg={pkg} onLaunch={setLaunching} />
+          <ArtifactList
+            pkg={pkg}
+            onLaunch={setLaunching}
+            upload={!pkg && search.upload}
+            onUploadClose={search.upload ? clearLink : undefined}
+          />
         </div>
-        <SessionsPanel className="lg:sticky lg:top-6 lg:max-h-[calc(100dvh-6.5rem)]" />
+        <SessionsPanel className="lg:sticky lg:top-6 lg:max-h-[calc(100dvh-8rem)]" />
         {search.quick && linked.data && <QuickLauncher artifact={linked.data} onFallback={dropQuick} />}
         <LaunchDialog
           artifact={launching ?? (search.launch && !search.quick ? (linked.data ?? null) : null)}

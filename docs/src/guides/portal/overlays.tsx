@@ -41,7 +41,7 @@ export function Pop({
     <div
       style={style}
       className={cn(
-        "bg-popover text-popover-foreground animate-in fade-in-0 zoom-in-95 absolute z-30 flex w-72 flex-col gap-2.5 rounded-lg p-2.5 text-sm shadow-md ring-1 ring-foreground/10 duration-150",
+        "bg-popover text-popover-foreground animate-in fade-in-0 zoom-in-95 absolute z-30 flex w-72 flex-col gap-2.5 rounded-xl border p-2.5 text-sm shadow-md duration-150",
         className,
       )}
     >
@@ -87,7 +87,7 @@ export function Toast({
   return (
     <div
       data-g="toast"
-      className="bg-popover text-popover-foreground animate-in slide-in-from-bottom-4 fade-in-0 absolute right-5 bottom-5 z-50 flex w-96 items-start gap-2.5 rounded-xl border p-4 text-sm shadow-lg duration-300"
+      className="bg-popover text-popover-foreground animate-in slide-in-from-bottom-4 fade-in-0 absolute right-5 bottom-[84px] z-50 flex w-96 items-start gap-2.5 rounded-xl border p-4 text-sm shadow-lg duration-300"
     >
       {kind === "error" ? (
         <CircleAlertIcon className="text-destructive mt-0.5 size-4 shrink-0" />

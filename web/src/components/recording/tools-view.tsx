@@ -123,7 +123,7 @@ export function RecordingTools({
   }
 
   return (
-    <section className="devtools-skin flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border bg-background text-foreground">
+    <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border bg-background text-foreground">
       <nav
         className="mb-2 flex h-9 shrink-0 gap-1 overflow-x-auto overflow-y-hidden border-b px-2 [scrollbar-width:none]"
         aria-label="Recording tools"
@@ -147,7 +147,7 @@ export function RecordingTools({
               <span
                 className={cn(
                   "min-w-5 rounded-full px-1.5 text-center text-[11px] leading-[18px] tabular-nums",
-                  t.alert ? "bg-stage-error text-stage-on-error" : "bg-muted text-muted-foreground",
+                  t.alert ? "bg-danger text-danger-foreground" : "bg-muted text-muted-foreground",
                 )}
                 title={
                   t.alert

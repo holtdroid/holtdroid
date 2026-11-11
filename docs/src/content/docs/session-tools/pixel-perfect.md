@@ -81,7 +81,7 @@ still exist.
 
 Importing needs a Figma **personal access token**. The server may have one
 for everyone (`pixelPerfect.figma.token`); otherwise add yours on the
-**Pixel perfect** page (the frame icon in the header), under **Account** in
+**Pixel perfect** page (the frame icon in the dock), under **Account** in
 the `users` sign-in mode, or right in the import form. Each of them has the
 same step-by-step guide:
 
@@ -111,7 +111,7 @@ When the token expires, imports say Figma refused it: generate a new one and
 
 ## Pixel perfect page
 
-The frame icon in the header opens the page for your references outside a
+The frame icon in the dock opens the page for your references outside a
 session: all of them grouped by app, with search, the space they take and
 when they will be deleted; import from Figma or add an image, rename,
 download, delete, open a Figma reference's frame in Figma or update it, and

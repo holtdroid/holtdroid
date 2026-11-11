@@ -59,10 +59,10 @@ function Chip({ d, icon: Icon, title }: { d: number; icon: LucideIcon; title: st
       className={cn(
         "ml-1 inline-flex translate-y-[-1px] items-center gap-0.5 rounded-full px-1.5 align-middle font-sans text-[10.5px] leading-4 font-medium whitespace-nowrap no-underline first-of-type:ml-1.5",
         Math.abs(d) < 5000
-          ? "bg-stage-primary-container text-stage-on-primary-container"
+          ? "bg-success-soft text-success"
           : d > 0
-            ? "bg-stage-secondary-container text-stage-on-secondary-container"
-            : "bg-stage-surface-high text-stage-on-surface-variant",
+            ? "bg-accent text-accent-foreground"
+            : "bg-accent text-muted-foreground",
       )}
     >
       <Icon className="size-2.5" />
@@ -94,7 +94,7 @@ export function TimeHint({ stamp, children }: { stamp: Stamp; children: ReactNod
   return (
     <HoverCard openDelay={120} closeDelay={60}>
       <HoverCardTrigger asChild>
-        <span className="cursor-help underline decoration-stage-outline decoration-dotted underline-offset-[3px]">
+        <span className="cursor-help underline decoration-muted-foreground decoration-dotted underline-offset-[3px]">
           {children}
           <Chip
             d={atEvent}
@@ -107,14 +107,14 @@ export function TimeHint({ stamp, children }: { stamp: Stamp; children: ReactNod
       <HoverCardContent
         side="top"
         align="start"
-        className="w-[24rem] rounded-[20px] border-0 bg-stage-surface-container p-4 font-sans text-stage-on-surface shadow-2xl ring-1 ring-black/10 dark:ring-white/10"
+        className="w-[24rem] rounded-[20px] border-0 bg-muted p-4 font-sans text-foreground shadow-2xl ring-1 ring-black/10 dark:ring-white/10"
       >
-        <p className="text-xs font-medium tracking-wide text-stage-outline uppercase">{unitNames[stamp.unit]}</p>
+        <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{unitNames[stamp.unit]}</p>
         {inRecording && (
           <button
             type="button"
             onClick={() => clocks.seek?.(at)}
-            className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-full bg-stage-secondary-container px-3 text-sm font-medium text-stage-on-secondary-container hover:bg-stage-secondary-container-hover"
+            className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-full bg-accent px-3 text-sm font-medium text-accent-foreground hover:bg-border"
           >
             <ClockIcon className="size-3.5" />
             Go to {clock(at)} in the recording
@@ -124,16 +124,16 @@ export function TimeHint({ stamp, children }: { stamp: Stamp; children: ReactNod
           </button>
         )}
         <dl className="mt-2 grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1">
-          <dt className="text-xs text-stage-outline">Now, {(clocks.label ?? clock)(now)}</dt>
+          <dt className="text-xs text-muted-foreground">Now, {(clocks.label ?? clock)(now)}</dt>
           <dd className="text-base font-medium">{versus(d, "the device clock")}</dd>
-          <dt className="text-xs text-stage-outline">When seen, {(clocks.label ?? clock)(m.t)}</dt>
+          <dt className="text-xs text-muted-foreground">When seen, {(clocks.label ?? clock)(m.t)}</dt>
           <dd className="text-sm">{versus(atEvent, "the device clock")}</dd>
           {Math.abs(offset) >= 1500 && (
             <>
-              <dt className="text-xs text-stage-outline">Real time then</dt>
+              <dt className="text-xs text-muted-foreground">Real time then</dt>
               <dd className="text-sm">
                 {versus(stamp.ms - m.real, "real time")}{" "}
-                <span className="text-xs text-stage-outline">
+                <span className="text-xs text-muted-foreground">
                   (device {formatSpan(offset)} {offset > 0 ? "ahead" : "behind"})
                 </span>
               </dd>
@@ -141,18 +141,18 @@ export function TimeHint({ stamp, children }: { stamp: Stamp; children: ReactNod
           )}
         </dl>
         {stamp.zoneless && (
-          <p className="mt-2 rounded-xl bg-stage-amber-container px-3 py-1.5 text-xs text-stage-on-surface">
+          <p className="mt-2 rounded-xl bg-warning-soft px-3 py-1.5 text-xs text-foreground">
             No time zone in the value: read as UTC.
           </p>
         )}
         <dl className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">
           {stampFormats(stamp.ms, m.zone).map((f) => (
             <div key={f.label} className="contents">
-              <dt className="text-stage-outline">{f.label}</dt>
+              <dt className="text-muted-foreground">{f.label}</dt>
               <dd>
                 <button
                   type="button"
-                  className="max-w-full truncate text-left font-mono text-[12.5px] hover:text-stage-primary"
+                  className="max-w-full truncate text-left font-mono text-[12.5px] hover:text-foreground"
                   title="Copy"
                   onClick={() => copy(f.value)}
                 >
@@ -177,7 +177,7 @@ function Primitive({ value, name }: { value: unknown; name?: string }) {
       <span className="break-all whitespace-pre-wrap text-[var(--json-string)]">
         "{long ? value.slice(0, 600) : value}"
         {long && (
-          <button type="button" className="ml-1 font-sans text-xs text-stage-primary" onClick={() => setAll(true)}>
+          <button type="button" className="ml-1 font-sans text-xs text-info" onClick={() => setAll(true)}>
             … {formatBytes(value.length - 600)} more
           </button>
         )}
@@ -202,8 +202,8 @@ function Node({ name, value, depth, open: initial }: { name?: string; value: unk
   const key =
     name === undefined ? null : (
       <>
-        <span className="text-stage-tag">{/^\d+$/.test(name) ? name : `"${name}"`}</span>
-        <span className="text-stage-outline">: </span>
+        <span className="text-info">{/^\d+$/.test(name) ? name : `"${name}"`}</span>
+        <span className="text-muted-foreground">: </span>
       </>
     )
 
@@ -225,44 +225,42 @@ function Node({ name, value, depth, open: initial }: { name?: string; value: unk
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="group flex w-full items-start text-left hover:bg-stage-surface-container/60"
+        className="group flex w-full items-start text-left hover:bg-muted/60"
       >
         <ChevronRightIcon
-          className={cn("mt-[3px] size-3.5 shrink-0 text-stage-outline transition-transform", open && "rotate-90")}
+          className={cn("mt-[3px] size-3.5 shrink-0 text-muted-foreground transition-transform", open && "rotate-90")}
         />
         <span className="ml-1 min-w-0">
           {key}
           {inner && (
-            <span className="mr-1 rounded bg-stage-surface-high px-1 font-sans text-[10px] text-stage-outline">
-              JSON string
-            </span>
+            <span className="mr-1 rounded bg-accent px-1 font-sans text-[10px] text-muted-foreground">JSON string</span>
           )}
-          <span className="text-stage-outline">{l}</span>
+          <span className="text-muted-foreground">{l}</span>
           {!open && (
             <>
-              <span className="mx-1 font-sans text-xs text-stage-outline-dim">{summary}</span>
-              <span className="text-stage-outline">{r}</span>
+              <span className="mx-1 font-sans text-xs text-muted-foreground">{summary}</span>
+              <span className="text-muted-foreground">{r}</span>
             </>
           )}
         </span>
       </button>
       {open && (
         <>
-          <div className="ml-[7px] border-l border-stage-outline-variant/60 pl-2">
+          <div className="ml-[7px] border-l border-border/60 pl-2">
             {entries.slice(0, shown).map(([k, v]) => (
               <Node key={k} name={k} value={v} depth={depth + 1} open={initial} />
             ))}
             {entries.length > shown && (
               <button
                 type="button"
-                className="pl-[18px] font-sans text-xs text-stage-primary"
+                className="pl-[18px] font-sans text-xs text-info"
                 onClick={() => setShown((n) => n + pageSize * 5)}
               >
                 Show {Math.min(pageSize * 5, entries.length - shown)} more of {entries.length - shown}
               </button>
             )}
           </div>
-          <div className="pl-[18px] text-stage-outline">{r}</div>
+          <div className="pl-[18px] text-muted-foreground">{r}</div>
         </>
       )}
     </div>
@@ -274,7 +272,7 @@ export function JsonView({ value, open = 2, className }: { value: unknown; open?
   return (
     <div
       className={cn(
-        "font-mono text-[12.5px] leading-[1.55] [--json-keyword:var(--stage-amber)] [--json-number:var(--stage-blue)] [--json-string:var(--stage-primary)]",
+        "font-mono text-[12.5px] leading-[1.55] [--json-keyword:var(--warning)] [--json-number:var(--info)] [--json-string:var(--success)]",
         className,
       )}
     >
@@ -290,15 +288,15 @@ export function InlineValue({ value, name }: { value: string; name?: string }) {
 }
 
 export function Pairs({ pairs, empty = "None" }: { pairs: [string, string][]; empty?: string }) {
-  if (pairs.length === 0) return <p className="text-sm text-stage-outline">{empty}</p>
+  if (pairs.length === 0) return <p className="text-sm text-muted-foreground">{empty}</p>
   return (
     <dl className="grid grid-cols-[minmax(7rem,max-content)_minmax(0,1fr)] gap-x-4 gap-y-0.5 font-mono text-[12.5px] leading-[1.55]">
       {pairs.map(([k, v], i) => (
         <div key={`${k}${i}`} className="contents">
-          <dt className="truncate text-stage-tag" title={k}>
+          <dt className="truncate text-info" title={k}>
             {k}
           </dt>
-          <dd className="break-all text-stage-on-surface">
+          <dd className="break-all text-foreground">
             <InlineValue value={v} name={k} />
           </dd>
         </div>
@@ -309,7 +307,7 @@ export function Pairs({ pairs, empty = "None" }: { pairs: [string, string][]; em
 
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
-    <div className="flex rounded-full bg-stage-surface-container p-0.5 text-xs" role="group" aria-label="View">
+    <div className="flex rounded-full bg-muted p-0.5 text-xs" role="group" aria-label="View">
       {[
         [true, "Pretty"],
         [false, "Raw"],
@@ -321,9 +319,7 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
           onClick={() => onChange(v as boolean)}
           className={cn(
             "h-6 rounded-full px-2.5 transition-colors",
-            value === v
-              ? "bg-stage-secondary-container text-stage-on-secondary-container"
-              : "text-stage-outline hover:text-stage-on-surface-variant",
+            value === v ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-muted-foreground",
           )}
         >
           {label}
@@ -348,14 +344,12 @@ const kindLabel = (p: ParsedBody) =>
 /** One packet of a framed message as its label and a tree, or its text. */
 export function PacketView({ packet, index }: { packet: Packet; index?: number }) {
   return (
-    <div className="grid gap-1 rounded-2xl bg-stage-surface-container/60 px-3 py-2">
+    <div className="grid gap-1 rounded-2xl bg-muted/60 px-3 py-2">
       {(index !== undefined || packet.label) && (
         <div className="flex items-center gap-2 font-sans text-xs">
-          {index !== undefined && <span className="text-stage-outline-dim tabular-nums">#{index + 1}</span>}
+          {index !== undefined && <span className="text-muted-foreground tabular-nums">#{index + 1}</span>}
           {packet.label && (
-            <span className="rounded-full bg-stage-secondary-container px-2 py-px font-medium text-stage-on-secondary-container">
-              {packet.label}
-            </span>
+            <span className="rounded-full bg-accent px-2 py-px font-medium text-accent-foreground">{packet.label}</span>
           )}
         </div>
       )}
@@ -393,27 +387,27 @@ export function BodyView({
   const structured = parsed.kind === "json" || parsed.kind === "packets" || parsed.kind === "form"
   return (
     <div className="grid gap-2">
-      <div className="flex flex-wrap items-center gap-2 text-xs text-stage-outline">
-        <span className="rounded-full bg-stage-surface-high px-2 py-0.5 font-medium text-stage-on-surface-variant">
+      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <span className="rounded-full bg-accent px-2 py-0.5 font-medium text-muted-foreground">
           {kindLabel(parsed)}
           {parsed.kind === "packets" && parsed.packets.length > 1 && ` · ${parsed.packets.length}`}
         </span>
         {base64 && parsed.kind !== "binary" && (
           <span
-            className="rounded-full bg-stage-surface-high px-2 py-0.5"
+            className="rounded-full bg-accent px-2 py-0.5"
             title="The bytes were sent as binary and read as UTF-8 text"
           >
             binary · UTF-8
           </span>
         )}
         {size !== undefined && <span>{formatBytes(size)}</span>}
-        {truncated && <span className="text-stage-amber">cut at the recording limit</span>}
+        {truncated && <span className="text-warning">cut at the recording limit</span>}
         <span className="ml-auto flex items-center gap-1">
           {structured && <Toggle value={pretty} onChange={setPretty} />}
           <button
             type="button"
             title={parsed.kind === "binary" ? "Copy as base64" : "Copy"}
-            className="grid size-7 place-items-center rounded-full hover:bg-stage-surface-container"
+            className="grid size-7 place-items-center rounded-full hover:bg-muted"
             onClick={() => copy(raw)}
           >
             <CopyIcon className="size-3.5" />
@@ -428,18 +422,18 @@ export function BodyView({
             <PacketView key={`${i}:${p.raw.length}`} packet={p} index={parsed.packets.length > 1 ? i : undefined} />
           ))}
           {parsed.packets.length > 500 && (
-            <p className="text-xs text-stage-outline">… {parsed.packets.length - 500} more; Raw shows them all</p>
+            <p className="text-xs text-muted-foreground">… {parsed.packets.length - 500} more; Raw shows them all</p>
           )}
         </div>
       ) : parsed.kind === "form" && pretty ? (
         <Pairs pairs={parsed.pairs} />
       ) : parsed.kind === "binary" ? (
-        <pre className="overflow-x-auto font-mono text-[12px] leading-[1.5] text-stage-on-surface-variant">
+        <pre className="overflow-x-auto font-mono text-[12px] leading-[1.5] text-muted-foreground">
           {hexDump(parsed.bytes)}
           {parsed.bytes.length > 4096 && `\n… ${formatBytes(parsed.bytes.length - 4096)} more`}
         </pre>
       ) : (
-        <pre className="font-mono text-[12.5px] leading-[1.55] break-all whitespace-pre-wrap text-stage-on-surface">
+        <pre className="font-mono text-[12.5px] leading-[1.55] break-all whitespace-pre-wrap text-foreground">
           {visibleSeparators(raw)}
         </pre>
       )}
