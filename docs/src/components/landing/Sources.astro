@@ -33,6 +33,13 @@ const sources: { icon: IconName; title: string; text: string; badge: string; hre
     href: "/sources/chromium/",
   },
   {
+    icon: "globe",
+    title: "Release archives",
+    text: "Opera, Firefox and other browsers from the public archives their makers publish.",
+    badge: "holtdroid-sync",
+    href: "/sources/archives/",
+  },
+  {
     icon: "upload",
     title: "Upload",
     text: "Drop an APK on the Apps page, with a note and only for you if you like.",
@@ -53,7 +60,7 @@ const builds = ["2.5.0-rc1", "2.4.0", "2.3.1"]
     <p class="l-eyebrow">Sources</p>
     <h2 class="l-title">Where builds come from</h2>
     <p class="l-lead l-lead-s">
-      A sync job copies new APKs from a Slack channel, an S3 bucket or GitHub releases into a source. Testers see them on
+      A sync job copies new APKs from a Slack channel, an S3 bucket, GitHub releases or a vendor's release archive into a source. Testers see them on
       the Apps page a few seconds later.
     </p>
     <a class="hd-btn" href={url("/sources/overview/")}>APK sources</a>

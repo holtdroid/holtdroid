@@ -326,7 +326,7 @@ export const ticker = [
 export const stats: { parts: (string | number)[]; label: string }[] = [
   { parts: [11, "–", 16], label: "Android versions, one image each" },
   { parts: ["0"], label: "bytes changed in your APK" },
-  { parts: ["~", 1, " min"], label: "to a freshly booted device" },
+  { parts: ["~", 35, " s"], label: "to a freshly booted device" },
   { parts: [45, " fps"], label: "screen by default, up to 60" },
   { parts: [30, " min"], label: "idle before a device is reclaimed, by default" },
 ]
