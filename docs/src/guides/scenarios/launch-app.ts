@@ -15,26 +15,26 @@ export default {
       target: "launch",
       set: { dialog: "launch" },
       text: {
-        en: "Press Launch on the app you want to test. A dialog opens where you choose the device.",
-        ru: "Нажмите Launch на нужном приложении. Откроется окно, где выбирается устройство.",
-        uk: "Натисніть Launch на потрібному застосунку. Відкриється вікно, де обирається пристрій.",
+        en: "Press Launch on the app you want to test. A dialog opens where you put the device together.",
+        ru: "Нажмите Launch на нужном приложении. Откроется окно, где собирается устройство.",
+        uk: "Натисніть Launch на потрібному застосунку. Відкриється вікно, де збирається пристрій.",
       },
     },
     {
       target: "provider-emulator",
       text: {
-        en: "Virtual device is Android in a container: any version, any screen, ready in about half a minute. Real phone is a physical phone over USB, for the hardware itself.",
-        ru: "Virtual device — это Android в контейнере: любая версия, любой экран, готов примерно за полминуты. Real phone — настоящий телефон по USB, когда важно само железо.",
-        uk: "Virtual device — це Android у контейнері: будь-яка версія, будь-який екран, готовий приблизно за пів хвилини. Real phone — справжній телефон через USB, коли важливе саме залізо.",
+        en: "At the top, Virtual device is Android in a container: any version, any screen, ready in about half a minute. Physical phone is a real phone over USB, for the hardware itself. Each shows how many are free.",
+        ru: "Вверху: Virtual device — это Android в контейнере, любая версия и любой экран, готов примерно за полминуты. Physical phone — настоящий телефон по USB, когда важно само железо. У каждого видно, сколько свободно.",
+        uk: "Угорі: Virtual device — це Android у контейнері, будь-яка версія й будь-який екран, готовий приблизно за пів хвилини. Physical phone — справжній телефон через USB, коли важливе саме залізо. У кожного видно, скільки вільно.",
       },
     },
     {
-      target: "launch-continue",
-      set: { launchStage: "options" },
+      target: "launch-preview",
+      action: "look",
       text: {
-        en: "Continue opens the device settings.",
-        ru: "Continue открывает настройки устройства.",
-        uk: "Continue відкриває налаштування пристрою.",
+        en: "The preview on the right shows the phone you're putting together: its screen with the cutout, and every choice you make below.",
+        ru: "Превью справа показывает телефон, который вы собираете: экран с вырезом и всё, что вы выберете ниже.",
+        uk: "Превʼю праворуч показує телефон, який ви збираєте: екран із вирізом і все, що ви оберете нижче.",
       },
     },
     {
@@ -86,9 +86,9 @@ export default {
       target: "record",
       set: { record: true, recording: true },
       text: {
-        en: "Turn on Record the session if you want to watch it later or attach it to a bug report.",
-        ru: "Включите Record the session, если хотите потом пересмотреть сессию или приложить её к баг-репорту.",
-        uk: "Увімкніть Record the session, якщо хочете потім переглянути сесію або додати її до баг-репорту.",
+        en: "Tick Record from start if you want to watch the session later or attach it to a bug report.",
+        ru: "Отметьте Record from start, если хотите потом пересмотреть сессию или приложить её к баг-репорту.",
+        uk: "Позначте Record from start, якщо хочете потім переглянути сесію або додати її до баг-репорту.",
       },
     },
     {

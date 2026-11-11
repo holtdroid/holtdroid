@@ -1,12 +1,23 @@
-import { ChevronDownIcon, ChevronLeftIcon, ChevronUpIcon, GlobeIcon, PackageIcon } from "lucide-react"
+import { ChevronDownIcon, ChevronUpIcon, GlobeIcon, PackageIcon } from "lucide-react"
 import { useState } from "react"
 import type { WebViewView } from "@/api/client"
 import { ChoiceCard, ChoiceGroup, Section } from "@/components/launch/choice-card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { newestStable, webviewKinds } from "@/lib/webview-kinds"
+import { formatBytes } from "@/lib/format"
+import { cn } from "@/lib/utils"
+import { kindBlurb, newestStable, visibleBuilds, webviewKinds } from "@/lib/webview-kinds"
 
 const COLLAPSED = 4
+
+const channelVariant: Record<string, "success" | "info" | "violet" | "warning"> = {
+  stable: "success",
+  beta: "info",
+  dev: "violet",
+  canary: "warning",
+}
+
+const day = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" })
 
 export function WebViewChoice({
   webviews: all,
@@ -22,120 +33,110 @@ export function WebViewChoice({
   onSelect: (id: string) => void
 }) {
   const [expanded, setExpanded] = useState(false)
-  const [picking, setPicking] = useState(false)
-  const [chosenKind, setChosenKind] = useState<string | null>(null)
   const kinds = webviewKinds(all, preferred)
-  const selectedKind = all.find((w) => w.id === selected)?.package
-  const kind = kinds.find((k) => k.package === selectedKind) ?? kinds.find((k) => k.package === chosenKind) ?? kinds[0]
+  const kind = kinds.find((k) => k.package === all.find((w) => w.id === selected)?.package)
+  const builds = kind?.builds ?? []
+  const shown = expanded ? builds : visibleBuilds(builds, selected, COLLAPSED)
+  const hidden = builds.length - shown.length
   const pickKind = (pkg: string) => {
-    setPicking(false)
     setExpanded(false)
-    setChosenKind(pkg)
-    if (pkg !== selectedKind) {
-      const build = newestStable(all.filter((w) => w.package === pkg))
-      if (build) onSelect(build.id)
-    }
+    if (pkg === kind?.package) return
+    const build = newestStable(all.filter((w) => w.package === pkg))
+    if (build) onSelect(build.id)
   }
-  const webviews = kind?.builds ?? all
-  const index = webviews.findIndex((w) => w.id === selected)
-  const pinned = webviews[index]
-  const collapsible = webviews.length - (COLLAPSED - 1) > COLLAPSED
-  const shown =
-    expanded || !collapsible
-      ? webviews
-      : pinned && index >= COLLAPSED - 1
-        ? [pinned, ...webviews.slice(0, COLLAPSED - 2)]
-        : webviews.slice(0, COLLAPSED - 1)
-  const hidden = webviews.length - shown.length
-  const hint =
-    "Chromium builds installed over the device's own WebView, or Google's WebView with proprietary codecs (H.264, AAC), before the app starts. Each adds a few seconds to the launch."
-  if (picking) {
-    return (
-      <Section title="WebView" hint={hint}>
-        <ChoiceGroup label="Kind of WebView" className="grid-cols-2">
-          {kinds.map((k) => (
-            <ChoiceCard
-              key={k.package}
-              selected={k.package === kind?.package}
-              onSelect={() => pickKind(k.package)}
-              className="gap-1.5 p-2.5"
-            >
-              <div className="flex items-center gap-2 pr-5">
-                <span className="bg-primary/10 text-primary grid size-7 shrink-0 place-items-center rounded-md">
-                  <GlobeIcon className="size-3.5" />
-                </span>
-                <span className="truncate text-sm font-medium">{k.label}</span>
-              </div>
-              <div className="text-muted-foreground text-xs">
-                {k.builds.length} {k.builds.length === 1 ? "version" : "versions"}
-              </div>
-            </ChoiceCard>
-          ))}
-        </ChoiceGroup>
-      </Section>
-    )
-  }
+
   return (
-    <Section title="WebView" hint={hint}>
-      {kinds.length > 1 && (
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="text-muted-foreground w-fit"
-            onClick={() => setPicking(true)}
-          >
-            <ChevronLeftIcon />
-            Kinds of WebView
-          </Button>
-          <span className="text-sm font-medium">{kind?.label}</span>
-        </div>
-      )}
-      <ChoiceGroup label="WebView" className="grid-cols-2 sm:grid-cols-4">
-        <ChoiceCard selected={selected === ""} onSelect={() => onSelect("")} className="gap-1.5 p-2.5">
-          <div className="flex items-center gap-2">
-            <span className="bg-muted text-muted-foreground grid size-7 shrink-0 place-items-center rounded-md">
+    <Section title="WebView" hint="Installed over the system one before the app starts">
+      <ChoiceGroup label="Kind of WebView" className="grid-cols-2 sm:grid-cols-3">
+        <ChoiceCard selected={selected === ""} onSelect={() => onSelect("")}>
+          <span className="flex items-center gap-2">
+            <span className="bg-muted text-muted-foreground grid size-[26px] shrink-0 place-items-center rounded-lg border">
               <PackageIcon className="size-3.5" />
             </span>
-            <span className="text-sm font-medium">Built-in</span>
-          </div>
-          <div className="text-muted-foreground text-xs">
-            {android ? `As shipped with Android ${android}` : "As shipped"}
-          </div>
+            <span className="font-medium">Built-in</span>
+          </span>
+          <span className="text-muted-foreground text-xs">
+            {android ? `As shipped with Android ${android}` : "As shipped with the device"}
+          </span>
         </ChoiceCard>
-        {shown.map((w) => (
-          <ChoiceCard key={w.id} selected={w.id === selected} onSelect={() => onSelect(w.id)} className="gap-1.5 p-2.5">
-            <div className="flex items-center gap-2 pr-5">
-              <span className="bg-primary/10 text-primary grid size-7 shrink-0 place-items-center rounded-md">
+        {kinds.map((k) => (
+          <ChoiceCard key={k.package} selected={k.package === kind?.package} onSelect={() => pickKind(k.package)}>
+            <span className="flex min-w-0 items-center gap-2 pr-5">
+              <span
+                className={cn(
+                  "grid size-[26px] shrink-0 place-items-center rounded-lg",
+                  k.package === "com.google.android.webview"
+                    ? "bg-success-soft text-success"
+                    : "bg-info-soft text-info",
+                )}
+              >
                 <GlobeIcon className="size-3.5" />
               </span>
-              <span className="truncate text-sm font-medium">{w.title}</span>
-            </div>
-            <div className="text-muted-foreground truncate font-mono text-xs">{w.version}</div>
-            {w.channels.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {w.channels.map((c) => (
-                  <Badge key={c} variant="secondary" className="px-1.5 py-0 text-[10px] capitalize">
-                    {c}
-                  </Badge>
-                ))}
-              </div>
-            )}
+              <span className="truncate font-medium">{k.label}</span>
+            </span>
+            <span className="text-muted-foreground text-xs">
+              {[kindBlurb(k.package), `${k.builds.length} ${k.builds.length === 1 ? "version" : "versions"}`]
+                .filter(Boolean)
+                .join(" · ")}
+            </span>
           </ChoiceCard>
         ))}
       </ChoiceGroup>
-      {collapsible && (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="text-muted-foreground w-fit"
-          onClick={() => setExpanded(!expanded)}
-        >
-          {expanded ? <ChevronUpIcon /> : <ChevronDownIcon />}
-          {expanded ? "Show fewer versions" : `Show ${hidden} older ${hidden === 1 ? "version" : "versions"}`}
-        </Button>
+      {kind && (
+        <div className="bg-muted flex flex-col rounded-xl border p-1">
+          <div role="radiogroup" aria-label={`${kind.label} version`} className="flex flex-col">
+            {shown.map((w) => {
+              const on = w.id === selected
+              return (
+                <button
+                  key={w.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  onClick={() => onSelect(w.id)}
+                  className={cn(
+                    "focus-visible:ring-ring/50 flex h-10 items-center gap-3 rounded-[9px] px-3 text-left outline-none focus-visible:ring-3",
+                    on ? "bg-card" : "hover:bg-card/60",
+                  )}
+                >
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "size-4 shrink-0 rounded-full border-[1.5px]",
+                      on ? "border-foreground border-[5px]" : "border-muted-foreground",
+                    )}
+                  />
+                  <span className="w-32 truncate font-mono text-[13px]">{w.version}</span>
+                  <span className="flex gap-1">
+                    {w.channels.map((c) => (
+                      <Badge key={c} variant={channelVariant[c] ?? "secondary"} className="capitalize">
+                        {c}
+                      </Badge>
+                    ))}
+                  </span>
+                  <span className="text-muted-foreground flex-1 text-xs">{day.format(new Date(w.released))}</span>
+                  {w.size > 0 && (
+                    <span className="text-muted-foreground hidden font-mono text-xs sm:inline">
+                      {formatBytes(w.size)}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+          {(hidden > 0 || expanded) && builds.length > COLLAPSED + 1 && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground mx-2 my-1 w-fit"
+              onClick={() => setExpanded(!expanded)}
+            >
+              {expanded ? <ChevronUpIcon /> : <ChevronDownIcon />}
+              {expanded ? "Fewer versions" : `${hidden} older ${hidden === 1 ? "version" : "versions"}`}
+            </Button>
+          )}
+        </div>
       )}
     </Section>
   )

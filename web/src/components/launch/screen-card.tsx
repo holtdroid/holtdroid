@@ -1,33 +1,35 @@
+import { StarIcon } from "lucide-react"
 import type { Display } from "@/api/client"
 import { ChoiceCard } from "@/components/launch/choice-card"
 import { PhonePreview } from "@/components/launch/phone-preview"
-
-export const screenName = (s: Display) =>
-  !s.brand || s.label.toLowerCase().startsWith(s.brand.toLowerCase()) ? s.label : `${s.brand} ${s.label}`
+import { screenFacts, screenName } from "@/lib/screens"
 
 export function ScreenCard({
   display: s,
   selected,
+  favorite,
   onSelect,
 }: {
   display: Display
   selected: boolean
+  favorite?: boolean
   onSelect: () => void
 }) {
-  const css = `${Math.round((s.width * 160) / s.dpi)}×${Math.round((s.height * 160) / s.dpi)} CSS px`
   return (
-    <ChoiceCard selected={selected} onSelect={onSelect} className="flex-row items-center gap-3">
-      <div className="grid w-14 shrink-0 place-items-center">
-        <PhonePreview display={s} />
-      </div>
-      <div className="min-w-0 pr-4">
-        <div className="text-sm font-medium">{screenName(s)}</div>
-        <div className="text-muted-foreground text-xs tabular-nums">
-          {s.width}×{s.height} · {s.dpi} dpi
-        </div>
-        <div className="text-muted-foreground text-xs tabular-nums">{css}</div>
-        {s.like && <div className="text-muted-foreground mt-0.5 line-clamp-2 text-xs">{s.like}</div>}
-      </div>
+    <ChoiceCard
+      selected={selected}
+      onSelect={onSelect}
+      title={`${screenName(s)}: ${screenFacts(s)}${s.like ? `, like ${s.like}` : ""}`}
+      className="items-center gap-2 px-2 pt-3.5 pb-3"
+    >
+      {favorite && (
+        <StarIcon aria-label="Favorite" className="fill-warning text-warning absolute top-2.5 left-2.5 size-3.5" />
+      )}
+      <PhonePreview display={s} className="text-muted-foreground h-16" />
+      <span className="w-full truncate text-center text-[13px] font-medium">{screenName(s)}</span>
+      <span className="text-muted-foreground font-mono text-[11px]">
+        {s.width}×{s.height}
+      </span>
     </ChoiceCard>
   )
 }

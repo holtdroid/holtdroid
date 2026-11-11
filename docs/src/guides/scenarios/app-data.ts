@@ -51,12 +51,12 @@ export default {
       },
     },
     {
-      target: "launch-continue",
-      set: { launchStage: "options" },
+      target: "data-fresh",
+      action: "look",
       text: {
-        en: "Continue, then scroll down to the App data section.",
-        ru: "Нажмите Continue и прокрутите вниз до раздела App data.",
-        uk: "Натисніть Continue і прокрутіть униз до розділу App data.",
+        en: "Scroll down to the App data section. Fresh install is picked unless you choose a save.",
+        ru: "Прокрутите вниз до раздела App data. Если не выбрать сохранение, приложение ставится с нуля (Fresh install).",
+        uk: "Прокрутіть униз до розділу App data. Якщо не обрати збереження, застосунок ставиться з нуля (Fresh install).",
       },
     },
     {

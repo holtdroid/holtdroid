@@ -107,8 +107,8 @@ function UploadForm({
             if (dropped) setFile(dropped)
           }}
           className={cn(
-            "hover:bg-accent/40 grid cursor-pointer place-items-center gap-1 rounded-xl border border-dashed p-6 text-center transition-colors",
-            dragging && "bg-accent/60 border-primary",
+            "hover:bg-muted grid cursor-pointer place-items-center gap-1 rounded-xl border border-dashed p-6 text-center transition-colors",
+            dragging && "bg-muted border-foreground",
           )}
         >
           <FileUpIcon className="text-muted-foreground size-6" />

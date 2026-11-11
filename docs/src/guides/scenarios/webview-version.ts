@@ -12,12 +12,12 @@ export default {
       },
     },
     {
-      target: "launch-continue",
-      set: { launchStage: "options" },
+      target: "provider-emulator",
+      action: "look",
       text: {
-        en: "WebView choices exist only for a virtual device. Keep Virtual device and press Continue.",
-        ru: "Выбор WebView есть только у виртуального устройства. Оставьте Virtual device и нажмите Continue.",
-        uk: "Вибір WebView є лише у віртуального пристрою. Залиште Virtual device і натисніть Continue.",
+        en: "WebView choices exist only for a virtual device. Keep Virtual device selected at the top of the dialog.",
+        ru: "Выбор WebView есть только у виртуального устройства. Оставьте выбранным Virtual device вверху окна.",
+        uk: "Вибір WebView є лише у віртуального пристрою. Залиште вибраним Virtual device угорі вікна.",
       },
     },
     {

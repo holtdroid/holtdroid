@@ -224,9 +224,12 @@ screen (with a speaker and camera) together with the display's rounded
 corners; the cutout fades to 30% under the pointer and passes clicks through
 to the device.
 
-In the launch dialog five screens show as cards and "More devices" opens a
-searchable list of all of them; a star marks a favorite (kept in your
-browser), and favorites come first in both places. Besides the generic
+In the launch dialog four screens show as cards, next to a live preview of
+the chosen one with its size in px and dp and its cutout, and **All devices**
+opens a picker of all of them with search, brand chips and filters for the
+cutout (notch, punch hole, none) and narrow screens (360 dp or less); a star
+marks a favorite (kept in your browser), and favorites come first in both
+places. Besides the generic
 screens below, the provider ships a catalog of about fifty
 real phones and tablets (Pixel, Galaxy A and S, Redmi, Poco, Moto, OnePlus,
 Realme, Fairphone and others), searchable in the launch dialog. Each has its

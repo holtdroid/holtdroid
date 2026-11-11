@@ -6,7 +6,6 @@ export const defaults: PortalState = {
   panel: "none",
   toast: "none",
 
-  launchStage: "provider",
   provider: "emulator",
   android: "16",
   screen: "pixel",

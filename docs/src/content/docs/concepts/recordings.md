@@ -51,10 +51,10 @@ What gets recorded is set by `recordings.mode`:
 - **`always`** (the default): every session is recorded from the moment it is
   ready, and a recording can't be stopped. There is no switch in the launch
   dialog and no Stop button.
-- **`auto`**: sessions are recorded unless you turn **Record the session** off
+- **`auto`**: sessions are recorded unless you untick **Record from start**
   in the launch dialog (the choice is remembered in the browser and used by
   the quick launch button). A recording can be stopped from the session page.
-- **`manual`**: sessions are recorded only when you switch it on at launch or
+- **`manual`**: sessions are recorded only when you tick **Record from start** at launch or
   start it from the session page.
 
 On the session page the **Recording** card is among the cards beside the
