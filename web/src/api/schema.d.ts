@@ -3410,12 +3410,14 @@ export interface components {
             key?: "back" | "home" | "recents" | "notifications" | "quick-settings" | "volume-up" | "volume-down" | "mute" | "screen-off" | "lock" | "unlock" | "rotate-left" | "rotate-right";
             metrics?: components["schemas"]["Metrics"];
             network?: components["schemas"]["Network"];
+            /** @description the display woke, went off, locked or unlocked, however it happened */
+            screen?: components["schemas"]["Screen"];
             status?: components["schemas"]["StatusEvent"];
             /** Format: int64 */
             t: number;
             touch?: components["schemas"]["RecordingTouch"];
             /** @enum {string} */
-            type: "info" | "status" | "metrics" | "device" | "network" | "touch" | "key" | "dns" | "connection";
+            type: "info" | "status" | "metrics" | "device" | "network" | "touch" | "key" | "dns" | "connection" | "screen";
         };
         RecordingEvents: {
             items: components["schemas"]["RecordingEvent"][];
@@ -3564,7 +3566,14 @@ export interface components {
             logcatLogUrl: string;
             /** @description the whole logcat as one text file */
             logcatUrl: string;
+            /**
+             * Format: int64
+             * @description how many markers are pinned on its timeline
+             */
+            markers: number;
             owner?: string;
+            /** @description the owner's name in the users sign-in mode */
+            ownerName?: string;
             package: string;
             provider?: string;
             reason?: string;
@@ -3775,6 +3784,12 @@ export interface components {
             id: string;
             provider: string;
             reverse: components["schemas"]["ReverseTunnel"][];
+        };
+        Screen: {
+            /** @description the keyguard is showing */
+            locked: boolean;
+            /** @description the display is awake; false while it is off or dozing */
+            on: boolean;
         };
         SessionMarker: {
             marker: components["schemas"]["RecordingMarker"];

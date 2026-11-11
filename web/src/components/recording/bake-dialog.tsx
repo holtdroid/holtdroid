@@ -143,12 +143,12 @@ export function BakeDialog({
             {segments.map((s) => (
               <span
                 key={s.file}
-                className="absolute inset-y-0 bg-zinc-400/30"
+                className="absolute inset-y-0 bg-border"
                 style={{ left: `${(s.start / duration) * 100}%`, width: `${(s.duration / duration) * 100}%` }}
               />
             ))}
             <span
-              className="absolute inset-y-0 left-0 bg-gradient-to-r from-emerald-600 to-emerald-400 transition-[width] duration-200"
+              className="absolute inset-y-0 left-0 bg-success transition-[width] duration-200"
               style={{ width: `${fraction * 100}%` }}
             />
           </div>
@@ -174,7 +174,7 @@ export function BakeDialog({
             )}
             {stage.kind === "done" && (
               <span className="text-muted-foreground inline-flex items-center gap-1">
-                <CheckIcon className="size-4 text-emerald-500" />
+                <CheckIcon className="size-4 text-success" />
                 {stage.file ? "" : "Saved to your file: "}
                 {formatBytes(stage.size)} in {formatDuration(stage.elapsed)}
               </span>

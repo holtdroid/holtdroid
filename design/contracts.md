@@ -518,9 +518,9 @@ keeping the provider in the path is what lets the api stay stateless.
 | `PUT` | `/api/v1/recordings/{id}/markers` | the owner; `{items: [{id?, t, label?, icon?}]}` replaces the recording's markers (at most 200, icons `pin,bug,flag,star,alert,check`) → `{items}` |
 | `GET` | `/api/v1/recordings/{id}/export` (and `/api/v1/shared/{token}/export`) | every file of the recording as one ZIP (`.holtdroid`, see "Recording archive" below), streamed from storage, entries stored; `RecordingView.exportUrl` |
 | `GET` | `/api/v1/recordings/{id}/logcat.log` (and `/api/v1/shared/{token}/logcat.log`) | the logcat with ANSI colours by level; `logcat.txt` is the same without them |
-| `GET` | `/api/v1/recordings` | the caller's recordings, newest first: `{enabled, mode (always\|auto\|manual), share, quota, used, maxAge, minDuration, items: [RecordingView]}`; a `RecordingView` has `{id, package, label?, versionName?, source, artifactId, provider?, session?, location?, webview?, state (pending\|recording\|done\|failed\|interrupted), reason?, createdAt, startedAt?, duration, size, filesUrl, iconUrl?, thumbnailUrl?, logcatUrl, keep, expiresAt?, share?: {token, url}}` |
+| `GET` | `/api/v1/recordings` | the caller's recordings, newest first: `{enabled, mode (always\|auto\|manual), share, quota, used, maxAge, minDuration, items: [RecordingView]}`; a `RecordingView` has `{id, owner?, ownerName? (users mode), package, label?, title?, versionName?, source, artifactId, provider?, session?, location?, webview?, state (pending\|recording\|done\|failed\|interrupted), reason?, createdAt, startedAt?, duration, size, filesUrl, iconUrl?, thumbnailUrl?, logcatUrl, keep, expiresAt?, share?: {token, url}, markers (how many)}` |
 | `GET` | `/api/v1/recordings/{id}` | `{recording, markers, manifest?, shared: false}`; the manifest is the agent's `RecordingManifest` |
-| `GET` | `/api/v1/recordings/{id}/events` | `{items: [RecordingEvent]}`: every event of the recording in order |
+| `GET` | `/api/v1/recordings/{id}/events` | `{items: [RecordingEvent]}`: every event of the recording in order; `type` is `info`, `status`, `metrics`, `device`, `network`, `touch`, `key`, `dns`, `connection` or `screen` (the display's `{on, locked}` on every change, as the agent's `GET /v1/screen` reports it) |
 | `GET` | `/api/v1/recordings/{id}/devtools` | `{items: [DevToolsEntry]}`: every DevTools line of the recording (pages, requests, console, WebSocket states and frames, `dropped` notes), in the order written; a request is one line written when it ended, with `start`, `response` and `end` times (decision #112) |
 | `GET` | `/api/v1/recordings/{id}/files/{file}` | a file the manifest lists, `icon.png` or `thumb.jpg`; `.gz` chunks are sent with `Content-Encoding: gzip` |
 | `GET` | `/api/v1/recordings/{id}/logcat.txt` | the whole logcat as one text attachment |
@@ -642,7 +642,7 @@ data descriptors) written by `GET …/export` and read by the web client with
 
 | Entry | What |
 |-------|------|
-| `holtdroid.json` | `{format: "holtdroid-recording", version: 1, exportedAt, recording: RecordingView, markers: [RecordingMarker]}`; the view has no URLs, owner, session, keep or share; readers refuse another `format` and a higher `version` |
+| `holtdroid.json` | `{format: "holtdroid-recording", version: 1, exportedAt, recording: RecordingView, markers: [RecordingMarker]}`; the view has no URLs, owner (or its name), session, keep or share; readers refuse another `format` and a higher `version` |
 | `manifest.json` | the agent's `RecordingManifest` as uploaded |
 | `init-N.mp4`, `seg-N.m4s` | the video, as listed in the manifest |
 | `ainit-N.mp4`, `aseg-N.m4s` | the sound (Opus, or AAC from Android 11, in fragmented MP4), as listed in the manifest's `audio`; older archives have none |

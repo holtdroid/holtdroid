@@ -72,11 +72,11 @@ export function RecordingHeader() {
       <div className="ml-auto flex gap-2">
         <Button data-g="rec-share" size="sm" variant="outline">
           <Link2Icon />
-          Share
+          Link at 02:01
         </Button>
         <Button data-g="rec-export" size="sm" variant="outline">
           <DownloadIcon />
-          Export video
+          Export
         </Button>
       </div>
     </div>

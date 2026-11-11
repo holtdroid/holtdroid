@@ -102,6 +102,8 @@ export function lastAt<T extends { t: number }>(items: T[], t: number): T | unde
 
 export type At<T> = { t: number; v: T }
 
+export type ScreenState = NonNullable<RecordingEvent["screen"]>
+
 export type Snapshot = {
   info?: RecordingInfo
   status?: StatusEvent
@@ -121,6 +123,7 @@ export class Telemetry {
   readonly metrics: At<Metrics>[] = []
   readonly dns: At<DNSEvent>[] = []
   readonly conns: At<Connection>[] = []
+  readonly screens: At<ScreenState>[] = []
 
   constructor(events: RecordingEvent[]) {
     this.touches = new TouchTrack(events)
@@ -132,6 +135,7 @@ export class Telemetry {
       if (e.metrics) this.metrics.push({ t: e.t, v: e.metrics })
       if (e.dns) this.dns.push({ t: e.t, v: e.dns })
       if (e.connection) this.conns.push({ t: e.t, v: e.connection })
+      if (e.screen) this.screens.push({ t: e.t, v: e.screen })
     }
   }
 

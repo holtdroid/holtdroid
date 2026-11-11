@@ -156,7 +156,7 @@ or an **Event stream**, the iframe or worker it came from, and for a media
 stream the moment it was marked and how many frames and bytes it moved.
 Each frame's time seeks the video there, and
 [markers](/concepts/recordings/#markers) show on the timeline.
-**Download → Network (.har)** saves the messages with the requests.
+**Export → Network (.har)** saves the messages with the requests.
 
 ## Limits
 

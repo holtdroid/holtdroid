@@ -189,11 +189,12 @@ func (r *recordingStore) state(ctx context.Context, ref recordingRef) (*recordin
 }
 
 type recordingEntry struct {
-	ref   recordingRef
-	meta  recordingMeta
-	state *recordingState
-	keep  bool
-	share string
+	ref     recordingRef
+	meta    recordingMeta
+	state   *recordingState
+	keep    bool
+	share   string
+	markers int
 }
 
 // list reads every recording of user; with user empty, only the keys.
@@ -232,6 +233,8 @@ func (r *recordingStore) list(ctx context.Context, user string) ([]*recordingEnt
 			e.share = "?"
 		case "state.json":
 			e.state = &recordingState{}
+		case "markers.json":
+			e.markers = -1
 		}
 	}
 	if user == "" {
@@ -256,6 +259,9 @@ func (r *recordingStore) list(ctx context.Context, user string) ([]*recordingEnt
 			}
 			if e.share != "" {
 				e.share = r.readShare(gctx, e.ref)
+			}
+			if e.markers != 0 {
+				e.markers = len(r.markers(gctx, e.ref))
 			}
 			return nil
 		})
@@ -649,6 +655,7 @@ type RecordingShare struct {
 type RecordingView struct {
 	ID           string            `json:"id"`
 	Owner        string            `json:"owner,omitempty"`
+	OwnerName    string            `json:"ownerName,omitempty" doc:"the owner's name in the users sign-in mode"`
 	Package      string            `json:"package"`
 	Label        string            `json:"label,omitempty"`
 	Title        string            `json:"title,omitempty" doc:"the name the owner gave the recording, shown instead of the app's"`
@@ -676,6 +683,7 @@ type RecordingView struct {
 	Keep         bool              `json:"keep" doc:"kept past the retention period"`
 	ExpiresAt    *time.Time        `json:"expiresAt,omitempty"`
 	Share        *RecordingShare   `json:"share,omitempty"`
+	Markers      int               `json:"markers" doc:"how many markers are pinned on its timeline"`
 }
 
 type RecordingList struct {
@@ -700,10 +708,14 @@ func (s *Server) recordingView(ctx context.Context, e *recordingEntry, base stri
 	m := e.meta
 	srcName, key, rev := splitRef(m.ArtifactRef)
 	v := RecordingView{
-		ID: m.ID, Package: m.Package, Label: m.Label, Title: m.Title, VersionName: m.VersionName, VersionCode: m.VersionCode,
+		ID: m.ID, Owner: m.Owner, Package: m.Package, Label: m.Label, Title: m.Title, VersionName: m.VersionName, VersionCode: m.VersionCode,
 		Source: srcName, ArtifactID: encodeID(key), Provider: m.Provider, Session: m.Session,
 		Location: m.Location, WebView: m.WebView, Screen: m.Screen, State: s.recordingStatus(e), CreatedAt: m.CreatedAt,
 		FilesURL: base + "files/", LogcatURL: base + "logcat.txt", LogcatLogURL: base + "logcat.log", ExportURL: base + "export", Keep: e.keep,
+		Markers: e.markers,
+	}
+	if s.users != nil && m.Owner != "" {
+		v.OwnerName = s.users.Name(ctx, m.Owner)
 	}
 	if e, ok := s.cache.Lookup(ctx, srcName, key, rev); ok && v.Label == "" {
 		v.Label = e.Meta.Label
@@ -745,6 +757,7 @@ func (s *Server) recordingEntry(ctx context.Context, ref recordingRef) (*recordi
 	}
 	e.keep = s.recordings.exists(ctx, s.recordings.metaKey(ref, ".keep"))
 	e.share = s.recordings.readShare(ctx, ref)
+	e.markers = len(s.recordings.markers(ctx, ref))
 	return e, nil
 }
 
@@ -778,7 +791,6 @@ func (s *Server) recordingDetail(ctx context.Context, e *recordingEntry, base st
 	d := RecordingDetail{Recording: s.recordingView(ctx, e, base), Markers: s.recordings.markers(ctx, e.ref), Shared: shared}
 	if shared {
 		d.Recording.Share, d.Recording.Provider, d.Recording.Session = nil, "", ""
-		d.Recording.Owner = e.meta.Owner
 	}
 	if mf, err := readJSON[contract.RecordingManifest](ctx, s.recordings.store, s.recordings.fileKey(e.ref, "manifest.json")); err == nil {
 		if mf.DevTools == nil {

@@ -14,10 +14,12 @@ export function RecordingState({ state, className }: { state: RecordingView["sta
   if (state === "done") return null
   return (
     <Badge
-      variant={state === "failed" || state === "interrupted" ? "destructive" : "secondary"}
+      variant={
+        state === "recording" || state === "failed" ? "destructive" : state === "interrupted" ? "warning" : "secondary"
+      }
       className={cn("gap-1.5", className)}
     >
-      {state === "recording" && <span className="size-2 animate-pulse rounded-full bg-red-500" />}
+      {state === "recording" && <span className="size-1.5 animate-pulse rounded-full bg-current" />}
       {labels[state]}
     </Badge>
   )

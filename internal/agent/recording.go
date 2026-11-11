@@ -126,6 +126,12 @@ func (a *Agent) record(ev contract.RecordingEvent) {
 func (a *Agent) feedRecording(ctx context.Context, rec *recording.Recorder, thumb *thumbPicker) {
 	go a.recordLogcat(ctx, rec)
 	go func() {
+		_ = a.display.Watch(ctx, func(s contract.Screen) error {
+			rec.Event(contract.RecordingEvent{Type: contract.EventScreen, Screen: &s})
+			return nil
+		})
+	}()
+	go func() {
 		select {
 		case <-ctx.Done():
 		case <-time.After(thumbnailAt):

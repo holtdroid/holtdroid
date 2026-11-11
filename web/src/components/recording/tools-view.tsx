@@ -1,14 +1,3 @@
-import {
-  CableIcon,
-  DatabaseZapIcon,
-  GlobeIcon,
-  type LucideIcon,
-  RouteIcon,
-  SignpostIcon,
-  SquareTerminalIcon,
-  TerminalIcon,
-  FrameIcon,
-} from "lucide-react"
 import { useMemo } from "react"
 import type { Connection, DNSEvent, Network } from "@/api/client"
 import { CacheView } from "@/components/recording/cache-view"
@@ -16,9 +5,11 @@ import { DNSView } from "@/components/recording/dns-view"
 import { RoutesView } from "@/components/recording/routes-view"
 import { ClocksContext, type Clocks, PlayheadContext } from "@/components/recording/json-view"
 import { ConsoleView, NetworkView, SocketsView } from "@/components/recording/devtools-view"
+import { IssuesView } from "@/components/recording/issues-view"
 import { LogcatView } from "@/components/recording/logcat-view"
 import { analyzeCache } from "@/lib/recording/cache"
 import { type DevToolsLog, requestPhase } from "@/lib/recording/devtools"
+import type { Issue } from "@/lib/recording/lanes"
 import { type PlayerView, type ToolTab, toolTabs } from "@/lib/recording/link"
 import type { At } from "@/lib/recording/timeline"
 import type { Player } from "@/lib/recording/player"
@@ -37,12 +28,12 @@ export function savedTab(): ToolTab {
     const v = localStorage.getItem(storageKey)
     if (v && (toolTabs as string[]).includes(v)) return v as ToolTab
   } catch {
-    return "logcat"
+    return "findings"
   }
-  return "logcat"
+  return "findings"
 }
 
-/** The left column of the player: logcat and the WebViews' network, console, WebSockets and caching. */
+/** The right column of the player: findings, logcat and the WebViews' network, console, WebSockets and caching. */
 export function RecordingTools({
   player,
   time,
@@ -55,6 +46,7 @@ export function RecordingTools({
   view,
   onView,
   pixel,
+  issues,
 }: {
   player: Player
   time: number
@@ -68,8 +60,9 @@ export function RecordingTools({
   onView: (patch: PlayerView) => void
   /** Pixel perfect over the recording, when the viewer has references. */
   pixel?: { pp: PixelPerfect; target: PixelTarget }
+  issues: Issue[]
 }) {
-  const tab = view.tab === "pixel-perfect" && !pixel ? "logcat" : (view.tab ?? "logcat")
+  const tab = view.tab === "pixel-perfect" && !pixel ? "findings" : (view.tab ?? "findings")
   const pick = (t: Tab) => {
     onView({ tab: t })
     try {
@@ -87,17 +80,23 @@ export function RecordingTools({
   const errors = messages.filter((c) => c.level === "error").length
   const count = requests.length
   const cache = useMemo(() => analyzeCache(log.requests.slice(0, count)), [log, count])
-  const tabs: { id: Tab; label: string; icon: LucideIcon; count?: number; alert?: number }[] = [
-    { id: "logcat", label: "Logcat", icon: SquareTerminalIcon },
-    { id: "network", label: "Network", icon: GlobeIcon, count: requests.length, alert: failed },
-    { id: "console", label: "Console", icon: TerminalIcon, count: messages.length, alert: errors },
-    { id: "sockets", label: "WebSockets", icon: CableIcon, count: log.socketsUntil(time).length },
+  const found = issues.filter((i) => i.t <= time)
+  const tabs: { id: Tab; label: string; count?: number; alert?: number }[] = [
+    {
+      id: "findings",
+      label: "Findings",
+      count: found.length,
+      alert: found.filter((i) => i.level === "error").length,
+    },
+    { id: "logcat", label: "Logcat" },
+    { id: "network", label: "Network", count: requests.length, alert: failed },
+    { id: "console", label: "Console", count: messages.length, alert: errors },
+    { id: "sockets", label: "WebSockets", count: log.socketsUntil(time).length },
   ]
   if (log.requests.length > 0) {
     tabs.push({
       id: "cache",
       label: "Cache",
-      icon: DatabaseZapIcon,
       count: cache.findings.length,
       alert: cache.summary.errors + cache.summary.warnings,
     })
@@ -107,25 +106,23 @@ export function RecordingTools({
     tabs.push({
       id: "dns",
       label: "DNS",
-      icon: SignpostIcon,
       count: queries.length,
       alert: queries.filter((e) => e.v.query?.result === "failed").length,
     })
   }
-  if (pixel) tabs.push({ id: "pixel-perfect", label: "Pixel perfect", icon: FrameIcon })
+  if (pixel) tabs.push({ id: "pixel-perfect", label: "Pixel perfect" })
   if (conns.length > 0) {
     tabs.push({
       id: "routes",
       label: "Routes",
-      icon: RouteIcon,
       count: new Set(conns.filter((c) => c.t <= time).map((c) => c.v.host || c.v.address || c.v.id)).size,
     })
   }
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border bg-background text-foreground">
+    <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border bg-card text-foreground">
       <nav
-        className="mb-2 flex h-9 shrink-0 gap-1 overflow-x-auto overflow-y-hidden border-b px-2 [scrollbar-width:none]"
+        className="flex h-[42px] shrink-0 gap-[18px] overflow-x-auto overflow-y-hidden border-b px-4 [scrollbar-width:none]"
         aria-label="Recording tools"
       >
         {tabs.map((t) => (
@@ -135,19 +132,18 @@ export function RecordingTools({
             aria-pressed={tab === t.id}
             onClick={() => pick(t.id)}
             className={cn(
-              "inline-flex h-full shrink-0 items-center gap-1.5 border-b-2 px-2.5 text-sm transition-colors [&_svg]:size-3.5",
+              "inline-flex h-full shrink-0 items-center gap-1.5 text-sm font-medium transition-colors",
               tab === t.id
-                ? "border-foreground font-medium text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground",
+                ? "text-foreground shadow-[inset_0_-2px_0_var(--foreground)]"
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
-            <t.icon />
             {t.label}
             {t.count ? (
               <span
                 className={cn(
-                  "min-w-5 rounded-full px-1.5 text-center text-[11px] leading-[18px] tabular-nums",
-                  t.alert ? "bg-danger text-danger-foreground" : "bg-muted text-muted-foreground",
+                  "inline-grid h-[18px] min-w-[18px] place-items-center rounded-full border px-[5px] text-[11px] font-normal tabular-nums",
+                  t.alert ? "border-transparent bg-danger-soft text-danger" : "text-muted-foreground",
                 )}
                 title={
                   t.alert
@@ -164,6 +160,7 @@ export function RecordingTools({
       <ClocksContext value={clocks}>
         <PlayheadContext value={time}>
           <div className="flex min-h-0 flex-1 flex-col">
+            {tab === "findings" && <IssuesView issues={issues} log={log} time={time} onSeek={seek} onView={onView} />}
             {tab === "logcat" && <LogcatView player={player} time={time} />}
             {pixel && tab === "pixel-perfect" && <PixelPerfectPanel pp={pixel.pp} target={pixel.target} active />}
             {tab === "network" && (
