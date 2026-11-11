@@ -22,7 +22,7 @@ on a real Android, without deploying anything.
    as usual, for example Vite on port 5173.
 3. The port shows up on the Computers page. <Hint to="port-5173" step={3}>Click it</Hint> to publish it on your
    devices; in the default **Dev servers** mode the client publishes servers like `node`, `bun` or `vite` by itself.
-4. On the session page, the <Hint to="w-ssh" step={6}>SSH card</Hint> lists the <Hint to="ssh-port-5173" step={7}>published ports</Hint>.
+4. On the session page, the <Hint to="w-ssh" step={6}>SSH row</Hint> (App tab of the Device panel) lists the <Hint to="ssh-port-5173" step={7}>published ports</Hint>.
 5. On the phone, open <Hint to="phone" step={8}>`http://localhost:5173`</Hint>: the page comes from your laptop.
 
 ## Good to know
@@ -40,7 +40,7 @@ on a real Android, without deploying anything.
 
 - **The port isn't on the Computers page**: make sure the client is running and the server listens on
   `localhost`, not only on another address.
-- **Red port in the SSH card**: nothing answers on that port on your computer. Start the server, or check the
+- **Red port in the SSH row**: nothing answers on that port on your computer. Start the server, or check the
   number.
 - **The page loads but API calls fail**: the app still calls the API by its normal address. Point it at
   `localhost` too, or publish the API's port as well.

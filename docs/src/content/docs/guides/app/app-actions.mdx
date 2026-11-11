@@ -1,6 +1,6 @@
 ---
 title: Deep links, permissions and a clean slate
-description: Open a deep link, grant or revoke a permission, force-stop the app or wipe its data from the App card.
+description: Open a deep link, grant or revoke a permission, force-stop the app or wipe its data from the App row.
 sidebar:
   order: 2
 tableOfContents: false
@@ -16,7 +16,7 @@ and onboarding should run again after a reset. Each of these is one click here, 
 
 ## What happens
 
-Hover the <Hint to="w-app" step={1}>App card</Hint> next to the phone: it opens the app's actions.
+Open the <Hint to="w-app" step={1}>App row</Hint> on the App tab of the Device panel: it holds the app's actions.
 
 1. **Deep link.** A deep link is an address that opens a specific screen inside the app, like
    `myapp://checkout?id=42` or an `https://` link the app claims. Type it into the <Hint to="deeplink" step={2}>Deep link</Hint>
@@ -32,7 +32,7 @@ Hover the <Hint to="w-app" step={1}>App card</Hint> next to the phone: it opens 
 - Clear data can't be undone. If you want to come back to the current state, press **Save app data** first (see
   [Keep sign-in between sessions](/guides/app/app-data/)).
 - **Restart app** and **Save app data** work without ADB; deep links, permissions, force stop and clear data
-  need the device's ADB, which the page opens in the background. That's why the card may say
+  need the device's ADB, which the page opens in the background. That's why the row may say
   “Connecting to ADB” for a moment.
 
 ## If it doesn't work

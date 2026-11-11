@@ -402,12 +402,16 @@ The media volume comes from `cmd media_session volume --stream 3 --get`
 and the `Muted` flag of `STREAM_MUSIC` in `dumpsys audio`; muting sets the
 lowest step, which Android treats as muted, and the agent remembers the
 step to bring back (a third of the range when it doesn't know one).
-The canvas sits in a drawn phone body
-(`device-screen.tsx`, sized with container query units from the video's
-aspect ratio, corners from the display's radius) whose side keys
-(`phone-buttons.tsx`) are the volume rocker, with the volume and Android's mute on
-hover, and the power key, with the lock modes and wake-and-unlock on hover;
-the split's auto-fit adds the frame's inset.
+The canvas sits in a frame (`device-screen.tsx`, sized with container query
+units from the video's aspect ratio, corners from the display's radius) with
+the stage toolbar beside it (`stage-toolbar.tsx`): Back, Home, Recent apps,
+the shades, Rotate, Screenshot, the keyboard mode, Volume (the volume keys,
+the media volume and Android's mute), Power (the lock modes and
+wake-and-unlock) and Restart app. Rotate, Volume and Power open their panel
+on hover, a right-click, a long press or the context-menu key (Volume on a
+click too), and focus moves into a panel opened that way; the toolbar
+scrolls when it is taller than the stage. The split's auto-fit adds the
+frame's and the toolbar's inset.
 Vibrations come from `/v1/vibrations`: the agent polls `dumpsys
 vibrator_manager` every second while someone listens and reports entries
 that are new in its current vibration or recent history; the page shows a

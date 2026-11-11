@@ -72,7 +72,7 @@ commands with `adb.shell`.
 
 On emulators the same `redroid.shell` policy applies to the browser and the
 `holtdroid` client: `allowlist` (the default) runs only the commands behind
-the Logcat tab and the app and device cards, plus file transfer, so Files
+the Logcat tab and the App and Device rows, plus file transfer, so Files
 browses, downloads and uploads, without its Delete and New folder buttons;
 `full` runs anything and shows the Terminal tab and those buttons; `off` refuses every shell command. See
 [Emulator provider](/configuration/emulator/#users-adb-inside-android).

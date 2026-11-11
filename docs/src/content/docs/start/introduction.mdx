@@ -86,103 +86,102 @@ stays open.
    starts as soon as one frees up.
 3. The APK is installed as-is and started with WebView debugging enabled at
    runtime.
-4. The session page shows the device screen on the left and Chrome DevTools on
-   the right, with a picker for the inspected target (any WebView page,
-   iframe or worker in any process). The page's header shows the app: click its name and icon to switch to another build; the time
-   left, **Extend** and **Stop** sit on its right. Restarting, reinstalling
-   and saving the app's data are in the app card next to the phone. By default the screen's side follows the screen: it
-   grows or shrinks until the screen fills its height or the side reaches
-   70% of the page. A landscape screen splits the page top and bottom
-   instead, the screen above the tools. Dragging the divider sizes
-   it by hand; the button on the divider turns following back on.
+4. The session page has a header, the **Device** panel on the left, the
+   device's screen in the middle and the tools on the right: Chrome DevTools
+   with a picker for the inspected target (any WebView page, iframe or
+   worker in any process), Logcat, DNS, Routes, Files and Terminal, with
+   WebSockets, Cache and Pixel perfect under **More**. The header shows the
+   app and its build (click the name to switch to another build) with the
+   device, Android, WebView and VPN location under it; the time left,
+   **Extend** and **Stop** sit on its right. By default the screen's side
+   follows the screen: it grows or shrinks until the screen fills its height
+   or the side reaches 70% of the page. A landscape screen splits the page
+   top and bottom instead, the screen above the tools. Dragging the divider
+   sizes it by hand; the button on the divider turns following back on.
 
-   The screen sits in a phone body with keys on its right edge, like a
-   real phone: the volume rocker turns the volume up (upper half, marked +)
-   or down (lower half, −), and the power key locks the device or turns its
-   screen off, as the icon next to it shows.
-   Hovering the rocker shows the device's media volume with a slider and a
-   tile that mutes Android itself; the rocker turns amber while the device is
-   muted. Hovering the power key offers **Wake and unlock**, locking and
-   turning the screen off right away, and picks what a click on the key
-   does. The device cards sit in a column on the left of the screen panel,
-   which scrolls (fading at the edge that has more) when they don't fit,
-   and the phone takes the rest; only one
-   card's panel shows at a time. The volume and power keys move with the
-   device's rotation, to the top or bottom edge in landscape. The network card shows the VPN
-   location, the external IP and the network conditions; hovering it opens
-   a panel styled like Android's quick settings shade with Wi-Fi, mobile
-   data and airplane mode tiles, the VPN locations and a link to the
-   **Network** tab next to DevTools. On emulators with VPN locations that tab
-   holds the emulated network conditions: slow or lossy networks and
-   scenarios such as a subway ride, each with its description, and regions
-   such as Bangladesh that add the round trips to CDN edges and to your
-   servers there. The **DNS** tab beside it lists every name the device
-   looks up and rewrites names to your own addresses, with a TTL limit and
-   saved sets of rewrites (see [DNS log and rewrites](/session-tools/dns/)),
-   and **Routes** shows where every connection goes: each server's country
-   and network, the location it left through, and far servers or
-   connections that aren't reused (see [Routes](/session-tools/routes/)). A
-   small handle above the phone slides out a bar with the notifications,
-   quick settings and a screenshot on hover, and one on the phone's bottom
-   edge slides out Android's back, home and recent apps buttons; in
-   landscape the navigation bar moves to the side, as on a phone. A curved handle on the phone's top-right corner slides out
-   rotate left and right buttons; rotation is in the display card too. Under the network card, the stream card picks the video codec
-   (H.264, the lightest for the server, by default; H.265 or AV1 where the
-   browser decodes them), quality (the device's own up to 1080p, then 720p,
-   480p and 360p; a sharper screen is streamed at 1080p), frame rate (45 fps
-   by default, up to the device's own and never above 60) and bitrate, switches the device audio
-   (it plays in your browser by default, from your first click on the page
-   unless the browser allows autoplay for the portal; until then the card
-   says "Click anywhere for sound"), shows the frames, bitrate
-   and dropped frames the browser decodes right now, and switches the keyboard between text input
-   and a virtual USB keyboard that types in any alphabet with the layout set
-   on the device. The codec, the bitrate and a frame rate below 45 fps are
-   remembered in the browser; quality and faster frame rates last for one
-   session.
-   The clipboard card turns sync on or off with a click (both ways by
-   default; hover to pick one direction) and keeps the last 10 synced
-   texts, shown with · for spaces and ↵ for line breaks, each with buttons
-   to copy it or save it as a text file. The date and time card shows the
-   device's clock and is marked while the clock is shifted, not in real time
-   or in a time zone picked by hand; hovering it opens real-time sync,
-   shifting the clock back or forward by any amount, an exact moment entered
-   in your own time zone (it unfolds in place), and the time zone, which
-   follows the VPN location unless you pick another one for the session. The
-   battery card shows the charge (65% and on battery at start) and opens
-   battery saver, charging and the charge level with presets. The display
-   card shows the brightness, the theme and the font size; hovering it
-   opens a brightness slider and adaptive brightness (for this session
-   only; the stream itself doesn't get darker, the device and its apps see
-   the setting), the dark theme (light, dark or matching the portal's
-   theme, which a device launched in that mode already has when the app
-   first opens), Android's system navigation on emulators (gestures by default,
-   or the back, home and recent apps buttons), the font size with a preview
-   and the display size, Android's
-   setting that scales buttons, icons and text by changing the density (the
-   screen picked at launch keeps its resolution). The
-   language card picks the system language and the keyboard layouts from a
-   grid of flags: a click on a layout adds or removes it (up to 7, remembered
-   in your browser and guessed from your keyboard where the browser allows).
-   When SSH is on, the SSH card says whether a computer is connected to
-   this device; hovering it lists the ADB clients and the ports your
-   computers publish on the device, the `adb` command for this device on
-   each connected computer, or the command that connects a computer.
-   A panel opened by hovering stays open once you click inside it, until you
-   click elsewhere or press Esc. When the device vibrates, the page
-   shows a notification and plays a buzz. The screenshot button is with the
-   notifications and quick settings above the phone; recording has its own
-   card ([recordings](/concepts/recordings/)).
+   The screen sits in a frame with a toolbar beside it (under it in
+   landscape): Back, Home, Recent apps, the notifications and quick
+   settings, Rotate (click turns left, shift-click right), Screenshot, the
+   keyboard mode, Volume (the volume keys, the media volume slider and a
+   tile that mutes Android itself), Power (locks the device or turns its
+   screen off, with **Wake and unlock** and the key's mode in its panel) and
+   **Restart app**. Rotate, Volume and Power open their panel on hover, on a
+   right-click, a long press or the context-menu key; a panel stays open
+   once you click inside it, until you click elsewhere or press Esc. When
+   the device vibrates, the page shows a notification and plays a buzz.
 
-   On devices that can fake it, the **GPS location** card follows the VPN
+   The Device panel holds the device's controls as rows in three tabs:
+   **Environment** (Network, Location, Battery, Language, Time, Clipboard,
+   Display), **Media** (Stream, Microphone, Camera, Recording) and **App**
+   (App, Device, SSH). Each row shows a summary and its chevron opens it in
+   place; the search button filters the rows of all tabs by name. A row
+   whose settings differ from the defaults is marked **Changed**, its tab
+   gets a dot, and the open row has a reset button.
+
+   The Network row shows the VPN location, the external IP and the network
+   conditions, with Wi-Fi, mobile data and airplane mode tiles, the VPN
+   locations and a link to the network picker. On emulators with VPN
+   locations the picker holds the emulated network conditions: slow or
+   lossy networks and scenarios such as a subway ride, each with its
+   description, and regions such as Bangladesh that add the round trips to
+   CDN edges and to your servers there. The **DNS** tab lists every name the
+   device looks up and rewrites names to your own addresses, with a TTL
+   limit and saved sets of rewrites (see
+   [DNS log and rewrites](/session-tools/dns/)), and **Routes** shows where
+   every connection goes: each server's country and network, the location
+   it left through, and far servers or connections that aren't reused (see
+   [Routes](/session-tools/routes/)).
+
+   The Stream row picks the video codec (H.264, the lightest for the server,
+   by default; H.265 or AV1 where the browser decodes them), quality (the
+   device's own up to 1080p, then 720p, 480p and 360p; a sharper screen is
+   streamed at 1080p), frame rate (45 fps by default, up to the device's own
+   and never above 60) and bitrate, switches the device audio (it plays in
+   your browser by default, from your first click on the page unless the
+   browser allows autoplay for the portal; until then the row says "Click
+   anywhere for sound" and the Media tab gets a dot), shows the frames,
+   bitrate and dropped frames the browser decodes right now, and switches
+   the keyboard between text input and a virtual USB keyboard that types in
+   any alphabet with the layout set on the device. The codec, the bitrate
+   and a frame rate below 45 fps are remembered in the browser; quality and
+   faster frame rates last for one session.
+
+   The Clipboard row turns sync on or off with a click (both ways by
+   default, or one direction) and keeps the last 10 synced texts, shown with
+   · for spaces and ↵ for line breaks, each with buttons to copy it or save
+   it as a text file. The Time row shows the device's clock and is marked
+   while the clock is shifted, not in real time or in a time zone picked by
+   hand; it has real-time sync, shifting the clock back or forward by any
+   amount, an exact moment entered in your own time zone, and the time zone,
+   which follows the VPN location unless you pick another one for the
+   session. The Battery row shows the charge (65% and on battery at start)
+   and has battery saver, charging and the charge level with presets. The
+   Display row has a brightness slider and adaptive brightness (for this
+   session only; the stream itself doesn't get darker, the device and its
+   apps see the setting), the dark theme (light, dark or matching the
+   portal's theme, which a device launched in that mode already has when the
+   app first opens), Android's system navigation on emulators (gestures by
+   default, or the back, home and recent apps buttons), the font size with a
+   preview and the display size, Android's setting that scales buttons,
+   icons and text by changing the density (the screen picked at launch keeps
+   its resolution); rotation is there too. The Language row picks the system
+   language and the keyboard layouts from a grid of flags: a click on a
+   layout adds or removes it (up to 7, remembered in your browser and
+   guessed from your keyboard where the browser allows). When SSH is on, the
+   SSH row says whether a computer is connected to this device and lists the
+   ADB clients and the ports your computers publish on the device, the `adb`
+   command for this device on each connected computer, or the command that
+   connects a computer. The App row restarts and reinstalls the app and
+   saves its data; recording has its own row
+   ([recordings](/concepts/recordings/)).
+
+   On devices that can fake it, the **Location** row follows the VPN
    location until you tap the map, drag the dot, paste coordinates or use the
    locate button on the map for your own position. Under the map, **Route**
    walks, runs or drives the device through stops you tap on the map, along
    roads (or in straight lines) and optionally in a loop, speeding up, slowing for turns and
    drifting around the chosen pace; it keeps going until you stop it, even
    with the tab closed. Apps see the position move but no speed or bearing.
-
-   An amber dot marks a card whose settings differ from the defaults, and
-   its panel has a reset button.
 
 5. Walk away. After the idle timeout (30 minutes by default) the device is
    deleted and the slot frees up. The home page shows every active session,
