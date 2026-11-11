@@ -14,18 +14,18 @@ const lang = locale === "ru" || locale === "uk" ? locale : "en"
 const translated = /^(?:(?:uk|ru)\/)?guides\//.test(id)
 
 const strings = {
-  en: { tabs: ["Docs", "Guides"], filter: "Filter pages", close: "Close", theme: "Switch theme", topics: "Sections" },
+  en: { tabs: ["Docs", "Guides"], filter: "Filter pages", home: "Home", theme: "Switch theme", topics: "Sections" },
   ru: {
     tabs: ["Документация", "Гайды"],
     filter: "Фильтр страниц",
-    close: "Закрыть",
+    home: "Главная",
     theme: "Сменить тему",
     topics: "Разделы",
   },
   uk: {
     tabs: ["Документація", "Посібники"],
     filter: "Фільтр сторінок",
-    close: "Закрити",
+    home: "Головна",
     theme: "Змінити тему",
     topics: "Розділи",
   },
@@ -51,16 +51,9 @@ const tabIcons = ["book", "guide"] as const
       ))
     }
   </nav>
-  <button
-    class="hd-btn hd-sheet-close md:sl-hidden"
-    type="button"
-    popovertarget="starlight__sidebar"
-    popovertargetaction="hide"
-    aria-label={strings.close}
-    data-hd-sheet-close
-  >
-    <DockIcon name="close" />
-  </button>
+  <a class="hd-btn hd-sheet-home md:sl-hidden" href={localized("/")} aria-label={strings.home}>
+    <DockIcon name="home" />
+  </a>
 </div>
 
 <label class="hd-filter">
@@ -115,9 +108,4 @@ const tabIcons = ["book", "guide"] as const
 
   input?.addEventListener("input", () => filter(input.value))
 
-  document.querySelector("[data-hd-sheet-close]")?.addEventListener("click", (e) => {
-    e.preventDefault()
-    const sheet = document.getElementById("starlight__sidebar")
-    if (sheet?.matches(":popover-open")) sheet.hidePopover()
-  })
 </script>
