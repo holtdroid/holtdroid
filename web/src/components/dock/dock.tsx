@@ -68,7 +68,7 @@ export function Dock({ onSearch, onLaunch }: { onSearch: () => void; onLaunch: (
     <div className="pointer-events-none fixed inset-x-0 bottom-3 z-40 flex justify-center px-3">
       <nav
         aria-label="Main"
-        className="bg-card shadow-float pointer-events-auto flex max-w-full items-center gap-1 rounded-[18px] border p-1.5"
+        className="bg-card/85 shadow-float pointer-events-auto backdrop-blur-xl backdrop-saturate-150 flex max-w-full items-center gap-1 rounded-[18px] border p-1.5"
       >
         <Tooltip>
           <TooltipTrigger asChild>

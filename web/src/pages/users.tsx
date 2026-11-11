@@ -58,7 +58,7 @@ export function UsersPage() {
   const pending = list.data?.items.filter((u) => u.role === "").length ?? 0
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="h-full overflow-y-auto pb-(--dock-space)">
       <Tabs defaultValue="users" className="mx-auto grid max-w-5xl content-start gap-5 p-4 lg:px-8 lg:py-7">
         <PageHeader
           title="Users"

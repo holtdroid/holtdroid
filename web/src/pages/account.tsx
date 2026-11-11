@@ -42,7 +42,7 @@ export function AccountPage() {
   const user = data?.user
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="h-full overflow-y-auto pb-(--dock-space)">
       <div className="mx-auto grid max-w-3xl content-start gap-6 p-4 lg:px-8 lg:py-7">
         <PageHeader title="Account" description="Your profile, the passkeys you sign in with and your Figma token." />
         {account.isError && (

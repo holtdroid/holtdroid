@@ -43,7 +43,7 @@ export function RecordingsPage() {
   const items = rules?.items ?? []
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="h-full overflow-y-auto pb-(--dock-space)">
       <div className="mx-auto grid max-w-7xl gap-6 px-4 py-5 lg:grid-cols-[minmax(0,1fr)_340px] lg:px-6">
         <div className="grid content-start gap-4">
           <PageHeader

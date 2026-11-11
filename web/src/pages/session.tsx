@@ -94,7 +94,7 @@ export function SessionPage({ provider, id }: { provider: string; id: string }) 
   const appRunning = status?.appRunning ?? true
 
   return (
-    <div className="flex h-full flex-col gap-4 px-4 pt-5 sm:px-6">
+    <div className="flex h-full flex-col gap-4 px-4 pt-5 pb-(--dock-space) sm:px-6">
       <SessionHeader
         session={session}
         state={state ?? session.state}

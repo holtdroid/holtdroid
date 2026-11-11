@@ -5452,8 +5452,11 @@ stack.
   The middle of the dock scrolls on its own, so the logo, search, **More**
   and the account menu stay visible. The palette also lists a **Stop**
   item per running device, the keyboard path to what the hover card
-  offers. Pages keep their own
-  scrolling; `main` gets 5rem of bottom padding so the dock covers nothing.
+  offers. Pages keep their own scrolling and run under the dock, which is
+  slightly translucent with a backdrop blur; each page pads its bottom by
+  `--dock-space` (set by the shell, 1.25rem outside it) so it scrolls clear
+  of the dock. The session and recording pages fit the viewport above the
+  dock and don't scroll on screens tall enough for them.
 - The header slot is gone: the session and recording pages render their
   header row themselves. A shared recording opened without a sign-in keeps
   its simple header with the logo (`useInShell` is now a plain context).

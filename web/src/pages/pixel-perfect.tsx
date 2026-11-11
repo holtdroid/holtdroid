@@ -74,7 +74,7 @@ export function PixelPerfectPage() {
   }
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="h-full overflow-y-auto pb-(--dock-space)">
       <div className="mx-auto grid max-w-7xl gap-6 p-4 lg:grid-cols-[minmax(0,1fr)_400px] lg:px-8 lg:py-7">
         <div className="grid content-start gap-4">
           <PageHeader

@@ -28,7 +28,7 @@ export function HomePage({ pkg }: { pkg?: string }) {
   }
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="h-full overflow-y-auto pb-(--dock-space)">
       <div className="mx-auto flex max-w-[1440px] flex-col gap-5 px-4 pt-6 pb-8 lg:px-8 lg:pt-7">
         {pkg && <AppHeader pkg={pkg} />}
         {linked.isError && (

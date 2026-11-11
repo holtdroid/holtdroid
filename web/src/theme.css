@@ -66,6 +66,7 @@
 }
 
 :root {
+  --dock-space: 1.25rem;
   --radius: 9px;
   --background: #f2f2f3;
   --foreground: #17171a;

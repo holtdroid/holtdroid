@@ -12,7 +12,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex h-dvh flex-col">
-      <main className="min-h-0 flex-1 overflow-hidden pb-20">
+      <main className="min-h-0 flex-1 overflow-hidden [--dock-space:5.25rem]">
         <InShellProvider value={true}>{children}</InShellProvider>
       </main>
       <Dock

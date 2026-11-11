@@ -106,7 +106,7 @@ export function AuditPage() {
   }
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="h-full overflow-y-auto pb-(--dock-space)">
       <div className="mx-auto grid max-w-7xl content-start gap-5 p-4 lg:px-8 lg:py-7">
         <PageHeader
           title="Audit log"

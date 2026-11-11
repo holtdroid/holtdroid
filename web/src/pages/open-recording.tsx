@@ -103,7 +103,7 @@ export function OpenRecordingPage() {
       onDragLeave={(e) => e.currentTarget === e.target && setOver(false)}
       onDrop={onDrop}
     >
-      <div className="mx-auto flex min-h-full max-w-[1680px] flex-col gap-4 px-4 py-5 lg:px-6">
+      <div className="mx-auto flex min-h-full max-w-[1680px] flex-col gap-4 px-4 py-5 lg:h-full lg:min-h-[46rem] lg:px-6">
         {state.kind === "ready" && detail ? (
           <RecordingPlayer
             key={`${state.name}-${state.bundle.size}`}

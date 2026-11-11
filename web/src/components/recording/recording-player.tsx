@@ -321,7 +321,12 @@ export function RecordingPlayer({
   ]
 
   return (
-    <div ref={box} tabIndex={-1} onKeyDown={onKey} className="flex flex-col gap-4 bg-background outline-none">
+    <div
+      ref={box}
+      tabIndex={-1}
+      onKeyDown={onKey}
+      className="flex flex-col gap-4 bg-background outline-none lg:min-h-0 lg:flex-1"
+    >
       <RecordingHeader>
         {title}
         <span className="flex-1" />
@@ -453,7 +458,7 @@ export function RecordingPlayer({
         </div>
       </RecordingHeader>
 
-      <div className="flex flex-col gap-4 lg:grid lg:h-[max(460px,calc(100dvh-24rem))] lg:grid-cols-[232px_minmax(0,1fr)_38%] xl:grid-cols-[260px_minmax(0,1fr)_minmax(440px,40%)] 2xl:grid-cols-[280px_minmax(0,1fr)_minmax(440px,40%)]">
+      <div className="flex flex-col gap-4 lg:grid lg:min-h-[460px] lg:flex-1 lg:grid-cols-[232px_minmax(0,1fr)_38%] xl:grid-cols-[260px_minmax(0,1fr)_minmax(440px,40%)] 2xl:grid-cols-[280px_minmax(0,1fr)_minmax(440px,40%)]">
         <aside className="order-2 min-h-0 lg:order-none lg:overflow-y-auto">
           <SideCards
             summary={summary}

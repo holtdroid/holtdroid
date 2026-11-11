@@ -99,7 +99,7 @@ export function RecordingPage({ source }: { source: ServerRecording }) {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto flex max-w-[1680px] flex-col gap-4 px-4 py-5 lg:px-6">
+      <div className="mx-auto flex max-w-[1680px] flex-col gap-4 px-4 pt-5 pb-(--dock-space) lg:h-full lg:min-h-[52rem] lg:px-6">
         {detail.isPending ? (
           <>
             {header}
