@@ -1,14 +1,20 @@
 ---
+import logo from "../../assets/logo.svg"
 import { localized as url } from "../../topics.mjs"
 import DockIcon from "../dock/DockIcon.astro"
 import { hero } from "./features"
 import Scene from "./Scene"
 
-const trust = ["Apache-2.0", "One Helm chart", "Android 11–16", "APK never modified"]
+const trust = ["Apache-2.0", "One Helm chart", "APK never modified"]
 ---
 
 <section class="l-wrap l-hero">
-  <span class="hd-badge l-pill l-rise"><span class="l-dot"></span>Self-hosted Android devices for testers</span>
+  <span class="l-brand l-rise">
+    <img src={logo.src} alt="" width="28" height="28" />
+    <span class="l-brand-name">holtdroid</span>
+    <span class="l-brand-sep" aria-hidden="true"></span>
+    <span class="l-brand-text">Self-hosted Android devices for testers</span>
+  </span>
   <h1 class="l-big">
     <span class="l-rise">Give your testers</span>
     <span class="l-rise l-mu">a cozy holt.</span>
@@ -28,7 +34,11 @@ const trust = ["Apache-2.0", "One Helm chart", "Android 11–16", "APK never mod
     </a>
   </div>
   <p class="l-trust l-mono l-rise">
-    {trust.join(" · ")}
+    <a class="l-gh" href="https://github.com/holtdroid">
+      <DockIcon name="git" />
+      <span>github.com/holtdroid</span>
+    </a>
+    {trust.map((t) => <span>· {t}</span>)}
   </p>
 </section>
 

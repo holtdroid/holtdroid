@@ -5711,6 +5711,9 @@ themes.
   every frame and checks every link resolves to a docs page.
 - The landing's link reset is `:where(.l-page) a`, so any class on a link
   wins over it.
+- There is no top bar: the dock already holds the logo and GitHub. The
+  hero's pill carries the brand (logo, name, one line), and the line under
+  the buttons starts with a link to github.com/holtdroid, then the licence.
 - Nothing loops without a way to stop it: picking a phase on the hero's rail
   holds that phase for good, and the ticker has a pause button. Blocks reveal
   with a CSS animation rather than a transition, so the stagger never delays

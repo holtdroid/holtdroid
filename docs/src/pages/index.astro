@@ -11,7 +11,6 @@ import Closing from "../components/landing/Closing.astro"
 import Compare from "../components/landing/Compare.astro"
 import Developers from "../components/landing/Developers.astro"
 import Features from "../components/landing/Features.astro"
-import Bar from "../components/landing/Bar.astro"
 import Hero from "../components/landing/Hero.astro"
 import More from "../components/landing/More.astro"
 import Operate from "../components/landing/Operate.astro"
@@ -114,7 +113,6 @@ const structuredData = {
     <script type="application/ld+json" set:html={JSON.stringify(structuredData)} />
   </head>
   <body class="l-page">
-    <Bar />
     <main>
       <Hero />
       <Ticker />
