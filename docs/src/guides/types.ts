@@ -27,8 +27,6 @@ export type Tab =
   | "pixel-perfect"
   | "websockets"
   | "cache"
-  | "images"
-  | "svg"
   | "network"
   | "dns"
   | "routes"
@@ -121,11 +119,6 @@ export type PortalState = {
   dnsRewrite: boolean
   routeName: "none" | "api"
   routesFlagged: boolean
-
-  imgScan: boolean
-  imgFinding: "none" | "hero" | "banner"
-  imgFilter: "all" | "warnings"
-  svgFinding: "none" | "decimals" | "dupes"
 
   ppReference: boolean
   ppOpacity: number

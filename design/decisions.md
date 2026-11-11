@@ -4749,6 +4749,8 @@ second.
 
 ## 156. Images and SVG tabs: pages report what they draw, the browser measures
 
+Superseded by #183.
+
 **Context.** Testers want to see images an app downloads but doesn't show,
 images far bigger than the place they are drawn, formats WebP beats, and
 SVG icons that carry six decimals or ship twice. The recorded requests (and
@@ -4836,6 +4838,8 @@ hand like `cdn.txt`. A site the table doesn't know shows its code.
 
 ## 158. Every frame's images are scanned, and on screen means the phone's screen
 
+Superseded by #183.
+
 **Context.** Decision #156 evaluated the image scan in each target's main
 document only. Android WebView keeps most iframes in the page's process,
 so they are no target of their own, and their images, loaded through the
@@ -4860,6 +4864,8 @@ one evaluation per frame per second.
 
 
 ## 159. The image scan is a launch option, off by default, and can be turned on live
+
+Superseded by #183.
 
 **Context.** The image scan of decisions #156 and #158 runs the agent's own
 script in every frame of the app's pages: a global, a `MutationObserver`
@@ -5389,3 +5395,29 @@ supersedes the default part of #176.
 build that the Android version can run, and falls back to Google's WebView only
 when no Chromium build fits. Existing deployments that rely on the old default
 must set `webview.defaultPackage: com.google.android.webview`.
+
+## 183. The Images and SVG tools are removed
+
+**Context.** #156, #158 and #159 added the Images and SVG tabs to live
+sessions and recordings: the agent ran its own script in every frame of the
+app's pages to report which images they draw where, recordings kept image
+bodies up to 512 KB, the browser re-encoded images as WebP and ran svgo over
+path data. The maintainer decided the feature isn't worth its weight: a
+script in the pages, an extra launch switch, a second body limit, svgo in
+the bundle and a whole analysis to keep up.
+
+**Decision.** The feature is removed, and this supersedes #156, #158 and
+#159. The agent no longer evaluates `imagescan.js` or tracks execution
+contexts for it, `images` lines are gone from `DevToolsEntry`, and
+`GET`/`PUT /v1/devtools/images` and `GET /v1/devtools/body` (which only the
+live Images and SVG tabs used) are dropped from the agent contract.
+`CreateSession.imageScan`, `SessionView.imageScan`, `HOLTDROID_IMAGESCAN`,
+the `holtdroid/image-scan` annotation and the launch dialog's **Check how
+pages draw their images** go with them. Images are recorded without their
+bodies again, skipped by type next to media and fonts, so all bodies share
+the 1 MB limit. svgo leaves the web bundle. The Cache tab and the shared
+findings list stay.
+
+**Consequences.** Recordings that hold `images` lines or image bodies still
+play: the player ignores the lines and the Network tab shows the bodies it
+has. The docs pages and the guide about images and SVG are gone.

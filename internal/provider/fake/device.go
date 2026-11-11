@@ -51,7 +51,6 @@ type device struct {
 	adb       adbState
 	rec       recorder
 	recTarget *contract.RecordingTarget
-	imageScan bool
 	recID     string
 	recAt     time.Time
 	mic       contract.Microphone
@@ -61,7 +60,7 @@ type device struct {
 func newDevice(s contract.Session, step time.Duration, offers func(string) bool, req contract.CreateSession) *device {
 	d := &device{
 		s: s, settings: defaultSettings(), screen: contract.Screen{On: true}, subs: map[chan struct{}]struct{}{}, done: make(chan struct{}),
-		offers: offers, appData: req.AppData, recTarget: req.Recording, imageScan: req.ImageScan,
+		offers: offers, appData: req.AppData, recTarget: req.Recording,
 	}
 	if req.DarkMode != nil {
 		d.settings.DarkMode = *req.DarkMode

@@ -67,11 +67,6 @@ export const defaults: PortalState = {
   routeName: "none",
   routesFlagged: false,
 
-  imgScan: false,
-  imgFinding: "none",
-  imgFilter: "all",
-  svgFinding: "none",
-
   ppReference: false,
   ppOpacity: 50,
   ppCompare: false,

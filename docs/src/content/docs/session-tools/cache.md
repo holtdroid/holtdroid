@@ -139,7 +139,7 @@ every request** findings name the parameter and its value; the
 
 ## In recordings
 
-A [recording](/concepts/recordings/#cache-images-and-svg) has the same Cache
+A [recording](/concepts/recordings/#cache) has the same Cache
 tab, checked over the requests up to the playhead. There a request's time
 seeks the video to it, and **Open in Network** opens the request you picked
 on the recording's Network tab with all its headers and the body.

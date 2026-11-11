@@ -1878,8 +1878,6 @@ export interface components {
             artifactId: string;
             /** @description turn the device's dark theme on or off before the app first starts; empty leaves the device's own */
             darkMode?: boolean;
-            /** @description run the agent's script in the app's pages that reports where they draw their images, for the Images tab; it can be turned on later */
-            imageScan?: boolean;
             location?: string;
             /** @description empty picks the first provider in the configured order with a free device */
             provider?: string;
@@ -2090,7 +2088,6 @@ export interface components {
              */
             dropped?: number;
             frame?: components["schemas"]["DevToolsFrame"];
-            images?: components["schemas"]["DevToolsImages"];
             page?: components["schemas"]["DevToolsPage"];
             /** @description live stream only: the recording t belongs to */
             recording?: string;
@@ -2106,7 +2103,7 @@ export interface components {
             /** @description the DevTools target (page) it came from */
             target?: string;
             /** @enum {string} */
-            type: "page" | "request" | "console" | "socket" | "frame" | "dropped" | "images";
+            type: "page" | "request" | "console" | "socket" | "frame" | "dropped";
             /**
              * Format: int64
              * @description live stream only: the agent's clock, milliseconds since the epoch; t is then the recording time, or 0 without a recording
@@ -2159,58 +2156,6 @@ export interface components {
              * @enum {string}
              */
             state: "warming" | "ready" | "incomplete";
-        };
-        DevToolsImageUse: {
-            /**
-             * Format: int64
-             * @description the element's number within the document
-             */
-            element: number;
-            /** @description an <img>'s object-fit or a background's background-size */
-            fit?: string;
-            /** Format: double */
-            height: number;
-            /** @description not rendered: display none, invisible or no size */
-            hidden?: boolean;
-            /**
-             * @description an <img>, a CSS background, an SVG <image>, a video poster or an image button
-             * @enum {string}
-             */
-            kind: "img" | "css" | "svg" | "poster" | "input";
-            /** Format: int64 */
-            naturalHeight?: number;
-            /** Format: int64 */
-            naturalWidth?: number;
-            /** @description rendered and inside the viewport */
-            shown?: boolean;
-            /** @description the absolute URL drawn */
-            src: string;
-            /**
-             * Format: double
-             * @description the box it is drawn in, CSS pixels
-             */
-            width: number;
-        };
-        DevToolsImages: {
-            /**
-             * Format: double
-             * @description device pixels per CSS pixel
-             */
-            dpr: number;
-            /** @description the frame it was drawn in, an iframe's or the page's own; none in recordings made before frames were told apart */
-            frame?: string;
-            /** Format: double */
-            height: number;
-            /** @description markup of inline <svg> elements new since the last line, each at most 64 KB */
-            svgs?: string[];
-            /** @description the document */
-            url?: string;
-            uses?: components["schemas"]["DevToolsImageUse"][];
-            /**
-             * Format: double
-             * @description the viewport in CSS pixels
-             */
-            width: number;
         };
         DevToolsPage: {
             closed?: boolean;

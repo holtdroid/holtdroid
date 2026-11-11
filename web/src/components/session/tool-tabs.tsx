@@ -4,9 +4,7 @@ import {
   FolderIcon,
   FrameIcon,
   GlobeIcon,
-  ImageIcon,
   type LucideIcon,
-  PenToolIcon,
   RouteIcon,
   SignpostIcon,
   SquareCodeIcon,
@@ -21,11 +19,9 @@ import { CachePanel } from "@/components/session/cache-panel"
 import { DNSPanel } from "@/components/session/dns-panel"
 import type { AdbSession } from "@/components/session/adb-session"
 import { FilesPanel } from "@/components/session/files-panel"
-import { ImagesPanel } from "@/components/session/images-panel"
 import { LogcatPanel } from "@/components/session/logcat-panel"
 import { NetworkPanel } from "@/components/session/network-panel"
 import { SocketsPanel } from "@/components/session/sockets-panel"
-import { SvgPanel } from "@/components/session/svg-panel"
 import { RoutesPanel } from "@/components/session/routes-panel"
 import { PixelPerfectPanel } from "@/components/session/pixel-perfect/panel"
 import type { PixelPerfect } from "@/components/session/pixel-perfect/state"
@@ -82,7 +78,7 @@ export function ToolTabs({
   const current =
     (adb && tabs.some((t) => t.value === tab)) ||
     (pixelPerfect && tab === "pixel-perfect") ||
-    (devtools && ["websockets", "cache", "images", "svg"].includes(tab)) ||
+    (devtools && ["websockets", "cache"].includes(tab)) ||
     (network && tab === "network") ||
     (dns && tab === "dns") ||
     (routes && tab === "routes")
@@ -132,18 +128,6 @@ export function ToolTabs({
               Cache
             </TabsTrigger>
           )}
-          {devtools && (
-            <TabsTrigger value="images" className={trigger}>
-              <ImageIcon />
-              Images
-            </TabsTrigger>
-          )}
-          {devtools && (
-            <TabsTrigger value="svg" className={trigger}>
-              <PenToolIcon />
-              SVG
-            </TabsTrigger>
-          )}
           {network && (
             <TabsTrigger value="network" className={trigger}>
               <GlobeIcon />
@@ -190,16 +174,6 @@ export function ToolTabs({
       {devtools && opened.has("cache") && (
         <TabsContent value="cache" forceMount className="min-h-0 data-[state=inactive]:hidden">
           <CachePanel provider={session.provider} id={session.id} />
-        </TabsContent>
-      )}
-      {devtools && opened.has("images") && (
-        <TabsContent value="images" forceMount className="min-h-0 data-[state=inactive]:hidden">
-          <ImagesPanel provider={session.provider} id={session.id} />
-        </TabsContent>
-      )}
-      {devtools && opened.has("svg") && (
-        <TabsContent value="svg" forceMount className="min-h-0 data-[state=inactive]:hidden">
-          <SvgPanel provider={session.provider} id={session.id} />
         </TabsContent>
       )}
       {network && opened.has("network") && (

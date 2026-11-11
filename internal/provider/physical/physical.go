@@ -550,7 +550,6 @@ func (p *Provider) Create(ctx context.Context, req contract.CreateSession) (cont
 		Location:     location,
 		SaveAppData:  req.SaveAppData,
 		WebView:      webviewVersion(req.WebView),
-		ImageScan:    req.ImageScan,
 		State:        contract.StateProvisioning,
 		Capabilities: slots[i].Capabilities,
 		AgentURL:     strings.TrimRight(p.cfg.PublicURL, "/") + "/agents/" + id,
@@ -578,7 +577,6 @@ func (p *Provider) start(s contract.Session, artifactURL string, webview *contra
 		cfg.WebView = *webview
 	}
 	cfg.DarkMode = dark
-	cfg.ImageScan = s.ImageScan
 	if rec != nil {
 		cfg.Recording = *rec
 	}

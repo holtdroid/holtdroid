@@ -41,9 +41,7 @@ import { Switch } from "@/components/ui/switch"
 import { useLaunchTarget, useStartSession } from "@/hooks/use-launch-target"
 import { formatBytes, formatRelative } from "@/lib/format"
 import {
-  imageScanPreference,
   recordPreference,
-  rememberImageScan,
   rememberRecord,
   rememberSaveAppData,
   saveAppDataPreference,
@@ -196,7 +194,6 @@ function LaunchFlow({
   const appData = useAppDataFor(artifact.app?.package)
   const recordings = useRecordings()
   const [record, setRecord] = useState(recordPreference)
-  const [imageScan, setImageScan] = useState(imageScanPreference)
   const [saveData, setSaveData] = useState(saveAppDataPreference)
   const snapshot = appData.items.find((d) => d.id === chosenData)
   const appVersion = shown.app?.versionCode ?? 0
@@ -489,24 +486,6 @@ function LaunchFlow({
                 </Label>
               </div>
             )}
-
-            <div className="flex items-start gap-2.5">
-              <Switch
-                id="launch-image-scan"
-                checked={imageScan}
-                onCheckedChange={(v) => {
-                  setImageScan(v)
-                  rememberImageScan(v)
-                }}
-              />
-              <Label htmlFor="launch-image-scan" className="grid gap-0.5 font-normal">
-                <span>Check how pages draw their images</span>
-                <span className="text-muted-foreground text-xs">
-                  Runs a small script in the app's pages once a second for the Images tab: images that load but aren't
-                  shown, or are bigger than drawn
-                </span>
-              </Label>
-            </div>
 
             {newerData && (
               <Alert>

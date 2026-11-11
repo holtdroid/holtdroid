@@ -2,7 +2,6 @@ import {
   BugIcon,
   CodeXmlIcon,
   GlobeIcon,
-  ImageIcon,
   type LucideIcon,
   RocketIcon,
   RulerIcon,
@@ -25,7 +24,6 @@ export const scenes: Scene[] = [
   { guide: "devtools", label: "DevTools", icon: CodeXmlIcon, href: `${base}/web/devtools/` },
   { guide: "vpn", label: "VPN", icon: GlobeIcon, href: `${base}/conditions/vpn/` },
   { guide: "dns-routes", label: "DNS", icon: SignpostIcon, href: `${base}/conditions/dns-routes/` },
-  { guide: "images-svg", label: "Images", icon: ImageIcon, href: `${base}/web/images-svg/` },
   { guide: "pixel-perfect", label: "Pixel perfect", icon: RulerIcon, href: `${base}/design/pixel-perfect/` },
   { guide: "record-share", label: "Recordings", icon: BugIcon, href: `${base}/recordings/record-share/` },
 ]

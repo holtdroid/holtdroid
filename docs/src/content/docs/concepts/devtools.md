@@ -78,10 +78,8 @@ Network already show it as part of the page. The target selector says the
 same at the bottom of its list.
 
 Next to DevTools are tabs built on the same connection, which work without
-DevTools open: [WebSockets](/session-tools/websockets/),
-[Cache](/session-tools/cache/),
-[Images](/session-tools/images/) and
-[SVG](/session-tools/svg/). The agent keeps the session's socket
+DevTools open: [WebSockets](/session-tools/websockets/) and
+[Cache](/session-tools/cache/). The agent keeps the session's socket
 traffic and requests, so they also show what happened before they were
 opened or the page reloaded.
 

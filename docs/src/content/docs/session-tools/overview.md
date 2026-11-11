@@ -19,8 +19,6 @@ can use it.
 | [**Pixel perfect**](/session-tools/pixel-perfect/) | lay a design mockup over the screen and find where the app differs                  | unless the server turned it off (`pixelPerfect.enabled`) |
 | [**WebSockets**](/session-tools/websockets/)       | the WebViews' sockets and event streams, frame by frame                             | when the app has a WebView DevTools can reach            |
 | [**Cache**](/session-tools/cache/)                 | how the WebViews' requests use the HTTP cache and a CDN                             | same as WebSockets                                       |
-| [**Images**](/session-tools/images/)               | images that are too big, in old formats or loaded but never shown                   | same as WebSockets                                       |
-| [**SVG**](/session-tools/svg/)                     | SVG path data that could be smaller                                                 | same as WebSockets                                       |
 | [**Network**](/session-tools/network/)             | slow, lossy or offline network conditions for the whole device                      | in emulator sessions with VPN locations                  |
 | [**DNS**](/session-tools/dns/)                     | every name the device looks up, and rewrites of names to other addresses            | in sessions with a [VPN](/concepts/vpn/)                 |
 | [**Routes**](/session-tools/routes/)               | where the connections go: servers, countries, networks, the VPN exit and slow paths | in sessions with a VPN                                   |
@@ -36,5 +34,5 @@ when you first open one of them; if it drops, the tab offers **Reconnect**.
 
 A [recording](/concepts/recordings/) keeps what most of these tabs
 show: its player has Logcat, the WebViews' Network, Console and WebSockets,
-Cache, Images, SVG, DNS, Routes and Pixel perfect, each as it was at the
+Cache, DNS, Routes and Pixel perfect, each as it was at the
 moment you are at. Files and Terminal aren't recorded.

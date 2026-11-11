@@ -115,7 +115,7 @@ A recording opens on a page laid out like the session it came from:
 - **the phone** in the middle, playing the screen, with taps and swipes drawn
   over it;
 - **the tools on the right**: Logcat, and, when the app had WebViews,
-  Network, Console, WebSockets, Cache, Images and SVG, plus DNS and Routes
+  Network, Console, WebSockets and Cache, plus DNS and Routes
   when the session had them and Pixel perfect for signed-in viewers. Every tab
   shows what had happened up to the moment you are at.
 
@@ -205,7 +205,7 @@ turn red when requests failed or the page logged errors.
   **Timing** splits the request's time into **Queued, stalled**, **DNS**,
   **Connect** (TLS included), **Send**, **Waiting (TTFB)** and **Download**,
   so you can tell a slow server from a slow network or a queue in the app. Bodies are kept up to
-  1 MB and images up to 512 KB; media and fonts are recorded without theirs.
+  1 MB; images, media and fonts are recorded without theirs.
 - **Console** has `console.*` calls, uncaught exceptions with their stack and
   the WebView's own messages (failed loads, violations, deprecations), with
   level filters and search. Click a message to open the objects it logged
@@ -217,10 +217,6 @@ turn red when requests failed or the page logged errors.
   **media stream**: from then on its frames are counted but not recorded.
 - **Cache** checks how the requests up to that moment use the WebView's
   cache and a CDN in front of the server (see [Cache](/session-tools/cache/)).
-- **Images** checks the images loaded up to that moment against how the
-  pages drew them (see [Images](/session-tools/images/)).
-- **SVG** checks the SVG paths in the recorded scripts, pages, stylesheets,
-  SVG files and inline SVGs (see [SVG paths](/session-tools/svg/)).
 
 JSON is shown as a tree you can open and close, also when it sits in a
 string field. Messages and bodies in common framings are split into their
@@ -258,31 +254,17 @@ tokens included, and anyone with a share link or the `.holtdroid` file sees
 them.
 :::
 
-### Cache, Images and SVG
+### Cache
 
-These tabs run the same checks as in a live session, on what was recorded up
-to the moment you are at:
-
-- **Cache** reads the recorded requests' headers and says where caching goes
-  wrong: the request time in the URL, parameters that change on every
-  request, the same file downloaded again, CDN misses and hits that shouldn't
-  be, and weak headers. See [Cache](/session-tools/cache/).
-- **Images** compares the recorded image files with how the pages drew them:
-  images not on screen within 10 seconds of loading, bigger than they are
-  drawn, in PNG, JPEG, GIF or BMP, or barely compressed. See
-  [Images](/session-tools/images/).
-- **SVG** finds path data with too many decimals, longer commands than needed
-  and paths shipped more than once. See [SVG](/session-tools/svg/).
+The Cache tab runs the same checks as in a live session, on what was
+recorded up to the moment you are at. It reads the recorded requests'
+headers and says where caching goes wrong: the request time in the URL,
+parameters that change on every request, the same file downloaded again,
+CDN misses and hits that shouldn't be, and weak headers. See
+[Cache](/session-tools/cache/).
 
 In a finding, a request's time seeks there and **Open in Network** shows it
-on the Network tab. A recording keeps image bodies up to 512 KB; bigger ones,
-and recordings made before images were kept, are judged by a guess that is
-marked so. How pages drew their images is recorded only when **Check how
-pages draw their images** was on (at launch or in the session's Images tab);
-without it only the files themselves are checked. A recording that starts in
-the middle of a session makes the pages report everything again, and images
-that loaded before the pages were first scanned aren't judged by when they
-showed up.
+on the Network tab.
 
 ### Pixel perfect
 
@@ -396,7 +378,7 @@ download the logcat, but the page has no video download.
 
 The link you copy carries the moment you are at, like a video link with a
 time: `#t=46.2&tab=network&request=…` opens the recording there, on the same
-tab (Logcat, Network, Console, WebSockets, DNS, Routes, Cache, Images or SVG), with the request,
+tab (Logcat, Network, Console, WebSockets, DNS, Routes or Cache), with the request,
 console message, socket frame, name or finding you had open opened and scrolled to. `t` also takes
 `1m20s`. On a shared recording, **Link to 00:46** copies such a link for the
 page you are on. Someone signed in to the portal who opens a share link sees it inside the

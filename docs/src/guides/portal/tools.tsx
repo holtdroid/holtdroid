@@ -5,7 +5,6 @@ import {
   DatabaseZapIcon,
   FrameIcon,
   GlobeIcon,
-  PenToolIcon,
   RouteIcon,
   SignalIcon,
   SignpostIcon,
@@ -33,15 +32,13 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { PortalState, Tab } from "../types"
 import { frames, issues, locationOf, logLines, networkProfiles, requests } from "./data"
-import { Dns, Images, Routes, Svg } from "./insights"
+import { Dns, Routes } from "./insights"
 
 const tabs: [Tab, string, LucideIcon][] = [
   ["devtools", "DevTools", SquareCodeIcon],
   ["pixel-perfect", "Pixel perfect", FrameIcon],
   ["websockets", "WebSockets", CableIcon],
   ["cache", "Cache", DatabaseZapIcon],
-  ["images", "Images", ImageIcon],
-  ["svg", "SVG", PenToolIcon],
   ["network", "Network", GlobeIcon],
   ["dns", "DNS", SignpostIcon],
   ["routes", "Routes", RouteIcon],
@@ -82,8 +79,6 @@ export function ToolTabs({ s }: { s: PortalState }) {
         {s.tab === "network" && <Network s={s} />}
         {s.tab === "dns" && <Dns s={s} />}
         {s.tab === "routes" && <Routes s={s} />}
-        {s.tab === "images" && <Images s={s} />}
-        {s.tab === "svg" && <Svg s={s} />}
       </div>
     </div>
   )

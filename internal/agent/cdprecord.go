@@ -2,17 +2,14 @@ package agent
 
 import (
 	"context"
-	_ "embed"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"maps"
 	"math"
 	"slices"
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 	"unicode/utf8"
 
 	"github.com/holtdroid/holtdroid/internal/contract"
@@ -20,8 +17,6 @@ import (
 
 const (
 	cdpBodyLimit    = 1 << 20
-	cdpImageLimit   = 512 << 10
-	cdpImageScan    = time.Second
 	cdpEarlyLimit   = 512
 	cdpPostLimit    = 256 << 10
 	cdpTextFrame    = 128 << 10
@@ -40,10 +35,6 @@ type devtoolsSink interface {
 	Clock() int64
 	At(clock int64) int64
 	Recording() bool
-	// ImageScan says whether pages are asked what images they draw;
-	// ImageEpoch changes when they should report everything again.
-	ImageScan() bool
-	ImageEpoch() int64
 	// Watching says whether someone follows the sockets live; Live hands
 	// them a line, its times still the watch's clock.
 	Watching() bool
@@ -66,7 +57,6 @@ type cdpPage struct {
 	early     map[string]*cdpExtra
 	redirects map[string]int
 	sockets   map[string]*cdpSocket
-	frames    map[int]string
 }
 
 type cdpRequest struct {
@@ -99,7 +89,6 @@ func newCDPPage(target string, sink devtoolsSink) *cdpPage {
 	return &cdpPage{
 		target: target, kind: "page", sink: sink, slots: make(chan struct{}, 4),
 		requests: map[string]*cdpRequest{}, early: map[string]*cdpExtra{}, redirects: map[string]int{}, sockets: map[string]*cdpSocket{},
-		frames: map[int]string{},
 	}
 }
 
@@ -308,34 +297,6 @@ func (p *cdpPage) handle(method string, raw json.RawMessage) {
 		}
 	}
 	switch method {
-	case "Runtime.executionContextCreated":
-		var e struct {
-			Context struct {
-				ID      int `json:"id"`
-				AuxData struct {
-					IsDefault bool   `json:"isDefault"`
-					FrameID   string `json:"frameId"`
-				} `json:"auxData"`
-			} `json:"context"`
-		}
-		if json.Unmarshal(raw, &e) == nil && e.Context.AuxData.IsDefault && e.Context.AuxData.FrameID != "" {
-			p.mu.Lock()
-			p.frames[e.Context.ID] = e.Context.AuxData.FrameID
-			p.mu.Unlock()
-		}
-	case "Runtime.executionContextDestroyed":
-		var e struct {
-			ID int `json:"executionContextId"`
-		}
-		if json.Unmarshal(raw, &e) == nil {
-			p.mu.Lock()
-			delete(p.frames, e.ID)
-			p.mu.Unlock()
-		}
-	case "Runtime.executionContextsCleared":
-		p.mu.Lock()
-		clear(p.frames)
-		p.mu.Unlock()
 	case "Network.requestWillBeSent":
 		var e struct {
 			RequestID string  `json:"requestId"`
@@ -470,19 +431,15 @@ func (p *cdpPage) handle(method string, raw json.RawMessage) {
 		}
 		r.finishTiming(e.Timestamp)
 		req := r.DevToolsRequest
-		limit := cdpBodyLimit
-		if req.ResourceType == "Image" {
-			limit = cdpImageLimit
-		}
 		switch {
-		case req.ResourceType == "Media" || req.ResourceType == "Font":
+		case req.ResourceType == "Image" || req.ResourceType == "Media" || req.ResourceType == "Font":
 			req.BodySkipped = "type"
-		case req.Size > int64(limit):
+		case req.Size > cdpBodyLimit:
 			req.BodySkipped = "size"
 		case p.call == nil || !p.sink.Recording():
 		default:
 			p.background(func(ctx context.Context) {
-				p.body(ctx, e.RequestID, &req, limit, req.ResourceType == "Image")
+				p.body(ctx, e.RequestID, &req)
 				p.emit(contract.DevToolsEntry{T: now, Type: contract.DevToolsRequestEntry, Request: &req})
 			})
 			return
@@ -786,120 +743,29 @@ func (r *cdpRequest) finishTiming(end float64) {
 
 func round3(v float64) float64 { return math.Round(v*1000) / 1000 }
 
-// body adds a response body cut at limit bytes, or none when whole says a
-// part is no use, as with an image.
-func (p *cdpPage) body(ctx context.Context, requestID string, req *contract.DevToolsRequest, limit int, whole bool) {
-	b, err := p.responseBody(ctx, requestID, limit)
-	switch {
-	case err != nil:
-		req.BodySkipped = "unavailable"
-	case b.Truncated && whole:
-		req.BodySkipped = "size"
-	default:
-		req.Body, req.BodyBase64, req.BodyTruncated = b.Body, b.Base64, b.Truncated
-	}
-}
-
-func (p *cdpPage) responseBody(ctx context.Context, requestID string, limit int) (contract.DevToolsBody, error) {
+func (p *cdpPage) body(ctx context.Context, requestID string, req *contract.DevToolsRequest) {
 	p.mu.Lock()
 	call := p.call
 	p.mu.Unlock()
-	if call == nil {
-		return contract.DevToolsBody{}, contract.ErrNotFound
-	}
 	res, err := call(ctx, "Network.getResponseBody", map[string]any{"requestId": requestID})
 	var b struct {
 		Body          string `json:"body"`
 		Base64Encoded bool   `json:"base64Encoded"`
 	}
 	if err != nil || json.Unmarshal(res, &b) != nil {
-		return contract.DevToolsBody{}, fmt.Errorf("%w: no body for this request", contract.ErrNotFound)
+		req.BodySkipped = "unavailable"
+		return
 	}
-	out := contract.DevToolsBody{Body: b.Body, Base64: b.Base64Encoded}
+	req.BodyBase64 = b.Base64Encoded
 	if !b.Base64Encoded {
-		out.Body, out.Truncated = cut(b.Body, limit)
-		return out, nil
+		req.Body, req.BodyTruncated = cut(b.Body, cdpBodyLimit)
+		return
 	}
+	req.Body = b.Body
 	n := base64.StdEncoding.DecodedLen(len(b.Body)) - strings.Count(b.Body[max(0, len(b.Body)-2):], "=")
-	if n > limit {
-		out.Body, out.Truncated = b.Body[:min(len(b.Body), limit/3*4)], true
+	if n > cdpBodyLimit {
+		req.Body, req.BodyTruncated = b.Body[:min(len(b.Body), cdpBodyLimit/3*4)], true
 	}
-	return out, nil
-}
-
-//go:embed imagescan.js
-var imageScan string
-
-// watchImages asks a page and each frame in its process every second which
-// images it draws where, and writes a line when that changed. The script
-// keeps what it reported in the frame, so a navigation starts over with
-// everything on the new page.
-func (p *cdpPage) watchImages(ctx context.Context) {
-	if p.kind != "page" && p.kind != "iframe" {
-		return
-	}
-	tick := time.NewTicker(cdpImageScan)
-	defer tick.Stop()
-	scanned := false
-	var epoch int64
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-tick.C:
-		}
-		p.mu.Lock()
-		closed, call := p.page.Closed, p.call
-		frames := make(map[int]string, len(p.frames))
-		maps.Copy(frames, p.frames)
-		p.mu.Unlock()
-		if closed {
-			return
-		}
-		on, at := p.sink.ImageScan(), p.sink.ImageEpoch()
-		if call == nil || (!on && !scanned) {
-			continue
-		}
-		run := func(expression string) {
-			if len(frames) == 0 {
-				p.scanImages(ctx, call, expression, 0, "")
-			}
-			for id, frame := range frames {
-				p.scanImages(ctx, call, expression, id, frame)
-			}
-		}
-		if scanned && (!on || at != epoch) {
-			run(imageScanStop)
-			scanned = false
-		}
-		if on {
-			run(imageScan)
-			scanned, epoch = true, at
-		}
-	}
-}
-
-const imageScanStop = `(() => { window.__holtdroidImages?.stop(); delete window.__holtdroidImages; return null })()`
-
-func (p *cdpPage) scanImages(ctx context.Context, call func(context.Context, string, any) (json.RawMessage, error), expression string, contextID int, frame string) {
-	params := map[string]any{"expression": expression, "returnByValue": true, "silent": true}
-	if contextID != 0 {
-		params["contextId"] = contextID
-	}
-	res, err := call(ctx, "Runtime.evaluate", params)
-	if err != nil {
-		return
-	}
-	var r struct {
-		Result struct {
-			Value *contract.DevToolsImages `json:"value"`
-		} `json:"result"`
-	}
-	if json.Unmarshal(res, &r) != nil || r.Result.Value == nil {
-		return
-	}
-	r.Result.Value.Frame = frame
-	p.emit(contract.DevToolsEntry{Type: contract.DevToolsImagesEntry, Images: r.Result.Value})
 }
 
 const jsonFunction = `function(){try{const s=JSON.stringify(this,(k,v)=>typeof v==="bigint"?v.toString():v);return s===undefined||s.length>` + "65536" + `?undefined:s}catch(e){return undefined}}`

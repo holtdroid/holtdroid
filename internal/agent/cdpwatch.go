@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"slices"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/coder/websocket"
@@ -38,9 +37,6 @@ type devtoolsWatch struct {
 	recID string
 	procs map[string]*cdpProcess
 	subs  map[chan contract.DevToolsEntry]struct{}
-
-	images atomic.Bool
-	rescan atomic.Int64
 
 	seq      int64
 	sockets  liveHistory
@@ -85,15 +81,6 @@ func lineSize(e contract.DevToolsEntry) int {
 	}
 	if e.Page != nil {
 		n += len(e.Page.URL) + len(e.Page.Title)
-	}
-	if im := e.Images; im != nil {
-		n += len(im.URL)
-		for _, u := range im.Uses {
-			n += 64 + len(u.Src) + len(u.Fit)
-		}
-		for _, svg := range im.SVGs {
-			n += len(svg)
-		}
 	}
 	if r := e.Request; r != nil {
 		n += len(r.URL) + len(r.Redirect) + len(r.Error)
@@ -141,10 +128,6 @@ func (w *devtoolsWatch) DevTools(e contract.DevToolsEntry) {
 	}
 }
 
-func (w *devtoolsWatch) ImageScan() bool { return w.images.Load() }
-
-func (w *devtoolsWatch) ImageEpoch() int64 { return w.rescan.Load() }
-
 // Watching is always true: live lines are kept for later watchers too.
 func (w *devtoolsWatch) Watching() bool { return true }
 
@@ -156,7 +139,7 @@ func (w *devtoolsWatch) Live(e contract.DevToolsEntry) {
 	e = w.stampLocked(e)
 	w.seq++
 	e.Seq = w.seq
-	if e.Request != nil || e.Images != nil {
+	if e.Request != nil {
 		w.requests.add(e)
 	} else {
 		w.sockets.add(e)
@@ -227,7 +210,6 @@ func (w *devtoolsWatch) record(rec recordingSink, id string) {
 	w.mu.Lock()
 	w.rec, w.recID = rec, id
 	w.mu.Unlock()
-	w.rescan.Add(1)
 	for _, p := range w.pages() {
 		p.replay()
 	}
@@ -249,16 +231,6 @@ func (w *devtoolsWatch) stop(rec recordingSink) {
 		w.rec, w.recID = nil, ""
 	}
 	w.mu.Unlock()
-}
-
-// body hands out a finished request's body while its WebView keeps it.
-func (w *devtoolsWatch) body(ctx context.Context, target, request string) (contract.DevToolsBody, error) {
-	for _, p := range w.pages() {
-		if p.target == target {
-			return p.responseBody(ctx, request, cdpBodyLimit)
-		}
-	}
-	return contract.DevToolsBody{}, fmt.Errorf("%w: no target %s", contract.ErrNotFound, target)
 }
 
 func (w *devtoolsWatch) pages() []*cdpPage {
@@ -398,7 +370,6 @@ func (p *cdpProcess) run(ctx context.Context) {
 			p.mu.Unlock()
 			pg.describe(e.TargetInfo.page(p.process))
 			go p.prepare(ctx, conn, e.SessionID, e.Waiting)
-			go pg.watchImages(ctx)
 		case "Target.detachedFromTarget":
 			var e struct {
 				SessionID string `json:"sessionId"`
@@ -522,7 +493,6 @@ func (p *cdpProcess) followPage(ctx context.Context, pg *cdpPage) {
 	}
 	pg.mu.Unlock()
 	go p.prepare(ctx, conn, "", false)
-	go pg.watchImages(ctx)
 	conn.read(ctx, func(_, method string, raw json.RawMessage) { pg.handle(method, raw) })
 }
 

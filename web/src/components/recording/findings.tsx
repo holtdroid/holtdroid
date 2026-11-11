@@ -2,7 +2,7 @@ import { CircleAlertIcon, InfoIcon, type LucideIcon, TriangleAlertIcon } from "l
 import { Fragment, type ReactNode, useState } from "react"
 import { Chip, Empty } from "@/components/recording/devtools-view"
 import { formatBytes } from "@/lib/format"
-import type { Severity } from "@/lib/recording/images"
+import type { CacheSeverity as Severity } from "@/lib/recording/cache"
 import { cn } from "@/lib/utils"
 
 export const severityInfo: Record<Severity, { icon: LucideIcon; tone: string; label: string }> = {

@@ -17,9 +17,6 @@ type Agent interface {
 	WatchStatus(ctx context.Context, send func(StatusEvent) error) error
 	Targets(ctx context.Context) ([]DevToolsTarget, error)
 	WatchDevTools(ctx context.Context, send func(DevToolsEntry) error) error
-	DevToolsBody(ctx context.Context, target, request string) (DevToolsBody, error)
-	ImageScan(ctx context.Context) DevToolsImageScan
-	SetImageScan(ctx context.Context, scan DevToolsImageScan) (DevToolsImageScan, error)
 	Clipboard(ctx context.Context) (string, error)
 	SetClipboard(ctx context.Context, text string) error
 	WatchClipboard(ctx context.Context, send func(Clipboard) error) error
@@ -64,15 +61,6 @@ const (
 // DisplayUnsupportedCodec is the WebSocket close code of /display/scrcpy
 // when the device can't encode the requested codec.
 const DisplayUnsupportedCodec = 4001
-
-type imageScanInput struct {
-	Body DevToolsImageScan
-}
-
-type devtoolsBodyInput struct {
-	Target  string `query:"target" required:"true" doc:"the target the request came from"`
-	Request string `query:"request" required:"true" doc:"the request's id"`
-}
 
 type clipboardInput struct {
 	Body Clipboard
@@ -179,35 +167,6 @@ func RegisterAgent(api huma.API, a Agent) {
 		func(ctx context.Context, _ *struct{}, send sse.Sender) {
 			_ = a.WatchDevTools(ctx, func(e DevToolsEntry) error { return send.Data(e) })
 		})
-
-	huma.Register(api, huma.Operation{
-		OperationID: "getDevToolsBody", Method: http.MethodGet, Path: "/v1/devtools/body", Tags: tags,
-		Description: "A finished request's response body from the live stream, while the WebView still keeps it (bodies over 1 MB are cut).",
-	}, func(ctx context.Context, in *devtoolsBodyInput) (*body[DevToolsBody], error) {
-		b, err := a.DevToolsBody(ctx, in.Target, in.Request)
-		if err != nil {
-			return nil, toHuma(err)
-		}
-		return &body[DevToolsBody]{b}, nil
-	})
-
-	huma.Register(api, huma.Operation{
-		OperationID: "getImageScan", Method: http.MethodGet, Path: "/v1/devtools/images", Tags: tags,
-		Description: "Whether the agent runs its script in the app's pages that reports where they draw their images.",
-	}, func(ctx context.Context, _ *struct{}) (*body[DevToolsImageScan], error) {
-		return &body[DevToolsImageScan]{a.ImageScan(ctx)}, nil
-	})
-
-	huma.Register(api, huma.Operation{
-		OperationID: "setImageScan", Method: http.MethodPut, Path: "/v1/devtools/images", Tags: tags,
-		Description: "Turns the image script on or off. Turned on, it reports what pages draw from then on; turned off, it is taken out of the pages.",
-	}, func(ctx context.Context, in *imageScanInput) (*body[DevToolsImageScan], error) {
-		s, err := a.SetImageScan(ctx, in.Body)
-		if err != nil {
-			return nil, toHuma(err)
-		}
-		return &body[DevToolsImageScan]{s}, nil
-	})
 
 	sse.Register(api, huma.Operation{OperationID: "watchClipboard", Method: http.MethodGet, Path: "/v1/clipboard/events", Tags: tags},
 		map[string]any{"clip": Clipboard{}},
