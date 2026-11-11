@@ -41,7 +41,7 @@ export function UserAvatar({
           <img src={generated} alt="" className="size-full" />
         </AvatarFallback>
       ) : (
-        <AvatarFallback className="text-[10px]">{initials(user)}</AvatarFallback>
+        <AvatarFallback className="text-[10px] font-semibold">{initials(user)}</AvatarFallback>
       )}
     </Avatar>
   )

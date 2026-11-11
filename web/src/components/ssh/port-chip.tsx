@@ -7,16 +7,10 @@ import { formatRelative } from "@/lib/format"
 import { localURL } from "@/lib/ssh-ports"
 import { cn } from "@/lib/utils"
 
-const portStyle: Record<ReverseTunnel["state"], string> = {
-  up: "border-emerald-500/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-  down: "border-red-500/50 bg-red-500/10 text-red-700 dark:text-red-300",
-  unknown: "border-muted-foreground/30",
-}
-
-const portDot: Record<ReverseTunnel["state"], string> = {
-  up: "bg-emerald-500",
-  down: "bg-red-500",
-  unknown: "bg-muted-foreground/40",
+const portVariant: Record<ReverseTunnel["state"], "success" | "destructive" | "secondary"> = {
+  up: "success",
+  down: "destructive",
+  unknown: "secondary",
 }
 
 const portState: Record<ReverseTunnel["state"], string> = {
@@ -37,9 +31,9 @@ export function PortChip({ tunnel: r, now }: { tunnel: ReverseTunnel; now: numbe
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Badge asChild variant="outline" className={cn("cursor-pointer gap-1.5 font-mono", portStyle[r.state])}>
+        <Badge asChild variant={portVariant[r.state]} className="cursor-pointer gap-1.5 font-mono">
           <button type="button" onClick={() => copyURL(r.port)}>
-            <span className={cn("size-1.5 rounded-full", portDot[r.state])} />
+            <span className={cn("size-1.5 rounded-full bg-current", r.state === "unknown" && "opacity-40")} />
             localhost:{r.port}
             {r.connections > 0 && <span className="opacity-70">·{r.connections}</span>}
           </button>

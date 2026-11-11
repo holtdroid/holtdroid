@@ -31,6 +31,12 @@ func DefaultConfig() Config {
 	return Config{Listen: ":8080", TunnelListen: ":8081", Slots: 4, PublicURL: "http://localhost:8080", StepDelay: 2 * time.Second}
 }
 
+var Screens = []contract.Display{
+	{ID: "classic", Label: "Classic 16:9", Like: "Galaxy S5, Nexus 5X, Moto G4", Width: 1080, Height: 1920, DPI: 480, Radius: 12, Cutout: "none"},
+}
+
+var Versions = []string{"15", "14", "13"}
+
 var Locations = []contract.Location{
 	{ID: "direct", Label: "Direct"},
 	{ID: "pl", Label: "Poland"},
@@ -77,6 +83,8 @@ func (p *Provider) Capabilities(context.Context) (contract.Capabilities, error) 
 		Locations:       p.locations,
 		DefaultLocation: p.location,
 		ABIs:            []string{"x86_64", "x86", "arm64-v8a"},
+		Screens:         Screens,
+		Versions:        Versions,
 		WebView:         true,
 	}, nil
 }
@@ -131,6 +139,7 @@ func (p *Provider) Create(_ context.Context, req contract.CreateSession) (contra
 	if req.Location != "" && !p.offers(req.Location) {
 		return contract.Session{}, fmt.Errorf("%w: unknown location %q", contract.ErrInvalid, req.Location)
 	}
+	screen, android := pickDevice(req)
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -148,17 +157,28 @@ func (p *Provider) Create(_ context.Context, req contract.CreateSession) (contra
 		tunnelURL = strings.TrimRight(p.cfg.TunnelURL, "/") + "/agents/" + id
 	}
 	d := newDevice(contract.Session{
-		ID:           id,
-		Slot:         slot,
-		SlotLabel:    c.Slots[i].Label,
-		Owner:        req.Owner,
-		Package:      req.Package,
-		ArtifactRef:  req.ArtifactRef,
-		Location:     location,
-		AppData:      req.AppData.Kind(),
-		WebView:      webviewVersion(req.WebView),
-		SaveAppData:  req.SaveAppData,
-		State:        contract.StateProvisioning,
+		ID:          id,
+		Slot:        slot,
+		SlotLabel:   c.Slots[i].Label,
+		Owner:       req.Owner,
+		Package:     req.Package,
+		ArtifactRef: req.ArtifactRef,
+		Location:    location,
+		AppData:     req.AppData.Kind(),
+		WebView:     webviewVersion(req.WebView),
+		SaveAppData: req.SaveAppData,
+		State:       contract.StateProvisioning,
+		Capabilities: &contract.SlotCapabilities{
+			Model:    "Fake " + screen.Label,
+			Android:  android,
+			ABIs:     []string{"x86_64", "x86", "arm64-v8a"},
+			Root:     true,
+			DevTools: contract.DevToolsAll,
+			ADB:      true,
+			Screen:   &screen,
+			Shell:    true,
+			AppData:  true,
+		},
 		AgentURL:     strings.TrimRight(p.cfg.PublicURL, "/") + "/agents/" + id,
 		TunnelURL:    tunnelURL,
 		CreatedAt:    p.now().UTC(),
@@ -168,6 +188,14 @@ func (p *Provider) Create(_ context.Context, req contract.CreateSession) (contra
 	d.seedRoute(req.Route)
 	p.sessions[id] = d
 	return d.session(), nil
+}
+
+func pickDevice(req contract.CreateSession) (contract.Display, string) {
+	screen := Screens[0]
+	if i := slices.IndexFunc(Screens, func(s contract.Display) bool { return s.ID == req.Screen }); i >= 0 {
+		screen = Screens[i]
+	}
+	return screen, cmp.Or(req.Android, Versions[0])
 }
 
 func (p *Provider) device(id string) (*device, error) {

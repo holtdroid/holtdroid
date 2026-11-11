@@ -215,7 +215,8 @@ and what the provider can tell about it: phones answer from adb without root
 `/proc`, `df /data`) plus the USB host itself (`internal/hostinfo`); the
 emulator provider builds a `HostInfo` per node from the Node object and asks
 the node-info Pod on that node (Node API) for the CPU model, load, free
-memory and sensors, once per slot of that node. Android isn't asked: in
+memory and sensors, once per slot of that node, and sets `Slot.group` to
+the node's name so the page groups slots by machine. Android isn't asked: in
 redroid it reads the node's kernel anyway.
 Nothing is cached; the page polls every 10 s.
 
@@ -419,7 +420,11 @@ it is off or locked, which fades under the mouse and lets clicks through.
 The fake agent tracks the screen-off, lock and unlock actions and wakes on
 back-or-screen-on. A rotated device streams a rotated picture. The fake provider
 replays a short H.264 recording over the same protocol, refuses other
-codecs and reports that it can't capture audio.
+codecs and reports that it can't capture audio. It offers one screen, the
+16:9 1080×1920 at 480 dpi that matches the recording's 360×640 dp, and
+Android 15, 14 and 13 as launch choices, and reports the chosen ones as the
+session's capabilities, so `holtdroid dev` shows the launch options and
+device badges like the emulator.
 
 ### DevTools
 
@@ -478,10 +483,13 @@ codecs and reports that it can't capture audio.
   local files; 409 during a crawl; audited as `devtools.frontend.delete`)
   and `POST …/{rev}/fetch` (ahead of the queue), shown on the Inventory
   page's DevTools frontends tab (`/inventory/devtools`; the tabs sit at
-  the top of the page, `/inventory` is the Devices one: a table per provider,
-  a row per slot with its session's age, idle time, next deadline, VPN
-  location and WebView, and node conditions, with the device, machine,
-  sensors and the slot's capabilities in a sheet on the right; and
+  the top of the page, `/inventory` is the Devices one: a capacity bar of
+  every slot coloured by its session's state, then per provider one card
+  per machine (slots grouped by `Slot.group`, else the host's name) with
+  its slots as tiles (app, owner) and CPU load, memory and hottest-sensor
+  meters from `HostInfo`, the longest-running sessions below, and the
+  device, machine, sensors, session meta and the slot's capabilities in a
+  sheet on the right; and
   `/inventory/sessions` lists everyone's sessions with Stop, which uses
   the owner-or-admin `DELETE /api/v1/sessions/{provider}/{id}`).
 - Everything is same-origin (`/s/{provider}/{id}/…` on the api host). This matters

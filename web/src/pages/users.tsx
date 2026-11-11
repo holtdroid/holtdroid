@@ -21,6 +21,7 @@ import {
   useUsers,
 } from "@/api/users"
 import { CopyButton } from "@/components/copy-button"
+import { EmptyPanel, ListPanel, PageHeader, SectionLabel } from "@/components/page"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -58,51 +59,58 @@ export function UsersPage() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto grid max-w-5xl content-start gap-4 p-4 lg:p-6">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Users</h1>
-          <p className="text-muted-foreground text-sm">
-            People sign up with an invite link, or you create their account and send them a link to register a passkey.
-            They sign in with passkeys.
-            {list.data && list.data.allowedDomains.length > 0 && (
-              <> Only addresses at {list.data.allowedDomains.join(", ")} may sign up.</>
-            )}
-          </p>
-        </div>
+      <Tabs defaultValue="users" className="mx-auto grid max-w-5xl content-start gap-5 p-4 lg:px-8 lg:py-7">
+        <PageHeader
+          title="Users"
+          meta="Admins only"
+          description={
+            <>
+              People sign up with an invite link, or you create their account and send them a link to register a
+              passkey. They sign in with passkeys.
+              {list.data && list.data.allowedDomains.length > 0 && (
+                <> Only addresses at {list.data.allowedDomains.join(", ")} may sign up.</>
+              )}
+            </>
+          }
+        >
+          <TabsList>
+            <TabsTrigger value="users">
+              Users
+              {list.data && <Count n={list.data.items.length} />}
+              {pending > 0 && <Badge variant="warning">{pending} waiting</Badge>}
+            </TabsTrigger>
+            <TabsTrigger value="invites">
+              Invite links
+              {invites.data && <Count n={invites.data.length} />}
+            </TabsTrigger>
+          </TabsList>
+        </PageHeader>
         {list.isError && (
           <Alert variant="destructive">
             <AlertDescription>Could not load users: {list.error.message}</AlertDescription>
           </Alert>
         )}
-        <Tabs defaultValue="users">
-          <TabsList>
-            <TabsTrigger value="users">
-              Users{pending > 0 && <Badge className="ml-1.5 h-5 px-1.5">{pending} waiting</Badge>}
-            </TabsTrigger>
-            <TabsTrigger value="invites">Invite links</TabsTrigger>
-          </TabsList>
-          <TabsContent value="users" className="mt-3 grid gap-3">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-muted-foreground text-sm">
-                A new user gets a single-use link to register their first passkey.
-              </p>
-              <NewUser onOpen={setSelected} />
-            </div>
-            {list.isPending ? (
-              <Skeleton className="h-60 rounded-xl" />
-            ) : (
-              <ul className="divide-y rounded-xl border">
-                {list.data?.items.map((u) => (
-                  <UserRow key={u.id} user={u} now={now} onOpen={() => setSelected(u.id)} />
-                ))}
-              </ul>
-            )}
-          </TabsContent>
-          <TabsContent value="invites" className="mt-3 grid gap-3">
-            <InviteList invites={invites.data ?? []} now={now} loading={invites.isPending} />
-          </TabsContent>
-        </Tabs>
-      </div>
+        <TabsContent value="users" className="grid gap-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-muted-foreground text-sm">
+              A new user gets a single-use link to register their first passkey.
+            </p>
+            <NewUser onOpen={setSelected} />
+          </div>
+          {list.isPending ? (
+            <Skeleton className="h-60 rounded-2xl" />
+          ) : (
+            <ListPanel>
+              {list.data?.items.map((u) => (
+                <UserRow key={u.id} user={u} now={now} onOpen={() => setSelected(u.id)} />
+              ))}
+            </ListPanel>
+          )}
+        </TabsContent>
+        <TabsContent value="invites" className="grid gap-3">
+          <InviteList invites={invites.data ?? []} now={now} loading={invites.isPending} />
+        </TabsContent>
+      </Tabs>
       <Sheet open={!!selected} onOpenChange={(open) => !open && setSelected(undefined)}>
         <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
           {selected && list.data && (
@@ -115,13 +123,25 @@ export function UsersPage() {
 }
 
 function RoleBadge({ role }: { role: Role }) {
-  return <Badge variant={role === "" ? "default" : role === "admin" ? "secondary" : "outline"}>{roleLabel[role]}</Badge>
+  return (
+    <Badge variant={role === "" ? "warning" : role === "admin" ? "violet" : "secondary"} dot={role === ""}>
+      {roleLabel[role]}
+    </Badge>
+  )
+}
+
+function Count({ n }: { n: number }) {
+  return (
+    <span className="border-border text-muted-foreground inline-grid h-[18px] min-w-[18px] place-items-center rounded-full border px-1.5 text-[11px] tabular-nums">
+      {n}
+    </span>
+  )
 }
 
 function UserRow({ user: u, now, onOpen }: { user: UserView; now: number; onOpen: () => void }) {
   const update = useUpdateUser()
   return (
-    <li className="flex flex-wrap items-center gap-3 px-3 py-2.5">
+    <li className="flex flex-wrap items-center gap-3 px-4 py-3">
       <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-3 text-left">
         <UserAvatar user={u.id} className="size-8" />
         <div className="grid min-w-0 gap-0.5">
@@ -275,7 +295,7 @@ function UserEditor({
           </Select>
         </div>
         <div className="grid gap-2">
-          <Label>Limits</Label>
+          <SectionLabel>Limits</SectionLabel>
           <p className="text-muted-foreground -mt-1 text-xs">
             Leave empty for the {roleLabel[role || "user"].toLowerCase()} default. 0 means no limit, except for the
             session length.
@@ -306,13 +326,13 @@ function UserEditor({
       </form>
 
       <section className="grid gap-2">
-        <h3 className="text-sm font-semibold">Passkeys</h3>
+        <SectionLabel>Passkeys</SectionLabel>
         {user.passkeys.length === 0 ? (
           <p className="text-muted-foreground text-sm">
             No passkeys: the user can only get back in with a recovery link.
           </p>
         ) : (
-          <ul className="divide-y rounded-lg border">
+          <ul className="divide-y divide-dashed rounded-xl border">
             {user.passkeys.map((p) => (
               <li key={p.id} className="flex items-center gap-2 px-3 py-2 text-sm">
                 <FingerprintIcon className="text-muted-foreground size-4" />
@@ -356,7 +376,7 @@ function RecoverySection({ id }: { id: string }) {
   const recovery = useRecoveryLink()
   const [ttl, setTtl] = useState("86400")
   return (
-    <div className="grid gap-2 rounded-lg border border-dashed p-3">
+    <div className="grid gap-2 rounded-xl border border-dashed p-3">
       <div className="flex flex-wrap items-center gap-2">
         <LifeBuoyIcon className="size-4" />
         <span className="flex-1 text-sm">Recovery link to register a new passkey</span>
@@ -395,8 +415,8 @@ function RecoverySection({ id }: { id: string }) {
 function LinkBox({ link, note }: { link: string; note: string }) {
   return (
     <div className="grid min-w-0 gap-1">
-      <div className="bg-muted flex min-w-0 items-center gap-1 rounded-md px-2 py-1">
-        <code className="min-w-0 flex-1 truncate text-xs">{link}</code>
+      <div className="bg-muted flex min-w-0 items-center gap-1 rounded-[9px] border px-2 py-1">
+        <code className="min-w-0 flex-1 truncate font-mono text-xs">{link}</code>
         <CopyButton text={link} label="Copy link" />
       </div>
       <p className="text-muted-foreground text-xs">{note}</p>
@@ -467,23 +487,21 @@ function InviteList({ invites, now, loading }: { invites: Invite[]; now: number;
         <NewInvite />
       </div>
       {loading ? (
-        <Skeleton className="h-32 rounded-xl" />
+        <Skeleton className="h-32 rounded-2xl" />
       ) : invites.length === 0 ? (
-        <div className="text-muted-foreground rounded-xl border border-dashed p-8 text-center text-sm">
-          No invite links yet.
-        </div>
+        <EmptyPanel>No invite links yet.</EmptyPanel>
       ) : (
-        <ul className="divide-y rounded-xl border">
+        <ListPanel>
           {invites.map((inv) => {
             const expired =
               (inv.expiresAt && new Date(inv.expiresAt).getTime() <= now) || (inv.singleUse && inv.uses > 0)
             return (
-              <li key={inv.id} className="flex flex-wrap items-center gap-3 px-3 py-2.5">
+              <li key={inv.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
                 <div className="grid min-w-0 flex-1 gap-0.5">
                   <div className="flex flex-wrap items-center gap-2 text-sm">
                     <span className="font-medium">{inv.note || "Invite link"}</span>
                     <RoleBadge role={inv.role} />
-                    {expired && <Badge variant="outline">{inv.singleUse && inv.uses > 0 ? "used" : "expired"}</Badge>}
+                    {expired && <Badge variant="secondary">{inv.singleUse && inv.uses > 0 ? "used" : "expired"}</Badge>}
                   </div>
                   <div className="text-muted-foreground flex flex-wrap gap-x-3 text-xs">
                     <span>{inv.singleUse ? "single use" : `reusable · used ${inv.uses}×`}</span>
@@ -509,7 +527,7 @@ function InviteList({ invites, now, loading }: { invites: Invite[]; now: number;
               </li>
             )
           })}
-        </ul>
+        </ListPanel>
       )}
     </>
   )

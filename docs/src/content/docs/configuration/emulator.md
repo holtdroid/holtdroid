@@ -358,17 +358,21 @@ before it starts the app, so a session opens unlocked.
 
 ## Inventory and maintenance
 
-Admins see every slot on the **Inventory** page with its node: its OS image,
-kernel, kubelet and container runtime, CPU and memory from the Node object,
-the conditions it reports (`NotReady`, `DiskPressure`, …) and the session on
-it. With `nodeInfo` set, a small `holtdroid node-info` Pod on each node adds
-the CPU model, load, free memory, uptime and every temperature sensor the
-node exposes (thermal zones and hwmon: CPU package and cores, NVMe drives,
-chipsets). It reads `/proc` and `/sys`, which are host-wide inside an
-ordinary container, so it runs unprivileged as non-root. Each slot's row
-also shows the session on it (owner, age, idle time, when it stops on its
-own, VPN location, WebView), and the page's **Sessions** tab lists
-everyone's devices with a **Stop** button.
+Admins see every slot on the **Inventory** page, one card per node: a bar of
+every slot coloured by what runs on it sits on top, then each node with its
+cores, memory and OS image, the conditions it reports (`NotReady`,
+`DiskPressure`, …) and its slots as tiles showing the app and owner of the
+session on each. With `nodeInfo` set, a small `holtdroid node-info` Pod on
+each node adds the CPU model, load, free memory, uptime and every
+temperature sensor the node exposes (thermal zones and hwmon: CPU package
+and cores, NVMe drives, chipsets); the card shows CPU load, memory and the
+hottest sensor as meters. It reads `/proc` and `/sys`, which are host-wide
+inside an ordinary container, so it runs unprivileged as non-root. Open a
+slot for its node's kernel, kubelet and container runtime, every sensor and
+the session on it (owner, age, idle time, when it stops on its own, VPN
+location, WebView). The longest-running sessions are listed under the
+nodes, and the page's **Sessions** tab lists everyone's devices with a
+**Stop** button.
 
 **Hold for maintenance** keeps new sessions off a slot (or, from the
 provider's header, off every slot) until an admin releases it; a session

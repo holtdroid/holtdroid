@@ -24,6 +24,7 @@ import {
   useUploadReference,
 } from "@/api/queries"
 import { FigmaTokenSection } from "@/components/figma-token"
+import { EmptyPanel, ListPanel, Meter, PageHeader } from "@/components/page"
 import { IconButton } from "@/components/session/icon-button"
 import { ComponentsList } from "@/components/session/pixel-perfect/components-list"
 import { FigmaImport } from "@/components/session/pixel-perfect/figma-import"
@@ -33,7 +34,6 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
@@ -75,15 +75,17 @@ export function PixelPerfectPage() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto grid max-w-7xl gap-6 p-4 lg:grid-cols-[minmax(0,1fr)_400px] lg:p-6">
+      <div className="mx-auto grid max-w-7xl gap-6 p-4 lg:grid-cols-[minmax(0,1fr)_400px] lg:px-8 lg:py-7">
         <div className="grid content-start gap-4">
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight">Pixel perfect</h1>
-            <p className="text-muted-foreground max-w-xl text-sm">
-              Your design references for the Pixel perfect tab of a session, your Figma token and how the tab starts.
-              Only you can see your references.
-            </p>
-          </div>
+          <PageHeader
+            title="Pixel perfect"
+            meta={
+              data?.items.length
+                ? `${data.items.length} ${data.items.length === 1 ? "reference" : "references"}`
+                : undefined
+            }
+            description="Your design references for the Pixel perfect tab of a session, your Figma token and how the tab starts. Only you can see your references."
+          />
 
           {data && !data.enabled && (
             <Alert>
@@ -147,29 +149,31 @@ export function PixelPerfectPage() {
           )}
 
           {refs.isPending ? (
-            <Skeleton className="h-40 rounded-xl" />
+            <Skeleton className="h-40 rounded-2xl" />
           ) : data?.enabled && groups.size === 0 ? (
-            <div className="text-muted-foreground rounded-xl border border-dashed p-8 text-center text-sm">
+            <EmptyPanel>
               {q
                 ? "Nothing matches."
                 : "No references yet. Import a frame from Figma or add an image here, or do it from a session's Pixel perfect tab, where it is tied to the app."}
-            </div>
+            </EmptyPanel>
           ) : (
             [...groups.entries()]
               .toSorted(([a], [b]) => (a === "" ? 1 : b === "" ? -1 : a.localeCompare(b)))
               .map(([pkg, list]) => (
                 <section key={pkg || "-"} className="grid gap-2">
                   <div className="flex items-baseline gap-2">
-                    <h2 className="truncate font-semibold">{pkg ? <code>{pkg}</code> : "Not tied to an app"}</h2>
-                    <span className="text-muted-foreground text-xs">
+                    <h2 className="truncate font-semibold">
+                      {pkg ? <code className="font-mono text-sm">{pkg}</code> : "Not tied to an app"}
+                    </h2>
+                    <span className="text-muted-foreground text-xs tabular-nums">
                       {list.length} · {formatBytes(list.reduce((n, r) => n + r.size, 0))}
                     </span>
                   </div>
-                  <ul className="divide-y rounded-xl border">
+                  <ListPanel>
                     {list.map((r) => (
                       <ReferenceRow key={r.id} reference={r} now={now} />
                     ))}
-                  </ul>
+                  </ListPanel>
                 </section>
               ))
           )}
@@ -177,12 +181,12 @@ export function PixelPerfectPage() {
 
         {data?.enabled && (
           <aside className="grid content-start gap-6 self-start lg:sticky lg:top-6">
-            <section className="grid gap-2 rounded-xl border p-4 text-sm">
-              <h2 className="font-semibold">Storage</h2>
+            <section className="bg-card grid gap-2 rounded-2xl border p-5 text-sm">
+              <h2 className="text-base font-semibold">Storage</h2>
               {data.quota > 0 ? (
                 <>
-                  <Progress value={Math.min(100, (data.used / data.quota) * 100)} className="h-1.5" />
-                  <span className="text-muted-foreground">
+                  <Meter value={data.used / data.quota} className="h-1.5 flex-none" />
+                  <span className="text-muted-foreground tabular-nums">
                     {formatBytes(data.used)} of {formatBytes(data.quota)} used
                   </span>
                 </>
@@ -198,8 +202,8 @@ export function PixelPerfectPage() {
               <span className="text-muted-foreground">Images up to {formatBytes(data.maxFileSize)}.</span>
             </section>
 
-            <section className="grid gap-3 rounded-xl border p-4">
-              <h2 className="font-semibold">Figma token</h2>
+            <section className="bg-card grid gap-3 rounded-2xl border p-5">
+              <h2 className="text-base font-semibold">Figma token</h2>
               <FigmaTokenSection guideOpen={!hasToken} />
             </section>
 
@@ -230,9 +234,9 @@ function ReferenceRow({ reference: r, now }: { reference: ReferenceView; now: nu
   }
 
   return (
-    <li className="grid gap-2 p-3">
+    <li className="grid gap-2 px-4 py-3">
       <div className="flex items-center gap-3">
-        <div className="bg-muted size-14 shrink-0 overflow-hidden rounded-md ring-1 ring-black/10">
+        <div className="bg-muted size-14 shrink-0 overflow-hidden rounded-lg border">
           {r.thumbnailUrl ? (
             <img src={r.thumbnailUrl} alt="" loading="lazy" width={160} className="size-full object-cover object-top" />
           ) : (
@@ -258,7 +262,7 @@ function ReferenceRow({ reference: r, now }: { reference: ReferenceView; now: nu
               <span className="truncate font-medium" title={r.name}>
                 {r.name}
               </span>
-              {r.figma && <Badge variant="outline">Figma</Badge>}
+              {r.figma && <Badge variant="violet">Figma</Badge>}
             </div>
           )}
           <span className="text-muted-foreground truncate text-xs">
@@ -379,9 +383,9 @@ function Defaults() {
     savePrefs(next)
   }
   return (
-    <section className="grid gap-4 rounded-xl border p-4 text-sm">
+    <section className="bg-card grid gap-4 rounded-2xl border p-5 text-sm">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="font-semibold">How the tab starts</h2>
+        <h2 className="text-base font-semibold">How the tab starts</h2>
         <Button size="sm" variant="ghost" onClick={() => update(defaultPrefs)}>
           Reset
         </Button>

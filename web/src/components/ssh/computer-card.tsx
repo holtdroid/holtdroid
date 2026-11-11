@@ -5,6 +5,7 @@ import { useSessions } from "@/api/queries"
 import { useSetPublished, useSSHInfo } from "@/api/ssh"
 import type { Computer } from "@/api/client"
 import { CopyButton } from "@/components/copy-button"
+import { SectionLabel } from "@/components/page"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -55,13 +56,14 @@ export function ComputerCard({ computer: c }: { computer: Computer }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <LaptopIcon className="size-4" />
-          {c.hostname}
-          <span className="inline-flex items-center gap-1 text-xs font-normal text-emerald-600 dark:text-emerald-400">
-            <span className="size-1.5 rounded-full bg-emerald-500" />
-            connected {formatRelative(c.since, now)}
+        <CardTitle className="flex flex-wrap items-center gap-2">
+          <span className="bg-muted grid size-7 place-items-center rounded-lg border">
+            <LaptopIcon className="size-4" />
           </span>
+          <span className="font-mono text-[15px] font-medium">{c.hostname}</span>
+          <Badge variant="success" dot>
+            connected {formatRelative(c.since, now)}
+          </Badge>
         </CardTitle>
         <CardDescription>
           {[osName[c.os] ?? c.os, c.arch].filter(Boolean).join(" ")} · {c.clientIP}
@@ -70,7 +72,7 @@ export function ComputerCard({ computer: c }: { computer: Computer }) {
       </CardHeader>
       <CardContent className="grid gap-4">
         <div className="grid gap-2">
-          <span className="text-xs font-medium">Ports published on your devices</span>
+          <SectionLabel>Ports published on your devices</SectionLabel>
           {publishOff && (
             <span className="text-muted-foreground text-xs">Publishing ports is turned off on this portal.</span>
           )}
@@ -95,11 +97,8 @@ export function ComputerCard({ computer: c }: { computer: Computer }) {
                 <Badge
                   key={port}
                   asChild
-                  variant="outline"
-                  className={cn(
-                    "cursor-pointer gap-1.5 font-mono",
-                    on && "border-emerald-500/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-                  )}
+                  variant={on ? "success" : "outline"}
+                  className="cursor-pointer gap-1.5 font-mono"
                 >
                   <button
                     type="button"
@@ -114,7 +113,7 @@ export function ComputerCard({ computer: c }: { computer: Computer }) {
                     disabled={publishOff || automatic}
                     onClick={() => toggle(port)}
                   >
-                    <span className={cn("size-1.5 rounded-full", on ? "bg-emerald-500" : "bg-muted-foreground/40")} />
+                    <span className={cn("size-1.5 rounded-full", on ? "bg-current" : "bg-muted-foreground/40")} />
                     {port}
                     {process && <span className="font-sans opacity-70">{process}</span>}
                     {!processes.has(port) && <span className="font-sans opacity-70">not listening</span>}
@@ -154,8 +153,8 @@ export function ComputerCard({ computer: c }: { computer: Computer }) {
           </p>
         </div>
 
-        <div className="grid gap-2">
-          <span className="text-xs font-medium">ADB</span>
+        <div className="grid gap-2 border-t border-dashed pt-4">
+          <SectionLabel>ADB</SectionLabel>
           {adbOff ? (
             <span className="text-muted-foreground text-xs">ADB is turned off on this portal.</span>
           ) : c.adb.length === 0 ? (
@@ -179,7 +178,7 @@ export function ComputerCard({ computer: c }: { computer: Computer }) {
                     ) : (
                       <code className="font-mono text-xs">{a.session}</code>
                     )}
-                    <code className="bg-muted rounded px-1.5 py-0.5 font-mono text-xs">adb -s {address}</code>
+                    <code className="bg-muted rounded-md border px-1.5 py-0.5 font-mono text-xs">adb -s {address}</code>
                     <CopyButton text={address} label="Copy the address" />
                   </li>
                 )

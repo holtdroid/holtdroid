@@ -23,10 +23,9 @@ export function ActiveTunnels() {
           <CableIcon className="size-4" />
           Active tunnels
           {list.length > 0 && (
-            <span className="inline-flex items-center gap-1 text-xs font-normal text-emerald-600 dark:text-emerald-400">
-              <span className="size-1.5 rounded-full bg-emerald-500" />
+            <Badge variant="success" dot>
               {list.length} {list.length === 1 ? "device" : "devices"}
-            </span>
+            </Badge>
           )}
         </CardTitle>
         <CardDescription>
@@ -40,12 +39,12 @@ export function ActiveTunnels() {
         ) : list.length === 0 ? (
           <p className="text-muted-foreground text-sm">No tunnels are open right now.</p>
         ) : (
-          <ul className="grid gap-2">
+          <ul className="divide-border -my-1 divide-y divide-dashed">
             {list.map((t) => {
               const s = sessions.data?.items.find((v) => v.provider === t.provider && v.id === t.id)
               return (
-                <li key={`${t.provider}/${t.id}`} className="flex items-start gap-3 rounded-lg border p-2.5">
-                  <AppIcon src={s?.iconUrl} className="size-9" />
+                <li key={`${t.provider}/${t.id}`} className="flex items-start gap-3 py-3">
+                  <AppIcon src={s?.iconUrl} className="size-9 rounded-[10px]" />
                   <div className="grid min-w-0 flex-1 gap-1.5">
                     <div className="flex flex-wrap items-baseline gap-x-2">
                       <Link
@@ -61,12 +60,7 @@ export function ActiveTunnels() {
                     </div>
                     <div className="flex flex-wrap items-center gap-1.5">
                       {t.adb.map((a) => (
-                        <Badge
-                          key={a.since}
-                          variant="outline"
-                          className="gap-1.5 border-emerald-500/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                        >
-                          <span className="size-1.5 rounded-full bg-emerald-500" />
+                        <Badge key={a.since} variant="success" dot>
                           ADB · {formatRelative(a.since, now)}
                         </Badge>
                       ))}

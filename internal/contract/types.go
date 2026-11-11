@@ -82,6 +82,7 @@ const (
 type Slot struct {
 	ID           string            `json:"id"`
 	Label        string            `json:"label"`
+	Group        string            `json:"group,omitempty" doc:"the machine the slot runs on, such as an emulator's Kubernetes node; slots with the same group share it"`
 	State        SlotState         `json:"state" enum:"free,busy,offline,maintenance"`
 	Capabilities *SlotCapabilities `json:"capabilities,omitempty" doc:"what this slot's device can do, when it differs from device to device; empty means the provider's capabilities"`
 	Maintenance  *Maintenance      `json:"maintenance,omitempty" doc:"set while the slot, or its whole provider, is held for maintenance: no new sessions start on it, a running one keeps going"`

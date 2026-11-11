@@ -4,6 +4,7 @@ import { toast } from "sonner"
 import type { AppDataView } from "@/api/client"
 import { appDataDownloadURL, useAppData, useDeleteAppData } from "@/api/queries"
 import { AppIcon } from "@/components/app-icon"
+import { EmptyPanel, ListPanel, PageHeader } from "@/components/page"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -28,16 +29,21 @@ export function AppDataPage() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto grid max-w-7xl gap-6 p-4 lg:grid-cols-[minmax(0,1fr)_380px] lg:p-6">
+      <div className="mx-auto grid max-w-7xl gap-6 p-4 lg:grid-cols-[minmax(0,1fr)_380px] lg:px-8 lg:py-7">
         <div className="grid content-start gap-4">
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight">App data</h1>
-            <p className="text-muted-foreground max-w-xl text-sm">
-              The app&apos;s private data lands here when you save it from a session, or when a session ends with
-              &ldquo;Save app data when the session ends&rdquo; ticked at launch. Pick a save when launching the same
-              app to continue where you left off. Only you can see your saves.
-            </p>
-          </div>
+          <PageHeader
+            title="App data"
+            meta={
+              rules?.items.length ? `${rules.items.length} ${rules.items.length === 1 ? "save" : "saves"}` : undefined
+            }
+            description={
+              <>
+                The app&apos;s private data lands here when you save it from a session, or when a session ends with
+                &ldquo;Save app data when the session ends&rdquo; ticked at launch. Pick a save when launching the same
+                app to continue where you left off. Only you can see your saves.
+              </>
+            }
+          />
 
           {rules && !rules.enabled && (
             <Alert>
@@ -53,32 +59,33 @@ export function AppDataPage() {
           )}
 
           {list.isPending ? (
-            <Skeleton className="h-40 rounded-xl" />
+            <Skeleton className="h-40 rounded-2xl" />
           ) : rules?.enabled && groups.size === 0 ? (
-            <div className="text-muted-foreground rounded-xl border border-dashed p-8 text-center text-sm">
-              Nothing saved yet. Launch an app, use it, and stop the session.
-            </div>
+            <EmptyPanel>Nothing saved yet. Launch an app, use it, and stop the session.</EmptyPanel>
           ) : (
             [...groups.entries()].map(([pkg, items]) => (
               <section key={pkg} className="grid gap-2">
                 <div className="flex items-center gap-2">
-                  <AppIcon src={items.find((d) => d.iconUrl)?.iconUrl} className="size-7" />
+                  <AppIcon src={items.find((d) => d.iconUrl)?.iconUrl} className="size-7 rounded-lg" />
                   <h2 className="truncate font-semibold">{items[0]?.label || pkg}</h2>
                   <span className="text-muted-foreground truncate font-mono text-xs">{pkg}</span>
+                  <Badge variant="secondary" className="ml-auto">
+                    {items.length}
+                  </Badge>
                 </div>
-                <ul className="divide-y rounded-xl border">
+                <ListPanel>
                   {items.map((d) => (
                     <AppDataRow key={d.id} data={d} now={now} canDownload={!!rules?.export} />
                   ))}
-                </ul>
+                </ListPanel>
               </section>
             ))
           )}
         </div>
 
         {rules?.enabled && (
-          <aside className="grid content-start gap-2 self-start rounded-xl border p-4 text-sm lg:sticky lg:top-6 lg:max-h-[calc(100dvh-8rem)] lg:overflow-y-auto">
-            <h2 className="font-semibold">How long saves are kept</h2>
+          <aside className="bg-card grid content-start gap-2 self-start rounded-2xl border p-5 text-sm lg:sticky lg:top-6 lg:max-h-[calc(100dvh-8rem)] lg:overflow-y-auto">
+            <h2 className="text-base font-semibold">How long saves are kept</h2>
             <ul className="text-muted-foreground grid list-disc gap-1 pl-4">
               <li>{rules.keep > 0 ? `The ${rules.keep} most recently used per app` : "Every save, no count limit"}</li>
               <li>
@@ -104,13 +111,17 @@ function AppDataRow({ data: d, now, canDownload }: { data: AppDataView; now: num
   const [confirming, setConfirming] = useState(false)
 
   return (
-    <li className="flex flex-wrap items-center gap-3 px-3 py-2.5">
+    <li className="flex flex-wrap items-center gap-3 px-4 py-3">
       <div className="grid min-w-0 flex-1 gap-0.5">
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <span className="font-medium" title={new Date(d.createdAt).toLocaleString()}>
             Saved {formatRelative(d.createdAt, now)}
           </span>
-          {d.versionName && <span className="text-muted-foreground font-mono text-xs">{d.versionName}</span>}
+          {d.versionName && (
+            <Badge variant="outline" className="font-mono">
+              {d.versionName}
+            </Badge>
+          )}
           {d.cache && (
             <Badge variant="secondary" className="gap-1">
               <HardDriveIcon className="size-3" />
@@ -119,7 +130,7 @@ function AppDataRow({ data: d, now, canDownload }: { data: AppDataView; now: num
           )}
         </div>
         <div className="text-muted-foreground flex flex-wrap gap-x-3 text-xs">
-          <span>
+          <span className="tabular-nums">
             {formatBytes(d.size)} on the device · {formatBytes(d.compressed)} stored
           </span>
           <span>Last used {formatRelative(d.lastUsedAt, now)}</span>
