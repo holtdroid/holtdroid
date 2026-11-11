@@ -257,25 +257,69 @@ header.header {
 }
 
 .hd-sheet-foot {
-  display: flex;
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
   gap: 8px;
   padding: 12px 0.25rem 4px;
   border-top: 1px solid var(--hd-bd);
 }
 
 .hd-sheet-foot > * {
-  flex: 1;
+  min-width: 0;
 }
 
 .hd-sheet-foot .hd-btn {
+  width: 100%;
   height: 40px;
+  padding: 0 10px;
+}
+
+.hd-truncate {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hd-sheet-foot starlight-lang-select {
+  display: block;
 }
 
 .hd-sheet-foot starlight-lang-select label {
+  width: 100%;
   height: 40px;
   border: 1px solid var(--hd-bd);
   border-radius: 9px;
   background: var(--hd-sf);
+  color: var(--hd-tx);
+  transition: background-color 0.15s;
+}
+
+.hd-sheet-foot starlight-lang-select label:hover {
+  background: var(--hd-sf2);
+}
+
+.hd-sheet-foot starlight-lang-select .label-icon {
+  inset-inline-start: 11px;
+  font-size: 16px;
+}
+
+.hd-sheet-foot starlight-lang-select .caret {
+  inset-inline-end: 8px;
+  font-size: 16px;
+}
+
+.hd-sheet-foot starlight-lang-select select {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  margin: 0;
+  padding: 0 30px 0 34px;
+  overflow: hidden;
+  font: 500 13px var(--hd-font);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .hd-nav {
@@ -582,6 +626,10 @@ header.header {
 
 /* Mermaid diagrams */
 
+:root {
+  --hd-canvas: var(--hd-sf2);
+}
+
 .sl-markdown-content pre.mermaid {
   display: flex;
   justify-content: center;
@@ -590,13 +638,19 @@ header.header {
   border-radius: 16px;
   background:
     radial-gradient(circle, var(--hd-bd) 1px, transparent 1px) 0 0 / 20px 20px,
-    var(--hd-sf);
+    var(--hd-canvas);
 }
 
 :is(.mermaid, .hd-diagram-zoom-stage) svg {
-  --hd-node: var(--hd-sf2);
+  --hd-node: var(--hd-sf);
+  --hd-edge: color-mix(in oklab, var(--hd-tx) 55%, var(--hd-canvas));
+  --hd-outline: color-mix(in oklab, var(--hd-tx) 30%, var(--hd-canvas));
 
   font-family: var(--hd-font) !important;
+}
+
+:root[data-theme="dark"] :is(.mermaid, .hd-diagram-zoom-stage) svg {
+  --hd-node: var(--hd-sf3);
 }
 
 :is(.mermaid, .hd-diagram-zoom-stage)
@@ -605,6 +659,7 @@ header.header {
     .node rect,
     .node polygon,
     .node circle,
+    .node ellipse,
     .node path,
     rect.basic,
     .statediagram-state rect,
@@ -613,7 +668,8 @@ header.header {
     .er.entityBox
   ) {
   fill: var(--hd-node) !important;
-  stroke: var(--hd-bd) !important;
+  stroke: var(--hd-outline) !important;
+  stroke-width: 1px !important;
 }
 
 :is(.mermaid, .hd-diagram-zoom-stage) svg :is(.node rect, rect.basic, .statediagram-state rect, rect.actor) {
@@ -624,8 +680,8 @@ header.header {
 :is(.mermaid, .hd-diagram-zoom-stage) svg .cluster rect {
   rx: 14px;
   ry: 14px;
-  fill: var(--hd-sf) !important;
-  stroke: var(--hd-bd) !important;
+  fill: var(--hd-canvas) !important;
+  stroke: var(--hd-outline) !important;
   stroke-dasharray: 4 4;
 }
 
@@ -634,35 +690,51 @@ header.header {
   fill: var(--hd-tx) !important;
 }
 
-:is(.mermaid, .hd-diagram-zoom-stage) svg :is(.cluster-label, .edgeLabel, .messageText, .loopText) :is(span, p, tspan) {
+:is(.mermaid, .hd-diagram-zoom-stage) svg :is(.cluster-label, .loopText) :is(span, p, tspan) {
   color: var(--hd-mu) !important;
   fill: var(--hd-mu) !important;
 }
 
-:is(.mermaid, .hd-diagram-zoom-stage) svg :is(.edgeLabel, .labelBkg, .edgeLabel rect) {
-  background: var(--hd-sf) !important;
-  fill: var(--hd-sf) !important;
+:is(.mermaid, .hd-diagram-zoom-stage) svg :is(.edgeLabel, .labelBkg, .edgeLabel :is(span, p, rect)) {
+  opacity: 1 !important;
+  background: var(--hd-canvas) !important;
+  fill: var(--hd-canvas) !important;
+}
+
+:is(.mermaid, .hd-diagram-zoom-stage) svg .edgeLabel :is(span, p) {
+  color: var(--hd-tx) !important;
+  font-weight: 500;
 }
 
 :is(.mermaid, .hd-diagram-zoom-stage)
   svg
-  :is(.flowchart-link, .transition, .messageLine0, .messageLine1, .actor-line, .relation, .loopLine) {
-  stroke: var(--hd-mu) !important;
+  :is(.flowchart-link, .transition, .messageLine0, .messageLine1, .relation, .loopLine) {
+  stroke: var(--hd-edge) !important;
+  stroke-width: 1.5px !important;
+}
+
+:is(.mermaid, .hd-diagram-zoom-stage) svg .actor-line {
+  stroke: var(--hd-outline) !important;
 }
 
 :is(.mermaid, .hd-diagram-zoom-stage) svg :is(marker path, .arrowheadPath, .arrowMarkerPath) {
-  fill: var(--hd-mu) !important;
-  stroke: var(--hd-mu) !important;
+  fill: var(--hd-edge) !important;
+  stroke: var(--hd-edge) !important;
 }
 
 :is(.mermaid, .hd-diagram-zoom-stage) svg :is(.note, .noteText) {
-  fill: var(--hd-sf) !important;
-  stroke: var(--hd-bd) !important;
+  fill: var(--hd-node) !important;
+  stroke: var(--hd-outline) !important;
 }
 
 :is(.mermaid, .hd-diagram-zoom-stage) svg :is(.activation0, .activation1, .activation2) {
   fill: var(--hd-inbg) !important;
   stroke: var(--hd-in) !important;
+}
+
+:is(.mermaid, .hd-diagram-zoom-stage) svg :is(.state-start, .node .state-start) {
+  fill: var(--hd-tx) !important;
+  stroke: var(--hd-tx) !important;
 }
 
 .mermaid svg :is(.flowchart-link, .transition, .messageLine0, .messageLine1) {
@@ -695,6 +767,8 @@ header.header {
 }
 
 .hd-diagram-zoom {
+  --hd-canvas: var(--hd-bg);
+
   width: 100vw;
   max-width: none;
   height: 100dvh;
@@ -704,7 +778,7 @@ header.header {
   border: none;
   background:
     radial-gradient(circle, var(--hd-bd) 1px, transparent 1px) 0 0 / 20px 20px,
-    var(--hd-bg);
+    var(--hd-canvas);
   color: var(--hd-tx);
 }
 
@@ -874,7 +948,8 @@ starlight-toc h2 {
 
 starlight-toc a {
   padding: 4px 0 4px calc(12px + var(--depth) * 12px) !important;
-  border-inline-start: 1px solid var(--hd-bd);
+  border-inline-start: 2px solid var(--hd-bd);
+  border-radius: 0;
   color: var(--hd-mu);
   font-size: 13px;
   transition: color 0.15s;

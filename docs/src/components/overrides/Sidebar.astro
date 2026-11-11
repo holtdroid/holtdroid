@@ -57,6 +57,7 @@ const tabIcons = ["book", "guide"] as const
     popovertarget="starlight__sidebar"
     popovertargetaction="hide"
     aria-label={strings.close}
+    data-hd-sheet-close
   >
     <DockIcon name="close" />
   </button>
@@ -80,7 +81,7 @@ const tabIcons = ["book", "guide"] as const
   <button class="hd-btn" type="button" data-hd-theme>
     <DockIcon name="sun" class="hd-theme-dark" />
     <DockIcon name="moon" class="hd-theme-light" />
-    {strings.theme}
+    <span class="hd-truncate">{strings.theme}</span>
   </button>
 </div>
 
@@ -113,4 +114,10 @@ const tabIcons = ["book", "guide"] as const
   }
 
   input?.addEventListener("input", () => filter(input.value))
+
+  document.querySelector("[data-hd-sheet-close]")?.addEventListener("click", (e) => {
+    e.preventDefault()
+    const sheet = document.getElementById("starlight__sidebar")
+    if (sheet?.matches(":popover-open")) sheet.hidePopover()
+  })
 </script>
