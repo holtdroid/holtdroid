@@ -35,9 +35,9 @@ export default {
       action: "look",
       set: { terminal: 1, toast: "none" },
       text: {
-        en: "Paste it into a terminal on your Mac or Linux machine and press Enter.",
-        ru: "Вставьте её в терминал на Mac или Linux и нажмите Enter.",
-        uk: "Вставте її в термінал на Mac або Linux і натисніть Enter.",
+        en: "Paste it into a terminal on your Mac or Linux machine (on Windows, in WSL) and press Enter.",
+        ru: "Вставьте её в терминал на Mac или Linux (на Windows — в WSL) и нажмите Enter.",
+        uk: "Вставте її в термінал на Mac або Linux (на Windows — у WSL) і натисніть Enter.",
       },
     },
     {

@@ -336,7 +336,7 @@ export function Computers({ s }: { s: PortalState }) {
         <div data-g="connect-card" className="bg-card grid gap-3 rounded-xl border p-4">
           <span className="font-medium">Connect a computer</span>
           <p className="text-muted-foreground text-sm">
-            Paste this into a terminal on macOS or Linux. The code works once, for ten minutes.
+            Paste this into a terminal on macOS or Linux, or in WSL on Windows. The code works once, for ten minutes.
           </p>
           <div className="bg-muted flex items-center gap-2 rounded-lg p-2 font-mono text-xs">
             <span className="min-w-0 flex-1 truncate">

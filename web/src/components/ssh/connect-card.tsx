@@ -35,6 +35,18 @@ export function ConnectCard() {
         </Button>
       )}
       {code.isError && <p className="text-destructive text-xs">{code.error.message}</p>}
+      <p className="text-muted-foreground text-xs">
+        The client runs on macOS and Linux. On Windows, run the command in{" "}
+        <a
+          href="https://learn.microsoft.com/windows/wsl/install"
+          target="_blank"
+          rel="noreferrer"
+          className="underline underline-offset-2"
+        >
+          WSL
+        </a>
+        .
+      </p>
     </div>
   )
 }

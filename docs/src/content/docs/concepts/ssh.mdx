@@ -28,7 +28,11 @@ curl -fsSL https://android.example.com/tunnel.sh | sh -s -- eyJhbGciOiJIUzI1NiIs
 
 The script finds the client build for your system (macOS or Linux, Intel or
 Arm), downloads it from the portal, checks its SHA-256 and runs it with the
-code from the command. The client then:
+code from the command. There is no Windows build: on Windows run the command
+in [WSL](https://learn.microsoft.com/windows/wsl/install). Its published ports and per-device ADB ports reach Windows
+through WSL's localhost forwarding, so a Windows `adb` connects with
+`adb connect 127.0.0.1:<port>`; opening the browser from the client may not
+work there. The client then:
 
 - makes its own key for this portal (it never touches `~/.ssh`) and trades
   the code for this computer's enrollment, named after its hostname;

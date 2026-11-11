@@ -20,7 +20,7 @@ laptop, while the device itself runs in the portal.
    **Get the command**.
 2. <Hint to="connect-copy" step={3}>Copy the command</Hint>
    and <Hint to="terminal" step={4}>paste it into a terminal</Hint>
-   on your Mac or Linux machine.
+   on your Mac or Linux machine, or in WSL on Windows.
 3. The script downloads the `holtdroid` client, checks it and connects. Your computer appears on the page as <Hint to="computer-card" step={6}>online</Hint>.
 4. If `adb` is installed, every device you run is already connected: <Hint step={7}>`adb devices`</Hint> lists it.
 
@@ -45,6 +45,9 @@ curl -fsSL https://holtdroid.example.com/tunnel.sh | sh -s -- eyJhbGciOi…
 - **The command says the code expired**: get a fresh command on the Computers page.
 - **The device isn't in `adb devices`**: check that `adb` is on your `PATH`; otherwise connect by hand with
   `adb connect 127.0.0.1:<port>`, taking the port from the Computers page.
-- **Windows**: the client runs on macOS and Linux. Use WSL.
+- **Windows**: works through [WSL](https://learn.microsoft.com/windows/wsl/install), with a few limits. Run the command in a WSL terminal. If `adb` and
+  Android Studio are installed on Windows rather than in WSL, connect them by hand with
+  `adb connect 127.0.0.1:<port>`: WSL shares its localhost ports with Windows. **Enter** and **w** in the client
+  may not open the Windows browser; open the portal and `chrome://inspect` there yourself.
 
 More details: [Connecting your computer](/concepts/ssh/).

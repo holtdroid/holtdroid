@@ -20,7 +20,7 @@ import Hint from "../../../../../components/Hint.astro"
    **Get the command**.
 2. <Hint to="connect-copy" step={3}>Скопіюйте команду</Hint>
    і <Hint to="terminal" step={4}>вставте її в термінал</Hint>
-   на Mac або Linux.
+   на Mac або Linux, а на Windows — у WSL.
 3. Скрипт завантажить клієнт `holtdroid`, перевірить його і підключиться. Ваш комп'ютер з'явиться на сторінці зі
    статусом <Hint to="computer-card" step={6}>online</Hint>.
 4. Якщо `adb` встановлено, усі ваші запущені пристрої вже підключені: <Hint step={7}>`adb devices`</Hint> їх
@@ -48,6 +48,9 @@ curl -fsSL https://holtdroid.example.com/tunnel.sh | sh -s -- eyJhbGciOi…
 - **Команда пише, що код прострочено**: візьміть нову команду на сторінці Computers.
 - **Пристрою немає в `adb devices`**: перевірте, що `adb` є в `PATH`; або підключіться вручну через
   `adb connect 127.0.0.1:<порт>`, узявши порт зі сторінки Computers.
-- **Windows**: клієнт працює на macOS і Linux. Використовуйте WSL.
+- **Windows**: працює через [WSL](https://learn.microsoft.com/windows/wsl/install), із застереженнями. Запускайте команду в терміналі WSL. Якщо `adb` і
+  Android Studio встановлені у Windows, а не у WSL, підключіть пристрій вручну через
+  `adb connect 127.0.0.1:<порт>`: WSL ділить свої порти localhost з Windows. **Enter** і **w** у клієнті
+  можуть не відкрити браузер Windows; відкрийте портал і `chrome://inspect` у ньому самі.
 
 Докладніше: [Connecting your computer](/uk/concepts/ssh/).
