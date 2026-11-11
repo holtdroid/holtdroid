@@ -453,7 +453,7 @@ export function RecordingPlayer({
         </div>
       </RecordingHeader>
 
-      <div className="flex flex-col gap-4 lg:grid lg:h-[max(460px,calc(100dvh-30rem))] lg:grid-cols-[240px_minmax(0,1fr)_minmax(340px,400px)] xl:grid-cols-[260px_minmax(0,1fr)_minmax(360px,420px)]">
+      <div className="flex flex-col gap-4 lg:grid lg:h-[max(460px,calc(100dvh-24rem))] lg:grid-cols-[232px_minmax(0,1fr)_38%] xl:grid-cols-[260px_minmax(0,1fr)_minmax(440px,40%)] 2xl:grid-cols-[280px_minmax(0,1fr)_minmax(440px,40%)]">
         <aside className="order-2 min-h-0 lg:order-none lg:overflow-y-auto">
           <SideCards
             summary={summary}

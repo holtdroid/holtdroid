@@ -27,7 +27,7 @@ deployment"):
     that shows scenario steps and the live step from the agent. Guide
     scenes other than the network guide still show the old layout.
   - Recordings: list rows, player with header actions, side cards, stage,
-    Findings tab and a lane timeline; the agent records `screen` events;
+    Findings tab and a one-track timeline (#192); the agent records `screen` events;
     `RecordingView.owner/ownerName/markers`.
   - Inventory: node cards built from `Slot.group` and HostInfo, a capacity
     bar and a longest-running table. Users, Audit, Account, Computers, App

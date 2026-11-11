@@ -58,10 +58,11 @@ export function MarkerBadge({ icon, className }: { icon: MarkerIcon; className?:
   )
 }
 
-/** A labelled pin on the Markers lane; for an editable recording a click opens its editor. */
+/** A labelled flag above the timeline track; for an editable recording a click opens its editor. */
 export function MarkerPin({
   marker,
   left,
+  flip,
   open,
   editable,
   onOpen,
@@ -69,7 +70,10 @@ export function MarkerPin({
   onRemove,
 }: {
   marker: RecordingMarker
-  left: string
+  /** where on the timeline, 0–100 */
+  left: number
+  /** open to the left of the time, near the end of the timeline */
+  flip?: boolean
   open: boolean
   editable: boolean
   onOpen: (open: boolean) => void
@@ -77,11 +81,15 @@ export function MarkerPin({
   onRemove: () => void
 }) {
   const m = markerIcons[marker.icon] ?? markerIcons.pin
+  const p = Math.min(100, Math.max(0, left))
   return (
     <Popover open={open && editable} onOpenChange={onOpen}>
       <span
-        className="absolute bottom-0 flex -translate-x-px flex-col items-start hover:z-10 focus-within:z-10"
-        style={{ left }}
+        className={cn(
+          "absolute top-0 flex flex-col hover:z-10 focus-within:z-10",
+          flip ? "-translate-x-[calc(100%-1px)] items-end" : "-translate-x-px items-start",
+        )}
+        style={{ left: `${p}%`, maxWidth: `min(10rem, ${flip ? p : 100 - p}%)` }}
       >
         <PopoverAnchor asChild>
           <button
@@ -89,7 +97,8 @@ export function MarkerPin({
             title={`${clock(marker.t)}${marker.label ? ` · ${marker.label}` : ""}`}
             aria-label={marker.label || `Marker at ${clock(marker.t)}`}
             className={cn(
-              "inline-flex h-[22px] max-w-40 items-center gap-1 rounded-[6px_6px_6px_0] px-[7px] text-[11.5px] font-medium whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "pointer-events-auto inline-flex h-5 max-w-full min-w-5 items-center gap-1 px-1.5 text-[11px] font-medium whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              flip ? "rounded-[6px_6px_0_6px]" : "rounded-[6px_6px_6px_0]",
               m.soft,
               open && "ring-1 ring-current",
             )}
@@ -100,11 +109,11 @@ export function MarkerPin({
             <span className="truncate">{marker.label || clock(marker.t)}</span>
           </button>
         </PopoverAnchor>
-        <span aria-hidden className={cn("h-[22px] w-0.5", m.soft, "bg-current")} />
+        <span aria-hidden className={cn("pointer-events-none h-10 w-0.5", m.soft, "bg-current")} />
       </span>
       <PopoverContent
         side="top"
-        align="start"
+        align={flip ? "end" : "start"}
         onPointerDown={(e) => e.stopPropagation()}
         onPointerMove={(e) => e.stopPropagation()}
         className="w-[300px] gap-0 rounded-xl p-3"

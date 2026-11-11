@@ -17,7 +17,8 @@ import {
 } from "@/lib/routes"
 import { cn } from "@/lib/utils"
 
-const cols = "grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1.6fr)_72px_52px_80px_minmax(0,1fr)]"
+const cols =
+  "grid-cols-[minmax(0,2fr)_minmax(0,1.6fr)_44px_64px] @lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1.6fr)_44px_64px] @2xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1.6fr)_72px_52px_80px_minmax(0,1fr)]"
 
 const flagTones: Record<RouteFlag["id"], string> = {
   far: "bg-warning-soft text-warning",
@@ -82,7 +83,7 @@ export function RoutesTable({
   const selected = routes.find((r) => r.key === picked)
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col text-[12px]">
+    <div className="@container flex min-h-0 flex-1 flex-col text-[12px]">
       <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-b px-2 py-1.5">
         <ExitPath exit={exit} geo={geo} />
         <span className="text-muted-foreground">
@@ -102,18 +103,25 @@ export function RoutesTable({
           Flagged{sum.flagged > 0 ? ` (${sum.flagged})` : ""}
         </Button>
       </div>
-      <div className={cn("grid shrink-0 gap-x-3 border-b bg-muted/40 px-2 py-1 text-muted-foreground", cols)}>
+      <div
+        className={cn(
+          "grid shrink-0 gap-x-3 border-b bg-muted/40 px-2 py-1 text-muted-foreground [&>span]:truncate",
+          cols,
+        )}
+      >
         <span>Name</span>
-        <span>Address</span>
+        <span className="hidden @lg:block">Address</span>
         <span>Where</span>
-        <span title="The VPN location (or bypass) the traffic left through">Via</span>
+        <span className="hidden @2xl:block" title="The VPN location (or bypass) the traffic left through">
+          Via
+        </span>
         <span className="text-right" title="Connections, open ones in brackets">
           Conns
         </span>
         <span className="text-right" title="Bytes received">
           Down
         </span>
-        <span className="pl-2">Flags</span>
+        <span className="hidden pl-2 @2xl:block">Flags</span>
       </div>
       <div className="min-h-0 flex-1 overflow-auto">
         {shown.length === 0 && (
@@ -135,23 +143,32 @@ export function RoutesTable({
               r.open === 0 && "text-muted-foreground",
             )}
           >
-            <span className="truncate font-mono" title={r.key}>
-              {r.key}
+            <span className="flex min-w-0 items-center gap-1">
+              <span className="truncate font-mono" title={r.key}>
+                {r.key}
+              </span>
+              {r.flags.length > 0 && (
+                <span className="flex shrink-0 gap-1 @2xl:hidden">
+                  {r.flags.map((f) => (
+                    <FlagBadge key={f.id} flag={f} />
+                  ))}
+                </span>
+              )}
             </span>
-            <span className="truncate font-mono text-muted-foreground" title={r.addresses.join(", ")}>
+            <span className="hidden truncate font-mono text-muted-foreground @lg:block" title={r.addresses.join(", ")}>
               {r.addresses[0] ?? "—"}
               {r.addresses.length > 1 && <span className="opacity-60"> +{r.addresses.length - 1}</span>}
             </span>
             <span className="min-w-0 overflow-hidden">
               {r.addresses[0] ? <Place info={geo.info.get(r.addresses[0])} edge={r.edge} /> : null}
             </span>
-            <span className="truncate">{r.outbounds.join(", ")}</span>
+            <span className="hidden truncate @2xl:block">{r.outbounds.join(", ")}</span>
             <span className="text-right font-mono tabular-nums">
               {r.conns.length}
               {r.open > 0 && <span className="text-muted-foreground"> ({r.open})</span>}
             </span>
             <span className="text-right font-mono text-muted-foreground tabular-nums">{formatBytes(r.download)}</span>
-            <span className="flex min-w-0 gap-1 overflow-hidden pl-2">
+            <span className="hidden min-w-0 gap-1 overflow-hidden pl-2 @2xl:flex">
               {r.flags.map((f) => (
                 <FlagBadge key={f.id} flag={f} />
               ))}

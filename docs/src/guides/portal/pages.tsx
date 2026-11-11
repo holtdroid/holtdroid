@@ -18,7 +18,7 @@ import {
   TerminalIcon,
 } from "lucide-react"
 import type { RecordingMarker } from "@/api/client"
-import { type Lanes, Timeline } from "@/components/recording/timeline"
+import { type Lanes, pinFlips, Timeline } from "@/components/recording/timeline"
 import { AppIcon } from "@/components/app-icon"
 import { PageHeader } from "@/components/page"
 import { Badge } from "@/components/ui/badge"
@@ -300,8 +300,11 @@ export function Recording({ s }: { s: PortalState }) {
               key={m.id}
               data-g={`rec-marker-${i}`}
               aria-hidden
-              className="pointer-events-none absolute top-[28px] h-[22px] w-5"
-              style={{ left: `calc(102px + (100% - 102px) * ${m.t / duration})` }}
+              className={cn(
+                "pointer-events-none absolute top-0 h-5 w-5",
+                pinFlips(m.t, duration) && "-translate-x-full",
+              )}
+              style={{ left: `${(m.t / duration) * 100}%` }}
             />
           ))}
         </div>

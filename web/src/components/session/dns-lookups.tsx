@@ -55,7 +55,7 @@ export function LookupTable({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className={cn("grid shrink-0 border-b bg-muted/40 px-2 py-1 text-muted-foreground", cols)}>
+      <div className={cn("grid shrink-0 border-b bg-muted/40 px-2 py-1 text-muted-foreground [&>span]:truncate", cols)}>
         <span>Time</span>
         <span>Name</span>
         <span>Asked</span>

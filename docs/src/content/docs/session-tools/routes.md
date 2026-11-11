@@ -26,6 +26,8 @@ for a connection without a name):
 - how many **connections** it took, open ones in brackets, and the bytes
   received.
 
+In a narrow panel the table drops **via** first, then the **address**, and
+shows the flags next to the name; click a row for everything about it.
 Names whose connections all closed are greyed. The list survives a reload
 (the agent keeps the open connections and the last 2000 closed ones).
 
