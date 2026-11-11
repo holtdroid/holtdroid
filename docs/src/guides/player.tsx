@@ -130,6 +130,7 @@ export function Player({ sc, lang }: { sc: Scenario; lang: Lang }) {
   const pointerRef = useRef<SVGSVGElement>(null)
   const rippleRef = useRef<HTMLSpanElement>(null)
   const focusRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLOListElement>(null)
   const scale = Math.min(1, (width ?? WIDTH) / WIDTH)
   const step = sc.steps[play.index]!
   const s = stateAt(sc, play)
@@ -265,6 +266,20 @@ export function Player({ sc, lang }: { sc: Scenario; lang: Lang }) {
     return () => cancelAnimationFrame(raf)
   }, [visible, step, hint, scale])
 
+  useEffect(() => {
+    const list = listRef.current
+    const item = list?.children[play.index + 1]
+    if (!list || !(item instanceof HTMLElement)) return
+    const top = item.offsetTop
+    const bottom = top + item.offsetHeight
+    const margin = 8
+    if (top >= list.scrollTop + margin && bottom <= list.scrollTop + list.clientHeight - margin) return
+    list.scrollTo({
+      top: Math.max(0, top - Math.max(margin, (list.clientHeight - item.offsetHeight) / 3)),
+      behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+    })
+  }, [play.index])
+
   const go = (index: number) => dispatch({ type: "goto", index: Math.max(0, Math.min(last, index)), auto: false })
   const finished = play.index === last && play.phase === "done" && !play.auto
 
@@ -343,16 +358,11 @@ export function Player({ sc, lang }: { sc: Scenario; lang: Lang }) {
           </div>
         </div>
 
-        <div className="flex items-start gap-3 border-t px-4 pt-3">
-          <span className="text-muted-foreground shrink-0 pt-1 text-xs font-medium tabular-nums">
-            {t.step} {play.index + 1} {t.of} {sc.steps.length}
-          </span>
-          <p aria-live="polite" className="min-h-12 flex-1 text-[15px] leading-6">
-            {step.text[lang]}
-          </p>
-        </div>
+        <p aria-live="polite" className="sr-only">
+          {t.step} {play.index + 1} {t.of} {sc.steps.length}: {step.text[lang]}
+        </p>
 
-        <div className="flex flex-wrap items-center gap-2 px-4 pt-1 pb-3">
+        <div className="flex flex-wrap items-center gap-2 border-t px-4 py-3">
           <ControlButton label={t.back} disabled={play.index === 0} onClick={() => go(play.index - 1)}>
             <ChevronLeftIcon />
           </ControlButton>
@@ -399,8 +409,12 @@ export function Player({ sc, lang }: { sc: Scenario; lang: Lang }) {
         </div>
       </div>
 
-      <div className="relative min-h-64 min-w-0 flex-[1_1_240px] border-l">
-        <ol aria-label={t.steps} className="absolute inset-0 flex flex-col gap-0.5 overflow-y-auto p-3">
+      <div className="relative min-h-56 min-w-0 flex-[1_1_240px] border-l">
+        <ol
+          ref={listRef}
+          aria-label={t.steps}
+          className="absolute inset-0 flex flex-col gap-0.5 overflow-y-auto overscroll-contain p-3"
+        >
           <li
             aria-hidden="true"
             className="text-muted-foreground px-2.5 pt-1 pb-2 text-xs font-semibold tracking-[0.06em] uppercase"
