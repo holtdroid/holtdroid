@@ -1,0 +1,62 @@
+---
+import { localized as url } from "../../topics.mjs"
+import DockIcon from "../dock/DockIcon.astro"
+import { operate, operateLinks } from "./features"
+
+const slots = ["ready", "ready", "booting", "free"]
+---
+
+<section class="l-wrap l-section" id="operate">
+  <div class="l-head">
+    <p class="l-eyebrow">Self-hosted</p>
+    <h2 class="l-title">Runs on your cluster, your way</h2>
+    <p class="l-lead l-lead-s">
+      One Go binary and a Helm chart. Sign-in, storage, secrets and VPN are your choice; nothing is tied to a vendor.
+    </p>
+  </div>
+  <div class="l-ops">
+    {
+      operate.map((o, i) => (
+        <div class:list={["l-card l-op", { "l-op-big": i === 0 }]} data-reveal style={`--i:${i}`}>
+          {i === 0 ? (
+            <div class="l-node" data-live data-node aria-hidden="true">
+              <span class="l-node-name l-mono">node · worker-1</span>
+              <span class="l-node-slots">
+                {slots.map((s) => (
+                  <span class="l-slot l-mono" data-s={s}>
+                    {s}
+                  </span>
+                ))}
+              </span>
+            </div>
+          ) : (
+            o.icon && (
+              <span class="l-more-icon">
+                <DockIcon name={o.icon} />
+              </span>
+            )
+          )}
+          <h3>{o.title}</h3>
+          <p>{o.text}</p>
+          {o.chips && (
+            <span class="l-op-chips">
+              {o.chips.map((c) => (
+                <span class="hd-badge l-mono">{c}</span>
+              ))}
+            </span>
+          )}
+        </div>
+      ))
+    }
+  </div>
+  <div class="l-links l-ops-links">
+    {
+      operateLinks.map((l) => (
+        <a class:list={["hd-btn", { "hd-btn-p": l.primary }]} href={url(l.href)}>
+          {l.label}
+          {l.primary && <DockIcon name="arrow" />}
+        </a>
+      ))
+    }
+  </div>
+</section>

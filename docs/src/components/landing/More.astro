@@ -1,0 +1,31 @@
+---
+import { localized as url } from "../../topics.mjs"
+import DockIcon from "../dock/DockIcon.astro"
+import { more } from "./features"
+---
+
+<section class="l-wrap l-section" id="more">
+  <div class="l-head">
+    <p class="l-eyebrow">And more</p>
+    <h2 class="l-title">Smaller tools that save an afternoon</h2>
+    <p class="l-lead l-lead-s">Each tile opens its page in the docs.</p>
+  </div>
+  <div class="l-more">
+    {
+      more.map((m, i) => (
+        <a class="l-card l-more-tile" href={url(m.href)} data-reveal style={`--i:${Math.min((i % 4) + Math.floor(i / 4) * 2, 8)}`}>
+          <span class="l-more-icon">
+            <DockIcon name={m.icon} />
+          </span>
+          <span class="l-more-text">
+            <span class="l-more-title">{m.title}</span>
+            <span class="l-label">{m.text}</span>
+          </span>
+          <span class="l-tile-arrow">
+            <DockIcon name="arrow" />
+          </span>
+        </a>
+      ))
+    }
+  </div>
+</section>

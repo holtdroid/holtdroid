@@ -1,0 +1,14 @@
+---
+import { ticker } from "./features"
+---
+
+<section class="l-ticker" data-live aria-label="What a session has">
+  <div class="l-ticker-track">
+    <ul class="l-ticker-list l-mono">
+      {ticker.map((t) => <li>{t}</li>)}
+    </ul>
+    <ul class="l-ticker-list l-ticker-copy l-mono" aria-hidden="true">
+      {ticker.map((t) => <li>{t}</li>)}
+    </ul>
+  </div>
+</section>

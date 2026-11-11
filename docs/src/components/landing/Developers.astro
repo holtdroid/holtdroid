@@ -1,0 +1,31 @@
+---
+import { localized as url } from "../../topics.mjs"
+import DockIcon from "../dock/DockIcon.astro"
+import TerminalDemo from "../TerminalDemo.astro"
+import { developerLinks } from "./features"
+---
+
+<section class="l-wrap l-section l-dev" id="developers">
+  <div class="l-split-copy" data-reveal>
+    <p class="l-eyebrow">For developers</p>
+    <h2 class="l-title">Your localhost, on the phone</h2>
+    <p class="l-lead l-lead-s">
+      Run the <code>holtdroid</code> client on your computer. Devices you launch reach the ports you publish as
+      <code>http://localhost:&lt;port&gt;</code>, and each device's ADB gets a port on your machine, so <code>adb</code>
+      and <code>chrome://inspect</code> just work. It goes over SSH through the portal's gateway, with no SSH keys to manage.
+    </p>
+    <div class="l-links">
+      {
+        developerLinks.map((l) => (
+          <a class:list={["hd-btn", { "hd-btn-p": l.primary }]} href={url(l.href)}>
+            {l.label}
+            {l.primary && <DockIcon name="arrow" />}
+          </a>
+        ))
+      }
+    </div>
+  </div>
+  <div class="l-dev-term" data-reveal style="--i:1">
+    <TerminalDemo />
+  </div>
+</section>

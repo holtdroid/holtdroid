@@ -22,12 +22,16 @@ const cards = [
 ]
 ---
 
-<section class="l-wrap l-section">
-  <h2 class="l-title">Get started</h2>
+<section class="l-wrap l-section" id="start">
+  <div class="l-head">
+    <p class="l-eyebrow">Get started</p>
+    <h2 class="l-title">Start in two commands</h2>
+    <p class="l-note l-mono">No cluster? <code>make dev</code> runs the whole UI with simulated devices that stream a recorded screen.</p>
+  </div>
   <div class="l-start">
     {
-      cards.map((c) => (
-        <div class="l-card l-start-card">
+      cards.map((c, i) => (
+        <div class="l-card l-start-card" data-reveal style={`--i:${i}`}>
           <div class="l-start-head">
             <span class="l-strong">{c.title}</span>
             <span class="hd-badge">{c.badge}</span>
@@ -37,8 +41,14 @@ const cards = [
             <div class="l-code-head">
               <span class="l-mono">shell</span>
               <button class="hd-btn hd-btn-s l-copy" type="button" data-copy={c.code}>
-                <DockIcon name="copy" />
-                <span>Copy</span>
+                <span class="l-copy-icons">
+                  <DockIcon name="copy" class="l-copy-idle" />
+                  <DockIcon name="check" class="l-copy-done" />
+                </span>
+                <span class="l-copy-label">
+                  <span class="l-copy-idle">Copy</span>
+                  <span class="l-copy-done">Copied</span>
+                </span>
               </button>
             </div>
             <pre>{c.code}{c.comment && <span class="l-mu">{`   ${c.comment}`}</span>}</pre>

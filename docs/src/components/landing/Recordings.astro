@@ -1,0 +1,81 @@
+---
+import { localized as url } from "../../topics.mjs"
+import DockIcon from "../dock/DockIcon.astro"
+import { kept, recording, recordingLinks as links } from "./features"
+import Scene from "./Scene"
+
+const ticks = [6, 11, 19, 24, 31, 37, 44, 52, 58, 63, 69, 77, 83, 90]
+const net = [
+  [4, 9],
+  [17, 8],
+  [36, 12],
+  [55, 6],
+  [68, 14],
+  [88, 7],
+]
+---
+
+<section class="l-wrap l-section" id="recordings">
+  <div class="l-rec">
+    <div class="l-rec-copy" data-reveal>
+      <p class="l-eyebrow">Recordings</p>
+      <h2 class="l-title">One link instead of a bug report</h2>
+      <p class="l-lead l-lead-s">
+        The server records the session while it runs: the screen, every tap, the WebViews' network, console and
+        WebSockets, logcat, DNS, the VPN exit and the device's load, on one timeline. Drop markers where it went wrong,
+        then share a link.
+      </p>
+      <div>
+        <p class="l-label l-rec-kept">What a recording keeps</p>
+        <ul class="l-kept">
+          {
+            kept.map((k) => (
+              <li>
+                <span class={`l-kept-dot l-tone-${k.tone}`} />
+                {k.text}
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+      <div class="l-links">
+        <a class="hd-btn hd-btn-p" href={url(links.primary.href)}>
+          {links.primary.label}
+          <DockIcon name="arrow" />
+        </a>
+        <a class="hd-btn" href={url(links.secondary.href)}>{links.secondary.label}</a>
+        <a class="l-link" href={url(links.text.href)}>{links.text.label}</a>
+      </div>
+    </div>
+    <div class="l-rec-shot" data-reveal style="--i:1">
+      <Scene
+        client:only="react"
+        frames={recording.frames}
+        still={4}
+        narrowView={recording.narrow}
+        label="A recording with markers, findings and a share link"
+        cumulative
+        frame="l-shot-card"
+      />
+    </div>
+  </div>
+  <div class="l-card l-timeline" data-live aria-hidden="true" data-reveal>
+    <span class="l-tl-name l-mono">screen</span>
+    <span class="l-tl-track l-tl-screen"></span>
+    <span class="l-tl-name l-mono">network</span>
+    <span class="l-tl-track">
+      {net.map(([x, w]) => <span class="l-tl-seg" style={`left:${x}%;width:${w}%`} />)}
+      {ticks.map((x) => <span class="l-tl-tick l-tl-tick-in" style={`left:${x}%`} />)}
+    </span>
+    <span class="l-tl-name l-mono">logcat</span>
+    <span class="l-tl-track">
+      {ticks.map((x) => <span class="l-tl-tick" style={`left:${(x * 7) % 97}%`} />)}
+    </span>
+    <span class="l-tl-name l-mono">markers</span>
+    <span class="l-tl-track l-tl-markers">
+      <span class="l-flag l-flag-a" style="left:38%" />
+      <span class="l-flag l-flag-b" style="left:71%" />
+    </span>
+    <span class="l-tl-head" />
+  </div>
+</section>

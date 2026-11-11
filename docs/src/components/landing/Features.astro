@@ -1,0 +1,152 @@
+---
+import { localized as url } from "../../topics.mjs"
+import DockIcon from "../dock/DockIcon.astro"
+import { logLines } from "../../guides/portal/data"
+import { bento } from "./features"
+import Scene from "./Scene"
+
+const lines = logLines.slice(0, 6)
+const logs = [...lines, ...lines.slice(0, 5)]
+const codes = ["NL", "KZ", "PL", "US", "NL"]
+const steps = [
+  { name: "4G", label: "step 1 of 3: Typical 4G", grow: 30 },
+  { name: "3G", label: "step 2 of 3: 3G", grow: 15 },
+  { name: "", label: "step 3 of 3: no signal", grow: 12.5 },
+]
+---
+
+<section class="l-wrap l-section" id="features">
+  <div class="l-head">
+    <p class="l-eyebrow">In a session</p>
+    <h2 class="l-title">Everything the app does, next to its screen</h2>
+    <p class="l-lead l-lead-s">
+      Each device opens in a tab with its screen, its controls and the tools you'd otherwise wire up over a cable.
+    </p>
+  </div>
+  <div class="l-bento">
+    {
+      bento.map((t, i) => (
+        <a class:list={["l-card l-tile", `l-tile-${t.size}`]} href={url(t.href)} data-reveal style={`--i:${i % 4}`}>
+          <div class:list={["l-vig", { "l-vig-shot": t.scene }]} aria-hidden={t.scene ? undefined : "true"}>
+            {t.scene && (
+              <Scene
+                client:only="react"
+                frames={[{ state: t.scene.state, hold: 0 }]}
+                still={0}
+                view={t.scene.view}
+                label={t.scene.label}
+                frame="l-vig-frame"
+              />
+            )}
+            {t.wipe && (
+              <span class="l-wipe" data-live>
+                <span />
+              </span>
+            )}
+            {t.vignette === "vpn" && (
+              <div class="v-vpn" data-live>
+                <span class="v-row">
+                  <DockIcon name="globe" />
+                  <span>Location</span>
+                  <span class="v-codes v-codes-l l-mono">
+                    <span class="v-codes-track">
+                      {codes.map((c) => (
+                        <span>{c}</span>
+                      ))}
+                    </span>
+                  </span>
+                </span>
+                <span class="v-chip l-mono">
+                  vpn ·
+                  <span class="v-codes">
+                    <span class="v-codes-track">
+                      {codes.map((c) => (
+                        <span>{c.toLowerCase()}</span>
+                      ))}
+                    </span>
+                  </span>
+                </span>
+              </div>
+            )}
+            {t.vignette === "network" && (
+              <div class="v-net" data-live>
+                <span class="v-chip v-net-badge">
+                  Subway ·
+                  <span class="v-net-labels">
+                    {steps.map((s, k) => (
+                      <span class={`v-net-label v-k${k}`}>{s.label}</span>
+                    ))}
+                  </span>
+                </span>
+                <span class="v-net-strip">
+                  {steps.map((s, k) => (
+                    <span class:list={["v-net-step", `v-k${k}`, { "v-net-out": !s.name }]} style={`flex-grow:${s.grow}`}>
+                      {s.name}
+                      <span class="v-net-mark" />
+                      <span class="v-net-bar" />
+                    </span>
+                  ))}
+                </span>
+              </div>
+            )}
+            {t.vignette === "clipboard" && (
+              <div class="v-clip" data-live>
+                <span class="v-chip l-mono">
+                  <em>computer</em> promo·code↵
+                </span>
+                <span class="v-clip-path">
+                  <span class="v-clip-dot" />
+                </span>
+                <span class="v-chip l-mono">
+                  <em>device</em> promo·code↵
+                </span>
+              </div>
+            )}
+            {t.vignette === "appdata" && (
+              <div class="v-data">
+                <span class="v-data-row">
+                  <span class="v-radio" />
+                  Fresh install
+                </span>
+                <span class="v-data-row v-data-on">
+                  <span class="v-radio" />
+                  With app data
+                  <span class="v-tag">saved</span>
+                </span>
+              </div>
+            )}
+            {t.vignette === "quick" && (
+              <div class="v-quick">
+                <span class="v-quick-btns">
+                  <span class="hd-btn hd-btn-s">Launch</span>
+                  <span class="hd-btn hd-btn-s v-zap">
+                    <DockIcon name="zap" />
+                  </span>
+                </span>
+                <span class="v-field l-mono">myapp://cart/42</span>
+              </div>
+            )}
+            {t.vignette === "logcat" && (
+              <div class="v-log l-mono" data-live>
+                <span class="v-log-track">
+                  {logs.map((l) => (
+                    <span class={`v-log-line v-log-${l.level}`}>
+                      <b>{l.level}</b> {l.tag}: {l.msg}
+                    </span>
+                  ))}
+                </span>
+              </div>
+            )}
+          </div>
+          <div class="l-tile-body">
+            <h3>{t.title}</h3>
+            <p>{t.text}</p>
+          </div>
+          <span class="l-tile-arrow">
+            <DockIcon name="arrow" />
+          </span>
+        </a>
+      ))
+    }
+  </div>
+</section>

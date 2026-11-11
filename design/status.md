@@ -38,7 +38,10 @@ deployment"):
     JetBrains Mono, the bottom dock on every page (search, language on guide
     pages, theme, GitHub, **Open the portal** when opened from the portal
     with `#returnUrl`), the restyled sidebar, page titles with breadcrumbs,
-    the new landing with live scene islands, and the new guide player. The
+    the new guide player, and the landing (decision #193): a hero that plays
+    a launch in the portal's own components, a feature bento, recordings,
+    sources, tools, a comparison, developers and operators sections, with
+    CSS motion that pauses off screen and rests under reduced motion. The
     guide portal scenes still need to be updated to the redesigned pages.
 - A replaced microphone on redroid (decision #146): the session page's
   Microphone card plays a line-up tone, beeps, pink noise, a file from the

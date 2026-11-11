@@ -6,13 +6,14 @@ import { repos } from "./repos"
 
 <section class="l-wrap l-section" id="repositories">
   <div class="l-head">
+    <p class="l-eyebrow">Open source</p>
     <h2 class="l-title">Six repositories</h2>
     <p class="l-lead l-lead-s">Each does one job. Use them together or take only the piece you need.</p>
   </div>
   <div class="l-card l-rows">
     {
-      repos.map((r) => (
-        <a class="l-row" href={`https://github.com/holtdroid/${r.name}`} id={`repo-${r.name}`}>
+      repos.map((r, i) => (
+        <a class="l-row l-repo" href={`https://github.com/holtdroid/${r.name}`} id={`repo-${r.name}`} data-reveal style={`--i:${i}`}>
           <Image class="l-repo-icon" src={r.icon} alt="" width={36} height={36} />
           <span class="l-row-text">
             <span class="l-row-title">

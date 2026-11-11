@@ -40,10 +40,17 @@ const sources: { icon: IconName; title: string; text: string; badge: string; hre
     href: "/sources/overview/",
   },
 ]
+const origins: [IconName, string][] = [
+  ["message", "Slack"],
+  ["bucket", "S3"],
+  ["git", "GitHub"],
+]
+const builds = ["2.5.0-rc1", "2.4.0", "2.3.1"]
 ---
 
-<section class="l-wrap l-section l-split">
-  <div class="l-split-copy">
+<section class="l-wrap l-section l-sources" id="sources">
+  <div class="l-split-copy" data-reveal>
+    <p class="l-eyebrow">Sources</p>
     <h2 class="l-title">Where builds come from</h2>
     <p class="l-lead l-lead-s">
       A sync job copies new APKs from a Slack channel, an S3 bucket or GitHub releases into a source. Testers see them on
@@ -51,10 +58,42 @@ const sources: { icon: IconName; title: string; text: string; badge: string; hre
     </p>
     <a class="hd-btn" href={url("/sources/overview/")}>APK sources</a>
   </div>
-  <div class="l-card l-rows">
+  <div class="l-flow" data-live aria-hidden="true" data-reveal style="--i:1">
+    <div class="l-flow-from">
+      {
+        origins.map(([icon, name]) => (
+          <span class="l-flow-src">
+            <DockIcon name={icon} />
+            {name}
+          </span>
+        ))
+      }
+    </div>
+    <svg class="l-flow-lines" viewBox="0 0 100 120" preserveAspectRatio="none">
+      <path d="M0 20 L100 60" />
+      <path d="M0 60 L100 60" />
+      <path d="M0 100 L100 60" />
+    </svg>
+    <div class="l-flow-apps">
+      <span class="l-flow-title">Pinecone Shop</span>
+      {
+        builds.map((b, i) => (
+          <span class="l-flow-row l-mono">
+            {i === 0 && <span class="l-flow-flash" />}
+            {b}
+            {i === 0 && <span class="l-flow-badge">new</span>}
+          </span>
+        ))
+      }
+    </div>
+    <span class="l-flow-runner">
+      <span class="l-flow-apk l-mono">.apk</span>
+    </span>
+  </div>
+  <div class="l-card l-rows l-sources-rows">
     {
-      sources.map((s) => (
-        <a class="l-row" href={url(s.href)}>
+      sources.map((s, i) => (
+        <a class="l-row" href={url(s.href)} data-reveal style={`--i:${i}`}>
           <span class="l-row-icon">
             <DockIcon name={s.icon} />
           </span>

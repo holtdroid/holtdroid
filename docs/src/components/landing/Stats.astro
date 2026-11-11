@@ -1,0 +1,19 @@
+---
+import { stats } from "./features"
+---
+
+<section class="l-wrap l-section l-stats-wrap" aria-labelledby="at-a-glance">
+  <p class="l-eyebrow" id="at-a-glance">At a glance</p>
+  <ul class="l-card l-stats" data-reveal>
+    {
+      stats.map((s) => (
+        <li class="l-stat">
+          <span class="l-stat-num l-mono">
+            {s.parts.map((p) => (typeof p === "number" ? <span data-count={p}>{p}</span> : p))}
+          </span>
+          <span class="l-stat-label">{s.label}</span>
+        </li>
+      ))
+    }
+  </ul>
+</section>

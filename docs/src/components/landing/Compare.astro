@@ -1,0 +1,33 @@
+---
+import { compare } from "./features"
+---
+
+<section class="l-wrap l-section" id="why">
+  <div class="l-head">
+    <p class="l-eyebrow">Why</p>
+    <h2 class="l-title">Without a cable on your desk</h2>
+    <p class="l-lead l-lead-s">What debugging a WebView in an Android app usually takes, and what it takes here.</p>
+  </div>
+  <div class="l-card l-compare" role="table" aria-label="The usual way compared with Holtdroid">
+    <div class="l-cmp-row l-cmp-head" role="row">
+      <span role="columnheader"><span class="l-sr">Topic</span></span>
+      <span role="columnheader">The usual way</span>
+      <span role="columnheader"><span class="l-cmp-chip">With Holtdroid</span></span>
+    </div>
+    {
+      compare.map((r, i) => (
+        <div class="l-cmp-row" role="row" data-reveal style={`--i:${i}`}>
+          <span class="l-cmp-topic" role="rowheader">
+            {r.topic}
+          </span>
+          <span class="l-cmp-usual" role="cell">
+            {r.usual}
+          </span>
+          <span class="l-cmp-here" role="cell">
+            <mark>{r.here}</mark>
+          </span>
+        </div>
+      ))
+    }
+  </div>
+</section>

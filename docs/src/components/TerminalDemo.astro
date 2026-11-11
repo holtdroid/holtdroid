@@ -134,7 +134,14 @@ const last = (i: number) => {
   }
 
   if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    document.querySelectorAll<HTMLElement>(".terminal-demo").forEach((root) => void play(root))
+    const start = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        if (!e.isIntersecting) continue
+        start.unobserve(e.target)
+        void play(e.target as HTMLElement)
+      }
+    })
+    document.querySelectorAll<HTMLElement>(".terminal-demo").forEach((root) => start.observe(root))
   }
 </script>
 

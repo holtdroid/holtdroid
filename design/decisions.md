@@ -5675,3 +5675,34 @@ of view.
   name (with the flags next to it), where, connections and bytes; the
   address joins from 32 rem and via and a flags column from 42 rem. That
   also applies in live sessions.
+
+## 193. The landing shows the features with live portal scenes and quiet CSS motion
+
+Supersedes the landing part of #191.
+
+**Context.** The landing had a hero picture and three cards. It did not say
+what a session can do, sources and operators got a line each, and the page
+did not move. Its `.l-page a { color: inherit }` also beat `.hd-btn-p` and
+the dock's own link colours, so the primary button's label vanished in both
+themes.
+
+**Decision.**
+
+- One React island, `docs/src/components/landing/Scene.tsx`, wraps the guide
+  `Showcase` and steps through frames of real portal state. It mounts once it
+  is on screen, plays only while it is visible and the tab is open, crossfades
+  between phases and can show a phase rail. Under reduced motion it shows one
+  still frame. The hero plays Configure → Boot → Debug with it, and the
+  Recordings section plays markers and a share link. The feature tiles use
+  it with a single frame and a crop.
+- Everything else moves in CSS: a ticker, small looping pictures in the
+  feature tiles, the sources flow, the recording timeline and the slots on a
+  node. One inline script reveals blocks, counts up the numbers, cycles the
+  node's slots and toggles `.is-live`, which pauses every loop that is off
+  screen. Without JavaScript and under `prefers-reduced-motion` each picture
+  rests on a still frame.
+- No animation library, only `--hd-*` tokens, and the copy and data live in
+  `docs/src/components/landing/features.ts`. `showcase.test.tsx` renders
+  every frame and checks every link resolves to a docs page.
+- The landing's link reset is `:where(.l-page) a`, so any class on a link
+  wins over it.

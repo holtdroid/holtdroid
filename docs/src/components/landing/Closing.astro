@@ -1,0 +1,20 @@
+---
+import { localized as url } from "../../topics.mjs"
+import DockIcon from "../dock/DockIcon.astro"
+---
+
+<section class="l-closing">
+  <div class="l-wrap l-closing-in" data-reveal>
+    <h2 class="l-title">Give your testers a cozy holt.</h2>
+    <div class="l-actions">
+      <a class="hd-btn hd-btn-p hd-btn-l" href={url("/start/installation/")}>
+        Get started
+        <DockIcon name="arrow" />
+      </a>
+      <a class="hd-btn hd-btn-l" href={url("/guides/first-steps/launch-app/")}>
+        <DockIcon name="play" />
+        Interactive tour
+      </a>
+    </div>
+  </div>
+</section>
