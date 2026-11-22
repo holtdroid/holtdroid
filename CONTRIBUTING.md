@@ -15,6 +15,12 @@ coding agents alike.
   [`design/decisions.md`](design/decisions.md). Changing an accepted decision
   means adding a new entry that supersedes it.
 
+## Help wanted
+
+- **Docker Compose on Linux and macOS:** run real devices without
+  Kubernetes. The brief, steps and known hard parts are in
+  [`design/docker-compose.md`](design/docker-compose.md).
+
 ## Setup
 
 The toolchain (Go, Bun, golangci-lint, Helm, sqlc) is pinned in
@@ -29,8 +35,9 @@ make web-dev    # Vite with hot reload on :5173, proxying to make dev
 
 `make dev` needs no cluster, KVM or Slack: it runs the api against fake
 devices that stream a recorded screen. Use it for everything above the
-provider contract. Emulator sessions need an amd64 Kubernetes node with
-`/dev/kvm` (see the docs' installation page).
+provider contract. Real sessions need a Kubernetes cluster with x86_64
+nodes that have binder and a GPU render node (see the docs' installation
+page).
 
 ## Making a change
 

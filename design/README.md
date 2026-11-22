@@ -10,4 +10,5 @@ code exists.
 | [architecture.md](architecture.md) | Goals, components, request flow, session lifecycle, emulator internals, VPN, SSH access, security model, physical phones, future Docker provider |
 | [contracts.md](contracts.md) | HTTP contracts between services (Source, Provider, Agent) and the UI API, configuration and secret references |
 | [roadmap.md](roadmap.md) | Phased work plan with checkboxes — the to-do list for agents |
+| [docker-compose.md](docker-compose.md) | Help wanted: brief for a Docker Compose deployment on Linux and macOS (`provider-docker`, arm64 images) |
 | [decisions.md](decisions.md) | Architecture decision log (why Go, why Frida, why a sing-box sidecar, …) |

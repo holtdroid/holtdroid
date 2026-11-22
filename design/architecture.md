@@ -1149,4 +1149,4 @@ set (images, env, devices, mounts, the sing-box config) should be described
 once in a neutral `internal/session` spec that each provider renders into its
 own objects. Several Docker hosts are simply several providers in the api's
 `providers` list. Caveat: the provider needs the Docker socket, i.e. root on
-that host — document it next to the privileged-pod warning.
+that host — document it next to the privileged-pod warning. Contributors' brief, with the macOS and arm64 open questions: [docker-compose.md](docker-compose.md).

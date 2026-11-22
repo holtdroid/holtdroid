@@ -371,7 +371,7 @@ Goal: several Android devices per node instead of one emulator per node.
 ## Later
 
 - [ ] Speed and bearing on the faked GPS location (not settable through `cmd location`)
-- [ ] Docker-only deployment: `provider-docker` (Docker Engine API, session state in container labels, VPN sidecar via `network_mode: container:`), `compose.yaml` with api + sources + provider-docker, docs page. Session container spec shared with `provider-emulator` (see architecture.md "Future: Docker-only deployment")
+- [ ] Docker-only deployment: `provider-docker` (Docker Engine API, session state in container labels, VPN sidecar via `network_mode: container:`), `compose.yaml` with api + sources + provider-docker, docs page. Session container spec shared with `provider-emulator` (see architecture.md "Future: Docker-only deployment"); help wanted, brief in [docker-compose.md](docker-compose.md)
 - [ ] More sync jobs (CI artifacts) writing the source layout
 - [ ] Listing cache for very large buckets (today every request lists the store)
 - [ ] `.apks` / `.xapk` split APK support
