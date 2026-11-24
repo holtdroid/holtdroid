@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router"
-import { ChevronRightIcon, ExternalLinkIcon, FilterIcon, ShieldIcon } from "lucide-react"
+import { ChevronRightIcon, ExternalLinkIcon, FilterIcon, ShieldIcon, UserPenIcon } from "lucide-react"
 import { Fragment, useState } from "react"
 import type { AuditEvent, AuditFilter } from "@/api/audit"
 import { CopyButton } from "@/components/copy-button"
@@ -138,9 +138,21 @@ export function AuditTable({
                 <TableCell>
                   {e.actor ? (
                     <span className="flex min-w-0 items-center gap-1.5">
-                      <UserAvatar user={e.actor} className="size-5" />
+                      {e.actorName ? (
+                        <Link
+                          to="/users"
+                          search={{ user: e.actor }}
+                          title={`Edit ${e.actorName}`}
+                          onClick={(ev) => ev.stopPropagation()}
+                          className="shrink-0 rounded-full"
+                        >
+                          <UserAvatar user={e.actor} className="size-5" />
+                        </Link>
+                      ) : (
+                        <UserAvatar user={e.actor} className="size-5" />
+                      )}
                       <FilterValue title="Show only this user" onClick={() => onFilter({ actor: e.actor })}>
-                        {e.actor}
+                        {e.actorName ?? e.actor}
                       </FilterValue>
                       {e.admin && <ShieldIcon className="text-muted-foreground size-3 shrink-0" aria-label="admin" />}
                     </span>
@@ -203,7 +215,7 @@ function EventDetail({ event: e, onFilter }: { event: AuditEvent; onFilter: (pat
   const fields: [string, string | undefined][] = [
     ["Time", e.time],
     ["Service", e.service],
-    ["Actor", e.actor && `${e.actor}${e.admin ? " (admin)" : ""}`],
+    ["Actor", e.actor && `${e.actorName ? `${e.actorName} · ${e.actor}` : e.actor}${e.admin ? " (admin)" : ""}`],
     ["Provider", e.provider],
     ["Session", e.session],
     ["Artifact", e.artifact],
@@ -235,6 +247,13 @@ function EventDetail({ event: e, onFilter }: { event: AuditEvent; onFilter: (pat
           <Button variant="outline" size="xs" asChild>
             <Link to="/session/$provider/$id" params={{ provider: e.provider, id: e.session }}>
               <ExternalLinkIcon /> Open session
+            </Link>
+          </Button>
+        )}
+        {e.actor && e.actorName && (
+          <Button variant="outline" size="xs" asChild>
+            <Link to="/users" search={{ user: e.actor }}>
+              <UserPenIcon /> Edit {e.actorName}
             </Link>
           </Button>
         )}

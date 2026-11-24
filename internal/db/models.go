@@ -74,6 +74,7 @@ type SessionEvent struct {
 	Actor     string
 	Artifact  string
 	Reason    string
+	Package   string
 }
 
 type User struct {

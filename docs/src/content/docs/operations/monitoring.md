@@ -216,7 +216,10 @@ Admins (members of `auth.adminGroups`) get an **Audit log** page: events
 newest first, filters by action or action group, user, result, service,
 time range and free text, a live mode that refreshes every 5 seconds, a
 detail view per event and an export of the filtered events as JSON lines.
-Clicking a user, an action or a session in the table filters by it.
+Clicking a user, an action or a session in the table filters by it. With
+`auth.mode: users` the table shows people by name instead of their account
+id, and their avatar and **Edit** in the detail view open them on the
+**Users** page.
 
 ```yaml
 audit:
@@ -247,3 +250,21 @@ A tmpfs volume counts against the api container's memory limit.
 The page is a convenience, not an archive: each api replica keeps its own
 events (with several replicas, each page load shows one replica's view),
 and it never replaces collecting stdout or the sinks above.
+
+## Usage statistics
+
+Admins also get a **Usage** page: how many devices were launched over the
+last 7, 30 or 90 days or a year, by how many people, how long they ran, at
+which hours, how they ended (stopped by a person, idle timeout or maximum
+lifetime), and the most active people and most launched apps. Days and hours
+are in the browser's time zone; ranges longer than 45 days are drawn by
+week.
+
+It reads the session events the api writes to its database, not the audit
+store, so it needs no `audit.store` and has its own history: with
+`database.type: sqlite` everything since the database was created, with the
+default `memory` only what happened since the api last started. Failed
+launches are not counted there; the audit log and the
+`holtdroid_launches_total` metric have them. Sessions that are still running
+or ended without a stop or reap event (a provider that lost them) count as
+launches but not in the times.

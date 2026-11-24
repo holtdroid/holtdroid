@@ -197,6 +197,18 @@ func TestUsersMode(t *testing.T) {
 		"name": "Ada", "email": "ada@example.com", "role": "user", "limits": map[string]any{},
 	}), http.StatusConflict)
 
+	launches := decode[AuditPage](t, admin.do(http.MethodGet, "/api/v1/admin/audit/events?action=session.launch&result=ok", nil))
+	if len(launches.Items) != 1 || launches.Items[0].Actor != bobID || launches.Items[0].ActorName != "Bob" {
+		t.Fatalf("audit launches = %+v", launches.Items)
+	}
+	if names := decode[AuditInfo](t, admin.do(http.MethodGet, "/api/v1/admin/audit", nil)).ActorNames; names[bobID] != "Bob" || names[me.User] != "Ada" {
+		t.Fatalf("actor names = %v", names)
+	}
+	usage := decode[SessionStats](t, admin.do(http.MethodGet, "/api/v1/admin/stats/sessions?since=2025-12-01T00:00:00Z", nil))
+	if len(usage.Items) != 1 || usage.Items[0].ActorName != "Bob" {
+		t.Fatalf("stats = %+v", usage.Items)
+	}
+
 	admin.expect(admin.do(http.MethodDelete, "/api/v1/admin/users/"+bobID, nil), http.StatusNoContent)
 	newBob.expect(newBob.do(http.MethodGet, "/api/v1/sessions", nil), http.StatusUnauthorized)
 	newBob.expect(newBob.do(http.MethodGet, "/api/v1/admin/users", nil), http.StatusUnauthorized)

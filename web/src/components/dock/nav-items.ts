@@ -1,5 +1,6 @@
 import type { LinkProps } from "@tanstack/react-router"
 import {
+  ChartColumnIcon,
   ClapperboardIcon,
   DatabaseIcon,
   FrameIcon,
@@ -59,6 +60,7 @@ export function useNavItems() {
   if (admin) {
     adminItems.push({ id: "inventory", to: "/inventory", label: "Inventory", icon: ServerIcon })
     if (mode === "users") adminItems.push({ id: "users", to: "/users", label: "Users", icon: UsersIcon })
+    adminItems.push({ id: "usage", to: "/usage", label: "Usage", icon: ChartColumnIcon })
     adminItems.push({ id: "audit", to: "/audit", label: "Audit log", icon: ScrollTextIcon })
   }
 

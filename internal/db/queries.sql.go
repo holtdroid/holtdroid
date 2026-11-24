@@ -35,8 +35,8 @@ func (q *Queries) AddPasskey(ctx context.Context, arg AddPasskeyParams) error {
 }
 
 const addSessionEvent = `-- name: AddSessionEvent :exec
-INSERT INTO session_events (at, provider, session_id, action, result, actor, artifact, reason)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO session_events (at, provider, session_id, action, result, actor, artifact, reason, package)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type AddSessionEventParams struct {
@@ -48,6 +48,7 @@ type AddSessionEventParams struct {
 	Actor     string
 	Artifact  string
 	Reason    string
+	Package   string
 }
 
 func (q *Queries) AddSessionEvent(ctx context.Context, arg AddSessionEventParams) error {
@@ -60,6 +61,7 @@ func (q *Queries) AddSessionEvent(ctx context.Context, arg AddSessionEventParams
 		arg.Actor,
 		arg.Artifact,
 		arg.Reason,
+		arg.Package,
 	)
 	return err
 }
@@ -545,6 +547,46 @@ func (q *Queries) ListInvites(ctx context.Context) ([]Invite, error) {
 	return items, nil
 }
 
+const listLifecycleEventsSince = `-- name: ListLifecycleEventsSince :many
+SELECT id, at, provider, session_id, "action", result, actor, artifact, reason, package FROM session_events
+WHERE at >= ? AND result = 'ok' AND action IN ('session.launch', 'session.stop', 'session.reap', 'session.extend')
+ORDER BY id
+`
+
+func (q *Queries) ListLifecycleEventsSince(ctx context.Context, at time.Time) ([]SessionEvent, error) {
+	rows, err := q.db.QueryContext(ctx, listLifecycleEventsSince, at)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SessionEvent
+	for rows.Next() {
+		var i SessionEvent
+		if err := rows.Scan(
+			&i.ID,
+			&i.At,
+			&i.Provider,
+			&i.SessionID,
+			&i.Action,
+			&i.Result,
+			&i.Actor,
+			&i.Artifact,
+			&i.Reason,
+			&i.Package,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPasskeys = `-- name: ListPasskeys :many
 SELECT id, user_id, name, credential, created_at, last_used_at FROM passkeys WHERE user_id = ? ORDER BY created_at
 `
@@ -580,7 +622,7 @@ func (q *Queries) ListPasskeys(ctx context.Context, userID string) ([]Passkey, e
 }
 
 const listSessionEvents = `-- name: ListSessionEvents :many
-SELECT id, at, provider, session_id, "action", result, actor, artifact, reason FROM session_events
+SELECT id, at, provider, session_id, "action", result, actor, artifact, reason, package FROM session_events
 WHERE provider = ? AND session_id = ?
 ORDER BY id
 `
@@ -609,6 +651,7 @@ func (q *Queries) ListSessionEvents(ctx context.Context, arg ListSessionEventsPa
 			&i.Actor,
 			&i.Artifact,
 			&i.Reason,
+			&i.Package,
 		); err != nil {
 			return nil, err
 		}

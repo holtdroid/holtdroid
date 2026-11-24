@@ -272,6 +272,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/stats/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Sessions launched in a time range with how and when they ended, from the session_events table. Admins only. */
+        get: operations["getSessionStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/users": {
         parameters: {
             query?: never;
@@ -1642,6 +1659,8 @@ export interface components {
         AuditEvent: {
             action: string;
             actor?: string;
+            /** @description the actor's name when it is an account of the users mode */
+            actorName?: string;
             admin?: boolean;
             artifact?: string;
             clientIp?: string;
@@ -1665,6 +1684,10 @@ export interface components {
         };
         AuditInfo: {
             actions: string[];
+            /** @description names of actors who are accounts of the users mode */
+            actorNames?: {
+                [key: string]: string;
+            };
             actors: string[];
             /** @description audit.store is on: events can be browsed here */
             enabled: boolean;
@@ -3838,6 +3861,15 @@ export interface components {
              */
             t?: number;
         };
+        SessionStats: {
+            items: components["schemas"]["StatsSession"][];
+            /** Format: date-time */
+            since: string;
+            /** @description more sessions than one response holds; the newest are left out */
+            truncated?: boolean;
+            /** Format: date-time */
+            until: string;
+        };
         SessionView: {
             /**
              * @description the app data restored at launch: data, or data with its cache; empty for a fresh install
@@ -3940,6 +3972,30 @@ export interface components {
         SourceView: {
             name: string;
             readOnly: boolean;
+        };
+        StatsSession: {
+            actor?: string;
+            /** @description the actor's name when it is an account of the users mode */
+            actorName?: string;
+            artifact?: string;
+            /**
+             * Format: date-time
+             * @description absent while running or when the session ended without a stop or reap
+             */
+            end?: string;
+            /**
+             * @description stopped by a person, or reaped by the api
+             * @enum {string}
+             */
+            ended?: "stopped" | "idle" | "ttl" | "reaped";
+            /** Format: int64 */
+            extended?: number;
+            id: string;
+            /** @description recorded for sessions launched since the column exists */
+            package?: string;
+            provider: string;
+            /** Format: date-time */
+            start: string;
         };
         StatusEvent: {
             /** @description The app is running under instrumentation; once it is closed it stays closed until it is started again */
@@ -4690,6 +4746,39 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getSessionStats: {
+        parameters: {
+            query: {
+                since: string;
+                /** @description default: now */
+                until?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionStats"];
+                };
             };
             /** @description Error */
             default: {

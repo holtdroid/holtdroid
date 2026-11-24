@@ -242,6 +242,7 @@ func (s *Server) register(api huma.API) {
 	s.registerConnect(api)
 	s.registerADB(api)
 	s.registerAudit(api)
+	s.registerStats(api)
 	s.registerUsers(api)
 	s.registerAppData(api)
 	s.registerRecordings(api)

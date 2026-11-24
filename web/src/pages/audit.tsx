@@ -180,7 +180,10 @@ export function AuditPage() {
               <Combobox
                 options={[
                   { value: ALL, label: "Everyone" },
-                  ...(info.data?.actors ?? []).map((a) => ({ value: a, label: a })),
+                  ...(info.data?.actors ?? []).map((a) => {
+                    const name = info.data?.actorNames?.[a]
+                    return name ? { value: a, label: name, hint: a } : { value: a, label: a }
+                  }),
                 ]}
                 value={filter.actor ?? ALL}
                 onChange={(v) => update({ actor: v === ALL ? undefined : v })}

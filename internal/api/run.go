@@ -65,9 +65,9 @@ func (s *Server) Reap(ctx context.Context) {
 			reason, metric := "", ""
 			switch {
 			case now.Sub(sess.CreatedAt) > s.limits(ctx, sess.Owner).MaxSessionTTL:
-				reason, metric = "max TTL reached", "ttl"
+				reason, metric = reapTTL, "ttl"
 			case now.Sub(s.lastActivity(provider, sess)) > s.cfg.Sessions.IdleTimeout:
-				reason, metric = "idle timeout", "idle"
+				reason, metric = reapIdle, "idle"
 			}
 			if reason == "" || sess.State == contract.StateStopping {
 				continue

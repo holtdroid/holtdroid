@@ -135,7 +135,7 @@ Design: decisions.md #22. No backward compatibility before the first release.
 
 - [x] `internal/db`: `database.type` config (`memory` default), `modernc.org/sqlite` in-memory, goose migrations embedded and run at startup, `sqlc` config + generated queries, `make sqlc` and a drift check in `make check` and CI
 - [x] Wire it into the api and `holtdroid dev`; first table `session_events` (created/stopped/reaped, actor, artifact, reason), write-only for now; tests through `internal/api/api_test.go`
-- [ ] Read side for `session_events` (history in the UI) once there is a use for it
+- [x] Read side for `session_events`: the Usage page (decision #195)
 - [x] `sqlite` file driver with embedded Litestream (restore on start when the file is missing, replicate to `database.replica`: S3 or a directory), chart enforces `replicas: 1` and no surge; migrations append-only from now on (decision #102)
 - [ ] Later: `postgres` driver (pgx), queries kept to the subset both engines accept, CI runs the db tests against both
 - [x] Public docs: storage/architecture pages stop saying "no database"; configuration page for `database`
@@ -210,6 +210,8 @@ ones for the admin page.
 - [x] `session_events` (Phase 4.6) fed from the same audit events instead of a parallel path
 - [x] Tests: audit event per action in `internal/api/api_test.go`, schema golden file; docs page "Monitoring and audit"
 - [x] Audit log page for admins: bounded `audit.store` in the api (memory, optional JSON lines file; chart: data volume, tmpfs or none), ssh-gateway events forwarded to it, filters, live mode, JSON lines export (decision #48)
+- [x] Names and links to the Users page for actors in the users mode
+- [x] Usage page: launches, people, device time and session length from `session_events` (decision #195)
 - [x] Inventory page for admins: every provider's slots with model, Android, battery, memory, storage and sensors (phones over adb, emulator nodes from the Node object plus a `node-info` DaemonSet reading `/proc` and `/sys`), maintenance holds per slot and per provider kept by the providers, `provider.maintenance` audit event (decision #79)
 
 ## Phase 4.10 — App data

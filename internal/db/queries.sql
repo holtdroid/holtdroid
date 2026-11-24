@@ -1,10 +1,15 @@
 -- name: AddSessionEvent :exec
-INSERT INTO session_events (at, provider, session_id, action, result, actor, artifact, reason)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO session_events (at, provider, session_id, action, result, actor, artifact, reason, package)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: ListSessionEvents :many
 SELECT * FROM session_events
 WHERE provider = ? AND session_id = ?
+ORDER BY id;
+
+-- name: ListLifecycleEventsSince :many
+SELECT * FROM session_events
+WHERE at >= ? AND result = 'ok' AND action IN ('session.launch', 'session.stop', 'session.reap', 'session.extend')
 ORDER BY id;
 
 -- name: CreateUser :exec

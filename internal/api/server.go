@@ -267,7 +267,7 @@ func (s *Server) emit(ctx context.Context, ev audit.Event) {
 	}
 	err := s.db.AddSessionEvent(ctx, db.AddSessionEventParams{
 		At: ev.Time, Provider: ev.Provider, SessionID: ev.Session, Action: string(ev.Action), Result: string(ev.Result),
-		Actor: ev.Actor, Artifact: ev.Artifact, Reason: ev.Reason,
+		Actor: ev.Actor, Artifact: ev.Artifact, Reason: ev.Reason, Package: ev.Details["package"],
 	})
 	if err != nil {
 		s.log.Warn("could not record session event", "provider", ev.Provider, "session", ev.Session, "action", ev.Action, "err", err)

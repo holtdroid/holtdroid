@@ -1008,7 +1008,10 @@ HAL: scales into each YUV buffer (AHardwareBuffer lock, CPU), JPEG with stb for 
   also land in the api's `session_events` table through the same call. The
   api keeps a bounded list of recent events (`audit.store`, optionally a
   JSON lines file) that admins browse on the Audit log page; the
-  ssh-gateway forwards its events there (decision #48).
+  ssh-gateway forwards its events there (decision #48). The Usage page
+  reads `session_events` back (launch, extend, stop, reap) through
+  `/api/v1/admin/stats/sessions` and draws its charts in the browser
+  (decision #195).
 
 ## Observability
 

@@ -23,7 +23,8 @@ import { OpenRecordingPage } from "@/pages/open-recording"
 import { RecordingPage } from "@/pages/recording"
 import { RecordingsPage } from "@/pages/recordings"
 import { SessionPage } from "@/pages/session"
-import { UsersPage } from "@/pages/users"
+import { UsagePage, validateUsageSearch } from "@/pages/usage"
+import { UsersPage, validateUsersSearch } from "@/pages/users"
 
 const onUnauthorized = (error: Error) => {
   if (error instanceof ApiError && error.status === 401) void queryClient.invalidateQueries({ queryKey: ["auth"] })
@@ -128,6 +129,13 @@ const auditRoute = createRoute({
   component: AuditPage,
 })
 
+const usageRoute = createRoute({
+  getParentRoute: () => portalRoute,
+  path: "/usage",
+  validateSearch: validateUsageSearch,
+  component: UsagePage,
+})
+
 const inventoryRoute = createRoute({
   getParentRoute: () => portalRoute,
   path: "/inventory",
@@ -162,7 +170,12 @@ const pixelPerfectRoute = createRoute({
 
 const accountRoute = createRoute({ getParentRoute: () => portalRoute, path: "/account", component: AccountPage })
 
-const usersRoute = createRoute({ getParentRoute: () => portalRoute, path: "/users", component: UsersPage })
+const usersRoute = createRoute({
+  getParentRoute: () => portalRoute,
+  path: "/users",
+  validateSearch: validateUsersSearch,
+  component: UsersPage,
+})
 
 const recordingsRoute = createRoute({
   getParentRoute: () => portalRoute,
@@ -188,6 +201,7 @@ const router = createRouter({
       sessionRoute,
       computersRoute,
       auditRoute,
+      usageRoute,
       inventoryRoute,
       inventorySessionsRoute,
       inventoryDevToolsRoute,

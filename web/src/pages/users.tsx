@@ -1,3 +1,4 @@
+import { useNavigate, useSearch } from "@tanstack/react-router"
 import { CheckIcon, FingerprintIcon, LifeBuoyIcon, PlusIcon, Trash2Icon, UserPlusIcon } from "lucide-react"
 import { type FormEvent, useState } from "react"
 import { toast } from "sonner"
@@ -50,11 +51,17 @@ const fromSelect = (value: string): Role => (value === PENDING ? "" : (value as 
 const GiB = 1 << 30
 const MiB = 1 << 20
 
+export function validateUsersSearch(search: Record<string, unknown>): { user?: string } {
+  return typeof search.user === "string" && search.user !== "" ? { user: search.user } : {}
+}
+
 export function UsersPage() {
   const list = useUsers()
   const invites = useInvites()
   const now = useNow(30_000)
-  const [selected, setSelected] = useState<string>()
+  const selected = useSearch({ from: "/_portal/users" }).user
+  const navigate = useNavigate({ from: "/users" })
+  const setSelected = (user?: string) => void navigate({ search: user ? { user } : {} })
   const pending = list.data?.items.filter((u) => u.role === "").length ?? 0
 
   return (

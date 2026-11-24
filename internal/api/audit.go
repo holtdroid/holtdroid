@@ -15,19 +15,21 @@ import (
 )
 
 type AuditInfo struct {
-	Enabled    bool       `json:"enabled" doc:"audit.store is on: events can be browsed here"`
-	Events     int        `json:"events"`
-	Oldest     *time.Time `json:"oldest,omitempty"`
-	MaxEvents  int        `json:"maxEvents"`
-	MaxAge     int64      `json:"maxAge" doc:"seconds, 0: no age limit"`
-	Persistent bool       `json:"persistent" doc:"kept in a file across restarts"`
-	Actors     []string   `json:"actors"`
-	Actions    []string   `json:"actions"`
+	Enabled    bool              `json:"enabled" doc:"audit.store is on: events can be browsed here"`
+	Events     int               `json:"events"`
+	Oldest     *time.Time        `json:"oldest,omitempty"`
+	MaxEvents  int               `json:"maxEvents"`
+	MaxAge     int64             `json:"maxAge" doc:"seconds, 0: no age limit"`
+	Persistent bool              `json:"persistent" doc:"kept in a file across restarts"`
+	Actors     []string          `json:"actors"`
+	ActorNames map[string]string `json:"actorNames,omitempty" doc:"names of actors who are accounts of the users mode"`
+	Actions    []string          `json:"actions"`
 }
 
 type AuditEvent struct {
 	ID uint64 `json:"id"`
 	audit.Event
+	ActorName string `json:"actorName,omitempty" doc:"the actor's name when it is an account of the users mode"`
 }
 
 type AuditPage struct {
@@ -98,6 +100,7 @@ func (s *Server) registerAudit(api huma.API) {
 			if stats.Actors != nil {
 				info.Actors = stats.Actors
 			}
+			info.ActorNames = s.userNames(ctx)
 		}
 		return &out[AuditInfo]{info}, nil
 	})
@@ -116,9 +119,10 @@ func (s *Server) registerAudit(api huma.API) {
 		q := in.query()
 		q.Before, q.Limit = in.Before, in.Limit
 		events, more := st.Query(q)
+		names := s.userNames(ctx)
 		page := AuditPage{Items: make([]AuditEvent, 0, len(events))}
 		for _, e := range events {
-			page.Items = append(page.Items, AuditEvent{e.ID, e.Event})
+			page.Items = append(page.Items, AuditEvent{e.ID, e.Event, names[e.Actor]})
 		}
 		if more && len(events) > 0 {
 			page.Next = events[len(events)-1].ID
@@ -150,6 +154,22 @@ func (s *Server) registerAudit(api huma.API) {
 			}
 		}}, nil
 	})
+}
+
+func (s *Server) userNames(ctx context.Context) map[string]string {
+	if s.users == nil {
+		return nil
+	}
+	list, err := s.users.List(ctx)
+	if err != nil {
+		s.log.Warn("could not list users", "err", err)
+		return nil
+	}
+	names := make(map[string]string, len(list))
+	for _, u := range list {
+		names[u.ID] = u.Name
+	}
+	return names
 }
 
 func validResults(results []string) error {

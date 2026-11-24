@@ -5749,3 +5749,35 @@ crawl HTML pages full of interactive guide players.
   says when another tool fits better, and stays factual about the others.
 - The docs stay English with Russian and Ukrainian guides; no translated
   landing until there is copy for it.
+
+## 195. Usage statistics come from `session_events` and are drawn in the browser
+
+**Context.** Admins wanted to see how the portal is used: sessions per day,
+how long they run, who uses it. The audit log showed account ids, which mean
+nothing in the users mode. `session_events` had been written since Phase 4.6
+with no reader; the audit store is bounded (30 days, 10 000 events by
+default) and optional, and Prometheus needs a Grafana nobody has to run.
+
+**Decision.**
+
+- The Usage page reads `session_events`, not the audit store: it is the
+  api's database, so with `sqlite` the history goes back to the database's
+  creation and is the same on every replica. Only successful launches,
+  extends, stops and reaps are read; failed launches have no session and
+  stay in the audit log and metrics.
+- `/api/v1/admin/stats/sessions` returns one row per session (start, end,
+  how it ended, owner, app) instead of aggregates, and the browser buckets
+  them. Days and hours depend on the viewer's time zone, which the api does
+  not know; 50 000 sessions (about 10 MB of JSON) is the cap and a year is
+  far below it on a portal this size. Ranges over 45 days are drawn by week.
+- `session_events` gets a `package` column (migration 00009) so apps group
+  across builds; older rows fall back to the artifact without its revision.
+- A session with no stop or reap event is counted as launched but left out
+  of times: the api cannot tell a running one from one a provider lost.
+- Charts are plain elements with the portal's tokens (bars, a heatmap,
+  meters), not a chart library: four single-series figures did not justify
+  recharts and its bundle.
+- Names are resolved when events are read, not stored in them: the audit
+  trail keeps the stable account id, a rename shows up everywhere, and a
+  deleted account falls back to its id. The Users page keeps the opened
+  user in `?user=`, so the audit log and the Usage page link to it.

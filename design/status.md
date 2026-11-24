@@ -4,7 +4,7 @@ Snapshot for whoever continues the work — human or agent. Update the
 "Where things stand" and "Next steps" sections whenever a phase moves; the
 rest changes rarely.
 
-_Last updated: 2026-11-11._
+_Last updated: 2026-11-24._
 
 ## Where things stand
 
@@ -249,6 +249,13 @@ deployment"):
   `audit.store.maxEvents` / `maxAge` recent events in memory, mirrored to a
   JSON lines file on the data volume in the chart; the ssh-gateway forwards
   its events. Filters, live refresh, per-event detail, JSON lines export.
+  In the users mode it shows names and links people to the Users page
+  (`/users?user=<id>`).
+- Usage page for admins (decision #195): sessions, people, device time,
+  median and p90 length, launches per day or week, a weekday × hour
+  heatmap, how sessions ended and the top people and apps, from
+  `session_events` through `/api/v1/admin/stats/sessions`. Checked through
+  types, lint and tests only.
 - App data (Phase 4.10, decisions #49, #144): the app's data is saved when a
   session stops, if it was launched with "Save app data when the session
   ends" (off by default, remembered in the browser), and can be picked at launch (with or without its cache),
